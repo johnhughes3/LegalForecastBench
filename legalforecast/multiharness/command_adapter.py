@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import json
+import os
+import signal
+import stat
 import subprocess
-from collections.abc import Mapping, Sequence
+import tempfile
+import threading
+import time
+from collections.abc import Generator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from types import FrameType
+from typing import Any, BinaryIO
 
 from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.adapters import (
@@ -41,14 +50,25 @@ class CommandExecutionLog:
     phase: str
     stdout_path: Path
     stderr_path: Path
-    returncode: int
+    returncode: int | None
+    status: str = "completed"
+    stdout_truncated: bool = False
+    stderr_truncated: bool = False
+    termination_requested: bool = False
+    forced_kill: bool = False
 
     def to_private_record(self) -> dict[str, Any]:
         return {
+            "schema_version": "legalforecast.multiharness.command_execution_log.v1",
             "phase": self.phase,
+            "status": self.status,
             "stdout_path": self.stdout_path.as_posix(),
             "stderr_path": self.stderr_path.as_posix(),
             "returncode": self.returncode,
+            "stdout_truncated": self.stdout_truncated,
+            "stderr_truncated": self.stderr_truncated,
+            "termination_requested": self.termination_requested,
+            "forced_kill": self.forced_kill,
         }
 
 
@@ -59,6 +79,8 @@ class CommandAdapter:
     manifest: AdapterManifest
     base_dir: Path | None = None
     timeout_seconds: float = 300
+    termination_grace_seconds: float = 1
+    max_private_log_bytes: int = 1_048_576
 
     @classmethod
     def from_manifest_file(
@@ -66,6 +88,8 @@ class CommandAdapter:
         path: Path,
         *,
         timeout_seconds: float = 300,
+        termination_grace_seconds: float = 1,
+        max_private_log_bytes: int = 1_048_576,
     ) -> CommandAdapter:
         record = read_json_object(
             path,
@@ -79,6 +103,8 @@ class CommandAdapter:
             manifest=AdapterManifest.from_record(record),
             base_dir=path.parent,
             timeout_seconds=timeout_seconds,
+            termination_grace_seconds=termination_grace_seconds,
+            max_private_log_bytes=max_private_log_bytes,
         )
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
@@ -173,48 +199,130 @@ class CommandAdapter:
     ) -> CommandExecutionLog:
         if self.timeout_seconds <= 0:
             raise CommandAdapterError("timeout_seconds must be positive")
+        if self.termination_grace_seconds <= 0:
+            raise CommandAdapterError("termination_grace_seconds must be positive")
+        if self.max_private_log_bytes <= 0:
+            raise CommandAdapterError("max_private_log_bytes must be positive")
+        if os.name != "posix":
+            raise CommandAdapterError(
+                "command adapter process-tree containment requires POSIX process groups"
+            )
         workspace.mkdir(parents=True, exist_ok=True)
         private_logs = workspace / "private-logs"
         private_logs.mkdir(parents=True, exist_ok=True)
         stdout_path = private_logs / f"{phase}-stdout.log"
         stderr_path = private_logs / f"{phase}-stderr.log"
+        execution_path = private_logs / f"{phase}-execution.json"
         argv = (*self._resolved_command(), *args)
         try:
             environment = build_host_subprocess_environment(
                 private_logs,
                 allowed_provider_env_vars,
             )
-            completed = subprocess.run(
-                argv,
-                check=False,
-                capture_output=True,
-                encoding="utf-8",
-                env=environment,
-                errors="replace",
-                text=True,
-                timeout=self.timeout_seconds,
-            )
         except HostEnvironmentError as exc:
             raise CommandAdapterError(str(exc)) from exc
-        except subprocess.TimeoutExpired as exc:
-            stdout_path.write_text(_stream_text(exc.stdout), encoding="utf-8")
-            stderr_path.write_text(_stream_text(exc.stderr), encoding="utf-8")
-            raise CommandAdapterError(
-                f"command adapter {phase} timed out after {self.timeout_seconds}s"
-            ) from exc
-        stdout_path.write_text(completed.stdout, encoding="utf-8")
-        stderr_path.write_text(completed.stderr, encoding="utf-8")
-        if completed.returncode != 0:
-            raise CommandAdapterError(
-                f"command adapter {phase} failed with exit code "
-                f"{completed.returncode}; see private logs"
+
+        status = "launch_failed"
+        returncode: int | None = None
+        termination_requested = False
+        forced_kill = False
+        pending_error: BaseException | None = None
+        with (
+            tempfile.TemporaryFile(mode="w+b", dir=private_logs) as stdout_handle,
+            tempfile.TemporaryFile(mode="w+b", dir=private_logs) as stderr_handle,
+        ):
+            try:
+                process = subprocess.Popen(
+                    argv,
+                    stdin=subprocess.DEVNULL,
+                    stdout=stdout_handle,
+                    stderr=stderr_handle,
+                    env=environment,
+                    start_new_session=True,
+                )
+            except OSError as exc:
+                pending_error = exc
+            else:
+                try:
+                    with _command_cancellation_signal_handlers():
+                        process.wait(timeout=self.timeout_seconds)
+                except subprocess.TimeoutExpired:
+                    status = "timed_out"
+                    termination_requested, forced_kill = _terminate_process_tree(
+                        process,
+                        self.termination_grace_seconds,
+                    )
+                except (KeyboardInterrupt, _CommandCancellationSignal) as exc:
+                    status = "cancelled"
+                    pending_error = exc
+                    termination_requested, forced_kill = _terminate_process_tree(
+                        process,
+                        self.termination_grace_seconds,
+                    )
+                except Exception as exc:
+                    status = "exception"
+                    pending_error = exc
+                    termination_requested, forced_kill = _terminate_process_tree(
+                        process,
+                        self.termination_grace_seconds,
+                    )
+                else:
+                    returncode = process.returncode
+                    status = "completed" if returncode == 0 else "failed"
+                    termination_requested, forced_kill = _terminate_process_tree(
+                        process,
+                        self.termination_grace_seconds,
+                    )
+                    if returncode == 0 and termination_requested:
+                        status = "descendants_terminated"
+                returncode = process.returncode
+
+            stdout_content, stdout_truncated = _bounded_private_log(
+                stdout_handle,
+                self.max_private_log_bytes,
             )
-        return CommandExecutionLog(
+            stderr_content, stderr_truncated = _bounded_private_log(
+                stderr_handle,
+                self.max_private_log_bytes,
+            )
+
+        _write_private_bytes(stdout_path, stdout_content)
+        _write_private_bytes(stderr_path, stderr_content)
+        execution = CommandExecutionLog(
             phase=phase,
             stdout_path=stdout_path,
             stderr_path=stderr_path,
-            returncode=completed.returncode,
+            returncode=returncode,
+            status=status,
+            stdout_truncated=stdout_truncated,
+            stderr_truncated=stderr_truncated,
+            termination_requested=termination_requested,
+            forced_kill=forced_kill,
         )
+        _write_private_record(execution_path, execution.to_private_record())
+
+        if status == "timed_out":
+            raise CommandAdapterError(
+                f"command adapter {phase} timed out after {self.timeout_seconds}s"
+            )
+        if status == "cancelled":
+            raise CommandAdapterError(f"command adapter {phase} was cancelled") from (
+                pending_error
+            )
+        if pending_error is not None:
+            raise CommandAdapterError(
+                f"command adapter {phase} could not complete; see private logs"
+            ) from pending_error
+        if status == "descendants_terminated":
+            raise CommandAdapterError(
+                f"command adapter {phase} left descendant processes; see private logs"
+            )
+        if returncode != 0:
+            raise CommandAdapterError(
+                f"command adapter {phase} failed with exit code "
+                f"{returncode}; see private logs"
+            )
+        return execution
 
     def _resolved_command(self) -> tuple[str, ...]:
         command = self.manifest.command
@@ -248,9 +356,158 @@ def _looks_like_relative_path(value: str) -> bool:
     )
 
 
-def _stream_text(value: str | bytes | None) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return value
+_TRUNCATION_MARKER = b"\n...[truncated by LegalForecastBench]...\n"
+
+
+class _CommandCancellationSignal(BaseException):
+    """Internal interruption raised while a contained command is active."""
+
+
+def _raise_command_cancellation_signal(
+    requested_signal: int,
+    frame: FrameType | None,
+) -> None:
+    del requested_signal, frame
+    raise _CommandCancellationSignal
+
+
+@contextmanager
+def _command_cancellation_signal_handlers() -> Generator[None, None, None]:
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    previous_handler = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, _raise_command_cancellation_signal)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, previous_handler)
+
+
+def _terminate_process_tree(
+    process: subprocess.Popen[bytes],
+    grace_seconds: float,
+) -> tuple[bool, bool]:
+    process_group_id = process.pid
+    if not _process_group_exists(process_group_id):
+        process.poll()
+        if process.returncode is None:
+            try:
+                process.wait(timeout=grace_seconds)
+            except subprocess.TimeoutExpired:
+                pass
+        return False, False
+
+    termination_requested = _signal_process_group(process_group_id, signal.SIGTERM)
+    if _wait_for_process_group_exit(process, process_group_id, grace_seconds):
+        return termination_requested, False
+
+    forced_kill = _signal_process_group(process_group_id, signal.SIGKILL)
+    _wait_for_process_group_exit(process, process_group_id, grace_seconds)
+    if process.poll() is None:
+        process.kill()
+    try:
+        process.wait(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        pass
+    return termination_requested, forced_kill
+
+
+def _wait_for_process_group_exit(
+    process: subprocess.Popen[bytes],
+    process_group_id: int,
+    timeout_seconds: float,
+) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        process.poll()
+        if not _process_group_exists(process_group_id):
+            return True
+        time.sleep(min(0.01, timeout_seconds))
+    process.poll()
+    return not _process_group_exists(process_group_id)
+
+
+def _process_group_exists(process_group_id: int) -> bool:
+    try:
+        os.killpg(process_group_id, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _signal_process_group(
+    process_group_id: int, requested_signal: signal.Signals
+) -> bool:
+    try:
+        os.killpg(process_group_id, requested_signal)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _bounded_private_log(
+    handle: BinaryIO,
+    max_bytes: int,
+) -> tuple[bytes, bool]:
+    handle.flush()
+    handle.seek(0, os.SEEK_END)
+    size = handle.tell()
+    handle.seek(0)
+    raw = handle.read(max_bytes)
+    normalized = raw.decode("utf-8", errors="replace").encode("utf-8")
+    truncated = size > max_bytes or len(normalized) > max_bytes
+    if truncated:
+        marker = _TRUNCATION_MARKER[:max_bytes]
+        prefix_budget = max_bytes - len(marker)
+        prefix = normalized[:prefix_budget].decode("utf-8", errors="ignore")
+        normalized = prefix.encode("utf-8") + marker
+    return normalized, truncated
+
+
+def _write_private_record(path: Path, record: Mapping[str, Any]) -> None:
+    payload = json.dumps(
+        record,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    _write_private_bytes(path, payload + b"\n")
+
+
+def _write_private_bytes(path: Path, payload: bytes) -> None:
+    try:
+        path_info = path.lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        if stat.S_ISLNK(path_info.st_mode):
+            raise CommandAdapterError("private execution paths must not be symlinks")
+        if not stat.S_ISREG(path_info.st_mode):
+            raise CommandAdapterError("private execution paths must be regular files")
+        try:
+            path.unlink()
+        except OSError as exc:
+            raise CommandAdapterError(
+                "private execution path could not be replaced"
+            ) from exc
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    try:
+        file_descriptor = os.open(path, flags, 0o600)
+    except OSError as exc:
+        raise CommandAdapterError(
+            "private execution path could not be created"
+        ) from exc
+    try:
+        os.fchmod(file_descriptor, 0o600)
+        with os.fdopen(file_descriptor, "wb") as handle:
+            file_descriptor = -1
+            handle.write(payload)
+            handle.flush()
+    finally:
+        if file_descriptor >= 0:
+            os.close(file_descriptor)

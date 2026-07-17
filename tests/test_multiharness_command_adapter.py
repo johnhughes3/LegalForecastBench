@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import signal
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -31,6 +34,11 @@ def test_manifest_file_validation_and_capabilities_loading(tmp_path: Path) -> No
 
     assert capabilities.adapter_id == "fixture-adapter"
     assert capabilities.supported_families == ("legalforecast_mtd",)
+    receipt = _execution_receipt(tmp_path / "workspace")
+    assert receipt["status"] == "completed"
+    assert receipt["returncode"] == 0
+    assert receipt["termination_requested"] is False
+    assert receipt["forced_kill"] is False
 
 
 def test_relative_command_resolution(tmp_path: Path) -> None:
@@ -248,6 +256,216 @@ def test_command_adapter_timeout_is_enforced(tmp_path: Path) -> None:
         adapter.capabilities(tmp_path / "workspace")
 
 
+def test_timeout_kills_ignored_signal_child_and_grandchild_and_bounds_logs(
+    tmp_path: Path,
+) -> None:
+    script, pid_dir = _write_process_tree_script(
+        tmp_path,
+        behavior="sleep",
+        output_bytes=4096,
+    )
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=0.5,
+        termination_grace_seconds=0.05,
+        max_private_log_bytes=128,
+    )
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match="timed out"):
+        adapter.capabilities(workspace)
+
+    _assert_process_tree_stopped(pid_dir)
+    stdout_path = workspace / "private-logs" / "capabilities-stdout.log"
+    assert stdout_path.stat().st_size <= 128
+    assert stdout_path.read_text(encoding="utf-8").endswith(
+        "\n...[truncated by LegalForecastBench]...\n"
+    )
+    assert _execution_receipt(workspace) == {
+        "schema_version": "legalforecast.multiharness.command_execution_log.v1",
+        "phase": "capabilities",
+        "status": "timed_out",
+        "returncode": -signal.SIGKILL,
+        "stdout_path": stdout_path.as_posix(),
+        "stderr_path": (
+            workspace / "private-logs" / "capabilities-stderr.log"
+        ).as_posix(),
+        "stdout_truncated": True,
+        "stderr_truncated": False,
+        "termination_requested": True,
+        "forced_kill": True,
+    }
+
+
+def test_timeout_uses_graceful_termination_before_forced_kill(tmp_path: Path) -> None:
+    script = _write_adapter_script(tmp_path, sleep_seconds=60)
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=0.05,
+        termination_grace_seconds=0.5,
+    )
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match="timed out"):
+        adapter.capabilities(workspace)
+
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "timed_out"
+    assert receipt["returncode"] == -signal.SIGTERM
+    assert receipt["termination_requested"] is True
+    assert receipt["forced_kill"] is False
+
+
+def test_nonzero_parent_crash_cleans_surviving_descendants(tmp_path: Path) -> None:
+    script, pid_dir = _write_process_tree_script(tmp_path, behavior="crash")
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=2,
+        termination_grace_seconds=0.05,
+    )
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match="exit code 23"):
+        adapter.capabilities(workspace)
+
+    _assert_process_tree_stopped(pid_dir)
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "failed"
+    assert receipt["returncode"] == 23
+    assert receipt["termination_requested"] is True
+    assert receipt["forced_kill"] is True
+
+
+def test_zero_exit_with_surviving_descendants_fails_closed(tmp_path: Path) -> None:
+    script, pid_dir = _write_process_tree_script(tmp_path, behavior="exit_zero")
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=2,
+        termination_grace_seconds=0.05,
+    )
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match="left descendant processes"):
+        adapter.capabilities(workspace)
+
+    _assert_process_tree_stopped(pid_dir)
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "descendants_terminated"
+    assert receipt["returncode"] == 0
+    assert receipt["termination_requested"] is True
+
+
+@pytest.mark.parametrize("cancellation_signal", [signal.SIGINT, signal.SIGTERM])
+def test_user_cancellation_cleans_process_tree_and_writes_typed_receipt(
+    tmp_path: Path,
+    cancellation_signal: signal.Signals,
+) -> None:
+    script, pid_dir = _write_process_tree_script(tmp_path, behavior="sleep")
+    manifest_path = _write_manifest(
+        tmp_path,
+        command=(sys.executable, str(script)),
+    )
+    workspace = tmp_path / "workspace"
+    driver = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "\n".join(
+                [
+                    "from pathlib import Path",
+                    "from legalforecast.multiharness.command_adapter import (",
+                    "    CommandAdapter, CommandAdapterError,",
+                    ")",
+                    "adapter = CommandAdapter.from_manifest_file(",
+                    f"    Path({str(manifest_path)!r}),",
+                    "    timeout_seconds=10,",
+                    "    termination_grace_seconds=0.05,",
+                    ")",
+                    "try:",
+                    f"    adapter.capabilities(Path({str(workspace)!r}))",
+                    "except CommandAdapterError as exc:",
+                    "    print(str(exc))",
+                    "    raise SystemExit(0 if 'was cancelled' in str(exc) else 3)",
+                    "raise SystemExit(4)",
+                ]
+            ),
+        ],
+        cwd=Path.cwd(),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        _wait_for_process_tree_start(pid_dir)
+        time.sleep(0.05)
+        os.kill(driver.pid, cancellation_signal)
+        stdout, stderr = driver.communicate(timeout=3)
+    finally:
+        if driver.poll() is None:
+            driver.kill()
+            driver.wait(timeout=2)
+
+    assert driver.returncode == 0, (stdout, stderr)
+    assert stdout.strip() == "command adapter capabilities was cancelled"
+    assert stderr == ""
+    _assert_process_tree_stopped(pid_dir)
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "cancelled"
+    assert receipt["returncode"] == -signal.SIGKILL
+    assert receipt["forced_kill"] is True
+
+
+def test_process_tree_cleanup_is_repeatable(tmp_path: Path) -> None:
+    script, pid_dir = _write_process_tree_script(tmp_path, behavior="sleep")
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=0.5,
+        termination_grace_seconds=0.05,
+    )
+    workspace = tmp_path / "workspace"
+
+    for _ in range(2):
+        with pytest.raises(CommandAdapterError, match="timed out"):
+            adapter.capabilities(workspace)
+        _assert_process_tree_stopped(pid_dir)
+
+    assert _execution_receipt(workspace)["status"] == "timed_out"
+
+
+def test_launch_failure_writes_sanitized_typed_receipt(tmp_path: Path) -> None:
+    adapter = CommandAdapter(
+        manifest=_manifest(command=("/definitely/missing/fake-adapter",)),
+    )
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match="could not complete") as exc:
+        adapter.capabilities(workspace)
+
+    assert "/definitely/missing" not in str(exc.value)
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "launch_failed"
+    assert receipt["returncode"] is None
+    assert receipt["termination_requested"] is False
+    assert receipt["forced_kill"] is False
+
+
+def test_private_execution_logs_reject_planted_symlinks(tmp_path: Path) -> None:
+    script = _write_adapter_script(tmp_path)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    workspace = tmp_path / "workspace"
+    private_logs = workspace / "private-logs"
+    private_logs.mkdir(parents=True)
+    victim = tmp_path / "victim.txt"
+    victim.write_text("must remain unchanged", encoding="utf-8")
+    (private_logs / "capabilities-stdout.log").symlink_to(victim)
+
+    with pytest.raises(CommandAdapterError, match="must not be symlinks"):
+        adapter.capabilities(workspace)
+
+    assert victim.read_text(encoding="utf-8") == "must remain unchanged"
+
+
 def test_command_adapter_rejects_unsafe_result_artifacts(tmp_path: Path) -> None:
     script = _write_adapter_script(tmp_path, unsafe_artifact=True)
     adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
@@ -376,6 +594,115 @@ def _write_adapter_script(
     )
     script.chmod(0o755)
     return script
+
+
+def _write_process_tree_script(
+    root: Path,
+    *,
+    behavior: str,
+    output_bytes: int = 0,
+) -> tuple[Path, Path]:
+    root.mkdir(parents=True, exist_ok=True)
+    pid_dir = root / "process-tree-pids"
+    script = root / "process_tree_adapter.py"
+    grandchild_code = "\n".join(
+        [
+            "import os, pathlib, signal, time",
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)",
+            f"pathlib.Path({str(pid_dir / 'grandchild.pid')!r}).write_text(",
+            "    str(os.getpid()), encoding='utf-8'",
+            ")",
+            "time.sleep(60)",
+        ]
+    )
+    child_code = "\n".join(
+        [
+            "import os, pathlib, signal, subprocess, sys, time",
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)",
+            f"pathlib.Path({str(pid_dir / 'child.pid')!r}).write_text(",
+            "    str(os.getpid()), encoding='utf-8'",
+            ")",
+            f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}])",
+            "time.sleep(60)",
+        ]
+    )
+    script.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "from __future__ import annotations",
+                "import os, pathlib, signal, subprocess, sys, time",
+                f"PID_DIR = pathlib.Path({str(pid_dir)!r})",
+                "PID_DIR.mkdir(parents=True, exist_ok=True)",
+                "for old_pid in PID_DIR.glob('*.pid'):",
+                "    old_pid.unlink()",
+                "(PID_DIR / 'parent.pid').write_text(",
+                "    str(os.getpid()), encoding='utf-8'",
+                ")",
+                "signal.signal(signal.SIGTERM, signal.SIG_IGN)",
+                f"subprocess.Popen([sys.executable, '-c', {child_code!r}])",
+                "for _ in range(200):",
+                "    if (PID_DIR / 'child.pid').is_file() and (",
+                "        PID_DIR / 'grandchild.pid'",
+                "    ).is_file():",
+                "        break",
+                "    time.sleep(0.005)",
+                f"print('X' * {output_bytes} or 'partial output', flush=True)",
+                "print('private failure detail', file=sys.stderr, flush=True)",
+                "if " + repr(behavior) + " == 'crash':",
+                "    raise SystemExit(23)",
+                "if " + repr(behavior) + " == 'exit_zero':",
+                "    raise SystemExit(0)",
+                "time.sleep(60)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return script, pid_dir
+
+
+def _execution_receipt(workspace: Path) -> dict[str, object]:
+    return json.loads(
+        (workspace / "private-logs" / "capabilities-execution.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def _assert_process_tree_stopped(pid_dir: Path) -> None:
+    pid_paths = [
+        pid_dir / "parent.pid",
+        pid_dir / "child.pid",
+        pid_dir / "grandchild.pid",
+    ]
+    assert all(path.is_file() for path in pid_paths)
+    pids = [int(path.read_text(encoding="utf-8")) for path in pid_paths]
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline and any(_pid_is_running(pid) for pid in pids):
+        time.sleep(0.01)
+    assert not [pid for pid in pids if _pid_is_running(pid)]
+
+
+def _wait_for_process_tree_start(pid_dir: Path) -> None:
+    pid_paths = [
+        pid_dir / "parent.pid",
+        pid_dir / "child.pid",
+        pid_dir / "grandchild.pid",
+    ]
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline and not all(path.is_file() for path in pid_paths):
+        time.sleep(0.01)
+    assert all(path.is_file() for path in pid_paths)
+
+
+def _pid_is_running(pid: int) -> bool:
+    stat_path = Path(f"/proc/{pid}/stat")
+    try:
+        fields = stat_path.read_text(encoding="utf-8").split()
+    except FileNotFoundError:
+        return False
+    return len(fields) < 3 or fields[2] != "Z"
 
 
 def _write_manifest(tmp_path: Path, *, command: tuple[str, ...]) -> Path:
