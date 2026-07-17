@@ -40,6 +40,16 @@ from legalforecast.unitization.review import canonical_sha256
 
 JsonRecord = dict[str, Any]
 ROOT = Path(__file__).resolve().parents[1]
+REHEARSAL_STAGE_COMMANDS = (
+    "rehearsal-build-decision-texts",
+    "rehearsal-stage-a-unitize",
+    "rehearsal-stage-a-review",
+    "rehearsal-stage-a-apply",
+    "rehearsal-stage-b-label",
+    "rehearsal-stage-b-apply",
+    "rehearsal-plan-packet-inputs",
+    "rehearsal-build-packets",
+)
 
 
 def test_response_fixture_writer_canonicalizes_prompt_digest_prefix() -> None:
@@ -329,7 +339,10 @@ def test_exact_100_public_fixture_chain_reaches_fixture_only_finalization(
     monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
     fixture = _write_canonical_exact_100_chain(tmp_path, monkeypatch=monkeypatch)
 
-    assert main(_rehearsal_command(fixture, target_count=100)) == 0
+    for command_name in REHEARSAL_STAGE_COMMANDS:
+        command = _rehearsal_command(fixture, target_count=100)
+        command[1] = command_name
+        assert main(command) == 0
     final_root = tmp_path / "canonical-finalized-rehearsal"
     assert (
         main(
@@ -362,6 +375,33 @@ def test_exact_100_public_fixture_chain_reaches_fixture_only_finalization(
         assert card["stage"] == expected_stage
         assert card["status"] == "completed"
         assert card["execute"] is True
+    prior_card: Path | None = None
+    for stage_name in REHEARSAL_STAGE_COMMANDS:
+        stage_card = fixture["output_root"] / "run-cards" / f"{stage_name}.json"
+        card = json.loads(stage_card.read_text())
+        assert card["schema_version"] == "legalforecast.fixture_stage_run_card.v1"
+        assert card["prior_stage"] == (prior_card.stem if prior_card else None)
+        assert card["prior_stage_card_sha256"] == (
+            _sha256_path(prior_card) if prior_card else None
+        )
+        assert card["provider_journal_created"] is False
+        assert card["provider_billing_usd"] == "0.00"
+        output_paths = {Path(path) for path in card["output_commitments"]}
+        sidecars = {
+            Path(str(path).removesuffix(".fixture-artifact.json"))
+            for path in output_paths
+            if str(path).endswith(".fixture-artifact.json")
+        }
+        assert (
+            output_paths
+            - {
+                path
+                for path in output_paths
+                if str(path).endswith(".fixture-artifact.json")
+            }
+            == sidecars
+        )
+        prior_card = stage_card
     corpus = json.loads(
         (final_root / "fixture-rehearsal-corpus.json").read_text(encoding="utf-8")
     )
@@ -467,7 +507,39 @@ def test_rehearsal_rejects_response_fixture_mutation_after_consumption(
 
     assert main(_rehearsal_command(fixture, target_count=1)) == 2
 
-    assert "changed after it was loaded" in capsys.readouterr().err
+    assert "changed during stage execution" in capsys.readouterr().err
+    assert not (fixture["output_root"] / "rehearsal-final-summary.json").exists()
+
+
+@pytest.mark.parametrize("input_key", ("selection", "markdown_root"))
+def test_rehearsal_rejects_file_or_directory_input_mutation_during_stage(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    input_key: str,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    run_stage_b = cli_module.run_fixture_stage_b
+
+    def mutate_input_after_stage_b(*args: Any, **kwargs: Any) -> Any:
+        result = run_stage_b(*args, **kwargs)
+        path = fixture[input_key]
+        if path.is_dir():
+            (path / "late-mutation.md").write_text("changed", encoding="utf-8")
+        else:
+            path.write_bytes(path.read_bytes() + b"\n")
+        return result
+
+    monkeypatch.setattr(cli_module, "run_fixture_stage_b", mutate_input_after_stage_b)
+
+    assert main(_rehearsal_command(fixture, target_count=1)) == 2
+    assert "changed during stage execution" in capsys.readouterr().err
     assert not (fixture["output_root"] / "rehearsal-final-summary.json").exists()
 
 
@@ -492,16 +564,11 @@ def test_fixture_finalizer_rejects_decision_mounted_even_when_listed_excluded(
     mounted_decision["source_document_id"] = decision["document_id"]
     packet["documents"].append(mounted_decision)
     _write_jsonl(packets_path, [packet])
-    summary_path = rehearsal_root / "rehearsal-final-summary.json"
-    summary = json.loads(summary_path.read_text())
-    summary["output_commitments"][str(packets_path.resolve())] = _sha256_path(
-        packets_path
+    _recommit_fixture_stage_output(
+        rehearsal_root,
+        artifact_path=packets_path,
+        stage="rehearsal-build-packets",
     )
-    _write_json(summary_path, summary)
-    run_card_path = rehearsal_root / "run-cards/rehearse-downstream.json"
-    run_card = json.loads(run_card_path.read_text())
-    run_card["summary_sha256"] = _sha256_path(summary_path)
-    _write_json(run_card_path, run_card)
 
     assert (
         main(
@@ -514,6 +581,89 @@ def test_fixture_finalizer_rejects_decision_mounted_even_when_listed_excluded(
         == 2
     )
     assert "outcome material in a packet" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    (
+        "rehearsal-llm-unitize-audit.jsonl",
+        "rehearsal-unitization-review-queue.jsonl",
+        "rehearsal-stage-a-structural-flags.jsonl",
+        "rehearsal-stage-a-review-audit.jsonl",
+        "rehearsal-unitization-review-final.jsonl",
+        "rehearsal-decision-texts-manifest.json",
+        "rehearsal-decision-texts-run-card.json",
+        "rehearsal-llm-label-audit.jsonl",
+        "rehearsal-lawyer-review-queue.jsonl",
+        "rehearsal-label-apply-audit.jsonl",
+        "rehearsal-packet-build-input.jsonl",
+        "rehearsal-packet-audit.jsonl",
+        "rehearsal-packet-audit.jsonl.fixture-artifact.json",
+        "run-cards/rehearsal-stage-a-review.json",
+    ),
+)
+def test_fixture_finalizer_rehashes_every_committed_stage_output(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    relative_path: str,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert main(_rehearsal_command(fixture, target_count=1)) == 0
+    artifact = fixture["output_root"] / relative_path
+    artifact.write_bytes(artifact.read_bytes() + b"\n")
+
+    assert (
+        main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=tmp_path / "tampered-finalize",
+            )
+        )
+        == 2
+    )
+    assert "output commitment changed" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("mutation", ("delete", "symlink"))
+def test_fixture_finalizer_rejects_missing_or_symlinked_committed_output(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mutation: str,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert main(_rehearsal_command(fixture, target_count=1)) == 0
+    artifact = fixture["output_root"] / "rehearsal-packet-audit.jsonl"
+    backup = tmp_path / "packet-audit-backup.jsonl"
+    artifact.rename(backup)
+    if mutation == "symlink":
+        artifact.symlink_to(backup)
+
+    assert (
+        main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=tmp_path / f"{mutation}-finalize",
+            )
+        )
+        == 2
+    )
+    assert "missing or unsafe" in capsys.readouterr().err
 
 
 def test_official_finalize_corpus_rejects_rehearsal_provenance(
@@ -591,6 +741,7 @@ def _rehearsal_command(fixture: dict[str, Path], *, target_count: int) -> list[s
         "--generated-at",
         "2026-07-17T00:00:00Z",
         "--execute",
+        "--no-resume",
     ]
 
 
@@ -1860,6 +2011,46 @@ def _response_row(
         "input_tokens": 0,
         "output_tokens": 0,
     }
+
+
+def _recommit_fixture_stage_output(
+    rehearsal_root: Path,
+    *,
+    artifact_path: Path,
+    stage: str,
+) -> None:
+    sidecar_path = Path(str(artifact_path) + ".fixture-artifact.json")
+    sidecar = json.loads(sidecar_path.read_text())
+    sidecar["artifact_sha256"] = _sha256_path(artifact_path)
+    sidecar["artifact_byte_count"] = artifact_path.stat().st_size
+    _write_json(sidecar_path, sidecar)
+
+    stage_card_path = rehearsal_root / "run-cards" / f"{stage}.json"
+    stage_card = json.loads(stage_card_path.read_text())
+    stage_card["output_commitments"][str(artifact_path.resolve())] = _sha256_path(
+        artifact_path
+    )
+    stage_card["output_commitments"][str(sidecar_path.resolve())] = _sha256_path(
+        sidecar_path
+    )
+    _write_json(stage_card_path, stage_card)
+
+    summary_path = rehearsal_root / "rehearsal-final-summary.json"
+    summary = json.loads(summary_path.read_text())
+    summary["output_commitments"][str(artifact_path.resolve())] = _sha256_path(
+        artifact_path
+    )
+    summary["output_commitments"][str(sidecar_path.resolve())] = _sha256_path(
+        sidecar_path
+    )
+    summary["output_commitments"][str(stage_card_path.resolve())] = _sha256_path(
+        stage_card_path
+    )
+    _write_json(summary_path, summary)
+    run_card_path = rehearsal_root / "run-cards/rehearse-downstream.json"
+    run_card = json.loads(run_card_path.read_text())
+    run_card["summary_sha256"] = _sha256_path(summary_path)
+    _write_json(run_card_path, run_card)
 
 
 def _docket_html(index: int) -> str:

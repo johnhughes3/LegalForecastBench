@@ -338,10 +338,13 @@ from legalforecast.ingestion.docket_sync import (
 from legalforecast.ingestion.downstream_rehearsal import (
     REHEARSAL_PROVENANCE,
     DownstreamRehearsalError,
+    apply_fixture_label_review,
+    apply_fixture_unitization_review,
     load_deterministic_response_fixture_bundle,
     rehearsal_provenance,
-    run_fixture_stage_a,
     run_fixture_stage_b,
+    run_fixture_structural_review,
+    run_fixture_unitization,
 )
 from legalforecast.ingestion.exact310_rest_rebind import (
     Exact310RestRebindError,
@@ -1753,6 +1756,25 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_rehearse_downstream_arguments(acquisition_rehearsal)
+    for rehearsal_command, rehearsal_stage in (
+        ("rehearsal-build-decision-texts", "decision-texts"),
+        ("rehearsal-stage-a-unitize", "stage-a-unitize"),
+        ("rehearsal-stage-a-review", "stage-a-review"),
+        ("rehearsal-stage-a-apply", "stage-a-apply"),
+        ("rehearsal-stage-b-label", "stage-b-label"),
+        ("rehearsal-stage-b-apply", "stage-b-apply"),
+        ("rehearsal-plan-packet-inputs", "packet-plan"),
+        ("rehearsal-build-packets", "packet-build"),
+    ):
+        rehearsal_stage_parser = acquisition_subparsers.add_parser(
+            rehearsal_command,
+            help=(
+                "Run one explicit fixture-only downstream stage and emit an "
+                "authenticated non-production stage card."
+            ),
+        )
+        _add_acquisition_rehearse_downstream_arguments(rehearsal_stage_parser)
+        rehearsal_stage_parser.set_defaults(rehearsal_stage=rehearsal_stage)
     acquisition_rehearsal_finalize = acquisition_subparsers.add_parser(
         "finalize-rehearsal-corpus",
         help=(
@@ -5970,7 +5992,10 @@ def _add_acquisition_rehearse_downstream_arguments(
         default="2026-07-17T00:00:00Z",
         help="Deterministic UTC packet timestamp for the fixture-only rehearsal.",
     )
-    parser.set_defaults(handler=_cmd_acquisition_rehearse_downstream)
+    parser.set_defaults(
+        handler=_cmd_acquisition_rehearse_downstream,
+        rehearsal_stage="packet-build",
+    )
 
 
 def _add_acquisition_finalize_rehearsal_arguments(
@@ -28435,6 +28460,132 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
     return 0
 
 
+def _fixture_rehearsal_input_commitment(path: Path) -> JsonRecord:
+    if path.is_symlink():
+        raise CommandError(f"fixture rehearsal input is a symlink: {path}")
+    if path.is_file():
+        return {
+            "kind": "file",
+            "path": str(path.resolve()),
+            "sha256": _path_sha256(path),
+            "byte_count": path.stat(follow_symlinks=False).st_size,
+        }
+    if path.is_dir():
+        tree = _materializer_tree_commitments(path)
+        return {
+            "kind": "directory",
+            "path": str(path.resolve()),
+            "tree_sha256": _canonical_json_sha256(tree),
+            "files": tree,
+        }
+    raise CommandError(f"fixture rehearsal input is missing: {path}")
+
+
+def _write_fixture_rehearsal_artifact(
+    path: Path,
+    records: Sequence[Mapping[str, Any]],
+    *,
+    stage: str,
+) -> tuple[Path, Path]:
+    live_shaped_records = tuple(dict(record) for record in records)
+    _write_jsonl(path, live_shaped_records)
+    sidecar_path = Path(str(path) + ".fixture-artifact.json")
+    _write_json(
+        sidecar_path,
+        {
+            **REHEARSAL_PROVENANCE,
+            "schema_version": "legalforecast.fixture_artifact_manifest.v1",
+            "stage": stage,
+            "artifact_path": str(path.resolve()),
+            "artifact_sha256": _path_sha256(path),
+            "artifact_byte_count": path.stat(follow_symlinks=False).st_size,
+            "record_count": len(live_shaped_records),
+        },
+    )
+    return path, sidecar_path
+
+
+def _write_fixture_rehearsal_json_artifact(
+    path: Path,
+    payload: Mapping[str, Any],
+    *,
+    stage: str,
+) -> tuple[Path, Path]:
+    _write_json(path, {**REHEARSAL_PROVENANCE, **dict(payload)})
+    sidecar_path = Path(str(path) + ".fixture-artifact.json")
+    _write_json(
+        sidecar_path,
+        {
+            **REHEARSAL_PROVENANCE,
+            "schema_version": "legalforecast.fixture_artifact_manifest.v1",
+            "stage": stage,
+            "artifact_path": str(path.resolve()),
+            "artifact_sha256": _path_sha256(path),
+            "artifact_byte_count": path.stat(follow_symlinks=False).st_size,
+            "record_count": 1,
+        },
+    )
+    return path, sidecar_path
+
+
+def _complete_fixture_rehearsal_stage(
+    args: argparse.Namespace,
+    *,
+    stage: str,
+    input_paths: Sequence[Path],
+    input_commitments: Mapping[str, JsonRecord],
+    artifacts: Sequence[tuple[Path, Path]],
+    record_count: int,
+    prior_stage: str | None,
+    fixture_traces: Sequence[Mapping[str, Any]] = (),
+) -> int:
+    observed = {
+        str(path.resolve()): _fixture_rehearsal_input_commitment(path)
+        for path in input_paths
+    }
+    if observed != input_commitments:
+        raise CommandError("fixture rehearsal input changed during stage execution")
+    output_paths = tuple(path for pair in artifacts for path in pair)
+    output_commitments = {
+        str(path.resolve()): _path_sha256(path) for path in output_paths
+    }
+    prior_card_path = (
+        _acquisition_output_root(args) / "run-cards" / f"{prior_stage}.json"
+        if prior_stage is not None
+        else None
+    )
+    if prior_card_path is not None:
+        if prior_card_path.is_symlink() or not prior_card_path.is_file():
+            raise CommandError(
+                f"fixture rehearsal prior stage card is missing: {prior_stage}"
+            )
+        prior_card_sha256 = _path_sha256(prior_card_path)
+    else:
+        prior_card_sha256 = None
+    _write_acquisition_completion(
+        args,
+        stage=stage,
+        input_paths=(*input_paths, *((prior_card_path,) if prior_card_path else ())),
+        output_paths=output_paths,
+        record_count=record_count,
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            **REHEARSAL_PROVENANCE,
+            "schema_version": "legalforecast.fixture_stage_run_card.v1",
+            "input_commitments": dict(input_commitments),
+            "output_commitments": output_commitments,
+            "prior_stage": prior_stage,
+            "prior_stage_card_sha256": prior_card_sha256,
+            "fixture_traces": list(fixture_traces),
+            "provider_journal_created": False,
+            "provider_billing_usd": "0.00",
+        },
+    )
+    return 0
+
+
 def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
     """Exercise the downstream chain without creating production authority."""
 
@@ -28483,6 +28634,11 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
     for path in input_paths:
         if path.is_symlink() or not path.exists():
             raise CommandError(f"rehearsal input is missing or a symlink: {path}")
+    input_commitments = {
+        str(path.resolve()): _fixture_rehearsal_input_commitment(path)
+        for path in input_paths
+    }
+    target_stage = cast(str, args.rehearsal_stage)
 
     selections = tuple(_read_records(selection_path))
     candidate_ids = tuple(_required_str(row, "candidate_id") for row in selections)
@@ -28624,40 +28780,19 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             cast(Path, args.reviewer_model_registry),
             cast(str, args.reviewer_model_key),
         )
-        stage_a = run_fixture_stage_a(
-            selection_records=selections,
-            parser_records=parser_records,
-            markdown_root=markdown_root,
-            unitizer_entry=unitizer_entry,
-            unitizer_registry_sha256=unitizer_sha,
-            reviewer_entry=reviewer_entry,
-            reviewer_registry_sha256=reviewer_sha,
-            fixtures=fixtures,
-        )
     except (DecisionTextArtifactError, DownstreamRehearsalError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
 
-    raw_units_path = output_root / "rehearsal-raw-prediction-units.jsonl"
-    unit_audit_path = output_root / "rehearsal-llm-unitize-audit.jsonl"
-    original_review_path = output_root / "rehearsal-unitization-review-queue.jsonl"
-    structural_flags_path = output_root / "rehearsal-stage-a-structural-flags.jsonl"
-    structural_audit_path = output_root / "rehearsal-stage-a-review-audit.jsonl"
-    merged_review_path = output_root / "rehearsal-unitization-review-final.jsonl"
-    finalized_units_path = output_root / "rehearsal-finalized-prediction-units.jsonl"
-    _write_jsonl(raw_units_path, stage_a.raw_prediction_units)
-    _write_jsonl(unit_audit_path, stage_a.unitization_audit)
-    _write_jsonl(original_review_path, stage_a.original_review_queue)
-    _write_jsonl(structural_flags_path, stage_a.structural_flags)
-    _write_jsonl(structural_audit_path, stage_a.structural_review_audit)
-    _write_jsonl(merged_review_path, stage_a.merged_review_queue)
-    _write_jsonl(finalized_units_path, stage_a.finalized_prediction_units)
-
+    decision_stage = "rehearsal-build-decision-texts"
     decision_texts_path = output_root / "rehearsal-decision-texts.jsonl"
     decision_manifest_path = output_root / "rehearsal-decision-texts-manifest.json"
-    decision_card_path = output_root / "run-cards/rehearsal-build-decision-texts.json"
-    _write_jsonl(decision_texts_path, decision_records)
+    decision_artifact_card_path = output_root / "rehearsal-decision-texts-run-card.json"
+    decision_artifacts = [
+        _write_fixture_rehearsal_artifact(
+            decision_texts_path, decision_records, stage=decision_stage
+        )
+    ]
     decision_manifest = {
-        **REHEARSAL_PROVENANCE,
         "schema_version": "legalforecast.fixture_decision_text_manifest.v1",
         "record_count": len(decision_records),
         "decision_texts_sha256": _path_sha256(decision_texts_path),
@@ -28668,31 +28803,157 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         "input_commitments": commitments,
         "outcome_material_model_visible": False,
     }
-    _write_json(decision_manifest_path, decision_manifest)
-    _write_json(
-        decision_card_path,
-        {
-            **REHEARSAL_PROVENANCE,
-            "schema_version": "legalforecast.fixture_acquisition_run_card.v1",
-            "stage": "rehearsal-build-decision-texts",
-            "status": "completed",
-            "execute": True,
-            "record_count": len(decision_records),
-            "decision_texts_sha256": _path_sha256(decision_texts_path),
-            "decision_texts_manifest_sha256": _path_sha256(decision_manifest_path),
-            "input_commitments": commitments,
-            "provider_call_executed": False,
-        },
+    decision_artifacts.append(
+        _write_fixture_rehearsal_json_artifact(
+            decision_manifest_path, decision_manifest, stage=decision_stage
+        )
     )
+    decision_artifacts.append(
+        _write_fixture_rehearsal_json_artifact(
+            decision_artifact_card_path,
+            {
+                "schema_version": "legalforecast.fixture_acquisition_run_card.v1",
+                "stage": "rehearsal-build-decision-texts",
+                "status": "completed",
+                "execute": True,
+                "record_count": len(decision_records),
+                "decision_texts_sha256": _path_sha256(decision_texts_path),
+                "decision_texts_manifest_sha256": _path_sha256(decision_manifest_path),
+                "input_commitments": commitments,
+                "provider_call_executed": False,
+            },
+            stage=decision_stage,
+        )
+    )
+    _complete_fixture_rehearsal_stage(
+        args,
+        stage=decision_stage,
+        input_paths=input_paths,
+        input_commitments=input_commitments,
+        artifacts=decision_artifacts,
+        record_count=len(decision_records),
+        prior_stage=None,
+    )
+    if target_stage == "decision-texts":
+        return 0
+
+    try:
+        unitized = run_fixture_unitization(
+            selection_records=selections,
+            parser_records=parser_records,
+            markdown_root=markdown_root,
+            unitizer_entry=unitizer_entry,
+            unitizer_registry_sha256=unitizer_sha,
+            fixtures=fixtures,
+        )
+    except (DecisionTextArtifactError, DownstreamRehearsalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    raw_units_path = output_root / "rehearsal-raw-prediction-units.jsonl"
+    unit_audit_path = output_root / "rehearsal-llm-unitize-audit.jsonl"
+    original_review_path = output_root / "rehearsal-unitization-review-queue.jsonl"
+    unitize_stage = "rehearsal-stage-a-unitize"
+    unitize_artifacts = [
+        _write_fixture_rehearsal_artifact(
+            raw_units_path, unitized.raw_prediction_units, stage=unitize_stage
+        ),
+        _write_fixture_rehearsal_artifact(
+            unit_audit_path, unitized.unitization_audit, stage=unitize_stage
+        ),
+        _write_fixture_rehearsal_artifact(
+            original_review_path, unitized.original_review_queue, stage=unitize_stage
+        ),
+    ]
+    _complete_fixture_rehearsal_stage(
+        args,
+        stage=unitize_stage,
+        input_paths=input_paths,
+        input_commitments=input_commitments,
+        artifacts=unitize_artifacts,
+        record_count=len(unitized.raw_prediction_units),
+        prior_stage=decision_stage,
+        fixture_traces=[trace.to_record() for trace in unitized.traces],
+    )
+    if target_stage == "stage-a-unitize":
+        return 0
+
+    try:
+        reviewed = run_fixture_structural_review(
+            selection_records=selections,
+            parser_records=parser_records,
+            prediction_unit_records=unitized.raw_prediction_units,
+            original_review_queue=unitized.original_review_queue,
+            markdown_root=markdown_root,
+            reviewer_entry=reviewer_entry,
+            reviewer_registry_sha256=reviewer_sha,
+            fixtures=fixtures,
+        )
+    except (DownstreamRehearsalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    structural_flags_path = output_root / "rehearsal-stage-a-structural-flags.jsonl"
+    structural_audit_path = output_root / "rehearsal-stage-a-review-audit.jsonl"
+    merged_review_path = output_root / "rehearsal-unitization-review-final.jsonl"
+    review_stage = "rehearsal-stage-a-review"
+    review_artifacts = [
+        _write_fixture_rehearsal_artifact(
+            structural_flags_path, reviewed.structural_flags, stage=review_stage
+        ),
+        _write_fixture_rehearsal_artifact(
+            structural_audit_path,
+            reviewed.structural_review_audit,
+            stage=review_stage,
+        ),
+        _write_fixture_rehearsal_artifact(
+            merged_review_path, reviewed.merged_review_queue, stage=review_stage
+        ),
+    ]
+    _complete_fixture_rehearsal_stage(
+        args,
+        stage=review_stage,
+        input_paths=input_paths,
+        input_commitments=input_commitments,
+        artifacts=review_artifacts,
+        record_count=len(reviewed.structural_flags),
+        prior_stage=unitize_stage,
+        fixture_traces=[trace.to_record() for trace in reviewed.traces],
+    )
+    if target_stage == "stage-a-review":
+        return 0
+
+    try:
+        finalized_units = apply_fixture_unitization_review(
+            prediction_unit_records=unitized.raw_prediction_units,
+            review_records=reviewed.merged_review_queue,
+        )
+    except DownstreamRehearsalError as exc:
+        raise CommandError(str(exc)) from exc
+    finalized_units_path = output_root / "rehearsal-finalized-prediction-units.jsonl"
+    apply_a_stage = "rehearsal-stage-a-apply"
+    apply_a_artifacts = [
+        _write_fixture_rehearsal_artifact(
+            finalized_units_path, finalized_units, stage=apply_a_stage
+        )
+    ]
+    _complete_fixture_rehearsal_stage(
+        args,
+        stage=apply_a_stage,
+        input_paths=input_paths,
+        input_commitments=input_commitments,
+        artifacts=apply_a_artifacts,
+        record_count=len(finalized_units),
+        prior_stage=review_stage,
+    )
+    if target_stage == "stage-a-apply":
+        return 0
+
     decision_artifact = VerifiedDecisionTextArtifact(
         records=decision_records,
         decision_texts_sha256=_path_sha256(decision_texts_path),
         manifest_sha256=_path_sha256(decision_manifest_path),
-        run_card_sha256=_path_sha256(decision_card_path),
+        run_card_sha256=_path_sha256(decision_artifact_card_path),
         finalized_prediction_units_sha256=_path_sha256(finalized_units_path),
         finalized_unit_envelope_sha256s={
             _required_str(row, "candidate_id"): "sha256:" + canonical_sha256(row)
-            for row in stage_a.finalized_prediction_units
+            for row in finalized_units
         },
         input_commitments=commitments,
     )
@@ -28712,11 +28973,12 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
     try:
         stage_b = run_fixture_stage_b(
             selection_records=selections,
-            finalized_prediction_units=stage_a.finalized_prediction_units,
+            finalized_prediction_units=finalized_units,
             decision_text_artifact=decision_artifact,
             judge_entries=judge_entries,
             judge_registry_sha256=judge_sha,
             fixtures=fixtures,
+            apply_review=False,
         )
         decision_artifact.verify_stage_b_audit_commitments(stage_b.labeling_audit)
     except (DecisionTextArtifactError, DownstreamRehearsalError, ValueError) as exc:
@@ -28725,28 +28987,68 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
     labels_path = output_root / "rehearsal-labels.jsonl"
     label_audit_path = output_root / "rehearsal-llm-label-audit.jsonl"
     lawyer_queue_path = output_root / "rehearsal-lawyer-review-queue.jsonl"
-    label_apply_path = output_root / "rehearsal-label-apply-audit.jsonl"
-    _write_jsonl(labels_path, stage_b.labels)
-    _write_jsonl(label_audit_path, stage_b.labeling_audit)
-    _write_jsonl(lawyer_queue_path, stage_b.lawyer_review_queue)
-    _write_jsonl(
-        label_apply_path,
-        [
-            {
-                **REHEARSAL_PROVENANCE,
-                "stage": "rehearsal-apply-lawyer-review",
-                "status": "completed_no_pending_reviews",
-                "label_count": len(stage_b.labels),
-                "provider_call_executed": False,
-            }
-        ],
+    label_stage = "rehearsal-stage-b-label"
+    label_artifacts = [
+        _write_fixture_rehearsal_artifact(
+            labels_path, stage_b.labels, stage=label_stage
+        ),
+        _write_fixture_rehearsal_artifact(
+            label_audit_path, stage_b.labeling_audit, stage=label_stage
+        ),
+        _write_fixture_rehearsal_artifact(
+            lawyer_queue_path, stage_b.lawyer_review_queue, stage=label_stage
+        ),
+    ]
+    _complete_fixture_rehearsal_stage(
+        args,
+        stage=label_stage,
+        input_paths=input_paths,
+        input_commitments=input_commitments,
+        artifacts=label_artifacts,
+        record_count=len(stage_b.labels),
+        prior_stage=apply_a_stage,
+        fixture_traces=[trace.to_record() for trace in stage_b.traces],
     )
+    if target_stage == "stage-b-label":
+        return 0
+
+    try:
+        apply_fixture_label_review(review_records=stage_b.lawyer_review_queue)
+    except DownstreamRehearsalError as exc:
+        raise CommandError(str(exc)) from exc
+    label_apply_path = output_root / "rehearsal-label-apply-audit.jsonl"
+    apply_b_stage = "rehearsal-stage-b-apply"
+    apply_b_artifacts = [
+        _write_fixture_rehearsal_artifact(
+            label_apply_path,
+            (
+                {
+                    "stage": "rehearsal-apply-lawyer-review",
+                    "status": "completed_no_pending_reviews",
+                    "label_count": len(stage_b.labels),
+                    "provider_call_executed": False,
+                },
+            ),
+            stage=apply_b_stage,
+        )
+    ]
+    _complete_fixture_rehearsal_stage(
+        args,
+        stage=apply_b_stage,
+        input_paths=input_paths,
+        input_commitments=input_commitments,
+        artifacts=apply_b_artifacts,
+        record_count=len(stage_b.labels),
+        prior_stage=label_stage,
+    )
+    if target_stage == "stage-b-apply":
+        return 0
 
     plan = plan_packet_build_inputs(
         selection_records=selections,
         download_records=downloads,
         parser_records=parser_records,
-        prediction_unit_records=stage_a.finalized_prediction_units,
+        prediction_unit_records=finalized_units,
         raw_html_dir=raw_html_dir,
         document_root=document_root,
         markdown_root=markdown_root,
@@ -28759,20 +29061,49 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             "fixture packet planning did not preserve the exact clean cohort"
         )
     packet_input_path = output_root / "rehearsal-packet-build-input.jsonl"
+    packet_plan_stage = "rehearsal-plan-packet-inputs"
+    packet_plan_artifacts = [
+        _write_fixture_rehearsal_artifact(
+            packet_input_path, plan.packet_build_records, stage=packet_plan_stage
+        )
+    ]
+    _complete_fixture_rehearsal_stage(
+        args,
+        stage=packet_plan_stage,
+        input_paths=input_paths,
+        input_commitments=input_commitments,
+        artifacts=packet_plan_artifacts,
+        record_count=plan.case_count,
+        prior_stage=apply_b_stage,
+    )
+    if target_stage == "packet-plan":
+        return 0
+
     packet_path = output_root / "rehearsal-packets.jsonl"
     case_packet_path = output_root / "rehearsal-case-packets.jsonl"
     packet_audit_path = output_root / "rehearsal-packet-audit.jsonl"
-    _write_jsonl(packet_input_path, plan.packet_build_records)
     assemblies = tuple(
         _model_packet_assembly(record, ablation=PacketAblation.FULL_PACKET)
         for record in plan.packet_build_records
     )
-    _write_jsonl(packet_path, (item.model_packet.to_record() for item in assemblies))
-    _write_jsonl(
-        case_packet_path,
-        (item.case_packet.to_record() for item in assemblies),
-    )
-    _write_jsonl(packet_audit_path, (item.audit_bundle for item in assemblies))
+    packet_stage = "rehearsal-build-packets"
+    packet_artifacts = [
+        _write_fixture_rehearsal_artifact(
+            packet_path,
+            tuple(item.model_packet.to_record() for item in assemblies),
+            stage=packet_stage,
+        ),
+        _write_fixture_rehearsal_artifact(
+            case_packet_path,
+            tuple(item.case_packet.to_record() for item in assemblies),
+            stage=packet_stage,
+        ),
+        _write_fixture_rehearsal_artifact(
+            packet_audit_path,
+            tuple(item.audit_bundle for item in assemblies),
+            stage=packet_stage,
+        ),
+    ]
     decision_ids = {
         _required_str(record, "candidate_id"): (
             _required_str(record, "candidate_id")
@@ -28796,37 +29127,46 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         }
         if expected_decision_id in mounted:
             raise CommandError("outcome-bearing decision entered a model packet")
-
-    output_paths = (
-        raw_units_path,
-        unit_audit_path,
-        original_review_path,
-        structural_flags_path,
-        structural_audit_path,
-        merged_review_path,
-        finalized_units_path,
-        decision_texts_path,
-        decision_manifest_path,
-        decision_card_path,
-        labels_path,
-        label_audit_path,
-        lawyer_queue_path,
-        label_apply_path,
-        packet_input_path,
-        packet_path,
-        case_packet_path,
-        packet_audit_path,
+    _complete_fixture_rehearsal_stage(
+        args,
+        stage=packet_stage,
+        input_paths=input_paths,
+        input_commitments=input_commitments,
+        artifacts=packet_artifacts,
+        record_count=len(assemblies),
+        prior_stage=packet_plan_stage,
     )
     summary_path = output_root / "rehearsal-final-summary.json"
     unit_count = sum(
         len(_required_record_sequence(row, "prediction_units"))
-        for row in stage_a.finalized_prediction_units
+        for row in finalized_units
     )
     try:
         fixture_bundle.require_unchanged()
     except DownstreamRehearsalError as exc:
         raise CommandError(str(exc)) from exc
-    _write_json(
+    stage_names = (
+        decision_stage,
+        unitize_stage,
+        review_stage,
+        apply_a_stage,
+        label_stage,
+        apply_b_stage,
+        packet_plan_stage,
+        packet_stage,
+    )
+    stage_cards = tuple(
+        output_root / "run-cards" / f"{stage_name}.json" for stage_name in stage_names
+    )
+    all_output_paths: list[Path] = []
+    for stage_card in stage_cards:
+        stage_card_payload = _read_json_object(stage_card)
+        all_output_paths.extend(
+            Path(str(value))
+            for value in _required_record(stage_card_payload, "output_commitments")
+        )
+    all_outputs = tuple(all_output_paths)
+    summary_artifact = _write_fixture_rehearsal_json_artifact(
         summary_path,
         {
             **rehearsal_provenance(response_fixtures=fixture_bundle),
@@ -28834,35 +29174,39 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             "status": "completed_fixture_only",
             "target_case_count": target_count,
             "selected_case_count": len(selections),
-            "finalized_case_count": len(stage_a.finalized_prediction_units),
+            "finalized_case_count": len(finalized_units),
             "decision_text_count": len(decision_records),
             "packet_case_count": len(assemblies),
             "prediction_unit_count": unit_count,
             "label_count": len(stage_b.labels),
-            "pending_stage_a_review_count": len(stage_a.merged_review_queue),
+            "pending_stage_a_review_count": len(reviewed.merged_review_queue),
             "pending_stage_b_review_count": len(stage_b.lawyer_review_queue),
-            "provider_fixture_call_count": len(stage_a.traces) + len(stage_b.traces),
+            "provider_fixture_call_count": (
+                len(unitized.traces) + len(reviewed.traces) + len(stage_b.traces)
+            ),
             "provider_journal_created": False,
             "provider_billing_usd": "0.00",
             "packet_outcome_material_excluded": True,
             "input_commitments": {
-                str(path.resolve()): _path_sha256(path)
-                for path in input_paths
-                if path.is_file()
+                key: dict(value) for key, value in input_commitments.items()
             },
             "output_commitments": {
-                str(path.resolve()): _path_sha256(path) for path in output_paths
+                str(path.resolve()): _path_sha256(path)
+                for path in (*all_outputs, *stage_cards)
             },
+            "stage_cards": [str(path.resolve()) for path in stage_cards],
             "fixture_traces": [
-                trace.to_record() for trace in (*stage_a.traces, *stage_b.traces)
+                trace.to_record()
+                for trace in (*unitized.traces, *reviewed.traces, *stage_b.traces)
             ],
         },
+        stage="rehearse-downstream",
     )
     _write_acquisition_completion(
         args,
         stage="rehearse-downstream",
         input_paths=input_paths,
-        output_paths=(*output_paths, summary_path),
+        output_paths=(*all_outputs, *stage_cards, *summary_artifact),
         record_count=target_count,
         dry_run=False,
         paid_activity_requested=False,
@@ -28937,14 +29281,109 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
     ):
         raise CommandError("invalid fixture-only downstream rehearsal authority")
     output_commitments = _required_record(summary, "output_commitments")
+    for raw_path, expected_sha256 in output_commitments.items():
+        committed_path = Path(raw_path)
+        if committed_path.is_symlink() or not committed_path.is_file():
+            raise CommandError(
+                "fixture rehearsal committed output is missing or unsafe: "
+                f"{committed_path}"
+            )
+        if expected_sha256 != _path_sha256(committed_path):
+            raise CommandError(
+                f"fixture rehearsal output commitment changed: {committed_path}"
+            )
     for path in (units_path, decisions_path, labels_path, packets_path):
-        if output_commitments.get(str(path.resolve())) != _path_sha256(path):
-            raise CommandError(f"fixture rehearsal output commitment changed: {path}")
+        if str(path.resolve()) not in output_commitments:
+            raise CommandError(f"fixture rehearsal output is uncommitted: {path}")
     input_commitments = _required_record(summary, "input_commitments")
-    if input_commitments.get(str(selection_path.resolve())) != _path_sha256(
-        selection_path
-    ):
+    for raw_path, raw_commitment in input_commitments.items():
+        expected_commitment = cast(Mapping[str, object], raw_commitment)
+        if _fixture_rehearsal_input_commitment(Path(raw_path)) != expected_commitment:
+            raise CommandError(
+                f"fixture rehearsal input commitment changed: {raw_path}"
+            )
+    selection_commitment = cast(
+        Mapping[str, object], input_commitments.get(str(selection_path.resolve()))
+    )
+    if selection_commitment.get("sha256") != _path_sha256(selection_path):
         raise CommandError("fixture rehearsal selection commitment changed")
+
+    expected_stage_names = (
+        "rehearsal-build-decision-texts",
+        "rehearsal-stage-a-unitize",
+        "rehearsal-stage-a-review",
+        "rehearsal-stage-a-apply",
+        "rehearsal-stage-b-label",
+        "rehearsal-stage-b-apply",
+        "rehearsal-plan-packet-inputs",
+        "rehearsal-build-packets",
+    )
+    raw_stage_cards = summary.get("stage_cards")
+    if not isinstance(raw_stage_cards, Sequence) or isinstance(
+        raw_stage_cards, (str, bytes)
+    ):
+        raise CommandError("fixture rehearsal summary lacks stage-card sequence")
+    stage_card_paths = tuple(
+        Path(str(value)) for value in cast(Sequence[object], raw_stage_cards)
+    )
+    if tuple(path.stem for path in stage_card_paths) != expected_stage_names:
+        raise CommandError("fixture rehearsal stage-card sequence differs")
+    prior_card: Path | None = None
+    for expected_stage, stage_card_path in zip(
+        expected_stage_names, stage_card_paths, strict=True
+    ):
+        stage_card = _read_json_object(stage_card_path)
+        if (
+            stage_card.get("schema_version")
+            != "legalforecast.fixture_stage_run_card.v1"
+            or stage_card.get("stage") != expected_stage
+            or stage_card.get("status") != "completed"
+            or stage_card.get("execute") is not True
+            or any(
+                stage_card.get(key) != value
+                for key, value in expected_fixture_authority.items()
+            )
+            or stage_card.get("prior_stage")
+            != (prior_card.stem if prior_card is not None else None)
+            or stage_card.get("prior_stage_card_sha256")
+            != (_path_sha256(prior_card) if prior_card is not None else None)
+            or _required_record(stage_card, "input_commitments") != input_commitments
+        ):
+            raise CommandError(f"invalid fixture stage card: {expected_stage}")
+        stage_outputs = _required_record(stage_card, "output_commitments")
+        for raw_path, digest in stage_outputs.items():
+            if output_commitments.get(raw_path) != digest:
+                raise CommandError(
+                    f"fixture stage output is absent from final summary: {raw_path}"
+                )
+        artifact_paths = tuple(Path(raw_path) for raw_path in stage_outputs)
+        sidecars = {
+            Path(str(path).removesuffix(".fixture-artifact.json")): path
+            for path in artifact_paths
+            if str(path).endswith(".fixture-artifact.json")
+        }
+        primary_paths = tuple(
+            path for path in artifact_paths if path not in sidecars.values()
+        )
+        if set(primary_paths) != set(sidecars):
+            raise CommandError(
+                f"fixture stage artifacts lack mandatory sidecars: {expected_stage}"
+            )
+        for artifact_path in primary_paths:
+            sidecar = _read_json_object(sidecars[artifact_path])
+            if (
+                sidecar.get("schema_version")
+                != "legalforecast.fixture_artifact_manifest.v1"
+                or sidecar.get("stage") != expected_stage
+                or sidecar.get("artifact_path") != str(artifact_path.resolve())
+                or sidecar.get("artifact_sha256") != _path_sha256(artifact_path)
+                or any(
+                    sidecar.get(key) != value
+                    for key, value in expected_fixture_authority.items()
+                )
+            ):
+                raise CommandError(f"invalid fixture artifact sidecar: {artifact_path}")
+        prior_card = stage_card_path
 
     selections = tuple(_read_records(selection_path))
     units = tuple(_read_records(units_path))

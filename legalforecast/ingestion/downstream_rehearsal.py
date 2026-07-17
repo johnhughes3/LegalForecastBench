@@ -169,6 +169,22 @@ class FixtureStageBResult:
 
 
 @dataclass(frozen=True, slots=True)
+class FixtureUnitizationResult:
+    raw_prediction_units: tuple[JsonRecord, ...]
+    unitization_audit: tuple[JsonRecord, ...]
+    original_review_queue: tuple[JsonRecord, ...]
+    traces: tuple[DeterministicFixtureTrace, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FixtureStructuralReviewResult:
+    structural_flags: tuple[JsonRecord, ...]
+    structural_review_audit: tuple[JsonRecord, ...]
+    merged_review_queue: tuple[JsonRecord, ...]
+    traces: tuple[DeterministicFixtureTrace, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class LoadedDeterministicResponseFixtures:
     """Exact response-fixture bytes and parsed records consumed from them."""
 
@@ -451,6 +467,51 @@ def run_fixture_stage_a(
 ) -> FixtureStageAResult:
     """Run unitization, structural review, and empty-queue apply locally."""
 
+    unitized = run_fixture_unitization(
+        selection_records=selection_records,
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        unitizer_entry=unitizer_entry,
+        unitizer_registry_sha256=unitizer_registry_sha256,
+        fixtures=fixtures,
+    )
+    reviewed = run_fixture_structural_review(
+        selection_records=selection_records,
+        parser_records=parser_records,
+        prediction_unit_records=unitized.raw_prediction_units,
+        original_review_queue=unitized.original_review_queue,
+        markdown_root=markdown_root,
+        reviewer_entry=reviewer_entry,
+        reviewer_registry_sha256=reviewer_registry_sha256,
+        fixtures=fixtures,
+    )
+    finalized = apply_fixture_unitization_review(
+        prediction_unit_records=unitized.raw_prediction_units,
+        review_records=reviewed.merged_review_queue,
+    )
+    return FixtureStageAResult(
+        raw_prediction_units=unitized.raw_prediction_units,
+        unitization_audit=unitized.unitization_audit,
+        original_review_queue=unitized.original_review_queue,
+        structural_flags=reviewed.structural_flags,
+        structural_review_audit=reviewed.structural_review_audit,
+        merged_review_queue=reviewed.merged_review_queue,
+        finalized_prediction_units=finalized,
+        traces=(*unitized.traces, *reviewed.traces),
+    )
+
+
+def run_fixture_unitization(
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    parser_records: Sequence[Mapping[str, Any]],
+    markdown_root: Path,
+    unitizer_entry: ModelRegistryEntry,
+    unitizer_registry_sha256: str,
+    fixtures: Sequence[DeterministicModelResponseFixture],
+) -> FixtureUnitizationResult:
+    """Run only fixture Stage A unitization through the live validator."""
+
     candidate_ids = tuple(
         _required_str(row, "candidate_id") for row in selection_records
     )
@@ -475,6 +536,30 @@ def run_fixture_stage_a(
     original_queue = tuple(
         dict(row) for row in unitization_review_queue_records(unitized.audit_records)
     )
+    return FixtureUnitizationResult(
+        raw_prediction_units=raw_units,
+        unitization_audit=_fixture_audit_rows(unitized),
+        original_review_queue=original_queue,
+        traces=unitizer_transport.traces,
+    )
+
+
+def run_fixture_structural_review(
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    parser_records: Sequence[Mapping[str, Any]],
+    prediction_unit_records: Sequence[Mapping[str, Any]],
+    original_review_queue: Sequence[Mapping[str, Any]],
+    markdown_root: Path,
+    reviewer_entry: ModelRegistryEntry,
+    reviewer_registry_sha256: str,
+    fixtures: Sequence[DeterministicModelResponseFixture],
+) -> FixtureStructuralReviewResult:
+    """Run only fixture Stage A structural review through the live validator."""
+
+    candidate_ids = tuple(
+        _required_str(row, "candidate_id") for row in selection_records
+    )
     reviewer_transport = _stage_transport(
         fixtures,
         stage="llm-review-stage-a",
@@ -484,7 +569,7 @@ def run_fixture_stage_a(
     reviewed = llm_review_stage_a_units(
         selection_records=selection_records,
         parser_records=parser_records,
-        prediction_unit_records=raw_units,
+        prediction_unit_records=prediction_unit_records,
         markdown_root=markdown_root,
         registry_entry=reviewer_entry,
         model_registry_sha256=reviewer_registry_sha256,
@@ -497,29 +582,36 @@ def run_fixture_stage_a(
     merged_queue = tuple(
         dict(row)
         for row in merge_structural_flags_into_review_queue(
-            original_queue, structural_flags
+            original_review_queue, structural_flags
         )
     )
+    return FixtureStructuralReviewResult(
+        structural_flags=structural_flags,
+        structural_review_audit=_fixture_audit_rows(reviewed),
+        merged_review_queue=merged_queue,
+        traces=reviewer_transport.traces,
+    )
+
+
+def apply_fixture_unitization_review(
+    *,
+    prediction_unit_records: Sequence[Mapping[str, Any]],
+    review_records: Sequence[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Apply only an empty fixture Stage A queue using the live apply function."""
+
+    merged_queue = tuple(dict(row) for row in review_records)
     if merged_queue:
         raise DownstreamRehearsalError(
             "fixture Stage A routed units to John; provide corrected deterministic "
             "fixtures instead of self-adjudicating the queue"
         )
     finalized = apply_unitization_reviews(
-        prediction_unit_records=raw_units,
+        prediction_unit_records=prediction_unit_records,
         review_records=merged_queue,
         adjudication_records=(),
     )
-    return FixtureStageAResult(
-        raw_prediction_units=raw_units,
-        unitization_audit=_fixture_audit_rows(unitized),
-        original_review_queue=original_queue,
-        structural_flags=structural_flags,
-        structural_review_audit=_fixture_audit_rows(reviewed),
-        merged_review_queue=merged_queue,
-        finalized_prediction_units=tuple(dict(row) for row in finalized),
-        traces=(*unitizer_transport.traces, *reviewer_transport.traces),
-    )
+    return tuple(dict(row) for row in finalized)
 
 
 def run_fixture_stage_b(
@@ -530,6 +622,7 @@ def run_fixture_stage_b(
     judge_entries: Sequence[ModelRegistryEntry],
     judge_registry_sha256: str,
     fixtures: Sequence[DeterministicModelResponseFixture],
+    apply_review: bool = True,
 ) -> FixtureStageBResult:
     """Run the live Stage B validators through local deterministic responses."""
 
@@ -556,17 +649,25 @@ def run_fixture_stage_b(
     queue = tuple(
         dict(row) for row in lawyer_review_queue_records(labeled.audit_records)
     )
-    if queue:
-        raise DownstreamRehearsalError(
-            "fixture Stage B routed labels to John; provide unanimous, unambiguous "
-            "deterministic fixtures instead of self-adjudicating the queue"
-        )
+    if apply_review:
+        apply_fixture_label_review(review_records=queue)
     return FixtureStageBResult(
         labels=tuple(dict(row) for row in labeled.records),
         labeling_audit=_fixture_audit_rows(labeled),
         lawyer_review_queue=queue,
         traces=transport.traces,
     )
+
+
+def apply_fixture_label_review(*, review_records: Sequence[Mapping[str, Any]]) -> None:
+    """Apply only an empty fixture Stage B queue without self-adjudication."""
+
+    queue = tuple(review_records)
+    if queue:
+        raise DownstreamRehearsalError(
+            "fixture Stage B routed labels to John; provide unanimous, unambiguous "
+            "deterministic fixtures instead of self-adjudicating the queue"
+        )
 
 
 def _stage_transport(
