@@ -454,6 +454,126 @@ def test_seal_rejects_attempts_beyond_frozen_max(tmp_path: Path) -> None:
             )
 
 
+def test_seal_rejects_attempt_reservation_drift_that_fakes_exhaustion(
+    tmp_path: Path,
+) -> None:
+    records = [_record("10", 0)]
+    store_path = tmp_path / "cycle.sqlite3"
+    with CycleAcquisitionStore(store_path) as store:
+        cycle_hash, config_digest = _run(store, records=records, credit_cap=15)
+        url, target_id = _target("10", page_number=1)
+        store.ensure_firecrawl_target(
+            "run-001",
+            target_id=target_id,
+            target_kind="docket",
+            source_url=url,
+            ordinal=0,
+        )
+        for _ in range(3):
+            attempt = store.authorize_firecrawl_attempt(
+                "run-001", target_id=target_id, page_number=1, request_url=url
+            )
+            store.finalize_firecrawl_attempt(
+                attempt.attempt_id,
+                status="provider_error",
+                provider_http_status=500,
+                failure_code="provider_server_error",
+                failure_message="provider returned HTTP 500",
+                failure_transient=True,
+                failure_response_sha256="2" * 64,
+            )
+        store.set_firecrawl_target_status("run-001", target_id, "in_progress")
+    with sqlite3.connect(store_path) as connection:
+        connection.execute(
+            "UPDATE firecrawl_attempts SET reserved_credits = 4 WHERE run_id = ?",
+            ("run-001",),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    with CycleAcquisitionStore(store_path, read_only=True) as store:
+        with pytest.raises(
+            RankedFirecrawlRecoveryError,
+            match="reservation differs from frozen authority",
+        ):
+            seal_ranked_firecrawl_run(
+                store=store,
+                run_id="run-001",
+                records=records,
+                expected_cycle_hash=cycle_hash,
+                expected_run_config_sha256=config_digest,
+                expected_credit_cap=15,
+                max_pages_per_docket=2,
+                decision_anchor=date(2026, 6, 30),
+            )
+
+
+@pytest.mark.parametrize("reported_credits", (-1, 6))
+def test_seal_rejects_invalid_reported_credits(
+    tmp_path: Path,
+    reported_credits: int | None,
+) -> None:
+    records = [_record("10", 0)]
+    store_path = tmp_path / "cycle.sqlite3"
+    with CycleAcquisitionStore(store_path) as store:
+        cycle_hash, config_digest = _run(store, records=records, credit_cap=5)
+        _fail_terminal(store, docket_id="10", ordinal=0)
+    with sqlite3.connect(store_path) as connection:
+        connection.execute(
+            "UPDATE firecrawl_attempts SET reported_credits = ? WHERE run_id = ?",
+            (reported_credits, "run-001"),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    with CycleAcquisitionStore(store_path, read_only=True) as store:
+        with pytest.raises(
+            RankedFirecrawlRecoveryError,
+            match="reported credits are invalid",
+        ):
+            seal_ranked_firecrawl_run(
+                store=store,
+                run_id="run-001",
+                records=records,
+                expected_cycle_hash=cycle_hash,
+                expected_run_config_sha256=config_digest,
+                expected_credit_cap=5,
+                max_pages_per_docket=2,
+                decision_anchor=date(2026, 6, 30),
+            )
+
+
+def test_seal_rejects_success_without_reported_credits(tmp_path: Path) -> None:
+    records = [_record("10", 0)]
+    store_path = tmp_path / "cycle.sqlite3"
+    with CycleAcquisitionStore(store_path) as store:
+        cycle_hash, config_digest = _run(store, records=records, credit_cap=5)
+        _succeed(store, tmp_path, docket_id="10", ordinal=0, html=_page("10"))
+    with sqlite3.connect(store_path) as connection:
+        connection.execute(
+            "UPDATE firecrawl_attempts SET reported_credits = NULL WHERE run_id = ?",
+            ("run-001",),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    with CycleAcquisitionStore(store_path, read_only=True) as store:
+        with pytest.raises(
+            RankedFirecrawlRecoveryError,
+            match="reported credits are invalid",
+        ):
+            seal_ranked_firecrawl_run(
+                store=store,
+                run_id="run-001",
+                records=records,
+                expected_cycle_hash=cycle_hash,
+                expected_run_config_sha256=config_digest,
+                expected_credit_cap=5,
+                max_pages_per_docket=2,
+                decision_anchor=date(2026, 6, 30),
+            )
+
+
 @pytest.mark.parametrize(
     ("column", "value", "message"),
     (

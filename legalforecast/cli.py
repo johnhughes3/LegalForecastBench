@@ -36154,7 +36154,18 @@ def _write_immutable_bytes(path: Path, payload: bytes, *, resume: bool) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        try:
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError:
+            raise CommandError(
+                f"immutable output appeared concurrently: {path}"
+            ) from None
+        temporary.unlink()
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
         temporary.unlink(missing_ok=True)
 

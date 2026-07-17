@@ -722,6 +722,11 @@ def _verify_attempts(
         "transport_error",
         "interrupted",
     }
+    reserved_per_attempt = run_config.get("firecrawl_max_credits_per_scrape")
+    if type(reserved_per_attempt) is not int or reserved_per_attempt <= 0:
+        raise RankedFirecrawlRecoveryError(
+            "source run lacks frozen per-attempt credit authority"
+        )
     target_by_id = {target.target_id: target for target in stored_targets}
     grouped: dict[str, list[FirecrawlAttempt]] = defaultdict(list)
     for attempt in attempts:
@@ -734,6 +739,25 @@ def _verify_attempts(
         ):
             raise RankedFirecrawlRecoveryError(
                 "source attempt ledger has an unknown or outstanding request"
+            )
+        if attempt.reserved_credits != reserved_per_attempt:
+            raise RankedFirecrawlRecoveryError(
+                "source attempt reservation differs from frozen authority"
+            )
+        reported_credits = attempt.reported_credits
+        if reported_credits is not None and not (
+            type(reported_credits) is int
+            and 0 <= reported_credits <= reserved_per_attempt
+        ):
+            raise RankedFirecrawlRecoveryError(
+                "source attempt reported credits are invalid"
+            )
+        # Failed requests may legitimately lack provider-reported usage; their
+        # full frozen reservation still counts against exhaustion. A committed
+        # artifact must carry exact provider usage data.
+        if attempt.status == "succeeded" and reported_credits is None:
+            raise RankedFirecrawlRecoveryError(
+                "source attempt reported credits are invalid"
             )
         grouped[attempt.target_id].append(attempt)
     max_attempts = run_config.get("max_attempts_per_page")

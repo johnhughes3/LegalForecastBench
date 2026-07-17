@@ -5,6 +5,7 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
+import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.budgeted_docket_acquisition import (
@@ -585,6 +586,34 @@ def test_seal_ranked_firecrawl_cli_projects_exact_unresolved_without_source_writ
     assert main(overlap_args) == 2
     assert list(source_raw_root.rglob("*")) == []
     assert not rejected_output.exists()
+
+
+def test_seal_immutable_publication_does_not_clobber_concurrent_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "sealed.jsonl"
+
+    def race_link(
+        _source: Path,
+        target: Path,
+        *,
+        follow_symlinks: bool,
+    ) -> None:
+        assert follow_symlinks is False
+        Path(target).write_bytes(b"concurrent publisher\n")
+        raise FileExistsError
+
+    monkeypatch.setattr(cli_module.os, "link", race_link)
+
+    with pytest.raises(cli_module.CommandError, match="appeared concurrently"):
+        cli_module._write_immutable_bytes(
+            destination,
+            b"sealed payload\n",
+            resume=False,
+        )
+
+    assert destination.read_bytes() == b"concurrent publisher\n"
+    assert list(tmp_path.glob(".sealed.jsonl.*.tmp")) == []
 
 
 def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
