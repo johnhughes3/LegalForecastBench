@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -284,6 +285,24 @@ def test_cadence_counts_derive_from_frozen_manifest_and_units(
             operator_prediction_unit_count=3,
         )
 
+    mismatched_manifest = tmp_path / "mismatched-manifest.jsonl"
+    _write_jsonl(
+        mismatched_manifest,
+        [
+            _manifest_record("case-1", prediction_units=99),
+            _manifest_record("case-2", prediction_units=1),
+        ],
+    )
+    with pytest.raises(
+        shard_fan_in.FanInError,
+        match="prediction-unit counts do not match finalized units",
+    ):
+        shard_fan_in.derive_cadence_counts(
+            mismatched_manifest,
+            units,
+            run_input,
+        )
+
 
 def test_verify_only_accepts_smoke_and_has_no_publication_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -523,6 +542,25 @@ def test_verified_materialization_delegates_to_official_cartesian_oracle(
     assert captured[0].clean_motion_count == 2
     assert captured[0].prediction_unit_count == 3
     assert captured[0].per_case_dir == tmp_path / "materialized"
+    assert captured[0].baseline_training_examples_path is None
+
+    explicit_baselines = tmp_path / "training-examples.json"
+    explicit_config = replace(
+        config, baseline_training_examples_path=explicit_baselines
+    )
+    explicit_frozen = SimpleNamespace(**vars(frozen))
+    explicit_frozen.baselines_path = explicit_baselines
+    shard_fan_in._validate_aggregate(
+        explicit_config,
+        frozen=explicit_frozen,
+        receipts=(),
+        counts=shard_fan_in.CadenceCounts(2, 3),
+        materialized_dir=tmp_path / "materialized-explicit",
+        aggregate_dir=tmp_path / "aggregate-explicit",
+        cycle_series="official",
+        public_fan_in_record={"cycle_id": "cycle-1"},
+    )
+    assert captured[1].baseline_training_examples_path == explicit_baselines
 
 
 _ABLATIONS = ("full_packet", "metadata_only")

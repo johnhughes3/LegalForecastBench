@@ -435,6 +435,7 @@ def derive_cadence_counts(
     manifest_records = _read_jsonl(frozen_manifest_path, "frozen manifest")
     included_candidates: dict[str, str] = {}
     included_cases: set[str] = set()
+    expected_units_by_case: dict[str, int] = {}
     for record in manifest_records:
         eligibility = _required_str(record, "eligibility_status")
         exclusion = _required_str(record, "exclusion_status")
@@ -452,6 +453,10 @@ def derive_cadence_counts(
                 f"duplicate included candidate_id in frozen manifest: {candidate_id}"
             )
         included_candidates[candidate_id] = case_id
+        case_mix_fields = _mapping(record.get("case_mix_fields"), "case_mix_fields")
+        expected_units_by_case[case_id] = _nonnegative_int(
+            case_mix_fields, "prediction_unit_count"
+        )
     if not included_cases:
         raise FanInError("frozen manifest contains no eligible included motions")
 
@@ -485,6 +490,7 @@ def derive_cadence_counts(
     except UnitizationReviewError as exc:
         raise FanInError(f"invalid frozen finalized units: {exc}") from exc
     active_candidates: dict[str, str] = {}
+    actual_units_by_case: dict[str, int] = {}
     unit_ids: set[str] = set()
     prediction_unit_count = 0
     for envelope in envelopes:
@@ -496,6 +502,7 @@ def derive_cadence_counts(
         raw_prediction_units = envelope.get("prediction_units")
         if not isinstance(raw_prediction_units, list):
             raise FanInError("finalized prediction_units must be an array")
+        scoreable_for_case = 0
         for raw_unit in cast(list[object], raw_prediction_units):
             unit = _mapping(raw_unit, "finalized prediction unit")
             unit_id = _required_str(unit, "unit_id")
@@ -505,10 +512,27 @@ def derive_cadence_counts(
             should_score = unit.get("should_score")
             if not isinstance(should_score, bool):
                 raise FanInError("frozen unit should_score must be a Boolean")
-            prediction_unit_count += int(should_score)
+            scoreable_for_case += int(should_score)
+        actual_units_by_case[case_id] = scoreable_for_case
+        prediction_unit_count += scoreable_for_case
     if active_candidates != included_candidates:
         raise FanInError(
             "finalized-unit candidate/case coverage does not match frozen manifest"
+        )
+    if actual_units_by_case != expected_units_by_case:
+        mismatches = {
+            case_id: {
+                "manifest": expected_units_by_case.get(case_id),
+                "finalized_units": actual_units_by_case.get(case_id),
+            }
+            for case_id in sorted(
+                set(expected_units_by_case) | set(actual_units_by_case)
+            )
+            if expected_units_by_case.get(case_id) != actual_units_by_case.get(case_id)
+        }
+        raise FanInError(
+            "frozen manifest prediction-unit counts do not match finalized units: "
+            f"{mismatches}"
         )
     if prediction_unit_count == 0:
         raise FanInError("frozen units contain no scorable prediction units")
@@ -795,6 +819,12 @@ def _validate_aggregate(
         aggregate_dir / "public" / "run-cards" / "fan-in-report.json",
         {**public_fan_in_record, "union_inventory_sha256": union_inventory_sha256},
     )
+    allow_no_baselines = _required_bool(frozen.execution_policy, "allow_no_baselines")
+    baseline_training_examples_path = (
+        None
+        if config.baseline_training_examples_path is None and allow_no_baselines
+        else frozen.baselines_path
+    )
     result = aggregate_official_results(
         OfficialAggregationConfig(
             per_case_dir=materialized_dir,
@@ -806,10 +836,8 @@ def _validate_aggregate(
             clean_motion_count=counts.clean_motion_count,
             prediction_unit_count=counts.prediction_unit_count,
             model_registry_path=frozen.model_registry_path,
-            baseline_training_examples_path=frozen.baselines_path,
-            allow_no_baselines=_required_bool(
-                frozen.execution_policy, "allow_no_baselines"
-            ),
+            baseline_training_examples_path=baseline_training_examples_path,
+            allow_no_baselines=allow_no_baselines,
             deferred_ablations=config.deferred_ablations,
             elapsed_days=config.elapsed_days,
             official_window_days=config.official_window_days,
