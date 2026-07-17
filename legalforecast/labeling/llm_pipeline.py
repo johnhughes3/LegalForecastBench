@@ -1008,6 +1008,66 @@ def llm_label_cases(
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
 
 
+def stage_b_labeling_prompt_records(
+    *,
+    selection_records: Iterable[Mapping[str, Any]],
+    prediction_unit_records: Iterable[Mapping[str, Any]],
+    decision_text_artifact: VerifiedDecisionTextArtifact,
+) -> tuple[JsonRecord, ...]:
+    """Reconstruct exact Stage B prompts from finalized fixture or live inputs."""
+
+    selections = tuple(selection_records)
+    selection_candidate_ids = tuple(
+        _required_str(selection, "candidate_id") for selection in selections
+    )
+    finalized_records = require_finalized_envelopes(prediction_unit_records)
+    finalized_candidate_ids = tuple(
+        _required_str(record, "candidate_id") for record in finalized_records
+    )
+    units_by_candidate = _prediction_units_by_candidate(finalized_records)
+    decisions_by_candidate = _verified_stage_b_decisions(decision_text_artifact)
+    expected_candidates = set(decisions_by_candidate)
+    if (
+        len(selection_candidate_ids) != len(set(selection_candidate_ids))
+        or len(finalized_candidate_ids) != len(set(finalized_candidate_ids))
+        or set(selection_candidate_ids) != expected_candidates
+        or set(finalized_candidate_ids) != expected_candidates
+    ):
+        raise LlmPipelineError(
+            "Stage B prompt candidate coverage differs across inputs"
+        )
+    output: list[JsonRecord] = []
+    for selection in selections:
+        candidate_id = _required_str(selection, "candidate_id")
+        units = units_by_candidate.get(candidate_id)
+        decision = decisions_by_candidate.get(candidate_id)
+        if not units or decision is None:
+            raise LlmPipelineError(
+                f"Stage B prompt inputs missing for candidate {candidate_id}"
+            )
+        decision_text, decision_commitment = decision
+        prompt = _labeling_prompt(
+            selection,
+            decision_text,
+            tuple(units),
+            decision_text_commitment=decision_commitment,
+        )
+        output.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": _required_str(selection, "case_id"),
+                "prompt": prompt,
+                "prompt_sha256": "sha256:"
+                + hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            }
+        )
+    if len(output) != len(decisions_by_candidate):
+        raise LlmPipelineError(
+            "Stage B prompt candidate coverage differs from decision texts"
+        )
+    return tuple(output)
+
+
 def _llm_label_one_model(
     *,
     selection: Mapping[str, Any],

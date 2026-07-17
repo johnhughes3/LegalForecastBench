@@ -105,6 +105,280 @@ infisical-agent-sandbox run \
 
 The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce the subprocess boundary, but they do not authorize injecting a broad acquisition secret set into the parent process.
 
+### Provider-free exact-cohort downstream rehearsal
+
+Before spending on the live parser or labeling models, the supported rehearsal command can replay an exact 100- or 150-case cohort from an authenticated `project-target-cohort` selection, canonical combined materialization, completed fixture-Markdown parse, and prompt-bound deterministic response fixture.
+It calls no network transport, reads no provider key, creates no provider journal, acknowledges no fee, and cannot freeze, evaluate, or dispatch anything.
+Its decision-text manifest, model audits, packet outputs, final summary, and run card all retain `fixture_only` provenance with `official_eligible=false` and explicit false freeze/evaluation/dispatch authority.
+
+The response fixture is newline-delimited `legalforecast.deterministic_model_response_fixture.v1` JSON.
+Each row names the exact stage, candidate, and frozen model key; commits the exact prompt SHA-256; carries one raw JSON response validated by the same Stage A, structural-review, or Stage B schema used live; and records the served frozen model version.
+Any missing, extra, duplicate, prompt-drifted, model-drifted, ambiguous, or review-routed response fails closed.
+Every live-shaped fixture artifact has a mandatory adjacent `legalforecast.fixture_artifact_manifest.v1` sidecar with `fixture_only` provenance, its exact artifact hash and byte count, and false official, freeze, evaluation, and dispatch authority; each staged run card commits both files and the prior stage card.
+Removing, replacing, symlinking, or changing either the artifact or sidecar breaks finalization.
+Do not rewrite fixture parser fields to claim Mistral execution and do not copy rehearsal outputs into the official artifact names.
+
+The supported end-to-end fixture rehearsal starts only after the ordinary preparation root and free-document disclosure review have completed through the authenticated hardware-review procedure below.
+The inputs named `<authenticated-free-...>` are real, immutable outputs of that procedure, not hand-authored fixtures.
+Project the exact cohort from those authenticated inputs first:
+
+```bash
+uv run legalforecast acquisition project-target-cohort \
+  --output-root <fixture-target-cohort-root> \
+  --selection <prepared-public-packet-selection.jsonl> \
+  --case-relevance <prepared-case-relevance.jsonl> \
+  --download-manifest <authenticated-free-download-manifest.jsonl> \
+  --disclosure-clearance <authenticated-free-disclosure-clearance.jsonl> \
+  --clearance-run-card <authenticated-free-clear-disclosures-run-card.json> \
+  --restriction-evidence <authenticated-free-restriction-evidence.jsonl> \
+  --preparation-summary <target-cohort-preparation-summary.json> \
+  --preparation-config <target-cohort-preparation-config.json> \
+  --snapshot-manifest <screening-snapshot-manifest.json> \
+  --target-case-count 100 \
+  --execute --no-resume
+```
+
+Reuse the exact frozen cohort policy that authenticated the free clearance; generating a different cohort authority after review would invalidate that lineage.
+Generate a fixture-scoped purchase policy from explicit approved decisions whose canonical absolute ledger path is under the isolated rehearsal root, then derive its exact broker allowlist from the projected selection and budget:
+
+```bash
+uv run legalforecast acquisition generate-purchase-policy \
+  --decisions <approved-fixture-purchase-decisions.json> \
+  --output <fixture-purchase-policy.json> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json>
+```
+
+```bash
+uv run legalforecast acquisition generate-recap-fetch-broker-policy \
+  --purchase-policy <fixture-purchase-policy.json> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json> \
+  --budget-plan <fixture-target-cohort-root/missing-core-budget-plan.json> \
+  --selection <fixture-target-cohort-root/target-cohort-selection.jsonl> \
+  --output <fixture-recap-fetch-broker-policy.json>
+```
+
+Initialize the isolated policy-bound ledger, then execute only the offline purchase fixture path:
+
+```bash
+uv run legalforecast acquisition init-purchase-ledger \
+  --output-root <fixture-ledger-initialization-root> \
+  --purchase-policy <fixture-purchase-policy.json> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json> \
+  --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --initialization-receipt-output <fixture-ledger-initialization-receipt.json> \
+  --execute --no-resume
+```
+
+```bash
+uv run legalforecast acquisition purchase-missing-recap-fetch \
+  --output-root <offline-fixture-purchase-root> \
+  --budget-plan <fixture-target-cohort-root/missing-core-budget-plan.json> \
+  --selection <fixture-target-cohort-root/target-cohort-selection.jsonl> \
+  --purchase-policy <fixture-purchase-policy.json> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json> \
+  --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --courtlistener-fixture <offline-courtlistener-responses.jsonl> \
+  --purchase-broker-fixture <offline-broker-receipts.json> \
+  --acknowledge-pacer-fees \
+  --execute --no-resume
+```
+
+`--acknowledge-pacer-fees` is currently a mechanical CLI gate shared with the live subcommand; in this invocation both fixture flags are present and `--live-purchase` is absent.
+It does not acknowledge an actual charge or authorize a provider call: the completed fixture run card must record `paid_activity_requested=false` and `paid_activity_executed=false`, and no request ledger, provider request, or fee is created.
+If either assertion is false, stop rather than continuing the rehearsal.
+
+Recover only the fixture receipt URLs from operator-supplied PDF fixture bytes:
+
+```bash
+uv run legalforecast acquisition recover-purchased \
+  --output-root <offline-fixture-recovery-root> \
+  --purchase-result <offline-fixture-purchase-root/courtlistener-recap-fetch-purchases.json> \
+  --selection <fixture-target-cohort-root/target-cohort-selection.jsonl> \
+  --fixture-documents <offline-purchased-pdf-fixtures.json> \
+  --manifest-output <offline-fixture-recovery-root/purchased-document-downloads.jsonl> \
+  --recovery-output <offline-fixture-recovery-root/purchase-recovery.json> \
+  --document-output-root <offline-fixture-recovery-root/documents/purchased> \
+  --execute --no-resume
+```
+
+The recovered purchased bytes still require the same authenticated hardware-review worksheet, recorder, bundle, signature, and sealed receipt used for real free documents.
+After that procedure has produced the exact purchased review artifacts, publish its clearance without substituting a fixture review:
+
+```bash
+uv run legalforecast acquisition clear-disclosures \
+  --output-root <authenticated-purchased-clearance-root> \
+  --review-requests <authenticated-purchased-review-requests.jsonl> \
+  --download-manifest <offline-fixture-recovery-root/purchased-document-downloads.jsonl> \
+  --document-root <offline-fixture-recovery-root/documents/purchased> \
+  --review-worksheet <authenticated-purchased-review-worksheet.json> \
+  --reviews <authenticated-purchased-disclosure-reviews.jsonl> \
+  --review-receipt <authenticated-purchased-disclosure-review-receipt.json> \
+  --reviewer-policy <authenticated-hardware-reviewer-policy.json> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json> \
+  --restriction-evidence <authenticated-purchased-restriction-evidence.jsonl> \
+  --clearance-output <authenticated-purchased-clearance-root/disclosure-clearance.jsonl> \
+  --quarantine-output <authenticated-purchased-clearance-root/disclosure-quarantine.jsonl> \
+  --execute --no-resume
+```
+
+Materialize the authenticated free and purchased lineages into one immutable document root, then plan and perform only a fixture-Markdown parse:
+
+```bash
+uv run legalforecast acquisition materialize-cohort-documents \
+  --output-root <fixture-materialized-root> \
+  --preparation-root <completed-target-cohort-preparation-root> \
+  --preparation-summary <target-cohort-preparation-summary.json> \
+  --preparation-config <target-cohort-preparation-config.json> \
+  --snapshot-manifest <screening-snapshot-manifest.json> \
+  --target-cohort-root <fixture-target-cohort-root> \
+  --free-disclosure-clearance <fixture-target-cohort-root/disclosure-clearance.jsonl> \
+  --purchased-recovery-root <offline-fixture-recovery-root> \
+  --purchased-disclosure-clearance <authenticated-purchased-clearance-root/disclosure-clearance.jsonl> \
+  --purchased-clearance-run-card <authenticated-purchased-clearance-root/run-cards/clear-disclosures.json> \
+  --purchase-policy <fixture-purchase-policy.json> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json> \
+  --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --execute --no-resume
+```
+
+```bash
+uv run legalforecast acquisition plan-parse-documents \
+  --output-root <fixture-parse-root> \
+  --selection <fixture-target-cohort-root/target-cohort-selection.jsonl> \
+  --download-manifest <fixture-materialized-root/document-downloads-merged.jsonl> \
+  --disclosure-clearance <fixture-materialized-root/disclosure-clearance.jsonl> \
+  --materialization-run-card <fixture-materialized-root/run-cards/materialize-cohort-documents.json> \
+  --purchase-policy <fixture-purchase-policy.json> \
+  --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --document-root <fixture-materialized-root/documents> \
+  --requests-output <fixture-parse-root/parse-document-requests.jsonl> \
+  --markdown-output-root <fixture-parse-root/markdown> \
+  --execute --no-resume
+```
+
+```bash
+uv run legalforecast acquisition parse-documents \
+  --output-root <fixture-parse-root> \
+  --selection <fixture-target-cohort-root/target-cohort-selection.jsonl> \
+  --requests <fixture-parse-root/parse-document-requests.jsonl> \
+  --disclosure-clearance <fixture-materialized-root/disclosure-clearance.jsonl> \
+  --materialization-run-card <fixture-materialized-root/run-cards/materialize-cohort-documents.json> \
+  --purchase-policy <fixture-purchase-policy.json> \
+  --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --manifest-output <fixture-parse-root/fixture-parser-manifest.jsonl> \
+  --fixture-markdown-dir <operator-supplied-fixture-markdown-root> \
+  --execute --no-resume
+```
+
+The parser card must retain fixture mode and is never evidence of a Mistral call.
+No production parser, model provider, purchase broker, CourtListener transport, freeze, evaluation, or dispatch is invoked by this fixture chain.
+
+Run the supported public downstream stages separately so each boundary publishes and re-authenticates its own run card.
+All eight stages currently accept the same immutable input set; use one shared output root and do not alter the response fixture or any upstream bytes between stages:
+
+```zsh
+rehearsal_root=<fixture-rehearsal-root>
+rehearsal_args=(
+  --output-root "$rehearsal_root"
+  --selection <fixture-target-cohort-root/target-cohort-selection.jsonl>
+  --selection-run-card <fixture-target-cohort-root/run-cards/project-target-cohort.json>
+  --download-manifest <fixture-materialized-root/document-downloads-merged.jsonl>
+  --disclosure-clearance <fixture-materialized-root/disclosure-clearance.jsonl>
+  --restriction-evidence <fixture-materialized-root/restriction-evidence.jsonl>
+  --materialization-run-card <fixture-materialized-root/run-cards/materialize-cohort-documents.json>
+  --parse-plan-run-card <fixture-parse-root/run-cards/plan-parse-documents.json>
+  --parse-requests <fixture-parse-root/parse-document-requests.jsonl>
+  --parser-manifest <fixture-parse-root/fixture-parser-manifest.jsonl>
+  --parser-run-card <fixture-parse-root/run-cards/parse-documents.json>
+  --document-root <fixture-materialized-root/documents>
+  --markdown-root <fixture-parse-root/markdown>
+  --raw-html-dir <authenticated-raw-docket-html-root>
+  --unitizer-model-registry <frozen-stage-a-registry.json>
+  --unitizer-model-key <provider:model-id>
+  --reviewer-model-registry <frozen-stage-a-reviewer-registry.json>
+  --reviewer-model-key <provider:model-id>
+  --judge-model-registry <frozen-stage-b-judge-registry.json>
+  --judge-model-key <provider:first-judge-model-id>
+  --judge-model-key <provider:second-judge-model-id>
+  --evaluated-model-registry <frozen-evaluated-model-registry.json>
+  --response-fixtures <prompt-bound-deterministic-responses.jsonl>
+  --target-case-count 100
+  --generated-at 2026-07-17T00:00:00Z
+)
+rehearsal_stages=(
+  rehearsal-build-decision-texts
+  rehearsal-stage-a-unitize
+  rehearsal-stage-a-review
+  rehearsal-stage-a-apply
+  rehearsal-stage-b-label
+  rehearsal-stage-b-apply
+  rehearsal-plan-packet-inputs
+  rehearsal-build-packets
+)
+for rehearsal_stage in "${rehearsal_stages[@]}"; do
+  uv run legalforecast acquisition "$rehearsal_stage" \
+    "${rehearsal_args[@]}" --execute --no-resume
+done
+```
+
+The staged sequence above is the acceptance path.
+The final `rehearsal-build-packets` stage also emits the canonical `rehearsal-final-summary.json` and `run-cards/rehearse-downstream.json` reconciliation card consumed by the fixture finalizer; no aggregate rerun is required.
+For a local convenience smoke test, `rehearse-downstream` runs the same fixture-only pipeline as one aggregate command:
+
+```bash
+uv run legalforecast acquisition rehearse-downstream \
+  --output-root <fixture-rehearsal-root> \
+  --selection <projected-exact-cohort-selection.jsonl> \
+  --selection-run-card <project-target-cohort-run-card.json> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --restriction-evidence <materialized-restriction-evidence.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --parse-plan-run-card <plan-parse-documents-run-card.json> \
+  --parse-requests <parse-document-requests.jsonl> \
+  --parser-manifest <fixture-parser-manifest.jsonl> \
+  --parser-run-card <fixture-parse-documents-run-card.json> \
+  --document-root <materialized-document-root> \
+  --markdown-root <fixture-parsed-markdown-root> \
+  --raw-html-dir <authenticated-raw-docket-html-root> \
+  --unitizer-model-registry <frozen-stage-a-registry.json> \
+  --unitizer-model-key <provider:model-id> \
+  --reviewer-model-registry <frozen-stage-a-reviewer-registry.json> \
+  --reviewer-model-key <provider:model-id> \
+  --judge-model-registry <frozen-stage-b-judge-registry.json> \
+  --judge-model-key <provider:model-id> \
+  --evaluated-model-registry <frozen-evaluated-model-registry.json> \
+  --response-fixtures <prompt-bound-deterministic-responses.jsonl> \
+  --target-case-count 100 \
+  --generated-at 2026-07-17T00:00:00Z \
+  --execute --no-resume
+```
+
+Repeat `--judge-model-key` for every entry in the dedicated judge registry.
+The command authenticates the exact target-selection hash, combined materialization binding, parse-request/parser hash chain, fixture parser mode, release anchor, candidate/document coverage, and raw source hashes before model-schema validation.
+It then constructs fixture-only decision texts, unitizes, structurally reviews, applies an empty Stage A queue, labels, applies an empty Stage B merits queue, plans and builds packets, proves the outcome-bearing decision document is excluded from every model packet, and reconciles the exact target count.
+If either review queue is nonempty, stop and correct the deterministic fixture or file the corresponding John-review bead; the rehearsal never self-adjudicates.
+Success is `rehearsal-final-summary.json` with all counts equal to the requested cohort, zero pending reviews, `provider_journal_created=false`, `provider_billing_usd="0.00"`, and `packet_outcome_material_excluded=true`.
+Finalize that evidence only through the separate fixture authority:
+
+```bash
+uv run legalforecast acquisition finalize-rehearsal-corpus \
+  --output-root <fixture-rehearsal-finalization-root> \
+  --rehearsal-summary <fixture-rehearsal-root/rehearsal-final-summary.json> \
+  --rehearsal-run-card <fixture-rehearsal-root/run-cards/rehearse-downstream.json> \
+  --selection <projected-exact-cohort-selection.jsonl> \
+  --prediction-units <fixture-rehearsal-root/rehearsal-finalized-prediction-units.jsonl> \
+  --decision-texts <fixture-rehearsal-root/rehearsal-decision-texts.jsonl> \
+  --labels <fixture-rehearsal-root/rehearsal-labels.jsonl> \
+  --packets <fixture-rehearsal-root/rehearsal-packets.jsonl> \
+  --target-case-count 100 \
+  --corpus-output <fixture-rehearsal-finalization-root/fixture-rehearsal-corpus.json> \
+  --execute --no-resume
+```
+
+The finalizer re-authenticates every exact-cohort output commitment, candidate and unit coverage, zero-review counts, zero billing, and packet exclusion of decision material before emitting `legalforecast.fixture_rehearsal_corpus.v1` with `official_eligible=false`.
+This success is test evidence only: production `build-decision-texts`, readiness, `finalize-corpus`, freeze, evaluation, and dispatch continue to reject every rehearsal artifact.
+
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
 
 ```bash
