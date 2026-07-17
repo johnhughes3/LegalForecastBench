@@ -107,6 +107,6 @@
       "refresh_before_purchase": true
     }
   },
-  "policy_sha256": "53b6f2eac09c9b386fc79fe8e642ff46deb30c08e00cae4046eca095ebfc5fe9",
+  "policy_sha256": "b0ae60815c272a191886a848dc00a462270e04366ef221ddd655266f2b1f36bd",
   "schema_version": "legalforecast.cohort_policy.v1"
 }
