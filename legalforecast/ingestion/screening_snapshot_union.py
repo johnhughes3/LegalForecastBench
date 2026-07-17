@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
+import os
 import re
 import stat
 from collections.abc import Mapping, Sequence
@@ -13,7 +15,14 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
 
-from legalforecast.ingestion.cycle_acquisition_store import verify_snapshot
+from legalforecast.ingestion.cycle_acquisition_store import (
+    SCHEMA_VERSION,
+    SnapshotVerificationError,
+)
+from legalforecast.ingestion.firecrawl_screening_identity import (
+    FirecrawlScreeningIdentityError,
+    snapshot_firecrawl_screening_source_count,
+)
 from legalforecast.ingestion.strict_screen_evidence import (
     StrictScreenEvidenceError,
     validate_strict_screen_evidence,
@@ -22,6 +31,16 @@ from legalforecast.ingestion.strict_screen_evidence import (
 
 class ScreeningSnapshotUnionError(ValueError):
     """Raised when source snapshots cannot form an exact terminal union."""
+
+
+_SNAPSHOT_FILES = (
+    "screened-cases.jsonl",
+    "exclusions.jsonl",
+    "summary.json",
+    "candidates.jsonl",
+    "observations.jsonl",
+    "raw-artifacts.jsonl",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +80,15 @@ class ScreeningSnapshotUnion:
     stage_commitment: Mapping[str, Any]
 
 
+@dataclass(frozen=True, slots=True)
+class _VerifiedSourceSnapshot:
+    manifest: Mapping[str, Any]
+    manifest_sha256: str
+    candidates: tuple[UnionCandidate, ...]
+    strict_screen_history: Mapping[str, tuple[Mapping[str, Any], ...]]
+    raw_artifacts: tuple[UnionRawArtifact, ...]
+
+
 def load_screening_snapshot_union(
     source_snapshots: Sequence[Path],
     *,
@@ -93,28 +121,30 @@ def load_screening_snapshot_union(
     seen_manifest_sha256: set[str] = set()
     seen_batch_digests: set[str] = set()
     provisional_union = False
+    firecrawl_screening_source_count = 0
     for snapshot, expected_manifest_hash in zip(
         snapshots, expected_manifest_sha256, strict=True
     ):
-        manifest_path = snapshot / "manifest.json"
-        manifest_sha256 = hashlib.sha256(
-            _read_regular_file(manifest_path, "source manifest")
-        ).hexdigest()
-        if manifest_sha256 != expected_manifest_hash:
-            raise ScreeningSnapshotUnionError(
-                f"source snapshot manifest SHA-256 mismatch: {manifest_path}"
-            )
-        manifest = verify_snapshot(
+        verified_source = _load_verified_source_snapshot(
             snapshot,
+            expected_manifest_sha256=expected_manifest_hash,
             expected_cycle_hash=expected_cycle_hash,
-            require_complete=True,
-            require_saturated=True,
         )
-        _read_regular_file(snapshot / "candidates.jsonl", "source candidates")
-        _preflight_raw_paths(snapshot / "raw-artifacts.jsonl")
-        source_candidates = _candidate_records(snapshot / "candidates.jsonl")
-        strict_screen_history = _strict_screen_history(snapshot / "observations.jsonl")
-        source_raw = _raw_records(snapshot / "raw-artifacts.jsonl")
+        manifest_path = snapshot / "manifest.json"
+        manifest = verified_source.manifest
+        manifest_sha256 = verified_source.manifest_sha256
+        try:
+            firecrawl_screening_source_count += (
+                snapshot_firecrawl_screening_source_count(
+                    cast(Mapping[str, object], manifest),
+                    require_current=True,
+                )
+            )
+        except FirecrawlScreeningIdentityError as exc:
+            raise ScreeningSnapshotUnionError(str(exc)) from exc
+        source_candidates = verified_source.candidates
+        strict_screen_history = verified_source.strict_screen_history
+        source_raw = verified_source.raw_artifacts
         source_candidate_ids = {
             candidate.candidate_id for candidate in source_candidates
         }
@@ -218,6 +248,7 @@ def load_screening_snapshot_union(
         "schema_version": "legalforecast.screening_snapshot_union_inputs.v2",
         "expected_cycle_hash": expected_cycle_hash,
         "source_count": len(source_commitments),
+        "firecrawl_screening_source_count": firecrawl_screening_source_count,
         "sources": source_commitments,
         "candidate_count": len(candidate_by_id),
         "raw_artifact_count": len(raw_by_commitment),
@@ -511,9 +542,181 @@ def _archived_raw_artifact(
         ) from error
 
 
-def _candidate_records(path: Path) -> tuple[UnionCandidate, ...]:
+def _load_verified_source_snapshot(
+    snapshot: Path,
+    *,
+    expected_manifest_sha256: str,
+    expected_cycle_hash: str,
+) -> _VerifiedSourceSnapshot:
+    """Authenticate one immutable byte set and consume only those buffers."""
+
+    manifest_path = snapshot / "manifest.json"
+    manifest_payload = _read_regular_file(manifest_path, "source manifest")
+    manifest_sha256 = hashlib.sha256(manifest_payload).hexdigest()
+    if manifest_sha256 != expected_manifest_sha256:
+        raise ScreeningSnapshotUnionError(
+            f"source snapshot manifest SHA-256 mismatch: {manifest_path}"
+        )
+    manifest = _json_object_payload(manifest_payload, "source manifest")
+    if manifest.get("schema_version") != SCHEMA_VERSION:
+        raise SnapshotVerificationError("snapshot schema version mismatch")
+    if manifest.get("complete") is not True:
+        raise SnapshotVerificationError("snapshot is not complete")
+    if manifest.get("saturated") is not True:
+        raise SnapshotVerificationError("snapshot discovery is not saturated")
+    if manifest.get("cycle_hash") != expected_cycle_hash:
+        raise SnapshotVerificationError("snapshot cycle hash mismatch")
+    parsed_files = manifest.get("files")
+    if not isinstance(parsed_files, Mapping):
+        raise SnapshotVerificationError("snapshot file manifest is incomplete")
+    file_commitments = cast(Mapping[str, object], parsed_files)
+    if set(file_commitments) != set(_SNAPSHOT_FILES):
+        raise SnapshotVerificationError("snapshot file manifest is incomplete")
+    payloads: dict[str, bytes] = {}
+    for filename in _SNAPSHOT_FILES:
+        parsed_commitment = file_commitments[filename]
+        if not isinstance(parsed_commitment, Mapping):
+            raise SnapshotVerificationError(f"invalid commitment for {filename}")
+        commitment = cast(Mapping[str, object], parsed_commitment)
+        try:
+            payload = _read_regular_file(
+                snapshot / filename,
+                f"snapshot file {filename}",
+            )
+        except ScreeningSnapshotUnionError as error:
+            cause = error.__cause__
+            if not isinstance(cause, OSError) or cause.errno != errno.ENOENT:
+                raise
+            raise SnapshotVerificationError(
+                f"missing snapshot file {filename}"
+            ) from error
+        if (
+            commitment.get("sha256") != hashlib.sha256(payload).hexdigest()
+            or commitment.get("byte_count") != len(payload)
+            or commitment.get("row_count") != payload.count(b"\n")
+        ):
+            raise SnapshotVerificationError(
+                f"snapshot file commitment mismatch: {filename}"
+            )
+        payloads[filename] = payload
+
+    screened = _jsonl_payload(payloads["screened-cases.jsonl"], "screened-cases.jsonl")
+    exclusions = _jsonl_payload(payloads["exclusions.jsonl"], "exclusions.jsonl")
+    candidate_rows = _jsonl_payload(payloads["candidates.jsonl"], "candidates.jsonl")
+    observation_rows = _jsonl_payload(
+        payloads["observations.jsonl"], "observations.jsonl"
+    )
+    raw_rows = _jsonl_payload(payloads["raw-artifacts.jsonl"], "raw-artifacts.jsonl")
+    summary = _json_object_payload(payloads["summary.json"], "snapshot summary")
+    _verify_buffered_snapshot_reconciliation(
+        screened=screened,
+        exclusions=exclusions,
+        candidates=candidate_rows,
+        observations=observation_rows,
+        raw_artifacts=raw_rows,
+        summary=summary,
+    )
+    return _VerifiedSourceSnapshot(
+        manifest=manifest,
+        manifest_sha256=manifest_sha256,
+        candidates=_candidate_records(candidate_rows),
+        strict_screen_history=_strict_screen_history(observation_rows),
+        raw_artifacts=_raw_records(raw_rows),
+    )
+
+
+def _verify_buffered_snapshot_reconciliation(
+    *,
+    screened: Sequence[Mapping[str, Any]],
+    exclusions: Sequence[Mapping[str, Any]],
+    candidates: Sequence[Mapping[str, Any]],
+    observations: Sequence[Mapping[str, Any]],
+    raw_artifacts: Sequence[Mapping[str, Any]],
+    summary: Mapping[str, Any],
+) -> None:
+    screened_ids = _snapshot_candidate_ids(screened, "screened-cases.jsonl")
+    exclusion_ids = _snapshot_candidate_ids(exclusions, "exclusions.jsonl")
+    candidate_ids = _snapshot_candidate_ids(candidates, "candidates.jsonl")
+    overlap = screened_ids & exclusion_ids
+    if overlap:
+        raise SnapshotVerificationError(
+            "accepted and excluded candidate IDs overlap: " + ", ".join(sorted(overlap))
+        )
+    accepted_candidate_ids: set[str] = set()
+    excluded_candidate_ids: set[str] = set()
+    for candidate in candidates:
+        candidate_id = cast(str, candidate["candidate_id"])
+        state = candidate.get("state")
+        if state in {"accepted", "newly_free"}:
+            accepted_candidate_ids.add(candidate_id)
+        elif state == "excluded":
+            excluded_candidate_ids.add(candidate_id)
+        else:
+            raise SnapshotVerificationError(
+                f"candidates.jsonl contains invalid canonical state for {candidate_id}"
+            )
+    if (
+        candidate_ids != screened_ids | exclusion_ids
+        or accepted_candidate_ids != screened_ids
+        or excluded_candidate_ids != exclusion_ids
+    ):
+        raise SnapshotVerificationError(
+            "candidate IDs and states do not reconcile with screened cases and "
+            "exclusions"
+        )
+    _require_snapshot_links(observations, "observations.jsonl", candidate_ids)
+    _require_snapshot_links(raw_artifacts, "raw-artifacts.jsonl", candidate_ids)
+    accepted_count = len(screened_ids)
+    excluded_count = len(exclusion_ids)
+    if (
+        summary.get("accepted_count") != accepted_count
+        or summary.get("excluded_count") != excluded_count
+        or summary.get("processed_count") != accepted_count + excluded_count
+        or summary.get("reconciliation_complete") is not True
+    ):
+        raise SnapshotVerificationError("snapshot summary counts do not reconcile")
+
+
+def _snapshot_candidate_ids(
+    records: Sequence[Mapping[str, Any]], filename: str
+) -> set[str]:
+    candidate_ids: set[str] = set()
+    for record in records:
+        candidate_id = record.get("candidate_id")
+        if not isinstance(candidate_id, str) or not candidate_id.strip():
+            raise SnapshotVerificationError(
+                f"{filename} contains a missing candidate_id"
+            )
+        if candidate_id in candidate_ids:
+            raise SnapshotVerificationError(
+                f"{filename} contains duplicate candidate_id {candidate_id}"
+            )
+        candidate_ids.add(candidate_id)
+    return candidate_ids
+
+
+def _require_snapshot_links(
+    records: Sequence[Mapping[str, Any]],
+    filename: str,
+    candidate_ids: set[str],
+) -> None:
+    for record in records:
+        candidate_id = record.get("candidate_id")
+        if not isinstance(candidate_id, str) or not candidate_id.strip():
+            raise SnapshotVerificationError(
+                f"{filename} contains a missing candidate_id"
+            )
+        if candidate_id not in candidate_ids:
+            raise SnapshotVerificationError(
+                f"{filename} references unknown candidate_id {candidate_id}"
+            )
+
+
+def _candidate_records(
+    records: Sequence[Mapping[str, Any]],
+) -> tuple[UnionCandidate, ...]:
     candidates: list[UnionCandidate] = []
-    for row_number, record in enumerate(_jsonl(path), start=1):
+    for row_number, record in enumerate(records, start=1):
         candidate_id = _string(
             record.get("candidate_id"), f"candidate row {row_number} candidate_id"
         )
@@ -545,10 +748,10 @@ def _candidate_records(path: Path) -> tuple[UnionCandidate, ...]:
 
 
 def _strict_screen_history(
-    path: Path,
+    records: Sequence[Mapping[str, Any]],
 ) -> Mapping[str, tuple[Mapping[str, Any], ...]]:
     history: dict[str, list[Mapping[str, Any]]] = {}
-    for row_number, record in enumerate(_jsonl(path), start=1):
+    for row_number, record in enumerate(records, start=1):
         if (
             record.get("state") != "accepted"
             or record.get("reason_code") != "strict_clean_screen_passed"
@@ -567,9 +770,11 @@ def _strict_screen_history(
     return {candidate_id: tuple(records) for candidate_id, records in history.items()}
 
 
-def _raw_records(path: Path) -> tuple[UnionRawArtifact, ...]:
+def _raw_records(
+    records: Sequence[Mapping[str, Any]],
+) -> tuple[UnionRawArtifact, ...]:
     artifacts: list[UnionRawArtifact] = []
-    for row_number, record in enumerate(_jsonl(path), start=1):
+    for row_number, record in enumerate(records, start=1):
         candidate_id = _string(
             record.get("candidate_id"), f"raw row {row_number} candidate_id"
         )
@@ -704,33 +909,50 @@ def _retrieved_at(artifact: UnionRawArtifact) -> datetime:
     return parsed
 
 
-def _jsonl(path: Path) -> list[Mapping[str, Any]]:
+def _jsonl_payload(payload: bytes, label: str) -> list[Mapping[str, Any]]:
     records: list[Mapping[str, Any]] = []
-    payload = _read_regular_file(path, f"snapshot metadata {path.name}")
     for row_number, line in enumerate(payload.splitlines(), start=1):
         try:
             value: object = json.loads(line)
-        except json.JSONDecodeError as error:
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise ScreeningSnapshotUnionError(
-                f"invalid JSON in {path} row {row_number}"
+                f"invalid JSON in {label} row {row_number}"
             ) from error
         if not isinstance(value, dict):
             raise ScreeningSnapshotUnionError(
-                f"non-object JSON in {path} row {row_number}"
+                f"non-object JSON in {label} row {row_number}"
             )
         records.append(cast(dict[str, Any], value))
     return records
 
 
+def _json_object_payload(payload: bytes, label: str) -> dict[str, Any]:
+    try:
+        value: object = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise SnapshotVerificationError(f"invalid {label}: {error}") from error
+    if not isinstance(value, dict):
+        raise SnapshotVerificationError(f"{label} must be a JSON object")
+    return cast(dict[str, Any], value)
+
+
 def _read_regular_file(path: Path, label: str) -> bytes:
-    if path.is_symlink() or not path.is_file():
-        raise ScreeningSnapshotUnionError(f"{label} is not a regular file: {path}")
-    return path.read_bytes()
-
-
-def _preflight_raw_paths(path: Path) -> None:
-    for row_number, record in enumerate(_jsonl(path), start=1):
-        _canonical_absolute_path(record.get("path"), f"raw row {row_number} path")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise ScreeningSnapshotUnionError(
+            f"{label} is not a regular file: {path}"
+        ) from error
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise ScreeningSnapshotUnionError(f"{label} is not a regular file: {path}")
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 1024 * 1024):
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        os.close(descriptor)
 
 
 def _canonical_absolute_path(value: object, label: str) -> Path:

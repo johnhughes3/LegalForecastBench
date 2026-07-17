@@ -10,7 +10,7 @@ import stat
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from types import MappingProxyType
@@ -26,6 +26,11 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     SnapshotVerificationError,
     verify_snapshot,
 )
+from legalforecast.ingestion.firecrawl_screening_identity import (
+    LEGACY_32057DE_SOURCE_MANIFEST_SHA256,
+    LEGACY_32057DE_SOURCE_SHA256,
+    validate_firecrawl_screening_implementation,
+)
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _SCREEN_RUN_CARD = Path("run-cards/screen-firecrawl-dockets.json")
@@ -40,6 +45,51 @@ _SNAPSHOT_PAYLOAD_FILES = (
     "candidates.jsonl",
     "observations.jsonl",
     "raw-artifacts.jsonl",
+)
+
+_LEGACY_32057DE_GIT_COMMIT = "32057de5942f434697df97b8365ff3f5a176ae47"
+
+# This compatibility gate is intentionally an exact manifest/run-card allowlist,
+# not a general exemption for snapshots that predate implementation commitments.
+# The manifest authenticates every snapshot payload; the separately hashed run
+# card authenticates the Firecrawl screen inputs and raw-artifact location.
+AUDITED_LEGACY_32057DE_FIRECRAWL_SOURCE_BINDINGS: Mapping[str, str] = MappingProxyType(
+    {
+        "e43ac58e573029494ffa28df9f8239237e129ffeab803af301156950b7d67311": (
+            "fb6e227f2a9b543c095c6b7f9f50c1725860df4e849fd5dfc734d7a750e407f3"
+        )
+    }
+)
+
+# The 1,505-candidate Cycle 1 history is admitted only as this one closed,
+# externally audited bundle.  No individual member becomes a reusable legacy
+# exception: the authority requires the exact recursive assembly, source
+# closure, legacy input aggregate, outcome totals, and all 51 manifest/card
+# pairs together.
+AUDITED_LEGACY_32057DE_FIRECRAWL_BUNDLE_BINDING: Mapping[str, object] = (
+    MappingProxyType(
+        {
+            "source_assembly_sha256": (
+                "8e1138d08c57522dd30ef3e43e0d61eee52a120f4e1221dbaf1f626196ee9ed1"
+            ),
+            "source_closure_sha256": (
+                "7222dd797ad721750d6ace681c3719ae0d4d6552c80d8d7aec274bf61368a416"
+            ),
+            "source_assembly_run_card_count": 4,
+            "source_snapshot_count": 51,
+            "source_candidate_count": 1505,
+            "source_success_count": 1482,
+            "source_fetch_exclusion_count": 23,
+            "legacy_screen_input_count": 48,
+            "legacy_screen_inputs_sha256": (
+                "e8ae0418625060516d583d62a1a47af52a05b216e0784c3850a7cf119c833351"
+            ),
+            "refresh_supersession_count": 5,
+            "source_manifest_screen_card_pairs_sha256": (
+                "f629a04d5fb69f491e827af03a734568f7087573adb06db01e5016b67855071b"
+            ),
+        }
+    )
 )
 
 
@@ -79,6 +129,7 @@ class ReplaySourceSnapshot:
     manifest_sha256: str
     screen_run_card: Path
     screen_run_card_sha256: str
+    implementation_authority: Mapping[str, object]
     input_paths: tuple[Path, ...]
     bundle_root: Path | None
 
@@ -300,8 +351,11 @@ def collect_snapshot_replay_bundle(
             f"source assembly evidence changed during verification: {assembly_path}"
         )
     assembly_snapshots = assembly_expansion.snapshots
-    if not assembly_snapshots:
-        raise SnapshotReplayError("source assembly contains no screening snapshots")
+    if not assembly_snapshots and not additional_source_snapshots:
+        raise SnapshotReplayError(
+            "source assembly contains no screening snapshots and no supplemental "
+            "snapshot was supplied"
+        )
     source_paths: list[tuple[Path, str, SupplementalReplaySource | None]] = [
         (path, expected_source_cycle_hash, None) for path in assembly_snapshots
     ]
@@ -502,6 +556,14 @@ def collect_snapshot_replay_bundle(
                 "source screen inputs do not reconcile with snapshot candidates: "
                 f"missing={missing}, unexpected={unexpected}"
             )
+        implementation_authority = (
+            _declared_firecrawl_screening_implementation_authority(
+                manifest=manifest,
+                manifest_sha256=manifest_sha256,
+                screen_run_card_sha256=screen_run_card_sha256,
+                snapshot=snapshot,
+            )
+        )
         verified_sources.append(
             ReplaySourceSnapshot(
                 path=snapshot,
@@ -509,6 +571,10 @@ def collect_snapshot_replay_bundle(
                 manifest_sha256=manifest_sha256,
                 screen_run_card=screen_run_card,
                 screen_run_card_sha256=screen_run_card_sha256,
+                # Missing authority is kept internal until the entire closed
+                # source bundle has been rechecked below.  It never escapes a
+                # successful collection as an empty mapping.
+                implementation_authority=implementation_authority or {},
                 input_paths=relocated_paths.input_paths,
                 bundle_root=(
                     _declared_bundle_root(supplemental.bundle_root)
@@ -562,6 +628,31 @@ def collect_snapshot_replay_bundle(
         if legacy_screen_inputs
         else None
     )
+    _recheck_source_closure(
+        assembly_run_cards=assembly_expansion.run_cards,
+        source_manifests=tuple(
+            (manifest_path, manifest_sha256)
+            for *_, manifest_path, manifest_sha256 in prepared_sources
+        ),
+        screen_run_cards=tuple(
+            (source.screen_run_card, source.screen_run_card_sha256)
+            for source in verified_sources
+        ),
+    )
+    authenticated_sources = _authenticate_replay_source_implementation_authorities(
+        tuple(verified_sources),
+        source_assembly_sha256=assembly_sha256,
+        source_closure_sha256=source_closure_sha256,
+        source_assembly_run_card_count=len(assembly_expansion.run_cards),
+        source_candidate_count=(
+            len(successes_by_candidate) + len(exclusions_by_candidate)
+        ),
+        source_success_count=len(successes_by_candidate),
+        source_fetch_exclusion_count=len(exclusions_by_candidate),
+        legacy_screen_input_count=len(legacy_screen_inputs),
+        legacy_screen_inputs_sha256=legacy_screen_inputs_sha256,
+        refresh_supersession_count=len(refresh_supersessions),
+    )
     if legacy_screen_inputs_sha256 is not None:
         if expected_legacy_screen_inputs_sha256 is None:
             raise SnapshotReplayError(
@@ -580,17 +671,6 @@ def collect_snapshot_replay_bundle(
             "legacy screen-input aggregate SHA-256 was supplied but no legacy "
             "source snapshots were encountered"
         )
-    _recheck_source_closure(
-        assembly_run_cards=assembly_expansion.run_cards,
-        source_manifests=tuple(
-            (manifest_path, manifest_sha256)
-            for *_, manifest_path, manifest_sha256 in prepared_sources
-        ),
-        screen_run_cards=tuple(
-            (source.screen_run_card, source.screen_run_card_sha256)
-            for source in verified_sources
-        ),
-    )
     return SnapshotReplayBundle(
         successes=tuple(
             successes_by_candidate[candidate_id]
@@ -600,7 +680,7 @@ def collect_snapshot_replay_bundle(
             exclusions_by_candidate[candidate_id]
             for candidate_id in sorted(exclusions_by_candidate)
         ),
-        sources=tuple(verified_sources),
+        sources=authenticated_sources,
         source_assembly_run_card=assembly_path,
         source_assembly_sha256=assembly_sha256,
         source_assembly_run_cards=tuple(
@@ -1035,6 +1115,351 @@ def source_replay_commitment(bundle: SnapshotReplayBundle) -> dict[str, object]:
             _canonical_json(outcomes).encode()
         ).hexdigest(),
     }
+
+
+def firecrawl_screening_migration_receipt(
+    *,
+    bundle: SnapshotReplayBundle,
+    target_manifest: Mapping[str, Any],
+    target_manifest_sha256: str,
+    target_implementation: Mapping[str, object],
+) -> dict[str, object]:
+    """Describe an offline legacy-to-current rescreen without mutating sources."""
+
+    _require_sha256(target_manifest_sha256, "target manifest SHA-256")
+    normalized_implementation = validate_firecrawl_screening_implementation(
+        target_implementation,
+        require_current=True,
+    )
+    target_files = _manifest_file_commitments(
+        target_manifest,
+        label="target snapshot",
+    )
+    source_snapshots: list[dict[str, object]] = []
+    legacy_source_count = 0
+    committed_source_count = 0
+    authenticated_sources = _authenticate_replay_source_implementation_authorities(
+        bundle.sources,
+        source_assembly_sha256=bundle.source_assembly_sha256,
+        source_closure_sha256=bundle.source_closure_sha256,
+        source_assembly_run_card_count=len(bundle.source_assembly_run_cards),
+        source_candidate_count=bundle.candidate_count,
+        source_success_count=len(bundle.successes),
+        source_fetch_exclusion_count=len(bundle.exclusions),
+        legacy_screen_input_count=bundle.legacy_screen_input_count,
+        legacy_screen_inputs_sha256=bundle.legacy_screen_inputs_sha256,
+        refresh_supersession_count=len(bundle.refresh_supersessions),
+    )
+    audited_legacy_bundle_authority: Mapping[str, object] | None = None
+    for source, authenticated_source in zip(
+        bundle.sources, authenticated_sources, strict=True
+    ):
+        source_files = _manifest_file_commitments(
+            source.manifest,
+            label=f"source snapshot {source.path}",
+        )
+        verified_authority = dict(authenticated_source.implementation_authority)
+        if dict(source.implementation_authority) != verified_authority:
+            raise SnapshotReplayError(
+                "source snapshot implementation authority changed after "
+                f"verification: {source.path}"
+            )
+        authority_type = verified_authority["authority_type"]
+        if authority_type in {
+            "audited_legacy_32057de",
+            "audited_legacy_32057de_bundle",
+        }:
+            legacy_source_count += 1
+            if authority_type == "audited_legacy_32057de_bundle":
+                bundle_binding = verified_authority.get("bundle_binding")
+                if not isinstance(bundle_binding, Mapping):
+                    raise SnapshotReplayError(
+                        "audited legacy bundle authority lacks its binding"
+                    )
+                if audited_legacy_bundle_authority is None:
+                    audited_legacy_bundle_authority = cast(
+                        Mapping[str, object], bundle_binding
+                    )
+                elif dict(audited_legacy_bundle_authority) != dict(
+                    cast(Mapping[str, object], bundle_binding)
+                ):
+                    raise SnapshotReplayError(
+                        "audited legacy bundle authority differs across sources"
+                    )
+        elif authority_type == "committed_firecrawl_screening_implementation":
+            committed_source_count += 1
+        else:
+            raise SnapshotReplayError(
+                "source snapshot has unrecognized implementation authority: "
+                f"{source.path}"
+            )
+        source_snapshots.append(
+            {
+                "snapshot_id": _required_text(source.manifest, "snapshot_id"),
+                "manifest_sha256": source.manifest_sha256,
+                "screen_run_card_sha256": source.screen_run_card_sha256,
+                "implementation_authority": verified_authority,
+                "screened_cases": source_files["screened-cases.jsonl"],
+                "exclusions": source_files["exclusions.jsonl"],
+                "candidates": source_files["candidates.jsonl"],
+            }
+        )
+    comparable_files = ("screened-cases.jsonl", "exclusions.jsonl")
+    if len(source_snapshots) == 1:
+        source = source_snapshots[0]
+        file_equivalence = {
+            filename: source[_migration_receipt_file_key(filename)]
+            == target_files[filename]
+            for filename in comparable_files
+        }
+        comparison_mode = "single_source_exact_bytes"
+        byte_equivalent: bool | None = all(file_equivalence.values())
+        candidate_state_byte_equivalent: bool | None = (
+            source["candidates"] == target_files["candidates.jsonl"]
+        )
+    else:
+        file_equivalence = {}
+        comparison_mode = "explicit_multi_source_difference"
+        byte_equivalent = None
+        candidate_state_byte_equivalent = None
+    receipt: dict[str, object] = {
+        "schema_version": "legalforecast.firecrawl_screening_migration_receipt.v1",
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "target_implementation": normalized_implementation,
+        "legacy_source_count": legacy_source_count,
+        "committed_source_count": committed_source_count,
+        "source_snapshot_count": len(source_snapshots),
+        "source_candidate_count": bundle.candidate_count,
+        "source_success_count": len(bundle.successes),
+        "source_fetch_exclusion_count": len(bundle.exclusions),
+        "source_snapshots": source_snapshots,
+        "target_snapshot": {
+            "snapshot_id": _required_text(target_manifest, "snapshot_id"),
+            "manifest_sha256": target_manifest_sha256,
+            "screened_cases": target_files["screened-cases.jsonl"],
+            "exclusions": target_files["exclusions.jsonl"],
+            "candidates": target_files["candidates.jsonl"],
+        },
+        "comparison_mode": comparison_mode,
+        "file_byte_equivalence": file_equivalence,
+        "byte_equivalent": byte_equivalent,
+        "candidate_state_byte_equivalent": candidate_state_byte_equivalent,
+        "semantic_difference_explicit": byte_equivalent is not True,
+    }
+    if legacy_source_count:
+        receipt["historical_implementation"] = {
+            "git_commit": _LEGACY_32057DE_GIT_COMMIT,
+            "source_sha256": dict(LEGACY_32057DE_SOURCE_SHA256),
+            "manifest_sha256": LEGACY_32057DE_SOURCE_MANIFEST_SHA256,
+        }
+    if audited_legacy_bundle_authority is not None:
+        receipt["audited_legacy_bundle_authority"] = dict(
+            audited_legacy_bundle_authority
+        )
+    return receipt
+
+
+def _declared_firecrawl_screening_implementation_authority(
+    *,
+    manifest: Mapping[str, Any],
+    manifest_sha256: str,
+    screen_run_card_sha256: str,
+    snapshot: Path,
+) -> dict[str, object] | None:
+    """Return source-local authority, leaving closed-bundle members pending."""
+
+    _require_sha256(manifest_sha256, "source snapshot manifest SHA-256")
+    _require_sha256(screen_run_card_sha256, "source screen run-card SHA-256")
+    stage_commitments = manifest.get("stage_commitments")
+    if stage_commitments is not None and not isinstance(stage_commitments, Mapping):
+        raise SnapshotReplayError(
+            f"source stage commitments have an invalid shape: {snapshot}"
+        )
+    implementation: object | None = None
+    if isinstance(stage_commitments, Mapping):
+        implementation = cast(Mapping[str, object], stage_commitments).get(
+            "firecrawl_screening_implementation"
+        )
+    if implementation is not None:
+        try:
+            normalized = validate_firecrawl_screening_implementation(
+                implementation,
+                require_current=False,
+            )
+        except ValueError as exc:
+            raise SnapshotReplayError(
+                f"source Firecrawl screening implementation is invalid: {snapshot}"
+            ) from exc
+        return {
+            "authority_type": "committed_firecrawl_screening_implementation",
+            "implementation": normalized,
+        }
+
+    expected_run_card_sha256 = AUDITED_LEGACY_32057DE_FIRECRAWL_SOURCE_BINDINGS.get(
+        manifest_sha256
+    )
+    if expected_run_card_sha256 is None:
+        return None
+    if screen_run_card_sha256 != expected_run_card_sha256:
+        raise SnapshotReplayError(
+            f"audited legacy source screen run-card SHA-256 mismatch: {snapshot}"
+        )
+    return {
+        "authority_type": "audited_legacy_32057de",
+        "git_commit": _LEGACY_32057DE_GIT_COMMIT,
+        "implementation_manifest_sha256": (LEGACY_32057DE_SOURCE_MANIFEST_SHA256),
+        "source_snapshot_manifest_sha256": manifest_sha256,
+        "screen_run_card_sha256": screen_run_card_sha256,
+    }
+
+
+def _authenticate_replay_source_implementation_authorities(
+    sources: Sequence[ReplaySourceSnapshot],
+    *,
+    source_assembly_sha256: str,
+    source_closure_sha256: str,
+    source_assembly_run_card_count: int,
+    source_candidate_count: int,
+    source_success_count: int,
+    source_fetch_exclusion_count: int,
+    legacy_screen_input_count: int,
+    legacy_screen_inputs_sha256: str | None,
+    refresh_supersession_count: int,
+) -> tuple[ReplaySourceSnapshot, ...]:
+    """Authenticate source-local commitments or one exact audited legacy bundle."""
+
+    declared_authorities = tuple(
+        _declared_firecrawl_screening_implementation_authority(
+            manifest=source.manifest,
+            manifest_sha256=source.manifest_sha256,
+            screen_run_card_sha256=source.screen_run_card_sha256,
+            snapshot=source.path,
+        )
+        for source in sources
+    )
+    if all(authority is not None for authority in declared_authorities):
+        return tuple(
+            replace(
+                source,
+                implementation_authority=cast(Mapping[str, object], authority),
+            )
+            for source, authority in zip(sources, declared_authorities, strict=True)
+        )
+
+    first_missing = next(
+        source
+        for source, authority in zip(sources, declared_authorities, strict=True)
+        if authority is None
+    )
+    # The audited exception is an indivisible historical set.  A mixture of
+    # independently authorized and unbound sources cannot inherit it.
+    if any(authority is not None for authority in declared_authorities):
+        raise SnapshotReplayError(
+            "source snapshot lacks authenticated Firecrawl screening "
+            f"implementation authority: {first_missing.path}"
+        )
+    pair_sha256 = _source_manifest_screen_card_pairs_sha256(sources)
+    observed_bundle: dict[str, object] = {
+        "source_assembly_sha256": source_assembly_sha256,
+        "source_closure_sha256": source_closure_sha256,
+        "source_assembly_run_card_count": source_assembly_run_card_count,
+        "source_snapshot_count": len(sources),
+        "source_candidate_count": source_candidate_count,
+        "source_success_count": source_success_count,
+        "source_fetch_exclusion_count": source_fetch_exclusion_count,
+        "legacy_screen_input_count": legacy_screen_input_count,
+        "legacy_screen_inputs_sha256": legacy_screen_inputs_sha256,
+        "refresh_supersession_count": refresh_supersession_count,
+        "source_manifest_screen_card_pairs_sha256": pair_sha256,
+    }
+    if observed_bundle != dict(AUDITED_LEGACY_32057DE_FIRECRAWL_BUNDLE_BINDING):
+        raise SnapshotReplayError(
+            "source snapshot lacks authenticated Firecrawl screening "
+            f"implementation authority: {first_missing.path}"
+        )
+    return tuple(
+        replace(
+            source,
+            implementation_authority={
+                "authority_type": "audited_legacy_32057de_bundle",
+                "git_commit": _LEGACY_32057DE_GIT_COMMIT,
+                "implementation_manifest_sha256": (
+                    LEGACY_32057DE_SOURCE_MANIFEST_SHA256
+                ),
+                "bundle_binding": dict(AUDITED_LEGACY_32057DE_FIRECRAWL_BUNDLE_BINDING),
+                "source_snapshot_manifest_sha256": source.manifest_sha256,
+                "screen_run_card_sha256": source.screen_run_card_sha256,
+            },
+        )
+        for source in sources
+    )
+
+
+def _source_manifest_screen_card_pairs_sha256(
+    sources: Sequence[ReplaySourceSnapshot],
+) -> str:
+    pairs = [
+        {
+            "manifest_sha256": source.manifest_sha256,
+            "screen_run_card_sha256": source.screen_run_card_sha256,
+        }
+        for source in sources
+    ]
+    return hashlib.sha256(
+        _canonical_json(sorted(pairs, key=_canonical_json)).encode()
+    ).hexdigest()
+
+
+def _manifest_file_commitments(
+    manifest: Mapping[str, Any], *, label: str
+) -> dict[str, dict[str, object]]:
+    files = manifest.get("files")
+    if not isinstance(files, Mapping):
+        raise SnapshotReplayError(f"{label} lacks file commitments")
+    typed_files = cast(Mapping[str, object], files)
+    normalized: dict[str, dict[str, object]] = {}
+    for filename in (
+        "screened-cases.jsonl",
+        "exclusions.jsonl",
+        "candidates.jsonl",
+    ):
+        commitment = typed_files.get(filename)
+        if not isinstance(commitment, Mapping):
+            raise SnapshotReplayError(f"{label} lacks {filename} commitment")
+        typed_commitment = cast(Mapping[str, object], commitment)
+        if set(typed_commitment) != {"sha256", "byte_count", "row_count"}:
+            raise SnapshotReplayError(f"{label} has malformed {filename} commitment")
+        sha256 = typed_commitment.get("sha256")
+        byte_count = typed_commitment.get("byte_count")
+        row_count = typed_commitment.get("row_count")
+        if (
+            not isinstance(sha256, str)
+            or _SHA256.fullmatch(sha256) is None
+            or not isinstance(byte_count, int)
+            or isinstance(byte_count, bool)
+            or byte_count < 0
+            or not isinstance(row_count, int)
+            or isinstance(row_count, bool)
+            or row_count < 0
+        ):
+            raise SnapshotReplayError(f"{label} has malformed {filename} commitment")
+        normalized[filename] = {
+            "sha256": sha256,
+            "byte_count": byte_count,
+            "row_count": row_count,
+        }
+    return normalized
+
+
+def _migration_receipt_file_key(filename: str) -> str:
+    return {
+        "screened-cases.jsonl": "screened_cases",
+        "exclusions.jsonl": "exclusions",
+        "candidates.jsonl": "candidates",
+    }[filename]
 
 
 @dataclass(frozen=True, slots=True)
