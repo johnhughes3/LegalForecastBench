@@ -165,6 +165,7 @@ def test_documented_aggregate_command_accepts_downloaded_workflow_tree(
         ablations=("full_packet", "metadata_only"),
     )
     labels_path = helpers._write_labels(tmp_path)
+    registry_path = helpers._write_model_registry(tmp_path, ("fixture:model-a",))
     per_case_dir = tmp_path / "downloaded-artifacts"
     for ablation, probability in (("full_packet", 0.9), ("metadata_only", 0.55)):
         helpers._write_case_artifacts(
@@ -175,6 +176,13 @@ def test_documented_aggregate_command_accepts_downloaded_workflow_tree(
             ablation=ablation,
             dismissed_probability=probability,
         )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["cycle_id"] = "runbook-shape-smoke"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    for metrics_path in per_case_dir.glob("*/metrics.json"):
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        metrics["cycle_id"] = "runbook-shape-smoke"
+        metrics_path.write_text(json.dumps(metrics), encoding="utf-8")
     output_dir = tmp_path / "official-aggregate"
 
     assert (
@@ -191,15 +199,15 @@ def test_documented_aggregate_command_accepts_downloaded_workflow_tree(
                 "--output-dir",
                 str(output_dir),
                 "--cycle-id",
-                "cycle-1",
+                "runbook-shape-smoke",
                 "--cycle-series",
-                "pilot",
+                "official",
                 "--clean-motion-count",
-                "25",
-                "--prediction-unit-count",
                 "1",
-                "--model-key",
-                "fixture:model-a",
+                "--prediction-unit-count",
+                "2",
+                "--model-registry",
+                str(registry_path),
                 "--allow-no-baselines",
             ]
         )

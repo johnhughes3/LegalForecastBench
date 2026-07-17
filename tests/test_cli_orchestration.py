@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from legalforecast.cli import build_parser, main
 from legalforecast.selection.candidate_discovery import mtd_discovery_search_terms
+from tests.test_static_result_sites import write_official_report_fixture
 
 
 def test_cli_help_lists_benchmark_orchestration_commands() -> None:
@@ -57,12 +58,7 @@ def test_publish_site_renders_official_artifacts(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    official_dir = tmp_path / "official"
-    official_dir.mkdir()
-    (official_dir / "scores.json").write_text(
-        json.dumps({"rows": [{"model_id": "model-a", "micro_brier": 0.1}]}),
-        encoding="utf-8",
-    )
+    official_dir = write_official_report_fixture(tmp_path)
     output_dir = tmp_path / "site"
 
     assert (

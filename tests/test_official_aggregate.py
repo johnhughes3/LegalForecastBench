@@ -33,6 +33,7 @@ from legalforecast.publication.official_aggregate import (
 from legalforecast.publication.official_aggregate import (
     main as official_aggregate_main,
 )
+from legalforecast.publication.static_sites import render_official_results_site
 from legalforecast.reporting.cadence import CycleSeries
 
 
@@ -57,6 +58,65 @@ def test_publication_reader_preserves_partial_and_material_survival_resolution()
 def test_score_row_type_preserves_baseline_with_ablation_suffix() -> None:
     assert _score_row_type("judge_history::full_packet") == "baseline"
     assert _score_row_type("fixture-model::full_packet") == "model"
+
+
+def test_production_official_aggregate_renders_through_reader_contract(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:solver-a", "fixture:solver-b"),
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-model-a",
+        solver_id="fixture:solver-a",
+        model_id="display-model-a",
+        dismissed_probability=0.9,
+    )
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-model-b",
+        solver_id="fixture:solver-b",
+        model_id="display-model-b",
+        dismissed_probability=0.7,
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["cycle_id"] = "production-shape-smoke"
+    _write_json(manifest_path, manifest)
+    for metrics_path in per_case_dir.glob("*/metrics.json"):
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        metrics["cycle_id"] = "production-shape-smoke"
+        _write_json(metrics_path, metrics)
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="production-shape-smoke",
+            cycle_series=CycleSeries.OFFICIAL,
+            clean_motion_count=1,
+            prediction_unit_count=2,
+            model_registry_path=registry_path,
+            allow_no_baselines=True,
+            ablation="full_packet",
+            generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        )
+    )
+
+    site = render_official_results_site(
+        official_artifacts_dir=result.public_dir,
+        output_dir=tmp_path / "official-site",
+    )
+    rendered = site.index_path.read_text(encoding="utf-8")
+    assert "display-model-a" in rendered
+    assert "display-model-b" in rendered
+    assert "fixture:solver-a" not in rendered
 
 
 def test_official_aggregate_writes_public_bundle_and_private_debug(
@@ -974,10 +1034,33 @@ def test_official_aggregate_reports_repeat_sampling_variance(
     tmp_path: Path,
 ) -> None:
     manifest_path = _write_run_input_manifest(tmp_path)
-    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:solver-a", "fixture:solver-b"),
+    )
     labels_path = _write_labels(tmp_path)
     per_case_dir = tmp_path / "downloaded-artifacts"
-    _write_repeated_case_artifacts(per_case_dir, probabilities=(0.9, 0.7, 0.6))
+    _write_repeated_case_artifacts(
+        per_case_dir,
+        probabilities=(0.9, 0.7, 0.6),
+        case_dir_name="official-eval-case-1-model-a",
+        solver_id="fixture:solver-a",
+        model_id="fixture-model-a",
+    )
+    _write_repeated_case_artifacts(
+        per_case_dir,
+        probabilities=(0.7, 0.6, 0.5),
+        case_dir_name="official-eval-case-1-model-b",
+        solver_id="fixture:solver-b",
+        model_id="fixture-model-b",
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["cycle_id"] = "repeat-shape-smoke"
+    _write_json(manifest_path, manifest)
+    for metrics_path in per_case_dir.glob("*/metrics.json"):
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        metrics["cycle_id"] = "repeat-shape-smoke"
+        _write_json(metrics_path, metrics)
 
     result = aggregate_official_results(
         OfficialAggregationConfig(
@@ -985,10 +1068,10 @@ def test_official_aggregate_reports_repeat_sampling_variance(
             run_input_manifest_path=manifest_path,
             labels_path=labels_path,
             output_dir=tmp_path / "official-bundle",
-            cycle_id="cycle-1",
-            cycle_series=CycleSeries.PILOT,
-            clean_motion_count=25,
-            prediction_unit_count=1,
+            cycle_id="repeat-shape-smoke",
+            cycle_series=CycleSeries.OFFICIAL,
+            clean_motion_count=1,
+            prediction_unit_count=2,
             model_registry_path=registry_path,
             allow_no_baselines=True,
             ablation="full_packet",
@@ -1006,7 +1089,7 @@ def test_official_aggregate_reports_repeat_sampling_variance(
     assert variance["rows"][0]["repeat_indices"] == [1, 2, 3]
     assert variance["rows"][0]["sample_variance_micro_brier"] > 0
     summary = variance["summary_by_model"][0]
-    assert summary["model_id"] == "fixture-model"
+    assert summary["model_id"] == "fixture-model-a"
     assert summary["repeated_case_count"] == 1
     assert summary["repeat_run_count"] == 3
     cycle_power = json.loads(result.cycle_power_path.read_text(encoding="utf-8"))
@@ -1014,7 +1097,10 @@ def test_official_aggregate_reports_repeat_sampling_variance(
     assert cycle_power_mde["paired_delta_sd_source"] == "repeat_variance_report"
     assert math.isclose(
         cycle_power_mde["paired_delta_sd"],
-        summary["root_mean_within_case_variance"],
+        max(
+            row["root_mean_within_case_variance"]
+            for row in variance["summary_by_model"]
+        ),
     )
 
     scores = json.loads((result.public_dir / "scores.json").read_text(encoding="utf-8"))
@@ -1033,8 +1119,14 @@ def test_official_aggregate_reports_repeat_sampling_variance(
 
     run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
     assert "variance/repeat-sampling.json" in run_card["public_outputs"]
-    assert run_card["repeat_variance_summary"] == [summary]
-    assert len(_read_jsonl(result.private_debug_dir / "runs.jsonl")) == 3
+    assert run_card["repeat_variance_summary"] == variance["summary_by_model"]
+    assert len(_read_jsonl(result.private_debug_dir / "runs.jsonl")) == 6
+
+    site = render_official_results_site(
+        official_artifacts_dir=result.public_dir,
+        output_dir=tmp_path / "official-site",
+    )
+    assert site.index_path.is_file()
 
 
 def test_official_aggregate_fails_on_missing_case_output(tmp_path: Path) -> None:
@@ -1489,11 +1581,17 @@ def _write_repeated_case_artifacts(
     per_case_dir: Path,
     *,
     probabilities: tuple[float, ...],
+    case_dir_name: str = "official-eval-case-1",
+    solver_id: str = "fixture:solver",
+    model_id: str = "fixture-model",
 ) -> Path:
     if not probabilities:
         raise ValueError("probabilities must not be empty")
     case_dir = _write_case_artifacts(
         per_case_dir,
+        case_dir_name=case_dir_name,
+        solver_id=solver_id,
+        model_id=model_id,
         dismissed_probability=probabilities[0],
     )
     base_run = _read_jsonl(case_dir / "runs.jsonl")[0]

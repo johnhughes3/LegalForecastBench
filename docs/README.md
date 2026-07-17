@@ -13,6 +13,7 @@ The technical documentation in this folder is drafted and maintained with substa
 
 ## Community Multi-Harness (non-official)
 
+- [Publication governance](publication-governance.md): frozen audiences, calls to action, evidence tiers, forbidden claims, canonical result destinations, non-affiliation language, approvals, and launch calendar.
 - [multiharness-adapter-spec.md](multiharness-adapter-spec.md): the community adapter contract.
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
 - [adapters/](adapters/): notes for the first-class fixture adapter tracks (LQ.AI, Hermes Agent, OpenClaw, and provider/runtime baselines).
