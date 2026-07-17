@@ -204,6 +204,73 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     assert "--llm-label-run-card" not in _documented_command_block(runbook, "llm-label")
 
 
+def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    commands = _documented_acquisition_commands(runbook)
+
+    recovery_blocks = [
+        block
+        for command, block in commands
+        if command == "recover-recap-fetch-quarantine"
+    ]
+    assert len(recovery_blocks) == 1
+    for option in (
+        "--attempt-policy",
+        "--manifest-output",
+        "--restriction-evidence-output",
+        "--review-requests-output",
+        "--document-output-root",
+        "--live-courtlistener-recovery",
+    ):
+        assert option in recovery_blocks[0]
+
+    purchased_prepare = next(
+        block
+        for command, block in commands
+        if command == "prepare-disclosure-review"
+        and "$purchased_review_requests" in block
+    )
+    for option in (
+        "--review-requests",
+        "--download-manifest",
+        "--document-root",
+        "--restriction-evidence",
+        "--controlled-private-store-root",
+    ):
+        assert option in purchased_prepare
+
+    purchased_clearance = next(
+        block
+        for command, block in commands
+        if command == "clear-disclosures" and "$purchased_review_requests" in block
+    )
+    for option in (
+        "--review-receipt",
+        "--reviewer-policy",
+        "--cohort-policy",
+        "--restriction-evidence",
+    ):
+        assert option in purchased_clearance
+
+    resolution = _documented_command_block(runbook, "resolve-post-recovery-documents")
+    for option in (
+        "--attempt-policy",
+        "--download-manifest",
+        "--disclosure-clearance",
+        "--clearance-run-card",
+        "--reviews",
+        "--review-receipt",
+        "--restriction-evidence",
+        "--resolved-output",
+    ):
+        assert option in resolution
+
+    materializer = _documented_command_block(runbook, "materialize-cohort-documents")
+    assert "<recover-recap-fetch-quarantine-root>" in materializer
+    assert "$quarantine_recovery_root" in runbook
+    assert "$resolved_post_recovery" in runbook
+
+
 def test_release_dates_match_frozen_two_judge_stage_b_registry() -> None:
     release_dates = (ROOT / "MODEL_RELEASE_DATES.md").read_text(encoding="utf-8")
     stage_b_registry = json.loads(

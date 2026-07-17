@@ -57,7 +57,7 @@ uv run legalforecast acquisition materialize-cohort-documents \
   --snapshot-manifest <screening-snapshot-manifest.json> \
   --target-cohort-root <project-or-extend-target-cohort-root> \
   --free-disclosure-clearance <free-disclosure-clearance.jsonl> \
-  --purchased-recovery-root <recover-purchased-root> \
+  --purchased-recovery-root <recover-recap-fetch-quarantine-root> \
   --purchased-disclosure-clearance <purchased-disclosure-clearance.jsonl> \
   --purchased-clearance-run-card <purchased-clear-disclosures-run-card.json> \
   --purchase-policy <purchase-policy.json> \
@@ -1181,6 +1181,94 @@ uv run legalforecast acquisition purchase-missing-recap-fetch \
 ```
 
 Never substitute a Case.dev live purchase, a Case.dev fee-bearing docket refresh, or an implicit purchase inside preparation. The RECAP Fetch purchase stage may dispatch only IDs present in the generated broker policy and remains bounded by the verified purchase policy and broker-side budget controls.
+
+The purchase result is not parser- or packet-eligible. Recover every purchased unknown-status document through a fresh authenticated CourtListener detail check. This noncharging stage writes a URL-free quarantine manifest, fresh restriction evidence, the exact disclosure-review request queue, and a committed document tree. Do not hand-author the review requests or copy the PDFs into another recovery root:
+
+```bash
+quarantine_recovery_root=artifacts/cycle-1/official-acquisition/target-150-frontier/purchased-quarantine-recovery
+
+uv run legalforecast acquisition recover-recap-fetch-quarantine \
+  --output-root "$quarantine_recovery_root" \
+  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
+  --purchase-policy <verified-purchase-policy.json> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
+  --purchase-ledger <absolute-canonical-purchase-ledger-path> \
+  --attempt-policy artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json \
+  --manifest-output "$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl" \
+  --restriction-evidence-output "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
+  --review-requests-output "$quarantine_recovery_root/disclosure-review-requests.jsonl" \
+  --document-output-root "$quarantine_recovery_root/documents/recap-fetch-quarantine" \
+  --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --live-courtlistener-recovery \
+  --execute --resume
+```
+
+Run the same authenticated human-hardware disclosure procedure specified in Step 5 over these generated purchased-document inputs. The reviewer policy, cohort policy, controlled private store, interactive recorder, signed bundle, and sealed receipt requirements are unchanged. Start that procedure from the exact recovery outputs:
+
+```zsh
+purchased_review_requests="$quarantine_recovery_root/disclosure-review-requests.jsonl"
+purchased_download_manifest="$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl"
+purchased_document_root="$quarantine_recovery_root/documents/recap-fetch-quarantine"
+purchased_restriction_evidence="$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl"
+purchased_review_root=artifacts/cycle-1/official-acquisition/target-150-frontier/purchased-disclosure-review
+purchased_clearance_root=artifacts/cycle-1/official-acquisition/target-150-frontier/purchased-clearance
+purchased_private_review_root=<absolute-controlled-private-review-root-for-purchased-documents>
+
+uv run legalforecast acquisition prepare-disclosure-review \
+  --output-root "$purchased_review_root" \
+  --review-requests "$purchased_review_requests" \
+  --download-manifest "$purchased_download_manifest" \
+  --document-root "$purchased_document_root" \
+  --restriction-evidence "$purchased_restriction_evidence" \
+  --reviewer-policy "$reviewer_policy" \
+  --cohort-policy "$cohort_policy" \
+  --worksheet-output "$purchased_review_root/disclosure-review-worksheet.json" \
+  --controlled-private-store-root "$purchased_private_review_root" \
+  --execute --resume
+```
+
+After the Step 5 recorder, bundle, hardware signature, and seal commands have produced `disclosure-reviews.jsonl` and `disclosure-review-receipt.json` under `$purchased_review_root`, publish clearance from those same bytes:
+
+```zsh
+uv run legalforecast acquisition clear-disclosures \
+  --output-root "$purchased_clearance_root" \
+  --review-requests "$purchased_review_requests" \
+  --download-manifest "$purchased_download_manifest" \
+  --document-root "$purchased_document_root" \
+  --review-worksheet "$purchased_review_root/disclosure-review-worksheet.json" \
+  --reviews "$purchased_review_root/disclosure-reviews.jsonl" \
+  --review-receipt "$purchased_review_root/disclosure-review-receipt.json" \
+  --reviewer-policy "$reviewer_policy" \
+  --cohort-policy "$cohort_policy" \
+  --restriction-evidence "$purchased_restriction_evidence" \
+  --execute --resume
+```
+
+Clearance alone does not rewrite the canonical purchase state. Bind the signed review, fresh restriction evidence, recovered bytes, attempt authority, and purchase operation into the immutable post-recovery resolution artifact:
+
+```bash
+resolved_post_recovery=artifacts/cycle-1/official-acquisition/target-150-frontier/resolved-post-recovery/resolved-post-recovery-documents.jsonl
+
+uv run legalforecast acquisition resolve-post-recovery-documents \
+  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier/resolved-post-recovery \
+  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
+  --purchase-policy <verified-purchase-policy.json> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
+  --purchase-ledger <absolute-canonical-purchase-ledger-path> \
+  --attempt-policy artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json \
+  --download-manifest "$purchased_download_manifest" \
+  --disclosure-clearance "$purchased_clearance_root/disclosure-clearance.jsonl" \
+  --clearance-run-card "$purchased_clearance_root/run-cards/clear-disclosures.json" \
+  --reviews "$purchased_review_root/disclosure-reviews.jsonl" \
+  --review-receipt "$purchased_review_root/disclosure-review-receipt.json" \
+  --restriction-evidence "$purchased_restriction_evidence" \
+  --resolved-output "$resolved_post_recovery" \
+  --execute --resume
+```
+
+Only after that resolver succeeds may `materialize-cohort-documents` use `$quarantine_recovery_root` as `--purchased-recovery-root`, the purchased clearance/card above, and `$resolved_post_recovery`. The materializer replays the generated review queue and recovery document-tree commitments, verifies the authenticated clearance and canonical operation bindings, and fails closed if any quarantine artifact was hand-edited or omitted.
 
 ### Expected Volumes
 
