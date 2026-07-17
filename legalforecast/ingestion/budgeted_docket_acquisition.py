@@ -381,6 +381,31 @@ def verify_authenticated_ranked_firecrawl_handoff(
         raise BudgetedDocketAcquisitionError(
             "ranked-selection parent batch does not match the authenticated run card"
         )
+    raw_recovery_authority = parent_config.get("ranked_recovery_authority")
+    recovery_authority: Mapping[str, object] | None = None
+    if raw_recovery_authority is not None:
+        if not isinstance(raw_recovery_authority, Mapping):
+            raise BudgetedDocketAcquisitionError(
+                "ranked recovery authority is incomplete or contradictory"
+            )
+        recovery_authority = cast(Mapping[str, object], raw_recovery_authority)
+        if (
+            run_card.get("recovery_authority") != recovery_authority
+            or recovery_authority.get("schema_version")
+            != "legalforecast.ranked_firecrawl_recovery_partition.v1"
+            or recovery_authority.get("terminal_dockets_reauthorized") != 0
+        ):
+            raise BudgetedDocketAcquisitionError(
+                "ranked recovery authority is incomplete or contradictory"
+            )
+        if (
+            recovery_authority.get("partition") != "unresolved"
+            or recovery_authority.get("firecrawl_reacquisition_allowed") is not True
+        ):
+            raise BudgetedDocketAcquisitionError(
+                "terminal or zero-cap recovery partitions cannot authorize "
+                "Firecrawl reacquisition"
+            )
     raw_selected = run_card.get("selected")
     leads_selected = run_card.get("leads_selected")
     if not isinstance(raw_selected, list):
@@ -500,6 +525,12 @@ def verify_authenticated_ranked_firecrawl_handoff(
     ) != [cast(str, item["docket_id"]) for item in selected_objects]:
         raise BudgetedDocketAcquisitionError(
             "authenticated subset docket list does not reconcile"
+        )
+    if recovery_authority is not None and recovery_authority.get(
+        "selected_docket_ids"
+    ) != [cast(str, item["docket_id"]) for item in selected_objects]:
+        raise BudgetedDocketAcquisitionError(
+            "ranked recovery partition differs from the authenticated selection"
         )
     if run_card.get("selected_candidate_set_sha256") != _canonical_record_sha256(
         selected_objects

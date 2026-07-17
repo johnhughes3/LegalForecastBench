@@ -11,7 +11,10 @@ import legalforecast.cli as legalforecast_cli
 import legalforecast.ingestion.snapshot_replay as snapshot_replay_module
 import pytest
 from legalforecast.ingestion.budgeted_docket_acquisition import (
+    BudgetedDocketAcquisitionError,
     provisional_lineage_flags,
+    ranked_docket_targets,
+    verify_authenticated_ranked_firecrawl_handoff,
 )
 from legalforecast.ingestion.case_dev_ranked_selection import (
     CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
@@ -717,6 +720,432 @@ def test_select_case_dev_ranked_subset_materializes_exact_noncontiguous_dockets(
 
     assert legalforecast_cli.main(args) == 0
     assert json.loads(summary.read_text())["already_seeded"] is True
+
+
+def test_sealed_unresolved_manifest_authorizes_only_fresh_unresolved_subset(
+    tmp_path: Path,
+) -> None:
+    docket_ids = ("101", "102", "103")
+    source_store = _opinion_source_store(tmp_path, docket_ids=docket_ids)
+    enrichment_root = _run_enrichment(
+        tmp_path,
+        source_store=source_store,
+        docket_ids=docket_ids,
+    )
+    firecrawl_store = _target_store(tmp_path, name="firecrawl-source.sqlite3")
+    original_card = tmp_path / "original-subset-card.json"
+    assert (
+        legalforecast_cli.main(
+            _subset_selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=firecrawl_store,
+                run_card=original_card,
+                summary=tmp_path / "original-subset-summary.json",
+                docket_ids=("102", "103"),
+            )
+        )
+        == 0
+    )
+    ranked_path = enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"
+    original_card_sha256 = hashlib.sha256(original_card.read_bytes()).hexdigest()
+    source_raw_root = tmp_path / "source-pages"
+    source_raw_root.mkdir()
+    with CycleAcquisitionStore(firecrawl_store) as store:
+        selected_records = verify_authenticated_ranked_firecrawl_handoff(
+            store=store,
+            parent_batch_id="ranked-subset-rest",
+            ranked_path=ranked_path,
+            selection_run_card_path=original_card,
+            expected_selection_run_card_sha256=original_card_sha256,
+            max_candidates=2,
+        )
+        targets = ranked_docket_targets(selected_records, limit=2)
+        config = {
+            "purpose": "ranked-complete-docket-acquisition",
+            "decision_anchor": "2026-06-30",
+            "max_pages_per_docket": 2,
+            "raw_artifact_root": str(source_raw_root.resolve()),
+            "firecrawl_proxy": "enhanced",
+            "firecrawl_force_browser": False,
+            "firecrawl_max_credits_per_scrape": 5,
+            "workers": 10,
+            "max_attempts_per_page": 3,
+            "provider_breaker_threshold": 5,
+            "target_http_pressure_policy_version": (
+                "courtlistener-target-http-202-aimd-v1"
+            ),
+        }
+        run_digest = store.ensure_firecrawl_run(
+            "budget-exhausted",
+            batch_id="ranked-subset-rest",
+            config=config,
+            credit_cap=10,
+            reserved_credits_per_attempt=5,
+        )
+        for target in targets:
+            source_url = f"{target.docket_url}?order_by=desc&page=1"
+            target_id = (
+                "docket-"
+                + hashlib.sha256(f"{target.docket_id}:1".encode()).hexdigest()[:24]
+            )
+            store.ensure_firecrawl_target(
+                "budget-exhausted",
+                target_id=target_id,
+                target_kind="docket",
+                source_url=source_url,
+                ordinal=target.rank,
+            )
+            attempt = store.authorize_firecrawl_attempt(
+                "budget-exhausted",
+                target_id=target_id,
+                page_number=1,
+                request_url=source_url,
+            )
+            if target.docket_id == "102":
+                store.finalize_firecrawl_attempt(
+                    attempt.attempt_id,
+                    status="target_error",
+                    reported_credits=5,
+                    proxy_used="stealth",
+                    provider_http_status=200,
+                    target_http_status=404,
+                    failure_code="target_http_status_invalid",
+                    failure_message="terminal 404",
+                    failure_transient=False,
+                    failure_response_sha256="a" * 64,
+                )
+                store.set_firecrawl_target_status(
+                    "budget-exhausted", target_id, "terminal_error"
+                )
+            else:
+                store.finalize_firecrawl_attempt(
+                    attempt.attempt_id,
+                    status="provider_error",
+                    provider_http_status=500,
+                    failure_code="provider_server_error",
+                    failure_message="provider unavailable",
+                    failure_transient=True,
+                    failure_response_sha256="b" * 64,
+                )
+                store.set_firecrawl_target_status(
+                    "budget-exhausted", target_id, "in_progress"
+                )
+        cycle_hash = store.cycle_hash
+
+    seal_root = tmp_path / "seal"
+    seal_args = [
+        "acquisition",
+        "seal-ranked-firecrawl-run",
+        "--source-cycle-store",
+        str(firecrawl_store),
+        "--run-id",
+        "budget-exhausted",
+        "--ranked",
+        str(ranked_path),
+        "--ranked-selection-run-card",
+        str(original_card),
+        "--expected-ranked-selection-run-card-sha256",
+        original_card_sha256,
+        "--max-candidates",
+        "2",
+        "--max-pages-per-docket",
+        "2",
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--expected-run-config-sha256",
+        run_digest,
+        "--expected-credit-cap",
+        "10",
+        "--expected-total-prior-authorized-firecrawl-credits",
+        "10",
+        "--authorized-fresh-recovery-credit-cap",
+        "10",
+        "--output-root",
+        str(seal_root),
+        "--execute",
+    ]
+    assert legalforecast_cli.main(seal_args) == 0
+    unresolved_manifest = seal_root / "firecrawl-unresolved-partition.jsonl"
+    seal_card = seal_root / "run-cards" / "seal-ranked-firecrawl-run.json"
+
+    zero_seal_root = tmp_path / "zero-authority-seal"
+    zero_seal_args = list(seal_args)
+    zero_seal_args[zero_seal_args.index(str(seal_root))] = str(zero_seal_root)
+    fresh_cap_index = zero_seal_args.index("--authorized-fresh-recovery-credit-cap")
+    zero_seal_args[fresh_cap_index + 1] = "0"
+    assert legalforecast_cli.main(zero_seal_args) == 0
+    zero_manifest = zero_seal_root / "firecrawl-unresolved-partition.jsonl"
+    zero_card = zero_seal_root / "run-cards" / "seal-ranked-firecrawl-run.json"
+    zero_target = _target_store(tmp_path, name="zero-authority-target.sqlite3")
+    zero_args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=zero_target,
+        run_card=tmp_path / "zero-authority-card.json",
+        summary=tmp_path / "zero-authority-summary.json",
+        docket_ids=(),
+    )
+    zero_args.extend(
+        (
+            "--sealed-unresolved-manifest",
+            str(zero_manifest),
+            "--expected-sealed-unresolved-manifest-sha256",
+            hashlib.sha256(zero_manifest.read_bytes()).hexdigest(),
+            "--recovery-seal-run-card",
+            str(zero_card),
+            "--expected-recovery-seal-run-card-sha256",
+            hashlib.sha256(zero_card.read_bytes()).hexdigest(),
+            "--recovery-source-cycle-store",
+            str(firecrawl_store),
+        )
+    )
+    assert legalforecast_cli.main(zero_args) == 2
+    _assert_no_target_rows(zero_target)
+
+    hardlinked_target = tmp_path / "hardlinked-recovery-target.sqlite3"
+    hardlinked_target_lock = Path(f"{hardlinked_target}.lock")
+    hardlinked_target.hardlink_to(firecrawl_store)
+    hardlinked_target_lock.hardlink_to(Path(f"{firecrawl_store}.lock"))
+    hardlinked_args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=hardlinked_target,
+        run_card=tmp_path / "hardlinked-recovery-card.json",
+        summary=tmp_path / "hardlinked-recovery-summary.json",
+        docket_ids=(),
+    )
+    hardlinked_args.extend(
+        (
+            "--sealed-unresolved-manifest",
+            str(unresolved_manifest),
+            "--expected-sealed-unresolved-manifest-sha256",
+            hashlib.sha256(unresolved_manifest.read_bytes()).hexdigest(),
+            "--recovery-seal-run-card",
+            str(seal_card),
+            "--expected-recovery-seal-run-card-sha256",
+            hashlib.sha256(seal_card.read_bytes()).hexdigest(),
+            "--recovery-source-cycle-store",
+            str(firecrawl_store),
+        )
+    )
+    source_before = firecrawl_store.read_bytes()
+    assert legalforecast_cli.main(hardlinked_args) == 2
+    assert firecrawl_store.read_bytes() == source_before
+    hardlinked_target.unlink()
+    hardlinked_target_lock.unlink()
+
+    recovery_target = _target_store(tmp_path, name="recovery-target.sqlite3")
+    recovery_card = tmp_path / "recovery-subset-card.json"
+    args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=recovery_target,
+        run_card=recovery_card,
+        summary=tmp_path / "recovery-subset-summary.json",
+        docket_ids=(),
+    )
+    args.extend(
+        (
+            "--sealed-unresolved-manifest",
+            str(unresolved_manifest),
+            "--expected-sealed-unresolved-manifest-sha256",
+            hashlib.sha256(unresolved_manifest.read_bytes()).hexdigest(),
+            "--recovery-seal-run-card",
+            str(seal_card),
+            "--expected-recovery-seal-run-card-sha256",
+            hashlib.sha256(seal_card.read_bytes()).hexdigest(),
+            "--recovery-source-cycle-store",
+            str(firecrawl_store),
+        )
+    )
+
+    assert legalforecast_cli.main(args) == 0
+    frozen = json.loads(recovery_card.read_text())
+    assert frozen["selected_docket_ids"] == ["103"]
+    assert frozen["recovery_authority"]["terminal_dockets_reauthorized"] == 0
+    with CycleAcquisitionStore(recovery_target) as store:
+        assert store.candidate_ids("ranked-subset-rest") == (
+            "courtlistener-docket-103",
+        )
+        authority = store.batch_config("ranked-subset-rest")[
+            "ranked_recovery_authority"
+        ]
+    assert authority["selected_docket_ids"] == ["103"]
+    assert authority["terminal_dockets_reauthorized"] == 0
+    empty_firecrawl_fixture = tmp_path / "empty-firecrawl.jsonl"
+    empty_firecrawl_fixture.write_text("")
+    recovery_acquire_args = [
+        "acquisition",
+        "acquire-ranked-firecrawl-dockets",
+        "--output-root",
+        str(tmp_path / "recovery-acquire-plan"),
+        "--cycle-store",
+        str(recovery_target),
+        "--parent-batch-id",
+        "ranked-subset-rest",
+        "--selected-batch-id",
+        "recovery-firecrawl",
+        "--run-id",
+        "recovery-firecrawl-run",
+        "--ranked",
+        str(ranked_path),
+        "--ranked-selection-run-card",
+        str(recovery_card),
+        "--expected-ranked-selection-run-card-sha256",
+        hashlib.sha256(recovery_card.read_bytes()).hexdigest(),
+        "--max-candidates",
+        "1",
+        "--max-pages-per-docket",
+        "2",
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--firecrawl-fixture",
+        str(empty_firecrawl_fixture),
+        "--credit-cap",
+        "11",
+    ]
+    assert legalforecast_cli.main(recovery_acquire_args) == 2
+    recovery_acquire_args[-1] = "10"
+    assert legalforecast_cli.main(recovery_acquire_args) == 0
+
+    terminal_manifest = seal_root / "firecrawl-terminal-partition.jsonl"
+    terminal_target = _target_store(tmp_path, name="terminal-target.sqlite3")
+    terminal_card = tmp_path / "terminal-screening-card.json"
+    terminal_args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=terminal_target,
+        run_card=terminal_card,
+        summary=tmp_path / "terminal-screening-summary.json",
+        docket_ids=(),
+    )
+    terminal_args.extend(
+        (
+            "--sealed-terminal-manifest",
+            str(terminal_manifest),
+            "--expected-sealed-terminal-manifest-sha256",
+            hashlib.sha256(terminal_manifest.read_bytes()).hexdigest(),
+            "--recovery-seal-run-card",
+            str(seal_card),
+            "--expected-recovery-seal-run-card-sha256",
+            hashlib.sha256(seal_card.read_bytes()).hexdigest(),
+            "--recovery-source-cycle-store",
+            str(firecrawl_store),
+        )
+    )
+    assert legalforecast_cli.main(terminal_args) == 0
+    with CycleAcquisitionStore(terminal_target) as store:
+        assert store.candidate_ids("ranked-subset-rest") == (
+            "courtlistener-docket-102",
+        )
+        with pytest.raises(
+            BudgetedDocketAcquisitionError,
+            match="terminal or zero-cap recovery partitions",
+        ):
+            verify_authenticated_ranked_firecrawl_handoff(
+                store=store,
+                parent_batch_id="ranked-subset-rest",
+                ranked_path=ranked_path,
+                selection_run_card_path=terminal_card,
+                expected_selection_run_card_sha256=hashlib.sha256(
+                    terminal_card.read_bytes()
+                ).hexdigest(),
+                max_candidates=1,
+            )
+
+    rejected_target = _target_store(tmp_path, name="terminal-rejected.sqlite3")
+    rejected_args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=rejected_target,
+        run_card=tmp_path / "terminal-rejected-card.json",
+        summary=tmp_path / "terminal-rejected-summary.json",
+        docket_ids=(),
+    )
+    rejected_args.extend(
+        (
+            "--sealed-unresolved-manifest",
+            str(terminal_manifest),
+            "--expected-sealed-unresolved-manifest-sha256",
+            hashlib.sha256(terminal_manifest.read_bytes()).hexdigest(),
+            "--recovery-seal-run-card",
+            str(seal_card),
+            "--expected-recovery-seal-run-card-sha256",
+            hashlib.sha256(seal_card.read_bytes()).hexdigest(),
+            "--recovery-source-cycle-store",
+            str(firecrawl_store),
+        )
+    )
+    assert legalforecast_cli.main(rejected_args) == 2
+    _assert_no_target_rows(rejected_target)
+
+    unresolved_manifest.write_text(
+        unresolved_manifest.read_text().replace(
+            '"docket_id": "103"', '"docket_id": "102"'
+        )
+    )
+    tampered_manifest_target = _target_store(
+        tmp_path, name="tampered-manifest-target.sqlite3"
+    )
+    tampered_manifest_args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=tampered_manifest_target,
+        run_card=tmp_path / "tampered-manifest-card.json",
+        summary=tmp_path / "tampered-manifest-summary.json",
+        docket_ids=(),
+    )
+    tampered_manifest_args.extend(
+        (
+            "--sealed-unresolved-manifest",
+            str(unresolved_manifest),
+            "--expected-sealed-unresolved-manifest-sha256",
+            hashlib.sha256(unresolved_manifest.read_bytes()).hexdigest(),
+            "--recovery-seal-run-card",
+            str(seal_card),
+            "--expected-recovery-seal-run-card-sha256",
+            hashlib.sha256(seal_card.read_bytes()).hexdigest(),
+            "--recovery-source-cycle-store",
+            str(firecrawl_store),
+        )
+    )
+    assert legalforecast_cli.main(tampered_manifest_args) == 2
+    _assert_no_target_rows(tampered_manifest_target)
+
+    tampered_seal_card = tmp_path / "tampered-seal-card.json"
+    tampered_card_payload = json.loads(seal_card.read_text())
+    tampered_card_payload["unresolved_count"] = 99
+    tampered_seal_card.write_text(
+        json.dumps(tampered_card_payload, indent=2, sort_keys=True) + "\n"
+    )
+    tampered_card_target = _target_store(tmp_path, name="tampered-card-target.sqlite3")
+    tampered_card_args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=tampered_card_target,
+        run_card=tmp_path / "tampered-card-selection.json",
+        summary=tmp_path / "tampered-card-summary.json",
+        docket_ids=(),
+    )
+    tampered_card_args.extend(
+        (
+            "--sealed-terminal-manifest",
+            str(terminal_manifest),
+            "--expected-sealed-terminal-manifest-sha256",
+            hashlib.sha256(terminal_manifest.read_bytes()).hexdigest(),
+            "--recovery-seal-run-card",
+            str(tampered_seal_card),
+            "--expected-recovery-seal-run-card-sha256",
+            hashlib.sha256(tampered_seal_card.read_bytes()).hexdigest(),
+            "--recovery-source-cycle-store",
+            str(firecrawl_store),
+        )
+    )
+    assert legalforecast_cli.main(tampered_card_args) == 2
+    _assert_no_target_rows(tampered_card_target)
 
 
 @pytest.mark.parametrize(

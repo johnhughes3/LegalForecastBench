@@ -449,6 +449,144 @@ def test_ranked_budgeted_cli_rejects_concurrent_fixture_workers(
     )
 
 
+def test_seal_ranked_firecrawl_cli_projects_exact_unresolved_without_source_write(
+    tmp_path: Path,
+) -> None:
+    store_path, ranked_path, selection_card, selection_card_sha256 = (
+        _authenticated_type_r_handoff(tmp_path)
+    )
+    source_raw_root = tmp_path / "source-raw"
+    source_raw_root.mkdir()
+    with CycleAcquisitionStore(store_path) as store:
+        run_config = {
+            "purpose": "ranked-complete-docket-acquisition",
+            "decision_anchor": "2026-06-30",
+            "max_pages_per_docket": 2,
+            "raw_artifact_root": str(source_raw_root.resolve()),
+            "firecrawl_proxy": "enhanced",
+            "firecrawl_force_browser": False,
+            "firecrawl_max_credits_per_scrape": 5,
+            "workers": 10,
+            "max_attempts_per_page": 3,
+            "provider_breaker_threshold": 5,
+            "target_http_pressure_policy_version": (
+                "courtlistener-target-http-202-aimd-v1"
+            ),
+        }
+        run_digest = store.ensure_firecrawl_run(
+            "exhausted-run",
+            batch_id="ranked-parent",
+            config=run_config,
+            credit_cap=5,
+            reserved_credits_per_attempt=5,
+        )
+        source_url = (
+            "https://www.courtlistener.com/docket/123/fixture-v-example/"
+            "?order_by=desc&page=1"
+        )
+        target_id = "docket-" + hashlib.sha256(b"123:1").hexdigest()[:24]
+        store.ensure_firecrawl_target(
+            "exhausted-run",
+            target_id=target_id,
+            target_kind="docket",
+            source_url=source_url,
+            ordinal=0,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "exhausted-run",
+            target_id=target_id,
+            page_number=1,
+            request_url=source_url,
+        )
+        store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="provider_error",
+            provider_http_status=500,
+            failure_code="provider_server_error",
+            failure_message="provider unavailable",
+            failure_transient=True,
+            failure_response_sha256="a" * 64,
+        )
+        store.set_firecrawl_target_status("exhausted-run", target_id, "in_progress")
+        cycle_hash = store.cycle_hash
+    source_namespace = {
+        path.name: path.read_bytes()
+        for path in tmp_path.iterdir()
+        if path.name.startswith(store_path.name)
+    }
+    output = tmp_path / "sealed"
+    seal_args = [
+        "acquisition",
+        "seal-ranked-firecrawl-run",
+        "--source-cycle-store",
+        str(store_path),
+        "--run-id",
+        "exhausted-run",
+        "--ranked",
+        str(ranked_path),
+        "--ranked-selection-run-card",
+        str(selection_card),
+        "--expected-ranked-selection-run-card-sha256",
+        selection_card_sha256,
+        "--max-candidates",
+        "1",
+        "--max-pages-per-docket",
+        "2",
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--expected-run-config-sha256",
+        run_digest,
+        "--expected-credit-cap",
+        "5",
+        "--expected-total-prior-authorized-firecrawl-credits",
+        "5",
+        "--authorized-fresh-recovery-credit-cap",
+        "0",
+        "--output-root",
+        str(output),
+        "--execute",
+    ]
+
+    assert main(seal_args) == 0
+
+    assert (output / "firecrawl-docket-successes.jsonl").read_bytes() == b""
+    assert (output / "firecrawl-docket-exclusions.jsonl").read_bytes() == b""
+    unresolved = [
+        json.loads(line)
+        for line in (output / "firecrawl-unresolved-partition.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert [record["docket_id"] for record in unresolved] == ["123"]
+    assert unresolved[0]["reason"] == "provider_or_interrupted_page_incomplete"
+    assert (output / "firecrawl-terminal-partition.jsonl").read_bytes() == b""
+    run_card = json.loads(
+        (output / "run-cards" / "seal-ranked-firecrawl-run.json").read_text()
+    )
+    assert run_card["status"] == "completed"
+    assert run_card["unresolved_count"] == 1
+    assert run_card["authorized_fresh_recovery_credit_cap"] == 0
+    assert run_card["provider_activity_executed"] is False
+    assert {
+        path.name: path.read_bytes()
+        for path in tmp_path.iterdir()
+        if path.name.startswith(store_path.name)
+    } == source_namespace
+    assert list(source_raw_root.rglob("*")) == []
+
+    rejected_output = tmp_path / "rejected-seal"
+    overlap_args = list(seal_args)
+    overlap_args[overlap_args.index(str(output))] = str(rejected_output)
+    overlap_args.extend(
+        ["--successes-output", str(source_raw_root / "forbidden.jsonl")]
+    )
+    assert main(overlap_args) == 2
+    assert list(source_raw_root.rglob("*")) == []
+    assert not rejected_output.exists()
+
+
 def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -266,11 +266,18 @@ class FirecrawlTarget:
 class CycleAcquisitionStore:
     """Single-writer SQLite store for resumable cycle acquisition."""
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, *, read_only: bool = False) -> None:
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock_path = Path(f"{self.path}.lock")
-        self._lock_fd = os.open(self._lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+        self._read_only = read_only
+        if read_only:
+            _require_existing_regular_file(self.path, "cycle store")
+            _require_existing_regular_file(self._lock_path, "cycle store lock")
+            lock_flags = os.O_RDONLY
+        else:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            lock_flags = os.O_RDWR | os.O_CREAT
+        self._lock_fd = os.open(self._lock_path, lock_flags, 0o600)
         try:
             fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
@@ -279,14 +286,31 @@ class CycleAcquisitionStore:
                 f"cycle store is already locked: {self.path}"
             ) from error
         try:
-            _trim_torn_wal_tail(self.path)
-            self._connection = sqlite3.connect(self.path, isolation_level=None)
+            if read_only:
+                wal_path = Path(f"{self.path}-wal")
+                if wal_path.exists() and wal_path.stat().st_size > 0:
+                    raise CycleAcquisitionStoreError(
+                        "read-only cycle store has a nonempty WAL; refusing an "
+                        "immutable view that depends on sidecar state"
+                    )
+                self._connection = sqlite3.connect(
+                    f"{self.path.resolve().as_uri()}?mode=ro&immutable=1",
+                    isolation_level=None,
+                    uri=True,
+                )
+            else:
+                _trim_torn_wal_tail(self.path)
+                self._connection = sqlite3.connect(self.path, isolation_level=None)
             self._connection.row_factory = sqlite3.Row
-            self._connection.execute("PRAGMA journal_mode=WAL")
-            self._connection.execute("PRAGMA synchronous=FULL")
+            if read_only:
+                self._connection.execute("PRAGMA query_only=ON")
+            else:
+                self._connection.execute("PRAGMA journal_mode=WAL")
+                self._connection.execute("PRAGMA synchronous=FULL")
             self._connection.execute("PRAGMA foreign_keys=ON")
             self._connection.execute("PRAGMA busy_timeout=0")
-            self._create_schema()
+            if not read_only:
+                self._create_schema()
             integrity = self._connection.execute("PRAGMA integrity_check").fetchone()
             if integrity is None or integrity[0] != "ok":
                 raise CycleAcquisitionStoreError(
@@ -296,6 +320,12 @@ class CycleAcquisitionStore:
             os.close(self._lock_fd)
             raise
         self._closed = False
+
+    @property
+    def read_only(self) -> bool:
+        """Return whether this handle can only verify existing durable state."""
+
+        return self._read_only
 
     def __enter__(self) -> Self:
         return self
@@ -2855,6 +2885,21 @@ def _read_contained_regular_file(path: Path, *, root: Path) -> bytes:
             f"relocated raw artifact is not a regular file: {path}"
         )
     return normalized_path.read_bytes()
+
+
+def _require_existing_regular_file(path: Path, label: str) -> None:
+    """Reject absent, linked, or nonregular state before read-only verification."""
+
+    try:
+        metadata = path.lstat()
+    except OSError as error:
+        raise CycleAcquisitionStoreError(
+            f"{label} must already exist for read-only access: {path}"
+        ) from error
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise CycleAcquisitionStoreError(
+            f"{label} must be an existing singly linked regular file: {path}"
+        )
 
 
 def _verify_snapshot_reconciliation(path: Path) -> None:
