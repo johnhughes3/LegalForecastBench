@@ -1256,11 +1256,12 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         description=(
             "Provider-free union of manifest-pinned same-cycle snapshots. "
-            "Duplicate candidates require identical terminal screening evidence; "
-            "excluded duplicates may retain distinct authenticated raw docket "
-            "observations while their earliest UTC capture is the canonical packet "
-            "input. Accepted/newly-free duplicates require identical raw bytes. "
-            "Conflicting evidence or raw-path ownership fails closed."
+            "Duplicate terminal evidence is identical unless every conflict has an "
+            "explicit candidate/source-manifest correction pin. Corrections archive "
+            "all source observations, never infer authority from order or time, and "
+            "must select any unique active proof with its exact source-local raw "
+            "bytes. Excluded raw history remains archived while its earliest UTC "
+            "capture is the packet input. Ambiguity or ownership drift fails closed."
         ),
     )
     _add_acquisition_union_screening_snapshots_arguments(
@@ -2883,6 +2884,24 @@ def _add_acquisition_union_screening_snapshots_arguments(
         help=(
             "Pinned lowercase SHA-256 for the corresponding --source-snapshot; "
             "repeat in the same order."
+        ),
+    )
+    parser.add_argument(
+        "--expected-terminal-correction-candidate-id",
+        action="append",
+        help=(
+            "Exact candidate whose non-identical source observations require an "
+            "authenticated correction; repeat once per conflict and pair in order "
+            "with --expected-terminal-correction-source-manifest-sha256."
+        ),
+    )
+    parser.add_argument(
+        "--expected-terminal-correction-source-manifest-sha256",
+        action="append",
+        help=(
+            "Pinned source-manifest SHA-256 that owns the canonical terminal "
+            "observation for the paired correction candidate. Source order and "
+            "timestamps never confer authority."
         ),
     )
     parser.add_argument("--snapshot-root", type=Path, required=True)
@@ -17346,6 +17365,7 @@ def _record_identical_or_new_observation(
     state: str,
     reason_code: str,
     evidence: Mapping[str, object],
+    authenticated_correction: Mapping[str, object] | None = None,
 ) -> None:
     batch_observation = store.batch_terminal_observation(batch_id, candidate_id)
     if batch_observation is not None:
@@ -17366,9 +17386,24 @@ def _record_identical_or_new_observation(
             and dict(current.evidence) == dict(evidence)
         ):
             return
-        raise CycleAcquisitionStoreError(
-            f"candidate {candidate_id} already has conflicting terminal evidence"
-        )
+        if authenticated_correction is None:
+            raise CycleAcquisitionStoreError(
+                f"candidate {candidate_id} already has conflicting terminal evidence"
+            )
+        source_observations = authenticated_correction.get("observations")
+        if not isinstance(source_observations, list) or not any(
+            _union_source_observation_matches(
+                source,
+                state=current.state,
+                reason_code=current.reason_code,
+                evidence=current.evidence,
+            )
+            for source in cast(list[object], source_observations)
+        ):
+            raise CycleAcquisitionStoreError(
+                "authenticated union correction does not bind the existing terminal "
+                f"state for {candidate_id}"
+            )
     store.record_observation(
         candidate_id,
         batch_id=batch_id,
@@ -17376,6 +17411,35 @@ def _record_identical_or_new_observation(
         reason_code=reason_code,
         evidence=evidence,
         observed_at=verified_observation_timestamp(evidence),
+        audit_immutable_skip=(authenticated_correction is None),
+    )
+    if authenticated_correction is not None:
+        corrected = store.current_observation(candidate_id)
+        if corrected is None or (
+            corrected.state != state
+            or corrected.reason_code != reason_code
+            or dict(corrected.evidence) != dict(evidence)
+        ):
+            raise CycleAcquisitionStoreError(
+                "authenticated union correction did not become canonical: "
+                f"{candidate_id}"
+            )
+
+
+def _union_source_observation_matches(
+    value: object,
+    *,
+    state: str,
+    reason_code: str,
+    evidence: Mapping[str, object],
+) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    source = cast(Mapping[str, object], value)
+    return (
+        source.get("state") == state
+        and source.get("reason_code") == reason_code
+        and source.get("evidence") == dict(evidence)
     )
 
 
@@ -17400,12 +17464,22 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
     expected_source_hashes = tuple(
         cast(Sequence[str], args.expected_source_snapshot_manifest_sha256)
     )
+    expected_correction_candidate_ids = tuple(
+        cast(Sequence[str], args.expected_terminal_correction_candidate_id or ())
+    )
+    expected_correction_source_hashes = tuple(
+        cast(
+            Sequence[str],
+            args.expected_terminal_correction_source_manifest_sha256 or (),
+        )
+    )
     snapshot_root = cast(Path, args.snapshot_root)
     snapshot_id = cast(str, args.snapshot_id)
     snapshot_path = snapshot_root / snapshot_id
     owned_raw_dir = output_root / "union-raw-artifacts"
     owned_raw_manifest_path = output_root / "union-raw-artifacts.jsonl"
     owned_raw_observations_path = output_root / "union-raw-observations.jsonl"
+    terminal_observations_path = output_root / "union-terminal-observations.jsonl"
     summary_path = output_root / "screening-snapshot-union-summary.json"
     input_paths = (cycle_store_path, *source_snapshots)
     output_paths = (
@@ -17413,6 +17487,7 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
         owned_raw_dir,
         owned_raw_manifest_path,
         owned_raw_observations_path,
+        terminal_observations_path,
         summary_path,
     )
     if _acquisition_dry_run(args):
@@ -17441,6 +17516,12 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
             source_snapshots,
             expected_manifest_sha256=expected_source_hashes,
             expected_cycle_hash=expected_cycle_hash,
+            expected_terminal_correction_candidate_id=(
+                expected_correction_candidate_ids
+            ),
+            expected_terminal_correction_source_manifest_sha256=(
+                expected_correction_source_hashes
+            ),
         )
         union_provisional_flags: JsonRecord = (
             {
@@ -17478,14 +17559,22 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                 )
                 _write_jsonl(owned_raw_manifest_path, owned_raw_records)
                 _write_jsonl(owned_raw_observations_path, owned_raw_observations)
+                _write_jsonl(
+                    terminal_observations_path,
+                    union.longitudinal_observations,
+                )
                 owned_raw_commitment = _file_commitment(owned_raw_manifest_path)
                 owned_raw_observations_commitment = _file_commitment(
                     owned_raw_observations_path
+                )
+                terminal_observations_commitment = _file_commitment(
+                    terminal_observations_path
                 )
                 expected_commitments = {
                     "screening_snapshot_union_inputs": dict(union.stage_commitment),
                     "owned_raw_artifacts": owned_raw_commitment,
                     "owned_raw_observations": owned_raw_observations_commitment,
+                    "owned_terminal_observations": (terminal_observations_commitment),
                 }
                 if existing[1].get("stage_commitments") != expected_commitments:
                     raise CycleAcquisitionStoreError(
@@ -17569,14 +17658,29 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                         owned_raw_records.append(raw_record)
                 _write_jsonl(owned_raw_manifest_path, owned_raw_records)
                 _write_jsonl(owned_raw_observations_path, owned_raw_observations)
+                _write_jsonl(
+                    terminal_observations_path,
+                    union.longitudinal_observations,
+                )
                 owned_raw_commitment = _file_commitment(owned_raw_manifest_path)
                 owned_raw_observations_commitment = _file_commitment(
                     owned_raw_observations_path
+                )
+                terminal_observations_commitment = _file_commitment(
+                    terminal_observations_path
                 )
                 expected_commitments = {
                     "screening_snapshot_union_inputs": dict(union.stage_commitment),
                     "owned_raw_artifacts": owned_raw_commitment,
                     "owned_raw_observations": owned_raw_observations_commitment,
+                    "owned_terminal_observations": (terminal_observations_commitment),
+                }
+                correction_by_candidate = {
+                    _required_str(correction, "candidate_id"): correction
+                    for correction in cast(
+                        list[Mapping[str, object]],
+                        union.stage_commitment["longitudinal_corrections"],
+                    )
                 }
                 for candidate in union.candidates:
                     _record_identical_or_new_observation(
@@ -17586,6 +17690,9 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                         state=candidate.state,
                         reason_code=candidate.reason_code,
                         evidence=candidate.evidence,
+                        authenticated_correction=correction_by_candidate.get(
+                            candidate.candidate_id
+                        ),
                     )
                 if not store.snapshot_is_saturated(batch_id):
                     raise CycleAcquisitionStoreError(
@@ -17614,6 +17721,9 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
             "candidate_count": len(union.candidates),
             "accepted_case_count": snapshot_summary["accepted_count"],
             "excluded_case_count": snapshot_summary["excluded_count"],
+            "longitudinal_correction_count": len(
+                union.stage_commitment["longitudinal_corrections"]
+            ),
             "snapshot_path": str(snapshot_path),
             "snapshot_complete": manifest["complete"],
             "snapshot_saturated": manifest["saturated"],
@@ -17624,6 +17734,9 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
             "output_commitments": {
                 "owned_raw_artifacts": _file_commitment(owned_raw_manifest_path),
                 "owned_raw_observations": _file_commitment(owned_raw_observations_path),
+                "owned_terminal_observations": _file_commitment(
+                    terminal_observations_path
+                ),
             },
             **union_provisional_flags,
         }
@@ -17637,6 +17750,7 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                 owned_raw_dir,
                 owned_raw_manifest_path,
                 owned_raw_observations_path,
+                terminal_observations_path,
                 summary_path,
             ),
             record_count=cast(int, snapshot_summary["accepted_count"]),
@@ -17739,9 +17853,11 @@ def _snapshot_canonical_raw_commitments(
     if not isinstance(union_inputs, Mapping):
         return None
     typed_union_inputs = cast(Mapping[str, object], union_inputs)
-    if typed_union_inputs.get("canonical_raw_selection_policy") != (
-        "excluded_earliest_authenticated_utc_sha_v1"
-    ):
+    raw_policy = typed_union_inputs.get("canonical_raw_selection_policy")
+    if raw_policy not in {
+        "excluded_earliest_authenticated_utc_sha_v1",
+        "terminal_authority_bound_raw_v2",
+    }:
         raise CycleAcquisitionStoreError(
             "screening snapshot union lacks the supported canonical raw policy"
         )
@@ -17792,10 +17908,20 @@ def _snapshot_canonical_raw_commitments(
         raise CycleAcquisitionStoreError(
             "canonical raw mapping count does not match its union commitment"
         )
+    candidate_records = _read_records(snapshot_path / "candidates.jsonl")
     candidates = {
         _required_str(record, "candidate_id"): _required_str(record, "state")
-        for record in _read_records(snapshot_path / "candidates.jsonl")
+        for record in candidate_records
     }
+    active_authority_mapping = (
+        _snapshot_longitudinal_active_raw_mapping(
+            typed_union_inputs,
+            candidate_records=candidate_records,
+            archived_records=archived_records,
+        )
+        if raw_policy == "terminal_authority_bound_raw_v2"
+        else {}
+    )
     archived_by_candidate: dict[str, list[Mapping[str, object]]] = defaultdict(list)
     for record in archived_records:
         archived_by_candidate[_required_str(record, "candidate_id")].append(record)
@@ -17826,12 +17952,28 @@ def _snapshot_canonical_raw_commitments(
                     "archived raw observations have an ambiguous equal retrieval "
                     f"timestamp for {candidate_id}"
                 )
+        canonical: Mapping[str, object]
         if len(ordered) > 1 and state != "excluded":
-            raise CycleAcquisitionStoreError(
-                "active candidate has multiple archived raw observations: "
-                f"{candidate_id}"
-            )
-        canonical = ordered[0]
+            authority = active_authority_mapping.get(candidate_id)
+            matches = [
+                record
+                for record in ordered
+                if (
+                    _required_str(record, "sha256"),
+                    record.get("byte_count"),
+                    _required_str(record, "retrieved_at"),
+                )
+                == authority
+            ]
+            if len(matches) != 1:
+                raise CycleAcquisitionStoreError(
+                    "active candidate has multiple archived raw observations "
+                    "without one authenticated correction source: "
+                    f"{candidate_id}"
+                )
+            canonical = matches[0]
+        else:
+            canonical = ordered[0]
         canonical_byte_count = canonical.get("byte_count")
         if not isinstance(canonical_byte_count, int) or isinstance(
             canonical_byte_count, bool
@@ -17850,6 +17992,268 @@ def _snapshot_canonical_raw_commitments(
             "authenticated observation"
         )
     return commitments
+
+
+def _snapshot_longitudinal_active_raw_mapping(
+    union_inputs: Mapping[str, object],
+    *,
+    candidate_records: Sequence[Mapping[str, object]],
+    archived_records: Sequence[Mapping[str, object]],
+) -> dict[str, tuple[str, int, str]]:
+    if union_inputs.get("longitudinal_correction_policy") != (
+        "explicit_candidate_source_manifest_unique_active_v1"
+    ):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union lacks its longitudinal correction policy"
+        )
+    corrections_value = union_inputs.get("longitudinal_corrections")
+    if not isinstance(corrections_value, list):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union lacks longitudinal correction evidence"
+        )
+    corrections = cast(list[object], corrections_value)
+    if union_inputs.get("longitudinal_correction_count") != len(corrections):
+        raise CycleAcquisitionStoreError(
+            "longitudinal correction count does not match its evidence"
+        )
+    sources_value = union_inputs.get("sources")
+    if not isinstance(sources_value, list):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union lacks authenticated sources"
+        )
+    authenticated_sources: set[str] = set()
+    for source_index, source_value in enumerate(
+        cast(list[object], sources_value), start=1
+    ):
+        if not isinstance(source_value, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is not an object"
+            )
+        source = cast(Mapping[str, object], source_value)
+        source_hash = _required_str(source, "manifest_sha256")
+        if (
+            re.fullmatch(r"[0-9a-f]{64}", source_hash) is None
+            or source_hash in authenticated_sources
+        ):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is invalid"
+            )
+        authenticated_sources.add(source_hash)
+    if union_inputs.get("source_count") != len(authenticated_sources):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union source count does not match its evidence"
+        )
+    canonical_candidates = {
+        _required_str(record, "candidate_id"): record for record in candidate_records
+    }
+    archived_commitments = {
+        (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "sha256"),
+            record.get("byte_count"),
+            _required_str(record, "retrieved_at"),
+        )
+        for record in archived_records
+    }
+    active_mapping: dict[str, tuple[str, int, str]] = {}
+    seen_candidates: set[str] = set()
+    for index, value in enumerate(corrections, start=1):
+        if not isinstance(value, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} is not an object"
+            )
+        correction = cast(Mapping[str, object], value)
+        candidate_id = _required_str(correction, "candidate_id")
+        if candidate_id in seen_candidates or candidate_id not in canonical_candidates:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} has invalid candidate ownership"
+            )
+        seen_candidates.add(candidate_id)
+        authoritative_manifest = _required_str(
+            correction, "canonical_source_manifest_sha256"
+        )
+        if authoritative_manifest not in authenticated_sources:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} has unauthenticated authority"
+            )
+        observations_value = correction.get("observations")
+        if not isinstance(observations_value, list):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} lacks conflicting observations"
+            )
+        observations = cast(list[object], observations_value)
+        if len(observations) < 2:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} lacks conflicting observations"
+            )
+        terminal_hashes: set[str] = set()
+        active_hashes: set[str] = set()
+        authoritative_observations: list[Mapping[str, object]] = []
+        source_hashes: set[str] = set()
+        marked_canonical_count = 0
+        for observation_value in observations:
+            if not isinstance(observation_value, Mapping):
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} has an invalid observation"
+                )
+            observation = cast(Mapping[str, object], observation_value)
+            if _required_str(observation, "candidate_id") != candidate_id:
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} has cross-candidate evidence"
+                )
+            source_hash = _required_str(observation, "source_manifest_sha256")
+            if re.fullmatch(r"[0-9a-f]{64}", source_hash) is None:
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} has invalid source hash"
+                )
+            if source_hash not in authenticated_sources:
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} references an unknown source"
+                )
+            if source_hash in source_hashes:
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} duplicates a source"
+                )
+            source_hashes.add(source_hash)
+            observation_evidence = observation.get("evidence")
+            if not isinstance(observation_evidence, Mapping):
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} has invalid evidence"
+                )
+            typed_observation_evidence = cast(
+                Mapping[str, object], observation_evidence
+            )
+            observation_terminal_payload: dict[str, object] = {
+                "state": _required_str(observation, "state"),
+                "reason_code": _required_str(observation, "reason_code"),
+                "evidence": dict(typed_observation_evidence),
+            }
+            computed_terminal_hash = hashlib.sha256(
+                json.dumps(
+                    observation_terminal_payload,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode()
+            ).hexdigest()
+            terminal_hash = _required_str(observation, "terminal_sha256")
+            if terminal_hash != computed_terminal_hash:
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} has terminal hash drift"
+                )
+            terminal_hashes.add(terminal_hash)
+            state = _required_str(observation, "state")
+            if state in {"accepted", "newly_free"}:
+                active_hashes.add(terminal_hash)
+            if source_hash == authoritative_manifest:
+                authoritative_observations.append(observation)
+            if observation.get("canonical_terminal_observation") is True:
+                marked_canonical_count += 1
+            raw_observations = observation.get("raw_artifacts")
+            if not isinstance(raw_observations, list):
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} lacks raw bindings"
+                )
+            for raw_value in cast(list[object], raw_observations):
+                if not isinstance(raw_value, Mapping):
+                    raise CycleAcquisitionStoreError(
+                        f"longitudinal correction row {index} has invalid raw binding"
+                    )
+                raw = cast(Mapping[str, object], raw_value)
+                raw_byte_count = raw.get("byte_count")
+                if not isinstance(raw_byte_count, int) or isinstance(
+                    raw_byte_count, bool
+                ):
+                    raise CycleAcquisitionStoreError(
+                        f"longitudinal correction row {index} has invalid raw binding"
+                    )
+                raw_commitment = (
+                    candidate_id,
+                    _required_str(raw, "sha256"),
+                    raw_byte_count,
+                    _required_str(raw, "retrieved_at"),
+                )
+                _canonical_raw_retrieved_at(
+                    _required_str(raw, "source_retrieved_at"),
+                    candidate_id=candidate_id,
+                )
+                if raw_commitment not in archived_commitments:
+                    raise CycleAcquisitionStoreError(
+                        f"longitudinal correction row {index} substitutes raw bytes"
+                    )
+        if len(terminal_hashes) < 2 or len(active_hashes) > 1:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} is not uniquely reconcilable"
+            )
+        if len(authoritative_observations) != 1 or marked_canonical_count != 1:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} lacks unique source authority"
+            )
+        authoritative = authoritative_observations[0]
+        if authoritative.get("canonical_terminal_observation") is not True:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} does not mark its authority"
+            )
+        canonical_candidate = canonical_candidates[candidate_id]
+        canonical_terminal_payload = {
+            "state": _required_str(canonical_candidate, "state"),
+            "reason_code": _required_str(canonical_candidate, "reason_code"),
+            "evidence": canonical_candidate.get("evidence"),
+        }
+        canonical_terminal_hash = hashlib.sha256(
+            json.dumps(
+                canonical_terminal_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ).encode()
+        ).hexdigest()
+        if (
+            correction.get("canonical_terminal_sha256") != canonical_terminal_hash
+            or authoritative.get("terminal_sha256") != canonical_terminal_hash
+        ):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} conflicts with canonical state"
+            )
+        canonical_state = _required_str(canonical_candidate, "state")
+        if active_hashes and canonical_terminal_hash not in active_hashes:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} suppresses an active proof"
+            )
+        if canonical_state not in {"accepted", "newly_free"}:
+            continue
+        raw_value = authoritative.get("raw_artifacts")
+        if not isinstance(raw_value, list):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} lacks one active raw artifact"
+            )
+        raw_objects = cast(list[object], raw_value)
+        if len(raw_objects) != 1:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} lacks one active raw artifact"
+            )
+        [raw_object] = raw_objects
+        if not isinstance(raw_object, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} has invalid active raw evidence"
+            )
+        raw = cast(Mapping[str, object], raw_object)
+        byte_count = raw.get("byte_count")
+        if not isinstance(byte_count, int) or isinstance(byte_count, bool):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} has invalid raw byte count"
+            )
+        authority = (
+            _required_str(raw, "sha256"),
+            byte_count,
+            _required_str(raw, "retrieved_at"),
+        )
+        if (candidate_id, *authority) not in archived_commitments:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} substitutes unarchived raw bytes"
+            )
+        active_mapping[candidate_id] = authority
+    return active_mapping
 
 
 def _canonical_raw_retrieved_at(value: str, *, candidate_id: str) -> datetime:
@@ -34249,7 +34653,26 @@ def _verified_snapshot_raw_html_sources(
                 "verified snapshot contains preliminary REST evidence without "
                 "canonical linkage, leakage, and embedded entries"
             )
-    artifact_records = _read_records(snapshot_path / "raw-artifacts.jsonl")
+    snapshot_manifest_path = snapshot_path / "manifest.json"
+    snapshot_manifest = (
+        _read_json_object(snapshot_manifest_path)
+        if snapshot_manifest_path.is_file()
+        else {}
+    )
+    stage_commitments = snapshot_manifest.get("stage_commitments")
+    union_inputs = (
+        cast(Mapping[str, object], stage_commitments).get(
+            "screening_snapshot_union_inputs"
+        )
+        if isinstance(stage_commitments, Mapping)
+        else None
+    )
+    is_union_snapshot = isinstance(union_inputs, Mapping)
+    artifact_records = (
+        _owned_raw_records_from_snapshot(snapshot_path)
+        if is_union_snapshot
+        else _read_records(snapshot_path / "raw-artifacts.jsonl")
+    )
     artifact_paths: list[tuple[str, Path]] = []
     for record in artifact_records:
         candidate_id = record.get("candidate_id")
@@ -34287,6 +34710,44 @@ def _verified_snapshot_raw_html_sources(
     requested_directory: Path | None = None
     if requested is not None:
         requested_directory = requested.resolve()
+        union_roots: set[Path] = (
+            {
+                path.parent.parent
+                for candidate_id, path in artifact_paths
+                if path.parent.name
+                in {candidate_id, f"courtlistener-docket-{candidate_id}"}
+            }
+            if is_union_snapshot
+            else set()
+        )
+        if is_union_snapshot and len(union_roots) == 1:
+            [union_root] = union_roots
+            if requested_directory != union_root:
+                raise CommandError(
+                    "--raw-html-dir must exactly match the committed verified "
+                    "snapshot union artifact root"
+                )
+            paths_by_candidate: dict[str, list[Path]] = defaultdict(list)
+            for candidate_id, path in artifact_paths:
+                if path.suffix.casefold() != ".html" or not path.is_file():
+                    raise CommandError(
+                        "verified snapshot contains an invalid raw HTML artifact path"
+                    )
+                paths_by_candidate[candidate_id].append(path)
+            duplicate_ids = sorted(
+                candidate_id
+                for candidate_id, paths in paths_by_candidate.items()
+                if len(paths) != 1
+            )
+            if duplicate_ids:
+                raise CommandError(
+                    "verified snapshot canonical raw projection duplicates candidates: "
+                    + ", ".join(duplicate_ids)
+                )
+            return None, {
+                candidate_id: paths[0]
+                for candidate_id, paths in paths_by_candidate.items()
+            }
         if requested_directory not in parents:
             raise CommandError(
                 "--raw-html-dir must exactly match a committed verified snapshot "

@@ -57,6 +57,9 @@ from legalforecast.ingestion.screening_snapshot_union import (
     ScreeningSnapshotUnionError,
     load_screening_snapshot_union,
 )
+from legalforecast.ingestion.strict_screen_evidence import (
+    validate_strict_screen_evidence,
+)
 
 
 def test_docket_html_refuses_off_allowlist_redirect_hop() -> None:
@@ -1367,6 +1370,7 @@ def test_canonical_screen_accepts_genuinely_first_postanchor_disposition(
     assert exclusion is None
     assert screened is not None
     assert screened["first_written_mtd_disposition_date"] == "2026-07-01"
+    validate_strict_screen_evidence(screened)
 
 
 def test_discover_courtlistener_execute_requires_live_or_complete_fixture_pair(
