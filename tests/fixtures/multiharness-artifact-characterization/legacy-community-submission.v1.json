@@ -1,0 +1,36 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "community-comparison",
+      "media_type": "application/json",
+      "path": "reports/community-comparison.json",
+      "public": true,
+      "sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "size_bytes": 512
+    }
+  ],
+  "attestations": [
+    "not an official LegalForecastBench result"
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "Fixture Operator",
+      "role": "run_operator"
+    }
+  ],
+  "public_summary": {
+    "family": "harvey_lab",
+    "scoring_mode": "lab_native"
+  },
+  "run_manifest_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "schema_version": "legalforecast.multiharness.community_submission.v1",
+  "submission_id": "fixture-legacy-submission",
+  "submitter": {
+    "identifiers": {
+      "github": "fixture-contributor"
+    },
+    "name": "Fixture Contributor",
+    "role": "submitter"
+  }
+}

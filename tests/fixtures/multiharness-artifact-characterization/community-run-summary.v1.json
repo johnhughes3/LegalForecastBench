@@ -1,0 +1,24 @@
+{
+  "adapter_ids": [
+    "fixture-cli"
+  ],
+  "families": [
+    "harvey_lab"
+  ],
+  "model_keys": [
+    "fixture-model"
+  ],
+  "result_status_counts": {
+    "succeeded": 1
+  },
+  "row_count": 1,
+  "run_config_sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "run_id": "fixture-run",
+  "run_manifest_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "schema_version": "legalforecast.multiharness.community_run_summary.v1",
+  "scoring_modes": [
+    "lab_native"
+  ],
+  "selection_label": "fixture selection",
+  "selection_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}

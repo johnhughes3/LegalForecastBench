@@ -1,0 +1,44 @@
+{
+  "adapter_id": "fixture-cli",
+  "adapter_version": "0.1.0",
+  "compatible_shard_group_id": "harvey_lab:lab_native:harvey-lab-2026-07",
+  "contributor_credits": [
+    {
+      "identifiers": {},
+      "name": "Fixture Operator",
+      "role": "run_operator"
+    },
+    {
+      "identifiers": {},
+      "name": "Fixture Adapter Authors",
+      "role": "adapter_author"
+    },
+    {
+      "identifiers": {},
+      "name": "Harvey LAB",
+      "role": "task_source"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "model_key": "fixture-model",
+  "run_config_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "sandbox_policy_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "schema_version": "legalforecast.multiharness.community_shard.v1",
+  "selection_label": "fixture selection",
+  "selection_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "shard_id": "fixture-shard",
+  "source_suite": "harvey_lab",
+  "suite_version": "harvey-lab-2026-07",
+  "task_ids": [
+    "harvey_lab:corporate/merger"
+  ],
+  "task_selectors": {
+    "domains": [
+      "corporate"
+    ]
+  }
+}

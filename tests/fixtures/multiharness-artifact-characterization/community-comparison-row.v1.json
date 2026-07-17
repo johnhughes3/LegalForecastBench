@@ -1,0 +1,33 @@
+{
+  "adapter_id": "fixture-cli",
+  "adapter_version": "0.1.0",
+  "artifact_ids": [
+    "community-comparison"
+  ],
+  "conformance_status": "passed",
+  "contributor_credit": [
+    {
+      "name": "Fixture Operator",
+      "role": "run_operator"
+    }
+  ],
+  "coverage_percentage": 100.0,
+  "family": "harvey_lab",
+  "model_key": "fixture-model",
+  "row_id": "fixture-submission:fixture-shard",
+  "row_type": "single-shard",
+  "scoring_mode": "lab_native",
+  "selection_label": "fixture selection",
+  "selection_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "shard_ids": [
+    "fixture-shard"
+  ],
+  "status_counts": {
+    "succeeded": 1
+  },
+  "submission_ids": [
+    "fixture-submission"
+  ],
+  "suite_version": "harvey-lab-2026-07",
+  "task_count": 1
+}

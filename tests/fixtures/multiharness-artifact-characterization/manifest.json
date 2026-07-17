@@ -1,0 +1,62 @@
+{
+  "schema_version": "legalforecast.testing.multiharness_artifact_characterization.v1",
+  "versioned_readers": [
+    {
+      "fixture": "canonical-task.v1.json",
+      "reader": "legalforecast.multiharness.spec.CanonicalTask.from_record",
+      "writer": "legalforecast.multiharness.spec.CanonicalTask.to_record"
+    },
+    {
+      "fixture": "community-run-summary.v1.json",
+      "reader": "legalforecast.multiharness.community.CommunityRunSummary.from_record",
+      "writer": "legalforecast.multiharness.community.CommunityRunSummary.to_record"
+    },
+    {
+      "fixture": "community-submission-shard.v1.json",
+      "reader": "legalforecast.multiharness.community.CommunitySubmissionShard.from_record",
+      "writer": "legalforecast.multiharness.community.CommunitySubmissionShard.to_record"
+    },
+    {
+      "fixture": "community-submission-manifest.v1.json",
+      "file_reader": "legalforecast.multiharness.community.validate_submission_file",
+      "reader": "legalforecast.multiharness.community.CommunitySubmissionManifest.from_record",
+      "writer": "legalforecast.multiharness.community.CommunitySubmissionManifest.to_record"
+    },
+    {
+      "fixture": "legacy-community-submission.v1.json",
+      "reader": "legalforecast.multiharness.spec.CommunitySubmission.from_record",
+      "writer": "legalforecast.multiharness.spec.CommunitySubmission.to_record"
+    },
+    {
+      "fixture": "legacy-community-aggregate.v1.json",
+      "reader": "legalforecast.multiharness.spec.CommunityAggregate.from_record",
+      "writer": "legalforecast.multiharness.spec.CommunityAggregate.to_record"
+    }
+  ],
+  "generated_artifacts": [
+    {
+      "fixture": "community-comparison-row.v1.json",
+      "writer": "legalforecast.multiharness.reporting.CommunityComparisonRow.to_record"
+    },
+    {
+      "fixtures": [
+        "reports/community-comparison.json",
+        "reports/community-comparison.csv",
+        "reports/community-comparison.md",
+        "reports/community-comparison.html"
+      ],
+      "writers": [
+        "legalforecast.multiharness.reporting.render_community_comparison_json",
+        "legalforecast.multiharness.reporting.render_community_comparison_csv",
+        "legalforecast.multiharness.reporting.render_community_comparison_markdown",
+        "legalforecast.multiharness.reporting.render_community_comparison_html"
+      ]
+    }
+  ],
+  "publication_inputs": [
+    {
+      "fixture": "site-summary.v1.json",
+      "reader": "legalforecast.publication.static_sites.render_community_results_site"
+    }
+  ]
+}

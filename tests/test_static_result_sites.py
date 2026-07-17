@@ -11,6 +11,9 @@ import pytest
 from legalforecast.evals.bootstrap import ModelScoreInput, paired_clustered_bootstrap
 from legalforecast.evals.output_parser import ParserStatus
 from legalforecast.evals.scorers import UnitScore
+from legalforecast.publication.community_aggregate import (
+    COMMUNITY_AGGREGATE_BUNDLE_SCHEMA_VERSION,
+)
 from legalforecast.publication.official_report_validation import (
     _validate_model_summary,
 )
@@ -686,6 +689,7 @@ def test_static_site_guardrails_reject_secret_content(tmp_path: Path) -> None:
     _write_json(
         aggregate_dir / "registry" / "site-summary.json",
         {
+            "schema_version": COMMUNITY_AGGREGATE_BUNDLE_SCHEMA_VERSION,
             "rows": [
                 {
                     "row_id": "leaky",
@@ -695,7 +699,7 @@ def test_static_site_guardrails_reject_secret_content(tmp_path: Path) -> None:
                     "adapter_id": "fixture",
                     "model_key": "OPENAI_API_KEY=sk-secretsecret",
                 }
-            ]
+            ],
         },
     )
 
@@ -747,9 +751,7 @@ def _write_community_aggregate(tmp_path: Path) -> Path:
     _write_json(
         aggregate_dir / "registry" / "site-summary.json",
         {
-            "schema_version": (
-                "legalforecast.multiharness.community_aggregate_bundle.v1"
-            ),
+            "schema_version": COMMUNITY_AGGREGATE_BUNDLE_SCHEMA_VERSION,
             "submission_count": 2,
             "row_count": 2,
             "families": ["harvey_lab", "legalforecast_mtd"],

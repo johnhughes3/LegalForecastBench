@@ -1,0 +1,13 @@
+{
+  "artifacts": [],
+  "family": "harvey_lab",
+  "metadata": {
+    "domain": "corporate"
+  },
+  "schema_version": "legalforecast.multiharness.task.v1",
+  "scoring_mode": "lab_native",
+  "source_id": "harvey-lab:corporate/merger",
+  "suite_version": "harvey-lab-2026-07",
+  "task_id": "harvey_lab:corporate/merger",
+  "task_sha256": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+}

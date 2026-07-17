@@ -1,0 +1,2 @@
+row_id,row_type,family,scoring_mode,selection_label,adapter_id,adapter_version,model_key,conformance_status,task_count,coverage_percentage,submission_ids,shard_ids
+fixture-submission:fixture-shard,single-shard,harvey_lab,lab_native,fixture selection,fixture-cli,0.1.0,fixture-model,passed,1,100.0,fixture-submission,fixture-shard

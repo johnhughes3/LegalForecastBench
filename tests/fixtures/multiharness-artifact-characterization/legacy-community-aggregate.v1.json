@@ -1,0 +1,12 @@
+{
+  "aggregate_id": "fixture-community-aggregate",
+  "aggregate_sha256": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "public_summary": {
+    "family": "harvey_lab",
+    "scoring_mode": "lab_native"
+  },
+  "schema_version": "legalforecast.multiharness.community_aggregate.v1",
+  "submissions": [
+    "fixture-legacy-submission"
+  ]
+}

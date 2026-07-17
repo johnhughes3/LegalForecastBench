@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.spec import ArtifactRecord
+from legalforecast.multiharness.validation import require_schema_version
 from legalforecast.publication.official_report_site import build_official_report_page
 from legalforecast.publication.official_report_validation import load_official_bundle
 from legalforecast.publication.publication_guardrails import (
@@ -22,6 +23,9 @@ from legalforecast.publication.publication_guardrails import (
 OFFICIAL_RESULTS_SITE_SCHEMA_VERSION = "legalforecast.official_results_site.v1"
 COMMUNITY_RESULTS_SITE_SCHEMA_VERSION = "legalforecast.community_results_site.v1"
 CONFORMANCE_SELF_REPORTED_LABEL = "Conformance (self-reported)"
+_COMMUNITY_AGGREGATE_BUNDLE_SCHEMA_VERSION = (
+    "legalforecast.multiharness.community_aggregate_bundle.v1"
+)
 _CSS = """
 :root {
   color-scheme: light;
@@ -242,6 +246,7 @@ def render_community_results_site(
         community_aggregate_dir / "registry" / "site-summary.json",
         "community site summary",
     )
+    require_schema_version(summary, _COMMUNITY_AGGREGATE_BUNDLE_SCHEMA_VERSION)
     rows = _rows(summary)
     artifact_links = _artifact_links(community_aggregate_dir, href_base=output_dir)
     body = [
