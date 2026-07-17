@@ -160,7 +160,65 @@ def execution_policy_content(artifact: Mapping[str, Any]) -> Mapping[str, Any]:
     """Return validated execution-policy content for cross-artifact checks."""
 
     verify_execution_policy(artifact)
-    return cast(Mapping[str, Any], artifact["policy"])
+    return _validated_execution_policy(cast(Mapping[str, Any], artifact["policy"]))
+
+
+def execution_repeat_policy(artifact: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Return the normalized frozen repeat policy after full verification."""
+
+    policy = execution_policy_content(artifact)
+    return cast(Mapping[str, Any], policy["repeat_policy"])
+
+
+def execution_repeat_policy_sha256(artifact: Mapping[str, Any]) -> str:
+    """Return the durable identity of the verified frozen repeat policy."""
+
+    return _hash(execution_repeat_policy(artifact))
+
+
+def require_repeat_case_coverage(
+    model_packets: Sequence[object],
+    *,
+    repeat_case_ids: Sequence[str],
+    requested_ablations: Sequence[str],
+) -> None:
+    """Require every frozen repeat case in every requested packet ablation."""
+
+    repeat_cases = tuple(
+        _text(case_id, "repeat case ID") for case_id in repeat_case_ids
+    )
+    ablations = tuple(
+        _text(ablation, "requested ablation") for ablation in requested_ablations
+    )
+    available: set[tuple[str, str]] = set()
+    for raw_packet in model_packets:
+        if not isinstance(raw_packet, Mapping):
+            continue
+        packet = cast(Mapping[str, Any], raw_packet)
+        case_id = packet.get("case_id")
+        ablation = packet.get("ablation") or "full_packet"
+        if isinstance(case_id, str) and case_id and isinstance(ablation, str):
+            available.add((case_id, ablation))
+    missing = sorted(
+        (case_id, ablation)
+        for case_id in repeat_cases
+        for ablation in ablations
+        if (case_id, ablation) not in available
+    )
+    if missing:
+        formatted = [
+            {"case_id": case_id, "ablation": ablation} for case_id, ablation in missing
+        ]
+        raise PolicyArtifactError(
+            "frozen repeat policy cases are missing from requested packet "
+            f"ablations: {formatted}"
+        )
+
+
+def policy_content_sha256(policy: Mapping[str, Any]) -> str:
+    """Hash normalized policy content with the canonical policy serializer."""
+
+    return _hash(policy)
 
 
 def require_dispatch_policy_match(
@@ -354,7 +412,18 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
         "receipt_policy",
     )
     _true(receipts.get("write_once_per_attempt"), "write_once_per_attempt")
-    _string_list(receipts.get("identity_fields"), "receipt_policy.identity_fields")
+    receipt_identity_fields = _string_list(
+        receipts.get("identity_fields"), "receipt_policy.identity_fields"
+    )
+    required_receipt_identity_fields = (
+        "workflow_run_id",
+        "workflow_run_attempt",
+    )
+    if receipt_identity_fields != required_receipt_identity_fields:
+        raise PolicyArtifactError(
+            "receipt_policy.identity_fields must identify the immutable attempt: "
+            f"expected {list(required_receipt_identity_fields)}"
+        )
     _true(receipts.get("result_commitment_required"), "result_commitment_required")
 
     attempts = _object(policy.get("attempt_policy"), "attempt_policy")
@@ -371,8 +440,8 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
     case_ids = _string_list(repeat.get("case_ids"), "repeat_policy.case_ids")
     if len(case_ids) != len(set(case_ids)):
         raise PolicyArtifactError("repeat_policy.case_ids contains duplicates")
-    if repeat.get("count") != len(case_ids):
-        raise PolicyArtifactError("repeat_policy.count must equal case_ids length")
+    _positive_int(repeat.get("count"), "repeat_policy.count")
+    cast(dict[str, Any], repeat)["case_ids"] = sorted(case_ids)
 
     cadence = _object(policy.get("cadence_counts"), "cadence_counts")
     _exact_keys(

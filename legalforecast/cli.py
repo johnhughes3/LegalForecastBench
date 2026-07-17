@@ -1859,6 +1859,16 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
         "--model-key",
         help="Registry key in provider:model_id form.",
     )
+    parser.add_argument(
+        "--execution-policy",
+        help="Frozen execution-policy artifact path, file:// URI, or s3:// URI.",
+    )
+    parser.add_argument(
+        "--expected-execution-policy-sha256",
+        help="Canonical policy SHA-256 committed by dispatch provenance.",
+    )
+    parser.add_argument("--workflow-run-id")
+    parser.add_argument("--workflow-run-attempt", type=int)
     mock_output_group = parser.add_mutually_exclusive_group()
     mock_output_group.add_argument(
         "--mock-output",
@@ -7215,6 +7225,12 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             backend=backend,
             model_registry_uri=cast(str | None, args.model_registry),
             model_key=cast(str | None, args.model_key),
+            execution_policy_uri=cast(str | None, args.execution_policy),
+            expected_execution_policy_sha256=cast(
+                str | None, args.expected_execution_policy_sha256
+            ),
+            workflow_run_id=cast(str | None, args.workflow_run_id),
+            workflow_run_attempt=cast(int | None, args.workflow_run_attempt),
             expected_packet_object_key=cast(
                 str | None,
                 args.expected_packet_object_key,

@@ -12,7 +12,10 @@ from typing import Any, cast
 
 from legalforecast._hashing import is_lowercase_sha256
 from legalforecast.protocol.manifest import hash_payload
-from legalforecast.protocol.policy_artifacts import OFFICIAL_SHARD_ABLATIONS
+from legalforecast.protocol.policy_artifacts import (
+    OFFICIAL_SHARD_ABLATIONS,
+    policy_content_sha256,
+)
 
 DISPATCH_PROVENANCE_SCHEMA_VERSION = "legalforecast.dispatch_provenance.v1"
 SHARD_CONCURRENCY_GROUP_PREFIX = "run-benchmark"
@@ -73,6 +76,8 @@ def build_dispatch_provenance(
     current_concurrency_group: str | None = None,
     requested_model_keys: Sequence[str],
     requested_ablations: Sequence[str] = (),
+    requested_repeat_count: int | None = None,
+    requested_repeat_case_ids: Sequence[str] = (),
     shard_only: bool = False,
     supersedes_report_uri: str | None = None,
 ) -> JsonRecord:
@@ -154,6 +159,12 @@ def build_dispatch_provenance(
         if execution_policy is not None
         else None
     )
+    if execution_policy is not None:
+        _require_repeat_dispatch_match(
+            execution_policy,
+            requested_repeat_count=requested_repeat_count,
+            requested_repeat_case_ids=requested_repeat_case_ids,
+        )
     requested = tuple(sorted(_unique_model_keys(requested_model_keys)))
     requested_ablation_values = tuple(
         sorted(_unique_strings(requested_ablations, "ablation"))
@@ -264,6 +275,34 @@ def build_dispatch_provenance(
             "supersedes_report_uri": supersedes_report_uri if is_amendment else None,
         },
     }
+    if execution_policy is not None:
+        record.update(
+            {
+                "execution_policy_sha256": policy_content_sha256(execution_policy),
+                "execution_policy_artifact_sha256": (
+                    _execution_policy_artifact_sha256(current.record)
+                ),
+                "frozen_result_inputs": _frozen_result_inputs(current.record),
+                "repeat_policy": dict(
+                    _required_mapping(execution_policy, "repeat_policy")
+                ),
+                "attempt_policy": dict(
+                    _required_mapping(execution_policy, "attempt_policy")
+                ),
+                "receipt_policy": dict(
+                    _required_mapping(execution_policy, "receipt_policy")
+                ),
+                "repeat_policy_sha256": policy_content_sha256(
+                    _required_mapping(execution_policy, "repeat_policy")
+                ),
+                "attempt_policy_sha256": policy_content_sha256(
+                    _required_mapping(execution_policy, "attempt_policy")
+                ),
+                "receipt_policy_sha256": policy_content_sha256(
+                    _required_mapping(execution_policy, "receipt_policy")
+                ),
+            }
+        )
     if shard_only:
         assert requested_shard is not None
         assert declared_shards is not None
@@ -274,7 +313,6 @@ def build_dispatch_provenance(
                 "dispatch_mode": "shard_only",
                 "shard_schedule": [_shard_record(shard) for shard in declared_shards],
                 "requested_shard": _shard_record(requested_shard),
-                "execution_policy_sha256": hash_payload(execution_policy),
                 "workflow_ref": current_workflow_ref,
                 "concurrency_group": current_concurrency_group,
                 "remaining_shards": [
@@ -364,6 +402,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--concurrency-group")
     parser.add_argument("--requested-model-key", action="append", default=[])
     parser.add_argument("--requested-ablation", action="append", default=[])
+    parser.add_argument("--requested-repeat-count", type=int)
+    parser.add_argument("--requested-repeat-case-id", action="append", default=[])
     parser.add_argument("--shard-only", action="store_true")
     parser.add_argument("--supersedes-report-uri")
     parser.add_argument("--output", type=Path, required=True)
@@ -390,6 +430,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         current_concurrency_group=cast(str | None, args.concurrency_group),
         requested_model_keys=cast(Sequence[str], args.requested_model_key),
         requested_ablations=cast(Sequence[str], args.requested_ablation),
+        requested_repeat_count=cast(int | None, args.requested_repeat_count),
+        requested_repeat_case_ids=cast(Sequence[str], args.requested_repeat_case_id),
         shard_only=cast(bool, args.shard_only),
         supersedes_report_uri=cast(str | None, args.supersedes_report_uri),
     )
@@ -522,6 +564,32 @@ def _load_execution_policy(
         raise DispatchProvenanceError(f"invalid execution policy: {exc}") from exc
 
 
+def _execution_policy_artifact_sha256(record: Mapping[str, Any]) -> str:
+    artifacts = record.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise DispatchProvenanceError("freeze artifacts must be a JSON array")
+    matches = [
+        cast(Mapping[str, Any], artifact)
+        for artifact in cast(list[object], artifacts)
+        if isinstance(artifact, Mapping)
+        and cast(Mapping[str, Any], artifact).get("name") == "execution_policy"
+    ]
+    if len(matches) != 1:
+        raise DispatchProvenanceError(
+            "freeze must contain exactly one execution_policy artifact"
+        )
+    return _required_sha256(matches[0], "sha256")
+
+
+def _frozen_result_inputs(record: Mapping[str, Any]) -> JsonRecord:
+    frozen = _required_mapping(record, "frozen_artifacts")
+    return {
+        "frozen_manifest_sha256": _required_sha256(frozen, "manifest_sha256"),
+        "labels_sha256": _required_sha256(frozen, "labels_sha256"),
+        "model_registry_sha256": _registry_sha256(record),
+    }
+
+
 def _declared_shards(
     execution_policy: Mapping[str, Any],
     *,
@@ -534,6 +602,40 @@ def _declared_shards(
             "frozen shard schedule model set does not match the current registry"
         )
     return pairs
+
+
+def _require_repeat_dispatch_match(
+    execution_policy: Mapping[str, Any],
+    *,
+    requested_repeat_count: int | None,
+    requested_repeat_case_ids: Sequence[str],
+) -> None:
+    """Reject mutable repeat inputs that differ from the frozen policy."""
+
+    if requested_repeat_count is None and not requested_repeat_case_ids:
+        return
+    if requested_repeat_count is None:
+        raise DispatchProvenanceError(
+            "requested repeat case IDs require requested repeat count"
+        )
+    if isinstance(requested_repeat_count, bool) or requested_repeat_count < 1:
+        raise DispatchProvenanceError(
+            "requested repeat count must be a positive integer"
+        )
+    frozen = _required_mapping(execution_policy, "repeat_policy")
+    frozen_count = _required_int(frozen, "count", minimum=1)
+    frozen_case_ids = _string_sequence(frozen, "case_ids")
+    requested_case_ids = tuple(
+        sorted(_unique_strings(requested_repeat_case_ids, "repeat case ID"))
+    )
+    if requested_repeat_count != frozen_count:
+        raise DispatchProvenanceError(
+            "requested repeat count does not match frozen execution policy"
+        )
+    if requested_case_ids != tuple(sorted(frozen_case_ids)):
+        raise DispatchProvenanceError(
+            "requested repeat case IDs do not match frozen execution policy"
+        )
 
 
 def _declared_shards_from_policy(
@@ -836,6 +938,31 @@ def _validate_provenance_record(
                 "shard-only concurrency identity must use cycle_id/model_key/ablation"
             )
         _required_sha256(record, "execution_policy_sha256")
+        _required_sha256(record, "execution_policy_artifact_sha256")
+        frozen_result_inputs = _required_mapping(record, "frozen_result_inputs")
+        for field in (
+            "frozen_manifest_sha256",
+            "labels_sha256",
+            "model_registry_sha256",
+        ):
+            _required_sha256(frozen_result_inputs, field)
+        repeat_policy = _required_mapping(record, "repeat_policy")
+        repeat_case_ids = _string_sequence(repeat_policy, "case_ids")
+        if len(repeat_case_ids) != len(set(repeat_case_ids)):
+            raise DispatchProvenanceError("repeat_policy.case_ids contains duplicates")
+        _required_int(repeat_policy, "count", minimum=1)
+        for policy_name in ("repeat", "attempt", "receipt"):
+            field = f"{policy_name}_policy_sha256"
+            digest = _required_sha256(record, field)
+            policy = (
+                repeat_policy
+                if policy_name == "repeat"
+                else _required_mapping(record, f"{policy_name}_policy")
+            )
+            if digest != policy_content_sha256(policy):
+                raise DispatchProvenanceError(
+                    f"{field} does not match {policy_name}_policy"
+                )
         workflow_ref = _required_str(record, "workflow_ref")
         expected_concurrency_group = _shard_concurrency_group_from_policy(
             cycle_id=_required_str(record, "cycle_id"),

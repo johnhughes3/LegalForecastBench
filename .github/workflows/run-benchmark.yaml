@@ -157,6 +157,8 @@ jobs:
       artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
       case_count: ${{ steps.matrix.outputs.case_count }}
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
+      execution_policy_path: ${{ steps.dispatch.outputs.execution_policy_path }}
+      execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
       freeze_bundle_path: ${{ steps.validate.outputs.freeze_bundle_path }}
       labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -589,6 +591,7 @@ jobs:
             "${amendment_args[@]}"
 
       - name: Validate staged dispatch and build provenance
+        id: dispatch
         shell: bash
         env:
           ABLATIONS: ${{ inputs.ablations }}
@@ -598,6 +601,8 @@ jobs:
           MODEL_KEYS: ${{ inputs.model_keys }}
           MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
           PRIOR_DISPATCHES_JSON: ${{ inputs.prior_dispatches_json }}
+          REPEAT_COUNT: ${{ inputs.repeat_count }}
+          REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
           SHARD_ONLY: ${{ inputs.shard_only }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
@@ -616,6 +621,13 @@ jobs:
             model_key_args+=(--requested-model-key "${key}")
           done
           ablation_args=()
+          repeat_case_args=()
+          IFS=',' read -ra requested_repeat_case_ids <<< "${REPEAT_SAMPLE_CASE_IDS}"
+          for raw_case_id in "${requested_repeat_case_ids[@]}"; do
+            case_id="${raw_case_id//[[:space:]]/}"
+            [[ -z "${case_id}" ]] && continue
+            repeat_case_args+=(--requested-repeat-case-id "${case_id}")
+          done
           shard_args=()
           if [[ "${SHARD_ONLY}" == "true" ]]; then
             IFS=',' read -ra requested_ablations <<< "${ABLATIONS}"
@@ -639,8 +651,31 @@ jobs:
             --supersedes-report-uri "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/" \
             "${model_key_args[@]}" \
             "${ablation_args[@]}" \
+            --requested-repeat-count "${REPEAT_COUNT}" \
+            "${repeat_case_args[@]}" \
             "${shard_args[@]}" \
             --output /tmp/lfb-dispatch-provenance.json
+          python - <<'PY'
+          import json
+          import os
+
+          with open(os.environ["FREEZE_COMMITMENT_PATH"], encoding="utf-8") as handle:
+              freeze = json.load(handle)
+          with open("/tmp/lfb-dispatch-provenance.json", encoding="utf-8") as handle:
+              provenance = json.load(handle)
+          paths = [
+              artifact["path"]
+              for artifact in freeze.get("artifacts", [])
+              if artifact.get("name") == "execution_policy"
+          ]
+          if len(paths) != 1:
+              raise SystemExit("freeze must declare exactly one execution_policy artifact")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"execution_policy_path={paths[0]}\n")
+              output.write(
+                  f"execution_policy_sha256={provenance['execution_policy_sha256']}\n"
+              )
+          PY
 
       - name: Build matrix JSON
         id: matrix
@@ -663,6 +698,8 @@ jobs:
           import os
           import re
           import sys
+
+          from legalforecast.protocol.policy_artifacts import require_repeat_case_coverage
 
           PRICE_UNITS_PER_TOKEN = 1_000_000
 
@@ -745,6 +782,11 @@ jobs:
               if case_id.strip()
           }
           repeat_count = int(os.environ["REPEAT_COUNT"])
+          require_repeat_case_coverage(
+              packets,
+              repeat_case_ids=sorted(repeat_sample_case_ids),
+              requested_ablations=requested_ablations,
+          )
 
           def packet_input_tokens(packet):
               for field_name in (
@@ -890,7 +932,11 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: official-dispatch-provenance-${{ github.run_id }}
-          path: /tmp/lfb-dispatch-provenance.json
+          path: |
+            /tmp/lfb-dispatch-provenance.json
+            /tmp/lfb-run-inputs-frozen.json
+            /tmp/lfb-labels.jsonl
+            /tmp/lfb-model-registry.json
           if-no-files-found: error
           overwrite: true
           retention-days: ${{ fromJSON(steps.validate.outputs.artifact_retention_days) }}
@@ -1015,6 +1061,10 @@ jobs:
             --backend live \
             --model-registry "${model_registry_for_cli}" \
             --model-key "${MODEL_KEY}" \
+            --execution-policy "${EXECUTION_POLICY_PATH}" \
+            --expected-execution-policy-sha256 "${EXECUTION_POLICY_SHA256}" \
+            --workflow-run-id "${WORKFLOW_RUN_ID}" \
+            --workflow-run-attempt "${WORKFLOW_RUN_ATTEMPT}" \
             "${resume_args[@]}"
         env:
           ABLATION: ${{ matrix.ablation }}
@@ -1023,6 +1073,8 @@ jobs:
           CYCLE_ID: ${{ inputs.cycle_id }}
           EXPECTED_PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}
           EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}
+          EXECUTION_POLICY_PATH: ${{ needs.build-matrix.outputs.execution_policy_path }}
+          EXECUTION_POLICY_SHA256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
           GEMINI_API_KEY: ${{ (startsWith(matrix.model_key, 'google:') || startsWith(matrix.model_key, 'gemini:')) && secrets.GEMINI_API_KEY || '' }}
           LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
           LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
@@ -1031,16 +1083,79 @@ jobs:
           OPENAI_API_KEY: ${{ startsWith(matrix.model_key, 'openai:') && secrets.OPENAI_API_KEY || '' }}
           REPEAT_COUNT: ${{ matrix.repeat_count }}
           RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
 
       - name: Upload per-case artifacts
-        if: ${{ !inputs.dry_run && always() }}
+        if: ${{ !inputs.dry_run && success() }}
         uses: actions/upload-artifact@v7
         with:
           name: official-eval-${{ matrix.case_id }}-${{ matrix.ablation }}-${{ matrix.model_key_slug }}
           path: tmp/official-eval/${{ matrix.case_id }}/${{ matrix.ablation }}/${{ matrix.model_key_slug }}
-          if-no-files-found: warn
+          if-no-files-found: error
           overwrite: true
           retention-days: ${{ fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}
+
+  finalize-shard:
+    name: Finalize immutable shard receipt
+    needs:
+      - build-matrix
+      - run-case
+    if: ${{ !inputs.dry_run && inputs.shard_only && needs.build-matrix.result == 'success' && needs.run-case.result == 'success' }}
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    environment: legalforecastbench-official-eval-fan-in
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+    steps:
+      - name: Checkout trusted release
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ needs.build-matrix.outputs.release_sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Download frozen shard inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: official-dispatch-provenance-${{ github.run_id }}
+          path: /tmp/lfb-shard-inputs
+
+      - name: Download all successful cell completions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: official-eval-*
+          path: /tmp/lfb-cell-completions
+
+      - name: Configure fan-in AWS authority
+        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-finalize-shard-${{ github.run_id }}-${{ github.run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+
+      - name: Verify exact result versions and write receipt once
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python -m legalforecast.publication.shard_receipt \
+            --dispatch-provenance /tmp/lfb-shard-inputs/lfb-dispatch-provenance.json \
+            --frozen-manifest /tmp/lfb-shard-inputs/lfb-run-inputs-frozen.json \
+            --labels /tmp/lfb-shard-inputs/lfb-labels.jsonl \
+            --model-registry /tmp/lfb-shard-inputs/lfb-model-registry.json \
+            --completions-root /tmp/lfb-cell-completions \
+            --workflow-run-id "${GITHUB_RUN_ID}" \
+            --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --receipt-root "s3://${LFB_RESULTS_BUCKET}"
 
   aggregate-results:
     name: Aggregate official results

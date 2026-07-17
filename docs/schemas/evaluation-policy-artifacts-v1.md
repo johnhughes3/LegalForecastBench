@@ -61,11 +61,13 @@ The execution policy is generated at freeze. Its `policy` object contains exactl
 
 `concurrency_policy` contains exactly `mode` and `identity_fields`. The retained Cycle 1 choice is `shard_identity`, with identity fields `cycle_id`, `model_key`, and `ablation`; the policy generator rejects the unimplemented `queue_max` and `orchestrator` alternatives so a valid freeze cannot silently select behavior the official workflow does not enforce. Because GitHub concurrency groups are case-insensitive, the frozen shard schedule also rejects identity pairs that collide after Unicode case folding. Dispatch provenance reconstructs the actual GitHub concurrency group from this frozen choice and rejects a mismatch before provider work.
 
-`receipt_policy` contains exactly `write_once_per_attempt` (required `true`), `identity_fields` (the non-empty receipt identity field list), and `result_commitment_required` (required `true`).
+`receipt_policy` contains exactly `write_once_per_attempt` (required `true`), `identity_fields` (exactly `workflow_run_id` and `workflow_run_attempt`), and `result_commitment_required` (required `true`).
+
+The shard receipt binds those identity fields to the current fan-in workflow attempt. On GitHub's re-run-failed-jobs path, a receipt may adopt a verified successful cell from an earlier attempt in the same workflow run. Each receipt cell therefore preserves `producer_workflow_run_attempt` and records `receipt_adoption_state` as either `current_attempt` or `adopted_prior_attempt`; the producer attempt must be positive and no later than the receipt attempt. When more than one artifact exists for a cell, fan-in selects the highest valid producer attempt and rejects conflicting artifacts tied at that attempt.
 
 `attempt_policy` contains exactly `reservation_ledger_sha256` (the lowercase SHA-256 commitment) and `max_billable_attempts` (a positive integer).
 
-`repeat_policy` contains exactly `case_ids` (unique non-empty identifiers) and `count`, which must equal the list length.
+`repeat_policy` contains exactly `case_ids` (unique non-empty identifiers, sorted canonically) and `count` (the independent positive number of provider calls for each selected case). The number of selected cases and the per-case repeat count are intentionally independent: N selected cases at count M represent N x M calls, while every unselected case runs once. Before fan-out, every frozen repeat case must have a packet in every requested ablation; a missing case-ablation pair fails closed instead of silently reducing the precommitted repeat sample.
 
 `cadence_counts` contains exactly `clean_motion_count_source` (fixed to `frozen_manifest`), `prediction_unit_count_source` (fixed to `frozen_units`), and `reject_operator_mismatch` (required `true`).
 

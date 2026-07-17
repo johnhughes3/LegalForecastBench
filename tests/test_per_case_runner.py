@@ -23,6 +23,7 @@ from legalforecast.evals.per_case_runner import (
 )
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.protocol.freeze import sha256_file
+from legalforecast.protocol.policy_artifacts import generate_execution_policy
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     PredictionUnit,
@@ -57,6 +58,7 @@ def test_per_case_runner_verifies_packet_and_publishes_safe_outputs(
     assert artifacts.packet_sha256 == packet_sha256
     assert {path.name for path in artifacts.local_paths} == {
         "accounting.jsonl",
+        "cell-completion.json",
         "metrics.json",
         "runner-log.jsonl",
         "runs.jsonl",
@@ -524,6 +526,150 @@ def test_per_case_runner_repeats_prebudgeted_subset_rows(tmp_path: Path) -> None
     assert metrics["repeat_count"] == 3
     assert metrics["primary_run_record_count"] == 1
     assert metrics["run_record_count"] == 3
+
+
+def test_repeat_policy_mismatch_fails_before_resume_or_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    execution_path, execution_sha256 = _write_execution_policy(tmp_path, repeat_count=3)
+
+    monkeypatch.setattr(
+        per_case_runner,
+        "_try_resume_existing_outputs",
+        lambda **_kwargs: pytest.fail("repeat mismatch reached resume"),
+    )
+    monkeypatch.setattr(
+        per_case_runner,
+        "_solver_for_config",
+        lambda *_args, **_kwargs: pytest.fail("repeat mismatch reached provider"),
+    )
+
+    with pytest.raises(PerCaseRunnerError, match="repeat_count does not match frozen"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                mock_output=_mock_output(),
+                repeat_count=2,
+                execution_policy_uri=str(execution_path),
+                expected_execution_policy_sha256=execution_sha256,
+                resume_existing=True,
+            )
+        )
+
+
+def test_repeat_policy_identity_changes_durable_run_id(tmp_path: Path) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    first_path, first_sha256 = _write_execution_policy(tmp_path, repeat_count=2)
+    second_path, second_sha256 = _write_execution_policy(
+        tmp_path, repeat_count=3, name="execution-policy-second.json"
+    )
+
+    first = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "first",
+            mock_output=_mock_output(),
+            repeat_count=2,
+            execution_policy_uri=str(first_path),
+            expected_execution_policy_sha256=first_sha256,
+        )
+    )
+    second = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "second",
+            mock_output=_mock_output(),
+            repeat_count=3,
+            execution_policy_uri=str(second_path),
+            expected_execution_policy_sha256=second_sha256,
+        )
+    )
+
+    assert first.run_id != second.run_id
+    first_metrics = json.loads(
+        (tmp_path / "first" / "metrics.json").read_text(encoding="utf-8")
+    )
+    second_metrics = json.loads(
+        (tmp_path / "second" / "metrics.json").read_text(encoding="utf-8")
+    )
+    assert (
+        first_metrics["repeat_policy_sha256"] != second_metrics["repeat_policy_sha256"]
+    )
+
+
+def test_resume_hard_fails_different_execution_policy_with_same_repeat_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results"
+    first_policy, first_sha256 = _write_execution_policy(tmp_path, repeat_count=2)
+    second_policy, second_sha256 = _write_execution_policy(
+        tmp_path,
+        repeat_count=2,
+        max_billable_attempts=3,
+        name="execution-policy-second.json",
+    )
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "first",
+            mock_output=_mock_output(),
+            repeat_count=2,
+            execution_policy_uri=str(first_policy),
+            expected_execution_policy_sha256=first_sha256,
+        )
+    )
+    durable_before = _snapshot_files(results_root)
+    monkeypatch.setattr(
+        per_case_runner,
+        "_solver_for_config",
+        lambda *_args, **_kwargs: pytest.fail("policy mismatch reached provider"),
+    )
+
+    with pytest.raises(
+        PerCaseRunnerError, match="execution_policy_sha256 does not match"
+    ):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                results_store_root=str(results_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "second",
+                mock_output=_mock_output(),
+                repeat_count=2,
+                execution_policy_uri=str(second_policy),
+                expected_execution_policy_sha256=second_sha256,
+                resume_existing=True,
+            )
+        )
+
+    assert _snapshot_files(results_root) == durable_before
 
 
 def test_per_case_runner_does_not_publish_retryable_or_grounded_response(
@@ -1135,6 +1281,61 @@ def _write_model_registry(
             for model_id in model_ids
         ],
     )
+
+
+def _write_execution_policy(
+    tmp_path: Path,
+    *,
+    repeat_count: int,
+    max_billable_attempts: int = 2,
+    name: str = "execution-policy.json",
+) -> tuple[Path, str]:
+    artifact = generate_execution_policy(
+        {
+            "cycle_id": "cycle-1",
+            "cycle_series": "official",
+            "allow_no_baselines": True,
+            "labeling_policy_sha256": "a" * 64,
+            "cohort_policy_sha256": "b" * 64,
+            "cohort_observation_manifest_sha256": "c" * 64,
+            "lifecycle": {
+                "labeling_policy_published_at": "2026-07-12T20:00:00Z",
+                "production_labeling_started_at": "2026-07-13T00:00:00Z",
+                "cohort_policy_published_at": "2026-07-12T19:00:00Z",
+                "batch_002_started_at": "2026-07-12T21:00:00Z",
+            },
+            "shard_schedule": {
+                "shard_count": 2,
+                "dispatch_unit": "model_key_ablation",
+                "shards": [
+                    {"model_key": "fixture:model-a", "ablation": ablation}
+                    for ablation in ("full_packet", "metadata_only")
+                ],
+            },
+            "concurrency_policy": {
+                "mode": "shard_identity",
+                "identity_fields": ["cycle_id", "model_key", "ablation"],
+            },
+            "receipt_policy": {
+                "write_once_per_attempt": True,
+                "identity_fields": ["workflow_run_id", "workflow_run_attempt"],
+                "result_commitment_required": True,
+            },
+            "attempt_policy": {
+                "reservation_ledger_sha256": "d" * 64,
+                "max_billable_attempts": max_billable_attempts,
+            },
+            "repeat_policy": {"case_ids": ["case-1"], "count": repeat_count},
+            "cadence_counts": {
+                "clean_motion_count_source": "frozen_manifest",
+                "prediction_unit_count_source": "frozen_units",
+                "reject_operator_mismatch": True,
+            },
+        }
+    )
+    path = tmp_path / name
+    _write_json(path, artifact)
+    return path, cast(str, artifact["policy_sha256"])
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:

@@ -52,6 +52,13 @@ from legalforecast.evals.response_verification import (
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.path_safety import safe_path_component
 from legalforecast.protocol.freeze import sha256_file
+from legalforecast.protocol.manifest import hash_payload
+from legalforecast.protocol.policy_artifacts import (
+    PolicyArtifactError,
+    execution_repeat_policy,
+    execution_repeat_policy_sha256,
+    verify_execution_policy,
+)
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -92,6 +99,10 @@ class _ResumedRegistryMismatchError(PerCaseRunnerError):
     """Raised when durable outputs cannot be bound to the requested registry."""
 
 
+class _ResumedPolicyMismatchError(PerCaseRunnerError):
+    """Raised when durable outputs do not match the frozen repeat policy."""
+
+
 class PacketManifestError(PerCaseRunnerError):
     """Raised when the runner input manifest is missing or unsafe."""
 
@@ -119,6 +130,10 @@ class PerCaseRunnerConfig:
     backend: PerCaseExecutionBackend = PerCaseExecutionBackend.FIXTURE
     model_registry_uri: str | None = None
     model_key: str | None = None
+    execution_policy_uri: str | None = None
+    expected_execution_policy_sha256: str | None = None
+    workflow_run_id: str | None = None
+    workflow_run_attempt: int | None = None
     expected_packet_object_key: str | None = None
     expected_packet_sha256: str | None = None
     max_tool_calls: int = DEFAULT_TOOL_CALL_CAP
@@ -150,6 +165,12 @@ class PerCaseRunnerConfig:
             (self.model_key, "model_key"),
             (self.expected_packet_object_key, "expected_packet_object_key"),
             (self.expected_packet_sha256, "expected_packet_sha256"),
+            (self.execution_policy_uri, "execution_policy_uri"),
+            (
+                self.expected_execution_policy_sha256,
+                "expected_execution_policy_sha256",
+            ),
+            (self.workflow_run_id, "workflow_run_id"),
         ):
             if value is not None and not value.strip():
                 raise ValueError(f"{field_name} must not be blank")
@@ -174,6 +195,26 @@ class PerCaseRunnerConfig:
             _ensure_packet_key(self.expected_packet_object_key)
         if self.expected_packet_sha256 is not None:
             _normalize_sha256(self.expected_packet_sha256)
+        if self.expected_execution_policy_sha256 is not None:
+            _normalize_sha256(self.expected_execution_policy_sha256)
+        if self.backend is PerCaseExecutionBackend.LIVE and (
+            self.execution_policy_uri is None
+            or self.expected_execution_policy_sha256 is None
+        ):
+            raise ValueError(
+                "live backend requires execution_policy_uri and "
+                "expected_execution_policy_sha256"
+            )
+        if self.backend is PerCaseExecutionBackend.LIVE and (
+            self.workflow_run_id is None or self.workflow_run_attempt is None
+        ):
+            raise ValueError(
+                "live backend requires workflow_run_id and workflow_run_attempt"
+            )
+        if self.workflow_run_attempt is not None and (
+            isinstance(self.workflow_run_attempt, bool) or self.workflow_run_attempt < 1
+        ):
+            raise ValueError("workflow_run_attempt must be positive")
         if self.max_tool_calls <= 0:
             raise ValueError("max_tool_calls must be positive")
         if self.repeat_count <= 0:
@@ -215,6 +256,8 @@ class PerCaseRunArtifacts:
     output_dir: Path
     local_paths: tuple[Path, ...]
     uploaded_uris: tuple[str, ...]
+    origin: str
+    object_commitments: tuple[JsonRecord, ...]
 
     def to_record(self) -> JsonRecord:
         return {
@@ -227,7 +270,17 @@ class PerCaseRunArtifacts:
             "output_dir": str(self.output_dir),
             "local_paths": [str(path) for path in self.local_paths],
             "uploaded_uris": list(self.uploaded_uris),
+            "origin": self.origin,
+            "object_commitments": list(self.object_commitments),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class _RepeatPolicyBinding:
+    case_ids: tuple[str, ...]
+    count: int
+    sha256: str
+    execution_policy_sha256: str | None
 
 
 def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
@@ -257,6 +310,12 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             ablation=config.ablation,
         )
         _validate_expected_packet_identity(config, packet_object)
+        repeat_policy = _verified_repeat_policy_for_config(
+            config,
+            expected_cycle_id=(
+                packet_object.cycle_id or _optional_manifest_cycle_id(manifest)
+            ),
+        )
         registry_entry, model_registry_sha256 = _optional_registry_entry(config)
         registry_entry_sha256 = (
             model_registry_entry_sha256(registry_entry)
@@ -274,6 +333,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             case_id=config.case_id,
             ablation=config.ablation,
             solver_id=solver_id,
+            repeat_policy_sha256=repeat_policy.sha256,
         )
         output_keys = _output_keys(packet_object, run_id=run_id)
         log(
@@ -295,6 +355,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 solver_id=solver_id,
                 model_registry_sha256=model_registry_sha256,
                 model_registry_entry_sha256=registry_entry_sha256,
+                repeat_policy=repeat_policy,
                 log=log,
             )
             if resumed is not None:
@@ -390,6 +451,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             solver_id=solver_id,
             model_registry_sha256=model_registry_sha256,
             model_registry_entry_sha256=registry_entry_sha256,
+            repeat_policy=repeat_policy,
         )
         _write_json(metrics_path, metrics)
         local_paths = (runs_path, accounting_path, metrics_path, log_path)
@@ -399,7 +461,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             local_paths=[str(path) for path in local_paths[:-1]],
         )
 
-        uploaded_uris = _publish_outputs(
+        uploaded_uris, object_commitments = _publish_outputs(
             config=config,
             packet_object=packet_object,
             run_id=run_id,
@@ -410,6 +472,19 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             ),
             log=log,
         )
+        completion_path = config.output_dir / "cell-completion.json"
+        _write_json(
+            completion_path,
+            _cell_completion_record(
+                config=config,
+                packet_object=packet_object,
+                run_id=run_id,
+                repeat_policy=repeat_policy,
+                origin="fresh",
+                object_commitments=object_commitments,
+            ),
+        )
+        local_paths = (*local_paths, completion_path)
         log("runner_completed", uploaded_uris=uploaded_uris)
         _write_jsonl(log_path, logs)
         if config.results_store_root is not None:
@@ -431,6 +506,8 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             output_dir=config.output_dir,
             local_paths=local_paths,
             uploaded_uris=uploaded_uris,
+            origin="fresh",
+            object_commitments=object_commitments,
         )
     except Exception as exc:
         log(
@@ -459,6 +536,7 @@ class _ExistingOutputBytes:
     metrics: bytes
     source: str
     uris: tuple[str, ...]
+    version_ids: tuple[str, ...] = ()
     needs_republish: bool = False
 
 
@@ -481,6 +559,7 @@ def _try_resume_existing_outputs(
     solver_id: str,
     model_registry_sha256: str | None,
     model_registry_entry_sha256: str | None,
+    repeat_policy: _RepeatPolicyBinding,
     log: Any,
 ) -> PerCaseRunArtifacts | None:
     existing = _read_existing_output_bytes(config, output_keys=output_keys, log=log)
@@ -504,11 +583,12 @@ def _try_resume_existing_outputs(
             solver_id=solver_id,
             model_registry_sha256=model_registry_sha256,
             model_registry_entry_sha256=model_registry_entry_sha256,
+            repeat_policy=repeat_policy,
             runs=runs,
             accounting=accounting,
             metrics=metrics,
         )
-    except _ResumedRegistryMismatchError as exc:
+    except (_ResumedRegistryMismatchError, _ResumedPolicyMismatchError) as exc:
         log(
             "resume_existing_rejected",
             run_id=run_id,
@@ -526,7 +606,7 @@ def _try_resume_existing_outputs(
         return None
     if existing.needs_republish:
         log("resumed_recovery_bundle", run_id=run_id, source=existing.source)
-        uploaded_uris = _publish_outputs(
+        uploaded_uris, object_commitments = _publish_outputs(
             config=config,
             packet_object=packet_object,
             run_id=run_id,
@@ -539,6 +619,19 @@ def _try_resume_existing_outputs(
         )
     else:
         uploaded_uris = existing.uris
+        object_commitments = _existing_object_commitments(existing)
+    completion_path = config.output_dir / "cell-completion.json"
+    _write_json(
+        completion_path,
+        _cell_completion_record(
+            config=config,
+            packet_object=packet_object,
+            run_id=run_id,
+            repeat_policy=repeat_policy,
+            origin="resumed",
+            object_commitments=object_commitments,
+        ),
+    )
     log(
         "resumed_existing_artifacts",
         run_id=run_id,
@@ -557,8 +650,11 @@ def _try_resume_existing_outputs(
             accounting_path,
             metrics_path,
             config.output_dir / "runner-log.jsonl",
+            completion_path,
         ),
         uploaded_uris=uploaded_uris,
+        origin="resumed",
+        object_commitments=object_commitments,
     )
 
 
@@ -576,15 +672,18 @@ def _read_existing_output_bytes(
     if config.results_store_root is not None:
         payloads: dict[str, bytes] = {}
         uris: list[str] = []
+        version_ids: list[str] = []
         missing_uri: str | None = None
         for name, object_key in key_by_name.items():
             uri = _join_uri(config.results_store_root, object_key)
-            payload = _try_read_uri_bytes(uri)
-            if payload is None:
+            loaded = _try_read_versioned_uri_bytes(uri)
+            if loaded is None:
                 missing_uri = uri
                 break
+            payload, version_id = loaded
             payloads[name] = payload
             uris.append(uri)
+            version_ids.append(version_id)
         if missing_uri is None:
             return _ExistingOutputBytes(
                 runs=payloads["runs"],
@@ -592,6 +691,7 @@ def _read_existing_output_bytes(
                 metrics=payloads["metrics"],
                 source=config.results_store_root,
                 uris=tuple(uris),
+                version_ids=tuple(version_ids),
             )
         log("resume_existing_miss", missing_uri=missing_uri)
         recovery_uri = _join_uri(config.results_store_root, output_keys.recovery)
@@ -647,6 +747,44 @@ def _try_read_uri_bytes(uri: str) -> bytes | None:
         return None
 
 
+def _try_read_versioned_uri_bytes(uri: str) -> tuple[bytes, str] | None:
+    if not _is_s3_uri(uri):
+        payload = _try_read_uri_bytes(uri)
+        if payload is None:
+            return None
+        return payload, hashlib.sha256(payload).hexdigest()
+    parsed = urlparse(uri)
+    with tempfile.TemporaryDirectory(prefix="lfb-s3-version-") as directory:
+        destination = Path(directory) / "object"
+        result = subprocess.run(
+            [
+                "aws",
+                "s3api",
+                "get-object",
+                "--bucket",
+                parsed.netloc,
+                "--key",
+                unquote(parsed.path.lstrip("/")),
+                str(destination),
+                "--output",
+                "json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        try:
+            response = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return None
+        version_id = response.get("VersionId")
+        if not _is_durable_s3_version_id(version_id):
+            raise PerCaseRunnerError(f"S3 object has no VersionId: {uri}")
+        return destination.read_bytes(), cast(str, version_id)
+
+
 def _decode_recovery_bundle(payload: bytes) -> dict[str, bytes]:
     loaded: object = json.loads(payload)
     if not isinstance(loaded, Mapping):
@@ -679,6 +817,67 @@ def _decode_recovery_bundle(payload: bytes) -> dict[str, bytes]:
     return recovered
 
 
+def _existing_object_commitments(
+    existing: _ExistingOutputBytes,
+) -> tuple[JsonRecord, ...]:
+    payloads = (existing.runs, existing.accounting, existing.metrics)
+    if not existing.uris:
+        return ()
+    version_ids = existing.version_ids or tuple(
+        hashlib.sha256(payload).hexdigest() for payload in payloads
+    )
+    names = ("runs", "accounting", "metrics")
+    return tuple(
+        {
+            "name": name,
+            "uri": uri,
+            "version_id": version_id,
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "size_bytes": len(payload),
+        }
+        for name, uri, payload, version_id in zip(
+            names, existing.uris, payloads, version_ids, strict=True
+        )
+    )
+
+
+def _cell_completion_record(
+    *,
+    config: PerCaseRunnerConfig,
+    packet_object: ModelPacketObject,
+    run_id: str,
+    repeat_policy: _RepeatPolicyBinding,
+    origin: str,
+    object_commitments: Sequence[Mapping[str, Any]],
+) -> JsonRecord:
+    normalized_commitments = sorted(
+        (dict(commitment) for commitment in object_commitments),
+        key=lambda commitment: (
+            cast(str, commitment["name"]),
+            cast(str, commitment["uri"]),
+        ),
+    )
+    return {
+        "schema_version": "legalforecast.shard_cell_completion.v1",
+        "status": "success",
+        "origin": origin,
+        "workflow_run_id": config.workflow_run_id or "fixture",
+        "workflow_run_attempt": config.workflow_run_attempt or 1,
+        "cycle_id": packet_object.cycle_id or "cycle",
+        "model_key": config.model_key or config.solver_id,
+        "case_id": config.case_id,
+        "ablation": config.ablation,
+        "run_id": run_id,
+        "packet_object_key": packet_object.object_key,
+        "packet_sha256": packet_object.sha256,
+        "repeat_count": config.repeat_count,
+        "repeat_policy_sha256": repeat_policy.sha256,
+        "execution_policy_sha256": repeat_policy.execution_policy_sha256,
+        "objects": normalized_commitments,
+        "result_commitment_sha256": hash_payload({"objects": normalized_commitments}),
+    }
+
+
 def _validate_resumed_outputs(
     *,
     config: PerCaseRunnerConfig,
@@ -687,6 +886,7 @@ def _validate_resumed_outputs(
     solver_id: str,
     model_registry_sha256: str | None,
     model_registry_entry_sha256: str | None,
+    repeat_policy: _RepeatPolicyBinding,
     runs: Sequence[Mapping[str, Any]],
     accounting: Sequence[Mapping[str, Any]],
     metrics: Mapping[str, Any],
@@ -714,6 +914,18 @@ def _validate_resumed_outputs(
     for field_name, expected in expected_pairs:
         if required_str(metrics, field_name) != expected:
             raise PerCaseRunnerError(f"resumed metrics {field_name} does not match")
+    if optional_str(metrics, "repeat_policy_sha256") != repeat_policy.sha256:
+        raise _ResumedPolicyMismatchError(
+            "resumed metrics repeat_policy_sha256 does not match frozen policy"
+        )
+    if (
+        repeat_policy.execution_policy_sha256 is not None
+        and optional_str(metrics, "execution_policy_sha256")
+        != repeat_policy.execution_policy_sha256
+    ):
+        raise _ResumedPolicyMismatchError(
+            "resumed metrics execution_policy_sha256 does not match frozen policy"
+        )
     if (
         config.model_key is not None
         and optional_str(metrics, "model_key") != config.model_key
@@ -887,9 +1099,9 @@ def _publish_outputs(
     run_id: str,
     local_outputs: Sequence[tuple[Path, str]],
     log: Any,
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], tuple[JsonRecord, ...]]:
     if config.results_store_root is None:
-        return ()
+        return (), ()
     recovery_path = config.output_dir / ".resume-recovery.json"
     recovery_artifacts = {
         _recovery_artifact_name(object_key): {
@@ -914,15 +1126,29 @@ def _publish_outputs(
         recovery_path.unlink(missing_ok=True)
     log("recovery_bundle_uploaded", run_id=run_id, destination_uri=recovery_uri)
     uploaded: list[str] = []
+    commitments: list[JsonRecord] = []
     for source_path, object_key in local_outputs:
         _ensure_result_key(object_key)
         destination_uri = _join_uri(config.results_store_root, object_key)
-        _upload_path(
+        version_id = _upload_path(
             source_path,
             destination_uri,
             content_type=_content_type_for_path(source_path),
         )
+        if _is_s3_uri(destination_uri) and not _is_durable_s3_version_id(version_id):
+            raise PerCaseRunnerError(
+                f"S3 upload did not return VersionId: {destination_uri}"
+            )
         uploaded.append(destination_uri)
+        commitments.append(
+            {
+                "name": _recovery_artifact_name(object_key),
+                "uri": destination_uri,
+                "version_id": version_id or sha256_file(source_path),
+                "sha256": sha256_file(source_path),
+                "size_bytes": source_path.stat().st_size,
+            }
+        )
         log(
             "artifact_uploaded",
             packet_object_key=packet_object.object_key,
@@ -931,7 +1157,7 @@ def _publish_outputs(
             destination_uri=destination_uri,
             artifact_sha256=sha256_file(source_path),
         )
-    return tuple(uploaded)
+    return tuple(uploaded), tuple(commitments)
 
 
 def _recovery_artifact_name(object_key: str) -> str:
@@ -956,6 +1182,7 @@ def _metrics_record(
     solver_id: str,
     model_registry_sha256: str | None,
     model_registry_entry_sha256: str | None,
+    repeat_policy: _RepeatPolicyBinding,
 ) -> JsonRecord:
     raw_output_hashes = [
         required_str(record, "raw_output_sha256") for record in run_records
@@ -980,6 +1207,8 @@ def _metrics_record(
         "packet_object_key": packet_object.object_key,
         "packet_sha256": packet_sha256,
         "repeat_count": config.repeat_count,
+        "repeat_policy_sha256": repeat_policy.sha256,
+        "execution_policy_sha256": repeat_policy.execution_policy_sha256,
         "primary_run_record_count": sum(
             1 for record in run_records if _repeat_index(record) == 1
         ),
@@ -1273,6 +1502,53 @@ def _optional_registry_entry(
         ) from exc
 
 
+def _verified_repeat_policy_for_config(
+    config: PerCaseRunnerConfig,
+    *,
+    expected_cycle_id: str | None,
+) -> _RepeatPolicyBinding:
+    if config.execution_policy_uri is None:
+        synthetic = {
+            "case_ids": [config.case_id] if config.repeat_count > 1 else [],
+            "count": config.repeat_count,
+        }
+        return _RepeatPolicyBinding(
+            case_ids=tuple(cast(list[str], synthetic["case_ids"])),
+            count=config.repeat_count,
+            sha256=hash_payload(synthetic),
+            execution_policy_sha256=None,
+        )
+    try:
+        artifact = _read_json_uri(config.execution_policy_uri)
+        execution_sha256 = verify_execution_policy(
+            artifact,
+            expected_cycle_id=expected_cycle_id,
+            expected_sha256=config.expected_execution_policy_sha256,
+        )
+        repeat = execution_repeat_policy(artifact)
+        repeat_sha256 = execution_repeat_policy_sha256(artifact)
+    except (PolicyArtifactError, OSError, ValueError) as exc:
+        raise PerCaseRunnerError(f"invalid frozen execution policy: {exc}") from exc
+    raw_case_ids = repeat.get("case_ids")
+    count = repeat.get("count")
+    assert isinstance(raw_case_ids, list)
+    assert isinstance(count, int) and not isinstance(count, bool)
+    case_ids = tuple(cast(list[str], raw_case_ids))
+    expected_repeat_count = count if config.case_id in case_ids else 1
+    if config.repeat_count != expected_repeat_count:
+        raise PerCaseRunnerError(
+            "repeat_count does not match frozen execution policy for case "
+            f"{config.case_id}: expected {expected_repeat_count}, "
+            f"got {config.repeat_count}"
+        )
+    return _RepeatPolicyBinding(
+        case_ids=case_ids,
+        count=count,
+        sha256=repeat_sha256,
+        execution_policy_sha256=execution_sha256,
+    )
+
+
 def _load_model_registry_uri(uri: str) -> tuple[ModelRegistry, str]:
     if _is_s3_uri(uri):
         payload = _read_uri_bytes(uri)
@@ -1416,17 +1692,48 @@ def _fetch_uri(uri: str, destination: Path) -> None:
     shutil.copyfile(_local_path_from_uri(uri), destination)
 
 
-def _upload_path(source: Path, destination_uri: str, *, content_type: str) -> None:
+def _upload_path(
+    source: Path, destination_uri: str, *, content_type: str
+) -> str | None:
     if _is_s3_uri(destination_uri):
-        _run_aws_s3_cp(
-            str(source),
-            destination_uri,
-            extra_args=("--content-type", content_type),
+        parsed = urlparse(destination_uri)
+        result = subprocess.run(
+            [
+                "aws",
+                "s3api",
+                "put-object",
+                "--bucket",
+                parsed.netloc,
+                "--key",
+                unquote(parsed.path.lstrip("/")),
+                "--body",
+                str(source),
+                "--content-type",
+                content_type,
+                "--output",
+                "json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
         )
-        return
+        if result.returncode != 0:
+            raise PerCaseRunnerError(
+                f"aws s3api put-object failed for {destination_uri}: "
+                f"{result.stderr.strip()}"
+            )
+        try:
+            response = json.loads(result.stdout)
+        except json.JSONDecodeError as exc:
+            raise PerCaseRunnerError(
+                f"aws s3api put-object returned invalid JSON for {destination_uri}"
+            ) from exc
+        version_id = response.get("VersionId")
+        return cast(str, version_id) if _is_durable_s3_version_id(version_id) else None
     destination = _local_path_from_uri(destination_uri)
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
+    return sha256_file(destination)
 
 
 def _aws_s3_cp_to_stdout(uri: str) -> bytes:
@@ -1622,9 +1929,16 @@ def _run_id(
     case_id: str,
     ablation: str,
     solver_id: str,
+    repeat_policy_sha256: str,
 ) -> str:
-    raw = "::".join((cycle_id or "cycle", case_id, ablation, solver_id))
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
+    identity = {
+        "cycle_id": cycle_id or "cycle",
+        "case_id": case_id,
+        "ablation": ablation,
+        "solver_id": solver_id,
+        "repeat_policy_sha256": _normalize_sha256(repeat_policy_sha256),
+    }
+    digest = hash_payload(identity)[:32]
     return safe_path_component(
         f"{_slug(case_id)}-{_slug(ablation)}-{_slug(solver_id)}-{digest}",
         field_name="run_id",
@@ -1651,6 +1965,10 @@ def _safe_error_message(exc: BaseException) -> str:
 
 def _iso_datetime(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _is_durable_s3_version_id(value: object) -> bool:
+    return isinstance(value, str) and bool(value) and value != "null"
 
 
 def _require_aware_datetime(value: datetime, field_name: str) -> None:
