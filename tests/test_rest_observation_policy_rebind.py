@@ -173,6 +173,13 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
             snapshot_id="source-complete",
             batch_id=source_batch_id,
             complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
         )
 
     selection = {
@@ -227,6 +234,13 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
             snapshot_id="target-prior-complete",
             batch_id=prior_batch_id,
             complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
         )
         supplemental_batch_id = "supplemental-current"
         supplemental_candidate = "courtlistener-docket-400"
@@ -269,6 +283,13 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
             snapshot_id="target-supplemental-complete",
             batch_id=supplemental_batch_id,
             complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
         )
         _commit_batch(target, batch_id=target_batch_id, candidate_ids=selected_ids)
 

@@ -16224,6 +16224,13 @@ def _cmd_batch_002_snapshot(args: argparse.Namespace) -> int:
                 snapshot_id=snapshot_id,
                 batch_id=batch_id,
                 complete=True,
+                stage_commitments={
+                    "courtlistener_rest_screen_inputs": {
+                        "schema_version": (
+                            "legalforecast.courtlistener_rest_screen_inputs.v1"
+                        )
+                    }
+                },
             )
         manifest = verify_snapshot(
             snapshot_path,
@@ -16232,9 +16239,21 @@ def _cmd_batch_002_snapshot(args: argparse.Namespace) -> int:
             require_complete=True,
             require_saturated=True,
         )
+        if (
+            snapshot_firecrawl_screening_source_count(
+                manifest,
+                require_current=True,
+            )
+            != 0
+        ):
+            raise FirecrawlScreeningIdentityError(
+                "CourtListener REST snapshot unexpectedly contains Firecrawl "
+                "screening sources"
+            )
     except (
         CycleAcquisitionStoreError,
         FileExistsError,
+        FirecrawlScreeningIdentityError,
         KeyError,
         OSError,
         SnapshotVerificationError,
