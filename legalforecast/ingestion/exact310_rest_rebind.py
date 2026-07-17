@@ -870,6 +870,8 @@ def _validate_target_cycle_rebind_summary(
             "source_candidate_count": source_spec.candidate_count,
             "source_candidate_set_sha256": source_candidate_set_sha256,
             "source_cycle_hash": source_cycle_hash,
+            # The canonical broad-hybrid source omitted search_type. The old
+            # REST target's own search_type="rd" is not upstream source metadata.
             "source_search_type": None,
             "target_cycle_hash": target_cycle_hash,
             "top_k_per_term": source_spec.candidate_count,

@@ -398,6 +398,7 @@ def _fixture(tmp_path: Path) -> Fixture:
     assert target_summary["source_candidate_set_sha256"] != candidate_set_sha256
     with CycleAcquisitionStore(target_path) as target:
         target_cycle = target.cycle_hash
+        assert target.batch_config(target_batch)["source_search_type"] is None
         _batch(target, "prior", (candidates[0],))
         _record(
             target,
@@ -1002,4 +1003,5 @@ def test_exact310_cli_help_is_explicitly_provider_free(
     assert "No network, provider, PACER" in help_text
     assert "fee acknowledgment" in help_text
     assert "rebind-direct-search setup summary" in help_text
-    assert "legacy seed- direct-search summary" in help_text
+    assert "legacy seed-" in help_text
+    assert "direct-search summary" in help_text
