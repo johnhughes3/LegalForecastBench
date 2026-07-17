@@ -56,6 +56,13 @@ _API_DOCKET_PATH = re.compile(r"^/api/rest/v[1-9][0-9]*/dockets/([1-9][0-9]*)/$"
 _PUBLIC_DOCKET_PATH = re.compile(r"^/docket/([1-9][0-9]*)/[^/]+/$")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _UNRESTRICTED_QUERY_EXPRESSION = "{term} AND entry_date_filed:[{start} TO {end}]"
+_HISTORICAL_OPINION_AUTHORITY_FIELDS = (
+    "source_batch_id",
+    "source_batch_digest",
+    "source_cycle_hash",
+    "source_search_type",
+    "source_candidate_set_sha256",
+)
 _TERMINAL_EXCLUSION_REASONS = frozenset(
     {
         "case_dev_continuation_cycle",
@@ -222,6 +229,19 @@ def project_case_dev_opinion_source(
     """Project an exhausted supported CourtListener batch into exact-ID records."""
 
     source_commitments = case_dev_source_authority_commitments(source)
+    return _project_case_dev_source(
+        source,
+        source_commitments=source_commitments,
+    )
+
+
+def _project_case_dev_source(
+    source: DirectSearchSeedSource,
+    *,
+    source_commitments: Mapping[str, object],
+) -> tuple[dict[str, object], ...]:
+    """Build one deterministic exact-ID projection from authenticated commitments."""
+
     projected: list[dict[str, object]] = []
     for lead in source.leads:
         raw_docket_id = cast(object, lead.docket_id)
@@ -303,9 +323,41 @@ def verify_case_dev_ranked_selection(
             "enrichment run-card SHA-256 does not match the external commitment"
         )
     run_card = _read_json_object(enrichment_run_card_path)
-    expected_projection = list(project_case_dev_opinion_source(source))
     projection_records = _read_jsonl(source_projection_path)
-    if projection_records != expected_projection:
+    current_source_commitments = case_dev_source_authority_commitments(source)
+    current_projection = list(
+        _project_case_dev_source(
+            source,
+            source_commitments=current_source_commitments,
+        )
+    )
+    if projection_records == current_projection:
+        projection_source_commitments = current_source_commitments
+    else:
+        historical_source_commitments = (
+            _historical_opinion_source_authority_commitments(
+                source,
+                current_commitments=current_source_commitments,
+            )
+        )
+        historical_projection = list(
+            _project_case_dev_source(
+                source,
+                source_commitments=historical_source_commitments,
+            )
+        )
+        current_only_fields = set(current_source_commitments).difference(
+            historical_source_commitments
+        )
+        if (
+            projection_records != historical_projection
+            or not current_only_fields.isdisjoint(run_card)
+        ):
+            raise RecapApiBatchDriverError(
+                "Case.dev source projection does not match the verified opinion source"
+            )
+        projection_source_commitments = historical_source_commitments
+    if not projection_records:
         raise RecapApiBatchDriverError(
             "Case.dev source projection does not match the verified opinion source"
         )
@@ -326,7 +378,7 @@ def verify_case_dev_ranked_selection(
     expected_commitments = {
         "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
         "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
-        **case_dev_source_authority_commitments(source),
+        **projection_source_commitments,
         "source_projection_sha256": projection_sha256,
         "ranked_output_sha256": ranked_sha256,
         "failures_output_sha256": terminal_exclusion_sha256,
@@ -920,6 +972,32 @@ def case_dev_source_authority_commitments(
         "source_query_commitment_sha256": _canonical_sha256(query_commitment),
         "source_candidate_set_sha256": source.source_candidate_set_sha256,
         "source_hit_set_sha256": source.source_hit_set_sha256,
+    }
+
+
+def _historical_opinion_source_authority_commitments(
+    source: DirectSearchSeedSource,
+    *,
+    current_commitments: Mapping[str, object],
+) -> dict[str, object]:
+    """Reconstruct the exact pre-35a5fe1 type-o authority representation.
+
+    The compatibility representation omits only commitments that were added to
+    the projection schema after the frozen enrichment was produced. The source
+    has already passed the complete current authority validation, so no source
+    identity, query, hit, search-window, anchor, or availability check is skipped.
+    Unrestricted ``search_type=r`` sources did not exist under the historical
+    schema and are deliberately ineligible for this compatibility path.
+    """
+
+    if source.source_search_type != "o":
+        raise RecapApiBatchDriverError(
+            "historical Case.dev projection compatibility supports only "
+            "CourtListener search_type=o"
+        )
+    return {
+        field_name: current_commitments[field_name]
+        for field_name in _HISTORICAL_OPINION_AUTHORITY_FIELDS
     }
 
 

@@ -146,6 +146,143 @@ def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(
     assert resumed["leads_seeded"] == 0
 
 
+def test_select_case_dev_ranked_accepts_authenticated_historical_opinion_projection(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    historical_card_sha256 = _rewrite_as_historical_opinion_enrichment(enrichment_root)
+    target_store = _target_store(tmp_path)
+    run_card = tmp_path / "historical-selection-run-card.json"
+
+    assert (
+        legalforecast_cli.main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=run_card,
+                summary=tmp_path / "historical-selection-summary.json",
+                expected_enrichment_run_card_sha256=historical_card_sha256,
+            )
+        )
+        == 0
+    )
+
+    # The historical representation is accepted only after reconstruction from
+    # the authoritative source store. The new selection upgrades its lineage to
+    # the complete current authority commitments.
+    selected = json.loads(run_card.read_text())
+    assert selected["source_search_type"] == "o"
+    assert selected["source_schema_version"] == (
+        "legalforecast.courtlistener_opinion_discovery.v1"
+    )
+    assert selected["source_available_only"] == "absent"
+    assert selected["source_query_terms"] == ['"motion to dismiss"']
+    assert len(selected["source_query_commitment_sha256"]) == 64
+    assert len(selected["source_hit_set_sha256"]) == 64
+    with CycleAcquisitionStore(target_store) as store:
+        assert store.candidate_ids("ranked-rest") == ("courtlistener-docket-102",)
+
+
+def test_select_case_dev_ranked_rejects_historical_projection_drift_before_write(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    _rewrite_as_historical_opinion_enrichment(enrichment_root)
+    projection_path = (
+        enrichment_root / "checkpoints/case-dev-recap-source-projection.jsonl"
+    )
+    projection = _read_jsonl(projection_path)
+    projection[0]["source_lineage"]["source_batch_digest"] = "0" * 64
+    _write_jsonl(projection_path, projection)
+    run_card_path = enrichment_root / "run-cards/enrich-recap-case-dev.json"
+    run_card = json.loads(run_card_path.read_text())
+    run_card["source_projection_sha256"] = hashlib.sha256(
+        projection_path.read_bytes()
+    ).hexdigest()
+    run_card_path.write_text(json.dumps(run_card, sort_keys=True) + "\n")
+    expected_card_sha256 = hashlib.sha256(run_card_path.read_bytes()).hexdigest()
+    target_store = _target_store(tmp_path)
+    target_store_before = target_store.read_bytes()
+
+    assert (
+        legalforecast_cli.main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+                expected_enrichment_run_card_sha256=expected_card_sha256,
+            )
+        )
+        == 2
+    )
+    assert target_store.read_bytes() == target_store_before
+    _assert_no_target_rows(target_store)
+
+
+def test_select_case_dev_ranked_rejects_hybrid_historical_run_card_before_write(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    _rewrite_as_historical_opinion_enrichment(enrichment_root)
+    run_card_path = enrichment_root / "run-cards/enrich-recap-case-dev.json"
+    run_card = json.loads(run_card_path.read_text())
+    run_card["source_schema_version"] = (
+        "legalforecast.courtlistener_opinion_discovery.v1"
+    )
+    run_card_path.write_text(json.dumps(run_card, sort_keys=True) + "\n")
+    expected_card_sha256 = hashlib.sha256(run_card_path.read_bytes()).hexdigest()
+    target_store = _target_store(tmp_path)
+    target_store_before = target_store.read_bytes()
+
+    assert (
+        legalforecast_cli.main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+                expected_enrichment_run_card_sha256=expected_card_sha256,
+            )
+        )
+        == 2
+    )
+    assert target_store.read_bytes() == target_store_before
+    _assert_no_target_rows(target_store)
+
+
+def test_select_case_dev_ranked_rejects_historical_unrestricted_projection(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path, search_type="r")
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    historical_card_sha256 = _rewrite_as_historical_opinion_enrichment(enrichment_root)
+    target_store = _target_store(tmp_path)
+    target_store_before = target_store.read_bytes()
+
+    assert (
+        legalforecast_cli.main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+                expected_enrichment_run_card_sha256=historical_card_sha256,
+            )
+        )
+        == 2
+    )
+    assert target_store.read_bytes() == target_store_before
+    _assert_no_target_rows(target_store)
+
+
 def test_promote_terminal_firecrawl_subset_is_exact_and_nonprovisional(
     tmp_path: Path,
 ) -> None:
@@ -1849,6 +1986,49 @@ def _run_terminal_exclusion_enrichment(
         == 0
     )
     return output_root
+
+
+def _rewrite_as_historical_opinion_enrichment(enrichment_root: Path) -> str:
+    """Reproduce the authenticated pre-35a5fe1 type-o artifact representation."""
+
+    historical_authority_fields = {
+        "source_batch_id",
+        "source_batch_digest",
+        "source_cycle_hash",
+        "source_search_type",
+        "source_candidate_set_sha256",
+        "source_hits",
+    }
+    projection_path = (
+        enrichment_root / "checkpoints/case-dev-recap-source-projection.jsonl"
+    )
+    ranked_path = enrichment_root / "checkpoints/case-dev-recap-ranked.jsonl"
+    run_card_path = enrichment_root / "run-cards/enrich-recap-case-dev.json"
+    projection = _read_jsonl(projection_path)
+    ranked = _read_jsonl(ranked_path)
+    for record in [*projection, *ranked]:
+        lineage = cast(dict[str, object], record["source_lineage"])
+        for field_name in tuple(lineage):
+            if field_name.startswith("source_") and (
+                field_name not in historical_authority_fields
+            ):
+                lineage.pop(field_name)
+    _write_jsonl(projection_path, projection)
+    _write_jsonl(ranked_path, ranked)
+    run_card = json.loads(run_card_path.read_text())
+    for field_name in tuple(run_card):
+        if field_name.startswith("source_") and (
+            field_name not in historical_authority_fields
+        ):
+            run_card.pop(field_name)
+    run_card["source_projection_sha256"] = hashlib.sha256(
+        projection_path.read_bytes()
+    ).hexdigest()
+    run_card["ranked_output_sha256"] = hashlib.sha256(
+        ranked_path.read_bytes()
+    ).hexdigest()
+    run_card_path.write_text(json.dumps(run_card, sort_keys=True) + "\n")
+    return hashlib.sha256(run_card_path.read_bytes()).hexdigest()
 
 
 def _opinion_source_store(
