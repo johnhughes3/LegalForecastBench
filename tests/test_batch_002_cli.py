@@ -15,6 +15,9 @@ from legalforecast.ingestion.courtlistener_opinion_discovery import (
     OPINION_STATUS_FILTERS,
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.firecrawl_screening_identity import (
+    snapshot_firecrawl_screening_source_count,
+)
 from legalforecast.ingestion.recap_api_discovery import (
     DECISION_FIRST_RECAP_API_SEARCH_TERMS,
 )
@@ -703,6 +706,15 @@ def test_cli_snapshot_publishes_verified_rest_evidence(
     summary = json.loads(capsys.readouterr().out)
     snapshot = Path(summary["snapshot_path"])
     assert summary["verified"] is True
+    manifest = json.loads((snapshot / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["stage_commitments"] == {
+        "courtlistener_rest_screen_inputs": {
+            "schema_version": "legalforecast.courtlistener_rest_screen_inputs.v1"
+        }
+    }
+    assert (
+        snapshot_firecrawl_screening_source_count(manifest, require_current=True) == 0
+    )
     screened = [
         json.loads(line)
         for line in (snapshot / "screened-cases.jsonl")

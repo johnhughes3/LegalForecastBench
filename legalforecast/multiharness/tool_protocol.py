@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any, Self, cast
 
 from legalforecast.multiharness.spec import (
@@ -39,14 +40,18 @@ class ToolRequest:
         _require_identifier(self.operation, "operation")
         for index, path in enumerate(self.input_paths):
             validate_safe_relative_path(path, f"input_paths[{index}]")
-        _validate_json_value(self.arguments, "arguments")
+        object.__setattr__(
+            self,
+            "arguments",
+            _validated_json_snapshot(self.arguments, "arguments"),
+        )
 
     def to_record(self) -> dict[str, Any]:
         return {
             "schema_version": TOOL_REQUEST_SCHEMA_VERSION,
             "request_id": self.request_id,
             "operation": self.operation,
-            "arguments": dict(self.arguments),
+            "arguments": _json_mapping_record(self.arguments),
             "input_paths": list(self.input_paths),
         }
 
@@ -96,14 +101,18 @@ class ToolResponse:
             )
         if self.error_code is not None:
             _require_identifier(self.error_code, "error_code")
-        _validate_json_value(self.output, "output")
+        object.__setattr__(
+            self,
+            "output",
+            _validated_json_snapshot(self.output, "output"),
+        )
 
     def to_record(self) -> dict[str, Any]:
         record: dict[str, Any] = {
             "schema_version": TOOL_RESPONSE_SCHEMA_VERSION,
             "request_id": self.request_id,
             "status": self.status,
-            "output": dict(self.output),
+            "output": _json_mapping_record(self.output),
         }
         if self.error_code is not None:
             record["error_code"] = self.error_code
@@ -164,14 +173,55 @@ def _require_identifier(value: str, field_name: str) -> None:
         )
 
 
-def _validate_json_value(value: Mapping[str, Any], field_name: str) -> None:
+def _validated_json_snapshot(
+    value: Mapping[str, Any], field_name: str
+) -> Mapping[str, Any]:
     _validate_string_mapping_keys(value, field_name)
     try:
-        json.dumps(dict(value), allow_nan=False)
+        decoded = cast(
+            object,
+            json.loads(json.dumps(dict(value), allow_nan=False)),
+        )
     except (TypeError, ValueError) as exc:
         raise MultiHarnessValidationError(
             f"{field_name} must be JSON-compatible"
         ) from exc
+    if not isinstance(decoded, dict):
+        raise MultiHarnessValidationError(f"{field_name} must be a JSON object")
+    snapshot = cast(dict[str, Any], decoded)
+    return _freeze_json_mapping(snapshot)
+
+
+def _freeze_json_mapping(value: Mapping[str, Any]) -> Mapping[str, Any]:
+    return MappingProxyType(
+        {key: _freeze_json_value(nested_value) for key, nested_value in value.items()}
+    )
+
+
+def _freeze_json_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        mapping = cast(Mapping[str, Any], value)
+        return _freeze_json_mapping(mapping)
+    if isinstance(value, list):
+        sequence = cast(list[Any], value)
+        return tuple(_freeze_json_value(item) for item in sequence)
+    return value
+
+
+def _json_mapping_record(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        key: _json_record_value(nested_value) for key, nested_value in value.items()
+    }
+
+
+def _json_record_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        mapping = cast(Mapping[str, Any], value)
+        return _json_mapping_record(mapping)
+    if isinstance(value, tuple):
+        sequence = cast(tuple[Any, ...], value)
+        return [_json_record_value(item) for item in sequence]
+    return value
 
 
 def _validate_string_mapping_keys(

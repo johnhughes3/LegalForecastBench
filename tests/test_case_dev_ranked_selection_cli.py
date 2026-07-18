@@ -29,6 +29,9 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     verify_snapshot,
 )
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
+from legalforecast.ingestion.firecrawl_screening_identity import (
+    require_snapshot_firecrawl_screening_implementation,
+)
 from legalforecast.ingestion.recap_api_batch_driver import (
     DirectSearchHitProvenance,
     DirectSearchLead,
@@ -297,6 +300,10 @@ def test_promote_terminal_firecrawl_subset_is_exact_and_nonprovisional(
         expected_cycle_hash=cast(str, fixture["target_cycle_hash"]),
         require_complete=True,
         require_saturated=True,
+    )
+    require_snapshot_firecrawl_screening_implementation(
+        manifest,
+        require_current=True,
     )
     assert (
         not {

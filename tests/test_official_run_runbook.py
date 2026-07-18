@@ -204,6 +204,148 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     assert "--llm-label-run-card" not in _documented_command_block(runbook, "llm-label")
 
 
+def test_runbook_documents_isolated_provider_free_exact_cohort_rehearsal() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    block = _documented_command_block(runbook, "rehearse-downstream")
+    for option in (
+        "--selection-run-card",
+        "--materialization-run-card",
+        "--parse-plan-run-card",
+        "--parse-requests",
+        "--parser-run-card",
+        "--response-fixtures",
+        "--target-case-count",
+        "--evaluated-model-registry",
+    ):
+        assert option in block
+    rehearsal_section = runbook.split(
+        "### Provider-free exact-cohort downstream rehearsal", maxsplit=1
+    )[1].split("Unitize Stage A only", maxsplit=1)[0]
+    for required_claim in (
+        "official_eligible=false",
+        "provider_journal_created=false",
+        'provider_billing_usd="0.00"',
+        "cannot freeze, evaluate, or dispatch",
+        "never self-adjudicates",
+        "legalforecast.fixture_artifact_manifest.v1",
+        "mandatory adjacent",
+    ):
+        assert required_claim in rehearsal_section
+    assert "--acknowledge-pacer-fees" not in block
+    finalization_block = _documented_command_block(runbook, "finalize-rehearsal-corpus")
+    for option in (
+        "--rehearsal-summary",
+        "--rehearsal-run-card",
+        "--selection",
+        "--prediction-units",
+        "--decision-texts",
+        "--labels",
+        "--packets",
+        "--target-case-count",
+        "--corpus-output",
+        "--execute",
+    ):
+        assert option in finalization_block
+    assert "legalforecast.fixture_rehearsal_corpus.v1" in rehearsal_section
+    assert "--acknowledge-pacer-fees" not in finalization_block
+
+
+def test_runbook_documents_operator_runnable_staged_fixture_chain() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    section = runbook.split(
+        "### Provider-free exact-cohort downstream rehearsal", maxsplit=1
+    )[1].split("Unitize Stage A only", maxsplit=1)[0]
+
+    upstream_commands = (
+        "project-target-cohort",
+        "generate-purchase-policy",
+        "generate-recap-fetch-broker-policy",
+        "init-purchase-ledger",
+        "purchase-missing-recap-fetch",
+        "recover-purchased",
+        "clear-disclosures",
+        "materialize-cohort-documents",
+        "plan-parse-documents",
+        "parse-documents",
+    )
+    upstream_markers = [
+        f"uv run legalforecast acquisition {command}" for command in upstream_commands
+    ]
+    assert [section.index(marker) for marker in upstream_markers] == sorted(
+        section.index(marker) for marker in upstream_markers
+    )
+
+    fixture_purchase = _documented_command_block(
+        section, "purchase-missing-recap-fetch"
+    )
+    for option in (
+        "--courtlistener-fixture",
+        "--purchase-broker-fixture",
+        "--acknowledge-pacer-fees",
+        "--execute",
+        "--no-resume",
+    ):
+        assert option in fixture_purchase
+    for forbidden_option in ("--live-purchase", "--request-ledger"):
+        assert forbidden_option not in fixture_purchase
+
+    fixture_recovery = _documented_command_block(section, "recover-purchased")
+    assert "--fixture-documents" in fixture_recovery
+    assert "--live-case-dev-download" not in fixture_recovery
+    assert "--live-courtlistener-download" not in fixture_recovery
+
+    for required_claim in (
+        "real, immutable outputs",
+        "mechanical CLI gate",
+        "paid_activity_requested=false",
+        "paid_activity_executed=false",
+        "no request ledger, provider request, or fee is created",
+        "without substituting a fixture review",
+        "is never evidence of a Mistral call",
+        (
+            "No production parser, model provider, purchase broker, "
+            "CourtListener transport"
+        ),
+    ):
+        assert required_claim in section
+
+    staged_commands = (
+        "rehearsal-build-decision-texts",
+        "rehearsal-stage-a-unitize",
+        "rehearsal-stage-a-review",
+        "rehearsal-stage-a-apply",
+        "rehearsal-stage-b-label",
+        "rehearsal-stage-b-apply",
+        "rehearsal-plan-packet-inputs",
+        "rehearsal-build-packets",
+    )
+    assert [section.index(command) for command in staged_commands] == sorted(
+        section.index(command) for command in staged_commands
+    )
+    assert section.index(staged_commands[-1]) < section.index(
+        "uv run legalforecast acquisition finalize-rehearsal-corpus"
+    )
+    assert '"${rehearsal_args[@]}" --execute --no-resume' in section
+    assert "The staged sequence above is the acceptance path." in section
+    assert "no aggregate rerun is required" in section
+
+    common_args = section.split("rehearsal_args=(", maxsplit=1)[1].split(
+        ")\nrehearsal_stages=(", maxsplit=1
+    )[0]
+    common_options = set(re.findall(r"--[a-z0-9][a-z0-9-]*", common_args))
+    acquisition_parser = _subcommand_parser(build_parser(), "acquisition")
+    for command in staged_commands:
+        command_parser = _subcommand_parser(acquisition_parser, command)
+        assert _required_long_options(command_parser) <= common_options
+
+    for nonauthority_claim in (
+        "official_eligible=false",
+        "cannot freeze, evaluate, or dispatch",
+        "This success is test evidence only",
+    ):
+        assert nonauthority_claim in section
+
+
 def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     commands = _documented_acquisition_commands(runbook)
@@ -360,6 +502,7 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "legalforecast acquisition init-purchase-ledger",
         "legalforecast acquisition purchase-missing-recap-fetch",
         "legalforecast batch-002 seed-direct-search",
+        "legalforecast batch-002 rebind-direct-search",
         "legalforecast batch-002 observe",
         "legalforecast batch-002 snapshot",
     ):
