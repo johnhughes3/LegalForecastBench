@@ -600,6 +600,7 @@ jobs:
           MODEL_KEYS: ${{ inputs.model_keys }}
           MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
           PRIOR_DISPATCHES_JSON: ${{ inputs.prior_dispatches_json }}
+          RELEASE_SHA: ${{ steps.validate.outputs.release_sha }}
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
           SHARD_ONLY: ${{ inputs.shard_only }}
@@ -673,6 +674,15 @@ jobs:
           source = Path(paths[0])
           target = Path("/tmp/lfb-execution-policy.json")
           target.write_bytes(source.read_bytes())
+          release_provenance = {
+              "schema_version": "legalforecast.dispatch_release.v1",
+              "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
+              "release_sha": os.environ["RELEASE_SHA"],
+          }
+          Path("/tmp/lfb-dispatch-release.json").write_text(
+              json.dumps(release_provenance, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(
                   f"execution_policy_sha256={provenance['execution_policy_sha256']}\n"
@@ -936,6 +946,7 @@ jobs:
           name: official-dispatch-provenance-${{ github.run_id }}
           path: |
             /tmp/lfb-dispatch-provenance.json
+            /tmp/lfb-dispatch-release.json
             /tmp/lfb-run-inputs-frozen.json
             /tmp/lfb-labels.jsonl
             /tmp/lfb-model-registry.json

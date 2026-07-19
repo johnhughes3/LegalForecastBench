@@ -145,9 +145,13 @@ jobs:
 
       - name: Validate frozen dispatch artifact
         shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
         run: |
           set -euo pipefail
           for path in \
+            /tmp/lfb-source-dispatch/lfb-dispatch-release.json \
             /tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json \
             /tmp/lfb-source-dispatch/lfb-labels.jsonl \
             /tmp/lfb-source-dispatch/lfb-model-registry.json; do
@@ -156,6 +160,28 @@ jobs:
               exit 1
             }
           done
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("/tmp/lfb-source-dispatch/lfb-dispatch-release.json")
+          try:
+              release = json.loads(path.read_text(encoding="utf-8"))
+          except (OSError, json.JSONDecodeError) as exc:
+              raise SystemExit("source dispatch release provenance is invalid JSON") from exc
+          expected_fields = {"schema_version", "workflow_run_id", "release_sha"}
+          if not isinstance(release, dict) or set(release) != expected_fields:
+              raise SystemExit("source dispatch release provenance fields mismatch")
+          if release["schema_version"] != "legalforecast.dispatch_release.v1":
+              raise SystemExit("source dispatch release provenance schema mismatch")
+          source_dispatch_run_id = os.environ["SOURCE_DISPATCH_RUN_ID"]
+          if release["workflow_run_id"] != source_dispatch_run_id:
+              raise SystemExit("source dispatch provenance workflow run mismatch")
+          expected_release_sha = os.environ["RELEASE_SHA"]
+          if release["release_sha"] != expected_release_sha:
+              raise SystemExit("source dispatch provenance release SHA mismatch")
+          PY
 
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
