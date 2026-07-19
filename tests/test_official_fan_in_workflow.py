@@ -30,12 +30,28 @@ def test_workflow_downloads_exact_cross_run_dispatch_artifact() -> None:
     assert (
         "official-dispatch-provenance-${{ inputs.source_dispatch_run_id }}" in WORKFLOW
     )
+    assert "/tmp/lfb-source-dispatch/lfb-dispatch-release.json" in WORKFLOW
     assert "/tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json" in WORKFLOW
     assert "--labels /tmp/lfb-source-dispatch/lfb-labels.jsonl" in WORKFLOW
     assert (
         "--model-registry /tmp/lfb-source-dispatch/lfb-model-registry.json" in WORKFLOW
     )
     assert '--source-dispatch-run-id "${SOURCE_DISPATCH_RUN_ID}"' in WORKFLOW
+
+
+def test_workflow_binds_source_dispatch_artifact_to_requested_release() -> None:
+    validation = WORKFLOW[
+        WORKFLOW.index("- name: Validate frozen dispatch artifact") : WORKFLOW.index(
+            "- name: Install uv"
+        )
+    ]
+
+    assert "RELEASE_SHA: ${{ inputs.release_sha }}" in validation
+    assert "SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}" in validation
+    assert '"legalforecast.dispatch_release.v1"' in validation
+    assert 'release["workflow_run_id"] != source_dispatch_run_id' in validation
+    assert 'release["release_sha"] != expected_release_sha' in validation
+    assert "source dispatch release provenance fields mismatch" in validation
 
 
 def test_verify_only_and_publish_use_structurally_distinct_entrypoints() -> None:

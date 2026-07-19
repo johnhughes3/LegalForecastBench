@@ -441,6 +441,56 @@ def test_publisher_rechecks_inventory_before_canonical_write(
     assert (tmp_path / "published" / "report.json").is_file()
 
 
+def test_publisher_writes_from_a_protected_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aggregate = tmp_path / "aggregate"
+    public = aggregate / "public"
+    public.mkdir(parents=True)
+    report_path = public / "report.json"
+    report_path.write_text('{"state":"verified"}\n', encoding="utf-8")
+    report = _report(aggregate_output_dir=aggregate)
+    config = shard_fan_in.FanInConfig(
+        freeze_bundle_path=tmp_path / "freeze.json",
+        run_input_manifest_path=tmp_path / "run-input.json",
+        receipt_root=str(tmp_path / "store"),
+        output_dir=tmp_path / "output",
+    )
+    monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_receipt_inventory_sha256",
+        lambda _root, _cycle: report.receipt_inventory_sha256,
+    )
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_union_inventory_sha256",
+        lambda _root, _cycle: report.union_inventory_sha256,
+    )
+    real_copytree = shard_fan_in_publish.shutil.copytree
+    copy_sources: list[Path] = []
+
+    def observed_copytree(source: Path, destination: Path) -> Path:
+        copy_sources.append(Path(source))
+        if len(copy_sources) == 2:
+            report_path.write_text(
+                '{"state":"changed-after-check"}\n', encoding="utf-8"
+            )
+        return real_copytree(source, destination)
+
+    monkeypatch.setattr(shard_fan_in_publish.shutil, "copytree", observed_copytree)
+
+    destination = tmp_path / "published"
+    shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+
+    assert len(copy_sources) == 2
+    assert copy_sources[0] == public
+    assert copy_sources[1] != public
+    assert (destination / "report.json").read_text(encoding="utf-8") == (
+        '{"state":"verified"}\n'
+    )
+
+
 def test_s3_publication_refuses_a_nonempty_canonical_prefix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -457,6 +507,57 @@ def test_s3_publication_refuses_a_nonempty_canonical_prefix(
             "s3://results/reports/cycle-1/multi-ablation/"
         )
     assert commands[0][:3] == ["aws", "s3api", "list-objects-v2"]
+
+
+def test_s3_publication_syncs_only_the_protected_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aggregate = tmp_path / "aggregate"
+    public = aggregate / "public"
+    public.mkdir(parents=True)
+    report_path = public / "report.json"
+    report_path.write_text('{"state":"verified"}\n', encoding="utf-8")
+    report = _report(aggregate_output_dir=aggregate)
+    config = shard_fan_in.FanInConfig(
+        freeze_bundle_path=tmp_path / "freeze.json",
+        run_input_manifest_path=tmp_path / "run-input.json",
+        receipt_root=str(tmp_path / "store"),
+        output_dir=tmp_path / "output",
+    )
+    monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_receipt_inventory_sha256",
+        lambda _root, _cycle: report.receipt_inventory_sha256,
+    )
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_union_inventory_sha256",
+        lambda _root, _cycle: report.union_inventory_sha256,
+    )
+    synced_source: Path | None = None
+    synced_bytes: str | None = None
+
+    def fake_run(command: list[str], **_kwargs: Any) -> SimpleNamespace:
+        nonlocal synced_bytes, synced_source
+        if command[1:3] == ["s3api", "list-objects-v2"]:
+            return SimpleNamespace(returncode=0, stdout='{"KeyCount": 0}', stderr="")
+        assert command[1:3] == ["s3", "sync"]
+        synced_source = Path(command[3])
+        report_path.write_text('{"state":"changed-during-sync"}\n', encoding="utf-8")
+        synced_bytes = (synced_source / "report.json").read_text(encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(shard_fan_in_publish.subprocess, "run", fake_run)
+
+    shard_fan_in_publish.publish_fan_in(
+        config,
+        publish_root="s3://results/reports/cycle-1/multi-ablation/",
+    )
+
+    assert synced_source is not None
+    assert synced_source != public
+    assert synced_bytes == '{"state":"verified"}\n'
 
 
 def test_s3_version_lookup_uses_one_s3api_subcommand(

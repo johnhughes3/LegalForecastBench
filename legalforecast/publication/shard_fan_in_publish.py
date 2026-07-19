@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from collections.abc import Mapping, Sequence
+import tempfile
+from collections.abc import Generator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import cast
 from urllib.parse import unquote, urlparse
@@ -29,42 +31,79 @@ def publish_fan_in(config: FanInConfig, *, publish_root: str) -> FanInReport:
         raise FanInError("publication cannot use a verify-only fan-in config")
     _require_committed_accepted_map(config.accepted_attempt_map_path)
     report = verify_fan_in(config)
-    current_inventory = current_receipt_inventory_sha256(
-        config.receipt_root, report.cycle_id
-    )
-    if current_inventory != report.receipt_inventory_sha256:
-        raise FanInError(
-            "receipt inventory changed after verification; rerun fan-in selection"
-        )
-    current_union_inventory = current_union_inventory_sha256(
-        config.receipt_root, report.cycle_id
-    )
-    if current_union_inventory != report.union_inventory_sha256:
-        raise FanInError(
-            "union object versions changed after verification; rerun fan-in"
-        )
     source = report.aggregate_output_dir / "public"
     if not source.is_dir():
         raise FanInError(f"verified aggregate public directory is missing: {source}")
-    _require_canonical_publish_root(publish_root, cycle_id=report.cycle_id)
-    if publish_root.startswith("s3://"):
-        _require_empty_s3_prefix(publish_root)
-        result = subprocess.run(
-            ["aws", "s3", "sync", str(source), publish_root, "--only-show-errors"],
-            check=False,
-            capture_output=True,
-            text=True,
+    with _protected_publication_snapshot(source) as snapshot:
+        current_inventory = current_receipt_inventory_sha256(
+            config.receipt_root, report.cycle_id
         )
-        if result.returncode != 0:
-            raise FanInError(f"aggregate publication failed: {result.stderr.strip()}")
-    else:
-        destination = Path(publish_root)
-        if destination.exists():
+        if current_inventory != report.receipt_inventory_sha256:
             raise FanInError(
-                f"canonical publication destination already exists: {destination}"
+                "receipt inventory changed after verification; rerun fan-in selection"
             )
-        shutil.copytree(source, destination)
+        current_union_inventory = current_union_inventory_sha256(
+            config.receipt_root, report.cycle_id
+        )
+        if current_union_inventory != report.union_inventory_sha256:
+            raise FanInError(
+                "union object versions changed after verification; rerun fan-in"
+            )
+        _require_canonical_publish_root(publish_root, cycle_id=report.cycle_id)
+        if publish_root.startswith("s3://"):
+            _require_empty_s3_prefix(publish_root)
+            result = subprocess.run(
+                [
+                    "aws",
+                    "s3",
+                    "sync",
+                    str(snapshot),
+                    publish_root,
+                    "--only-show-errors",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise FanInError(
+                    f"aggregate publication failed: {result.stderr.strip()}"
+                )
+        else:
+            destination = Path(publish_root)
+            if destination.exists():
+                raise FanInError(
+                    f"canonical publication destination already exists: {destination}"
+                )
+            shutil.copytree(snapshot, destination)
     return report
+
+
+@contextmanager
+def _protected_publication_snapshot(source: Path) -> Generator[Path]:
+    """Copy verified public bytes into a private read-only publication snapshot."""
+
+    with tempfile.TemporaryDirectory(prefix="lfb-fan-in-publish-") as directory:
+        snapshot = Path(directory) / "public"
+        shutil.copytree(source, snapshot)
+        _set_snapshot_writable(snapshot, writable=False)
+        try:
+            yield snapshot
+        finally:
+            _set_snapshot_writable(snapshot, writable=True)
+
+
+def _set_snapshot_writable(snapshot: Path, *, writable: bool) -> None:
+    directory_mode = 0o700 if writable else 0o500
+    file_mode = 0o600 if writable else 0o400
+    snapshot.chmod(directory_mode)
+    paths = tuple(snapshot.rglob("*"))
+    for path in paths:
+        if path.is_dir():
+            path.chmod(directory_mode)
+    for path in paths:
+        if path.is_file():
+            path.chmod(file_mode)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

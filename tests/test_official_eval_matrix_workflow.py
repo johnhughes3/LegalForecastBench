@@ -116,6 +116,12 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
         "if: ${{ !inputs.dry_run && !inputs.shard_only && "
         "needs.run-case.result == 'success' }}" in AGGREGATE_RESULTS_JOB
     )
+    assert "RELEASE_SHA: ${{ steps.validate.outputs.release_sha }}" in provenance_step
+    assert 'Path("/tmp/lfb-dispatch-release.json")' in provenance_step
+    assert '"schema_version": "legalforecast.dispatch_release.v1"' in provenance_step
+    assert '"workflow_run_id": os.environ["WORKFLOW_RUN_ID"]' in provenance_step
+    assert '"release_sha": os.environ["RELEASE_SHA"]' in provenance_step
+    assert "/tmp/lfb-dispatch-release.json" in BUILD_MATRIX_JOB
 
 
 def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
