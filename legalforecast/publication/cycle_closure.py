@@ -222,7 +222,13 @@ class _S3ObjectStore:
     def read_if_present(self, key: str) -> bytes | None:
         """List the exact key before GET so absence needs only scoped list access."""
 
-        if key not in self.list_keys(key):
+        listed = self.list_keys(key)
+        if any(candidate != key for candidate in listed):
+            raise CycleClosureError(
+                f"exact cycle closure S3 probe returned an unexpected key for "
+                f"{self._object_key(key)}"
+            )
+        if not listed:
             return None
         payload = self.read(key)
         if payload is None:

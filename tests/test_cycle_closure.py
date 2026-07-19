@@ -329,6 +329,21 @@ def test_s3_seal_list_probe_access_denied_fails_closed() -> None:
         )
 
 
+def test_s3_seal_list_probe_rejects_unexpected_prefixed_key() -> None:
+    aws = FakeAws()
+    seal_object_key = f"root/{cycle_closure.seal_key('cycle-1')}"
+    aws.objects[("official-results", f"{seal_object_key}.unexpected")] = b"noise\n"
+
+    with pytest.raises(cycle_closure.CycleClosureError, match="unexpected key"):
+        cycle_closure.begin(
+            "s3://official-results/root",
+            cycle_id="cycle-1",
+            run_id="run-1",
+            run_attempt=1,
+            run_command=aws,
+        )
+
+
 def test_s3_conflicting_existing_object_fails_closed() -> None:
     aws = FakeAws()
     identity = cycle_closure.MutationIdentity("cycle-1", "run-1", 1)
