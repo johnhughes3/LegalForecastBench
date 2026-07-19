@@ -156,6 +156,7 @@ jobs:
     outputs:
       artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
       case_count: ${{ steps.matrix.outputs.case_count }}
+      dispatch_run_attempt: ${{ steps.dispatch.outputs.workflow_run_attempt }}
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
       execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
       freeze_bundle_path: ${{ steps.validate.outputs.freeze_bundle_path }}
@@ -365,7 +366,7 @@ jobs:
           fi
           git fetch origin main --prune
           if [[ -z "${RELEASE_SHA_INPUT}" ]]; then
-            release_sha="$(git rev-parse --verify "origin/main^{commit}")"
+            release_sha="$(git rev-parse --verify "${GITHUB_SHA}^{commit}")"
           else
             release_sha="$(git rev-parse --verify "${RELEASE_SHA_INPUT}^{commit}")"
           fi
@@ -675,8 +676,9 @@ jobs:
           target = Path("/tmp/lfb-execution-policy.json")
           target.write_bytes(source.read_bytes())
           release_provenance = {
-              "schema_version": "legalforecast.dispatch_release.v1",
+              "schema_version": "legalforecast.dispatch_release.v2",
               "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
+              "workflow_run_attempt": int(os.environ["WORKFLOW_RUN_ATTEMPT"]),
               "release_sha": os.environ["RELEASE_SHA"],
           }
           Path("/tmp/lfb-dispatch-release.json").write_text(
@@ -686,6 +688,9 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(
                   f"execution_policy_sha256={provenance['execution_policy_sha256']}\n"
+              )
+              output.write(
+                  f"workflow_run_attempt={os.environ['WORKFLOW_RUN_ATTEMPT']}\n"
               )
           PY
 
@@ -943,7 +948,7 @@ jobs:
       - name: Upload dispatch provenance
         uses: actions/upload-artifact@v7
         with:
-          name: official-dispatch-provenance-${{ github.run_id }}
+          name: official-dispatch-provenance-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             /tmp/lfb-dispatch-provenance.json
             /tmp/lfb-dispatch-release.json
@@ -952,7 +957,6 @@ jobs:
             /tmp/lfb-model-registry.json
             /tmp/lfb-execution-policy.json
           if-no-files-found: error
-          overwrite: true
           retention-days: ${{ fromJSON(steps.validate.outputs.artifact_retention_days) }}
 
   run-case:
@@ -988,7 +992,7 @@ jobs:
         if: ${{ !inputs.dry_run }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: official-dispatch-provenance-${{ github.run_id }}
+          name: official-dispatch-provenance-${{ github.run_id }}-${{ needs.build-matrix.outputs.dispatch_run_attempt }}
           path: /tmp/lfb-run-case-inputs
 
       - name: Dry-run matrix row
@@ -1010,13 +1014,28 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Configure AWS OIDC credentials
+      - name: Configure packet-read and result-write AWS authority
         if: ${{ !inputs.dry_run }}
         uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-official-case-${{ github.run_id }}-${{ strategy.job-index }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+
+      - name: Begin per-case cycle mutation
+        id: begin_cycle_mutation
+        if: ${{ !inputs.dry_run }}
+        shell: bash
+        env:
+          CYCLE_ID: ${{ inputs.cycle_id }}
+          STRATEGY_JOB_INDEX: ${{ strategy.job-index }}
+        run: |
+          set -euo pipefail
+          uv run python -m legalforecast.publication.cycle_closure begin \
+            --root "s3://${LFB_RESULTS_BUCKET}" \
+            --cycle-id "${CYCLE_ID}" \
+            --writer-id "${GITHUB_RUN_ID}-case-${STRATEGY_JOB_INDEX}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}"
 
       - name: Run isolated case evaluation
         if: ${{ !inputs.dry_run }}
@@ -1107,14 +1126,27 @@ jobs:
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
 
+      - name: Finish per-case cycle mutation
+        if: ${{ always() && !inputs.dry_run && steps.begin_cycle_mutation.outcome == 'success' }}
+        shell: bash
+        env:
+          CYCLE_ID: ${{ inputs.cycle_id }}
+          STRATEGY_JOB_INDEX: ${{ strategy.job-index }}
+        run: |
+          set -euo pipefail
+          uv run python -m legalforecast.publication.cycle_closure finish \
+            --root "s3://${LFB_RESULTS_BUCKET}" \
+            --cycle-id "${CYCLE_ID}" \
+            --writer-id "${GITHUB_RUN_ID}-case-${STRATEGY_JOB_INDEX}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}"
+
       - name: Upload per-case artifacts
         if: ${{ !inputs.dry_run && success() }}
         uses: actions/upload-artifact@v7
         with:
-          name: official-eval-${{ matrix.case_id }}-${{ matrix.ablation }}-${{ matrix.model_key_slug }}
+          name: official-eval-${{ github.run_attempt }}-${{ matrix.case_id }}-${{ matrix.ablation }}-${{ matrix.model_key_slug }}
           path: tmp/official-eval/${{ matrix.case_id }}/${{ matrix.ablation }}/${{ matrix.model_key_slug }}
           if-no-files-found: error
-          overwrite: true
           retention-days: ${{ fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}
 
   finalize-shard:
@@ -1148,7 +1180,7 @@ jobs:
       - name: Download frozen shard inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: official-dispatch-provenance-${{ github.run_id }}
+          name: official-dispatch-provenance-${{ github.run_id }}-${{ needs.build-matrix.outputs.dispatch_run_attempt }}
           path: /tmp/lfb-shard-inputs
 
       - name: Download all successful cell completions
@@ -1164,19 +1196,50 @@ jobs:
           role-session-name: lfb-finalize-shard-${{ github.run_id }}-${{ github.run_attempt }}
           role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
 
+      - name: Begin shard-receipt cycle mutation
+        id: begin_shard_receipt_mutation
+        shell: bash
+        env:
+          CYCLE_ID: ${{ inputs.cycle_id }}
+        run: |
+          set -euo pipefail
+          uv run python -m legalforecast.publication.cycle_closure begin \
+            --root "s3://${LFB_RESULTS_BUCKET}" \
+            --cycle-id "${CYCLE_ID}" \
+            --writer-id "${GITHUB_RUN_ID}-finalize-shard" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}"
+
       - name: Verify exact result versions and write receipt once
         shell: bash
+        env:
+          SOURCE_DISPATCH_RUN_ATTEMPT: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
+          SOURCE_RELEASE_SHA: ${{ needs.build-matrix.outputs.release_sha }}
         run: |
           set -euo pipefail
           uv run python -m legalforecast.publication.shard_receipt \
             --dispatch-provenance /tmp/lfb-shard-inputs/lfb-dispatch-provenance.json \
-            --frozen-manifest /tmp/lfb-shard-inputs/lfb-run-inputs-frozen.json \
+            --run-input-manifest /tmp/lfb-shard-inputs/lfb-run-inputs-frozen.json \
             --labels /tmp/lfb-shard-inputs/lfb-labels.jsonl \
             --model-registry /tmp/lfb-shard-inputs/lfb-model-registry.json \
             --completions-root /tmp/lfb-cell-completions \
             --workflow-run-id "${GITHUB_RUN_ID}" \
             --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}" \
+            --source-release-sha "${SOURCE_RELEASE_SHA}" \
             --receipt-root "s3://${LFB_RESULTS_BUCKET}"
+
+      - name: Finish shard-receipt cycle mutation
+        if: ${{ always() && steps.begin_shard_receipt_mutation.outcome == 'success' }}
+        shell: bash
+        env:
+          CYCLE_ID: ${{ inputs.cycle_id }}
+        run: |
+          set -euo pipefail
+          uv run python -m legalforecast.publication.cycle_closure finish \
+            --root "s3://${LFB_RESULTS_BUCKET}" \
+            --cycle-id "${CYCLE_ID}" \
+            --writer-id "${GITHUB_RUN_ID}-finalize-shard" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}"
 
   aggregate-results:
     name: Aggregate official results
@@ -1336,7 +1399,7 @@ jobs:
       - name: Download dispatch provenance
         uses: actions/download-artifact@v8.0.1
         with:
-          name: official-dispatch-provenance-${{ github.run_id }}
+          name: official-dispatch-provenance-${{ github.run_id }}-${{ needs.build-matrix.outputs.dispatch_run_attempt }}
           path: /tmp
 
       - name: Download durable union of per-case artifacts
@@ -1440,20 +1503,10 @@ jobs:
             --deferred-ablation "judge_removed" \
             "${optional_args[@]}"
 
-      - name: Publish aggregate bundle to S3
-        shell: bash
-        run: |
-          set -euo pipefail
-          aws s3 sync \
-            tmp/official-aggregate/public \
-            "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/" \
-            --only-show-errors
-
       - name: Upload aggregate artifact
         uses: actions/upload-artifact@v7
         with:
-          name: official-aggregate-${{ inputs.cycle_id }}-multi-ablation
+          name: official-aggregate-${{ inputs.cycle_id }}-${{ github.run_attempt }}-multi-ablation
           path: tmp/official-aggregate
           if-no-files-found: error
-          overwrite: true
           retention-days: ${{ fromJSON(env.ARTIFACT_RETENTION_DAYS) }}
