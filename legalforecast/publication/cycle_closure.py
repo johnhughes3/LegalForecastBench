@@ -88,6 +88,8 @@ class _ObjectStore(Protocol):
 
     def read(self, key: str) -> bytes | None: ...
 
+    def read_if_present(self, key: str) -> bytes | None: ...
+
     def list_keys(self, prefix: str) -> tuple[str, ...]: ...
 
 
@@ -129,6 +131,9 @@ class _LocalObjectStore:
             return path.read_bytes()
         except FileNotFoundError:
             return None
+
+    def read_if_present(self, key: str) -> bytes | None:
+        return self.read(key)
 
     def list_keys(self, prefix: str) -> tuple[str, ...]:
         base = self.root / prefix
@@ -213,6 +218,19 @@ class _S3ObjectStore:
         raise CycleClosureError(
             f"cycle closure S3 read failed for {object_key}: {_command_error(result)}"
         )
+
+    def read_if_present(self, key: str) -> bytes | None:
+        """List the exact key before GET so absence needs only scoped list access."""
+
+        if key not in self.list_keys(key):
+            return None
+        payload = self.read(key)
+        if payload is None:
+            raise CycleClosureError(
+                f"listed cycle closure object disappeared before read: "
+                f"{self._object_key(key)}"
+            )
+        return payload
 
     def list_keys(self, prefix: str) -> tuple[str, ...]:
         object_prefix = self._object_key(prefix)
@@ -334,7 +352,7 @@ def begin(
     identity = MutationIdentity(cycle_id, run_id, run_attempt)
     store = _object_store(root, run_command=run_command)
     store.create(intent_key(identity), intent_payload(identity))
-    existing_seal = store.read(seal_key(identity.cycle_id))
+    existing_seal = store.read_if_present(seal_key(identity.cycle_id))
     if existing_seal is None:
         return identity
     _require_exact_payload(

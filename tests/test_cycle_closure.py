@@ -258,6 +258,77 @@ def test_s3_uses_create_only_puts_and_idempotent_reads() -> None:
     assert result.observed_mutations == (identity,)
 
 
+def test_s3_absent_seal_uses_exact_list_probe_not_missing_get() -> None:
+    aws = FakeAws(missing_get_is_access_denied=True)
+
+    identity = cycle_closure.begin(
+        "s3://official-results/root",
+        cycle_id="cycle-1",
+        run_id="run-1",
+        run_attempt=1,
+        run_command=aws,
+    )
+
+    seal_object_key = f"root/{cycle_closure.seal_key('cycle-1')}"
+    seal_lists = [
+        command
+        for command in aws.commands
+        if "list-objects-v2" in command
+        and _option(command, "--prefix") == seal_object_key
+    ]
+    seal_gets = [
+        command
+        for command in aws.commands
+        if "get-object" in command and _option(command, "--key") == seal_object_key
+    ]
+    assert identity == cycle_closure.MutationIdentity("cycle-1", "run-1", 1)
+    assert len(seal_lists) == 1
+    assert seal_gets == []
+
+
+def test_s3_existing_seal_is_read_only_after_exact_list_probe() -> None:
+    aws = FakeAws(missing_get_is_access_denied=True)
+    cycle_closure.seal_wait(
+        "s3://official-results/root",
+        cycle_id="cycle-1",
+        timeout_seconds=1,
+        poll_interval_seconds=0.01,
+        run_command=aws,
+    )
+    aws.commands.clear()
+
+    with pytest.raises(cycle_closure.CycleSealedError, match="cycle-1"):
+        cycle_closure.begin(
+            "s3://official-results/root",
+            cycle_id="cycle-1",
+            run_id="late-run",
+            run_attempt=2,
+            run_command=aws,
+        )
+
+    seal_object_key = f"root/{cycle_closure.seal_key('cycle-1')}"
+    relevant_operations = [
+        command[2]
+        for command in aws.commands
+        if ("--key" in command and _option(command, "--key") == seal_object_key)
+        or ("--prefix" in command and _option(command, "--prefix") == seal_object_key)
+    ]
+    assert relevant_operations == ["list-objects-v2", "get-object"]
+
+
+def test_s3_seal_list_probe_access_denied_fails_closed() -> None:
+    aws = FakeAws(list_error="AccessDenied (403)")
+
+    with pytest.raises(cycle_closure.CycleClosureError, match="S3 list failed"):
+        cycle_closure.begin(
+            "s3://official-results/root",
+            cycle_id="cycle-1",
+            run_id="run-1",
+            run_attempt=1,
+            run_command=aws,
+        )
+
+
 def test_s3_conflicting_existing_object_fails_closed() -> None:
     aws = FakeAws()
     identity = cycle_closure.MutationIdentity("cycle-1", "run-1", 1)
@@ -337,9 +408,16 @@ def test_cli_subcommands_use_explicit_identity_and_polling_args(
 
 
 class FakeAws:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        missing_get_is_access_denied: bool = False,
+        list_error: str | None = None,
+    ) -> None:
         self.objects: dict[tuple[str, str], bytes] = {}
         self.commands: list[list[str]] = []
+        self.missing_get_is_access_denied = missing_get_is_access_denied
+        self.list_error = list_error
 
     def __call__(
         self,
@@ -366,10 +444,16 @@ class FakeAws:
             key = _option(command, "--key")
             payload = self.objects.get((bucket, key))
             if payload is None:
+                if self.missing_get_is_access_denied:
+                    return subprocess.CompletedProcess(
+                        command, 1, "", "AccessDenied (403)"
+                    )
                 return subprocess.CompletedProcess(command, 1, "", "NoSuchKey (404)")
             Path(command[-1]).write_bytes(payload)
             return subprocess.CompletedProcess(command, 0, "{}", "")
         if operation == "list-objects-v2":
+            if self.list_error is not None:
+                return subprocess.CompletedProcess(command, 1, "", self.list_error)
             prefix = _option(command, "--prefix")
             contents = [
                 {"Key": key}
