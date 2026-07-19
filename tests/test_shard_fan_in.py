@@ -408,12 +408,11 @@ def test_publisher_rechecks_inventory_before_canonical_write(
         "current_union_inventory_sha256",
         lambda _root, _cycle: report.union_inventory_sha256,
     )
+    destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
 
     with pytest.raises(shard_fan_in.FanInError, match="inventory changed"):
-        shard_fan_in_publish.publish_fan_in(
-            config, publish_root=str(tmp_path / "published")
-        )
-    assert not (tmp_path / "published").exists()
+        shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+    assert not destination.exists()
 
     monkeypatch.setattr(
         shard_fan_in_publish,
@@ -426,19 +425,15 @@ def test_publisher_rechecks_inventory_before_canonical_write(
         lambda _root, _cycle: "0" * 64,
     )
     with pytest.raises(shard_fan_in.FanInError, match="object versions changed"):
-        shard_fan_in_publish.publish_fan_in(
-            config, publish_root=str(tmp_path / "published")
-        )
+        shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
 
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
         lambda _root, _cycle: report.union_inventory_sha256,
     )
-    shard_fan_in_publish.publish_fan_in(
-        config, publish_root=str(tmp_path / "published")
-    )
-    assert (tmp_path / "published" / "report.json").is_file()
+    shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+    assert (destination / "report.json").is_file()
 
 
 def test_publisher_writes_from_a_protected_snapshot(
@@ -480,7 +475,7 @@ def test_publisher_writes_from_a_protected_snapshot(
 
     monkeypatch.setattr(shard_fan_in_publish.shutil, "copytree", observed_copytree)
 
-    destination = tmp_path / "published"
+    destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
     shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
 
     assert len(copy_sources) == 2
@@ -491,25 +486,61 @@ def test_publisher_writes_from_a_protected_snapshot(
     )
 
 
-def test_s3_publication_refuses_a_nonempty_canonical_prefix(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    commands: list[list[str]] = []
-
-    def fake_run(command: list[str], **_kwargs: Any) -> SimpleNamespace:
-        commands.append(command)
-        return SimpleNamespace(returncode=0, stdout='{"KeyCount": 1}', stderr="")
-
-    monkeypatch.setattr(shard_fan_in_publish.subprocess, "run", fake_run)
-
-    with pytest.raises(shard_fan_in.FanInError, match="prefix is not empty"):
-        shard_fan_in_publish._require_empty_s3_prefix(
-            "s3://results/reports/cycle-1/multi-ablation/"
+def test_local_publication_requires_a_cycle_scoped_destination(tmp_path: Path) -> None:
+    with pytest.raises(shard_fan_in.FanInError, match="canonical cycle report"):
+        shard_fan_in_publish._require_canonical_publish_root(
+            str(tmp_path / "published"), cycle_id="cycle-1"
         )
-    assert commands[0][:3] == ["aws", "s3api", "list-objects-v2"]
 
 
-def test_s3_publication_syncs_only_the_protected_snapshot(
+def test_local_publication_failure_leaves_no_partial_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aggregate = tmp_path / "aggregate"
+    public = aggregate / "public"
+    public.mkdir(parents=True)
+    (public / "report.json").write_text("{}\n", encoding="utf-8")
+    report = _report(aggregate_output_dir=aggregate)
+    config = shard_fan_in.FanInConfig(
+        freeze_bundle_path=tmp_path / "freeze.json",
+        run_input_manifest_path=tmp_path / "run-input.json",
+        receipt_root=str(tmp_path / "store"),
+        output_dir=tmp_path / "output",
+    )
+    monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_receipt_inventory_sha256",
+        lambda _root, _cycle: report.receipt_inventory_sha256,
+    )
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_union_inventory_sha256",
+        lambda _root, _cycle: report.union_inventory_sha256,
+    )
+    real_copytree = shard_fan_in_publish.shutil.copytree
+    calls = 0
+
+    def failing_copytree(source: Path, destination: Path) -> Path:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            Path(destination).mkdir(parents=True)
+            (Path(destination) / "partial").write_text("partial", encoding="utf-8")
+            raise OSError("disk full")
+        return real_copytree(source, destination)
+
+    monkeypatch.setattr(shard_fan_in_publish.shutil, "copytree", failing_copytree)
+    destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
+
+    with pytest.raises(shard_fan_in.FanInError, match="local publication failed"):
+        shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+
+    assert not destination.exists()
+    assert tuple(destination.parent.glob(".multi-ablation-*")) == ()
+
+
+def test_s3_publication_claims_and_conditionally_writes_protected_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     aggregate = tmp_path / "aggregate"
@@ -535,17 +566,34 @@ def test_s3_publication_syncs_only_the_protected_snapshot(
         "current_union_inventory_sha256",
         lambda _root, _cycle: report.union_inventory_sha256,
     )
-    synced_source: Path | None = None
-    synced_bytes: str | None = None
+    stored: set[str] = set()
+    uploaded_report: str | None = None
 
     def fake_run(command: list[str], **_kwargs: Any) -> SimpleNamespace:
-        nonlocal synced_bytes, synced_source
+        nonlocal uploaded_report
         if command[1:3] == ["s3api", "list-objects-v2"]:
-            return SimpleNamespace(returncode=0, stdout='{"KeyCount": 0}', stderr="")
-        assert command[1:3] == ["s3", "sync"]
-        synced_source = Path(command[3])
-        report_path.write_text('{"state":"changed-during-sync"}\n', encoding="utf-8")
-        synced_bytes = (synced_source / "report.json").read_text(encoding="utf-8")
+            contents = [{"Key": key} for key in sorted(stored)]
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "KeyCount": len(contents),
+                        "Contents": contents,
+                        "IsTruncated": False,
+                    }
+                ),
+                stderr="",
+            )
+        assert command[1:3] == ["s3api", "put-object"]
+        assert command[-2:] == ["--if-none-match", "*"]
+        key = command[command.index("--key") + 1]
+        if key.endswith("/report.json"):
+            report_path.write_text(
+                '{"state":"changed-during-upload"}\n', encoding="utf-8"
+            )
+            body = Path(command[command.index("--body") + 1])
+            uploaded_report = body.read_text(encoding="utf-8")
+        stored.add(key)
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(shard_fan_in_publish.subprocess, "run", fake_run)
@@ -555,9 +603,59 @@ def test_s3_publication_syncs_only_the_protected_snapshot(
         publish_root="s3://results/reports/cycle-1/multi-ablation/",
     )
 
-    assert synced_source is not None
-    assert synced_source != public
-    assert synced_bytes == '{"state":"verified"}\n'
+    assert uploaded_report == '{"state":"verified"}\n'
+    assert stored == {
+        "reports/cycle-1/multi-ablation/.publication-claim.json",
+        "reports/cycle-1/multi-ablation/.publication-complete.json",
+        "reports/cycle-1/multi-ablation/report.json",
+    }
+
+
+def test_s3_publication_rejects_a_conflicting_object(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    (snapshot / "report.json").write_text('{"state":"verified"}\n', encoding="utf-8")
+    stored: set[str] = set()
+
+    def fake_run(command: list[str], **_kwargs: Any) -> SimpleNamespace:
+        if command[1:3] == ["s3api", "list-objects-v2"]:
+            contents = [{"Key": key} for key in sorted(stored)]
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "Contents": contents,
+                        "IsTruncated": False,
+                    }
+                ),
+                stderr="",
+            )
+        key = command[command.index("--key") + 1]
+        if command[1:3] == ["s3api", "get-object"]:
+            Path(command[-1]).write_text('{"state":"conflict"}\n', encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        assert command[1:3] == ["s3api", "put-object"]
+        if key.endswith("/report.json"):
+            return SimpleNamespace(
+                returncode=1,
+                stdout="",
+                stderr="PreconditionFailed (412)",
+            )
+        stored.add(key)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(shard_fan_in_publish.subprocess, "run", fake_run)
+
+    with pytest.raises(shard_fan_in.FanInError, match="object conflicts"):
+        shard_fan_in_publish._publish_s3_snapshot(
+            snapshot,
+            publish_root="s3://results/reports/cycle-1/multi-ablation/",
+            cycle_id="cycle-1",
+        )
+
+    assert "reports/cycle-1/multi-ablation/.publication-complete.json" not in stored
 
 
 def test_s3_version_lookup_uses_one_s3api_subcommand(
