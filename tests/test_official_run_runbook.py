@@ -46,8 +46,12 @@ def test_runbook_documents_attempt_bound_seal_and_publication_commit() -> None:
         "read-only GetObject authority for `cycle-publication-state/*/seal.json`"
         in (runbook)
     )
+    assert "prefix-conditioned `s3:ListBucket` authority" in runbook
+    assert "exact-key ListObjectsV2 probe before GetObject" in runbook
+    assert "malformed listing, or unexpected key fails closed" in runbook
     assert (
-        "no marker listing, seal-write, receipt, or report-prefix authority" in runbook
+        "no broader marker listing, seal write, receipt, or report-prefix authority"
+        in runbook
     )
     assert "`.publication-complete.json` as the final successful operation" in runbook
 
