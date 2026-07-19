@@ -46,6 +46,7 @@ ShardKey = tuple[str, str]
 ACCEPTED_ATTEMPT_MAP_SCHEMA_VERSION = "legalforecast.accepted_attempt_map.v1"
 FAN_IN_REPORT_SCHEMA_VERSION = "legalforecast.shard_fan_in_report.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_GIT_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
 _CYCLE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 _RESULT_NAMES = ("accounting", "metrics", "runs")
 
@@ -98,6 +99,8 @@ class FanInConfig:
     output_dir: Path
     amendment_bundle_paths: tuple[Path, ...] = ()
     source_dispatch_run_id: str | None = None
+    source_dispatch_run_attempt: int | None = None
+    source_release_sha: str | None = None
     labels_path: Path | None = None
     model_registry_path: Path | None = None
     accepted_attempt_map_path: Path | None = None
@@ -582,6 +585,48 @@ def current_union_inventory_sha256(root: str, cycle_id: str) -> str:
     return _union_inventory_sha256(_discover_current_union_objects(root, cycle_id))
 
 
+def require_source_dispatch_identity(
+    receipts: Sequence[Mapping[str, Any]],
+    *,
+    workflow_run_id: str | None,
+    workflow_run_attempt: int | None,
+    release_sha: str | None,
+) -> None:
+    """Bind accepted receipts to one immutable source dispatch attempt and release."""
+
+    supplied = (workflow_run_id, workflow_run_attempt, release_sha)
+    if all(value is None for value in supplied):
+        return
+    if any(value is None for value in supplied):
+        raise FanInError(
+            "source dispatch run ID, run attempt, and release SHA must be "
+            "supplied together"
+        )
+    assert workflow_run_id is not None
+    assert workflow_run_attempt is not None
+    assert release_sha is not None
+    if re.fullmatch(r"[1-9][0-9]*", workflow_run_id) is None:
+        raise FanInError("source dispatch run ID must be a positive integer")
+    if workflow_run_attempt < 1:
+        raise FanInError("source dispatch run attempt must be a positive integer")
+    if _GIT_COMMIT_SHA.fullmatch(release_sha) is None:
+        raise FanInError("source release SHA must be a full lowercase commit SHA")
+    if any(
+        _required_commit_sha(receipt, "source_release_sha") != release_sha
+        for receipt in receipts
+    ):
+        raise FanInError("accepted shard receipt source release SHA mismatch")
+    if not any(
+        _required_str(receipt, "workflow_run_id") == workflow_run_id
+        and _positive_int(receipt, "source_dispatch_run_attempt")
+        == workflow_run_attempt
+        for receipt in receipts
+    ):
+        raise FanInError(
+            "source dispatch run attempt must match at least one accepted shard receipt"
+        )
+
+
 def verify_fan_in(config: FanInConfig) -> FanInReport:
     """Run receipt selection, exact object checks, completeness, and aggregation."""
 
@@ -618,18 +663,12 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
         shard_schedule_sha256=schedule_sha256,
         accepted_attempt_map=accepted_map,
     )
-    if (
-        config.source_dispatch_run_id is not None
-        and re.fullmatch(r"[1-9][0-9]*", config.source_dispatch_run_id) is None
-    ):
-        raise FanInError("source dispatch run ID must be a positive integer")
-    if config.source_dispatch_run_id is not None and not any(
-        _required_str(receipt, "workflow_run_id") == config.source_dispatch_run_id
-        for receipt in selection.receipts
-    ):
-        raise FanInError(
-            "source dispatch run must match at least one accepted shard receipt"
-        )
+    require_source_dispatch_identity(
+        selection.receipts,
+        workflow_run_id=config.source_dispatch_run_id,
+        workflow_run_attempt=config.source_dispatch_run_attempt,
+        release_sha=config.source_release_sha,
+    )
     counts = derive_cadence_counts(
         frozen.manifest_path,
         frozen.units_path,
@@ -643,6 +682,10 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
             "ablation": _required_str(receipt, "ablation"),
             "workflow_run_id": _required_str(receipt, "workflow_run_id"),
             "workflow_run_attempt": _positive_int(receipt, "workflow_run_attempt"),
+            "source_dispatch_run_attempt": _positive_int(
+                receipt, "source_dispatch_run_attempt"
+            ),
+            "source_release_sha": _required_commit_sha(receipt, "source_release_sha"),
             "receipt_key": _required_str(receipt, "receipt_key"),
             "receipt_sha256": _required_sha256(receipt, "receipt_sha256"),
         }
@@ -1330,6 +1373,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-registry", type=Path)
     parser.add_argument("--accepted-attempt-map", type=Path)
     parser.add_argument("--source-dispatch-run-id")
+    parser.add_argument("--source-dispatch-run-attempt", type=int)
+    parser.add_argument("--source-release-sha")
     parser.add_argument("--clean-motion-count", type=int)
     parser.add_argument("--prediction-unit-count", type=int)
     parser.add_argument("--baseline-training-examples", type=Path)
@@ -1352,6 +1397,8 @@ def config_from_args(args: argparse.Namespace, *, verify_only: bool) -> FanInCon
         model_registry_path=cast(Path | None, args.model_registry),
         accepted_attempt_map_path=cast(Path | None, args.accepted_attempt_map),
         source_dispatch_run_id=cast(str | None, args.source_dispatch_run_id),
+        source_dispatch_run_attempt=cast(int | None, args.source_dispatch_run_attempt),
+        source_release_sha=cast(str | None, args.source_release_sha),
         operator_clean_motion_count=cast(int | None, args.clean_motion_count),
         operator_prediction_unit_count=cast(int | None, args.prediction_unit_count),
         baseline_training_examples_path=cast(
@@ -1381,6 +1428,13 @@ def _required_sha256(record: Mapping[str, Any], field: str) -> str:
     value = _required_str(record, field)
     if _SHA256.fullmatch(value) is None:
         raise FanInError(f"{field} must be a lowercase SHA-256 digest")
+    return value
+
+
+def _required_commit_sha(record: Mapping[str, Any], field: str) -> str:
+    value = _required_str(record, field)
+    if _GIT_COMMIT_SHA.fullmatch(value) is None:
+        raise FanInError(f"{field} must be a full lowercase Git commit SHA")
     return value
 
 

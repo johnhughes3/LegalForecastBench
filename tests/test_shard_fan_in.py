@@ -33,6 +33,53 @@ def test_single_receipt_per_declared_shard_auto_accepts() -> None:
     assert selection.accepted_attempt_map_sha256 is None
 
 
+def test_source_dispatch_identity_binds_exact_attempt_and_release() -> None:
+    receipts = (
+        _receipt(
+            "fixture:model-a",
+            "full_packet",
+            run_id="1001",
+            attempt=2,
+            source_attempt=1,
+        ),
+        _receipt("fixture:model-a", "metadata_only", run_id="1002", attempt=1),
+    )
+
+    shard_fan_in.require_source_dispatch_identity(
+        receipts,
+        workflow_run_id="1001",
+        workflow_run_attempt=1,
+        release_sha="d" * 40,
+    )
+
+    with pytest.raises(shard_fan_in.FanInError, match="run attempt"):
+        shard_fan_in.require_source_dispatch_identity(
+            receipts,
+            workflow_run_id="1001",
+            workflow_run_attempt=2,
+            release_sha="d" * 40,
+        )
+    mismatched = deepcopy(receipts[1])
+    mismatched["source_release_sha"] = "e" * 40
+    with pytest.raises(shard_fan_in.FanInError, match="release SHA mismatch"):
+        shard_fan_in.require_source_dispatch_identity(
+            (receipts[0], mismatched),
+            workflow_run_id="1001",
+            workflow_run_attempt=1,
+            release_sha="d" * 40,
+        )
+
+
+def test_source_dispatch_identity_fields_are_all_or_nothing() -> None:
+    with pytest.raises(shard_fan_in.FanInError, match="supplied together"):
+        shard_fan_in.require_source_dispatch_identity(
+            (_receipt("fixture:model-a", "full_packet"),),
+            workflow_run_id="1001",
+            workflow_run_attempt=None,
+            release_sha="d" * 40,
+        )
+
+
 def test_missing_or_undeclared_shard_receipts_fail_closed() -> None:
     with pytest.raises(shard_fan_in.FanInError, match="missing shard receipts"):
         shard_fan_in.select_accepted_receipts(
@@ -396,6 +443,9 @@ def test_publisher_rechecks_inventory_before_canonical_write(
         run_input_manifest_path=tmp_path / "run-input.json",
         receipt_root=str(tmp_path / "store"),
         output_dir=tmp_path / "output",
+        source_dispatch_run_id="1001",
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
     monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
     monkeypatch.setattr(
@@ -411,7 +461,9 @@ def test_publisher_rechecks_inventory_before_canonical_write(
     destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
 
     with pytest.raises(shard_fan_in.FanInError, match="inventory changed"):
-        shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+        shard_fan_in_publish.publish_fan_in(
+            config, publish_root=str(destination), publication_cycle_id="cycle-1"
+        )
     assert not destination.exists()
 
     monkeypatch.setattr(
@@ -425,15 +477,143 @@ def test_publisher_rechecks_inventory_before_canonical_write(
         lambda _root, _cycle: "0" * 64,
     )
     with pytest.raises(shard_fan_in.FanInError, match="object versions changed"):
-        shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+        shard_fan_in_publish.publish_fan_in(
+            config, publish_root=str(destination), publication_cycle_id="cycle-1"
+        )
 
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
         lambda _root, _cycle: report.union_inventory_sha256,
     )
-    shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+    shard_fan_in_publish.publish_fan_in(
+        config, publish_root=str(destination), publication_cycle_id="cycle-1"
+    )
     assert (destination / "report.json").is_file()
+
+
+def test_publisher_verifies_cycle_before_permanent_seal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aggregate = tmp_path / "aggregate"
+    public = aggregate / "public"
+    public.mkdir(parents=True)
+    (public / "report.json").write_text("{}\n", encoding="utf-8")
+    report = _report(aggregate_output_dir=aggregate)
+    config = shard_fan_in.FanInConfig(
+        freeze_bundle_path=tmp_path / "freeze.json",
+        run_input_manifest_path=tmp_path / "run-input.json",
+        receipt_root=str(tmp_path / "store"),
+        output_dir=tmp_path / "output",
+        source_dispatch_run_id="1001",
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
+    )
+    events: list[str] = []
+    monkeypatch.setattr(
+        shard_fan_in_publish.cycle_closure,
+        "seal_wait",
+        lambda *_args, **_kwargs: events.append("seal"),
+    )
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "verify_fan_in",
+        lambda _config: events.append("verify") or report,
+    )
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_receipt_inventory_sha256",
+        lambda _root, _cycle: report.receipt_inventory_sha256,
+    )
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_union_inventory_sha256",
+        lambda _root, _cycle: report.union_inventory_sha256,
+    )
+
+    shard_fan_in_publish.publish_fan_in(
+        config,
+        publish_root=str(tmp_path / "reports" / "cycle-1" / "multi-ablation"),
+        publication_cycle_id="cycle-1",
+    )
+
+    assert events[:2] == ["verify", "seal"]
+
+
+def test_publication_cycle_mismatch_does_not_seal_either_cycle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aggregate = tmp_path / "aggregate"
+    public = aggregate / "public"
+    public.mkdir(parents=True)
+    (public / "report.json").write_text("{}\n", encoding="utf-8")
+    report = _report(aggregate_output_dir=aggregate)
+    config = shard_fan_in.FanInConfig(
+        freeze_bundle_path=tmp_path / "freeze.json",
+        run_input_manifest_path=tmp_path / "run-input.json",
+        receipt_root=str(tmp_path / "store"),
+        output_dir=tmp_path / "output",
+        source_dispatch_run_id="1001",
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
+    )
+    seal_calls: list[str] = []
+    monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
+    monkeypatch.setattr(
+        shard_fan_in_publish.cycle_closure,
+        "seal_wait",
+        lambda _root, *, cycle_id, **_kwargs: seal_calls.append(cycle_id),
+    )
+
+    with pytest.raises(shard_fan_in.FanInError, match="does not match"):
+        shard_fan_in_publish.publish_fan_in(
+            config,
+            publish_root=str(tmp_path / "reports" / "wrong-cycle" / "multi-ablation"),
+            publication_cycle_id="wrong-cycle",
+        )
+
+    assert seal_calls == []
+
+
+def test_late_inventory_change_prevents_local_atomic_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aggregate = tmp_path / "aggregate"
+    public = aggregate / "public"
+    public.mkdir(parents=True)
+    (public / "report.json").write_text("{}\n", encoding="utf-8")
+    report = _report(aggregate_output_dir=aggregate)
+    config = shard_fan_in.FanInConfig(
+        freeze_bundle_path=tmp_path / "freeze.json",
+        run_input_manifest_path=tmp_path / "run-input.json",
+        receipt_root=str(tmp_path / "store"),
+        output_dir=tmp_path / "output",
+        source_dispatch_run_id="1001",
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
+    )
+    inventories = iter((report.receipt_inventory_sha256, "0" * 64))
+    monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_receipt_inventory_sha256",
+        lambda _root, _cycle: next(inventories),
+    )
+    monkeypatch.setattr(
+        shard_fan_in_publish,
+        "current_union_inventory_sha256",
+        lambda _root, _cycle: report.union_inventory_sha256,
+    )
+    destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
+
+    with pytest.raises(shard_fan_in.FanInError, match="inventory changed"):
+        shard_fan_in_publish.publish_fan_in(
+            config,
+            publish_root=str(destination),
+            publication_cycle_id="cycle-1",
+        )
+
+    assert not destination.exists()
 
 
 def test_publisher_writes_from_a_protected_snapshot(
@@ -450,6 +630,9 @@ def test_publisher_writes_from_a_protected_snapshot(
         run_input_manifest_path=tmp_path / "run-input.json",
         receipt_root=str(tmp_path / "store"),
         output_dir=tmp_path / "output",
+        source_dispatch_run_id="1001",
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
     monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
     monkeypatch.setattr(
@@ -476,7 +659,9 @@ def test_publisher_writes_from_a_protected_snapshot(
     monkeypatch.setattr(shard_fan_in_publish.shutil, "copytree", observed_copytree)
 
     destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
-    shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+    shard_fan_in_publish.publish_fan_in(
+        config, publish_root=str(destination), publication_cycle_id="cycle-1"
+    )
 
     assert len(copy_sources) == 2
     assert copy_sources[0] == public
@@ -506,6 +691,9 @@ def test_local_publication_failure_leaves_no_partial_destination(
         run_input_manifest_path=tmp_path / "run-input.json",
         receipt_root=str(tmp_path / "store"),
         output_dir=tmp_path / "output",
+        source_dispatch_run_id="1001",
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
     monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
     monkeypatch.setattr(
@@ -534,7 +722,9 @@ def test_local_publication_failure_leaves_no_partial_destination(
     destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
 
     with pytest.raises(shard_fan_in.FanInError, match="local publication failed"):
-        shard_fan_in_publish.publish_fan_in(config, publish_root=str(destination))
+        shard_fan_in_publish.publish_fan_in(
+            config, publish_root=str(destination), publication_cycle_id="cycle-1"
+        )
 
     assert not destination.exists()
     assert tuple(destination.parent.glob(".multi-ablation-*")) == ()
@@ -554,6 +744,9 @@ def test_s3_publication_claims_and_conditionally_writes_protected_snapshot(
         run_input_manifest_path=tmp_path / "run-input.json",
         receipt_root=str(tmp_path / "store"),
         output_dir=tmp_path / "output",
+        source_dispatch_run_id="1001",
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
     monkeypatch.setattr(shard_fan_in_publish, "verify_fan_in", lambda _config: report)
     monkeypatch.setattr(
@@ -566,11 +759,13 @@ def test_s3_publication_claims_and_conditionally_writes_protected_snapshot(
         "current_union_inventory_sha256",
         lambda _root, _cycle: report.union_inventory_sha256,
     )
-    stored: set[str] = set()
+    stored: dict[str, bytes] = {}
     uploaded_report: str | None = None
+    commands: list[list[str]] = []
 
     def fake_run(command: list[str], **_kwargs: Any) -> SimpleNamespace:
         nonlocal uploaded_report
+        commands.append(command)
         if command[1:3] == ["s3api", "list-objects-v2"]:
             contents = [{"Key": key} for key in sorted(stored)]
             return SimpleNamespace(
@@ -584,16 +779,24 @@ def test_s3_publication_claims_and_conditionally_writes_protected_snapshot(
                 ),
                 stderr="",
             )
+        if command[1:3] == ["s3api", "get-object"]:
+            key = command[command.index("--key") + 1]
+            Path(command[-1]).write_bytes(stored[key])
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
         assert command[1:3] == ["s3api", "put-object"]
         assert command[-2:] == ["--if-none-match", "*"]
         key = command[command.index("--key") + 1]
+        body = Path(command[command.index("--body") + 1]).read_bytes()
         if key.endswith("/report.json"):
             report_path.write_text(
                 '{"state":"changed-during-upload"}\n', encoding="utf-8"
             )
-            body = Path(command[command.index("--body") + 1])
-            uploaded_report = body.read_text(encoding="utf-8")
-        stored.add(key)
+            uploaded_report = body.decode()
+        if key in stored:
+            return SimpleNamespace(
+                returncode=1, stdout="", stderr="PreconditionFailed (412)"
+            )
+        stored[key] = body
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(shard_fan_in_publish.subprocess, "run", fake_run)
@@ -601,14 +804,35 @@ def test_s3_publication_claims_and_conditionally_writes_protected_snapshot(
     shard_fan_in_publish.publish_fan_in(
         config,
         publish_root="s3://results/reports/cycle-1/multi-ablation/",
+        publication_cycle_id="cycle-1",
     )
 
     assert uploaded_report == '{"state":"verified"}\n'
-    assert stored == {
+    assert set(stored) == {
         "reports/cycle-1/multi-ablation/.publication-claim.json",
         "reports/cycle-1/multi-ablation/.publication-complete.json",
         "reports/cycle-1/multi-ablation/report.json",
     }
+    assert commands[-1][1:3] == ["s3api", "put-object"]
+    assert commands[-1][commands[-1].index("--key") + 1].endswith(
+        "/.publication-complete.json"
+    )
+
+    report_path.write_text('{"state":"verified"}\n', encoding="utf-8")
+    shard_fan_in_publish.publish_fan_in(
+        config,
+        publish_root="s3://results/reports/cycle-1/multi-ablation/",
+        publication_cycle_id="cycle-1",
+    )
+    assert set(stored) == {
+        "reports/cycle-1/multi-ablation/.publication-claim.json",
+        "reports/cycle-1/multi-ablation/.publication-complete.json",
+        "reports/cycle-1/multi-ablation/report.json",
+    }
+    assert commands[-1][1:3] == ["s3api", "get-object"]
+    assert commands[-1][commands[-1].index("--key") + 1].endswith(
+        "/.publication-complete.json"
+    )
 
 
 def test_s3_publication_rejects_a_conflicting_object(
@@ -653,6 +877,7 @@ def test_s3_publication_rejects_a_conflicting_object(
             snapshot,
             publish_root="s3://results/reports/cycle-1/multi-ablation/",
             cycle_id="cycle-1",
+            before_commit=lambda: None,
         )
 
     assert "reports/cycle-1/multi-ablation/.publication-complete.json" not in stored
@@ -722,6 +947,9 @@ def test_verified_materialization_delegates_to_official_cartesian_oracle(
         run_input_manifest_path=tmp_path / "run-input.json",
         receipt_root=str(tmp_path / "store"),
         output_dir=tmp_path / "output",
+        source_dispatch_run_id="1001",
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
 
     result, union_inventory_sha256 = shard_fan_in._validate_aggregate(
@@ -780,14 +1008,19 @@ def _receipt(
     *,
     run_id: str = "1001",
     attempt: int = 1,
+    source_attempt: int | None = None,
 ) -> dict[str, Any]:
     receipt: dict[str, Any] = {
-        "schema_version": "legalforecast.shard_receipt.v1",
+        "schema_version": "legalforecast.shard_receipt.v2",
         "cycle_id": "cycle-1",
         "model_key": model_key,
         "ablation": ablation,
         "workflow_run_id": run_id,
         "workflow_run_attempt": attempt,
+        "source_dispatch_run_attempt": (
+            attempt if source_attempt is None else source_attempt
+        ),
+        "source_release_sha": "d" * 40,
         "freeze_bundle_sha256": "a" * 64,
         "execution_policy_sha256": "b" * 64,
         "execution_policy_artifact_sha256": "c" * 64,
@@ -904,6 +1137,8 @@ def _strict_receipt() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         run_input_manifest_sha256="4" * 64,
         labels_sha256="2" * 64,
         model_registry_sha256="3" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
     return manifest, receipt, repeat_policy
 

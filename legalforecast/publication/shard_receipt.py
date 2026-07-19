@@ -23,9 +23,10 @@ from legalforecast.protocol.policy_artifacts import (
 )
 
 JsonRecord = dict[str, Any]
-RECEIPT_SCHEMA_VERSION = "legalforecast.shard_receipt.v1"
+RECEIPT_SCHEMA_VERSION = "legalforecast.shard_receipt.v2"
 CELL_SCHEMA_VERSION = "legalforecast.shard_cell_completion.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_GIT_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
 _RESULT_NAMES = ("accounting", "metrics", "runs")
 _RECEIPT_FIELDS = {
     "schema_version",
@@ -34,6 +35,8 @@ _RECEIPT_FIELDS = {
     "ablation",
     "workflow_run_id",
     "workflow_run_attempt",
+    "source_dispatch_run_attempt",
+    "source_release_sha",
     "freeze_bundle_sha256",
     "execution_policy_sha256",
     "execution_policy_artifact_sha256",
@@ -127,6 +130,8 @@ def build_shard_receipt(
     run_input_manifest_sha256: str,
     labels_sha256: str,
     model_registry_sha256: str,
+    source_dispatch_run_attempt: int,
+    source_release_sha: str,
     current_workflow_run_id: str | None = None,
     current_workflow_run_attempt: int | None = None,
 ) -> JsonRecord:
@@ -191,6 +196,18 @@ def build_shard_receipt(
     if workflow_run_attempt < dispatch_workflow_run_attempt:
         raise ShardReceiptError(
             "current workflow_run_attempt precedes dispatch provenance"
+        )
+    source_attempt = _positive_int(
+        {"source_dispatch_run_attempt": source_dispatch_run_attempt},
+        "source_dispatch_run_attempt",
+    )
+    if source_attempt != dispatch_workflow_run_attempt:
+        raise ShardReceiptError(
+            "source dispatch run attempt does not match dispatch provenance"
+        )
+    if source_attempt > workflow_run_attempt:
+        raise ShardReceiptError(
+            "source dispatch run attempt cannot follow the receipt attempt"
         )
     expected_by_case = {cast(str, cell["case_id"]): cell for cell in expected}
     candidates_by_case: dict[str, list[JsonRecord]] = {}
@@ -258,6 +275,10 @@ def build_shard_receipt(
         "ablation": ablation,
         "workflow_run_id": workflow_run_id,
         "workflow_run_attempt": workflow_run_attempt,
+        "source_dispatch_run_attempt": source_attempt,
+        "source_release_sha": _require_commit_sha(
+            source_release_sha, "source_release_sha"
+        ),
         "freeze_bundle_sha256": _required_sha256(
             provenance, "current_freeze_bundle_sha256"
         ),
@@ -319,6 +340,12 @@ def verify_shard_receipt(
     _exact_keys(record, _RECEIPT_FIELDS, "receipt")
     if record.get("schema_version") != RECEIPT_SCHEMA_VERSION:
         raise ShardReceiptError("unsupported shard receipt schema")
+    _require_commit_sha(record.get("source_release_sha"), "source_release_sha")
+    source_attempt = _positive_int(record, "source_dispatch_run_attempt")
+    if source_attempt > _positive_int(record, "workflow_run_attempt"):
+        raise ShardReceiptError(
+            "source dispatch run attempt cannot follow the receipt attempt"
+        )
     supplied_hash = _required_sha256(record, "receipt_sha256")
     without_hash = dict(record)
     without_hash.pop("receipt_sha256")
@@ -750,19 +777,27 @@ def _load_completions(root: Path) -> tuple[Mapping[str, Any], ...]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dispatch-provenance", type=Path, required=True)
-    parser.add_argument("--frozen-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--run-input-manifest",
+        "--frozen-manifest",
+        dest="run_input_manifest",
+        type=Path,
+        required=True,
+    )
     parser.add_argument("--completions-root", type=Path, required=True)
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--model-registry", type=Path, required=True)
     parser.add_argument("--workflow-run-id", required=True)
     parser.add_argument("--workflow-run-attempt", type=int, required=True)
+    parser.add_argument("--source-dispatch-run-attempt", type=int, required=True)
+    parser.add_argument("--source-release-sha", required=True)
     parser.add_argument("--receipt-root", required=True)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    manifest_path = cast(Path, args.frozen_manifest)
+    manifest_path = cast(Path, args.run_input_manifest)
     receipt = build_shard_receipt(
         provenance=_load_json(cast(Path, args.dispatch_provenance)),
         manifest=_load_json(manifest_path),
@@ -770,6 +805,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_input_manifest_sha256=_sha256_file(manifest_path),
         labels_sha256=_sha256_file(cast(Path, args.labels)),
         model_registry_sha256=_sha256_file(cast(Path, args.model_registry)),
+        source_dispatch_run_attempt=cast(int, args.source_dispatch_run_attempt),
+        source_release_sha=cast(str, args.source_release_sha),
         current_workflow_run_id=cast(str, args.workflow_run_id),
         current_workflow_run_attempt=cast(int, args.workflow_run_attempt),
     )
@@ -815,6 +852,12 @@ def _required_sha256(record: Mapping[str, Any], field: str) -> str:
 def _require_sha256(value: object, field: str) -> str:
     if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
         raise ShardReceiptError(f"{field} must be a lowercase SHA-256 digest")
+    return value
+
+
+def _require_commit_sha(value: object, field: str) -> str:
+    if not isinstance(value, str) or _GIT_COMMIT_SHA.fullmatch(value) is None:
+        raise ShardReceiptError(f"{field} must be a full lowercase Git commit SHA")
     return value
 
 

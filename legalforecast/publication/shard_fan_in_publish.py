@@ -9,12 +9,13 @@ import os
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Generator, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast
 from urllib.parse import unquote, urlparse
 
+from legalforecast.publication import cycle_closure
 from legalforecast.publication.shard_fan_in import (
     FanInConfig,
     FanInError,
@@ -32,55 +33,94 @@ _PUBLICATION_CLAIM_SCHEMA = "legalforecast.canonical_publication_claim.v1"
 _PUBLICATION_COMPLETE_SCHEMA = "legalforecast.canonical_publication_complete.v1"
 
 
-def publish_fan_in(config: FanInConfig, *, publish_root: str) -> FanInReport:
+def publish_fan_in(
+    config: FanInConfig,
+    *,
+    publish_root: str,
+    publication_cycle_id: str,
+    drain_timeout_seconds: float = 1200.0,
+    drain_poll_interval_seconds: float = 2.0,
+) -> FanInReport:
     """Verify, race-check, and publish one official aggregate public directory."""
 
     if config.verify_only:
         raise FanInError("publication cannot use a verify-only fan-in config")
+    _require_publication_source_identity(config)
     _require_committed_accepted_map(config.accepted_attempt_map_path)
     report = verify_fan_in(config)
+    if report.cycle_id != publication_cycle_id:
+        raise FanInError("publication cycle ID does not match the verified freeze")
+    try:
+        cycle_closure.seal_wait(
+            config.receipt_root,
+            cycle_id=publication_cycle_id,
+            timeout_seconds=drain_timeout_seconds,
+            poll_interval_seconds=drain_poll_interval_seconds,
+        )
+    except (cycle_closure.CycleClosureError, ValueError) as exc:
+        raise FanInError(f"could not seal and drain publication cycle: {exc}") from exc
     source = report.aggregate_output_dir / "public"
     if not source.is_dir():
         raise FanInError(f"verified aggregate public directory is missing: {source}")
     with _protected_publication_snapshot(source) as snapshot:
-        current_inventory = current_receipt_inventory_sha256(
-            config.receipt_root, report.cycle_id
-        )
-        if current_inventory != report.receipt_inventory_sha256:
-            raise FanInError(
-                "receipt inventory changed after verification; rerun fan-in selection"
-            )
-        current_union_inventory = current_union_inventory_sha256(
-            config.receipt_root, report.cycle_id
-        )
-        if current_union_inventory != report.union_inventory_sha256:
-            raise FanInError(
-                "union object versions changed after verification; rerun fan-in"
-            )
+
+        def stable() -> None:
+            _require_stable_inventories(config, report)
+
+        stable()
         _require_canonical_publish_root(publish_root, cycle_id=report.cycle_id)
         if publish_root.startswith("s3://"):
             _publish_s3_snapshot(
                 snapshot,
                 publish_root=publish_root,
                 cycle_id=report.cycle_id,
+                before_commit=stable,
             )
         else:
-            _publish_local_snapshot(snapshot, destination=Path(publish_root))
+            _publish_local_snapshot(
+                snapshot,
+                destination=Path(publish_root),
+                before_commit=stable,
+            )
     return report
+
+
+def _require_stable_inventories(config: FanInConfig, report: FanInReport) -> None:
+    current_inventory = current_receipt_inventory_sha256(
+        config.receipt_root, report.cycle_id
+    )
+    if current_inventory != report.receipt_inventory_sha256:
+        raise FanInError(
+            "receipt inventory changed after verification; rerun fan-in selection"
+        )
+    current_union_inventory = current_union_inventory_sha256(
+        config.receipt_root, report.cycle_id
+    )
+    if current_union_inventory != report.union_inventory_sha256:
+        raise FanInError(
+            "union object versions changed after verification; rerun fan-in"
+        )
 
 
 @contextmanager
 def _protected_publication_snapshot(source: Path) -> Generator[Path]:
     """Copy verified public bytes into a private read-only publication snapshot."""
 
-    with tempfile.TemporaryDirectory(prefix="lfb-fan-in-publish-") as directory:
+    with tempfile.TemporaryDirectory(
+        prefix="lfb-fan-in-publish-", ignore_cleanup_errors=True
+    ) as directory:
         snapshot = Path(directory) / "public"
         shutil.copytree(source, snapshot)
         _set_snapshot_writable(snapshot, writable=False)
         try:
             yield snapshot
         finally:
-            _set_snapshot_writable(snapshot, writable=True)
+            try:
+                _set_snapshot_writable(snapshot, writable=True)
+            except OSError:
+                # Publication may already be atomically committed. Temporary
+                # snapshot cleanup must not turn that into an ambiguous failure.
+                pass
 
 
 def _set_snapshot_writable(snapshot: Path, *, writable: bool) -> None:
@@ -96,7 +136,12 @@ def _set_snapshot_writable(snapshot: Path, *, writable: bool) -> None:
             path.chmod(file_mode)
 
 
-def _publish_local_snapshot(snapshot: Path, *, destination: Path) -> None:
+def _publish_local_snapshot(
+    snapshot: Path,
+    *,
+    destination: Path,
+    before_commit: Callable[[], None],
+) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         raise FanInError(
@@ -111,6 +156,7 @@ def _publish_local_snapshot(snapshot: Path, *, destination: Path) -> None:
     staging = staging_root / "payload"
     lock = destination.with_name(f".{destination.name}.publication.lock")
     lock_fd: int | None = None
+    committed = False
     try:
         shutil.copytree(snapshot, staging)
         _set_snapshot_writable(staging, writable=True)
@@ -124,16 +170,32 @@ def _publish_local_snapshot(snapshot: Path, *, destination: Path) -> None:
             raise FanInError(
                 f"canonical publication destination already exists: {destination}"
             )
+        _set_snapshot_writable(staging, writable=False)
+        # Linux requires the directory entry itself to remain writable for the
+        # atomic rename; all payload descendants are already read-only.
+        staging.chmod(0o700)
+        before_commit()
         staging.rename(destination)
-        _set_snapshot_writable(destination, writable=False)
+        committed = True
+        try:
+            destination.chmod(0o500)
+        except OSError:
+            # The atomic rename is the commit boundary. Permission hardening is
+            # best-effort after that point and must not turn success into an
+            # ambiguous reported failure.
+            pass
     except FanInError:
         raise
     except OSError as exc:
         raise FanInError(f"local publication failed: {exc}") from exc
     finally:
-        if lock_fd is not None:
-            os.close(lock_fd)
-            lock.unlink(missing_ok=True)
+        try:
+            if lock_fd is not None:
+                os.close(lock_fd)
+                lock.unlink(missing_ok=True)
+        except OSError as exc:
+            if not committed:
+                raise FanInError(f"local publication cleanup failed: {exc}") from exc
         shutil.rmtree(staging_root, ignore_errors=True)
 
 
@@ -142,6 +204,7 @@ def _publish_s3_snapshot(
     *,
     publish_root: str,
     cycle_id: str,
+    before_commit: Callable[[], None],
 ) -> None:
     manifest = _snapshot_manifest(snapshot)
     claim = {
@@ -172,8 +235,10 @@ def _publish_s3_snapshot(
             content_type=content_type,
         )
     expected = {_PUBLICATION_CLAIM, *(cast(str, item["path"]) for item in manifest)}
-    if set(_list_s3_publication_keys(publish_root)) != expected:
+    observed = set(_list_s3_publication_keys(publish_root))
+    if observed not in (expected, {*expected, _PUBLICATION_COMPLETE}):
         raise FanInError("canonical publication prefix contains conflicting objects")
+    before_commit()
     complete_payload = _json_bytes(
         {
             "schema_version": _PUBLICATION_COMPLETE_SCHEMA,
@@ -188,11 +253,6 @@ def _publish_s3_snapshot(
         payload=complete_payload,
         content_type="application/json",
     )
-    if set(_list_s3_publication_keys(publish_root)) != {
-        *expected,
-        _PUBLICATION_COMPLETE,
-    }:
-        raise FanInError("canonical publication prefix changed during publication")
 
 
 def _snapshot_manifest(snapshot: Path) -> list[dict[str, object]]:
@@ -385,11 +445,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     parser.description = "Verify and publish an official immutable shard fan-in."
     parser.add_argument("--publish-root", required=True)
+    parser.add_argument("--publication-cycle-id", required=True)
+    parser.add_argument("--cycle-drain-timeout-seconds", type=float, default=1200.0)
+    parser.add_argument("--cycle-drain-poll-interval-seconds", type=float, default=2.0)
     args = parser.parse_args(argv)
     if cast(bool, args.verify_only):
         raise FanInError("use shard_fan_in directly for --verify-only")
     config = config_from_args(args, verify_only=False)
-    report = publish_fan_in(config, publish_root=cast(str, args.publish_root))
+    report = publish_fan_in(
+        config,
+        publish_root=cast(str, args.publish_root),
+        publication_cycle_id=cast(str, args.publication_cycle_id),
+        drain_timeout_seconds=cast(float, args.cycle_drain_timeout_seconds),
+        drain_poll_interval_seconds=cast(float, args.cycle_drain_poll_interval_seconds),
+    )
     print(json.dumps(report.to_record(), sort_keys=True))
     return 0
 
@@ -418,6 +487,17 @@ def _require_committed_accepted_map(path: Path | None) -> None:
     if tracked.returncode != 0 or unchanged.returncode != 0:
         raise FanInError(
             "publishing accepted-attempt map must match a file committed in HEAD"
+        )
+
+
+def _require_publication_source_identity(config: FanInConfig) -> None:
+    if (
+        config.source_dispatch_run_id is None
+        or config.source_dispatch_run_attempt is None
+        or config.source_release_sha is None
+    ):
+        raise FanInError(
+            "publication requires source dispatch run ID, run attempt, and release SHA"
         )
 
 

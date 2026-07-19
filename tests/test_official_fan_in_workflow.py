@@ -23,12 +23,14 @@ def test_fan_in_workflow_is_provider_free_and_role_scoped() -> None:
 
 def test_workflow_downloads_exact_cross_run_dispatch_artifact() -> None:
     assert "source_dispatch_run_id:" in WORKFLOW
+    assert "source_dispatch_run_attempt:" in WORKFLOW
     assert "actions: read" in WORKFLOW
     assert (
         "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" in WORKFLOW
     )
     assert (
-        "official-dispatch-provenance-${{ inputs.source_dispatch_run_id }}" in WORKFLOW
+        "official-dispatch-provenance-${{ inputs.source_dispatch_run_id }}-"
+        "${{ inputs.source_dispatch_run_attempt }}" in WORKFLOW
     )
     assert "/tmp/lfb-source-dispatch/lfb-dispatch-release.json" in WORKFLOW
     assert "/tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json" in WORKFLOW
@@ -37,6 +39,32 @@ def test_workflow_downloads_exact_cross_run_dispatch_artifact() -> None:
         "--model-registry /tmp/lfb-source-dispatch/lfb-model-registry.json" in WORKFLOW
     )
     assert '--source-dispatch-run-id "${SOURCE_DISPATCH_RUN_ID}"' in WORKFLOW
+    assert '--source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}"' in WORKFLOW
+    assert '--source-release-sha "${RELEASE_SHA}"' in WORKFLOW
+
+
+def test_workflow_binds_source_dispatch_run_record_to_exact_attempt() -> None:
+    validation = WORKFLOW[
+        WORKFLOW.index(
+            "- name: Validate source dispatch workflow run"
+        ) : WORKFLOW.index("- name: Download exact frozen dispatch inputs")
+    ]
+
+    assert "GITHUB_TOKEN: ${{ github.token }}" in validation
+    assert "GITHUB_REPOSITORY_NAME: ${{ github.repository }}" in validation
+    assert 'run["id"] != int(source_dispatch_run_id)' in validation
+    assert 'run["run_attempt"] != int(source_dispatch_run_attempt)' in validation
+    assert 'f"attempts/{source_dispatch_run_attempt}"' in validation
+    assert 'run["head_sha"] != expected_release_sha' in validation
+    assert 'run["head_branch"] != "main"' in validation
+    assert 'run["event"] != "workflow_dispatch"' in validation
+    assert 'run["path"] != ".github/workflows/run-benchmark.yaml"' in validation
+    assert 'run["status"] != "completed"' in validation
+    assert 'run["conclusion"] != "success"' not in validation
+    assert 'f"{attempt_path}/jobs?filter=all&per_page=100&page={page}"' in validation
+    assert 'job.get("name") == "Build benchmark matrix"' in validation
+    assert 'build_jobs[0].get("conclusion") != "success"' in validation
+    assert "source dispatch workflow jobs response is incomplete" in validation
 
 
 def test_workflow_binds_source_dispatch_artifact_to_requested_release() -> None:
@@ -48,8 +76,15 @@ def test_workflow_binds_source_dispatch_artifact_to_requested_release() -> None:
 
     assert "RELEASE_SHA: ${{ inputs.release_sha }}" in validation
     assert "SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}" in validation
-    assert '"legalforecast.dispatch_release.v1"' in validation
+    assert (
+        "SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}"
+        in validation
+    )
+    assert '"legalforecast.dispatch_release.v2"' in validation
     assert 'release["workflow_run_id"] != source_dispatch_run_id' in validation
+    assert (
+        'release["workflow_run_attempt"] != source_dispatch_run_attempt' in validation
+    )
     assert 'release["release_sha"] != expected_release_sha' in validation
     assert "source dispatch release provenance fields mismatch" in validation
 
@@ -59,6 +94,7 @@ def test_verify_only_and_publish_use_structurally_distinct_entrypoints() -> None
     assert "--verify-only" in WORKFLOW
     assert "legalforecast.publication.shard_fan_in_publish \\\n" in WORKFLOW
     assert "--publish-root" in WORKFLOW
+    assert '--publication-cycle-id "${CYCLE_ID}"' in WORKFLOW
     assert "aws s3 sync" not in WORKFLOW
     assert "per-case/${CYCLE_ID}" not in WORKFLOW
 

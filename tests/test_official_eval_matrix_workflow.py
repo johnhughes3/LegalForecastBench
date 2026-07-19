@@ -61,6 +61,22 @@ def test_official_eval_matrix_workflow_defaults_to_current_review_release() -> N
     assert "default: full_packet,metadata_only" in WORKFLOW
 
 
+def test_default_release_is_stable_across_workflow_reruns() -> None:
+    validation = BUILD_MATRIX_JOB[
+        BUILD_MATRIX_JOB.index(
+            "- name: Validate dispatch request"
+        ) : BUILD_MATRIX_JOB.index("- name: Configure AWS OIDC credentials")
+    ]
+
+    assert (
+        'release_sha="$(git rev-parse --verify "${GITHUB_SHA}^{commit}")"' in validation
+    )
+    assert (
+        'release_sha="$(git rev-parse --verify "origin/main^{commit}")"'
+        not in validation
+    )
+
+
 def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     assert "matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}" in WORKFLOW
     assert (
@@ -87,6 +103,43 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     assert (
         "projected_model_cost_usd: ${{ steps.matrix.outputs.projected_model_cost_usd }}"
         in WORKFLOW
+    )
+
+
+def test_cycle_mutation_intent_brackets_every_result_writer() -> None:
+    assert "  begin-cycle-mutation:" not in WORKFLOW
+    assert "  finish-cycle-mutation:" not in WORKFLOW
+    run_begin = RUN_CASE_JOB.index("- name: Begin per-case cycle mutation")
+    run_evaluate = RUN_CASE_JOB.index("- name: Run isolated case evaluation")
+    run_finish = RUN_CASE_JOB.index("- name: Finish per-case cycle mutation")
+    assert run_begin < run_evaluate < run_finish
+    assert "STRATEGY_JOB_INDEX: ${{ strategy.job-index }}" in RUN_CASE_JOB
+    assert '"${GITHUB_RUN_ID}-case-${STRATEGY_JOB_INDEX}"' in RUN_CASE_JOB
+    assert "legalforecast.publication.cycle_closure begin" in RUN_CASE_JOB
+    assert "legalforecast.publication.cycle_closure finish" in RUN_CASE_JOB
+    assert RUN_CASE_JOB.count('--run-attempt "${GITHUB_RUN_ATTEMPT}"') == 2
+    assert "--attempt" not in RUN_CASE_JOB
+    assert "always() && !inputs.dry_run" in RUN_CASE_JOB
+    assert "steps.begin_cycle_mutation.outcome == 'success'" in RUN_CASE_JOB
+    assert "LFB_GITHUB_FAN_IN_ROLE_ARN" not in RUN_CASE_JOB
+
+    receipt_begin = FINALIZE_SHARD_JOB.index(
+        "- name: Begin shard-receipt cycle mutation"
+    )
+    receipt_write = FINALIZE_SHARD_JOB.index(
+        "- name: Verify exact result versions and write receipt once"
+    )
+    receipt_finish = FINALIZE_SHARD_JOB.index(
+        "- name: Finish shard-receipt cycle mutation"
+    )
+    assert receipt_begin < receipt_write < receipt_finish
+    assert '"${GITHUB_RUN_ID}-finalize-shard"' in FINALIZE_SHARD_JOB
+    assert "legalforecast.publication.cycle_closure begin" in FINALIZE_SHARD_JOB
+    assert "legalforecast.publication.cycle_closure finish" in FINALIZE_SHARD_JOB
+    assert FINALIZE_SHARD_JOB.count('--run-attempt "${GITHUB_RUN_ATTEMPT}"') == 2
+    assert "--attempt" not in FINALIZE_SHARD_JOB
+    assert "always() && steps.begin_shard_receipt_mutation.outcome == 'success'" in (
+        FINALIZE_SHARD_JOB
     )
 
 
@@ -118,8 +171,19 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
     )
     assert "RELEASE_SHA: ${{ steps.validate.outputs.release_sha }}" in provenance_step
     assert 'Path("/tmp/lfb-dispatch-release.json")' in provenance_step
-    assert '"schema_version": "legalforecast.dispatch_release.v1"' in provenance_step
+    assert '"schema_version": "legalforecast.dispatch_release.v2"' in provenance_step
     assert '"workflow_run_id": os.environ["WORKFLOW_RUN_ID"]' in provenance_step
+    assert (
+        '"workflow_run_attempt": int(os.environ["WORKFLOW_RUN_ATTEMPT"])'
+        in provenance_step
+    )
+    assert (
+        "dispatch_run_attempt: ${{ steps.dispatch.outputs.workflow_run_attempt }}"
+        in BUILD_MATRIX_JOB
+    )
+    assert (
+        "workflow_run_attempt={os.environ['WORKFLOW_RUN_ATTEMPT']}" in provenance_step
+    )
     assert '"release_sha": os.environ["RELEASE_SHA"]' in provenance_step
     assert "/tmp/lfb-dispatch-release.json" in BUILD_MATRIX_JOB
 
@@ -131,15 +195,28 @@ def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
         "needs.build-matrix.result == 'success' && "
         "needs.run-case.result == 'success'" in FINALIZE_SHARD_JOB
     )
-    assert "always()" not in FINALIZE_SHARD_JOB
     assert "environment: legalforecastbench-official-eval-fan-in" in FINALIZE_SHARD_JOB
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in FINALIZE_SHARD_JOB
     assert "ANTHROPIC_API_KEY" not in FINALIZE_SHARD_JOB
     assert "OPENAI_API_KEY" not in FINALIZE_SHARD_JOB
     assert "pattern: official-eval-*" in FINALIZE_SHARD_JOB
+    assert (
+        "name: official-dispatch-provenance-${{ github.run_id }}-"
+        "${{ needs.build-matrix.outputs.dispatch_run_attempt }}" in FINALIZE_SHARD_JOB
+    )
     assert "legalforecast.publication.shard_receipt" in FINALIZE_SHARD_JOB
+    assert (
+        "--run-input-manifest /tmp/lfb-shard-inputs/lfb-run-inputs-frozen.json"
+        in FINALIZE_SHARD_JOB
+    )
+    assert "--frozen-manifest" not in FINALIZE_SHARD_JOB
     assert '--workflow-run-id "${GITHUB_RUN_ID}"' in FINALIZE_SHARD_JOB
     assert '--workflow-run-attempt "${GITHUB_RUN_ATTEMPT}"' in FINALIZE_SHARD_JOB
+    assert (
+        '--source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}"'
+        in FINALIZE_SHARD_JOB
+    )
+    assert '--source-release-sha "${SOURCE_RELEASE_SHA}"' in FINALIZE_SHARD_JOB
     assert '--receipt-root "s3://${LFB_RESULTS_BUCKET}"' in FINALIZE_SHARD_JOB
     assert "if-no-files-found: error" in RUN_CASE_JOB
     assert "if: ${{ !inputs.dry_run && success() }}" in RUN_CASE_JOB
@@ -187,7 +264,8 @@ def test_run_case_uses_transported_frozen_execution_policy() -> None:
     assert checkout < download < evaluate
     assert "if: ${{ !inputs.dry_run }}" in RUN_CASE_JOB[download:evaluate]
     assert (
-        "name: official-dispatch-provenance-${{ github.run_id }}"
+        "name: official-dispatch-provenance-${{ github.run_id }}-"
+        "${{ needs.build-matrix.outputs.dispatch_run_attempt }}"
         in RUN_CASE_JOB[download:evaluate]
     )
     assert "path: /tmp/lfb-run-case-inputs" in RUN_CASE_JOB[download:evaluate]
@@ -291,7 +369,7 @@ def test_amendment_dispatch_is_new_models_only_and_aggregation_unions_runs() -> 
     )
     aggregate_script = AGGREGATE_RESULTS_JOB[aggregate_step:]
     assert "model_key_args" not in aggregate_script
-    assert '"s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/"' in (
+    assert '"s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/"' not in (
         aggregate_script
     )
     assert "withdraw" not in aggregate_script.lower()
@@ -558,12 +636,15 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
         '--ablation "${ABLATION}"'
         not in WORKFLOW[WORKFLOW.index("aggregate-results:") :]
     )
+    assert "Publish aggregate bundle to S3" not in AGGREGATE_RESULTS_JOB
     assert (
-        "aws s3 sync \\\n            tmp/official-aggregate/public \\\n"
-        '            "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/"'
-        in WORKFLOW
+        '"s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/"'
+        not in AGGREGATE_RESULTS_JOB
     )
-    assert "official-aggregate-${{ inputs.cycle_id }}-multi-ablation" in WORKFLOW
+    assert (
+        "official-aggregate-${{ inputs.cycle_id }}-"
+        "${{ github.run_attempt }}-multi-ablation" in WORKFLOW
+    )
 
 
 def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> None:
@@ -571,7 +652,7 @@ def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> N
     assert "if: ${{ inputs.dry_run }}" in WORKFLOW
     assert "if: ${{ !inputs.dry_run }}" in WORKFLOW
     assert "actions/upload-artifact@v7" in WORKFLOW
-    assert "overwrite: true" in WORKFLOW
+    assert "overwrite: true" not in WORKFLOW
     assert (
         "retention-days: ${{ "
         "fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}" in WORKFLOW
