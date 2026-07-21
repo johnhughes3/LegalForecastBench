@@ -6,25 +6,11 @@ Eligible decisions follow the models' latest first external deployment; known ou
 
 <!-- result-publication-state: pre-publication -->
 
-**Current status — 2026-07-17:** No official or community benchmark score is published yet. Official Cycle 1 and non-official Community Harness Comparisons remain in preparation. After validation, publication owners replace this line and add canonical links within 24 hours.
+**Current status — 2026-07-17:** No official or community benchmark score is published yet. Official LegalForecast-MTD Cycle 1 and non-official Community Harness Comparisons remain in preparation. After validation, publication owners replace this line and add canonical links within 24 hours.
 
 ## Start Here
 
 [Read the methods](docs/METHODS.md) · [Reproduce or audit](docs/reproduce-or-audit.md) · [Check publication rules](docs/publication-governance.md) · [Track execution in issue #203](https://github.com/johnhughes3/LegalForecastBench/issues/203)
-
-## Official Benchmark Results
-
-**No official result is claimed by this README revision.** Its reserved label is **Official LegalForecast-MTD Cycle 1 result**. Publication adds the audited report, leaderboard, and evidence; official and community scores are never ranked together.
-
-## Preliminary Community Result
-
-**No validated result is linked yet.** Its reserved label is **Preliminary — one task pair, operator-run, not independently reproducible**. This non-official tier does not close issue #49.
-
-## Reproducible Community Comparisons
-
-**No row is accepted yet.** Its reserved label is **Reproducible community result — contributor-grade, non-official**. Contributor path: [adapter spec](docs/multiharness-adapter-spec.md) · [submission guide](docs/community-submissions.md).
-
-LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.
 
 ## Why This Exists
 
@@ -53,6 +39,20 @@ The release-date anchor is a retrospective contamination control, not a guarante
 Each benchmark run is a versioned artifact tied to a specific set of model deployments. When a new generation of frontier models ships, the benchmark ingests fresh cases — all decided on or after the new deployment anchor — and compares predictions on that cohort. The tradeoff is that the benchmark cannot run immediately on a new model (it takes time for enough eligible decisions to accumulate), and it cannot cleanly demonstrate absolute capability gains across generations because the case mix differs each version. What it does well is compare the relative capabilities of frontier models within a generation, which is the question most useful to practitioners deciding which model to rely on.
 
 Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEASE_DATES.md).
+
+## Official Benchmark Results
+
+**No official result is claimed by this README revision.** Its reserved label is **Official LegalForecast-MTD Cycle 1 result**. Publication adds the audited report, leaderboard, and evidence; official and community scores are never ranked together.
+
+## Preliminary Community Result
+
+**No validated result is linked yet.** Its reserved label is **Preliminary — one task pair, operator-run, not independently reproducible**. This non-official tier does not close issue #49.
+
+## Reproducible Community Comparisons
+
+**No row is accepted yet.** Its reserved label is **Reproducible community result — contributor-grade, non-official**. Contributor path: [adapter spec](docs/multiharness-adapter-spec.md) · [submission guide](docs/community-submissions.md).
+
+LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.
 
 ## How Runs Are Executed
 
