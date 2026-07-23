@@ -19,6 +19,9 @@ from legalforecast.ingestion.discovery_scheduler import (
     TermTerminalStatus,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
+from legalforecast.ingestion.screening_snapshot_union import (
+    LONGITUDINAL_CORRECTION_POLICY_V2,
+)
 
 
 def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
@@ -157,6 +160,12 @@ def test_rebase_pacer_gap_checkpoints_append_only_union_schedules_only_addition(
         ]
         == "legalforecast.screening_snapshot_union_inputs.v2"
     )
+    assert (
+        current_manifest["stage_commitments"]["screening_snapshot_union_inputs"][
+            "longitudinal_correction_policy"
+        ]
+        == LONGITUDINAL_CORRECTION_POLICY_V2
+    )
 
     assert main(fixture["command"]) == 0
 
@@ -191,6 +200,30 @@ def test_rebase_pacer_gap_checkpoints_append_only_union_schedules_only_addition(
         "cl-793",
         "cl-794",
     ]
+
+
+def test_rebase_pacer_gap_checkpoints_rejects_unknown_v2_union_policy(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    fixture = _append_only_pacer_gap_rebase_fixture(tmp_path)
+    manifest_path = fixture["current_snapshot"] / "manifest.json"
+    manifest = _read_json(manifest_path)
+    manifest["stage_commitments"]["screening_snapshot_union_inputs"][
+        "longitudinal_correction_policy"
+    ] = "unsupported_policy"
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n"
+    )
+    expected_hash_index = (
+        fixture["command"].index("--expected-current-snapshot-manifest-sha256") + 1
+    )
+    fixture["command"][expected_hash_index] = hashlib.sha256(
+        manifest_path.read_bytes()
+    ).hexdigest()
+
+    assert main(fixture["command"]) == 2
+    assert "union correction policy is unsupported" in capsys.readouterr().err
 
 
 def test_rebase_pacer_gap_checkpoints_preserves_v1_union_compatibility(

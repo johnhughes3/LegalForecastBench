@@ -547,8 +547,12 @@ from legalforecast.ingestion.retained_cohort_extension import (
     purchase_obligation_snapshot,
 )
 from legalforecast.ingestion.screening_snapshot_union import (
+    LONGITUDINAL_CORRECTION_POLICY_V1,
+    LONGITUDINAL_CORRECTION_POLICY_V2,
+    RAWLESS_ACTIVE_REPROOF_POLICY,
     ScreeningSnapshotUnionError,
     UnionRawArtifact,
+    authenticated_rawless_active_reproof_matches,
     load_screening_snapshot_union,
 )
 from legalforecast.ingestion.snapshot_quarantine import (
@@ -1314,9 +1318,11 @@ def build_parser() -> argparse.ArgumentParser:
             "Duplicate terminal evidence is identical unless every conflict has an "
             "explicit candidate/source-manifest correction pin. Corrections archive "
             "all source observations, never infer authority from order or time, and "
-            "must select any unique active proof with its exact source-local raw "
-            "bytes. Excluded raw history remains archived while its earliest UTC "
-            "capture is the packet input. Ambiguity or ownership drift fails closed."
+            "must select a unique active proof with its exact source-local raw bytes. "
+            "A raw-backed strict active proof may defeat only an authenticated "
+            "rawless exact310 reproof of the same disposition and motion. Excluded "
+            "raw history remains archived while its earliest UTC capture is the "
+            "packet input. Ambiguity or ownership drift fails closed."
         ),
     )
     _add_acquisition_union_screening_snapshots_arguments(
@@ -18404,9 +18410,11 @@ def _snapshot_longitudinal_active_raw_mapping(
     candidate_records: Sequence[Mapping[str, object]],
     archived_records: Sequence[Mapping[str, object]],
 ) -> dict[str, tuple[str, int, str]]:
-    if union_inputs.get("longitudinal_correction_policy") != (
-        "explicit_candidate_source_manifest_unique_active_v1"
-    ):
+    correction_policy = union_inputs.get("longitudinal_correction_policy")
+    if correction_policy not in {
+        LONGITUDINAL_CORRECTION_POLICY_V1,
+        LONGITUDINAL_CORRECTION_POLICY_V2,
+    }:
         raise CycleAcquisitionStoreError(
             "screening snapshot union lacks its longitudinal correction policy"
         )
@@ -18425,7 +18433,7 @@ def _snapshot_longitudinal_active_raw_mapping(
         raise CycleAcquisitionStoreError(
             "screening snapshot union lacks authenticated sources"
         )
-    authenticated_sources: set[str] = set()
+    authenticated_sources: dict[str, Mapping[str, object]] = {}
     for source_index, source_value in enumerate(
         cast(list[object], sources_value), start=1
     ):
@@ -18442,7 +18450,25 @@ def _snapshot_longitudinal_active_raw_mapping(
             raise CycleAcquisitionStoreError(
                 f"screening snapshot union source row {source_index} is invalid"
             )
-        authenticated_sources.add(source_hash)
+        source_stage_commitments = source.get("stage_commitments")
+        if not isinstance(source_stage_commitments, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is invalid"
+            )
+        candidate_count = source.get("candidate_count")
+        raw_artifact_count = source.get("raw_artifact_count")
+        if correction_policy == LONGITUDINAL_CORRECTION_POLICY_V2 and (
+            not isinstance(candidate_count, int)
+            or isinstance(candidate_count, bool)
+            or candidate_count <= 0
+            or not isinstance(raw_artifact_count, int)
+            or isinstance(raw_artifact_count, bool)
+            or raw_artifact_count < 0
+        ):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is invalid"
+            )
+        authenticated_sources[source_hash] = source
     if union_inputs.get("source_count") != len(authenticated_sources):
         raise CycleAcquisitionStoreError(
             "screening snapshot union source count does not match its evidence"
@@ -18492,6 +18518,7 @@ def _snapshot_longitudinal_active_raw_mapping(
             )
         terminal_hashes: set[str] = set()
         active_hashes: set[str] = set()
+        active_observations: list[Mapping[str, object]] = []
         authoritative_observations: list[Mapping[str, object]] = []
         source_hashes: set[str] = set()
         marked_canonical_count = 0
@@ -18549,6 +18576,7 @@ def _snapshot_longitudinal_active_raw_mapping(
             state = _required_str(observation, "state")
             if state in {"accepted", "newly_free"}:
                 active_hashes.add(terminal_hash)
+                active_observations.append(observation)
             if source_hash == authoritative_manifest:
                 authoritative_observations.append(observation)
             if observation.get("canonical_terminal_observation") is True:
@@ -18585,7 +18613,10 @@ def _snapshot_longitudinal_active_raw_mapping(
                     raise CycleAcquisitionStoreError(
                         f"longitudinal correction row {index} substitutes raw bytes"
                     )
-        if len(terminal_hashes) < 2 or len(active_hashes) > 1:
+        if len(terminal_hashes) < 2 or (
+            len(active_hashes) > 1
+            and correction_policy != LONGITUDINAL_CORRECTION_POLICY_V2
+        ):
             raise CycleAcquisitionStoreError(
                 f"longitudinal correction row {index} is not uniquely reconcilable"
             )
@@ -18656,8 +18687,153 @@ def _snapshot_longitudinal_active_raw_mapping(
             raise CycleAcquisitionStoreError(
                 f"longitudinal correction row {index} substitutes unarchived raw bytes"
             )
+        if len(active_hashes) > 1:
+            _validate_rawless_active_reproof_reconciliation(
+                correction,
+                authoritative=authoritative,
+                active_observations=active_observations,
+                authenticated_sources=authenticated_sources,
+                expected_cycle_hash=_required_str(union_inputs, "expected_cycle_hash"),
+                candidate_id=candidate_id,
+                row_index=index,
+            )
         active_mapping[candidate_id] = authority
     return active_mapping
+
+
+def _validate_rawless_active_reproof_reconciliation(
+    correction: Mapping[str, object],
+    *,
+    authoritative: Mapping[str, object],
+    active_observations: Sequence[Mapping[str, object]],
+    authenticated_sources: Mapping[str, Mapping[str, object]],
+    expected_cycle_hash: str,
+    candidate_id: str,
+    row_index: int,
+) -> None:
+    marker_value = correction.get("active_reproof_reconciliation")
+    if not isinstance(marker_value, Mapping):
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} is not uniquely reconcilable"
+        )
+    marker = cast(Mapping[str, object], marker_value)
+    if marker.get("policy") != RAWLESS_ACTIVE_REPROOF_POLICY:
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} has invalid active reproof policy"
+        )
+    authoritative_hash = _required_str(authoritative, "terminal_sha256")
+    canonical_evidence = authoritative.get("evidence")
+    if (
+        authoritative.get("state") != "accepted"
+        or authoritative.get("reason_code") != "strict_clean_screen_passed"
+        or not isinstance(canonical_evidence, Mapping)
+    ):
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} has invalid evidence"
+        )
+    authoritative_raw_value = authoritative.get("raw_artifacts")
+    if not isinstance(authoritative_raw_value, list):
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} has invalid active authority"
+        )
+    authoritative_raw = cast(list[object], authoritative_raw_value)
+    if len(authoritative_raw) != 1:
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} has invalid active authority"
+        )
+    [authoritative_raw_object] = authoritative_raw
+    if not isinstance(authoritative_raw_object, Mapping):
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} has invalid active authority"
+        )
+    authoritative_raw_record = cast(Mapping[str, object], authoritative_raw_object)
+    authoritative_raw_commitment = (
+        _required_str(authoritative_raw_record, "sha256"),
+        authoritative_raw_record.get("byte_count"),
+    )
+    for observation in active_observations:
+        if _required_str(observation, "terminal_sha256") != authoritative_hash:
+            continue
+        same_terminal_raw_value = observation.get("raw_artifacts")
+        if not isinstance(same_terminal_raw_value, list):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {row_index} has active raw drift"
+            )
+        same_terminal_raw = cast(list[object], same_terminal_raw_value)
+        commitments = {
+            (
+                _required_str(cast(Mapping[str, object], raw), "sha256"),
+                cast(Mapping[str, object], raw).get("byte_count"),
+            )
+            for raw in same_terminal_raw
+            if isinstance(raw, Mapping)
+        }
+        if len(commitments) != len(same_terminal_raw) or commitments != {
+            authoritative_raw_commitment
+        }:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {row_index} has active raw drift"
+            )
+    competing = [
+        observation
+        for observation in active_observations
+        if _required_str(observation, "terminal_sha256") != authoritative_hash
+    ]
+    source_hashes_value = marker.get("rawless_source_manifest_sha256")
+    if not isinstance(source_hashes_value, list):
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} has invalid active "
+            "reproof sources"
+        )
+    typed_source_hashes = cast(list[object], source_hashes_value)
+    if not all(isinstance(value, str) for value in typed_source_hashes):
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} has invalid active "
+            "reproof sources"
+        )
+    expected_source_hashes = sorted(
+        _required_str(observation, "source_manifest_sha256")
+        for observation in competing
+    )
+    source_hashes = cast(list[str], typed_source_hashes)
+    if sorted(source_hashes) != expected_source_hashes:
+        raise CycleAcquisitionStoreError(
+            f"longitudinal correction row {row_index} has invalid active "
+            "reproof sources"
+        )
+    for observation in competing:
+        raw_value = observation.get("raw_artifacts")
+        reproof_evidence = observation.get("evidence")
+        source_manifest_sha256 = _required_str(observation, "source_manifest_sha256")
+        source = authenticated_sources.get(source_manifest_sha256)
+        source_stage_commitments = (
+            source.get("stage_commitments") if source is not None else None
+        )
+        if (
+            observation.get("state") != "accepted"
+            or observation.get("reason_code") != "strict_clean_screen_passed"
+            or raw_value != []
+            or not isinstance(reproof_evidence, Mapping)
+            or source is None
+            or not isinstance(source_stage_commitments, Mapping)
+            or not authenticated_rawless_active_reproof_matches(
+                cast(Mapping[str, Any], canonical_evidence),
+                cast(Mapping[str, Any], reproof_evidence),
+                expected_candidate_id=candidate_id,
+                expected_cycle_hash=expected_cycle_hash,
+                reproof_source_manifest_sha256=source_manifest_sha256,
+                reproof_source_batch_id=_required_str(source, "batch_id"),
+                reproof_source_batch_digest=_required_str(source, "batch_digest"),
+                reproof_source_candidate_count=cast(int, source["candidate_count"]),
+                reproof_source_stage_commitments=cast(
+                    Mapping[str, Any], source_stage_commitments
+                ),
+            )
+        ):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {row_index} has invalid rawless "
+                "active reproof"
+            )
 
 
 def _canonical_raw_retrieved_at(value: str, *, candidate_id: str) -> datetime:
