@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from datetime import date
 from typing import Any, cast
+
+from legalforecast.ingestion.courtlistener_dates import (
+    parse_courtlistener_filed_date,
+)
 
 
 class StrictScreenEvidenceError(ValueError):
@@ -86,6 +91,8 @@ def validate_strict_screen_evidence(
     entries = cast(list[object], entries_value)
     row_ids: set[str] = set()
     entry_number_to_row_id: dict[str, str] = {}
+    row_id_to_entry_number: dict[str, str | None] = {}
+    row_id_to_filed_at: dict[str, str | None] = {}
     blank_auxiliary_row_ids: set[str] = set()
     for index, value in enumerate(entries, start=1):
         entry = _mapping(value, f"selected_entries[{index}]")
@@ -105,9 +112,11 @@ def validate_strict_screen_evidence(
                     "selected_entries repeat an entry number"
                 )
             entry_number_to_row_id[entry_number] = row_id
+        row_id_to_entry_number[row_id] = entry_number
         filed_at = entry.get("filed_at")
         if filed_at is not None:
-            _text(filed_at, f"selected_entries[{index}].filed_at")
+            filed_at = _text(filed_at, f"selected_entries[{index}].filed_at")
+        row_id_to_filed_at[row_id] = filed_at
         role = _text(entry.get("role"), f"selected_entries[{index}].role")
         if role not in {
             "mtd_notice",
@@ -150,41 +159,49 @@ def validate_strict_screen_evidence(
                 document_value,
                 f"selected_entries[{index}].documents[{document_index}]",
             )
-            _text(
-                document.get("kind"),
-                f"selected_entries[{index}].documents[{document_index}].kind",
-            )
+            document_label = f"selected_entries[{index}].documents[{document_index}]"
+            kind = _optional_text(document.get("kind"), f"{document_label}.kind")
             description = _optional_text(
                 document.get("description"),
-                f"selected_entries[{index}].documents[{document_index}].description",
+                f"{document_label}.description",
             )
             has_document_description = (
                 bool(description is not None and description.strip())
                 or has_document_description
             )
-            _optional_text(
-                document.get("href"),
-                f"selected_entries[{index}].documents[{document_index}].href",
-            )
-            _optional_text(
+            href = _optional_text(document.get("href"), f"{document_label}.href")
+            action_label = _optional_text(
                 document.get("action_label"),
-                f"selected_entries[{index}].documents[{document_index}].action_label",
+                f"{document_label}.action_label",
             )
-            _boolean(
-                document.get("pacer_only"),
-                f"selected_entries[{index}].documents[{document_index}].pacer_only",
+            pacer_only = _boolean(
+                document.get("pacer_only"), f"{document_label}.pacer_only"
             )
-            _boolean(
+            freely_available = _boolean(
                 document.get("freely_available"),
-                f"selected_entries[{index}].documents[{document_index}]"
-                ".freely_available",
+                f"{document_label}.freely_available",
             )
-            _string_list(
+            document_restrictions = _string_list(
                 document.get("restriction_markers"),
-                f"selected_entries[{index}].documents[{document_index}]"
-                ".restriction_markers",
+                f"{document_label}.restriction_markers",
                 allow_empty=True,
             )
+            if kind is None or not kind.strip():
+                # CourtListener emits a synthetic blank document object for some
+                # unnumbered text-only minute rows. It is structural padding, not
+                # document evidence, and therefore may survive only in this exact
+                # non-downloadable shape. Numbered rows and blank rows still fail.
+                if (
+                    entry_number is not None
+                    or blank_auxiliary
+                    or (description is not None and description.strip())
+                    or href is not None
+                    or action_label is not None
+                    or pacer_only
+                    or freely_available
+                    or document_restrictions
+                ):
+                    _text(kind, f"{document_label}.kind")
         if blank_auxiliary:
             # CourtListener REST legitimately leaves administrative entry text
             # blank while supplying the row narrative as a RECAP document
@@ -228,21 +245,130 @@ def validate_strict_screen_evidence(
     ):
         raise StrictScreenEvidenceError("MTD decision screen count does not match")
     screened_decision_numbers: set[str] = set()
+    screened_decision_row_ids: set[str] = set()
+    screened_decision_moments: dict[str, tuple[date, int | None]] = {}
     for index, value in enumerate(screen_decisions, start=1):
         decision = _mapping(value, f"mtd_decision_screen.decision_entries[{index}]")
         if decision.get("actual_mtd_decision") is not True:
             raise StrictScreenEvidenceError(
                 "MTD decision screen includes a non-decision"
             )
-        screened_decision_numbers.add(
+        decision_label = f"mtd_decision_screen.decision_entries[{index}]"
+        decision_entry_number_value = decision.get("entry_number")
+        decision_entry_number = (
             _text(
-                decision.get("entry_number"),
-                f"mtd_decision_screen.decision_entries[{index}].entry_number",
+                decision_entry_number_value,
+                f"{decision_label}.entry_number",
             )
+            if decision_entry_number_value is not None
+            else None
+        )
+        decision_row_id = decision.get("row_id")
+        if decision_row_id is not None:
+            normalized_row_id = _text(
+                decision_row_id,
+                f"{decision_label}.row_id",
+            )
+            if normalized_row_id not in row_ids:
+                raise StrictScreenEvidenceError(
+                    "MTD decision screen references an absent selected entry"
+                )
+        else:
+            if decision_entry_number is None:
+                raise StrictScreenEvidenceError(
+                    "unnumbered MTD decision screen entry lacks its selected row ID"
+                )
+            normalized_row_id = entry_number_to_row_id.get(decision_entry_number, "")
+            if not normalized_row_id:
+                raise StrictScreenEvidenceError(
+                    "MTD decision screen references an absent selected entry"
+                )
+        if row_id_to_entry_number[normalized_row_id] != decision_entry_number:
+            raise StrictScreenEvidenceError(
+                "MTD decision screen row ID and entry number disagree"
+            )
+        if decision_entry_number is not None:
+            screened_decision_numbers.add(decision_entry_number)
+        if normalized_row_id in screened_decision_row_ids:
+            raise StrictScreenEvidenceError(
+                "MTD decision screen repeats a selected decision row"
+            )
+        screened_decision_row_ids.add(normalized_row_id)
+        screened_decision_moments[normalized_row_id] = _screened_filed_moment(
+            decision.get("filed_at"),
+            fallback=row_id_to_filed_at[normalized_row_id],
+            label=f"{decision_label}.filed_at",
         )
     if not set(decision_numbers).issubset(screened_decision_numbers):
         raise StrictScreenEvidenceError(
             "AI-selected decision is absent from the strict decision screen"
+        )
+    anchor_moments: dict[str, tuple[date, int | None]] = {}
+    anchor_entries_value = screen.get("anchor_disposition_entries")
+    if anchor_entries_value is not None:
+        if not isinstance(anchor_entries_value, list) or not anchor_entries_value:
+            raise StrictScreenEvidenceError(
+                "mtd_decision_screen.anchor_disposition_entries must be a "
+                "non-empty list when present"
+            )
+        for index, value in enumerate(
+            cast(list[object], anchor_entries_value), start=1
+        ):
+            anchor = _mapping(
+                value,
+                f"mtd_decision_screen.anchor_disposition_entries[{index}]",
+            )
+            anchor_label = f"mtd_decision_screen.anchor_disposition_entries[{index}]"
+            anchor_entry_number_value = anchor.get("entry_number")
+            anchor_entry_number = (
+                _text(
+                    anchor_entry_number_value,
+                    f"{anchor_label}.entry_number",
+                )
+                if anchor_entry_number_value is not None
+                else None
+            )
+            anchor_row_id_value = anchor.get("row_id")
+            if anchor_row_id_value is not None:
+                anchor_row_id = _text(
+                    anchor_row_id_value,
+                    f"{anchor_label}.row_id",
+                )
+                if anchor_row_id not in row_ids:
+                    raise StrictScreenEvidenceError(
+                        "MTD anchor screen references an absent selected entry"
+                    )
+            else:
+                if anchor_entry_number is None:
+                    raise StrictScreenEvidenceError(
+                        "unnumbered MTD anchor screen entry lacks its selected row ID"
+                    )
+                anchor_row_id = entry_number_to_row_id.get(anchor_entry_number, "")
+                if not anchor_row_id:
+                    raise StrictScreenEvidenceError(
+                        "MTD anchor screen references an absent selected entry"
+                    )
+            if row_id_to_entry_number[anchor_row_id] != anchor_entry_number:
+                raise StrictScreenEvidenceError(
+                    "MTD anchor screen row ID and entry number disagree"
+                )
+            anchor_moments[anchor_row_id] = _screened_filed_moment(
+                anchor.get("filed_at"),
+                fallback=row_id_to_filed_at[anchor_row_id],
+                label=f"{anchor_label}.filed_at",
+            )
+        if not screened_decision_row_ids.issubset(anchor_moments):
+            raise StrictScreenEvidenceError(
+                "MTD anchor screen omits an actual screened MTD decision"
+            )
+    authoritative_moments = anchor_moments or screened_decision_moments
+    earliest_screened_disposition = min(
+        filed_date for filed_date, _minutes in authoritative_moments.values()
+    )
+    if disposition_date != earliest_screened_disposition:
+        raise StrictScreenEvidenceError(
+            "first written MTD disposition date does not match the earliest "
+            "screened MTD disposition"
         )
 
     linkage = _mapping(evidence.get("motion_linkage"), "motion_linkage")
@@ -267,7 +393,6 @@ def validate_strict_screen_evidence(
         raise StrictScreenEvidenceError("motion_linkage contains exclusions")
     links = _object_list(linkage.get("links"), "motion_linkage.links")
     target_row_ids = {entry_number_to_row_id[number] for number in target_numbers}
-    decision_row_ids = {entry_number_to_row_id[number] for number in decision_numbers}
     linked_motion_ids: set[str] = set()
     linked_decision_ids: set[str] = set()
     for index, link in enumerate(links, start=1):
@@ -311,9 +436,22 @@ def validate_strict_screen_evidence(
         raise StrictScreenEvidenceError(
             "motion_linkage does not bind the selected target motion"
         )
-    if not decision_row_ids.issubset(linked_decision_ids):
+    selected_decision_row_ids = {
+        entry_number_to_row_id[number] for number in decision_numbers
+    }
+    # Anchor-only rows conservatively establish the eligibility date but may
+    # lack an outcome verb and are therefore not valid benchmark decisions.
+    # Linkage must cover the earliest actual screened decision, while the
+    # broader authoritative moments continue to govern the release anchor.
+    earliest_actual_decision_row_ids = _earliest_screened_row_ids(
+        screened_decision_moments
+    )
+    if not selected_decision_row_ids.issubset(linked_decision_ids) or not (
+        earliest_actual_decision_row_ids & linked_decision_ids
+    ):
         raise StrictScreenEvidenceError(
-            "motion_linkage does not bind the selected disposition"
+            "motion_linkage does not bind the selected and earliest screened "
+            "MTD disposition"
         )
     if blank_auxiliary_row_ids & (linked_motion_ids | linked_decision_ids):
         raise StrictScreenEvidenceError(
@@ -356,6 +494,58 @@ def _iso_date(value: object, label: str) -> date:
     if parsed.isoformat() != text:
         raise StrictScreenEvidenceError(f"{label} must be a canonical ISO date")
     return parsed
+
+
+def _screened_filed_moment(
+    value: object,
+    *,
+    fallback: str | None,
+    label: str,
+) -> tuple[date, int | None]:
+    rendered = _optional_text(value, label)
+    if rendered is None:
+        rendered = fallback
+    parsed = parse_courtlistener_filed_date(rendered)
+    if parsed is None:
+        raise StrictScreenEvidenceError(f"{label} must be a recognized filed date")
+    if rendered is None:
+        raise StrictScreenEvidenceError(f"{label} must be a recognized filed date")
+    time_match = re.search(
+        r"\b(?P<hour>\d{1,2}):(?P<minute>\d{2})\s*"
+        r"(?P<meridiem>a\.?m\.?|p\.?m\.?)\b",
+        rendered,
+        flags=re.IGNORECASE,
+    )
+    if time_match is None:
+        return parsed, None
+    hour = int(time_match.group("hour"))
+    minute = int(time_match.group("minute"))
+    if not 1 <= hour <= 12 or not 0 <= minute <= 59:
+        raise StrictScreenEvidenceError(f"{label} contains an invalid filed time")
+    if time_match.group("meridiem").lower().startswith("p") and hour != 12:
+        hour += 12
+    elif time_match.group("meridiem").lower().startswith("a") and hour == 12:
+        hour = 0
+    return parsed, hour * 60 + minute
+
+
+def _earliest_screened_row_ids(
+    moments: Mapping[str, tuple[date, int | None]],
+) -> set[str]:
+    earliest_date = min(filed_date for filed_date, _minutes in moments.values())
+    same_date = {
+        row_id: minutes
+        for row_id, (filed_date, minutes) in moments.items()
+        if filed_date == earliest_date
+    }
+    if all(minutes is not None for minutes in same_date.values()):
+        earliest_minutes = min(cast(int, minutes) for minutes in same_date.values())
+        return {
+            row_id
+            for row_id, minutes in same_date.items()
+            if minutes == earliest_minutes
+        }
+    return set(same_date)
 
 
 def _string_list(value: object, label: str, *, allow_empty: bool) -> tuple[str, ...]:

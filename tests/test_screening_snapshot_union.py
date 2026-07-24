@@ -4,9 +4,10 @@ import hashlib
 import json
 import os
 import shutil
+import sqlite3
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli_module
 import legalforecast.ingestion.screening_snapshot_union as union_module
@@ -23,10 +24,16 @@ from legalforecast.ingestion.discovery_scheduler import (
 )
 from legalforecast.ingestion.firecrawl_screening_identity import (
     firecrawl_screening_implementation,
+    snapshot_firecrawl_screening_source_count,
 )
 from legalforecast.ingestion.screening_snapshot_union import (
     ScreeningSnapshotUnionError,
     load_screening_snapshot_union,
+)
+from legalforecast.ingestion.screening_union_policy_rebind import (
+    SOURCE_RESTRICTED_MATERIAL_SHA256,
+    ScreeningUnionPolicyRebindError,
+    rebind_screening_union_policy,
 )
 from legalforecast.ingestion.strict_screen_evidence import (
     StrictScreenEvidenceError,
@@ -47,6 +54,580 @@ def test_union_help_documents_raw_observation_policy(capsys: Any) -> None:
     assert "unique active proof" in output
     assert "source-local raw bytes" in output
     assert "earliest UTC capture is the packet input" in output
+
+
+def test_rebind_union_help_is_explicitly_provider_and_purchase_free(
+    capsys: Any,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli_module.main(["acquisition", "rebind-screening-union-policy", "--help"])
+    assert exc_info.value.code == 0
+
+    output = capsys.readouterr().out
+    assert "Any other policy drift fails closed" in output
+    assert "This command has no provider" in output
+    assert "PACER, fee acknowledgment" in output
+
+
+def test_exact_union_policy_rebind_preserves_every_terminal_and_raw_record(
+    tmp_path: Path,
+) -> None:
+    source_policy, target_policy = _policy_rebind_fixture_policies()
+    accepted_id = "courtlistener-docket-73330394"
+    excluded_id = "courtlistener-docket-73330395"
+    accepted_evidence = _strict_screen_evidence(accepted_id)
+    accepted_evidence["policy_rebind"] = {
+        "strategy": "authenticated_strict_evidence_reproof_v1",
+        "current_policy_proof_available": True,
+        "raw_artifact_count": 0,
+        "source_cycle_hash": "a" * 64,
+        "source_batch_id": "exact310-source",
+        "source_snapshot_manifest_sha256": "b" * 64,
+        "source_observation_sha256": "c" * 64,
+        "source_state": "accepted",
+        "source_reason_code": "strict_clean_screen_passed",
+        "target_cycle_hash": "d" * 64,
+    }
+    first_root = tmp_path / "first"
+    first = _snapshot(
+        first_root,
+        batch_id="accepted",
+        observations=[
+            (
+                accepted_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                accepted_evidence,
+                b"<html><body>accepted raw docket</body></html>",
+            )
+        ],
+        cycle_policy=source_policy,
+    )
+    _set_firecrawl_screening_implementation(first)
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="excluded",
+        observations=[
+            (
+                excluded_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {
+                    "candidate_id": excluded_id,
+                    "reason": "no_mtd_or_rule_12_reference",
+                },
+                b"<html><body>excluded raw docket</body></html>",
+            )
+        ],
+        cycle_policy=source_policy,
+    )
+    union_output = tmp_path / "union-output"
+    union_snapshot_root = tmp_path / "union-snapshots"
+    source_cycle_hash = _cycle_hash(first_root)
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "union-screening-snapshots",
+                "--output-root",
+                str(union_output),
+                "--cycle-store",
+                str(first_root / "cycle.sqlite3"),
+                "--batch-id",
+                "source-union",
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--source-snapshot",
+                str(first),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(first),
+                "--source-snapshot",
+                str(second),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(second),
+                "--snapshot-root",
+                str(union_snapshot_root),
+                "--snapshot-id",
+                "source-union-complete",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    source_union = union_snapshot_root / "source-union-complete"
+    source_union_card = union_output / "run-cards" / "union-screening-snapshots.json"
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(target_policy)
+
+    result = rebind_screening_union_policy(
+        source_snapshot_path=source_union,
+        expected_source_snapshot_manifest_sha256=_manifest_sha256(source_union),
+        source_union_run_card_path=source_union_card,
+        expected_source_union_run_card_sha256=hashlib.sha256(
+            source_union_card.read_bytes()
+        ).hexdigest(),
+        source_cycle_store_path=first_root / "cycle.sqlite3",
+        expected_source_cycle_hash=source_cycle_hash,
+        target_cycle_store_path=target_store,
+        expected_target_cycle_hash=target_cycle_hash,
+        target_batch_id="current-policy-union",
+        snapshot_output_root=tmp_path / "target-snapshots",
+        snapshot_id="current-policy-union-complete",
+        raw_artifact_output_root=tmp_path / "rebound-raw",
+        run_card_path=tmp_path / "rebind-run-card.json",
+    )
+
+    assert result.candidate_count == 2
+    assert result.accepted_count == 1
+    assert result.excluded_count == 1
+    assert result.raw_artifact_count == 2
+    assert result.provider_activity_executed is False
+    assert result.paid_activity_executed is False
+    manifest = verify_snapshot(
+        result.snapshot_path,
+        expected_cycle_hash=target_cycle_hash,
+        require_complete=True,
+        require_saturated=True,
+    )
+    commitment = manifest["stage_commitments"]["screening_union_policy_rebind"]
+    assert commitment["source_candidate_count"] == 2
+    assert commitment["provider_activity_requested"] is False
+    assert commitment["paid_activity_requested"] is False
+    assert (
+        manifest["stage_commitments"]["screening_snapshot_union_inputs"]
+        == (
+            json.loads((source_union / "manifest.json").read_text())[
+                "stage_commitments"
+            ]["screening_snapshot_union_inputs"]
+        )
+    )
+    assert (
+        manifest["stage_commitments"]["firecrawl_screening_implementation"]
+        == firecrawl_screening_implementation()
+    )
+    assert (
+        snapshot_firecrawl_screening_source_count(manifest, require_current=True) == 1
+    )
+    run_card = json.loads(result.run_card_path.read_text())
+    assert run_card["reconciled"] is True
+    with CycleAcquisitionStore(target_store, read_only=True) as store:
+        accepted = store.current_observation(accepted_id)
+        excluded = store.current_observation(excluded_id)
+    assert accepted is not None and accepted.state == "accepted"
+    assert excluded is not None and excluded.state == "excluded"
+    source_rows = {
+        row["candidate_id"]: row for row in _jsonl(source_union / "candidates.jsonl")
+    }
+    assert accepted.observed_at == source_rows[accepted_id]["observed_at"]
+    assert excluded.observed_at == source_rows[excluded_id]["observed_at"]
+    assert accepted.evidence["policy_rebind"] == accepted_evidence["policy_rebind"]
+    assert accepted.evidence["screening_union_policy_rebind"]["source_terminal_sha256"]
+
+    resumed = rebind_screening_union_policy(
+        source_snapshot_path=source_union,
+        expected_source_snapshot_manifest_sha256=_manifest_sha256(source_union),
+        source_union_run_card_path=source_union_card,
+        expected_source_union_run_card_sha256=hashlib.sha256(
+            source_union_card.read_bytes()
+        ).hexdigest(),
+        source_cycle_store_path=first_root / "cycle.sqlite3",
+        expected_source_cycle_hash=source_cycle_hash,
+        target_cycle_store_path=target_store,
+        expected_target_cycle_hash=target_cycle_hash,
+        target_batch_id="current-policy-union",
+        snapshot_output_root=tmp_path / "target-snapshots",
+        snapshot_id="current-policy-union-complete",
+        raw_artifact_output_root=tmp_path / "rebound-raw",
+        run_card_path=tmp_path / "rebind-run-card.json",
+    )
+    assert resumed.snapshot_manifest_sha256 == result.snapshot_manifest_sha256
+    assert resumed.run_card_sha256 == result.run_card_sha256
+    with CycleAcquisitionStore(target_store, read_only=True) as store:
+        assert len(store.observations(accepted_id)) == 1
+        assert len(store.observations(excluded_id)) == 1
+    with sqlite3.connect(target_store) as connection:
+        connection.execute(
+            """
+            UPDATE candidate_observations
+            SET observed_at = ?
+            WHERE candidate_id = ?
+            """,
+            ("2026-07-31T00:00:00Z", accepted_id),
+        )
+    with pytest.raises(
+        ScreeningUnionPolicyRebindError,
+        match="conflicting replay evidence",
+    ):
+        rebind_screening_union_policy(
+            source_snapshot_path=source_union,
+            expected_source_snapshot_manifest_sha256=_manifest_sha256(source_union),
+            source_union_run_card_path=source_union_card,
+            expected_source_union_run_card_sha256=hashlib.sha256(
+                source_union_card.read_bytes()
+            ).hexdigest(),
+            source_cycle_store_path=first_root / "cycle.sqlite3",
+            expected_source_cycle_hash=source_cycle_hash,
+            target_cycle_store_path=target_store,
+            expected_target_cycle_hash=target_cycle_hash,
+            target_batch_id="current-policy-union",
+            snapshot_output_root=tmp_path / "target-snapshots",
+            snapshot_id="current-policy-union-complete",
+            raw_artifact_output_root=tmp_path / "rebound-raw",
+            run_card_path=tmp_path / "rebind-run-card.json",
+        )
+
+    novel_id = "courtlistener-docket-73330396"
+    novel_snapshot = _snapshot(
+        tmp_path / "novel-current-cycle",
+        batch_id="novel-current-policy",
+        observations=[
+            (
+                novel_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {
+                    "candidate_id": novel_id,
+                    "reason": "no_mtd_or_rule_12_reference",
+                },
+                b"<html><body>novel current-cycle raw docket</body></html>",
+            )
+        ],
+        cycle_policy=target_policy,
+    )
+    combined = load_screening_snapshot_union(
+        [result.snapshot_path, novel_snapshot],
+        expected_manifest_sha256=[
+            result.snapshot_manifest_sha256,
+            _manifest_sha256(novel_snapshot),
+        ],
+        expected_cycle_hash=target_cycle_hash,
+    )
+    assert {candidate.candidate_id for candidate in combined.candidates} == {
+        accepted_id,
+        excluded_id,
+        novel_id,
+    }
+    assert combined.stage_commitment["firecrawl_screening_source_count"] == 1
+
+    tampered_snapshot = tmp_path / "tampered-rebind-snapshot"
+    shutil.copytree(result.snapshot_path, tampered_snapshot)
+    tampered_manifest_path = tampered_snapshot / "manifest.json"
+    tampered_manifest = json.loads(tampered_manifest_path.read_text())
+    implementation = tampered_manifest["stage_commitments"][
+        "screening_union_policy_rebind"
+    ]["implementation"]
+    implementation["source_sha256"][
+        "legalforecast/ingestion/screening_union_policy_rebind.py"
+    ] = "0" * 64
+    tampered_manifest_path.write_text(
+        json.dumps(tampered_manifest, sort_keys=True, separators=(",", ":"))
+    )
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="policy-rebind source manifest commitment mismatch",
+    ):
+        load_screening_snapshot_union(
+            [tampered_snapshot, novel_snapshot],
+            expected_manifest_sha256=[
+                _manifest_sha256(tampered_snapshot),
+                _manifest_sha256(novel_snapshot),
+            ],
+            expected_cycle_hash=target_cycle_hash,
+        )
+
+    overlap_target = tmp_path / "overlap-target.sqlite3"
+    with CycleAcquisitionStore(overlap_target) as store:
+        assert store.ensure_cycle(target_policy) == target_cycle_hash
+    overlap_target_sha256 = hashlib.sha256(overlap_target.read_bytes()).hexdigest()
+    with pytest.raises(
+        ScreeningUnionPolicyRebindError,
+        match="owned output overlaps a source or cycle store",
+    ):
+        rebind_screening_union_policy(
+            source_snapshot_path=source_union,
+            expected_source_snapshot_manifest_sha256=_manifest_sha256(source_union),
+            source_union_run_card_path=source_union_card,
+            expected_source_union_run_card_sha256=hashlib.sha256(
+                source_union_card.read_bytes()
+            ).hexdigest(),
+            source_cycle_store_path=first_root / "cycle.sqlite3",
+            expected_source_cycle_hash=source_cycle_hash,
+            target_cycle_store_path=overlap_target,
+            expected_target_cycle_hash=target_cycle_hash,
+            target_batch_id="overlap-refused",
+            snapshot_output_root=tmp_path / "overlap-snapshots",
+            snapshot_id="overlap-refused",
+            raw_artifact_output_root=source_union / "forbidden-owned-raw",
+            run_card_path=tmp_path / "overlap-run-card.json",
+        )
+    assert hashlib.sha256(overlap_target.read_bytes()).hexdigest() == (
+        overlap_target_sha256
+    )
+    assert not (source_union / "forbidden-owned-raw").exists()
+
+    symlink_target = tmp_path / "symlink-target.sqlite3"
+    with CycleAcquisitionStore(symlink_target) as store:
+        assert store.ensure_cycle(target_policy) == target_cycle_hash
+    symlink_target_sha256 = hashlib.sha256(symlink_target.read_bytes()).hexdigest()
+    actual_raw_root = tmp_path / "actual-symlink-raw"
+    actual_raw_root.mkdir()
+    symlink_raw_root = tmp_path / "symlink-raw"
+    symlink_raw_root.symlink_to(actual_raw_root, target_is_directory=True)
+    with pytest.raises(
+        ScreeningUnionPolicyRebindError,
+        match="must not traverse symlinks",
+    ):
+        rebind_screening_union_policy(
+            source_snapshot_path=source_union,
+            expected_source_snapshot_manifest_sha256=_manifest_sha256(source_union),
+            source_union_run_card_path=source_union_card,
+            expected_source_union_run_card_sha256=hashlib.sha256(
+                source_union_card.read_bytes()
+            ).hexdigest(),
+            source_cycle_store_path=first_root / "cycle.sqlite3",
+            expected_source_cycle_hash=source_cycle_hash,
+            target_cycle_store_path=symlink_target,
+            expected_target_cycle_hash=target_cycle_hash,
+            target_batch_id="symlink-refused",
+            snapshot_output_root=tmp_path / "symlink-snapshots",
+            snapshot_id="symlink-refused",
+            raw_artifact_output_root=symlink_raw_root,
+            run_card_path=tmp_path / "symlink-run-card.json",
+        )
+    assert hashlib.sha256(symlink_target.read_bytes()).hexdigest() == (
+        symlink_target_sha256
+    )
+    assert not any(actual_raw_root.iterdir())
+
+
+def test_exact_union_policy_rebind_rejects_unrelated_policy_drift(
+    tmp_path: Path,
+) -> None:
+    source_policy, target_policy = _policy_rebind_fixture_policies()
+    target_hashes = dict(cast(dict[str, str], target_policy["screening_source_sha256"]))
+    target_hashes["motion_linkage"] = "9" * 64
+    target_policy["screening_source_sha256"] = target_hashes
+    source_root = tmp_path / "source"
+    first = _snapshot(
+        source_root,
+        batch_id="first",
+        observations=[],
+        cycle_policy=source_policy,
+    )
+    _set_firecrawl_screening_implementation(first)
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="second",
+        observations=[],
+        cycle_policy=source_policy,
+    )
+    union_output = tmp_path / "union-output"
+    union_snapshot_root = tmp_path / "union-snapshots"
+    source_cycle_hash = _cycle_hash(source_root)
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "union-screening-snapshots",
+                "--output-root",
+                str(union_output),
+                "--cycle-store",
+                str(source_root / "cycle.sqlite3"),
+                "--batch-id",
+                "source-union",
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--source-snapshot",
+                str(first),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(first),
+                "--source-snapshot",
+                str(second),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(second),
+                "--snapshot-root",
+                str(union_snapshot_root),
+                "--snapshot-id",
+                "source-union-complete",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    source_union = union_snapshot_root / "source-union-complete"
+    source_union_card = union_output / "run-cards" / "union-screening-snapshots.json"
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(target_policy)
+
+    with pytest.raises(
+        ScreeningUnionPolicyRebindError,
+        match="differs outside the one audited",
+    ):
+        rebind_screening_union_policy(
+            source_snapshot_path=source_union,
+            expected_source_snapshot_manifest_sha256=_manifest_sha256(source_union),
+            source_union_run_card_path=source_union_card,
+            expected_source_union_run_card_sha256=hashlib.sha256(
+                source_union_card.read_bytes()
+            ).hexdigest(),
+            source_cycle_store_path=source_root / "cycle.sqlite3",
+            expected_source_cycle_hash=source_cycle_hash,
+            target_cycle_store_path=target_store,
+            expected_target_cycle_hash=target_cycle_hash,
+            target_batch_id="refused-current-policy-union",
+            snapshot_output_root=tmp_path / "target-snapshots",
+            snapshot_id="refused",
+            raw_artifact_output_root=tmp_path / "rebound-raw",
+            run_card_path=tmp_path / "rebind-run-card.json",
+        )
+    assert not (tmp_path / "rebound-raw").exists()
+
+
+def test_strict_evidence_accepts_exact_unnumbered_text_only_placeholder() -> None:
+    candidate_id = "courtlistener-docket-73330394"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["selected_entries"].append(
+        {
+            "row_id": "minute-entry-1",
+            "entry_number": None,
+            "filed_at": "2026-06-30",
+            "text": "Set/Reset Deadlines: response due July 7.",
+            "role": "other",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "",
+                    "description": "",
+                    "href": None,
+                    "action_label": None,
+                    "pacer_only": False,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        }
+    )
+
+    validate_strict_screen_evidence(
+        evidence,
+        expected_candidate_id=candidate_id,
+    )
+
+
+def test_strict_evidence_allows_unselected_unnumbered_text_decision() -> None:
+    candidate_id = "courtlistener-docket-73330394"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["selected_entries"].append(
+        {
+            "row_id": "minute-entry-2",
+            "entry_number": None,
+            "filed_at": "2026-07-01",
+            "text": "Text Order terminating the motion to dismiss.",
+            "role": "decision",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "",
+                    "description": "",
+                    "href": None,
+                    "action_label": None,
+                    "pacer_only": False,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        }
+    )
+    evidence["mtd_decision_screen"]["decision_entries"].append(
+        {
+            "row_id": "minute-entry-2",
+            "entry_number": None,
+            "filed_at": "2026-07-01",
+            "actual_mtd_decision": True,
+            "exclusion_reasons": [],
+        }
+    )
+    evidence["mtd_decision_screen"]["actual_mtd_decision_entry_count"] = 2
+    evidence["motion_linkage"]["links"][0]["disposition_entry_ids"].append(
+        "minute-entry-2"
+    )
+
+    validate_strict_screen_evidence(
+        evidence,
+        expected_candidate_id=candidate_id,
+    )
+
+
+def test_strict_evidence_rejects_unnumbered_decision_without_selected_row_id() -> None:
+    candidate_id = "courtlistener-docket-73330394"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["mtd_decision_screen"]["decision_entries"].append(
+        {
+            "entry_number": None,
+            "filed_at": "2026-07-01",
+            "actual_mtd_decision": True,
+            "exclusion_reasons": [],
+        }
+    )
+    evidence["mtd_decision_screen"]["actual_mtd_decision_entry_count"] = 2
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match="unnumbered MTD decision screen entry lacks its selected row ID",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("href", "https://storage.courtlistener.com/hidden.pdf"),
+        ("action_label", "Download PDF"),
+        ("freely_available", True),
+        ("restriction_markers", ["text_documentissealed"]),
+    ),
+)
+def test_strict_evidence_rejects_blank_kind_download_or_restriction_shape(
+    field: str,
+    value: object,
+) -> None:
+    candidate_id = "courtlistener-docket-73330394"
+    evidence = _strict_screen_evidence(candidate_id)
+    placeholder: dict[str, object] = {
+        "kind": "",
+        "description": "",
+        "href": None,
+        "action_label": None,
+        "pacer_only": False,
+        "freely_available": False,
+        "restriction_markers": [],
+    }
+    placeholder[field] = value
+    evidence["selected_entries"].append(
+        {
+            "row_id": "minute-entry-1",
+            "entry_number": None,
+            "filed_at": "2026-06-30",
+            "text": "Set/Reset Deadlines: response due July 7.",
+            "role": "other",
+            "restriction_markers": [],
+            "documents": [placeholder],
+        }
+    )
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match=r"\.kind must be a non-empty string",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
+        )
 
 
 def test_regular_file_reader_sets_close_on_exec(
@@ -2278,13 +2859,14 @@ def _snapshot(
     *,
     batch_id: str,
     observations: list[tuple[str, str, str, dict[str, Any], bytes]],
+    cycle_policy: dict[str, object] | None = None,
 ) -> Path:
     store_path = root / "cycle.sqlite3"
     term = "fixture-term"
     raw_root = root / "raw"
     raw_root.mkdir(parents=True)
     with CycleAcquisitionStore(store_path) as store:
-        store.ensure_cycle(_CYCLE_POLICY)
+        store.ensure_cycle(_CYCLE_POLICY if cycle_policy is None else cycle_policy)
         store.ensure_batch(batch_id, {"source": batch_id})
         store.ensure_terms(batch_id, (term,))
         store.commit_search_page(
@@ -2487,6 +3069,41 @@ def _raw_docket_html(entries: list[dict[str, object]]) -> bytes:
 
 def _manifest_sha256(snapshot: Path) -> str:
     return hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest()
+
+
+def _policy_rebind_fixture_policies() -> tuple[dict[str, object], dict[str, object]]:
+    package_root = Path(cli_module.__file__).resolve().parent
+    target_hashes = {
+        name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for name, path in {
+            "mtd_acquisition_screen": (
+                package_root / "ingestion" / "mtd_acquisition_screen.py"
+            ),
+            "courtlistener_acquisition": (
+                package_root / "ingestion" / "courtlistener_acquisition.py"
+            ),
+            "restricted_material": (
+                package_root / "ingestion" / "restricted_material.py"
+            ),
+            "contamination_filters": (
+                package_root / "selection" / "contamination_filters.py"
+            ),
+            "motion_linkage": package_root / "selection" / "motion_linkage.py",
+        }.items()
+    }
+    source_hashes = dict(target_hashes)
+    source_hashes["restricted_material"] = SOURCE_RESTRICTED_MATERIAL_SHA256
+    source_policy: dict[str, object] = {
+        "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+        "eligibility_anchor": "2026-06-30",
+        "screening_source_sha256": source_hashes,
+    }
+    target_policy: dict[str, object] = {
+        "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+        "eligibility_anchor": "2026-06-30",
+        "screening_source_sha256": target_hashes,
+    }
+    return source_policy, target_policy
 
 
 def _set_firecrawl_screening_implementation(snapshot: Path) -> None:

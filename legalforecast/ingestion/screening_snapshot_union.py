@@ -58,6 +58,8 @@ RAWLESS_DIRECT_REST_ACTIVE_PROOF_POLICY = (
 @dataclass(frozen=True, slots=True)
 class UnionCandidate:
     candidate_id: str
+    observation_id: int
+    observed_at: str
     state: str
     reason_code: str
     evidence: Mapping[str, Any]
@@ -102,6 +104,37 @@ class _VerifiedSourceSnapshot:
     candidates: tuple[UnionCandidate, ...]
     strict_screen_history: Mapping[str, tuple[Mapping[str, Any], ...]]
     raw_artifacts: tuple[UnionRawArtifact, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedScreeningSnapshot:
+    """One complete, saturated snapshot consumed from authenticated buffers."""
+
+    manifest: Mapping[str, Any]
+    manifest_sha256: str
+    candidates: tuple[UnionCandidate, ...]
+    raw_artifacts: tuple[UnionRawArtifact, ...]
+
+
+def load_verified_screening_snapshot(
+    snapshot: Path,
+    *,
+    expected_manifest_sha256: str,
+    expected_cycle_hash: str,
+) -> VerifiedScreeningSnapshot:
+    """Authenticate one terminal screening snapshot without trusting live paths."""
+
+    verified = _load_verified_source_snapshot(
+        _canonical_snapshot_directory(snapshot, "screening snapshot"),
+        expected_manifest_sha256=expected_manifest_sha256,
+        expected_cycle_hash=expected_cycle_hash,
+    )
+    return VerifiedScreeningSnapshot(
+        manifest=verified.manifest,
+        manifest_sha256=verified.manifest_sha256,
+        candidates=verified.candidates,
+        raw_artifacts=verified.raw_artifacts,
+    )
 
 
 def load_screening_snapshot_union(
@@ -1007,6 +1040,8 @@ def _source_observation_record(
         "source_snapshot_id": observation.source_snapshot_id,
         "source_batch_id": observation.source_batch_id,
         "canonical_terminal_observation": canonical,
+        "source_observation_id": candidate.observation_id,
+        "observed_at": candidate.observed_at,
         "state": candidate.state,
         "reason_code": candidate.reason_code,
         "evidence": dict(candidate.evidence),
@@ -1229,6 +1264,18 @@ def _candidate_records(
         reason_code = _string(
             record.get("reason_code"), f"candidate {candidate_id} reason_code"
         )
+        observation_id = record.get("observation_id")
+        if (
+            not isinstance(observation_id, int)
+            or isinstance(observation_id, bool)
+            or observation_id < 1
+        ):
+            raise ScreeningSnapshotUnionError(
+                f"candidate {candidate_id} observation_id must be a positive integer"
+            )
+        observed_at = _utc_timestamp(
+            record.get("observed_at"), f"candidate {candidate_id} observed_at"
+        )
         evidence = record.get("evidence")
         if state not in {"accepted", "excluded", "newly_free"} or not isinstance(
             evidence, Mapping
@@ -1244,12 +1291,25 @@ def _candidate_records(
         candidates.append(
             UnionCandidate(
                 candidate_id=candidate_id,
+                observation_id=observation_id,
+                observed_at=observed_at,
                 state=state,
                 reason_code=reason_code,
                 evidence=evidence_record,
             )
         )
     return tuple(candidates)
+
+
+def _utc_timestamp(value: object, label: str) -> str:
+    timestamp = _string(value, label)
+    try:
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ScreeningSnapshotUnionError(f"{label} is invalid") from error
+    if parsed.tzinfo is None or parsed.utcoffset() != UTC.utcoffset(parsed):
+        raise ScreeningSnapshotUnionError(f"{label} must be UTC")
+    return timestamp
 
 
 def _strict_screen_history(
