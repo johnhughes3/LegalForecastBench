@@ -13,6 +13,7 @@ ALLOWED_ACTIONS = {
     "dynamodb:TransactWriteItems",
     "dynamodb:UpdateItem",
 }
+EXPECTED_STS_AUDIENCE = ".".join(("sts", "amazonaws", "com"))
 
 
 def test_labeling_role_is_oidc_bound_to_exact_protected_environments() -> None:
@@ -25,7 +26,7 @@ def test_labeling_role_is_oidc_bound_to_exact_protected_environments() -> None:
     assert "sts:AssumeRoleWithWebIdentity" in iam
     assert "token.actions.githubusercontent.com:aud" in iam
     assert "token.actions.githubusercontent.com:sub" in iam
-    assert "sts.amazonaws.com" in iam
+    assert EXPECTED_STS_AUDIENCE in iam
     assert 'default     = "repo:johnhughes3/LegalForecastBench"' in variables
     assert (
         'var.github_subject_prefix == "repo:johnhughes3/LegalForecastBench"'
