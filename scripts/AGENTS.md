@@ -59,3 +59,12 @@ checkout but do not belong in the installed `legalforecast` CLI.
   export LFB_RESULTS_BUCKET=<from-private-vault>
   uv run scripts/validate_local_assume_access.py
   ```
+
+- `smoke_infisical_systemd_exit_status.py`: runs a provider-free user-systemd
+  smoke proving that the acquisition Infisical launcher preserves both status 0
+  and a deliberate status 23 even when a fake sandbox wrapper masks the child.
+
+  ```bash
+  uv run scripts/smoke_infisical_systemd_exit_status.py \
+    --output tmp/infisical-systemd-smoke-receipt.json
+  ```
