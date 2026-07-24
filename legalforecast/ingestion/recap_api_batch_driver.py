@@ -2911,10 +2911,20 @@ def _priority_reusable_observations(
             )
         if observation.state == "accepted":
             raw_screen = observation.evidence.get("screen")
-            if (
-                observation.reason_code != "strict_clean_screen_passed"
-                or not isinstance(raw_screen, Mapping)
-                or cast("Mapping[str, object]", raw_screen).get("eligible") is not True
+            screen = (
+                cast("Mapping[str, object]", raw_screen)
+                if isinstance(raw_screen, Mapping)
+                else None
+            )
+            legacy_screen_proof = screen is not None and screen.get("eligible") is True
+            canonical_screen_proof = bool(
+                screen is not None
+                and observation.evidence.get("canonical_rest_screen_complete") is True
+                and screen.get("status") == "accepted_strict_civil_mtd_decision"
+                and screen.get("exclusion_reasons") in ([], ())
+            )
+            if observation.reason_code != "strict_clean_screen_passed" or not (
+                legacy_screen_proof or canonical_screen_proof
             ):
                 raise RecapApiBatchDriverError(
                     f"priority candidate {candidate_id!r} has an accepted "
