@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -1299,6 +1300,279 @@ def test_union_rejects_multiple_distinct_active_proofs_even_when_one_is_pinned(
         )
 
 
+def test_union_allows_raw_backed_active_authority_over_exact310_rawless_reproof(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-72615251"
+    raw_backed_evidence = _strict_screen_evidence(candidate_id)
+    raw_backed = _snapshot(
+        tmp_path / "raw-backed",
+        batch_id="terminal-screen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                raw_backed_evidence,
+                b"<html><body>authenticated docket proof</body></html>",
+            )
+        ],
+    )
+    reproof_evidence = deepcopy(raw_backed_evidence)
+    reproof_evidence["policy_rebind"] = {
+        "strategy": "authenticated_strict_evidence_reproof_v1",
+        "current_policy_proof_available": True,
+        "raw_artifact_count": 0,
+        "source_cycle_hash": "a" * 64,
+        "source_batch_id": "exact310-source",
+        "source_snapshot_manifest_sha256": "b" * 64,
+        "source_observation_sha256": "c" * 64,
+        "source_state": "accepted",
+        "source_reason_code": "strict_clean_screen_passed",
+        "target_cycle_hash": _cycle_hash(tmp_path / "raw-backed"),
+    }
+    rawless_reproof = _snapshot(
+        tmp_path / "rawless-reproof",
+        batch_id="exact310-rebind",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                reproof_evidence,
+                b"<html><body>temporary helper bytes</body></html>",
+            )
+        ],
+    )
+    _rewrite_snapshot_jsonl(rawless_reproof, "raw-artifacts.jsonl", [])
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="multiple non-identical active terminal proofs",
+    ):
+        load_screening_snapshot_union(
+            (raw_backed, rawless_reproof),
+            expected_manifest_sha256=(
+                _manifest_sha256(raw_backed),
+                _manifest_sha256(rawless_reproof),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "raw-backed"),
+            expected_terminal_correction_candidate_id=(candidate_id,),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(raw_backed),
+            ),
+        )
+
+    _set_exact310_stage_commitments(
+        rawless_reproof,
+        policy_rebind=reproof_evidence["policy_rebind"],
+    )
+    union = load_screening_snapshot_union(
+        (raw_backed, rawless_reproof),
+        expected_manifest_sha256=(
+            _manifest_sha256(raw_backed),
+            _manifest_sha256(rawless_reproof),
+        ),
+        expected_cycle_hash=_cycle_hash(tmp_path / "raw-backed"),
+        expected_terminal_correction_candidate_id=(candidate_id,),
+        expected_terminal_correction_source_manifest_sha256=(
+            _manifest_sha256(raw_backed),
+        ),
+    )
+
+    [candidate] = union.candidates
+    assert candidate.evidence == raw_backed_evidence
+    [canonical_raw] = union.canonical_raw_artifacts
+    assert canonical_raw.content == (
+        b"<html><body>authenticated docket proof</body></html>"
+    )
+    [correction] = union.stage_commitment["longitudinal_corrections"]
+    assert correction["active_reproof_reconciliation"] == {
+        "policy": (
+            "unique_raw_backed_authority_over_authenticated_rawless_exact310_reproof_v1"
+        ),
+        "rawless_source_manifest_sha256": [
+            _manifest_sha256(rawless_reproof),
+        ],
+    }
+    assert cli_module._snapshot_longitudinal_active_raw_mapping(
+        union.stage_commitment,
+        candidate_records=[
+            {
+                "candidate_id": candidate.candidate_id,
+                "state": candidate.state,
+                "reason_code": candidate.reason_code,
+                "evidence": candidate.evidence,
+            }
+        ],
+        archived_records=[
+            {
+                "candidate_id": artifact.candidate_id,
+                "sha256": artifact.sha256,
+                "byte_count": artifact.byte_count,
+                "retrieved_at": artifact.retrieved_at,
+            }
+            for artifact in union.raw_artifacts
+        ],
+    ) == {
+        candidate_id: (
+            canonical_raw.sha256,
+            canonical_raw.byte_count,
+            canonical_raw.retrieved_at,
+        )
+    }
+    tampered_commitment = deepcopy(union.stage_commitment)
+    del tampered_commitment["longitudinal_corrections"][0][
+        "active_reproof_reconciliation"
+    ]
+    with pytest.raises(
+        CycleAcquisitionStoreError,
+        match="not uniquely reconcilable",
+    ):
+        cli_module._snapshot_longitudinal_active_raw_mapping(
+            tampered_commitment,
+            candidate_records=[
+                {
+                    "candidate_id": candidate.candidate_id,
+                    "state": candidate.state,
+                    "reason_code": candidate.reason_code,
+                    "evidence": candidate.evidence,
+                }
+            ],
+            archived_records=[
+                {
+                    "candidate_id": artifact.candidate_id,
+                    "sha256": artifact.sha256,
+                    "byte_count": artifact.byte_count,
+                    "retrieved_at": artifact.retrieved_at,
+                }
+                for artifact in union.raw_artifacts
+            ],
+        )
+
+    tampered_commitment = deepcopy(union.stage_commitment)
+    rawless_source = next(
+        source
+        for source in tampered_commitment["sources"]
+        if source["manifest_sha256"] == _manifest_sha256(rawless_reproof)
+    )
+    rawless_source["stage_commitments"]["target_cycle_hash"] = "d" * 64
+    with pytest.raises(
+        CycleAcquisitionStoreError,
+        match="invalid rawless active reproof",
+    ):
+        cli_module._snapshot_longitudinal_active_raw_mapping(
+            tampered_commitment,
+            candidate_records=[
+                {
+                    "candidate_id": candidate.candidate_id,
+                    "state": candidate.state,
+                    "reason_code": candidate.reason_code,
+                    "evidence": candidate.evidence,
+                }
+            ],
+            archived_records=[
+                {
+                    "candidate_id": artifact.candidate_id,
+                    "sha256": artifact.sha256,
+                    "byte_count": artifact.byte_count,
+                    "retrieved_at": artifact.retrieved_at,
+                }
+                for artifact in union.raw_artifacts
+            ],
+        )
+
+    newly_free_reproof = _snapshot(
+        tmp_path / "newly-free-reproof",
+        batch_id="exact310-newly-free",
+        observations=[
+            (
+                candidate_id,
+                "newly_free",
+                "newly_free",
+                reproof_evidence,
+                b"<html><body>temporary helper bytes</body></html>",
+            )
+        ],
+    )
+    _rewrite_snapshot_jsonl(newly_free_reproof, "raw-artifacts.jsonl", [])
+    _set_exact310_stage_commitments(
+        newly_free_reproof,
+        policy_rebind=reproof_evidence["policy_rebind"],
+    )
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="multiple non-identical active terminal proofs",
+    ):
+        load_screening_snapshot_union(
+            (raw_backed, newly_free_reproof),
+            expected_manifest_sha256=(
+                _manifest_sha256(raw_backed),
+                _manifest_sha256(newly_free_reproof),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "raw-backed"),
+            expected_terminal_correction_candidate_id=(candidate_id,),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(raw_backed),
+            ),
+        )
+
+
+def test_union_rejects_generic_rawless_distinct_active_proof(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-72615251"
+    raw_backed_evidence = _strict_screen_evidence(candidate_id)
+    raw_backed = _snapshot(
+        tmp_path / "raw-backed",
+        batch_id="terminal-screen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                raw_backed_evidence,
+                b"<html><body>authenticated docket proof</body></html>",
+            )
+        ],
+    )
+    rawless_evidence = deepcopy(raw_backed_evidence)
+    rawless_evidence["candidate"]["url"] = (
+        "https://www.courtlistener.com/docket/72615251/other-proof/"
+    )
+    rawless = _snapshot(
+        tmp_path / "rawless",
+        batch_id="unbound-rescreen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                rawless_evidence,
+                b"<html><body>temporary helper bytes</body></html>",
+            )
+        ],
+    )
+    _rewrite_snapshot_jsonl(rawless, "raw-artifacts.jsonl", [])
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="multiple non-identical active terminal proofs",
+    ):
+        load_screening_snapshot_union(
+            (raw_backed, rawless),
+            expected_manifest_sha256=(
+                _manifest_sha256(raw_backed),
+                _manifest_sha256(rawless),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "raw-backed"),
+            expected_terminal_correction_candidate_id=(candidate_id,),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(raw_backed),
+            ),
+        )
+
+
 def test_union_rejects_active_correction_without_source_bound_raw(
     tmp_path: Path,
 ) -> None:
@@ -1943,6 +2217,44 @@ def _set_firecrawl_screening_implementation(snapshot: Path) -> None:
     stage_commitments["firecrawl_screening_implementation"] = (
         firecrawl_screening_implementation()
     )
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+    )
+
+
+def _set_exact310_stage_commitments(
+    snapshot: Path,
+    *,
+    policy_rebind: dict[str, Any],
+) -> None:
+    manifest_path = snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    candidate_count = manifest["files"]["candidates.jsonl"]["row_count"]
+    manifest["stage_commitments"] = {
+        "stage": "exact310-terminal-rest-policy-rebind",
+        "contract_sha256": "d" * 64,
+        "source_cycle_hash": policy_rebind["source_cycle_hash"],
+        "source_batch_id": policy_rebind["source_batch_id"],
+        "source_snapshot_manifest_sha256": policy_rebind[
+            "source_snapshot_manifest_sha256"
+        ],
+        "source_candidate_set_sha256": "e" * 64,
+        "transfer_receipt_sha256": "f" * 64,
+        "target_seed_summary_sha256": "1" * 64,
+        "source_observations_sha256": "2" * 64,
+        "target_cycle_hash": policy_rebind["target_cycle_hash"],
+        "target_batch_id": manifest["batch_id"],
+        "target_batch_digest": manifest["batch_digest"],
+        "target_outcomes_sha256": "3" * 64,
+        "preserve_current_count": 0,
+        "reprove_current_count": candidate_count,
+        "reprove_exclusion_count": 0,
+        "fail_closed_count": 0,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
     manifest_path.write_text(
         json.dumps(manifest, sort_keys=True, separators=(",", ":"))
     )

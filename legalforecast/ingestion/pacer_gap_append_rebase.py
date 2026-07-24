@@ -12,6 +12,8 @@ from typing import Any, cast
 
 from legalforecast.ingestion.cycle_acquisition_store import verify_snapshot
 from legalforecast.ingestion.screening_snapshot_union import (
+    LONGITUDINAL_CORRECTION_POLICY_V1,
+    LONGITUDINAL_CORRECTION_POLICY_V2,
     ScreeningSnapshotUnionError,
     load_screening_snapshot_union,
 )
@@ -356,9 +358,10 @@ def _union_correction_pins(
         == "legalforecast.screening_snapshot_union_inputs.v1"
     ):
         return (), ()
-    if commitment.get("longitudinal_correction_policy") != (
-        "explicit_candidate_source_manifest_unique_active_v1"
-    ):
+    if commitment.get("longitudinal_correction_policy") not in {
+        LONGITUDINAL_CORRECTION_POLICY_V1,
+        LONGITUDINAL_CORRECTION_POLICY_V2,
+    }:
         raise AppendOnlyPacerGapRebaseError(
             f"{label} union correction policy is unsupported"
         )
