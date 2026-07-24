@@ -337,6 +337,8 @@ def test_materialized_courtlistener_snapshot_is_prepare_target_cohort_input(
                 str(tmp_path / "prepared"),
                 "--snapshot",
                 str(snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_hash,
                 "--target-case-count",
@@ -472,6 +474,10 @@ def test_old_and_direct_snapshots_union_provider_free_then_prepare(
                 str(tmp_path / "union-prepared"),
                 "--snapshot",
                 str(union_snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256(
+                    (union_snapshot / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_hash,
                 "--target-case-count",
@@ -580,6 +586,10 @@ def test_snapshot_union_cannot_upgrade_a_provisional_source(tmp_path: Path) -> N
                 str(tmp_path / "rejected-provisional-union"),
                 "--snapshot",
                 str(union_snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256(
+                    (union_snapshot / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_hash,
                 "--target-case-count",
@@ -1155,6 +1165,10 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
                 "plan-public-downloads",
                 "--snapshot",
                 str(snapshot_path),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256(
+                    (snapshot_path / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_hash,
                 "--screened-cases",

@@ -231,6 +231,12 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
                 "plan-public-downloads",
                 "--snapshot",
                 str(snapshot_root / "selected-001-complete"),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256(
+                    (
+                        snapshot_root / "selected-001-complete" / "manifest.json"
+                    ).read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 manifest["cycle_hash"],
                 "--screened-cases",

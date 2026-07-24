@@ -924,6 +924,38 @@ After the terminal tranche reports `deferred_count: 0` and `ranking_frontier_exh
 Even that last isolated tranche reports `global_source_saturated: false`; only the authenticated final union may assert full-source terminal conservation.
 The union becomes non-provisional only if predecessor/frontier hashes form a contiguous chain and accepted-plus-excluded terminal rows exactly conserve the committed novel-source candidate-ID set; an incomplete, overlapping, mutated, or mixed chain fails closed.
 
+For the approved Cycle 1 acquisition-shaped convenience cohort, the first frozen priority tranche may instead be promoted after every selected candidate is terminal, even though the remaining parent candidates have not been screened.
+This narrow path is for relative model comparison only and does not claim a representative sample or population inference.
+The promotion re-authenticates the complete parent source, exact first-tranche frontier, terminal mixed outcomes, strict 2026-06-30 evidence, and a separately reviewed policy proving that selection was acquisition-only, model-invisible, Stage-B-label-free, and outcome-polarity blind.
+It preserves every deferred parent candidate in a hash-bound `unscreened_not_excluded` omission inventory; deferred candidates never enter the exclusion ledger.
+
+```bash
+uv run legalforecast acquisition promote-terminal-rest-priority-subset \
+  --output-root artifacts/cycle-1/official-acquisition/rest-priority-promotion \
+  --execute --no-resume \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --parent-source-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --parent-source-batch-id <complete-saturated-source-batch-id> \
+  --expected-parent-source-batch-digest <externally-recorded-batch-digest> \
+  --priority-batch-id <terminal-priority-tranche-001-batch-id> \
+  --expected-priority-batch-digest <externally-recorded-priority-batch-digest> \
+  --priority-frontier artifacts/cycle-1/official-acquisition/priority-tranche-001-frontier.json \
+  --expected-priority-frontier-sha256 <externally-recorded-file-sha256> \
+  --source-snapshot artifacts/cycle-1/official-acquisition/priority-tranche-001-snapshot \
+  --expected-source-snapshot-manifest-sha256 <externally-recorded-manifest-sha256> \
+  --selection-policy artifacts/cycle-1/official-acquisition/rest-priority-selection-policy.json \
+  --expected-selection-policy-sha256 <externally-recorded-policy-sha256> \
+  --expected-cycle-hash <frozen-cycle-hash> \
+  --decision-filed-on-or-after 2026-06-30 \
+  --batch-id <promoted-priority-subset-batch-id> \
+  --snapshot-id <promoted-priority-subset-snapshot-id> \
+  --omission-inventory-output artifacts/cycle-1/official-acquisition/rest-priority-promotion/unscreened-not-excluded.jsonl
+```
+
+The first implementation requires `--parent-source-store` and `--cycle-store` to resolve to the same production store, authenticates all source inputs before creating the target batch, emits no raw-artifact substitute, and has no network, provider, PACER, fee-acknowledgment, purchase, model, evaluation, freeze, or dispatch option.
+The promoted snapshot carries the distinct `rest_terminal_subset_promotion` commitment, not `direct_search_priority_tranche`; the ordinary incomplete-chain guard remains unchanged.
+Union the promoted snapshot with the refreshed, disjoint base snapshot only after both manifest hashes are externally recorded.
+
 Reconstruct and strictly screen the transferred dockets through authenticated CourtListener REST. The durable request ledger enforces the configured minute, hour, and day ceilings; stopping at a ceiling is resumable and does not change candidate membership.
 
 ```bash
@@ -1282,7 +1314,7 @@ uv run legalforecast acquisition screen-firecrawl-dockets \
   --execute --resume
 ```
 
-Do not rank or prepare from partial outputs. Require the screening summary and snapshot manifest to report complete reconciliation, `complete: true`, and `saturated: true`, then record the manifest's exact `cycle_hash`. `prepare-target-cohort` rejects a partial, changed, or wrong-cycle snapshot and carries every viable row through authoritative CourtListener public-document and paid-gap resolution.
+Do not rank or prepare from partial outputs. Require the screening summary and snapshot manifest to report complete reconciliation, `complete: true`, and `saturated: true`, then externally record both the manifest file's SHA-256 and its exact `cycle_hash`. `prepare-target-cohort` and its `plan-public-downloads` substage require that manifest-file pin and reject a partial, changed, repinned, or wrong-cycle snapshot before carrying any viable row through authoritative CourtListener public-document and paid-gap resolution.
 
 If the same cycle gains reviewed candidates after a completed PACER-gap bridge, first publish a complete saturated `union-screening-snapshots` output. Reuse old terminal checkpoints only through `rebase-pacer-gap-checkpoints` with both externally pinned manifest hashes and one `--expected-added-candidate-id` per exact addition. A pure append requires the old snapshot in the union ancestry. If a complete current-policy replay invalidates a prior acceptance, also pass one `--expected-invalidated-candidate-id` per exact invalidation; that explicitly pinned path may replace the ancestry requirement but must prove every other prior terminal evidence record and raw commitment unchanged. Both paths require exact screened projections, unchanged retained route semantics, and a terminal checkpoint for every prior paid gap. The receipt's `replay_required_candidate_ids` must equal the new paid-gap additions plus only invalidated candidates that remain currently routed; invalidated candidates removed from current routes must be recorded separately and not replayed. Otherwise stop. The rebase is provider-free and preserves byte-identical prior checkpoints when their index, input hash, and payload did not change.
 
@@ -1295,9 +1327,13 @@ The acquisition objective and launch minimum are separate. Plan and preserve the
 Run the public-first preparation chain from that immutable snapshot. This command plans public downloads against the 150-case objective, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits disclosure-review requests plus the full untruncated frontier. It never purchases a document.
 
 ```bash
+SNAPSHOT=artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete
+SNAPSHOT_MANIFEST_SHA256="$(sha256sum "$SNAPSHOT/manifest.json" | cut -d' ' -f1)"
+
 uv run legalforecast acquisition prepare-target-cohort \
   --output-root artifacts/cycle-1/official-acquisition/target-150-frontier \
-  --snapshot artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete \
+  --snapshot "$SNAPSHOT" \
+  --expected-snapshot-manifest-sha256 "$SNAPSHOT_MANIFEST_SHA256" \
   --expected-cycle-hash <snapshot-cycle-hash> \
   --use-embedded-entries \
   --live-public-download \

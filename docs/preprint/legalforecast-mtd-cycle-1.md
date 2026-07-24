@@ -33,7 +33,7 @@ LegalForecast-MTD's contribution is the combination of a pre-decision federal li
 
 ### 2.1 Cohort and target disposition
 
-Cycle 1 is organized around a frozen cohort rather than a convenience sample assembled after model outputs are seen. Candidate matters must satisfy the cycle's dated eligibility, motion, document, and disposition rules. Acquisition records source handles, retrieval status, hashes, exclusions, and completeness evidence. The official freeze binds exactly 100 eligible matters; a shortfall blocks the official run rather than silently changing the denominator or weakening the inclusion rule.
+Cycle 1 is organized around a frozen, acquisition-shaped convenience cohort selected before model outputs or Stage B labels are inspected. The cohort is deliberately nonrepresentative: source coverage, public-document availability, and acquisition cost affect which otherwise eligible matters can be completed in time. Candidate matters must still satisfy the cycle's dated eligibility, motion, document, and disposition rules, with the strict screen as the sole eligibility and exclusion authority. Acquisition records source handles, retrieval status, hashes, exclusions, omissions, and completeness evidence. The official freeze binds at least 150 eligible matters; a shortfall blocks the official run rather than silently changing the denominator or weakening the inclusion rule.
 
 The target outcome is the first written disposition of the target motion. This anchor avoids choosing among later procedural events after their substantive direction is known. A later amended complaint, renewed motion, reconsideration order, appeal, or settlement may matter to litigants, but it is not substituted for the frozen target. Withdrawals and corrections use explicit records and superseding publications rather than silent edits.
 
@@ -138,7 +138,7 @@ No Community Harness Comparison appears in this manuscript. Harvey LAB uses a di
 
 ## 7. Limitations
 
-Cycle 1 is a finite sample of federal motion-to-dismiss matters selected under a specific eligibility window and document-availability regime. The case mix may differ by district, subject matter, party type, representation, motion practice, and pleading complexity. Within-cycle pairing improves comparison on the shared cohort but does not make that cohort representative of all federal civil litigation.
+Cycle 1 is a finite, acquisition-shaped convenience sample of federal motion-to-dismiss matters selected under a specific eligibility window, source-coverage regime, and document-cost frontier. The selection policy is outcome-polarity blind and model-invisible, but it intentionally favors matters that can be authenticated and acquired cheaply enough for a timely cycle. The case mix may therefore differ by district, subject matter, party type, representation, motion practice, pleading complexity, and public-document availability. Within-cycle pairing supports relative model comparison on the shared cohort; it does not make the cohort representative of all federal civil litigation or support population inference.
 
 The prediction unit is legally meaningful but not independent within a case. Claims may share facts, defendants, and legal theories. Related proceedings can share even more structure. Clustered resampling addresses declared dependence at the MDL-family, related-case-family, or case level, but estimates may remain unstable when the number of independent clusters is small. The small-cluster guard makes that limitation visible rather than manufacturing precision.
 

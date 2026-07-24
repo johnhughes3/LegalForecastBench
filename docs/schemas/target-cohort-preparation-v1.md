@@ -1,6 +1,6 @@
 # Target-cohort preparation v1
 
-`legalforecast acquisition prepare-target-cohort --target-case-count N` is the generic, provider-safe preparation driver for a complete saturated acquisition snapshot.
+`legalforecast acquisition prepare-target-cohort --target-case-count N` is the generic, provider-safe preparation driver for a complete saturated acquisition snapshot. The caller must provide `--expected-snapshot-manifest-sha256` from an externally frozen SHA-256 of that snapshot's `manifest.json`; preparation and its public-download planning stage fail before trusting lineage if the manifest bytes drift.
 
 The command carries every viable snapshot candidate through public-document planning, free downloads, authoritative CourtListener REST gap resolution, newly-free recovery, core-document filtering, and disclosure-review input generation.
 

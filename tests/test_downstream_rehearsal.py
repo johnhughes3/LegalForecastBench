@@ -1422,6 +1422,8 @@ def _write_canonical_exact_100_chain(
                 str(preparation),
                 "--snapshot",
                 str(snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
                 "--expected-cycle-hash",
                 str(cycle_hash),
                 "--target-case-count",

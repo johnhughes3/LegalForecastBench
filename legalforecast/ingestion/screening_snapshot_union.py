@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import pairwise
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, cast
 
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -22,6 +23,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.firecrawl_screening_identity import (
     FirecrawlScreeningIdentityError,
     snapshot_firecrawl_screening_source_count,
+    validate_rest_terminal_subset_promotions_in_snapshot,
 )
 from legalforecast.ingestion.strict_screen_evidence import (
     StrictScreenEvidenceError,
@@ -234,6 +236,9 @@ class _VerifiedSourceSnapshot:
     manifest: Mapping[str, Any]
     manifest_sha256: str
     candidates: tuple[UnionCandidate, ...]
+    screened: tuple[Mapping[str, Any], ...]
+    exclusions: tuple[Mapping[str, Any], ...]
+    payloads: Mapping[str, bytes]
     strict_screen_history: Mapping[str, tuple[Mapping[str, Any], ...]]
     raw_artifacts: tuple[UnionRawArtifact, ...]
 
@@ -245,6 +250,9 @@ class VerifiedScreeningSnapshot:
     manifest: Mapping[str, Any]
     manifest_sha256: str
     candidates: tuple[UnionCandidate, ...]
+    screened: tuple[Mapping[str, Any], ...]
+    exclusions: tuple[Mapping[str, Any], ...]
+    payloads: Mapping[str, bytes]
     raw_artifacts: tuple[UnionRawArtifact, ...]
 
 
@@ -260,11 +268,15 @@ def load_verified_screening_snapshot(
         _canonical_snapshot_directory(snapshot, "screening snapshot"),
         expected_manifest_sha256=expected_manifest_sha256,
         expected_cycle_hash=expected_cycle_hash,
+        enforce_union_identity=False,
     )
     return VerifiedScreeningSnapshot(
         manifest=verified.manifest,
         manifest_sha256=verified.manifest_sha256,
         candidates=verified.candidates,
+        screened=verified.screened,
+        exclusions=verified.exclusions,
+        payloads=verified.payloads,
         raw_artifacts=verified.raw_artifacts,
     )
 
@@ -387,6 +399,24 @@ def load_screening_snapshot_union(
             raise ScreeningSnapshotUnionError(
                 f"source snapshot stage commitments are invalid: {snapshot}"
             )
+        try:
+            validate_rest_terminal_subset_promotions_in_snapshot(
+                cast(Mapping[str, object], source_stage_commitments),
+                snapshot_candidates=tuple(
+                    {
+                        "candidate_id": candidate.candidate_id,
+                        "state": candidate.state,
+                        "reason_code": candidate.reason_code,
+                        "evidence": dict(candidate.evidence),
+                        "observed_at": candidate.observed_at,
+                    }
+                    for candidate in source_candidates
+                ),
+                snapshot_screened=verified_source.screened,
+                snapshot_exclusions=verified_source.exclusions,
+            )
+        except FirecrawlScreeningIdentityError as exc:
+            raise ScreeningSnapshotUnionError(str(exc)) from exc
         priority_value = cast(Mapping[str, Any], source_stage_commitments).get(
             "direct_search_priority_tranche"
         )
@@ -1241,6 +1271,7 @@ def _load_verified_source_snapshot(
     *,
     expected_manifest_sha256: str,
     expected_cycle_hash: str,
+    enforce_union_identity: bool = True,
 ) -> _VerifiedSourceSnapshot:
     """Authenticate one immutable byte set and consume only those buffers."""
 
@@ -1313,9 +1344,18 @@ def _load_verified_source_snapshot(
     return _VerifiedSourceSnapshot(
         manifest=manifest,
         manifest_sha256=manifest_sha256,
-        candidates=_candidate_records(candidate_rows),
+        candidates=_candidate_records(
+            candidate_rows,
+            require_evidence_identity=enforce_union_identity,
+        ),
+        screened=tuple(screened),
+        exclusions=tuple(exclusions),
+        payloads=MappingProxyType({"manifest.json": manifest_payload, **payloads}),
         strict_screen_history=_strict_screen_history(observation_rows),
-        raw_artifacts=_raw_records(raw_rows),
+        raw_artifacts=_raw_records(
+            raw_rows,
+            require_candidate_path_ownership=enforce_union_identity,
+        ),
     )
 
 
@@ -1408,6 +1448,8 @@ def _require_snapshot_links(
 
 def _candidate_records(
     records: Sequence[Mapping[str, Any]],
+    *,
+    require_evidence_identity: bool = True,
 ) -> tuple[UnionCandidate, ...]:
     candidates: list[UnionCandidate] = []
     for row_number, record in enumerate(records, start=1):
@@ -1438,7 +1480,10 @@ def _candidate_records(
                 f"candidate {candidate_id} lacks terminal evidence"
             )
         evidence_record = cast(Mapping[str, Any], evidence)
-        if evidence_record.get("candidate_id") != candidate_id:
+        if (
+            require_evidence_identity
+            and evidence_record.get("candidate_id") != candidate_id
+        ):
             raise ScreeningSnapshotUnionError(
                 f"candidate {candidate_id} evidence identity mismatch"
             )
@@ -1491,6 +1536,8 @@ def _strict_screen_history(
 
 def _raw_records(
     records: Sequence[Mapping[str, Any]],
+    *,
+    require_candidate_path_ownership: bool = True,
 ) -> tuple[UnionRawArtifact, ...]:
     artifacts: list[UnionRawArtifact] = []
     for row_number, record in enumerate(records, start=1):
@@ -1522,11 +1569,12 @@ def _raw_records(
             raise ScreeningSnapshotUnionError(
                 f"raw artifact commitment mismatch for {candidate_id}"
             )
-        _validate_raw_artifact_ownership(
-            candidate_id=candidate_id,
-            raw_path=raw_path,
-            sha256=digest,
-        )
+        if require_candidate_path_ownership:
+            _validate_raw_artifact_ownership(
+                candidate_id=candidate_id,
+                raw_path=raw_path,
+                sha256=digest,
+            )
         artifacts.append(
             UnionRawArtifact(
                 candidate_id=candidate_id,

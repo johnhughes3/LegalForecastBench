@@ -578,6 +578,8 @@ def _materialized_two_case_cohort(tmp_path: Path) -> dict[str, Path]:
                 str(preparation),
                 "--snapshot",
                 str(snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_hash,
                 "--target-case-count",

@@ -33,6 +33,9 @@ def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
     output = capsys.readouterr().out
     normalized = " ".join(output.split())
     assert "--screened-cases" in output
+    assert "--expected-screened-cases-sha256" in output
+    assert "--authenticated-raw-html-manifest" in output
+    assert "--expected-authenticated-raw-html-manifest-sha256" in output
     assert "--live-case-dev" in output
     assert "--live-courtlistener" in output
     assert "--courtlistener-fixture" in output
@@ -946,6 +949,8 @@ def test_public_first_bridge_checkpoints_429_and_resumes_without_repeat_lookups(
         "bridge-pacer-gaps",
         "--screened-cases",
         str(screened_path),
+        "--expected-screened-cases-sha256",
+        hashlib.sha256(screened_path.read_bytes()).hexdigest(),
         "--use-embedded-entries",
         "--case-dev-fixture",
         str(fixture_path),
@@ -1113,6 +1118,8 @@ def test_public_first_bridge_bounds_resumable_5xx_as_terminal_exclusion(
         "bridge-pacer-gaps",
         "--screened-cases",
         str(screened_path),
+        "--expected-screened-cases-sha256",
+        hashlib.sha256(screened_path.read_bytes()).hexdigest(),
         "--use-embedded-entries",
         "--case-dev-fixture",
         str(fixture_path),
@@ -1150,6 +1157,7 @@ def test_public_first_bridge_bounds_resumable_5xx_as_terminal_exclusion(
 
 def test_public_first_bridge_rejects_shared_manifest_corruption_before_checkpoint(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "bridge"
     screened_path = tmp_path / "screened.jsonl"
@@ -1178,6 +1186,13 @@ def test_public_first_bridge_rejects_shared_manifest_corruption_before_checkpoin
     _write_jsonl(paid_gaps_path, [gap.to_record()])
     _write_jsonl(free_downloads_path, [*downloads, downloads[0]])
     _write_jsonl(fixture_path, [])
+    monkeypatch.setattr(
+        cli,
+        "_case_dev_client",
+        lambda *args, **kwargs: pytest.fail(
+            "bridge constructed a provider before validating public-first inputs"
+        ),
+    )
 
     assert (
         main(
@@ -1186,6 +1201,8 @@ def test_public_first_bridge_rejects_shared_manifest_corruption_before_checkpoin
                 "bridge-pacer-gaps",
                 "--screened-cases",
                 str(screened_path),
+                "--expected-screened-cases-sha256",
+                hashlib.sha256(screened_path.read_bytes()).hexdigest(),
                 "--use-embedded-entries",
                 "--case-dev-fixture",
                 str(fixture_path),
@@ -1208,6 +1225,655 @@ def test_public_first_bridge_rejects_shared_manifest_corruption_before_checkpoin
     assert not (output_root / "checkpoints" / "pacer-gap-bridge").exists()
 
 
+def test_public_first_bridge_uses_route_bytes_admitted_before_source_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    for path in (
+        screened_path,
+        public_selection_path,
+        paid_gaps_path,
+        free_downloads_path,
+        fixture_path,
+    ):
+        _write_jsonl(path, [])
+    admitted_digest = hashlib.sha256(b"").hexdigest()
+    original_admission = cli._read_authenticated_public_first_bridge_inputs
+    original_client = cli._case_dev_client
+    admitted_before_provider = False
+
+    def admit_then_swap(
+        *,
+        public_selection_path: Path,
+        paid_gaps_path: Path,
+        free_download_manifest_path: Path,
+    ) -> object:
+        nonlocal admitted_before_provider
+        admitted = original_admission(
+            public_selection_path=public_selection_path,
+            paid_gaps_path=paid_gaps_path,
+            free_download_manifest_path=free_download_manifest_path,
+        )
+        admitted_before_provider = True
+        for path in (
+            public_selection_path,
+            paid_gaps_path,
+            free_download_manifest_path,
+        ):
+            path.write_bytes(b'{"swapped_after_admission":true}\n')
+        return admitted
+
+    def provider_after_admission(*args: object, **kwargs: object) -> object:
+        assert admitted_before_provider
+        return original_client(*args, **kwargs)
+
+    monkeypatch.setattr(
+        cli,
+        "_read_authenticated_public_first_bridge_inputs",
+        admit_then_swap,
+    )
+    monkeypatch.setattr(cli, "_case_dev_client", provider_after_admission)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--expected-screened-cases-sha256",
+                admitted_digest,
+                "--use-embedded-entries",
+                "--case-dev-fixture",
+                str(fixture_path),
+                "--public-selection",
+                str(public_selection_path),
+                "--paid-gaps",
+                str(paid_gaps_path),
+                "--free-download-manifest",
+                str(free_downloads_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    config = _read_json(
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    )
+    assert config["public_selection_sha256"] == "sha256:" + admitted_digest
+    assert config["paid_gaps_sha256"] == "sha256:" + admitted_digest
+    assert config["free_download_manifest_sha256"] == "sha256:" + admitted_digest
+    for path in (public_selection_path, paid_gaps_path, free_downloads_path):
+        assert hashlib.sha256(path.read_bytes()).hexdigest() != admitted_digest
+
+
+@pytest.mark.parametrize(
+    "malformed_input",
+    ["public_selection", "paid_gaps", "free_download_manifest"],
+)
+def test_public_first_bridge_rejects_malformed_route_before_provider_construction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    malformed_input: str,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    paths = {
+        "public_selection": public_selection_path,
+        "paid_gaps": paid_gaps_path,
+        "free_download_manifest": free_downloads_path,
+    }
+    _write_jsonl(screened_path, [])
+    _write_jsonl(fixture_path, [])
+    for path in paths.values():
+        _write_jsonl(path, [])
+    paths[malformed_input].write_bytes(b'{"unterminated":')
+    monkeypatch.setattr(
+        cli,
+        "_case_dev_client",
+        lambda *args, **kwargs: pytest.fail(
+            "bridge constructed a provider before parsing public-first inputs"
+        ),
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--expected-screened-cases-sha256",
+                hashlib.sha256(screened_path.read_bytes()).hexdigest(),
+                "--use-embedded-entries",
+                "--case-dev-fixture",
+                str(fixture_path),
+                "--public-selection",
+                str(public_selection_path),
+                "--paid-gaps",
+                str(paid_gaps_path),
+                "--free-download-manifest",
+                str(free_downloads_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not (
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    ).exists()
+
+
+def test_public_first_bridge_rejects_missing_raw_source_before_provider_construction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    screened = _screened_case()
+    plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = plan.paid_gap_cases
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [gap.to_record()])
+    _write_jsonl(
+        free_downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": f"cl-123/{request.source_document_id}.pdf",
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    _write_jsonl(fixture_path, [])
+    monkeypatch.setattr(
+        cli,
+        "_case_dev_client",
+        lambda *args, **kwargs: pytest.fail(
+            "bridge constructed a provider before source authentication"
+        ),
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--expected-screened-cases-sha256",
+                hashlib.sha256(screened_path.read_bytes()).hexdigest(),
+                "--case-dev-fixture",
+                str(fixture_path),
+                "--public-selection",
+                str(public_selection_path),
+                "--paid-gaps",
+                str(paid_gaps_path),
+                "--free-download-manifest",
+                str(free_downloads_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not (
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    ).exists()
+
+
+def test_public_first_bridge_rejects_route_screen_mismatch_before_provider_construction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    screened = _screened_case()
+    mismatched = _fully_free_case()
+    plan = plan_public_packet_downloads(
+        (mismatched,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [public_selection] = plan.selected_cases
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_selection_path, [public_selection.to_record()])
+    _write_jsonl(paid_gaps_path, [])
+    _write_jsonl(
+        free_downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": f"cl-free/{request.source_document_id}.pdf",
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    _write_jsonl(fixture_path, [])
+    monkeypatch.setattr(
+        cli,
+        "_case_dev_client",
+        lambda *args, **kwargs: pytest.fail(
+            "bridge constructed a provider before route/source reconciliation"
+        ),
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--expected-screened-cases-sha256",
+                hashlib.sha256(screened_path.read_bytes()).hexdigest(),
+                "--use-embedded-entries",
+                "--case-dev-fixture",
+                str(fixture_path),
+                "--public-selection",
+                str(public_selection_path),
+                "--paid-gaps",
+                str(paid_gaps_path),
+                "--free-download-manifest",
+                str(free_downloads_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not (
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    ).exists()
+
+
+@pytest.mark.parametrize(
+    "mismatched_pin",
+    ["missing_screened_cases", "screened_cases", "raw_html_manifest"],
+)
+def test_public_first_bridge_rejects_external_pin_before_provider_construction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mismatched_pin: str,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    _write_jsonl(screened_path, [])
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [])
+    _write_jsonl(free_downloads_path, [])
+    _write_jsonl(fixture_path, [])
+    screened_digest = hashlib.sha256(screened_path.read_bytes()).hexdigest()
+    command = [
+        "acquisition",
+        "bridge-pacer-gaps",
+        "--screened-cases",
+        str(screened_path),
+        *(
+            []
+            if mismatched_pin == "missing_screened_cases"
+            else [
+                "--expected-screened-cases-sha256",
+                "0" * 64 if mismatched_pin == "screened_cases" else screened_digest,
+            ]
+        ),
+        "--use-embedded-entries",
+        "--case-dev-fixture",
+        str(fixture_path),
+        "--public-selection",
+        str(public_selection_path),
+        "--paid-gaps",
+        str(paid_gaps_path),
+        "--free-download-manifest",
+        str(free_downloads_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+    if mismatched_pin == "raw_html_manifest":
+        raw_html_dir = tmp_path / "raw"
+        raw_html_dir.mkdir()
+        raw_payload = b"<html>authenticated</html>"
+        (raw_html_dir / "cl-123.html").write_bytes(raw_payload)
+        raw_manifest_path = tmp_path / "raw-manifest.jsonl"
+        _write_jsonl(
+            raw_manifest_path,
+            [
+                {
+                    "candidate_id": "cl-123",
+                    "relative_path": "cl-123.html",
+                    "sha256": "sha256:" + hashlib.sha256(raw_payload).hexdigest(),
+                    "byte_count": len(raw_payload),
+                }
+            ],
+        )
+        command.extend(
+            [
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--authenticated-raw-html-manifest",
+                str(raw_manifest_path),
+                "--expected-authenticated-raw-html-manifest-sha256",
+                "0" * 64,
+            ]
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_case_dev_client",
+        lambda *args, **kwargs: pytest.fail(
+            "bridge constructed a provider before authenticating inputs"
+        ),
+    )
+
+    assert main(command) == 2
+    assert not (
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    ).exists()
+
+
+def test_public_first_bridge_uses_screened_bytes_admitted_before_source_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    screened = _screened_case()
+    plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = plan.paid_gap_cases
+    _write_jsonl(screened_path, [screened])
+    admitted_screened_payload = screened_path.read_bytes()
+    admitted_screened_digest = hashlib.sha256(admitted_screened_payload).hexdigest()
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [gap.to_record()])
+    _write_jsonl(
+        free_downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": f"cl-123/{request.source_document_id}.pdf",
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    _write_jsonl(
+        fixture_path,
+        [
+            _response(
+                params={
+                    "type": "search",
+                    "query": "1:26-cv-00001",
+                    "limit": 20,
+                },
+                payload={"dockets": [_case_dev_docket()]},
+            ),
+            _response(
+                params={
+                    "type": "lookup",
+                    "docketId": "case-dev-777",
+                    "includeEntries": True,
+                    "limit": 100,
+                },
+                payload={
+                    "docket": {
+                        **_case_dev_docket(),
+                        "entries": [
+                            _case_dev_entry(5, "Motion to Dismiss", "case-dev-mtd")
+                        ],
+                    }
+                },
+            ),
+        ],
+    )
+    original_reader = cli._read_regular_non_symlink_bytes
+    swapped = False
+
+    def read_then_swap(path: Path, label: str) -> bytes:
+        nonlocal swapped
+        payload = original_reader(path, label)
+        if not swapped and path.resolve() == screened_path.resolve():
+            swapped = True
+            _write_jsonl(
+                screened_path,
+                [
+                    _screened_case_variant(
+                        candidate_id="cl-swapped",
+                        docket_number="1:26-cv-00999",
+                        case_name="Swapped v. Source",
+                    )
+                ],
+            )
+        return payload
+
+    monkeypatch.setattr(cli, "_read_regular_non_symlink_bytes", read_then_swap)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--expected-screened-cases-sha256",
+                admitted_screened_digest,
+                "--use-embedded-entries",
+                "--case-dev-fixture",
+                str(fixture_path),
+                "--public-selection",
+                str(public_selection_path),
+                "--paid-gaps",
+                str(paid_gaps_path),
+                "--free-download-manifest",
+                str(free_downloads_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert screened_path.read_bytes() != admitted_screened_payload
+    [selection] = _read_jsonl(output_root / "public-packet-selection-reconciled.jsonl")
+    assert selection["candidate_id"] == "cl-123"
+    config = _read_json(
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    )
+    assert config["screened_cases_sha256"] == ("sha256:" + admitted_screened_digest)
+
+
+def test_public_first_bridge_uses_raw_html_bytes_admitted_before_source_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    raw_html_dir = tmp_path / "raw"
+    raw_html_dir.mkdir()
+    raw_html_path = raw_html_dir / "cl-123.html"
+    raw_manifest_path = tmp_path / "raw-manifest.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    screened = _screened_case()
+    plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = plan.paid_gap_cases
+    _write_jsonl(screened_path, [screened])
+    admitted_screened_digest = hashlib.sha256(screened_path.read_bytes()).hexdigest()
+    admitted_raw_payload = _raw_docket_html(screened)
+    raw_html_path.write_bytes(admitted_raw_payload)
+    _write_jsonl(
+        raw_manifest_path,
+        [
+            {
+                "candidate_id": "cl-123",
+                "relative_path": "cl-123.html",
+                "sha256": "sha256:" + hashlib.sha256(admitted_raw_payload).hexdigest(),
+                "byte_count": len(admitted_raw_payload),
+            }
+        ],
+    )
+    admitted_manifest_digest = hashlib.sha256(
+        raw_manifest_path.read_bytes()
+    ).hexdigest()
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [gap.to_record()])
+    _write_jsonl(
+        free_downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": f"cl-123/{request.source_document_id}.pdf",
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    _write_jsonl(
+        fixture_path,
+        [
+            _response(
+                params={
+                    "type": "search",
+                    "query": "1:26-cv-00001",
+                    "limit": 20,
+                },
+                payload={"dockets": [_case_dev_docket()]},
+            ),
+            _response(
+                params={
+                    "type": "lookup",
+                    "docketId": "case-dev-777",
+                    "includeEntries": True,
+                    "limit": 100,
+                },
+                payload={
+                    "docket": {
+                        **_case_dev_docket(),
+                        "entries": [
+                            _case_dev_entry(5, "Motion to Dismiss", "case-dev-mtd")
+                        ],
+                    }
+                },
+            ),
+        ],
+    )
+    original_reader = cli._read_regular_non_symlink_bytes
+    swapped = False
+
+    def read_then_swap(path: Path, label: str) -> bytes:
+        nonlocal swapped
+        payload = original_reader(path, label)
+        if not swapped and path.resolve() == raw_html_path.resolve():
+            swapped = True
+            raw_html_path.write_bytes(b"<html>swapped after admission</html>")
+        return payload
+
+    monkeypatch.setattr(cli, "_read_regular_non_symlink_bytes", read_then_swap)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--expected-screened-cases-sha256",
+                admitted_screened_digest,
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--authenticated-raw-html-manifest",
+                str(raw_manifest_path),
+                "--expected-authenticated-raw-html-manifest-sha256",
+                admitted_manifest_digest,
+                "--case-dev-fixture",
+                str(fixture_path),
+                "--public-selection",
+                str(public_selection_path),
+                "--paid-gaps",
+                str(paid_gaps_path),
+                "--free-download-manifest",
+                str(free_downloads_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert raw_html_path.read_bytes() != admitted_raw_payload
+    [selection] = _read_jsonl(output_root / "public-packet-selection-reconciled.jsonl")
+    assert selection["candidate_id"] == "cl-123"
+    config = _read_json(
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    )
+    assert config["screened_cases_sha256"] == ("sha256:" + admitted_screened_digest)
+    assert config["authenticated_raw_html_manifest"] == str(raw_manifest_path.resolve())
+    assert config["authenticated_raw_html_manifest_sha256"] == (
+        "sha256:" + admitted_manifest_digest
+    )
+    assert config["requested_raw_html_dir"] == str(raw_html_dir.resolve())
+    assert config["source_commitments"] == [
+        {
+            "candidate_id": "cl-123",
+            "source": "raw_html",
+            "sha256": "sha256:" + hashlib.sha256(admitted_raw_payload).hexdigest(),
+        }
+    ]
+
+
 @pytest.mark.parametrize("selected_entries", [None, {}, [], "not-a-list"])
 def test_bridge_source_commitments_reject_invalid_embedded_entries(
     selected_entries: object,
@@ -1223,6 +1889,7 @@ def test_bridge_source_commitments_reject_invalid_embedded_entries(
             screened_records=[screened],
             routed_candidate_ids=["cl-123"],
             raw_html_dir=None,
+            raw_html_bytes_by_candidate=None,
             use_embedded_entries=True,
         )
 
@@ -1498,6 +2165,8 @@ def test_public_first_bridge_rejects_checkpoint_config_input_alias_before_client
                 "bridge-pacer-gaps",
                 "--screened-cases",
                 str(screened_path),
+                "--expected-screened-cases-sha256",
+                hashlib.sha256(screened_path.read_bytes()).hexdigest(),
                 "--use-embedded-entries",
                 "--case-dev-fixture",
                 str(fixture_path),
@@ -1564,6 +2233,8 @@ def test_public_first_bridge_rejects_orphan_checkpoint_before_candidate_attempt(
         "bridge-pacer-gaps",
         "--screened-cases",
         str(screened_path),
+        "--expected-screened-cases-sha256",
+        hashlib.sha256(screened_path.read_bytes()).hexdigest(),
         "--use-embedded-entries",
         "--case-dev-fixture",
         str(fixture_path),
@@ -1643,6 +2314,10 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(
                 "plan-public-downloads",
                 "--snapshot",
                 str(snapshot_path),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256(
+                    (snapshot_path / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_hash,
                 "--screened-cases",
@@ -1709,6 +2384,8 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(
                 "bridge-pacer-gaps",
                 "--screened-cases",
                 str(screened_path),
+                "--expected-screened-cases-sha256",
+                hashlib.sha256(screened_path.read_bytes()).hexdigest(),
                 "--use-embedded-entries",
                 "--case-dev-fixture",
                 str(case_dev_fixture_path),
@@ -2279,6 +2956,7 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
         screened_records=screened_records,
         routed_candidate_ids=cast(list[str], route_ids),
         raw_html_dir=None,
+        raw_html_bytes_by_candidate=None,
         use_embedded_entries=True,
     )
     config = {

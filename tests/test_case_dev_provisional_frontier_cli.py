@@ -269,6 +269,8 @@ def test_provisional_frontier_reconciles_success_exclusion_and_pending(
                 str(tmp_path / "target-preparation"),
                 "--snapshot",
                 str(snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
                 "--expected-cycle-hash",
                 manifest["cycle_hash"],
                 "--fixture-documents",

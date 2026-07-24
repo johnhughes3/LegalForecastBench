@@ -9,8 +9,11 @@ exact cohort is projected only after authenticated disclosure clearance.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
+
+_LOWERCASE_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class TargetCohortPreparationError(ValueError):
@@ -28,12 +31,18 @@ class TargetCohortPreparationConfig:
     output_root: Path
     snapshot: Path
     expected_cycle_hash: str
+    expected_snapshot_manifest_sha256: str
     candidate_pool_size: int
     target_case_count: int
+    authenticated_screened_cases: Path
+    screened_cases_sha256: str
     cost_per_document_usd: str = "3.05"
     max_projected_budget_usd: str = "2250.00"
     max_missing_core_documents_per_case: int = 24
     raw_html_dir: Path | None = None
+    authenticated_raw_html_manifest: Path | None = None
+    authenticated_raw_html_manifest_sha256: str | None = None
+    requested_raw_html_dir: Path | None = None
     use_embedded_entries: bool = False
     live_public_download: bool = False
     fixture_documents: Path | None = None
@@ -55,12 +64,18 @@ class Target100PreparationConfig:
     output_root: Path
     snapshot: Path
     expected_cycle_hash: str
+    expected_snapshot_manifest_sha256: str
     candidate_pool_size: int
+    authenticated_screened_cases: Path
+    screened_cases_sha256: str
     target_case_count: int = 100
     cost_per_document_usd: str = "3.05"
     max_projected_budget_usd: str = "2250.00"
     max_missing_core_documents_per_case: int = 24
     raw_html_dir: Path | None = None
+    authenticated_raw_html_manifest: Path | None = None
+    authenticated_raw_html_manifest_sha256: str | None = None
+    requested_raw_html_dir: Path | None = None
     use_embedded_entries: bool = False
     live_public_download: bool = False
     fixture_documents: Path | None = None
@@ -129,13 +144,13 @@ def _build_target_stage_commands(
         str(config.snapshot),
         "--expected-cycle-hash",
         config.expected_cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        config.expected_snapshot_manifest_sha256,
         "--target-clean-cases",
         str(config.candidate_pool_size),
         "--cost-per-missing-document-usd",
         config.cost_per_document_usd,
     ]
-    if config.raw_html_dir is not None:
-        public_plan.extend(("--raw-html-dir", str(config.raw_html_dir)))
     if config.use_embedded_entries:
         public_plan.append("--use-embedded-entries")
 
@@ -165,7 +180,9 @@ def _build_target_stage_commands(
         "--execute",
         resume_flag,
         "--screened-cases",
-        str(config.snapshot / "screened-cases.jsonl"),
+        str(config.authenticated_screened_cases),
+        "--expected-screened-cases-sha256",
+        config.screened_cases_sha256,
         "--target-clean-cases",
         str(config.candidate_pool_size),
         "--public-selection",
@@ -177,6 +194,16 @@ def _build_target_stage_commands(
     ]
     if config.raw_html_dir is not None:
         bridge.extend(("--raw-html-dir", str(config.raw_html_dir)))
+        assert config.authenticated_raw_html_manifest is not None
+        assert config.authenticated_raw_html_manifest_sha256 is not None
+        bridge.extend(
+            (
+                "--authenticated-raw-html-manifest",
+                str(config.authenticated_raw_html_manifest),
+                "--expected-authenticated-raw-html-manifest-sha256",
+                config.authenticated_raw_html_manifest_sha256,
+            )
+        )
     if config.use_embedded_entries:
         bridge.append("--use-embedded-entries")
     if config.live_courtlistener:
@@ -280,6 +307,32 @@ def _validate_preparation_config(
         raise error_type("target case count must be positive")
     if config.candidate_pool_size < 1:
         raise error_type("candidate pool size must be positive")
+    if _LOWERCASE_SHA256.fullmatch(config.expected_snapshot_manifest_sha256) is None:
+        raise error_type(
+            "expected snapshot manifest SHA-256 must be 64 lowercase hex digits"
+        )
+    if _LOWERCASE_SHA256.fullmatch(config.screened_cases_sha256) is None:
+        raise error_type("screened-cases SHA-256 must be 64 lowercase hex digits")
+    raw_inputs = (
+        config.raw_html_dir,
+        config.authenticated_raw_html_manifest,
+        config.authenticated_raw_html_manifest_sha256,
+    )
+    if any(value is not None for value in raw_inputs) and not all(
+        value is not None for value in raw_inputs
+    ):
+        raise error_type(
+            "raw HTML directory, authenticated manifest, and expected manifest "
+            "SHA-256 must be provided together"
+        )
+    if (
+        config.authenticated_raw_html_manifest_sha256 is not None
+        and _LOWERCASE_SHA256.fullmatch(config.authenticated_raw_html_manifest_sha256)
+        is None
+    ):
+        raise error_type(
+            "authenticated raw-HTML manifest SHA-256 must be 64 lowercase hex digits"
+        )
     if config.live_public_download == (config.fixture_documents is not None):
         raise error_type(
             "choose exactly one public download source: live CourtListener/RECAP "

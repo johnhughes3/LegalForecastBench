@@ -28,6 +28,6 @@ The receipt records implementation authority separately for every source and rec
 
 The replay command has no provider, PACER, RECAP Fetch, purchase, parser, model, fee-acknowledgment, evaluation, freeze, or dispatch path.
 
-Legacy Firecrawl snapshots are not resumable, union-admissible, target-preparation-admissible, or packet-plannable merely because their old cycle hash still verifies. Union admission recursively validates every source lineage, records the exact recursive Firecrawl source count, and carries the current 21-file implementation commitment whenever that count is nonzero. `plan-public-downloads` checks that lineage before emitting any planner output.
+Legacy Firecrawl snapshots are not resumable, union-admissible, target-preparation-admissible, or packet-plannable merely because their old cycle hash still verifies. Union admission recursively validates every source lineage, records the exact recursive Firecrawl source count, and carries the current 21-file implementation commitment whenever that count is nonzero. `plan-public-downloads` requires an externally frozen `--expected-snapshot-manifest-sha256` and checks both that manifest pin and the recursive lineage before emitting any planner output.
 
 Final planning must consume migrated Firecrawl snapshots and rebuilt unions carrying the v1 implementation commitment.

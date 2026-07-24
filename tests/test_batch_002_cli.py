@@ -736,6 +736,8 @@ def test_cli_snapshot_publishes_verified_rest_evidence(
                 str(plan_root),
                 "--snapshot",
                 str(snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
                 "--expected-cycle-hash",
                 summary["cycle_hash"],
                 "--use-embedded-entries",

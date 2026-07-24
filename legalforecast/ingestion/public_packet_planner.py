@@ -253,6 +253,7 @@ def plan_public_packet_downloads(
     *,
     raw_html_dir: str | Path | None = None,
     raw_html_paths_by_candidate: Mapping[str, str | Path] | None = None,
+    raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
     target_clean_cases: int = 25,
     allow_inferred_target_mtd: bool = False,
     use_embedded_entries: bool = False,
@@ -263,13 +264,30 @@ def plan_public_packet_downloads(
 
     if target_clean_cases <= 0:
         raise ValueError("target_clean_cases must be positive")
-    if raw_html_dir is not None and raw_html_paths_by_candidate is not None:
+    if (
+        raw_html_dir is not None
+        and raw_html_paths_by_candidate is not None
+        and raw_html_bytes_by_candidate is None
+    ):
         raise ValueError(
             "raw_html_dir and raw_html_paths_by_candidate are mutually exclusive"
+        )
+    raw_source_count = sum(
+        source is not None
+        for source in (
+            raw_html_dir,
+            raw_html_paths_by_candidate,
+            raw_html_bytes_by_candidate,
+        )
+    )
+    if raw_source_count > 1:
+        raise ValueError(
+            "raw HTML directory, paths, and authenticated bytes are mutually exclusive"
         )
     if (
         raw_html_dir is None
         and raw_html_paths_by_candidate is None
+        and raw_html_bytes_by_candidate is None
         and not use_embedded_entries
     ):
         raise ValueError(
@@ -294,12 +312,18 @@ def plan_public_packet_downloads(
             for candidate_id, path in raw_html_paths_by_candidate.items()
         }
     )
+    html_bytes = (
+        None
+        if raw_html_bytes_by_candidate is None
+        else dict(raw_html_bytes_by_candidate)
+    )
     evaluated_plans: list[PublicPacketCandidatePlan] = []
     for record in screened_case_records:
         plan = _candidate_plan(
             record,
             raw_html_dir=html_root,
             raw_html_paths_by_candidate=html_paths,
+            raw_html_bytes_by_candidate=html_bytes,
             allow_inferred_target_mtd=allow_inferred_target_mtd,
             use_embedded_entries=use_embedded_entries,
             cost_per_missing_document=unit_cost,
@@ -334,6 +358,7 @@ def _candidate_plan(
     *,
     raw_html_dir: Path | None,
     raw_html_paths_by_candidate: Mapping[str, Path] | None,
+    raw_html_bytes_by_candidate: Mapping[str, bytes] | None,
     allow_inferred_target_mtd: bool,
     use_embedded_entries: bool,
     cost_per_missing_document: Decimal,
@@ -349,6 +374,11 @@ def _candidate_plan(
             if raw_html_paths_by_candidate is not None
             else None
         )
+    )
+    html_content = (
+        raw_html_bytes_by_candidate.get(candidate_id)
+        if raw_html_bytes_by_candidate is not None
+        else None
     )
     target_entries = _entry_number_tuple(
         _mapping(record, "ai").get("target_motion_entry_numbers")
@@ -399,7 +429,13 @@ def _candidate_plan(
             reason=_restricted_material_reason("candidate", candidate_restrictions),
         )
     page: CourtListenerWebDocketPage | None = None
-    if html_path is not None and html_path.exists():
+    if html_content is not None:
+        page = parse_courtlistener_docket_html(
+            html_content.decode("utf-8"),
+            source_url=source_url,
+            docket_id=candidate_id,
+        )
+    elif html_path is not None and html_path.exists():
         page = parse_courtlistener_docket_html(
             html_path.read_text(encoding="utf-8"),
             source_url=source_url,

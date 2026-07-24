@@ -11,9 +11,14 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Final, cast
+from typing import Any, Final, cast
+
+from legalforecast.ingestion.strict_screen_evidence import (
+    StrictScreenEvidenceError,
+    validate_strict_screen_evidence,
+)
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -38,6 +43,16 @@ SCREENING_UNION_POLICY_REBIND_STAGE_KEY: Final = "screening_union_policy_rebind"
 SCREENING_UNION_POLICY_REBIND_IMPLEMENTATION_SCHEMA: Final = (
     "legalforecast.screening_union_policy_rebind_implementation.v1"
 )
+REST_TERMINAL_SUBSET_PROMOTION_STAGE_KEY: Final = "rest_terminal_subset_promotion"
+REST_TERMINAL_SUBSET_PROMOTION_SCHEMA: Final = (
+    "legalforecast.rest_terminal_subset_promotion.v1"
+)
+REST_PRIORITY_SELECTION_POLICY_SCHEMA: Final = (
+    "legalforecast.rest_priority_subset_selection_policy.v1"
+)
+REST_PRIORITY_DEFERRED_OMISSION_SCHEMA: Final = (
+    "legalforecast.rest_priority_deferred_omission_inventory.v1"
+)
 SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS: Final = (
     "legalforecast/cli.py",
     "legalforecast/ingestion/cycle_acquisition_store.py",
@@ -51,6 +66,7 @@ SOURCE_NEUTRAL_DIRECT_STAGE_KEYS: Final = frozenset(
     {
         "courtlistener_discovery_inputs",
         "courtlistener_rest_screen_inputs",
+        REST_TERMINAL_SUBSET_PROMOTION_STAGE_KEY,
     }
 )
 SOURCE_NEUTRAL_NAMED_STAGES: Final = frozenset(
@@ -288,6 +304,881 @@ COMPATIBLE_FINAL_V3_SOURCE_SHA256: Final[Mapping[str, str]] = {
 
 class FirecrawlScreeningIdentityError(ValueError):
     """Raised when a Firecrawl screening source commitment is not exact."""
+
+
+_REST_PROMOTION_FIELDS: Final = frozenset(
+    {
+        "schema_version",
+        "selection_semantics",
+        "eligibility_anchor_date",
+        "cycle_hash",
+        "priority_batch_id",
+        "priority_batch_digest",
+        "priority_snapshot_manifest_sha256",
+        "priority_screened_cases_sha256",
+        "priority_exclusions_sha256",
+        "priority_frontier_file_sha256",
+        "priority_frontier_sha256",
+        "source_batch_id",
+        "source_batch_digest",
+        "source_candidate_count",
+        "source_candidate_set_sha256",
+        "source_candidate_id_set_sha256",
+        "source_lineage_commitment_sha256",
+        "ranking_policy_sha256",
+        "selection_policy_sha256",
+        "selection_policy",
+        "tranche_ordinal",
+        "selected_candidate_count",
+        "selected_candidate_ids",
+        "selected_candidate_id_set_sha256",
+        "selected_candidate_set_sha256",
+        "selected_terminal_observations_sha256",
+        "accepted_candidate_count",
+        "accepted_candidate_ids",
+        "accepted_candidate_id_set_sha256",
+        "excluded_candidate_count",
+        "excluded_candidate_ids",
+        "excluded_candidate_id_set_sha256",
+        "deferred_omission_inventory",
+        "strict_screen_is_sole_eligibility_and_exclusion_authority",
+        "ranking_metadata_visibility",
+        "cohort_sampling_claim",
+        "parent_source_fully_screened",
+        "terminality_scope",
+        "final_cohort_eligible",
+        "full_source_terminal",
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "model_activity_requested",
+        "model_activity_executed",
+        "evaluation_activity_executed",
+        "freeze_activity_executed",
+        "dispatch_activity_executed",
+    }
+)
+_REST_SELECTION_POLICY_FIELDS: Final = frozenset(
+    {
+        "schema_version",
+        "approval_reference",
+        "approved_by",
+        "approved",
+        "cohort_shape",
+        "benchmark_claim_scope",
+        "selection_purpose",
+        "representative_sample_claimed",
+        "acquisition_only",
+        "model_visible",
+        "outcome_polarity_blind",
+        "outcome_polarity_used",
+        "stage_b_labels_used",
+        "model_outputs_used",
+        "strict_screen_is_sole_eligibility_and_exclusion_authority",
+        "ranking_metadata_visibility",
+        "eligibility_anchor_date",
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "model_activity_requested",
+        "model_activity_executed",
+    }
+)
+_REST_DEFERRED_OMISSION_FIELDS: Final = frozenset(
+    {
+        "schema_version",
+        "disposition",
+        "candidate_count",
+        "candidate_ids",
+        "candidate_id_set_sha256",
+        "jsonl_sha256",
+        "parent_source_candidate_count",
+        "selected_plus_deferred_partition_sha256",
+    }
+)
+
+
+def rest_priority_candidate_id_set_sha256(candidate_ids: Sequence[str]) -> str:
+    """Hash one unique candidate-ID set as sorted canonical JSON."""
+
+    normalized = list(candidate_ids)
+    if len(normalized) != len(set(normalized)):
+        raise FirecrawlScreeningIdentityError(
+            "REST priority candidate IDs must be unique"
+        )
+    return hashlib.sha256(
+        json.dumps(sorted(normalized), sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def rest_priority_partition_sha256(
+    *,
+    selected_candidate_ids: Sequence[str],
+    deferred_candidate_ids: Sequence[str],
+) -> str:
+    """Hash the exact selected/deferred parent partition."""
+
+    selected = _rest_candidate_ids(
+        selected_candidate_ids, "REST priority selected candidate IDs"
+    )
+    deferred = _rest_candidate_ids(
+        deferred_candidate_ids, "REST priority deferred candidate IDs"
+    )
+    payload = json.dumps(
+        {
+            "deferred_candidate_ids": deferred,
+            "selected_candidate_ids": selected,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def rest_priority_deferred_omission_jsonl_bytes(
+    candidate_ids: Sequence[str],
+) -> bytes:
+    """Serialize the committed omission inventory with canonical JSONL bytes."""
+
+    normalized = _rest_candidate_ids(
+        candidate_ids, "REST priority deferred candidate IDs"
+    )
+    return b"".join(
+        (
+            json.dumps(
+                {
+                    "candidate_id": candidate_id,
+                    "disposition": "unscreened_not_excluded",
+                    "schema_version": (
+                        "legalforecast.rest_priority_deferred_omission.v1"
+                    ),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n"
+        ).encode()
+        for candidate_id in normalized
+    )
+
+
+def validate_rest_terminal_subset_promotion_commitment(
+    commitment: object,
+    *,
+    snapshot_candidate_ids: Sequence[str],
+    snapshot_accepted_ids: Sequence[str],
+    snapshot_excluded_ids: Sequence[str],
+) -> dict[str, object]:
+    """Validate the source-neutral, acquisition-shaped REST promotion form."""
+
+    if not isinstance(commitment, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            "REST terminal subset promotion commitment must be an object"
+        )
+    typed = cast(Mapping[str, object], commitment)
+    if set(typed) != set(_REST_PROMOTION_FIELDS):
+        raise FirecrawlScreeningIdentityError(
+            "REST terminal subset promotion commitment has unexpected fields"
+        )
+    if (
+        typed.get("schema_version") != REST_TERMINAL_SUBSET_PROMOTION_SCHEMA
+        or typed.get("selection_semantics") != "exact_frozen_priority_tranche"
+        or typed.get("terminality_scope") != "promoted_exact_selected_source"
+        or typed.get("cohort_sampling_claim")
+        != (
+            "convenience_acquisition_shaped_nonrepresentative_"
+            "relative_model_comparison_only"
+        )
+        or typed.get("ranking_metadata_visibility")
+        != "acquisition_only_never_packet_visible"
+        or typed.get("tranche_ordinal") != 1
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST terminal subset promotion semantics are invalid"
+        )
+    _rest_required_text(typed, "eligibility_anchor_date")
+    for field in (
+        "cycle_hash",
+        "priority_batch_digest",
+        "priority_snapshot_manifest_sha256",
+        "priority_screened_cases_sha256",
+        "priority_exclusions_sha256",
+        "priority_frontier_file_sha256",
+        "priority_frontier_sha256",
+        "source_batch_digest",
+        "source_candidate_set_sha256",
+        "source_candidate_id_set_sha256",
+        "source_lineage_commitment_sha256",
+        "ranking_policy_sha256",
+        "selection_policy_sha256",
+        "selected_candidate_id_set_sha256",
+        "selected_candidate_set_sha256",
+        "selected_terminal_observations_sha256",
+        "accepted_candidate_id_set_sha256",
+        "excluded_candidate_id_set_sha256",
+    ):
+        _rest_sha256(typed, field)
+    for field in ("priority_batch_id", "source_batch_id"):
+        _rest_required_text(typed, field)
+
+    selected = _rest_candidate_ids(
+        typed.get("selected_candidate_ids"), "REST promotion selected candidate IDs"
+    )
+    accepted = _rest_candidate_ids(
+        typed.get("accepted_candidate_ids"), "REST promotion accepted candidate IDs"
+    )
+    excluded = _rest_candidate_ids(
+        typed.get("excluded_candidate_ids"), "REST promotion excluded candidate IDs"
+    )
+    actual_candidates = _rest_candidate_ids(
+        snapshot_candidate_ids, "REST promotion snapshot candidate IDs"
+    )
+    actual_accepted = _rest_candidate_ids(
+        snapshot_accepted_ids, "REST promotion snapshot accepted IDs"
+    )
+    actual_excluded = _rest_candidate_ids(
+        snapshot_excluded_ids, "REST promotion snapshot excluded IDs"
+    )
+    if set(accepted).intersection(excluded) or set(accepted).union(excluded) != set(
+        selected
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion accepted and excluded IDs do not partition selection"
+        )
+    if (
+        set(selected) != set(actual_candidates)
+        or set(accepted) != set(actual_accepted)
+        or set(excluded) != set(actual_excluded)
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion snapshot IDs differ from committed terminal IDs"
+        )
+    for count_field, values in (
+        ("selected_candidate_count", selected),
+        ("accepted_candidate_count", accepted),
+        ("excluded_candidate_count", excluded),
+    ):
+        if typed.get(count_field) != len(values):
+            raise FirecrawlScreeningIdentityError(
+                f"REST promotion {count_field} does not reconcile"
+            )
+    for digest_field, values in (
+        ("selected_candidate_id_set_sha256", selected),
+        ("accepted_candidate_id_set_sha256", accepted),
+        ("excluded_candidate_id_set_sha256", excluded),
+    ):
+        if typed.get(digest_field) != rest_priority_candidate_id_set_sha256(values):
+            raise FirecrawlScreeningIdentityError(
+                f"REST promotion {digest_field} does not reconcile"
+            )
+
+    deferred_value = typed.get("deferred_omission_inventory")
+    if not isinstance(deferred_value, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion deferred omission inventory must be an object"
+        )
+    deferred = cast(Mapping[str, object], deferred_value)
+    if (
+        set(deferred) != set(_REST_DEFERRED_OMISSION_FIELDS)
+        or deferred.get("schema_version") != REST_PRIORITY_DEFERRED_OMISSION_SCHEMA
+        or deferred.get("disposition") != "unscreened_not_excluded"
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion deferred omission inventory is invalid"
+        )
+    deferred_ids = _rest_candidate_ids(
+        deferred.get("candidate_ids"), "REST promotion deferred candidate IDs"
+    )
+    if set(selected).intersection(deferred_ids):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion selected and deferred candidate IDs overlap"
+        )
+    parent_count = typed.get("source_candidate_count")
+    if (
+        isinstance(parent_count, bool)
+        or not isinstance(parent_count, int)
+        or parent_count < 1
+        or deferred.get("candidate_count") != len(deferred_ids)
+        or deferred.get("parent_source_candidate_count") != parent_count
+        or len(selected) + len(deferred_ids) != parent_count
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion selected/deferred parent partition does not reconcile"
+        )
+    if deferred.get("candidate_id_set_sha256") != rest_priority_candidate_id_set_sha256(
+        deferred_ids
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion deferred candidate ID commitment mismatch"
+        )
+    omission_jsonl = rest_priority_deferred_omission_jsonl_bytes(deferred_ids)
+    if deferred.get("jsonl_sha256") != hashlib.sha256(omission_jsonl).hexdigest():
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion deferred omission JSONL commitment mismatch"
+        )
+    if typed.get("source_candidate_id_set_sha256") != (
+        rest_priority_candidate_id_set_sha256((*selected, *deferred_ids))
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion parent candidate ID commitment mismatch"
+        )
+    if deferred.get("selected_plus_deferred_partition_sha256") != (
+        rest_priority_partition_sha256(
+            selected_candidate_ids=selected,
+            deferred_candidate_ids=deferred_ids,
+        )
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion selected/deferred partition commitment mismatch"
+        )
+
+    policy_value = typed.get("selection_policy")
+    policy = _validate_rest_priority_selection_policy(
+        policy_value,
+        eligibility_anchor_date=cast(str, typed["eligibility_anchor_date"]),
+    )
+    policy_sha256 = hashlib.sha256(
+        json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    if typed.get("selection_policy_sha256") != policy_sha256:
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion selection-policy commitment mismatch"
+        )
+    required_true = (
+        "strict_screen_is_sole_eligibility_and_exclusion_authority",
+        "final_cohort_eligible",
+        "full_source_terminal",
+    )
+    required_false = (
+        "parent_source_fully_screened",
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "model_activity_requested",
+        "model_activity_executed",
+        "evaluation_activity_executed",
+        "freeze_activity_executed",
+        "dispatch_activity_executed",
+    )
+    if any(typed.get(field) is not True for field in required_true) or any(
+        typed.get(field) is not False for field in required_false
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion authority or activity flags are invalid"
+        )
+    return {field: typed[field] for field in sorted(_REST_PROMOTION_FIELDS)}
+
+
+def validate_rest_terminal_subset_promotion_snapshot_evidence(
+    commitment: Mapping[str, object],
+    *,
+    snapshot_candidates: Sequence[Mapping[str, Any]],
+    snapshot_screened: Sequence[Mapping[str, Any]],
+    snapshot_exclusions: Sequence[Mapping[str, Any]],
+) -> None:
+    """Reconcile a promoted snapshot's terminal records to its frozen evidence.
+
+    Manifest repinning authenticates bytes, but it must not let an operator change
+    a promoted terminal and then bless the changed bytes with a new manifest.
+    The promotion commitment therefore binds the complete terminal projection,
+    while the accepted/excluded ledgers must remain exact projections of that
+    same evidence.
+    """
+
+    selected = _rest_candidate_ids(
+        commitment.get("selected_candidate_ids"),
+        "REST promotion selected candidate IDs",
+    )
+    anchor = _rest_required_text(commitment, "eligibility_anchor_date")
+    candidates_by_id = _rest_rows_by_candidate_id(
+        snapshot_candidates, "REST promotion candidates"
+    )
+    if set(candidates_by_id) != set(selected):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion candidate records differ from committed selection"
+        )
+
+    terminal_projections: list[dict[str, object]] = []
+    accepted_ids: list[str] = []
+    excluded_ids: list[str] = []
+    expected_screened: dict[str, dict[str, object]] = {}
+    expected_exclusions: dict[str, dict[str, object]] = {}
+    for candidate_id in selected:
+        row = candidates_by_id[candidate_id]
+        state = row.get("state")
+        reason_code = row.get("reason_code")
+        observed_at = row.get("observed_at")
+        evidence = row.get("evidence")
+        if (
+            state not in {"accepted", "excluded"}
+            or not isinstance(reason_code, str)
+            or not reason_code.strip()
+            or not isinstance(observed_at, str)
+            or not observed_at.strip()
+            or not isinstance(evidence, Mapping)
+        ):
+            raise FirecrawlScreeningIdentityError(
+                f"REST promotion terminal record is invalid: {candidate_id}"
+            )
+        typed_evidence = cast(Mapping[str, Any], evidence)
+        if typed_evidence.get("candidate_id") != candidate_id:
+            raise FirecrawlScreeningIdentityError(
+                f"REST promotion evidence identity mismatch: {candidate_id}"
+            )
+        if state == "accepted":
+            if reason_code != "strict_clean_screen_passed":
+                raise FirecrawlScreeningIdentityError(
+                    f"REST promotion acceptance reason is invalid: {candidate_id}"
+                )
+            try:
+                validate_strict_screen_evidence(
+                    typed_evidence,
+                    expected_candidate_id=candidate_id,
+                )
+            except StrictScreenEvidenceError as exc:
+                raise FirecrawlScreeningIdentityError(str(exc)) from exc
+            if typed_evidence.get("eligibility_anchor_date") != anchor:
+                raise FirecrawlScreeningIdentityError(
+                    "REST promotion acceptance does not use the committed "
+                    f"eligibility anchor: {candidate_id}"
+                )
+            accepted_ids.append(candidate_id)
+        else:
+            excluded_ids.append(candidate_id)
+
+        outcome = dict(typed_evidence)
+        outcome["candidate_id"] = candidate_id
+        if state == "excluded":
+            outcome.setdefault("reason", reason_code)
+            outcome.setdefault("primary_exclusion_reason", reason_code)
+            expected_exclusions[candidate_id] = outcome
+        else:
+            expected_screened[candidate_id] = outcome
+        terminal_projections.append(
+            {
+                "candidate_id": candidate_id,
+                "state": state,
+                "reason_code": reason_code,
+                "evidence": dict(typed_evidence),
+                "observed_at": observed_at,
+            }
+        )
+
+    actual_terminal_sha256 = hashlib.sha256(
+        json.dumps(
+            terminal_projections,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+    if (
+        commitment.get("selected_terminal_observations_sha256")
+        != actual_terminal_sha256
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion terminal observations differ from commitment"
+        )
+    committed_accepted = _rest_candidate_ids(
+        commitment.get("accepted_candidate_ids"),
+        "REST promotion accepted candidate IDs",
+    )
+    committed_excluded = _rest_candidate_ids(
+        commitment.get("excluded_candidate_ids"),
+        "REST promotion excluded candidate IDs",
+    )
+    if accepted_ids != committed_accepted:
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion accepted terminal ordering differs from commitment"
+        )
+    if excluded_ids != committed_excluded:
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion excluded terminal ordering differs from commitment"
+        )
+    if (
+        _rest_rows_by_candidate_id(snapshot_screened, "REST promotion screened cases")
+        != expected_screened
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion screened evidence differs from terminal evidence"
+        )
+    if (
+        _rest_rows_by_candidate_id(snapshot_exclusions, "REST promotion exclusions")
+        != expected_exclusions
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "REST promotion exclusion evidence differs from terminal evidence"
+        )
+
+
+def validate_rest_terminal_subset_promotions_in_snapshot(
+    stage_commitments: Mapping[str, object],
+    *,
+    snapshot_candidates: Sequence[Mapping[str, Any]],
+    snapshot_screened: Sequence[Mapping[str, Any]],
+    snapshot_exclusions: Sequence[Mapping[str, Any]],
+) -> int:
+    """Validate every direct or nested REST-promotion leaf against outer rows.
+
+    A union carries its source commitments transitively.  Consequently, an
+    outer repinned snapshot must reprove each embedded promotion against the
+    outer snapshot's actual terminal records rather than merely validating the
+    embedded commitment in isolation.
+    """
+
+    promotion_leaves: list[Mapping[str, object]] = []
+    _collect_rest_terminal_subset_promotion_leaves(
+        stage_commitments,
+        label="snapshot",
+        promotion_leaves=promotion_leaves,
+    )
+    seen_ids: set[str] = set()
+    candidates_by_id = _rest_rows_by_candidate_id(
+        snapshot_candidates, "REST promotion outer candidates"
+    )
+    screened_by_id = _rest_rows_by_candidate_id(
+        snapshot_screened, "REST promotion outer screened cases"
+    )
+    exclusions_by_id = _rest_rows_by_candidate_id(
+        snapshot_exclusions, "REST promotion outer exclusions"
+    )
+    for index, promotion in enumerate(promotion_leaves, start=1):
+        selected = _rest_candidate_ids(
+            promotion.get("selected_candidate_ids"),
+            f"REST promotion leaf {index} selected candidate IDs",
+        )
+        overlap = seen_ids.intersection(selected)
+        if overlap:
+            raise FirecrawlScreeningIdentityError(
+                "REST promotion leaves overlap or repeat candidates: "
+                + ", ".join(sorted(overlap))
+            )
+        seen_ids.update(selected)
+        selected_set = set(selected)
+        leaf_candidates = [
+            candidates_by_id[candidate_id]
+            for candidate_id in selected
+            if candidate_id in candidates_by_id
+        ]
+        leaf_screened = [
+            screened_by_id[candidate_id]
+            for candidate_id in selected
+            if candidate_id in screened_by_id
+        ]
+        leaf_exclusions = [
+            exclusions_by_id[candidate_id]
+            for candidate_id in selected
+            if candidate_id in exclusions_by_id
+        ]
+        actual_accepted_ids = [
+            cast(str, row["candidate_id"])
+            for row in leaf_candidates
+            if row.get("state") in {"accepted", "newly_free"}
+        ]
+        actual_excluded_ids = [
+            cast(str, row["candidate_id"])
+            for row in leaf_candidates
+            if row.get("state") == "excluded"
+        ]
+        validate_rest_terminal_subset_promotion_commitment(
+            promotion,
+            snapshot_candidate_ids=tuple(
+                cast(str, row["candidate_id"]) for row in leaf_candidates
+            ),
+            snapshot_accepted_ids=actual_accepted_ids,
+            snapshot_excluded_ids=actual_excluded_ids,
+        )
+        validate_rest_terminal_subset_promotion_snapshot_evidence(
+            promotion,
+            snapshot_candidates=leaf_candidates,
+            snapshot_screened=leaf_screened,
+            snapshot_exclusions=leaf_exclusions,
+        )
+        if set(actual_accepted_ids).union(actual_excluded_ids) != selected_set:
+            raise FirecrawlScreeningIdentityError(
+                f"REST promotion leaf {index} lacks exact outer terminal rows"
+            )
+    return len(promotion_leaves)
+
+
+def validate_verified_snapshot_rest_terminal_subset_promotions(
+    snapshot: Path,
+    manifest: Mapping[str, object],
+) -> int:
+    """Validate promotion leaves against hash-bound rows from a verified snapshot.
+
+    Direct downstream consumers do not have the union loader's buffered row
+    objects.  This boundary rereads only the three terminal-authority files,
+    checks their bytes against the already verified manifest, and applies the
+    same recursive promotion validator before any acquisition planning begins.
+    """
+
+    stage_commitments_value = manifest.get("stage_commitments")
+    if not isinstance(stage_commitments_value, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            "snapshot stage commitments must be an object"
+        )
+    stage_commitments = cast(Mapping[str, object], stage_commitments_value)
+    promotion_leaves: list[Mapping[str, object]] = []
+    _collect_rest_terminal_subset_promotion_leaves(
+        stage_commitments,
+        label="verified snapshot",
+        promotion_leaves=promotion_leaves,
+    )
+    if not promotion_leaves:
+        return 0
+    files_value = manifest.get("files")
+    if not isinstance(files_value, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            "verified snapshot lacks file commitments"
+        )
+    files = cast(Mapping[str, object], files_value)
+    rows = {
+        filename: _verified_rest_promotion_snapshot_rows(
+            snapshot,
+            filename=filename,
+            commitment=files.get(filename),
+        )
+        for filename in (
+            "candidates.jsonl",
+            "screened-cases.jsonl",
+            "exclusions.jsonl",
+        )
+    }
+    return validate_rest_terminal_subset_promotions_in_snapshot(
+        stage_commitments,
+        snapshot_candidates=rows["candidates.jsonl"],
+        snapshot_screened=rows["screened-cases.jsonl"],
+        snapshot_exclusions=rows["exclusions.jsonl"],
+    )
+
+
+def _verified_rest_promotion_snapshot_rows(
+    snapshot: Path,
+    *,
+    filename: str,
+    commitment: object,
+) -> tuple[dict[str, object], ...]:
+    if not isinstance(commitment, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            f"verified snapshot lacks {filename} commitment"
+        )
+    typed_commitment = cast(Mapping[str, object], commitment)
+    expected_sha256 = typed_commitment.get("sha256")
+    expected_byte_count = typed_commitment.get("byte_count")
+    expected_row_count = typed_commitment.get("row_count")
+    if (
+        not isinstance(expected_sha256, str)
+        or _SHA256.fullmatch(expected_sha256) is None
+        or isinstance(expected_byte_count, bool)
+        or not isinstance(expected_byte_count, int)
+        or expected_byte_count < 0
+        or isinstance(expected_row_count, bool)
+        or not isinstance(expected_row_count, int)
+        or expected_row_count < 0
+    ):
+        raise FirecrawlScreeningIdentityError(
+            f"verified snapshot has invalid {filename} commitment"
+        )
+    path = snapshot / filename
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise FirecrawlScreeningIdentityError(
+                f"verified snapshot {filename} is not a regular file"
+            )
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise FirecrawlScreeningIdentityError(
+            f"cannot read verified snapshot {filename}: {exc}"
+        ) from exc
+    if (
+        hashlib.sha256(payload).hexdigest() != expected_sha256
+        or len(payload) != expected_byte_count
+        or payload.count(b"\n") != expected_row_count
+    ):
+        raise FirecrawlScreeningIdentityError(
+            f"verified snapshot {filename} differs from its manifest"
+        )
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeError as exc:
+        raise FirecrawlScreeningIdentityError(
+            f"verified snapshot {filename} is not UTF-8"
+        ) from exc
+    records: list[dict[str, object]] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line:
+            raise FirecrawlScreeningIdentityError(
+                f"verified snapshot {filename} contains a blank row"
+            )
+        try:
+            value: object = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise FirecrawlScreeningIdentityError(
+                f"verified snapshot {filename} has invalid JSON at line {line_number}"
+            ) from exc
+        if not isinstance(value, dict) or not all(
+            isinstance(key, str) for key in cast(dict[object, object], value)
+        ):
+            raise FirecrawlScreeningIdentityError(
+                f"verified snapshot {filename} line {line_number} is not an object"
+            )
+        records.append(cast(dict[str, object], value))
+    if len(records) != expected_row_count:
+        raise FirecrawlScreeningIdentityError(
+            f"verified snapshot {filename} row count differs from its manifest"
+        )
+    return tuple(records)
+
+
+def _collect_rest_terminal_subset_promotion_leaves(
+    stage_commitments: Mapping[str, object],
+    *,
+    label: str,
+    promotion_leaves: list[Mapping[str, object]],
+) -> None:
+    promotion_value = stage_commitments.get(REST_TERMINAL_SUBSET_PROMOTION_STAGE_KEY)
+    union_value = stage_commitments.get(SCREENING_SNAPSHOT_UNION_STAGE_KEY)
+    if promotion_value is not None and union_value is not None:
+        raise FirecrawlScreeningIdentityError(
+            f"{label} mixes REST promotion and union stage commitments"
+        )
+    if promotion_value is not None:
+        if not isinstance(promotion_value, Mapping):
+            raise FirecrawlScreeningIdentityError(
+                f"{label} REST promotion commitment must be an object"
+            )
+        promotion_leaves.append(cast(Mapping[str, object], promotion_value))
+        return
+    if union_value is None:
+        return
+    if not isinstance(union_value, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            f"{label} screening snapshot union commitment must be an object"
+        )
+    union = cast(Mapping[str, object], union_value)
+    if union.get("schema_version") != SCREENING_SNAPSHOT_UNION_INPUTS_SCHEMA:
+        raise FirecrawlScreeningIdentityError(
+            f"{label} screening snapshot union schema is not identity-aware v2"
+        )
+    sources = union.get("sources")
+    if not isinstance(sources, list):
+        raise FirecrawlScreeningIdentityError(
+            f"{label} screening snapshot union sources must be an array"
+        )
+    for index, source_value in enumerate(cast(list[object], sources), start=1):
+        if not isinstance(source_value, Mapping):
+            raise FirecrawlScreeningIdentityError(
+                f"{label} union source {index} must be an object"
+            )
+        nested = cast(Mapping[str, object], source_value).get("stage_commitments")
+        if not isinstance(nested, Mapping):
+            raise FirecrawlScreeningIdentityError(
+                f"{label} union source {index} lacks stage commitments"
+            )
+        _collect_rest_terminal_subset_promotion_leaves(
+            cast(Mapping[str, object], nested),
+            label=f"{label} union source {index}",
+            promotion_leaves=promotion_leaves,
+        )
+
+
+def _rest_rows_by_candidate_id(
+    rows: Sequence[Mapping[str, Any]],
+    label: str,
+) -> dict[str, dict[str, object]]:
+    by_id: dict[str, dict[str, object]] = {}
+    for row in rows:
+        candidate_id = row.get("candidate_id")
+        if not isinstance(candidate_id, str) or not candidate_id.strip():
+            raise FirecrawlScreeningIdentityError(
+                f"{label} contains a missing candidate ID"
+            )
+        if candidate_id in by_id:
+            raise FirecrawlScreeningIdentityError(
+                f"{label} contains duplicate candidate ID: {candidate_id}"
+            )
+        by_id[candidate_id] = dict(row)
+    return by_id
+
+
+def _validate_rest_priority_selection_policy(
+    value: object, *, eligibility_anchor_date: str
+) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            "REST priority selection policy must be an object"
+        )
+    policy = cast(Mapping[str, object], value)
+    if set(policy) != set(_REST_SELECTION_POLICY_FIELDS):
+        raise FirecrawlScreeningIdentityError(
+            "REST priority selection policy has unexpected fields"
+        )
+    exact_values: Mapping[str, object] = {
+        "schema_version": REST_PRIORITY_SELECTION_POLICY_SCHEMA,
+        "approved": True,
+        "cohort_shape": "convenience_acquisition_shaped_nonrepresentative",
+        "benchmark_claim_scope": "relative_model_performance_only",
+        "selection_purpose": "cheapest_clean_cases_for_timely_cycle",
+        "representative_sample_claimed": False,
+        "acquisition_only": True,
+        "model_visible": False,
+        "outcome_polarity_blind": True,
+        "outcome_polarity_used": False,
+        "stage_b_labels_used": False,
+        "model_outputs_used": False,
+        "strict_screen_is_sole_eligibility_and_exclusion_authority": True,
+        "ranking_metadata_visibility": "acquisition_only_never_packet_visible",
+        "eligibility_anchor_date": eligibility_anchor_date,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "model_activity_requested": False,
+        "model_activity_executed": False,
+    }
+    if any(policy.get(field) != expected for field, expected in exact_values.items()):
+        raise FirecrawlScreeningIdentityError(
+            "REST priority selection policy semantics are invalid"
+        )
+    for field in ("approval_reference", "approved_by"):
+        _rest_required_text(policy, field)
+    return {field: policy[field] for field in sorted(_REST_SELECTION_POLICY_FIELDS)}
+
+
+def _rest_candidate_ids(value: object, label: str) -> list[str]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise FirecrawlScreeningIdentityError(f"{label} must be an array")
+    normalized = list(cast(Sequence[object], value))
+    if not all(isinstance(item, str) and item.strip() for item in normalized) or len(
+        normalized
+    ) != len(set(cast(list[str], normalized))):
+        raise FirecrawlScreeningIdentityError(
+            f"{label} must contain unique nonempty strings"
+        )
+    return [cast(str, item) for item in normalized]
+
+
+def _rest_required_text(record: Mapping[str, object], field: str) -> str:
+    value = record.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise FirecrawlScreeningIdentityError(
+            f"REST promotion {field} must be nonempty text"
+        )
+    return value
+
+
+def _rest_sha256(record: Mapping[str, object], field: str) -> str:
+    value = record.get(field)
+    if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+        raise FirecrawlScreeningIdentityError(
+            f"REST promotion {field} must be a lowercase SHA-256"
+        )
+    return value
 
 
 def firecrawl_screening_implementation(
@@ -693,10 +1584,28 @@ def _stage_firecrawl_screening_source_count(
         stage_commitments
     )
     for source_neutral_key in source_neutral_keys:
-        if not isinstance(stage_commitments[source_neutral_key], Mapping):
+        source_neutral_value = stage_commitments[source_neutral_key]
+        if not isinstance(source_neutral_value, Mapping):
             raise FirecrawlScreeningIdentityError(
                 f"{label} source-neutral commitment must be an object: "
                 f"{source_neutral_key}"
+            )
+        if source_neutral_key == REST_TERMINAL_SUBSET_PROMOTION_STAGE_KEY:
+            promotion = cast(Mapping[str, object], source_neutral_value)
+            validate_rest_terminal_subset_promotion_commitment(
+                promotion,
+                snapshot_candidate_ids=_rest_candidate_ids(
+                    promotion.get("selected_candidate_ids"),
+                    f"{label} REST promotion selected candidate IDs",
+                ),
+                snapshot_accepted_ids=_rest_candidate_ids(
+                    promotion.get("accepted_candidate_ids"),
+                    f"{label} REST promotion accepted candidate IDs",
+                ),
+                snapshot_excluded_ids=_rest_candidate_ids(
+                    promotion.get("excluded_candidate_ids"),
+                    f"{label} REST promotion excluded candidate IDs",
+                ),
             )
     named_stage = stage_commitments.get("stage")
     recognized_named_stage = (

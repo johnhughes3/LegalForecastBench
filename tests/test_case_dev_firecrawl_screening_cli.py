@@ -419,6 +419,10 @@ def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
                 "plan-public-downloads",
                 "--snapshot",
                 str(cycle_state.snapshot),
+                "--expected-snapshot-manifest-sha256",
+                sha256(
+                    (cycle_state.snapshot / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_state.cycle_hash,
                 "--screened-cases",
@@ -454,6 +458,10 @@ def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
                 "plan-public-downloads",
                 "--snapshot",
                 str(cycle_state.snapshot),
+                "--expected-snapshot-manifest-sha256",
+                sha256(
+                    (cycle_state.snapshot / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_state.cycle_hash,
                 "--target-clean-cases",
@@ -482,6 +490,10 @@ def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
                 "plan-public-downloads",
                 "--snapshot",
                 str(cycle_state.snapshot),
+                "--expected-snapshot-manifest-sha256",
+                sha256(
+                    (cycle_state.snapshot / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_state.cycle_hash,
                 "--target-clean-cases",
@@ -514,6 +526,10 @@ def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
                 "plan-public-downloads",
                 "--snapshot",
                 str(cycle_state.snapshot),
+                "--expected-snapshot-manifest-sha256",
+                sha256(
+                    (cycle_state.snapshot / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 cycle_state.cycle_hash,
                 "--target-clean-cases",

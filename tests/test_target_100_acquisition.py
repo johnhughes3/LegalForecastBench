@@ -80,6 +80,10 @@ class _AuthenticatedReviewFiles:
     cohort_policy: Path
 
 
+def _snapshot_manifest_sha256(snapshot: Path) -> str:
+    return hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest()
+
+
 def test_target_100_commands_are_resumable_noncharging_and_exactly_capped(
     tmp_path: Path,
 ) -> None:
@@ -87,7 +91,10 @@ def test_target_100_commands_are_resumable_noncharging_and_exactly_capped(
         output_root=tmp_path / "run",
         snapshot=tmp_path / "snapshot",
         expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
         candidate_pool_size=200,
+        authenticated_screened_cases=tmp_path / "authenticated-screened.jsonl",
+        screened_cases_sha256="c" * 64,
         target_case_count=100,
         live_public_download=True,
         live_courtlistener=True,
@@ -117,6 +124,9 @@ def test_target_100_commands_are_resumable_noncharging_and_exactly_capped(
     assert "--live-courtlistener" in commands[2].argv
     assert "--request-ledger" in commands[2].argv
     assert "--live-public-download" in commands[1].argv
+    assert commands[0].argv[
+        commands[0].argv.index("--expected-snapshot-manifest-sha256") + 1
+    ] == ("b" * 64)
 
 
 def test_target_cohort_commands_are_noncharging_and_bind_explicit_target(
@@ -126,8 +136,11 @@ def test_target_cohort_commands_are_noncharging_and_bind_explicit_target(
         output_root=tmp_path / "run",
         snapshot=tmp_path / "snapshot",
         expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
         candidate_pool_size=220,
         target_case_count=150,
+        authenticated_screened_cases=tmp_path / "authenticated-screened.jsonl",
+        screened_cases_sha256="c" * 64,
         live_public_download=True,
         live_courtlistener=True,
         request_ledger=tmp_path / "courtlistener-requests.sqlite3",
@@ -146,6 +159,39 @@ def test_target_cohort_commands_are_noncharging_and_bind_explicit_target(
     assert "--live-courtlistener" in commands[2].argv
     assert "firecrawl" not in " ".join(flattened).lower()
     assert "case.dev" not in " ".join(flattened).lower()
+
+
+@pytest.mark.parametrize(
+    "manifest_sha256",
+    (
+        "B" * 64,
+        "b" * 63,
+        ("b" * 63) + "g",
+    ),
+)
+def test_target_config_rejects_non_lowercase_snapshot_manifest_sha256(
+    tmp_path: Path,
+    manifest_sha256: str,
+) -> None:
+    config = TargetCohortPreparationConfig(
+        output_root=tmp_path / "run",
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256=manifest_sha256,
+        candidate_pool_size=220,
+        target_case_count=150,
+        authenticated_screened_cases=tmp_path / "authenticated-screened.jsonl",
+        screened_cases_sha256="c" * 64,
+        live_public_download=True,
+        live_courtlistener=True,
+        request_ledger=tmp_path / "courtlistener-requests.sqlite3",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="snapshot manifest SHA-256 must be 64 lowercase hex digits",
+    ):
+        build_target_cohort_stage_commands(config)
 
 
 def test_target_cohort_cli_help_requires_target_and_explains_sources(
@@ -180,6 +226,8 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
         str(snapshot),
         "--expected-cycle-hash",
         cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
         "--target-case-count",
         "2",
         "--fixture-documents",
@@ -394,6 +442,8 @@ def test_target_cohort_rejects_nonpositive_and_underfilled_targets_without_stage
             str(snapshot),
             "--expected-cycle-hash",
             cycle_hash,
+            "--expected-snapshot-manifest-sha256",
+            _snapshot_manifest_sha256(snapshot),
             "--target-case-count",
             str(target),
             "--fixture-documents",
@@ -444,6 +494,8 @@ def test_target_cohort_resume_rejects_mutated_full_frontier_before_provider(
         str(snapshot),
         "--expected-cycle-hash",
         cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
         "--target-case-count",
         "2",
         "--fixture-documents",
@@ -492,6 +544,8 @@ def test_target_cohort_resume_requires_resolved_success_run_card(
         str(snapshot),
         "--expected-cycle-hash",
         cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
         "--target-case-count",
         "2",
         "--fixture-documents",
@@ -535,6 +589,8 @@ def test_target_cohort_frontier_rejects_orphan_manifest_rows(
                 str(snapshot),
                 "--expected-cycle-hash",
                 cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--target-case-count",
                 "2",
                 "--fixture-documents",
@@ -561,8 +617,17 @@ def test_target_cohort_frontier_rejects_orphan_manifest_rows(
         output_root=output_root,
         snapshot=snapshot,
         expected_cycle_hash=cycle_hash,
+        expected_snapshot_manifest_sha256=_snapshot_manifest_sha256(snapshot),
         candidate_pool_size=2,
         target_case_count=2,
+        authenticated_screened_cases=(
+            output_root / "00-authenticated-snapshot/screened-cases.jsonl"
+        ),
+        screened_cases_sha256=hashlib.sha256(
+            (
+                output_root / "00-authenticated-snapshot/screened-cases.jsonl"
+            ).read_bytes()
+        ).hexdigest(),
         fixture_documents=fixture_documents,
         courtlistener_fixture=courtlistener_fixture,
         use_embedded_entries=True,
@@ -603,6 +668,8 @@ def test_target_cohort_custom_common_outputs_cannot_alias_inputs(
                 str(snapshot),
                 "--expected-cycle-hash",
                 cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--target-case-count",
                 "2",
                 "--fixture-documents",
@@ -638,6 +705,8 @@ def test_generic_preparation_is_accepted_by_post_clearance_projection(
                 str(snapshot),
                 "--expected-cycle-hash",
                 cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--target-case-count",
                 "2",
                 "--fixture-documents",
@@ -759,6 +828,7 @@ def test_target_100_candidate_pool_size_has_no_stale_default(tmp_path: Path) -> 
             output_root=tmp_path / "run",
             snapshot=tmp_path / "snapshot",
             expected_cycle_hash="a" * 64,
+            expected_snapshot_manifest_sha256="b" * 64,
         )
 
 
@@ -778,6 +848,8 @@ def test_target_100_dry_run_writes_a_nonpurchase_stage_plan(tmp_path: Path) -> N
                 str(snapshot),
                 "--expected-cycle-hash",
                 cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--fixture-documents",
                 str(fixture_documents),
                 "--courtlistener-fixture",
@@ -801,6 +873,339 @@ def test_target_100_dry_run_writes_a_nonpurchase_stage_plan(tmp_path: Path) -> N
     )
 
 
+def test_target_preparation_uses_buffered_screened_view_after_source_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run"
+    load_verified = cli.load_verified_screening_snapshot
+
+    def load_then_swap(*args: Any, **kwargs: Any) -> Any:
+        verified = load_verified(*args, **kwargs)
+        (snapshot / "screened-cases.jsonl").write_bytes(b"")
+        return verified
+
+    monkeypatch.setattr(cli, "load_verified_screening_snapshot", load_then_swap)
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+            ]
+        )
+        == 0
+    )
+
+    authenticated = output_root / "00-authenticated-snapshot/screened-cases.jsonl"
+    assert len(_read_jsonl(authenticated)) == 2
+    config = json.loads((output_root / "target-cohort-config.json").read_text())
+    summary = json.loads(
+        (output_root / "target-cohort-preparation-summary.json").read_text()
+    )
+    assert config["candidate_pool_size"] == 2
+    assert summary["candidate_pool_size"] == 2
+    assert config["authenticated_screened_cases"] == str(authenticated.resolve())
+    bridge = next(
+        command
+        for command in summary["stage_commands"]
+        if command["stage"] == "bridge-pacer-gaps"
+    )
+    assert bridge["argv"][bridge["argv"].index("--screened-cases") + 1] == str(
+        authenticated
+    )
+
+
+def test_target_preparation_fails_if_manifest_swaps_before_child_stage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run"
+    expected_manifest_sha256 = _snapshot_manifest_sha256(snapshot)
+    build_commands = cli.build_target_cohort_stage_commands
+
+    def build_then_swap(config: TargetCohortPreparationConfig) -> Any:
+        commands = build_commands(config)
+        manifest = snapshot / "manifest.json"
+        manifest.write_bytes(manifest.read_bytes() + b" ")
+        return commands
+
+    monkeypatch.setattr(
+        cli,
+        "build_target_cohort_stage_commands",
+        build_then_swap,
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                expected_manifest_sha256,
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not (output_root / "03-gap-bridge").exists()
+
+
+def test_target_preparation_uses_owned_raw_bytes_after_source_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run"
+    raw_records = _read_jsonl(snapshot / "raw-artifacts.jsonl")
+    source_raw_dir = Path(str(raw_records[0]["path"])).parent
+    source_raw_path = source_raw_dir / "1000.html"
+    admitted_payload = source_raw_path.read_bytes()
+    real_main = cli.main
+
+    def mutate_source_after_plan(argv: list[str] | tuple[str, ...]) -> int:
+        result = real_main(argv)
+        if tuple(argv[:2]) == ("acquisition", "plan-public-downloads"):
+            source_raw_path.write_bytes(b"<html>attacker replacement</html>")
+        return result
+
+    monkeypatch.setattr(cli, "main", mutate_source_after_plan)
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--raw-html-dir",
+                str(source_raw_dir),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    owned_raw_dir = output_root / "00-authenticated-snapshot/raw-html"
+    owned_manifest = output_root / "00-authenticated-snapshot/raw-html-manifest.jsonl"
+    assert source_raw_path.read_bytes() != admitted_payload
+    assert (owned_raw_dir / "1000.html").read_bytes() == admitted_payload
+    config = json.loads((output_root / "target-cohort-config.json").read_text())
+    assert config["requested_raw_html_dir"] == str(source_raw_dir.resolve())
+    assert config["raw_html_dir"] == str(owned_raw_dir.resolve())
+    assert config["authenticated_raw_html_manifest"] == str(owned_manifest.resolve())
+    assert config["authenticated_raw_html_manifest_sha256"] == (
+        "sha256:" + hashlib.sha256(owned_manifest.read_bytes()).hexdigest()
+    )
+    bridge = next(
+        command
+        for command in config["stage_commands"]
+        if command["stage"] == "bridge-pacer-gaps"
+    )
+    public_plan = next(
+        command
+        for command in config["stage_commands"]
+        if command["stage"] == "plan-public-downloads"
+    )
+    assert "--raw-html-dir" not in public_plan["argv"]
+    assert bridge["argv"][bridge["argv"].index("--raw-html-dir") + 1] == str(
+        owned_raw_dir
+    )
+    assert str(source_raw_dir) not in bridge["argv"]
+    summary = json.loads(
+        (output_root / "target-cohort-preparation-summary.json").read_text()
+    )
+    gap_inputs = summary["stage_input_commitments"]["03-gap-bridge"]
+    assert str(owned_manifest.resolve()) in gap_inputs
+    assert str((owned_raw_dir / "1000.html").resolve()) in gap_inputs
+    assert str(source_raw_path.resolve()) not in gap_inputs
+
+
+@pytest.mark.parametrize("owned_input", ("screened", "raw"))
+def test_target_preparation_fails_if_owned_input_mutates_after_plan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    owned_input: str,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / f"run-{owned_input}"
+    source_raw_dir = Path(
+        str(_read_jsonl(snapshot / "raw-artifacts.jsonl")[0]["path"])
+    ).parent
+    real_main = cli.main
+
+    def mutate_owned_after_plan(argv: list[str] | tuple[str, ...]) -> int:
+        result = real_main(argv)
+        if tuple(argv[:2]) == ("acquisition", "plan-public-downloads"):
+            target = (
+                output_root / "00-authenticated-snapshot/screened-cases.jsonl"
+                if owned_input == "screened"
+                else output_root / "00-authenticated-snapshot/raw-html/1000.html"
+            )
+            target.write_bytes(target.read_bytes() + b"\nattacker")
+        return result
+
+    monkeypatch.setattr(cli, "main", mutate_owned_after_plan)
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--raw-html-dir",
+                str(source_raw_dir),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not (output_root / "target-cohort-preparation-summary.json").exists()
+
+
+def test_target_preparation_rejects_route_mutation_after_bridge_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run-route-mutation"
+    admit_routes = cli._read_authenticated_public_first_bridge_inputs
+
+    def admit_then_mutate_routes(**kwargs: Any) -> Any:
+        admitted = admit_routes(**kwargs)
+        public_selection = cast(Path, kwargs["public_selection_path"])
+        public_selection.write_bytes(public_selection.read_bytes() + b"\n")
+        return admitted
+
+    monkeypatch.setattr(
+        cli,
+        "_read_authenticated_public_first_bridge_inputs",
+        admit_then_mutate_routes,
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert (output_root / "03-gap-bridge/pacer-gap-bridge-summary.json").is_file()
+    assert not (output_root / "target-cohort-preparation-summary.json").exists()
+
+
+def test_target_preparation_resume_rejects_route_mutation(
+    tmp_path: Path,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run-route-resume"
+    command = [
+        "acquisition",
+        "prepare-target-cohort",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
+        "--target-case-count",
+        "2",
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+        "--execute",
+    ]
+    assert main(command) == 0
+    public_selection = output_root / "01-public-plan/public-packet-selection.jsonl"
+    public_selection.write_bytes(public_selection.read_bytes() + b"\n")
+
+    assert main(command) == 2
+
+
 def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -820,6 +1225,8 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
                 str(snapshot),
                 "--expected-cycle-hash",
                 cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--fixture-documents",
                 str(fixture_documents),
                 "--courtlistener-fixture",
@@ -1286,6 +1693,8 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(snapshot),
                 "--expected-cycle-hash",
                 cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--target-case-count",
                 "1",
                 "--fixture-documents",
@@ -2379,6 +2788,8 @@ def test_target_100_resume_rejects_changed_cost_provider_fixture_and_snapshot(
             str(snapshot),
             "--expected-cycle-hash",
             cycle_hash,
+            "--expected-snapshot-manifest-sha256",
+            _snapshot_manifest_sha256(snapshot),
             "--fixture-documents",
             str(fixture_documents),
             "--courtlistener-fixture",
@@ -2425,6 +2836,7 @@ def test_target_100_resume_rejects_changed_cost_provider_fixture_and_snapshot(
     replacements = {
         str(snapshot): str(other_snapshot),
         cycle_hash: other_hash,
+        _snapshot_manifest_sha256(snapshot): _snapshot_manifest_sha256(other_snapshot),
         str(fixture_documents): str(other_documents),
         str(courtlistener_fixture): str(other_courtlistener),
     }
@@ -2451,6 +2863,8 @@ def test_target_100_underfilled_snapshot_writes_durable_failure_only(
                 str(snapshot),
                 "--expected-cycle-hash",
                 cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--fixture-documents",
                 str(fixture_documents),
                 "--courtlistener-fixture",
@@ -2504,6 +2918,8 @@ def test_target_100_preflight_rejects_protected_output_overlap_before_writes(
         str(snapshot),
         "--expected-cycle-hash",
         cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
         "--fixture-documents",
         str(fixture_documents),
         "--courtlistener-fixture",
@@ -2570,6 +2986,8 @@ def test_target_100_resume_rejects_mutated_and_injected_stage_artifacts(
         str(snapshot),
         "--expected-cycle-hash",
         cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
         "--fixture-documents",
         str(fixture_documents),
         "--courtlistener-fixture",
@@ -2631,6 +3049,8 @@ def test_target_100_changed_config_failure_preserves_prior_success(
         str(snapshot),
         "--expected-cycle-hash",
         cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
         "--fixture-documents",
         str(fixture_documents),
         "--courtlistener-fixture",
@@ -2668,6 +3088,8 @@ def test_target_100_snapshot_failure_is_attempt_scoped_and_nonpaid(
                 str(snapshot),
                 "--expected-cycle-hash",
                 "f" * 64,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--fixture-documents",
                 str(fixture_documents),
                 "--courtlistener-fixture",
@@ -2706,6 +3128,8 @@ def test_target_100_custom_summary_path_is_frozen_and_required_after_success(
         str(snapshot),
         "--expected-cycle-hash",
         cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
         "--fixture-documents",
         str(fixture_documents),
         "--courtlistener-fixture",
@@ -2760,6 +3184,8 @@ def test_target_100_attempt_symlink_cannot_redirect_failure_into_snapshot(
                 str(snapshot),
                 "--expected-cycle-hash",
                 cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
                 "--fixture-documents",
                 str(fixture_documents),
                 "--courtlistener-fixture",
@@ -2956,7 +3382,7 @@ def _target_fixture_docket_html(docket_id: int) -> str:
           </div>
           <div class="row even" id="entry-5">
             <div class="col-xs-1"><p>5</p></div>
-            <div class="col-xs-3"><p>Jan 2, 2026</p></div>
+            <div class="col-xs-3"><p>Jan 1, 2026</p></div>
             <div class="col-xs-8">
               <p>MOTION to Dismiss filed by Defendant.</p>
               <div class="row recap-documents">
@@ -3177,6 +3603,7 @@ def _purchase_fixtures(
 def _screened_case(index: int) -> dict[str, object]:
     docket_id = 1000 + index
     return {
+        "candidate_id": f"courtlistener-docket-{docket_id}",
         "provider": "courtlistener-recap-rest-v4",
         "canonical_rest_screen_complete": True,
         "nature_of_suit": "440 Civil Rights",
