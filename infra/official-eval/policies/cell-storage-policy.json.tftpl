@@ -1,0 +1,108 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadModelPackets",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "${packet_bucket_arn}/model-packets/*"
+    },
+    {
+      "Sid": "ListModelPackets",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "${packet_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "model-packets/*"
+        }
+      }
+    },
+    {
+      "Sid": "ReadFrozenManifests",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "${results_bucket_arn}/manifests/*"
+    },
+    {
+      "Sid": "ListFrozenManifests",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "${results_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "manifests/*"
+        }
+      }
+    },
+    {
+      "Sid": "ReadWritePerCaseResults",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": "${results_bucket_arn}/per-case/*/metrics/*"
+    },
+    {
+      "Sid": "ReadWritePerCaseRunnerLogs",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": "${results_bucket_arn}/per-case/*/reports/*/*.runner-log.jsonl"
+    },
+    {
+      "Sid": "ListPerCaseResults",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "${results_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "per-case/*"
+        }
+      }
+    },
+    {
+      "Sid": "ReadMutationMarkers",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": [
+        "${results_bucket_arn}/cycle-publication-state/*/runs/*/*/intent.json",
+        "${results_bucket_arn}/cycle-publication-state/*/runs/*/*/done.json"
+      ]
+    },
+    {
+      "Sid": "CreateMutationMarkers",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": [
+        "${results_bucket_arn}/cycle-publication-state/*/runs/*/*/intent.json",
+        "${results_bucket_arn}/cycle-publication-state/*/runs/*/*/done.json"
+      ],
+      "Condition": {
+        "Null": {
+          "s3:if-none-match": "false"
+        }
+      }
+    },
+    {
+      "Sid": "ReadCycleSeal",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "${results_bucket_arn}/cycle-publication-state/*/seal.json"
+    },
+    {
+      "Sid": "ProbeExactCycleSeal",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "${results_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "cycle-publication-state/*/seal.json"
+        }
+      }
+    }
+  ]
+}
