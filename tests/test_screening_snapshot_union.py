@@ -644,6 +644,238 @@ def test_strict_screen_validator_rejects_cross_case_linkage() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "auxiliary_entry",
+    (
+        {
+            "row_id": "entry-64",
+            "entry_number": "64",
+            "filed_at": "July 23, 2026",
+            "text": "",
+            "role": "other",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "Judgment (Clerk's Office Only)",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        },
+        {
+            "row_id": "minute-entry-405945218",
+            "entry_number": None,
+            "filed_at": "October 23, 2024",
+            "text": "",
+            "role": "other",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "Case Referred to Magistrate Judge",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        },
+        {
+            "row_id": "entry-1",
+            "entry_number": "1",
+            "filed_at": "October 22, 2025",
+            "text": "",
+            "role": "other",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "Complaint",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        },
+        {
+            "row_id": "minute-entry-453283793",
+            "entry_number": None,
+            "filed_at": "February 9, 2026",
+            "text": "",
+            "role": "other",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "Motion for Leave to File Sealed Document",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                    "freely_available": False,
+                    "restriction_markers": ["text_sealeddocument"],
+                }
+            ],
+        },
+    ),
+)
+def test_strict_screen_validator_accepts_described_blank_auxiliary_rest_rows(
+    auxiliary_entry: dict[str, object],
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["selected_entries"].append(auxiliary_entry)
+
+    validate_strict_screen_evidence(
+        evidence,
+        expected_candidate_id=candidate_id,
+    )
+
+
+def test_strict_screen_validator_rejects_blank_target_motion_text() -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["selected_entries"][0]["text"] = ""
+    evidence["selected_entries"][0]["role"] = "other"
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match=r"selected_entries\[1\]\.text must be a non-empty string",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
+        )
+
+
+def test_strict_screen_validator_rejects_blank_substantive_role_text() -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["selected_entries"].append(
+        {
+            "row_id": "entry-8",
+            "entry_number": "8",
+            "filed_at": "February 10, 2026",
+            "text": "",
+            "role": "opposition",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "Opposition to Motion to Dismiss",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match=r"selected_entries\[3\]\.text must be a non-empty string",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
+        )
+
+
+def test_strict_screen_validator_rejects_blank_decision_text() -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["selected_entries"][1]["text"] = ""
+    evidence["selected_entries"][1]["role"] = "other"
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match=r"selected_entries\[2\]\.text must be a non-empty string",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
+        )
+
+
+def test_strict_screen_validator_rejects_undescribed_blank_auxiliary_row() -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["selected_entries"].append(
+        {
+            "row_id": "minute-entry-405945218",
+            "entry_number": None,
+            "filed_at": "October 23, 2024",
+            "text": "",
+            "role": "other",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match=r"selected_entries\[3\]\.text must be a non-empty string",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
+        )
+
+
+def test_strict_screen_validator_rejects_linked_blank_auxiliary_row() -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["selected_entries"].append(
+        {
+            "row_id": "entry-64",
+            "entry_number": "64",
+            "filed_at": "July 23, 2026",
+            "text": "",
+            "role": "other",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "Judgment (Clerk's Office Only)",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        }
+    )
+    evidence["motion_linkage"]["links"][0]["motion_entry_ids"].append("entry-64")
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match="motion_linkage references a blank auxiliary row",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
+        )
+
+
 def test_union_authenticates_newly_free_correction_from_prior_strict_screen(
     tmp_path: Path,
 ) -> None:
