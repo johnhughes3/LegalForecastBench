@@ -21,13 +21,13 @@ Issue `#196` records earlier Claude Code observations, but the pending capture t
 | Executable | `/work/.local/share/claude/versions/2.1.218` |
 | Version | `2.1.218 (Claude Code)` |
 | Executable SHA-256 | `e12071751a9336b8af1012c103358ff04ac18f9aaff4a738cff7ba5cdfaf63f2` |
-| Probe source SHA-256 approved for capture | Pending independent source review; not yet frozen |
+| Probe source SHA-256 approved for capture | `69d0ff468995e6efacba3fd1072462572093316a0fa4610eae057241365439d7` |
 | Future fixture | `tests/fixtures/claude_native_containment/claude-code-native-containment-2.1.218.json` |
 | Model label used by the local stub | `claude-sonnet-4-6` |
 | Required provider requests | `0` |
 | Required benchmark task bytes | `0` |
 
-There is no fixture directory or fixture at the future path yet. Capture is forbidden until the probe-source row above contains the final independently approved SHA-256 instead of the pending placeholder. Version, executable hash, or approved probe-source drift must stop capture before Claude enters the native loop.
+There is no fixture directory or fixture at the future path yet. The probe-source row above records the exact independently approved committed source. Version, executable hash, or approved probe-source drift must stop capture before Claude enters the native loop.
 
 ## Proposed zero-spend native-loop method
 
@@ -93,16 +93,16 @@ sha256sum /work/.local/share/claude/versions/2.1.218
 /work/.local/share/claude/versions/2.1.218 --version
 ```
 
-The expected executable observations are the version and hash in the pin table above. The source hash remains pending until the implementation bytes are committed, frozen, and independently approved. After approval, replace the pending table value with that exact lowercase digest before running the capture block below. The operator preflight, sudo-gate staged-file attestation, inner staged/copy equality check, and post-capture `probe.source_sha256` must all match the approved digest.
+The expected executable observations are the version and hash in the pin table above. The source hash was recorded only after the implementation bytes were committed, frozen, and independently approved. The operator preflight, sudo-gate staged-file attestation, inner staged/copy equality check, and post-capture `probe.source_sha256` must all match the approved digest.
 
-After that review and table update, request the exact whole-process capture from the repository root. The placeholder deliberately fails the lowercase 64-character digest check, so this block cannot run until the independently approved value is inserted. The command relies on the reviewed probe's pinned default executable path, so the 273 MB Claude binary is not an argv file token that sudo-gate would stage. Outer mode has no `--output` option: it emits one JSON document on stdout. `sudo-request` relays command stdout separately while approval status, URLs, command stderr, and client errors remain on stderr, so redirect stdout only and never use `2>&1`.
+After that review and table update, request the exact whole-process capture from the repository root. The command relies on the reviewed probe's pinned default executable path, so the 273 MB Claude binary is not an argv file token that sudo-gate would stage. Outer mode has no `--output` option: it emits one JSON document on stdout. `sudo-request` relays command stdout separately while approval status, URLs, command stderr, and client errors remain on stderr, so redirect stdout only and never use `2>&1`.
 
 ```bash
 set -euo pipefail
 umask 077
 
 probe_path="$(realpath scripts/probe_claude_code_native_containment.py)"
-approved_probe_sha256="<insert independently approved SHA-256>"
+approved_probe_sha256="69d0ff468995e6efacba3fd1072462572093316a0fa4610eae057241365439d7"
 [[ "${approved_probe_sha256}" =~ ^[0-9a-f]{64}$ ]] || {
   echo "capture forbidden: insert the independently approved probe SHA-256" >&2
   exit 1
