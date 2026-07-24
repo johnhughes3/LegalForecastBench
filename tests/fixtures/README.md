@@ -25,6 +25,7 @@ Directory roles:
 - `golden_cases/`: catalog of reusable synthetic legal edge cases.
 - `mock_model_outputs/`: catalog of deterministic model-output scenarios.
 - `packet_render_ci/`: deterministic production packet-builder input plus independently reviewed exact-output and SHA-256 goldens used by the packet-render workflow gate.
+- Future `claude_native_containment/` (directory intentionally absent until evidence approval): reserved for the independently reviewed Claude Code 2.1.218 host-specific containment receipt. The intended full path is `tests/fixtures/claude_native_containment/claude-code-native-containment-2.1.218.json`; no fixture or passing containment evidence is committed. See the [containment feasibility record](../../docs/adapters/claude-code-native-containment.md).
 
 See `tests/fixtures/golden_cases/README.md` for fixture IDs and expected uses.
 

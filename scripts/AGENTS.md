@@ -68,3 +68,5 @@ checkout but do not belong in the installed `legalforecast` CLI.
   uv run scripts/smoke_infisical_systemd_exit_status.py \
     --output tmp/infisical-systemd-smoke-receipt.json
   ```
+
+- `probe_claude_code_native_containment.py`: pending, host-specific zero-provider-spend characterization of Claude Code's native loop inside a whole-process systemd `DynamicUser` boundary. The outer probe requires independent source review, an exact approved source digest, and the documented sudo-gate stdout capture; it is not a portable contributor command and no successful receipt is currently claimed. See [the containment feasibility record](../docs/adapters/claude-code-native-containment.md).
