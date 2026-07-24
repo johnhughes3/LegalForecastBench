@@ -13,6 +13,21 @@ from legalforecast.ingestion.public_packet_planner import (
 )
 
 _REPLY_URL = "https://www.courtlistener.com/docket/123/10/example/"
+_PUBLIC_HEARING_SANCTION_BOILERPLATE = (
+    "MINUTE entry before the Honorable Jorge L. Alonso: Telephonic motion hearing "
+    "held. For the reasons stated on the record, Defendants' Motion to dismiss [45] "
+    "is denied as moot. Telephonic Status hearing previously set for 7/30/26 is "
+    "stricken and reset to 8/25/2026 at 9:30 a.m. The parties are directed to file "
+    "a joint status report by 8/21/26. Members of the public and media will be able "
+    "to call in to listen to this hearing. The call-in number is 650-479-3207 and "
+    "the access code is 1804010308. Persons granted remote access to proceedings "
+    "are reminded of the general prohibition against photographing, recording, and "
+    "rebroadcasting of court proceedings. Violation of these prohibitions may "
+    "result in sanctions, including removal of court issued media credentials, "
+    "restricted entry to future hearings, denial of entry to future hearings, or "
+    "any other sanctions deemed necessary by the Court. Notice mailed by Judge's "
+    "staff (lf, )"
+)
 
 
 def test_public_packet_planner_selects_free_core_packet_documents(
@@ -491,6 +506,146 @@ def test_public_packet_planner_does_not_treat_merits_prose_as_access_restriction
 
     assert len(plan.selected_cases) == 1
     assert plan.final_exclusions == ()
+
+
+def test_public_packet_planner_reproves_61568804_hearing_boilerplate(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    candidate = cast(dict[str, Any], record["candidate"])
+    metadata = cast(dict[str, Any], candidate["metadata"])
+    candidate["docket_id"] = "61568804"
+    candidate["candidate_key"] = "61568804"
+    candidate["url"] = (
+        "https://www.courtlistener.com/docket/61568804/"
+        "mcdonald-v-m2-management-group-llc/"
+    )
+    metadata["case_id"] = "courtlistener-docket-61568804"
+    metadata["case_name"] = "McDonald v. M2 Management Group, LLC"
+    cast(dict[str, object], record["ai"])["decision_entry_numbers"] = ["50"]
+    record["first_written_mtd_disposition_date"] = "2026-07-22"
+    entries = cast(list[dict[str, Any]], record["selected_entries"])
+    decision = entries[-1]
+    decision.update(
+        {
+            "row_id": "entry-50",
+            "entry_number": "50",
+            "filed_at": "July 22, 2026",
+            "text": _PUBLIC_HEARING_SANCTION_BOILERPLATE,
+            "restriction_markers": ["text_restrictedentry"],
+        }
+    )
+    cast(list[dict[str, Any]], decision["documents"])[0].update(
+        {
+            "kind": "main",
+            "description": "Order on Motion to Dismiss/Lack of Jurisdiction",
+            "href": (
+                "https://storage.courtlistener.com/recap/"
+                "gov.uscourts.ilnd.409147/gov.uscourts.ilnd.409147.50.0.pdf"
+            ),
+            "action_label": "Download PDF",
+            "pacer_only": False,
+            "freely_available": True,
+            "restriction_markers": [],
+        }
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [selected] = plan.selected_cases
+    assert selected.candidate_id == "61568804"
+    assert plan.final_exclusions == ()
+    assert any(
+        request.source_url.endswith("gov.uscourts.ilnd.409147.50.0.pdf")
+        for request in plan.download_requests
+    )
+
+
+@pytest.mark.parametrize(
+    "decision_text",
+    (
+        "This filing is a restricted entry.",
+        "Restricted entry available only to case participants.",
+        "The Court orders restricted entry to future hearings.",
+        "Violation may result in sanctions. Restricted entry to future hearings "
+        "is ordered.",
+        "Violation may result in sanctions for misconduct, and the Court orders "
+        "restricted entry to future hearings.",
+        "Violation may result in sanctions, including fines and restricted entry "
+        "to future hearings, which the Court now orders.",
+        "Violation may result in sanctions, including restricted entry to future "
+        "hearings, now ordered by the Court.",
+        "Violation may result in sanctions, including restricted entry to future "
+        "hearings; such restriction is now ordered.",
+        "Violation may result in sanctions, including restricted entry to future "
+        "hearings, and that restriction is hereby imposed.",
+        "Violation may result in sanctions, including the Court-ordered restricted "
+        "entry to future hearings.",
+        "Violation may result in sanctions, including the currently effective "
+        "restricted entry to future hearings.",
+        "Violation may result in sanctions, including maintaining the imposed "
+        "restricted entry to future hearings.",
+        "Violation may result in sanctions, including an extension of restricted "
+        "entry to future hearings.",
+        "Violation may result in sanctions, including restricted entry to future "
+        "hearings, even though that restriction is already in force.",
+        _PUBLIC_HEARING_SANCTION_BOILERPLATE.replace(
+            "Court. Notice",
+            "Court and now imposed. Notice",
+        ),
+        _PUBLIC_HEARING_SANCTION_BOILERPLATE.replace(
+            "Court. Notice",
+            "Court, which has already imposed this restriction. Notice",
+        ),
+    ),
+)
+def test_public_packet_planner_keeps_genuine_restricted_entry_evidence(
+    tmp_path: Path,
+    decision_text: str,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    decision = cast(list[dict[str, Any]], record["selected_entries"])[-1]
+    decision["text"] = decision_text
+    decision["restriction_markers"] = ["text_restrictedentry"]
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [excluded] = plan.final_exclusions
+    assert excluded.exclusion_reasons == (
+        "sealed_or_restricted_material:decision_entry_16:text_restrictedentry",
+    )
+
+
+def test_document_marker_is_not_reconciled_from_entry_boilerplate(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    [document] = cast(list[dict[str, Any]], target["documents"])
+    document["restriction_markers"] = ["text_restrictedentry"]
+    document["text"] = _PUBLIC_HEARING_SANCTION_BOILERPLATE
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [excluded] = plan.final_exclusions
+    assert excluded.exclusion_reasons == (
+        "sealed_or_restricted_material:target_mtd_entry_5:text_restrictedentry",
+    )
 
 
 @pytest.mark.parametrize(
