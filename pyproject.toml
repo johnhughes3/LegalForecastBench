@@ -25,6 +25,7 @@ dependencies = [
 
 [project.scripts]
 legalforecast = "legalforecast.cli:main"
+legalforecast-acquisition-systemd-run = "legalforecast.ingestion.infisical_systemd_launcher:main"
 
 [dependency-groups]
 dev = [
