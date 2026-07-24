@@ -773,11 +773,40 @@ def llm_label_cases(
     provider_cycle_caps_sha256: str | None = None,
     provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None = None,
     provider_accounts: Mapping[str, str] | None = None,
+    execution_provider: str | None = None,
+    defer_consensus: bool = False,
 ) -> LlmBatchResult:
-    """Generate Stage B outcome labels with registry-backed LLM judges."""
+    """Generate Stage B labels or one provider-isolated judge shard.
+
+    A provider shard always receives the complete frozen judge registry but
+    executes only entries belonging to ``execution_provider``.  It emits no
+    selected labels; consensus must be reconstructed from every authenticated
+    provider shard in a provider-free finalization step.
+    """
 
     if not registry_entries:
         raise LlmPipelineError("at least one registry entry is required")
+    if defer_consensus != (execution_provider is not None):
+        raise LlmPipelineError(
+            "provider-sharded labeling requires both execution_provider and "
+            "defer_consensus"
+        )
+    normalized_execution_provider = (
+        execution_provider.strip().lower() if execution_provider is not None else None
+    )
+    execution_entries = (
+        tuple(
+            entry
+            for entry in registry_entries
+            if entry.provider.lower() == normalized_execution_provider
+        )
+        if normalized_execution_provider is not None
+        else tuple(registry_entries)
+    )
+    if not execution_entries:
+        raise LlmPipelineError(
+            "execution_provider has no entries in the frozen judge registry"
+        )
     selections = tuple(selection_records)
     finalized_unit_records = require_finalized_envelopes(prediction_unit_records)
     units_by_candidate = _prediction_units_by_candidate(finalized_unit_records)
@@ -834,13 +863,30 @@ def llm_label_cases(
             if candidate_id in excluded_candidates:
                 audit_records.append(
                     {
-                        "stage": "llm-label",
+                        "stage": (
+                            "llm-label-provider-shard"
+                            if defer_consensus
+                            else "llm-label"
+                        ),
                         "status": "candidate_excluded",
                         "candidate_id": candidate_id,
                         "case_id": _required_str(selection, "case_id"),
                         "model_keys": [
-                            entry.registry_key for entry in registry_entries
+                            entry.registry_key for entry in execution_entries
                         ],
+                        **(
+                            {
+                                "execution_provider": normalized_execution_provider,
+                                "frozen_panel_model_keys": [
+                                    entry.registry_key for entry in registry_entries
+                                ],
+                                "model_registry_sha256": (
+                                    model_registry_sha256 or "unrecorded"
+                                ),
+                            }
+                            if defer_consensus
+                            else {}
+                        ),
                         "label_count": 0,
                         "unit_count": 0,
                         "estimated_cost": 0.0,
@@ -866,7 +912,7 @@ def llm_label_cases(
             attempted_prompt_sha256 = (
                 "sha256:" + hashlib.sha256(provider_prompt.encode("utf-8")).hexdigest()
             )
-            for entry in registry_entries:
+            for entry in execution_entries:
                 attempted_entry = entry
                 labels, response, finding_count, missing_flag_count, prompt_sha256 = (
                     _llm_label_one_model(
@@ -918,6 +964,32 @@ def llm_label_cases(
                     )
                     for label in labels
                 )
+            if defer_consensus:
+                audit_records.append(
+                    {
+                        "stage": "llm-label-provider-shard",
+                        "status": "succeeded",
+                        "candidate_id": candidate_id,
+                        "case_id": _required_str(selection, "case_id"),
+                        "execution_provider": normalized_execution_provider,
+                        "model_keys": [
+                            entry.registry_key for entry in execution_entries
+                        ],
+                        "frozen_panel_model_keys": [
+                            entry.registry_key for entry in registry_entries
+                        ],
+                        "model_registry_sha256": model_registry_sha256 or "unrecorded",
+                        "decision_text_commitment": decision_commitment,
+                        "label_count": 0,
+                        "unit_count": len(frozen_units),
+                        "model_outputs": model_outputs,
+                        "estimated_cost": sum(
+                            _float(output.get("estimated_cost"))
+                            for output in model_outputs
+                        ),
+                    }
+                )
+                continue
             ensemble = evaluate_labeling_ensemble(
                 votes,
                 high_confidence_threshold=high_confidence_threshold,
@@ -1009,12 +1081,21 @@ def llm_label_cases(
             )
         except Exception as exc:
             failure_record = _failure_audit_record(
-                stage="llm-label",
+                stage=("llm-label-provider-shard" if defer_consensus else "llm-label"),
                 selection=selection,
-                model_key=",".join(entry.registry_key for entry in registry_entries),
+                model_key=",".join(entry.registry_key for entry in execution_entries),
                 error=exc,
                 model_registry_sha256=model_registry_sha256,
             )
+            if defer_consensus:
+                failure_record.update(
+                    {
+                        "execution_provider": normalized_execution_provider,
+                        "frozen_panel_model_keys": [
+                            entry.registry_key for entry in registry_entries
+                        ],
+                    }
+                )
             if isinstance(exc, LlmResponseValidationError):
                 failure_record.update(_response_audit_fields(exc.response))
             elif isinstance(exc, FrozenUnitWorkflowRequiredError):
@@ -1042,6 +1123,293 @@ def llm_label_cases(
             audit_records.append(failure_record)
             if not continue_on_error:
                 raise
+    return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
+
+
+def merge_llm_label_provider_shards(
+    *,
+    selection_records: Iterable[Mapping[str, Any]],
+    prediction_unit_records: Iterable[Mapping[str, Any]],
+    decision_text_artifact: VerifiedDecisionTextArtifact,
+    registry_entries: Sequence[ModelRegistryEntry],
+    provider_shard_audit_records: Iterable[Mapping[str, Any]],
+    model_registry_sha256: str,
+    consensus_policy: LlmConsensusPolicy = LlmConsensusPolicy.UNANIMOUS,
+    high_confidence_threshold: float = DEFAULT_HIGH_CONFIDENCE_THRESHOLD,
+) -> LlmBatchResult:
+    """Merge every provider shard without loading a provider credential.
+
+    The caller must authenticate each shard run card before passing its audit
+    rows here.  This function revalidates the frozen panel, prompt commitment,
+    decision-text commitment, model coverage, and labels before selecting any
+    consensus output.
+    """
+
+    if not registry_entries:
+        raise LlmPipelineError("at least one registry entry is required")
+    selections = tuple(selection_records)
+    finalized_unit_records = require_finalized_envelopes(prediction_unit_records)
+    units_by_candidate = _prediction_units_by_candidate(finalized_unit_records)
+    decisions_by_candidate = _verified_stage_b_decisions(decision_text_artifact)
+    selection_by_candidate: dict[str, Mapping[str, Any]] = {}
+    for selection in selections:
+        candidate_id = _required_str(selection, "candidate_id")
+        if candidate_id in selection_by_candidate:
+            raise LlmPipelineError("selection contains duplicate candidates")
+        selection_by_candidate[candidate_id] = selection
+    finalized_by_candidate: dict[str, Mapping[str, Any]] = {}
+    for record in finalized_unit_records:
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in finalized_by_candidate:
+            raise LlmPipelineError(
+                "finalized prediction units contain duplicate candidates"
+            )
+        finalized_by_candidate[candidate_id] = record
+    expected_candidates = set(selection_by_candidate)
+    if (
+        set(finalized_by_candidate) != expected_candidates
+        or set(decisions_by_candidate) != expected_candidates
+    ):
+        raise LlmPipelineError(
+            "decision text, selection, and finalized-unit candidate coverage differ"
+        )
+
+    entries_by_provider: dict[str, tuple[ModelRegistryEntry, ...]] = {}
+    for provider in sorted({entry.provider.lower() for entry in registry_entries}):
+        entries_by_provider[provider] = tuple(
+            entry for entry in registry_entries if entry.provider.lower() == provider
+        )
+    frozen_panel_model_keys = tuple(entry.registry_key for entry in registry_entries)
+    shard_rows: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for row in provider_shard_audit_records:
+        if row.get("stage") != "llm-label-provider-shard":
+            raise LlmPipelineError("provider shard audit contains a non-shard row")
+        candidate_id = _required_str(row, "candidate_id")
+        provider = _required_str(row, "execution_provider").lower()
+        key = (candidate_id, provider)
+        if key in shard_rows:
+            raise LlmPipelineError(
+                f"duplicate provider shard audit row: {candidate_id}/{provider}"
+            )
+        shard_rows[key] = row
+    expected_keys = {
+        (candidate_id, provider)
+        for candidate_id in expected_candidates
+        for provider in entries_by_provider
+    }
+    if set(shard_rows) != expected_keys:
+        raise LlmPipelineError(
+            "provider shard audit coverage differs from the frozen candidate/panel "
+            "cross-product"
+        )
+
+    excluded_candidates = {
+        candidate_id
+        for candidate_id, record in finalized_by_candidate.items()
+        if record.get("status") == "candidate_excluded"
+    }
+    records: list[JsonRecord] = []
+    audit_records: list[JsonRecord] = []
+    for candidate_id, selection in selection_by_candidate.items():
+        decision_text, decision_commitment = decisions_by_candidate[candidate_id]
+        frozen_units = units_by_candidate.get(candidate_id)
+        rows = [
+            shard_rows[(candidate_id, provider)] for provider in entries_by_provider
+        ]
+        for provider, row in zip(entries_by_provider, rows, strict=True):
+            expected_model_keys = [
+                entry.registry_key for entry in entries_by_provider[provider]
+            ]
+            if (
+                row.get("model_registry_sha256") != model_registry_sha256
+                or row.get("frozen_panel_model_keys") != list(frozen_panel_model_keys)
+                or row.get("model_keys") != expected_model_keys
+                or row.get("case_id") != _required_str(selection, "case_id")
+                or row.get("decision_text_commitment") != decision_commitment
+            ):
+                raise LlmPipelineError(
+                    f"provider shard frozen lineage differs: {candidate_id}/{provider}"
+                )
+        if candidate_id in excluded_candidates:
+            if any(row.get("status") != "candidate_excluded" for row in rows):
+                raise LlmPipelineError(
+                    f"excluded candidate has a non-excluded provider shard: "
+                    f"{candidate_id}"
+                )
+            audit_records.append(
+                {
+                    "stage": "llm-label",
+                    "status": "candidate_excluded",
+                    "candidate_id": candidate_id,
+                    "case_id": _required_str(selection, "case_id"),
+                    "model_keys": list(frozen_panel_model_keys),
+                    "model_registry_sha256": model_registry_sha256,
+                    "label_count": 0,
+                    "unit_count": 0,
+                    "estimated_cost": 0.0,
+                    "decision_text_commitment": decision_commitment,
+                }
+            )
+            continue
+        if not frozen_units:
+            raise LlmPipelineError(f"prediction units missing for {candidate_id}")
+        if decision_text.entered_date != _decision_date(selection):
+            raise LlmPipelineError(
+                f"verified decision text date mismatch for {candidate_id}"
+            )
+        if any(row.get("status") != "succeeded" for row in rows):
+            raise LlmPipelineError(
+                f"provider shard did not succeed for candidate {candidate_id}"
+            )
+
+        provider_prompt = _labeling_prompt(
+            selection,
+            decision_text,
+            tuple(frozen_units),
+            decision_text_commitment=decision_commitment,
+        )
+        prompt_sha256 = (
+            "sha256:" + hashlib.sha256(provider_prompt.encode("utf-8")).hexdigest()
+        )
+        outputs_by_model: dict[str, Mapping[str, Any]] = {}
+        for row in rows:
+            raw_outputs = _record_sequence(
+                row.get("model_outputs"),
+                "model_outputs",
+            )
+            if row.get("unit_count") != len(frozen_units):
+                raise LlmPipelineError(
+                    f"provider shard unit count differs for {candidate_id}"
+                )
+            for output in raw_outputs:
+                model_key = _required_str(output, "model_key")
+                if model_key in outputs_by_model:
+                    raise LlmPipelineError(
+                        f"duplicate provider shard model output: "
+                        f"{candidate_id}/{model_key}"
+                    )
+                outputs_by_model[model_key] = output
+        if set(outputs_by_model) != set(frozen_panel_model_keys):
+            raise LlmPipelineError(
+                f"provider shard model coverage differs for {candidate_id}"
+            )
+
+        model_outputs: list[JsonRecord] = []
+        labels_by_model: dict[str, tuple[OutcomeLabel, ...]] = {}
+        votes: list[EnsembleLabelVote] = []
+        expected_unit_ids = {unit.unit_id for unit in frozen_units}
+        for entry in registry_entries:
+            output = outputs_by_model[entry.registry_key]
+            if output.get("provider_prompt_sha256") != prompt_sha256:
+                raise LlmPipelineError(
+                    f"provider shard prompt differs for "
+                    f"{candidate_id}/{entry.registry_key}"
+                )
+            labels = tuple(
+                _outcome_label(label)
+                for label in _record_sequence(output.get("labels"), "labels")
+            )
+            if {label.unit_id for label in labels} != expected_unit_ids or len(
+                labels
+            ) != len(expected_unit_ids):
+                raise LlmPipelineError(
+                    f"provider shard labels differ from frozen units for "
+                    f"{candidate_id}/{entry.registry_key}"
+                )
+            labels_by_model[entry.registry_key] = labels
+            model_outputs.append(dict(output))
+            raw_output_sha256 = _required_str(output, "raw_output_sha256")
+            votes.extend(
+                EnsembleLabelVote(
+                    model_id=entry.registry_key,
+                    unit_id=label.unit_id,
+                    label=label,
+                    confidence=label.label_confidence,
+                    rationale="LLM-only Stage B outcome label.",
+                    raw_response_id=raw_output_sha256,
+                )
+                for label in labels
+            )
+
+        ensemble = evaluate_labeling_ensemble(
+            votes,
+            high_confidence_threshold=high_confidence_threshold,
+            required_model_count=len(registry_entries),
+        )
+        lawyer_review_packets = _lawyer_review_packets(
+            candidate_id=candidate_id,
+            ensemble=ensemble,
+        )
+        selected_labels = (
+            tuple(ensemble.auto_labels)
+            if lawyer_review_packets
+            else _selected_labels(
+                labels_by_model,
+                votes,
+                consensus_policy=consensus_policy,
+                first_model_key=registry_entries[0].registry_key,
+            )
+        )
+        ambiguous = [label.unit_id for label in selected_labels if label.ambiguous]
+        if ambiguous:
+            raise LlmPipelineError(
+                f"LLM-only labels include ambiguous units: {ambiguous}"
+            )
+        pending_unit_ids = [packet.unit_id for packet in lawyer_review_packets]
+        queue_records = _lawyer_review_queue_records(
+            candidate_id=candidate_id,
+            selection=selection,
+            lawyer_review_packets=lawyer_review_packets,
+            label_audit_packets=(),
+            ensemble=ensemble,
+        )
+        records.extend(label.to_record() for label in selected_labels)
+        audit_records.append(
+            {
+                "stage": "llm-label",
+                "status": (
+                    "adjudication_pending" if lawyer_review_packets else "succeeded"
+                ),
+                "candidate_id": candidate_id,
+                "case_id": _required_str(selection, "case_id"),
+                "model_keys": list(frozen_panel_model_keys),
+                "model_registry_sha256": model_registry_sha256,
+                "decision_text_commitment": decision_commitment,
+                "human_verified": _human_verified_from_review_counts(
+                    adjudicated_review_count=0,
+                    pending_review_count=len(lawyer_review_packets),
+                ),
+                "lawyer_review_packets": [
+                    packet.to_record() for packet in lawyer_review_packets
+                ],
+                "lawyer_review_queue": queue_records,
+                "pending_adjudication_unit_ids": pending_unit_ids,
+                "pending_adjudication_count": len(lawyer_review_packets),
+                "adjudicated_review_count": 0,
+                "label_audit_gate": {
+                    "required": True,
+                    "cycle_level": True,
+                    "status": "awaiting_cycle_level_plan",
+                    "sample_unit_ids": [],
+                },
+                "consensus_policy": consensus_policy.value,
+                "consensus_policy_sha256": canonical_sha256(
+                    {
+                        "consensus_policy": consensus_policy.value,
+                        "model_keys": list(frozen_panel_model_keys),
+                        "model_registry_sha256": model_registry_sha256,
+                    }
+                ),
+                "label_count": len(selected_labels),
+                "unit_count": len(frozen_units),
+                "model_outputs": model_outputs,
+                "ensemble": ensemble.to_record(),
+                "selected_labels": [label.to_record() for label in selected_labels],
+                "estimated_cost": sum(
+                    _float(output.get("estimated_cost")) for output in model_outputs
+                ),
+            }
+        )
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
 
 
