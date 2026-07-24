@@ -17206,6 +17206,7 @@ def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
             {
                 "output": str(output),
                 "broker_policy_sha256": broker_policy_sha256(policy),
+                "attempt_policy": policy["attempt_policy"],
             },
             sort_keys=True,
         )

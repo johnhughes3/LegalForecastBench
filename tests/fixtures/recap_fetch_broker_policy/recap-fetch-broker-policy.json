@@ -9,6 +9,10 @@
       "recap_document": "456"
     }
   ],
+  "attempt_policy": {
+    "reason": "all-planned-documents-have-ordinary-explicit-public-evidence",
+    "status": "not-applicable-explicit-public-only"
+  },
   "cycle_cap_usd": "100.00",
   "cycle_id": "cycle-1",
   "opening_case_committed_spend_usd": {
