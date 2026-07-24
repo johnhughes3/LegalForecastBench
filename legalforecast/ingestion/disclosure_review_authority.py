@@ -172,26 +172,15 @@ def write_disclosure_review_authority(
     path: str | Path,
     artifact: Mapping[str, object],
     *,
+    expected_identity: DisclosureReviewAuthorityIdentity,
     reviewer_policy_bytes: bytes,
 ) -> None:
     """Verify and atomically publish one immutable authority artifact."""
 
     payload = authority_artifact_bytes(artifact)
-    parsed = _parse_canonical_object(payload, "authority artifact")
-    authority_value = parsed.get("authority")
-    if not isinstance(authority_value, Mapping):
-        raise DisclosureReviewAuthorityError("authority must be an object")
-    authority = cast(Mapping[str, object], authority_value)
-    identity = DisclosureReviewAuthorityIdentity(
-        cycle_id=_text(authority.get("cycle_id"), "cycle_id"),
-        cohort_policy_sha256=_digest(
-            authority.get("cohort_policy_sha256"), "cohort policy hash"
-        ),
-        eligibility_anchor=_authority_anchor(authority),
-    )
     verify_disclosure_review_authority(
         payload,
-        expected_identity=identity,
+        expected_identity=expected_identity,
         reviewer_policy_bytes=reviewer_policy_bytes,
     )
 
@@ -210,16 +199,6 @@ def write_disclosure_review_authority(
         _atomic_write(target, payload)
     finally:
         os.close(lock_fd)
-
-
-def _authority_anchor(authority: Mapping[str, object]) -> date:
-    value = _text(authority.get("eligibility_anchor"), "eligibility anchor")
-    try:
-        return date.fromisoformat(value)
-    except ValueError as exc:
-        raise DisclosureReviewAuthorityError(
-            "authority eligibility anchor is malformed"
-        ) from exc
 
 
 def disclosure_authority_identity_from_cohort_policy(

@@ -97,11 +97,17 @@ def test_write_authority_is_immutable_and_idempotent(tmp_path: Path) -> None:
     artifact = _artifact()
 
     write_disclosure_review_authority(
-        path, artifact, reviewer_policy_bytes=_reviewer_policy()
+        path,
+        artifact,
+        expected_identity=_identity(),
+        reviewer_policy_bytes=_reviewer_policy(),
     )
     first = path.read_bytes()
     write_disclosure_review_authority(
-        path, artifact, reviewer_policy_bytes=_reviewer_policy()
+        path,
+        artifact,
+        expected_identity=_identity(),
+        reviewer_policy_bytes=_reviewer_policy(),
     )
 
     assert path.read_bytes() == authority_artifact_bytes(artifact)
@@ -114,7 +120,26 @@ def test_write_authority_is_immutable_and_idempotent(tmp_path: Path) -> None:
         write_disclosure_review_authority(
             path,
             changed,
+            expected_identity=_identity(),
             reviewer_policy_bytes=_reviewer_policy(reviewer_id="other-reviewer"),
+        )
+
+
+def test_write_authority_rejects_unexpected_identity(tmp_path: Path) -> None:
+    unexpected_identity = DisclosureReviewAuthorityIdentity(
+        cycle_id="unexpected-cycle",
+        cohort_policy_sha256=_identity().cohort_policy_sha256,
+        eligibility_anchor=_identity().eligibility_anchor,
+    )
+
+    with pytest.raises(
+        DisclosureReviewAuthorityError, match="authority cycle_id mismatch"
+    ):
+        write_disclosure_review_authority(
+            tmp_path / "authority.json",
+            _artifact(),
+            expected_identity=unexpected_identity,
+            reviewer_policy_bytes=_reviewer_policy(),
         )
 
 

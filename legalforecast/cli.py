@@ -16370,6 +16370,7 @@ def _cmd_generate_disclosure_review_authority(args: argparse.Namespace) -> int:
         write_disclosure_review_authority(
             cast(Path, args.output),
             artifact,
+            expected_identity=identity,
             reviewer_policy_bytes=reviewer_policy_bytes,
         )
     except (
