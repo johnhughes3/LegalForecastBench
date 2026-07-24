@@ -9,6 +9,7 @@ set without changing the identity of independent CourtListener REST snapshots.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -133,6 +134,144 @@ LEGACY_32057DE_SOURCE_SHA256: Final[Mapping[str, str]] = {
     ),
 }
 
+COMPATIBLE_4D3BA85_SOURCE_MANIFEST_SHA256: Final = (
+    "913e76a76c3d0cd69640e1034bec8c13557cdb03dc5d77f35c5ab82c7e8448c5"
+)
+COMPATIBLE_4D3BA85_SOURCE_SHA256: Final[Mapping[str, str]] = {
+    "legalforecast/cli.py": (
+        "dfebc9187b35f2c2d36eff94314907de837c03c4b1dca5abd09a1353d9f2ae4b"
+    ),
+    "legalforecast/ingestion/budgeted_docket_acquisition.py": (
+        "a11b91e5b9cef810ab88d6dde16bfe0dc4d77dbce798bf3e354261d34f8c10a9"
+    ),
+    "legalforecast/ingestion/case_dev_firecrawl.py": (
+        "4e3d1bf19c975264c185d1ef6e1c3132a43b72e91d2031b7e98ca93b028180b1"
+    ),
+    "legalforecast/ingestion/courtlistener_acquisition.py": (
+        "261ab270306634cdaf18520ed7bc5e39282ce4dac923c8bb2e307ebda8445394"
+    ),
+    "legalforecast/ingestion/courtlistener_client.py": (
+        "5afbee992368bd790db9eb118a08b895bfe01599f51d8f37885f3d0fcc31640c"
+    ),
+    "legalforecast/ingestion/courtlistener_dates.py": (
+        "c414deb237d62fe6fbdd43863cdd4acf0387a5de54ecb21f0cd7c0ec88417f3d"
+    ),
+    "legalforecast/ingestion/courtlistener_web.py": (
+        "35f4b0a3c88a55cc00de1a61782b8c5a8f1ba64db23c2fe55a1f950ff12c869b"
+    ),
+    "legalforecast/ingestion/cycle_acquisition_store.py": (
+        "8056af7bb6ca810fe945153f0e79ded8d4879abf0305a7bda98e99805739807a"
+    ),
+    "legalforecast/ingestion/docket_sync.py": (
+        "0731149bd3d84bf6d87d6e59fbe2631555b4b345b3d0824ad01bb567bc80d33f"
+    ),
+    "legalforecast/ingestion/firecrawl_screening_identity.py": (
+        "41da191a51cd8ade7decce5c3c3c5bf4fad0dd88af64da39d1b8f94f5370d626"
+    ),
+    "legalforecast/ingestion/mtd_acquisition_screen.py": (
+        "72084326faa7f76afc6075556fd8ba6738df83189ce178100cb1a0eb50630e7e"
+    ),
+    "legalforecast/ingestion/operative_complaint.py": (
+        "aff85d1a327d3a7dc44f884d9bd833010ffe3fb32136d48153d4ccb48851a5eb"
+    ),
+    "legalforecast/ingestion/provenance.py": (
+        "fb67f7db133dd3382c12c37010485d321f9b0fab93d7fc9a2f617628d254ae14"
+    ),
+    "legalforecast/ingestion/recap_api_discovery.py": (
+        "ca6ed64c73939778dd1a30e3e018cb72e1866d7ba854c3e061807c9dcd9f8623"
+    ),
+    "legalforecast/ingestion/restricted_material.py": (
+        "f36a0cf5b5db5e3d6d997d46095cccfde89be9a9213db6b26576a116ed16758d"
+    ),
+    "legalforecast/ingestion/screening_snapshot_union.py": (
+        "ed8e10077ea0d86a25dc34a443b22f595e28d598730ff0ec342c97c974d2d8fc"
+    ),
+    "legalforecast/ingestion/snapshot_replay.py": (
+        "eb0c03115d606630d15bccad3cf29332313be41a854ea90e9c385bee549c088b"
+    ),
+    "legalforecast/ingestion/strict_screen_evidence.py": (
+        "135663c6a0e666e440d3b269b7a608062799ae5830f06dfc810c99bdda4026f3"
+    ),
+    "legalforecast/selection/contamination_filters.py": (
+        "e1437bf64633071c06fa28bee618e8cc17e2a41ca929e9e3a1e8164e4048bde9"
+    ),
+    "legalforecast/selection/exclusion_ledger.py": (
+        "092dc50db5bd27ea924c61472841522a2bce03f9ae81115ed2aceb5d5a6a2915"
+    ),
+    "legalforecast/selection/motion_linkage.py": (
+        "a44d1bb198801cc99d3057d148527e31d6cd5ef6dbdfc0c13271f2cc97f8cfe2"
+    ),
+}
+
+COMPATIBLE_FINAL_V3_SOURCE_MANIFEST_SHA256: Final = (
+    "9e076e7f488f60e7f8308af4f27db7f38b9418383c53ccd1e9d652c6236a955c"
+)
+COMPATIBLE_FINAL_V3_SOURCE_SHA256: Final[Mapping[str, str]] = {
+    "legalforecast/cli.py": (
+        "08cde002a79e9c2f6ece0dc25a977e7c2c4b3bd010d9502d87ca5e30e76795d3"
+    ),
+    "legalforecast/ingestion/budgeted_docket_acquisition.py": (
+        "a11b91e5b9cef810ab88d6dde16bfe0dc4d77dbce798bf3e354261d34f8c10a9"
+    ),
+    "legalforecast/ingestion/case_dev_firecrawl.py": (
+        "4e3d1bf19c975264c185d1ef6e1c3132a43b72e91d2031b7e98ca93b028180b1"
+    ),
+    "legalforecast/ingestion/courtlistener_acquisition.py": (
+        "261ab270306634cdaf18520ed7bc5e39282ce4dac923c8bb2e307ebda8445394"
+    ),
+    "legalforecast/ingestion/courtlistener_client.py": (
+        "5afbee992368bd790db9eb118a08b895bfe01599f51d8f37885f3d0fcc31640c"
+    ),
+    "legalforecast/ingestion/courtlistener_dates.py": (
+        "c414deb237d62fe6fbdd43863cdd4acf0387a5de54ecb21f0cd7c0ec88417f3d"
+    ),
+    "legalforecast/ingestion/courtlistener_web.py": (
+        "9a3afae7ba91ac07e1f1b99ff5cfa0afc82207dcc93e4f80723d9ec85cb66905"
+    ),
+    "legalforecast/ingestion/cycle_acquisition_store.py": (
+        "8056af7bb6ca810fe945153f0e79ded8d4879abf0305a7bda98e99805739807a"
+    ),
+    "legalforecast/ingestion/docket_sync.py": (
+        "0731149bd3d84bf6d87d6e59fbe2631555b4b345b3d0824ad01bb567bc80d33f"
+    ),
+    "legalforecast/ingestion/firecrawl_screening_identity.py": (
+        "dc3b00b2cbb22df0d8067dac2522d1a371d43ffa9c70d2da5b1d7b490fad8b4d"
+    ),
+    "legalforecast/ingestion/mtd_acquisition_screen.py": (
+        "72084326faa7f76afc6075556fd8ba6738df83189ce178100cb1a0eb50630e7e"
+    ),
+    "legalforecast/ingestion/operative_complaint.py": (
+        "aff85d1a327d3a7dc44f884d9bd833010ffe3fb32136d48153d4ccb48851a5eb"
+    ),
+    "legalforecast/ingestion/provenance.py": (
+        "fb67f7db133dd3382c12c37010485d321f9b0fab93d7fc9a2f617628d254ae14"
+    ),
+    "legalforecast/ingestion/recap_api_discovery.py": (
+        "ca6ed64c73939778dd1a30e3e018cb72e1866d7ba854c3e061807c9dcd9f8623"
+    ),
+    "legalforecast/ingestion/restricted_material.py": (
+        "f36a0cf5b5db5e3d6d997d46095cccfde89be9a9213db6b26576a116ed16758d"
+    ),
+    "legalforecast/ingestion/screening_snapshot_union.py": (
+        "c95f22b456dda41dc7575ad50da638fb59adb27276aebe571ba3d036a9f23bc3"
+    ),
+    "legalforecast/ingestion/snapshot_replay.py": (
+        "eb0c03115d606630d15bccad3cf29332313be41a854ea90e9c385bee549c088b"
+    ),
+    "legalforecast/ingestion/strict_screen_evidence.py": (
+        "135663c6a0e666e440d3b269b7a608062799ae5830f06dfc810c99bdda4026f3"
+    ),
+    "legalforecast/selection/contamination_filters.py": (
+        "e1437bf64633071c06fa28bee618e8cc17e2a41ca929e9e3a1e8164e4048bde9"
+    ),
+    "legalforecast/selection/exclusion_ledger.py": (
+        "092dc50db5bd27ea924c61472841522a2bce03f9ae81115ed2aceb5d5a6a2915"
+    ),
+    "legalforecast/selection/motion_linkage.py": (
+        "a44d1bb198801cc99d3057d148527e31d6cd5ef6dbdfc0c13271f2cc97f8cfe2"
+    ),
+}
+
 
 class FirecrawlScreeningIdentityError(ValueError):
     """Raised when a Firecrawl screening source commitment is not exact."""
@@ -242,11 +381,38 @@ def validate_firecrawl_screening_implementation(
         },
         "manifest_sha256": manifest_sha256,
     }
-    if require_current and normalized != firecrawl_screening_implementation():
+    compatible_previous = tuple(
+        {
+            "schema_version": FIRECRAWL_SCREENING_IMPLEMENTATION_SCHEMA,
+            "source_sha256": {
+                path: source_sha256[path] for path in FIRECRAWL_SCREENING_SOURCE_PATHS
+            },
+            "manifest_sha256": manifest_sha256,
+        }
+        for source_sha256, manifest_sha256 in (
+            (
+                COMPATIBLE_4D3BA85_SOURCE_SHA256,
+                COMPATIBLE_4D3BA85_SOURCE_MANIFEST_SHA256,
+            ),
+            (
+                COMPATIBLE_FINAL_V3_SOURCE_SHA256,
+                COMPATIBLE_FINAL_V3_SOURCE_MANIFEST_SHA256,
+            ),
+        )
+    )
+    if require_current and _canonical_commitment(normalized) not in {
+        # Use canonical JSON because nested dictionaries are not hashable.
+        _canonical_commitment(firecrawl_screening_implementation()),
+        *(_canonical_commitment(item) for item in compatible_previous),
+    }:
         raise FirecrawlScreeningIdentityError(
             "Firecrawl screening sources do not match the committed implementation"
         )
     return normalized
+
+
+def _canonical_commitment(commitment: Mapping[str, object]) -> str:
+    return json.dumps(commitment, sort_keys=True, separators=(",", ":"))
 
 
 def require_snapshot_firecrawl_screening_implementation(

@@ -88,6 +88,30 @@ def test_parse_public_docket_html_extracts_entries_documents_and_availability() 
     assert motion.documents[0].freely_available is False
 
 
+def test_parser_omits_structurally_empty_document_placeholder() -> None:
+    html = (
+        "<html><head><title>Minute-only docket</title></head><body>"
+        '<div id="docket-entry-table">'
+        '<div class="row" id="minute-entry-181045070">'
+        '<div class="col-xs-1"></div>'
+        '<div class="col-xs-3"><span title="Nov 22, 2021">Nov 22, 2021</span></div>'
+        '<div class="col-xs-8">SUMMONS Issued as to Defendants'
+        '<div class="row recap-documents"><div></div><div></div></div>'
+        "</div></div></div></body></html>"
+    )
+
+    page = parse_courtlistener_docket_html(
+        html,
+        source_url=(
+            "https://www.courtlistener.com/docket/61568804/"
+            "mcdonald-v-m2-management-inc/"
+        ),
+    )
+
+    [entry] = page.entries
+    assert entry.documents == ()
+
+
 def test_parser_flags_active_next_page_for_automatic_exclusion() -> None:
     page = parse_courtlistener_docket_html(
         _docket_html(next_enabled=True),
