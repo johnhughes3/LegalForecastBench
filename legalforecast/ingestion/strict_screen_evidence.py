@@ -86,6 +86,7 @@ def validate_strict_screen_evidence(
     entries = cast(list[object], entries_value)
     row_ids: set[str] = set()
     entry_number_to_row_id: dict[str, str] = {}
+    blank_auxiliary_row_ids: set[str] = set()
     for index, value in enumerate(entries, start=1):
         entry = _mapping(value, f"selected_entries[{index}]")
         row_id = _text(entry.get("row_id"), f"selected_entries[{index}].row_id")
@@ -93,6 +94,7 @@ def validate_strict_screen_evidence(
             raise StrictScreenEvidenceError("selected_entries repeat a row ID")
         row_ids.add(row_id)
         entry_number_value = entry.get("entry_number")
+        entry_number: str | None = None
         if entry_number_value is not None:
             entry_number = _text(
                 entry_number_value,
@@ -106,7 +108,6 @@ def validate_strict_screen_evidence(
         filed_at = entry.get("filed_at")
         if filed_at is not None:
             _text(filed_at, f"selected_entries[{index}].filed_at")
-        _text(entry.get("text"), f"selected_entries[{index}].text")
         role = _text(entry.get("role"), f"selected_entries[{index}].role")
         if role not in {
             "mtd_notice",
@@ -120,6 +121,17 @@ def validate_strict_screen_evidence(
             raise StrictScreenEvidenceError(
                 f"selected_entries[{index}].role is invalid"
             )
+        text_value = entry.get("text")
+        if not isinstance(text_value, str):
+            _text(text_value, f"selected_entries[{index}].text")
+        assert isinstance(text_value, str)
+        blank_auxiliary = not text_value.strip()
+        if blank_auxiliary and (
+            role != "other"
+            or entry_number in target_numbers
+            or entry_number in decision_numbers
+        ):
+            _text(text_value, f"selected_entries[{index}].text")
         _string_list(
             entry.get("restriction_markers"),
             f"selected_entries[{index}].restriction_markers",
@@ -130,6 +142,7 @@ def validate_strict_screen_evidence(
             raise StrictScreenEvidenceError(
                 f"selected_entries[{index}].documents must be a list"
             )
+        has_document_description = False
         for document_index, document_value in enumerate(
             cast(list[object], documents_value), start=1
         ):
@@ -141,9 +154,13 @@ def validate_strict_screen_evidence(
                 document.get("kind"),
                 f"selected_entries[{index}].documents[{document_index}].kind",
             )
-            _optional_text(
+            description = _optional_text(
                 document.get("description"),
                 f"selected_entries[{index}].documents[{document_index}].description",
+            )
+            has_document_description = (
+                bool(description is not None and description.strip())
+                or has_document_description
             )
             _optional_text(
                 document.get("href"),
@@ -168,6 +185,15 @@ def validate_strict_screen_evidence(
                 ".restriction_markers",
                 allow_empty=True,
             )
+        if blank_auxiliary:
+            # CourtListener REST legitimately leaves administrative entry text
+            # blank while supplying the row narrative as a RECAP document
+            # description. Retain such rows so packet completeness and
+            # restriction markers remain auditable, but never let one satisfy
+            # the required motion, decision, or linkage evidence.
+            if not has_document_description:
+                _text(text_value, f"selected_entries[{index}].text")
+            blank_auxiliary_row_ids.add(row_id)
 
     if not set(target_numbers).issubset(entry_number_to_row_id):
         raise StrictScreenEvidenceError(
@@ -288,6 +314,10 @@ def validate_strict_screen_evidence(
     if not decision_row_ids.issubset(linked_decision_ids):
         raise StrictScreenEvidenceError(
             "motion_linkage does not bind the selected disposition"
+        )
+    if blank_auxiliary_row_ids & (linked_motion_ids | linked_decision_ids):
+        raise StrictScreenEvidenceError(
+            "motion_linkage references a blank auxiliary row"
         )
 
 
