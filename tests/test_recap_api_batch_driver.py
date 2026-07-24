@@ -680,6 +680,28 @@ def test_run_observe_prioritizes_frozen_clean_signal_and_free_evidence_before_co
     path = _build_saturated_direct_search_store(tmp_path)
     source = _priority_novel_source(tmp_path, path)
     template = next(lead for lead in source.leads if lead.docket_id == "200")
+    older_free_evidence: dict[str, object] = {
+        "entry_number": 500,
+        "description": "ORDER granting defendant's motion to dismiss",
+        "entry_date_filed": "2026-07-06",
+        "is_available": True,
+    }
+    newer_paid_evidence: dict[str, object] = {
+        "entry_number": 50,
+        "description": "ORDER granting defendant's motion to dismiss",
+        "entry_date_filed": "2026-07-10",
+        "is_available": False,
+    }
+    prioritized_evidence = min(
+        (newer_paid_evidence, older_free_evidence),
+        key=lambda evidence: recap_api_batch_driver._priority_evidence_sort_key(
+            evidence,
+            window_start=source.search_window_start,
+            window_end=source.search_window_end,
+            eligibility_anchor=source.source_eligibility_anchor,
+        ),
+    )
+    assert prioritized_evidence is older_free_evidence
 
     def lead(
         docket_id: int,
@@ -687,11 +709,12 @@ def test_run_observe_prioritizes_frozen_clean_signal_and_free_evidence_before_co
         entry_number: int,
         description: str,
         is_available: bool,
+        entry_date_filed: str = "2026-07-06",
     ) -> recap_api_batch_driver.DirectSearchLead:
         evidence: dict[str, object] = {
             "entry_number": entry_number,
             "description": description,
-            "entry_date_filed": "2026-07-06",
+            "entry_date_filed": entry_date_filed,
             "is_available": is_available,
         }
         return replace(
@@ -710,13 +733,20 @@ def test_run_observe_prioritizes_frozen_clean_signal_and_free_evidence_before_co
         description="Motion to Dismiss",
         is_available=False,
     )
-    costly_clean_free = lead(
+    newer_clean_paid = lead(
+        666,
+        entry_number=50,
+        description="ORDER granting defendant's motion to dismiss",
+        is_available=False,
+        entry_date_filed="2026-07-10",
+    )
+    older_costly_clean_free = lead(
         777,
         entry_number=500,
         description="ORDER granting defendant's motion to dismiss",
         is_available=True,
     )
-    leads = (cheap_generic, costly_clean_free)
+    leads = (cheap_generic, newer_clean_paid, older_costly_clean_free)
     candidate_set_sha256 = recap_api_batch_driver._lead_set_sha256(leads)
     lineage = dict(source.source_lineage_commitments or {})
     lineage.pop("source_lineage_commitment_sha256")
@@ -739,14 +769,14 @@ def test_run_observe_prioritizes_frozen_clean_signal_and_free_evidence_before_co
     )
 
     batch_id = "priority-observe"
-    store = CycleAcquisitionStore(path)
-    try:
-        materialize_direct_search_priority_tranche(
+    with CycleAcquisitionStore(path) as store:
+        tranche = materialize_direct_search_priority_tranche(
             store,
             batch_id=batch_id,
             source=priority_source,
-            tranche_size=2,
+            tranche_size=3,
         )
+        assert tranche.selected_candidate_ids[0] == "courtlistener-docket-777"
         client = _token_client(
             [
                 _docket_response(777),
@@ -777,8 +807,7 @@ def test_run_observe_prioritizes_frozen_clean_signal_and_free_evidence_before_co
         assert tally.observed == 1
         assert store.current_observation("courtlistener-docket-777") is not None
         assert store.current_observation("courtlistener-docket-555") is None
-    finally:
-        store.close()
+        assert store.current_observation("courtlistener-docket-666") is None
 
 
 def test_run_observe_enforces_frozen_window_end_from_config(tmp_path: Path) -> None:

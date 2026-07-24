@@ -682,8 +682,8 @@ def _observation_priority(
             cast(int, record["structural_rank"]),
             cast(int, record["clean_yield_demotion_rank"]),
             cast(int, record["signal_rank"]),
-            cast(int, record["date_rank"]),
             cast(int, record["free_rank"]),
+            cast(int, record["date_rank"]),
             -cast(int, record["decision_ordinal"]),
             cast(int, record["entry_sort"]),
             cast(int, record["docket_sort"]),
@@ -2668,9 +2668,9 @@ def _priority_evidence_sort_key(
     entry_number = _positive_integer_prefix(evidence.get("entry_number"))
     return (
         signal_rank,
+        free_rank,
         date_rank,
         -ordinal,
-        free_rank,
         entry_number if entry_number is not None else 2**31,
         json.dumps(dict(evidence), sort_keys=True, separators=(",", ":"), default=str),
     )
@@ -2762,8 +2762,8 @@ def _rank_direct_search_leads(
             structural_rank,
             clean_yield_demotion_rank,
             signal_rank,
-            date_rank,
             free_rank,
+            date_rank,
             -decision_ordinal,
             entry_sort,
             docket_sort,
