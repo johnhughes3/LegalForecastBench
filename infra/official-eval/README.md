@@ -19,11 +19,11 @@ The observed repository OIDC customization uses GitHub's default subject behavio
 
 ## Storage and retention
 
-Both existing buckets are modeled as private, `BucketOwnerEnforced`, AES-256 server-side encrypted, versioned, and TLS-only. Public-access blocks and `prevent_destroy` are mandatory.
+Both existing buckets are modeled as global-namespace general purpose buckets that are private, `BucketOwnerEnforced`, AES-256 server-side encrypted, versioned, and TLS-only. Public-access blocks and `prevent_destroy` are mandatory. Account-regional `-an` names and directory/table bucket suffixes are rejected because this root does not set a non-global `bucket_namespace` or model those bucket types.
 
 This root deliberately does not expire `per-case/` current objects or noncurrent versions. Per-case outputs can repeat filing text or other PII, so indefinite private retention has a data-minimization cost; however, deleting a noncurrent version can invalidate a receipt that commits its exact S3 `VersionId`. Any destructive raw-result lifecycle must therefore be a separate, explicit review that reconciles PII obligations with the receipt-retention horizon and archived audit evidence. A stale blanket 30-day noncurrent-version rule is not safe.
 
-`reports/security-negative-controls/` is reserved for later live denied-write canaries. It is never a canonical report destination and neither runtime role is granted that prefix as a negative-control namespace. Only an administrator may seed or clean those disposable objects; the narrowly scoped lifecycle expires their current and noncurrent versions after the reviewed short retention. Incomplete multipart uploads are aborted after seven days on both buckets.
+`reports/security-negative-controls/` is reserved for later live denied-write canaries. It is never a canonical report destination and neither runtime role is granted that prefix as a negative-control namespace. Only an administrator may seed or clean those disposable objects; the narrowly scoped lifecycle expires their current and noncurrent versions after the reviewed whole-day retention. Incomplete multipart uploads are aborted after seven days on both buckets.
 
 ## Existing buckets, import, and remote state
 

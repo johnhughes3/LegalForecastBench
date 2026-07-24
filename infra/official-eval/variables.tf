@@ -33,8 +33,21 @@ variable "packet_bucket_name" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.packet_bucket_name))
-    error_message = "packet_bucket_name must be a valid S3 bucket name."
+    condition = (
+      can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.packet_bucket_name)) &&
+      !strcontains(var.packet_bucket_name, "..") &&
+      length(regexall("^[0-9]{1,3}([.][0-9]{1,3}){3}$", var.packet_bucket_name)) == 0 &&
+      !startswith(var.packet_bucket_name, "xn--") &&
+      !startswith(var.packet_bucket_name, "sthree-") &&
+      !startswith(var.packet_bucket_name, "amzn-s3-demo-") &&
+      !endswith(var.packet_bucket_name, "-s3alias") &&
+      !endswith(var.packet_bucket_name, "--ol-s3") &&
+      !endswith(var.packet_bucket_name, ".mrap") &&
+      !endswith(var.packet_bucket_name, "--x-s3") &&
+      !endswith(var.packet_bucket_name, "--table-s3") &&
+      !endswith(var.packet_bucket_name, "-an")
+    )
+    error_message = "packet_bucket_name must satisfy the S3 global-namespace general purpose bucket naming rules."
   }
 }
 
@@ -43,8 +56,21 @@ variable "results_bucket_name" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.results_bucket_name))
-    error_message = "results_bucket_name must be a valid S3 bucket name."
+    condition = (
+      can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.results_bucket_name)) &&
+      !strcontains(var.results_bucket_name, "..") &&
+      length(regexall("^[0-9]{1,3}([.][0-9]{1,3}){3}$", var.results_bucket_name)) == 0 &&
+      !startswith(var.results_bucket_name, "xn--") &&
+      !startswith(var.results_bucket_name, "sthree-") &&
+      !startswith(var.results_bucket_name, "amzn-s3-demo-") &&
+      !endswith(var.results_bucket_name, "-s3alias") &&
+      !endswith(var.results_bucket_name, "--ol-s3") &&
+      !endswith(var.results_bucket_name, ".mrap") &&
+      !endswith(var.results_bucket_name, "--x-s3") &&
+      !endswith(var.results_bucket_name, "--table-s3") &&
+      !endswith(var.results_bucket_name, "-an")
+    )
+    error_message = "results_bucket_name must satisfy the S3 global-namespace general purpose bucket naming rules."
   }
 }
 
@@ -134,9 +160,10 @@ variable "negative_control_retention_days" {
   validation {
     condition = (
       var.negative_control_retention_days >= 1 &&
-      var.negative_control_retention_days <= 30
+      var.negative_control_retention_days <= 30 &&
+      floor(var.negative_control_retention_days) == var.negative_control_retention_days
     )
-    error_message = "negative-control retention must be from 1 through 30 days."
+    error_message = "negative-control retention must be a whole number from 1 through 30 days."
   }
 }
 

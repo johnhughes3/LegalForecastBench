@@ -776,6 +776,34 @@ def test_lifecycle_preserves_audit_versions_and_only_expires_negative_controls()
     assert storage.count("abort_incomplete_multipart_upload") == 2
 
 
+def test_s3_inputs_enforce_global_bucket_names_and_whole_retention_days() -> None:
+    variables = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
+
+    for variable_name in ("packet_bucket_name", "results_bucket_name"):
+        reference = f"var.{variable_name}"
+        assert f'!strcontains({reference}, "..")' in variables
+        assert (
+            'length(regexall("^[0-9]{1,3}([.][0-9]{1,3}){3}$", '
+            f"{reference})) == 0" in variables
+        )
+        for reserved_prefix in ("xn--", "sthree-", "amzn-s3-demo-"):
+            assert f'!startswith({reference}, "{reserved_prefix}")' in variables
+        for reserved_suffix in (
+            "-s3alias",
+            "--ol-s3",
+            ".mrap",
+            "--x-s3",
+            "--table-s3",
+            "-an",
+        ):
+            assert f'!endswith({reference}, "{reserved_suffix}")' in variables
+
+    assert (
+        "floor(var.negative_control_retention_days) == "
+        "var.negative_control_retention_days" in variables
+    )
+
+
 def test_docs_record_unapplied_import_remote_state_and_live_acceptance_boundaries() -> (
     None
 ):
