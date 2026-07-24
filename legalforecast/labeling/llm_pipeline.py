@@ -19,6 +19,15 @@ from legalforecast.evals.live_model_solver import (
     complete_live_prompt,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.evals.provider_spend_attempt_handler import (
+    CompositeProviderAttemptHandler,
+    ProviderSpendAttemptHandler,
+    conservative_reservation_microusd,
+)
+from legalforecast.evals.provider_spend_control import (
+    ProviderSpendAuthority,
+    ProviderSpendKey,
+)
 from legalforecast.ingestion.decision_text_artifact import (
     SCHEMA_VERSION as DECISION_TEXT_SCHEMA_VERSION,
 )
@@ -208,6 +217,8 @@ def llm_unitize_cases(
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
     provider_cycle_id: str | None = None,
     provider_cycle_caps_sha256: str | None = None,
+    provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None = None,
+    provider_accounts: Mapping[str, str] | None = None,
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
 
@@ -250,7 +261,15 @@ def llm_unitize_cases(
                 transport=transport,
                 environ=environ,
                 timeout_seconds=timeout_seconds,
-                attempt_handler=journal,
+                attempt_handler=_combined_attempt_handler(
+                    journal=journal,
+                    authorities=provider_spend_authorities,
+                    accounts=provider_accounts,
+                    cycle_id=provider_cycle_id,
+                    stage="llm-unitize",
+                    candidate_id=candidate_id,
+                    registry_entry=registry_entry,
+                ),
             )
             payload = _json_object_from_response(
                 response.raw_output,
@@ -389,6 +408,8 @@ def llm_review_stage_a_units(
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
     provider_cycle_id: str | None = None,
     provider_cycle_caps_sha256: str | None = None,
+    provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None = None,
+    provider_accounts: Mapping[str, str] | None = None,
 ) -> LlmBatchResult:
     """Flag structural defects without permitting the reviewer to rewrite Stage A."""
 
@@ -442,7 +463,15 @@ def llm_review_stage_a_units(
                 transport=transport,
                 environ=environ,
                 timeout_seconds=timeout_seconds,
-                attempt_handler=journal,
+                attempt_handler=_combined_attempt_handler(
+                    journal=journal,
+                    authorities=provider_spend_authorities,
+                    accounts=provider_accounts,
+                    cycle_id=provider_cycle_id,
+                    stage="llm-review-stage-a",
+                    candidate_id=candidate_id,
+                    registry_entry=registry_entry,
+                ),
             )
             payload = _json_object_from_response(response.raw_output)
             flags = validate_structural_review_flags(
@@ -450,6 +479,10 @@ def llm_review_stage_a_units(
             )
             if journal is not None and journal.has_validated_response:
                 journal.commit_reconstruction({"structural_flags": list(flags)})
+        except Exception as exc:
+            if journal is not None and journal.has_validated_response:
+                journal.record_reconstruction_failure(exc)
+            raise
         finally:
             if journal is not None:
                 journal.close()
@@ -738,6 +771,8 @@ def llm_label_cases(
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
     provider_cycle_id: str | None = None,
     provider_cycle_caps_sha256: str | None = None,
+    provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None = None,
+    provider_accounts: Mapping[str, str] | None = None,
 ) -> LlmBatchResult:
     """Generate Stage B outcome labels with registry-backed LLM judges."""
 
@@ -853,6 +888,8 @@ def llm_label_cases(
                         ),
                         provider_cycle_id=provider_cycle_id,
                         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+                        provider_spend_authorities=provider_spend_authorities,
+                        provider_accounts=provider_accounts,
                     )
                 )
                 labels_by_model[entry.registry_key] = labels
@@ -1084,6 +1121,8 @@ def _llm_label_one_model(
     provider_cycle_cap_usd: float,
     provider_cycle_id: str | None,
     provider_cycle_caps_sha256: str | None,
+    provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None,
+    provider_accounts: Mapping[str, str] | None,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
@@ -1105,7 +1144,15 @@ def _llm_label_one_model(
             transport=transport,
             environ=environ,
             timeout_seconds=timeout_seconds,
-            attempt_handler=journal,
+            attempt_handler=_combined_attempt_handler(
+                journal=journal,
+                authorities=provider_spend_authorities,
+                accounts=provider_accounts,
+                cycle_id=provider_cycle_id,
+                stage="llm-label",
+                candidate_id=_required_str(selection, "candidate_id"),
+                registry_entry=registry_entry,
+            ),
         )
         try:
             payload = _json_object_from_response(
@@ -1146,6 +1193,8 @@ def _llm_label_one_model(
         except FrozenUnitWorkflowRequiredError:
             raise
         except Exception as exc:
+            if journal is not None and journal.has_validated_response:
+                journal.record_reconstruction_failure(exc)
             raise LlmResponseValidationError(str(exc), response=response) from exc
         if journal is not None and journal.has_validated_response:
             journal.commit_reconstruction(
@@ -1273,6 +1322,60 @@ def _provider_attempt_journal(
         cycle_cap_usd=cycle_cap_usd,
         cycle_id=cycle_id,
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+    )
+
+
+def _combined_attempt_handler(
+    *,
+    journal: ProviderAttemptJournal | None,
+    authorities: Mapping[str, ProviderSpendAuthority] | None,
+    accounts: Mapping[str, str] | None,
+    cycle_id: str | None,
+    stage: str,
+    candidate_id: str,
+    registry_entry: ModelRegistryEntry,
+) -> (
+    ProviderAttemptJournal
+    | ProviderSpendAttemptHandler
+    | CompositeProviderAttemptHandler
+    | None
+):
+    if authorities is None:
+        return journal
+    provider = registry_entry.provider.lower()
+    try:
+        authority = authorities[provider]
+        account = (accounts or {})[provider]
+    except KeyError as exc:
+        raise LlmPipelineError(
+            f"remote provider spend authority is incomplete for {provider}"
+        ) from exc
+    if not cycle_id:
+        raise LlmPipelineError("remote provider spend authority requires cycle_id")
+    spend_handler = ProviderSpendAttemptHandler(
+        authority=authority,
+        key=ProviderSpendKey(
+            cycle_id=cycle_id,
+            provider=provider,
+            account=account,
+            stage=stage,
+            model_key=registry_entry.registry_key,
+            case_id=candidate_id,
+            ablation="labeling",
+            repeat_index=1,
+        ),
+        reservation_microusd=conservative_reservation_microusd(
+            context_limit=registry_entry.context_limit,
+            max_output_tokens=registry_entry.max_output_tokens,
+            input_token_price=registry_entry.input_token_price,
+            output_token_price=registry_entry.output_token_price,
+        ),
+    )
+    if journal is None:
+        return spend_handler
+    return CompositeProviderAttemptHandler(
+        replay_handler=journal,
+        spend_handler=spend_handler,
     )
 
 
