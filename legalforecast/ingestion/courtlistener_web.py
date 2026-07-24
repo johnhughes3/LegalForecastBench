@@ -404,14 +404,18 @@ def _parse_entry_row(row: _Node) -> CourtListenerWebDocketEntry:
             date_filed = span.attrs.get("title") if span is not None else child.text()
             date_filed = date_filed or None
     row_text = row.text()
+    documents = tuple(
+        document
+        for node in _documents(row)
+        for document in (_parse_recap_document(node),)
+        if not _is_empty_document_placeholder(document)
+    )
     return CourtListenerWebDocketEntry(
         row_id=row_id,
         entry_number=entry_number,
         filed_at=date_filed,
         text=row_text,
-        documents=tuple(
-            _parse_recap_document(document) for document in _documents(row)
-        ),
+        documents=documents,
         restriction_markers=restricted_material_markers(text_fields=(row_text,)),
         narrative_text=_entry_narrative_text(row),
     )
@@ -464,6 +468,16 @@ def _parse_recap_document(document: _Node) -> CourtListenerWebDocument:
             text_fields=(kind, description),
             access_label_fields=(action_label or "",),
         ),
+    )
+
+
+def _is_empty_document_placeholder(document: CourtListenerWebDocument) -> bool:
+    return (
+        not document.kind
+        and not document.description
+        and document.href is None
+        and document.action_label is None
+        and not document.restriction_markers
     )
 
 

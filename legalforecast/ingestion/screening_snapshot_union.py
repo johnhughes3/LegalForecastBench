@@ -50,6 +50,9 @@ LONGITUDINAL_CORRECTION_POLICY_V2 = (
 RAWLESS_ACTIVE_REPROOF_POLICY = (
     "unique_raw_backed_authority_over_authenticated_rawless_exact310_reproof_v1"
 )
+RAWLESS_DIRECT_REST_ACTIVE_PROOF_POLICY = (
+    "unique_raw_backed_authority_over_authenticated_rawless_direct_rest_proof_v1"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +160,11 @@ def load_screening_snapshot_union(
         source_candidates = verified_source.candidates
         strict_screen_history = verified_source.strict_screen_history
         source_raw = verified_source.raw_artifacts
+        source_terminal_raw = _source_terminal_raw_artifacts(
+            manifest,
+            candidates=source_candidates,
+            raw_artifacts=source_raw,
+        )
         source_candidate_ids = {
             candidate.candidate_id for candidate in source_candidates
         }
@@ -213,11 +221,12 @@ def load_screening_snapshot_union(
             raise ScreeningSnapshotUnionError(
                 f"source snapshot stage commitments are invalid: {snapshot}"
             )
-        source_raw_by_candidate: dict[str, list[UnionRawArtifact]] = {}
+        source_terminal_raw_by_candidate: dict[str, list[UnionRawArtifact]] = {}
+        for artifact in source_terminal_raw:
+            source_terminal_raw_by_candidate.setdefault(
+                artifact.candidate_id, []
+            ).append(artifact)
         for artifact in source_raw:
-            source_raw_by_candidate.setdefault(artifact.candidate_id, []).append(
-                artifact
-            )
             key = (artifact.candidate_id, artifact.sha256, artifact.byte_count)
             prior_artifact = raw_by_commitment.get(key)
             if prior_artifact is None or _retrieved_at(artifact) < _retrieved_at(
@@ -242,7 +251,9 @@ def load_screening_snapshot_union(
                     ),
                     raw_artifacts=tuple(
                         sorted(
-                            source_raw_by_candidate.get(candidate.candidate_id, ()),
+                            source_terminal_raw_by_candidate.get(
+                                candidate.candidate_id, ()
+                            ),
                             key=lambda artifact: (
                                 artifact.sha256,
                                 artifact.byte_count,
@@ -310,6 +321,124 @@ def load_screening_snapshot_union(
             for observation in cast(list[Mapping[str, Any]], correction["observations"])
         ),
         stage_commitment=stage_commitment,
+    )
+
+
+def _source_terminal_raw_artifacts(
+    manifest: Mapping[str, Any],
+    *,
+    candidates: Sequence[UnionCandidate],
+    raw_artifacts: Sequence[UnionRawArtifact],
+) -> tuple[UnionRawArtifact, ...]:
+    """Project a nested union's archived raw history to its terminal authority."""
+
+    stage_commitments_value = manifest.get("stage_commitments")
+    if not isinstance(stage_commitments_value, Mapping):
+        raise ScreeningSnapshotUnionError(
+            "source snapshot stage commitments are invalid"
+        )
+    stage_commitments = cast(Mapping[str, Any], stage_commitments_value)
+    union_value = stage_commitments.get("screening_snapshot_union_inputs")
+    if union_value is None:
+        return tuple(raw_artifacts)
+    if not isinstance(union_value, Mapping):
+        raise ScreeningSnapshotUnionError(
+            "nested screening union commitment is invalid"
+        )
+    union = cast(Mapping[str, Any], union_value)
+    canonical_value = union.get("canonical_raw_artifacts")
+    if not isinstance(canonical_value, list):
+        raise ScreeningSnapshotUnionError(
+            "nested screening union raw authority is invalid"
+        )
+    canonical_rows = cast(list[object], canonical_value)
+    if (
+        union.get("schema_version")
+        != "legalforecast.screening_snapshot_union_inputs.v2"
+        or union.get("candidate_count") != len(candidates)
+        or union.get("raw_artifact_count") != len(raw_artifacts)
+        or union.get("canonical_raw_selection_policy")
+        != "terminal_authority_bound_raw_v2"
+        or union.get("canonical_raw_artifact_count") != len(canonical_rows)
+    ):
+        raise ScreeningSnapshotUnionError(
+            "nested screening union raw authority is invalid"
+        )
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    raw_by_commitment = {
+        (
+            artifact.candidate_id,
+            artifact.sha256,
+            artifact.byte_count,
+            artifact.retrieved_at,
+        ): artifact
+        for artifact in raw_artifacts
+    }
+    raw_candidate_ids = {artifact.candidate_id for artifact in raw_artifacts}
+    canonical_by_candidate: dict[str, UnionRawArtifact] = {}
+    for index, value in enumerate(canonical_rows, start=1):
+        if not isinstance(value, Mapping):
+            raise ScreeningSnapshotUnionError(
+                f"nested screening union canonical raw row {index} is invalid"
+            )
+        row = cast(Mapping[str, object], value)
+        if set(row) != {"candidate_id", "sha256", "byte_count", "retrieved_at"}:
+            raise ScreeningSnapshotUnionError(
+                f"nested screening union canonical raw row {index} is invalid"
+            )
+        candidate_id = row.get("candidate_id")
+        sha256 = row.get("sha256")
+        byte_count = row.get("byte_count")
+        retrieved_at = row.get("retrieved_at")
+        if (
+            not isinstance(candidate_id, str)
+            or candidate_id not in candidates_by_id
+            or candidate_id in canonical_by_candidate
+            or not isinstance(sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+            or not isinstance(byte_count, int)
+            or isinstance(byte_count, bool)
+            or byte_count < 0
+            or not isinstance(retrieved_at, str)
+        ):
+            raise ScreeningSnapshotUnionError(
+                f"nested screening union canonical raw row {index} is invalid"
+            )
+        artifact = raw_by_commitment.get(
+            (candidate_id, sha256, byte_count, retrieved_at)
+        )
+        if artifact is None:
+            raise ScreeningSnapshotUnionError(
+                f"nested screening union canonical raw row {index} is unbound"
+            )
+        canonical_by_candidate[candidate_id] = artifact
+    if set(canonical_by_candidate) != raw_candidate_ids:
+        raise ScreeningSnapshotUnionError(
+            "nested screening union canonical raw ownership is incomplete"
+        )
+    return tuple(
+        artifact
+        for candidate_id in sorted(candidates_by_id)
+        for artifact in (
+            (canonical_by_candidate[candidate_id],)
+            if (
+                candidates_by_id[candidate_id].state != "excluded"
+                and candidate_id in canonical_by_candidate
+            )
+            else tuple(
+                sorted(
+                    (
+                        item
+                        for item in raw_artifacts
+                        if item.candidate_id == candidate_id
+                    ),
+                    key=lambda item: (
+                        _retrieved_at(item),
+                        item.sha256,
+                    ),
+                )
+            )
+        )
     )
 
 
@@ -386,10 +515,15 @@ def _reconcile_terminal_observations(
                 raw_commitment_sets = {
                     _raw_commitment_set(item.raw_artifacts) for item in observations
                 }
-                if len(raw_commitment_sets) != 1:
+                if len(raw_commitment_sets) != 1 or len(canonical.raw_artifacts) > 1:
                     raise ScreeningSnapshotUnionError(
                         "active candidate has non-identical raw-artifact commitments: "
                         f"{candidate_id}"
+                    )
+                if canonical.raw_artifacts:
+                    active_raw_overrides[candidate_id] = _archived_raw_artifact(
+                        canonical.raw_artifacts[0],
+                        archived_raw_by_commitment=archived_raw_by_commitment,
                     )
             continue
 
@@ -411,8 +545,12 @@ def _reconcile_terminal_observations(
             if items[0].candidate.state in {"accepted", "newly_free"}
         }
         rawless_active_reproofs: tuple[_SourceTerminalObservation, ...] = ()
+        rawless_active_reproof_policy: str | None = None
         if len(active_groups) > 1:
-            rawless_active_reproofs = _authenticated_rawless_active_reproofs(
+            (
+                rawless_active_reproofs,
+                rawless_active_reproof_policy,
+            ) = _authenticated_rawless_active_reproofs(
                 canonical,
                 active_groups=active_groups,
                 expected_cycle_hash=expected_cycle_hash,
@@ -466,7 +604,7 @@ def _reconcile_terminal_observations(
         }
         if rawless_active_reproofs:
             correction["active_reproof_reconciliation"] = {
-                "policy": RAWLESS_ACTIVE_REPROOF_POLICY,
+                "policy": rawless_active_reproof_policy,
                 "rawless_source_manifest_sha256": sorted(
                     item.source_manifest_sha256 for item in rawless_active_reproofs
                 ),
@@ -533,55 +671,91 @@ def _authenticated_rawless_active_reproofs(
     *,
     active_groups: Mapping[str, Sequence[_SourceTerminalObservation]],
     expected_cycle_hash: str,
-) -> tuple[_SourceTerminalObservation, ...]:
-    """Return the exact310 rawless reproofs a unique raw-backed proof may defeat."""
+) -> tuple[tuple[_SourceTerminalObservation, ...], str | None]:
+    """Return authenticated rawless same-disposition proofs and their policy."""
 
     if (
         canonical.candidate.state != "accepted"
         or canonical.candidate.reason_code != "strict_clean_screen_passed"
         or len(canonical.raw_artifacts) != 1
     ):
-        return ()
+        return (), None
     canonical_commitment = _terminal_commitment(canonical.candidate)
     canonical_group = active_groups.get(canonical_commitment)
     if canonical_group is None:
-        return ()
+        return (), None
     canonical_raw_set = _raw_commitment_set(canonical.raw_artifacts)
     if len(canonical_raw_set) != 1 or any(
         _raw_commitment_set(item.raw_artifacts) != canonical_raw_set
         for item in canonical_group
     ):
-        return ()
+        return (), None
     rawless: list[_SourceTerminalObservation] = []
+    policies: set[str] = set()
     for commitment, observations in active_groups.items():
         if commitment == canonical_commitment:
             continue
         for observation in observations:
-            if (
+            base_matches = (
                 observation.candidate.state != "accepted"
                 or observation.candidate.reason_code != "strict_clean_screen_passed"
                 or observation.raw_artifacts
-                or not authenticated_rawless_active_reproof_matches(
-                    canonical.candidate.evidence,
-                    observation.candidate.evidence,
-                    expected_candidate_id=canonical.candidate.candidate_id,
-                    expected_cycle_hash=expected_cycle_hash,
-                    reproof_source_manifest_sha256=(observation.source_manifest_sha256),
-                    reproof_source_batch_id=observation.source_batch_id,
-                    reproof_source_batch_digest=observation.source_batch_digest,
-                    reproof_source_candidate_count=(observation.source_candidate_count),
-                    reproof_source_stage_commitments=(
-                        observation.source_stage_commitments
-                    ),
-                )
-            ):
-                return ()
+            )
+            if base_matches:
+                return (), None
+            exact310_matches = authenticated_rawless_active_reproof_matches(
+                canonical.candidate.evidence,
+                observation.candidate.evidence,
+                expected_candidate_id=canonical.candidate.candidate_id,
+                expected_cycle_hash=expected_cycle_hash,
+                reproof_source_manifest_sha256=(observation.source_manifest_sha256),
+                reproof_source_batch_id=observation.source_batch_id,
+                reproof_source_batch_digest=observation.source_batch_digest,
+                reproof_source_candidate_count=(observation.source_candidate_count),
+                reproof_source_stage_commitments=(observation.source_stage_commitments),
+            )
+            direct_rest_matches = _canonical_current_firecrawl_stage_matches(
+                canonical
+            ) and authenticated_rawless_direct_rest_active_proof_matches(
+                canonical.candidate.evidence,
+                observation.candidate.evidence,
+                expected_candidate_id=canonical.candidate.candidate_id,
+                reproof_source_manifest_sha256=(observation.source_manifest_sha256),
+                reproof_source_batch_id=observation.source_batch_id,
+                reproof_source_batch_digest=observation.source_batch_digest,
+                reproof_source_candidate_count=(observation.source_candidate_count),
+                reproof_source_stage_commitments=(observation.source_stage_commitments),
+            )
+            if exact310_matches == direct_rest_matches:
+                return (), None
             try:
                 _validate_active_correction(observation)
             except ScreeningSnapshotUnionError:
-                return ()
+                return (), None
+            policies.add(
+                RAWLESS_ACTIVE_REPROOF_POLICY
+                if exact310_matches
+                else RAWLESS_DIRECT_REST_ACTIVE_PROOF_POLICY
+            )
             rawless.append(observation)
-    return tuple(rawless)
+    if len(policies) != 1:
+        return (), None
+    return tuple(rawless), policies.pop()
+
+
+def _canonical_current_firecrawl_stage_matches(
+    canonical: _SourceTerminalObservation,
+) -> bool:
+    implementation_value = canonical.source_stage_commitments.get(
+        "firecrawl_screening_implementation"
+    )
+    if not isinstance(implementation_value, Mapping):
+        return False
+    implementation = cast(Mapping[str, Any], implementation_value)
+    return (
+        implementation.get("schema_version")
+        == "legalforecast.firecrawl_screening_implementation.v1"
+    )
 
 
 def authenticated_rawless_active_reproof_matches(
@@ -653,6 +827,71 @@ def authenticated_rawless_active_reproof_matches(
     ) == _strict_disposition_fingerprint(
         reproof_evidence,
         expected_candidate_id=expected_candidate_id,
+    )
+
+
+def authenticated_rawless_direct_rest_active_proof_matches(
+    canonical_evidence: Mapping[str, Any],
+    reproof_evidence: Mapping[str, Any],
+    *,
+    expected_candidate_id: str,
+    reproof_source_manifest_sha256: str,
+    reproof_source_batch_id: str,
+    reproof_source_batch_digest: str,
+    reproof_source_candidate_count: int,
+    reproof_source_stage_commitments: Mapping[str, Any],
+) -> bool:
+    """Recognize one rawless direct-REST proof of the same strict disposition."""
+
+    if not _authenticated_direct_rest_stage_matches(
+        reproof_source_manifest_sha256=reproof_source_manifest_sha256,
+        reproof_source_batch_id=reproof_source_batch_id,
+        reproof_source_batch_digest=reproof_source_batch_digest,
+        reproof_source_candidate_count=reproof_source_candidate_count,
+        reproof_source_stage_commitments=reproof_source_stage_commitments,
+    ):
+        return False
+    try:
+        validate_strict_screen_evidence(
+            canonical_evidence,
+            expected_candidate_id=expected_candidate_id,
+        )
+        validate_strict_screen_evidence(
+            reproof_evidence,
+            expected_candidate_id=expected_candidate_id,
+        )
+    except StrictScreenEvidenceError:
+        return False
+    return _strict_disposition_fingerprint(
+        canonical_evidence,
+        expected_candidate_id=expected_candidate_id,
+    ) == _strict_disposition_fingerprint(
+        reproof_evidence,
+        expected_candidate_id=expected_candidate_id,
+    )
+
+
+def _authenticated_direct_rest_stage_matches(
+    *,
+    reproof_source_manifest_sha256: str,
+    reproof_source_batch_id: str,
+    reproof_source_batch_digest: str,
+    reproof_source_candidate_count: int,
+    reproof_source_stage_commitments: Mapping[str, Any],
+) -> bool:
+    """Bind a rawless proof to one complete source-neutral REST snapshot."""
+
+    return (
+        re.fullmatch(r"[0-9a-f]{64}", reproof_source_manifest_sha256) is not None
+        and bool(reproof_source_batch_id)
+        and re.fullmatch(r"[0-9a-f]{64}", reproof_source_batch_digest) is not None
+        and reproof_source_candidate_count > 0
+        and reproof_source_stage_commitments
+        == {
+            "courtlistener_rest_screen_inputs": {
+                "schema_version": "legalforecast.courtlistener_rest_screen_inputs.v1"
+            }
+        }
     )
 
 

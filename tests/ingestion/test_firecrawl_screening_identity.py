@@ -8,6 +8,10 @@ from typing import cast
 
 import pytest
 from legalforecast.ingestion.firecrawl_screening_identity import (
+    COMPATIBLE_4D3BA85_SOURCE_MANIFEST_SHA256,
+    COMPATIBLE_4D3BA85_SOURCE_SHA256,
+    COMPATIBLE_FINAL_V3_SOURCE_MANIFEST_SHA256,
+    COMPATIBLE_FINAL_V3_SOURCE_SHA256,
     FIRECRAWL_SCREENING_IMPLEMENTATION_SCHEMA,
     FIRECRAWL_SCREENING_SOURCE_PATHS,
     LEGACY_32057DE_SOURCE_MANIFEST_SHA256,
@@ -33,6 +37,54 @@ def test_historical_compatibility_set_has_frozen_digest() -> None:
         source_manifest_sha256(LEGACY_32057DE_SOURCE_SHA256)
         == LEGACY_32057DE_SOURCE_MANIFEST_SHA256
         == "3e1628b1bbeb3d2af682baaa12815a4c631a64a0ca95eadf2d70e9fa9da419c9"
+    )
+
+
+def test_immediately_previous_screening_identity_remains_exactly_compatible() -> None:
+    assert set(COMPATIBLE_4D3BA85_SOURCE_SHA256) == set(
+        FIRECRAWL_SCREENING_SOURCE_PATHS
+    )
+    assert (
+        source_manifest_sha256(COMPATIBLE_4D3BA85_SOURCE_SHA256)
+        == COMPATIBLE_4D3BA85_SOURCE_MANIFEST_SHA256
+        == "913e76a76c3d0cd69640e1034bec8c13557cdb03dc5d77f35c5ab82c7e8448c5"
+    )
+    commitment = {
+        "schema_version": FIRECRAWL_SCREENING_IMPLEMENTATION_SCHEMA,
+        "source_sha256": dict(COMPATIBLE_4D3BA85_SOURCE_SHA256),
+        "manifest_sha256": COMPATIBLE_4D3BA85_SOURCE_MANIFEST_SHA256,
+    }
+
+    assert (
+        validate_firecrawl_screening_implementation(
+            commitment,
+            require_current=True,
+        )
+        == commitment
+    )
+
+
+def test_final_v3_screening_identity_remains_exactly_compatible() -> None:
+    assert set(COMPATIBLE_FINAL_V3_SOURCE_SHA256) == set(
+        FIRECRAWL_SCREENING_SOURCE_PATHS
+    )
+    assert (
+        source_manifest_sha256(COMPATIBLE_FINAL_V3_SOURCE_SHA256)
+        == COMPATIBLE_FINAL_V3_SOURCE_MANIFEST_SHA256
+        == "9e076e7f488f60e7f8308af4f27db7f38b9418383c53ccd1e9d652c6236a955c"
+    )
+    commitment = {
+        "schema_version": FIRECRAWL_SCREENING_IMPLEMENTATION_SCHEMA,
+        "source_sha256": dict(COMPATIBLE_FINAL_V3_SOURCE_SHA256),
+        "manifest_sha256": COMPATIBLE_FINAL_V3_SOURCE_MANIFEST_SHA256,
+    }
+
+    assert (
+        validate_firecrawl_screening_implementation(
+            commitment,
+            require_current=True,
+        )
+        == commitment
     )
 
 

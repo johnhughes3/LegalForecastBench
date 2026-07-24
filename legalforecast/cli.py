@@ -550,9 +550,11 @@ from legalforecast.ingestion.screening_snapshot_union import (
     LONGITUDINAL_CORRECTION_POLICY_V1,
     LONGITUDINAL_CORRECTION_POLICY_V2,
     RAWLESS_ACTIVE_REPROOF_POLICY,
+    RAWLESS_DIRECT_REST_ACTIVE_PROOF_POLICY,
     ScreeningSnapshotUnionError,
     UnionRawArtifact,
     authenticated_rawless_active_reproof_matches,
+    authenticated_rawless_direct_rest_active_proof_matches,
     load_screening_snapshot_union,
 )
 from legalforecast.ingestion.snapshot_quarantine import (
@@ -18332,6 +18334,11 @@ def _snapshot_canonical_raw_commitments(
         if raw_policy == "terminal_authority_bound_raw_v2"
         else {}
     )
+    nested_active_authorities = (
+        _snapshot_nested_active_raw_authorities(typed_union_inputs)
+        if raw_policy == "terminal_authority_bound_raw_v2"
+        else {}
+    )
     archived_by_candidate: dict[str, list[Mapping[str, object]]] = defaultdict(list)
     for record in archived_records:
         archived_by_candidate[_required_str(record, "candidate_id")].append(record)
@@ -18365,6 +18372,10 @@ def _snapshot_canonical_raw_commitments(
         canonical: Mapping[str, object]
         if len(ordered) > 1 and state != "excluded":
             authority = active_authority_mapping.get(candidate_id)
+            if authority is None:
+                inherited = nested_active_authorities.get(candidate_id, set())
+                if len(inherited) == 1:
+                    authority = next(iter(inherited))
             matches = [
                 record
                 for record in ordered
@@ -18402,6 +18413,96 @@ def _snapshot_canonical_raw_commitments(
             "authenticated observation"
         )
     return commitments
+
+
+def _snapshot_nested_active_raw_authorities(
+    union_inputs: Mapping[str, object],
+) -> dict[str, set[tuple[str, int, str]]]:
+    """Return manifest-bound raw authorities inherited from nested unions."""
+
+    sources_value = union_inputs.get("sources")
+    if not isinstance(sources_value, list):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union lacks authenticated sources"
+        )
+    authorities: dict[str, set[tuple[str, int, str]]] = defaultdict(set)
+    for source_index, source_value in enumerate(
+        cast(list[object], sources_value), start=1
+    ):
+        if not isinstance(source_value, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is not an object"
+            )
+        source = cast(Mapping[str, object], source_value)
+        source_manifest_sha256 = _required_str(source, "manifest_sha256")
+        if re.fullmatch(r"[0-9a-f]{64}", source_manifest_sha256) is None:
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is invalid"
+            )
+        stage_commitments_value = source.get("stage_commitments")
+        if not isinstance(stage_commitments_value, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is invalid"
+            )
+        stage_commitments = cast(Mapping[str, object], stage_commitments_value)
+        nested_value = stage_commitments.get("screening_snapshot_union_inputs")
+        if nested_value is None:
+            continue
+        if not isinstance(nested_value, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is invalid"
+            )
+        nested = cast(Mapping[str, object], nested_value)
+        raw_mapping_value = nested.get("canonical_raw_artifacts")
+        if (
+            nested.get("schema_version")
+            != "legalforecast.screening_snapshot_union_inputs.v2"
+            or nested.get("canonical_raw_selection_policy")
+            != "terminal_authority_bound_raw_v2"
+            or not isinstance(raw_mapping_value, list)
+        ):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} has invalid "
+                "nested raw authority"
+            )
+        raw_mapping = cast(list[object], raw_mapping_value)
+        if nested.get("canonical_raw_artifact_count") != len(raw_mapping):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} has invalid "
+                "nested raw authority"
+            )
+        seen_candidates: set[str] = set()
+        for row_index, row_value in enumerate(raw_mapping, start=1):
+            if not isinstance(row_value, Mapping):
+                raise CycleAcquisitionStoreError(
+                    f"screening snapshot union source row {source_index} nested raw "
+                    f"row {row_index} is invalid"
+                )
+            row = cast(Mapping[str, object], row_value)
+            if set(row) != {"candidate_id", "sha256", "byte_count", "retrieved_at"}:
+                raise CycleAcquisitionStoreError(
+                    f"screening snapshot union source row {source_index} nested raw "
+                    f"row {row_index} is invalid"
+                )
+            candidate_id = _required_str(row, "candidate_id")
+            sha256 = _required_str(row, "sha256")
+            byte_count = row.get("byte_count")
+            retrieved_at = _required_str(row, "retrieved_at")
+            if (
+                candidate_id in seen_candidates
+                or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+                or not isinstance(byte_count, int)
+                or isinstance(byte_count, bool)
+                or byte_count < 0
+            ):
+                raise CycleAcquisitionStoreError(
+                    f"screening snapshot union source row {source_index} nested raw "
+                    f"row {row_index} is invalid"
+                )
+            _canonical_raw_retrieved_at(retrieved_at, candidate_id=candidate_id)
+            seen_candidates.add(candidate_id)
+            authorities[candidate_id].add((sha256, byte_count, retrieved_at))
+    return dict(authorities)
 
 
 def _snapshot_longitudinal_active_raw_mapping(
@@ -18717,10 +18818,50 @@ def _validate_rawless_active_reproof_reconciliation(
             f"longitudinal correction row {row_index} is not uniquely reconcilable"
         )
     marker = cast(Mapping[str, object], marker_value)
-    if marker.get("policy") != RAWLESS_ACTIVE_REPROOF_POLICY:
+    policy = marker.get("policy")
+    if policy not in {
+        RAWLESS_ACTIVE_REPROOF_POLICY,
+        RAWLESS_DIRECT_REST_ACTIVE_PROOF_POLICY,
+    }:
         raise CycleAcquisitionStoreError(
             f"longitudinal correction row {row_index} has invalid active reproof policy"
         )
+    if policy == RAWLESS_DIRECT_REST_ACTIVE_PROOF_POLICY:
+        authoritative_manifest = _required_str(
+            authoritative,
+            "source_manifest_sha256",
+        )
+        authoritative_source = authenticated_sources.get(authoritative_manifest)
+        authoritative_stage_commitments = (
+            authoritative_source.get("stage_commitments")
+            if authoritative_source is not None
+            else None
+        )
+        typed_authoritative_stage_commitments = (
+            cast(Mapping[str, object], authoritative_stage_commitments)
+            if isinstance(authoritative_stage_commitments, Mapping)
+            else None
+        )
+        implementation_value = (
+            typed_authoritative_stage_commitments.get(
+                "firecrawl_screening_implementation"
+            )
+            if typed_authoritative_stage_commitments is not None
+            else None
+        )
+        implementation = (
+            cast(Mapping[str, object], implementation_value)
+            if isinstance(implementation_value, Mapping)
+            else None
+        )
+        if (
+            implementation is None
+            or implementation.get("schema_version")
+            != "legalforecast.firecrawl_screening_implementation.v1"
+        ):
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {row_index} has invalid active authority"
+            )
     authoritative_hash = _required_str(authoritative, "terminal_sha256")
     canonical_evidence = authoritative.get("evidence")
     if (
@@ -18809,14 +18950,12 @@ def _validate_rawless_active_reproof_reconciliation(
         source_stage_commitments = (
             source.get("stage_commitments") if source is not None else None
         )
-        if (
-            observation.get("state") != "accepted"
-            or observation.get("reason_code") != "strict_clean_screen_passed"
-            or raw_value != []
-            or not isinstance(reproof_evidence, Mapping)
-            or source is None
-            or not isinstance(source_stage_commitments, Mapping)
-            or not authenticated_rawless_active_reproof_matches(
+        exact310_matches = (
+            policy == RAWLESS_ACTIVE_REPROOF_POLICY
+            and isinstance(reproof_evidence, Mapping)
+            and source is not None
+            and isinstance(source_stage_commitments, Mapping)
+            and authenticated_rawless_active_reproof_matches(
                 cast(Mapping[str, Any], canonical_evidence),
                 cast(Mapping[str, Any], reproof_evidence),
                 expected_candidate_id=candidate_id,
@@ -18829,6 +18968,30 @@ def _validate_rawless_active_reproof_reconciliation(
                     Mapping[str, Any], source_stage_commitments
                 ),
             )
+        )
+        direct_rest_matches = (
+            policy == RAWLESS_DIRECT_REST_ACTIVE_PROOF_POLICY
+            and isinstance(reproof_evidence, Mapping)
+            and source is not None
+            and isinstance(source_stage_commitments, Mapping)
+            and authenticated_rawless_direct_rest_active_proof_matches(
+                cast(Mapping[str, Any], canonical_evidence),
+                cast(Mapping[str, Any], reproof_evidence),
+                expected_candidate_id=candidate_id,
+                reproof_source_manifest_sha256=source_manifest_sha256,
+                reproof_source_batch_id=_required_str(source, "batch_id"),
+                reproof_source_batch_digest=_required_str(source, "batch_digest"),
+                reproof_source_candidate_count=cast(int, source["candidate_count"]),
+                reproof_source_stage_commitments=cast(
+                    Mapping[str, Any], source_stage_commitments
+                ),
+            )
+        )
+        if (
+            observation.get("state") != "accepted"
+            or observation.get("reason_code") != "strict_clean_screen_passed"
+            or raw_value != []
+            or exact310_matches == direct_rest_matches
         ):
             raise CycleAcquisitionStoreError(
                 f"longitudinal correction row {row_index} has invalid rawless "

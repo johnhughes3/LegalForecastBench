@@ -293,6 +293,173 @@ def test_union_archives_excluded_versions_but_projects_earliest_for_packets(
         cli_module._owned_raw_records_from_snapshot(union_snapshot)
 
 
+def test_union_of_union_uses_nested_terminal_raw_authority(tmp_path: Path) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    stale = _snapshot(
+        tmp_path / "stale",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {
+                    "candidate_id": candidate_id,
+                    "reason": "no_mtd_or_rule_12_reference",
+                },
+                b"<html><body>stale excluded proof</body></html>",
+            )
+        ],
+    )
+    corrected_evidence = _strict_screen_evidence(candidate_id)
+    corrected = _snapshot(
+        tmp_path / "corrected",
+        batch_id="corrected-screen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                corrected_evidence,
+                b"<html><body>corrected active proof</body></html>",
+            )
+        ],
+    )
+    _set_firecrawl_screening_implementation(corrected)
+    cycle_hash = _cycle_hash(tmp_path / "stale")
+    nested_output = tmp_path / "nested-output"
+    nested_snapshot_root = tmp_path / "nested-snapshots"
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "union-screening-snapshots",
+                "--output-root",
+                str(nested_output),
+                "--cycle-store",
+                str(tmp_path / "stale" / "cycle.sqlite3"),
+                "--batch-id",
+                "nested-corrected-union",
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--source-snapshot",
+                str(stale),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(stale),
+                "--source-snapshot",
+                str(corrected),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(corrected),
+                "--expected-terminal-correction-candidate-id",
+                candidate_id,
+                "--expected-terminal-correction-source-manifest-sha256",
+                _manifest_sha256(corrected),
+                "--snapshot-root",
+                str(nested_snapshot_root),
+                "--snapshot-id",
+                "nested-complete",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    nested = nested_snapshot_root / "nested-complete"
+    disjoint = _snapshot(
+        tmp_path / "disjoint",
+        batch_id="disjoint-screen",
+        observations=[
+            (
+                "courtlistener-docket-79999999",
+                "excluded",
+                "strict_clean_screen_failed",
+                {
+                    "candidate_id": "courtlistener-docket-79999999",
+                    "reason": "no_mtd_or_rule_12_reference",
+                },
+                b"<html><body>disjoint excluded proof</body></html>",
+            )
+        ],
+    )
+
+    outer = load_screening_snapshot_union(
+        (nested, disjoint),
+        expected_manifest_sha256=(
+            _manifest_sha256(nested),
+            _manifest_sha256(disjoint),
+        ),
+        expected_cycle_hash=cycle_hash,
+    )
+
+    assert len(outer.raw_artifacts) == 3
+    active_raw = next(
+        artifact
+        for artifact in outer.canonical_raw_artifacts
+        if artifact.candidate_id == candidate_id
+    )
+    assert active_raw.content == b"<html><body>corrected active proof</body></html>"
+    outer_output = tmp_path / "outer-output"
+    outer_snapshot_root = tmp_path / "outer-snapshots"
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "union-screening-snapshots",
+                "--output-root",
+                str(outer_output),
+                "--cycle-store",
+                str(tmp_path / "stale" / "cycle.sqlite3"),
+                "--batch-id",
+                "outer-nested-union",
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--source-snapshot",
+                str(nested),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(nested),
+                "--source-snapshot",
+                str(disjoint),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(disjoint),
+                "--snapshot-root",
+                str(outer_snapshot_root),
+                "--snapshot-id",
+                "outer-complete",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    outer_snapshot = outer_snapshot_root / "outer-complete"
+    owned_records = cli_module._owned_raw_records_from_snapshot(outer_snapshot)
+    active_record = next(
+        record for record in owned_records if record["candidate_id"] == candidate_id
+    )
+    assert active_record["sha256"] == active_raw.sha256
+    outer_manifest_path = outer_snapshot / "manifest.json"
+    outer_manifest = json.loads(outer_manifest_path.read_text())
+    nested_source = next(
+        source
+        for source in outer_manifest["stage_commitments"][
+            "screening_snapshot_union_inputs"
+        ]["sources"]
+        if "screening_snapshot_union_inputs" in source["stage_commitments"]
+    )
+    nested_authority = next(
+        row
+        for row in nested_source["stage_commitments"][
+            "screening_snapshot_union_inputs"
+        ]["canonical_raw_artifacts"]
+        if row["candidate_id"] == candidate_id
+    )
+    nested_authority["sha256"] = "0" * 64
+    outer_manifest_path.write_text(json.dumps(outer_manifest))
+    with pytest.raises(
+        CycleAcquisitionStoreError,
+        match="without one authenticated correction source",
+    ):
+        cli_module._owned_raw_records_from_snapshot(outer_snapshot)
+
+
 def test_union_rejects_active_candidate_with_divergent_raw_observations(
     tmp_path: Path,
 ) -> None:
@@ -1570,6 +1737,121 @@ def test_union_rejects_generic_rawless_distinct_active_proof(
             expected_terminal_correction_source_manifest_sha256=(
                 _manifest_sha256(raw_backed),
             ),
+        )
+
+
+def test_union_allows_raw_backed_authority_over_authenticated_direct_rest_proof(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-61568804"
+    raw_backed_evidence = _strict_screen_evidence(candidate_id)
+    raw_backed = _snapshot(
+        tmp_path / "raw-backed",
+        batch_id="firecrawl-screen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                raw_backed_evidence,
+                b"<html><body>current public docket proof</body></html>",
+            )
+        ],
+    )
+    _set_firecrawl_screening_implementation(raw_backed)
+
+    direct_rest_evidence = deepcopy(raw_backed_evidence)
+    direct_rest_evidence["candidate"]["url"] = (
+        "https://www.courtlistener.com/docket/61568804/rest-observation/"
+    )
+    direct_rest = _snapshot(
+        tmp_path / "direct-rest",
+        batch_id="direct-rest-screen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                direct_rest_evidence,
+                b"<html><body>temporary helper bytes</body></html>",
+            )
+        ],
+    )
+    _rewrite_snapshot_jsonl(direct_rest, "raw-artifacts.jsonl", [])
+
+    union = load_screening_snapshot_union(
+        (raw_backed, direct_rest),
+        expected_manifest_sha256=(
+            _manifest_sha256(raw_backed),
+            _manifest_sha256(direct_rest),
+        ),
+        expected_cycle_hash=_cycle_hash(tmp_path / "raw-backed"),
+        expected_terminal_correction_candidate_id=(candidate_id,),
+        expected_terminal_correction_source_manifest_sha256=(
+            _manifest_sha256(raw_backed),
+        ),
+    )
+
+    [candidate] = union.candidates
+    assert candidate.evidence == raw_backed_evidence
+    [canonical_raw] = union.canonical_raw_artifacts
+    assert canonical_raw.content == (
+        b"<html><body>current public docket proof</body></html>"
+    )
+    [correction] = union.stage_commitment["longitudinal_corrections"]
+    assert correction["active_reproof_reconciliation"] == {
+        "policy": (
+            "unique_raw_backed_authority_over_authenticated_rawless_"
+            "direct_rest_proof_v1"
+        ),
+        "rawless_source_manifest_sha256": [
+            _manifest_sha256(direct_rest),
+        ],
+    }
+    candidate_records = [
+        {
+            "candidate_id": candidate.candidate_id,
+            "state": candidate.state,
+            "reason_code": candidate.reason_code,
+            "evidence": candidate.evidence,
+        }
+    ]
+    archived_records = [
+        {
+            "candidate_id": artifact.candidate_id,
+            "sha256": artifact.sha256,
+            "byte_count": artifact.byte_count,
+            "retrieved_at": artifact.retrieved_at,
+        }
+        for artifact in union.raw_artifacts
+    ]
+    assert cli_module._snapshot_longitudinal_active_raw_mapping(
+        union.stage_commitment,
+        candidate_records=candidate_records,
+        archived_records=archived_records,
+    ) == {
+        candidate_id: (
+            canonical_raw.sha256,
+            canonical_raw.byte_count,
+            canonical_raw.retrieved_at,
+        )
+    }
+
+    tampered_commitment = deepcopy(union.stage_commitment)
+    rawless_source = next(
+        source
+        for source in tampered_commitment["sources"]
+        if source["manifest_sha256"] == _manifest_sha256(direct_rest)
+    )
+    rawless_source["stage_commitments"]["unbound"] = True
+    with pytest.raises(
+        CycleAcquisitionStoreError,
+        match="invalid rawless active reproof",
+    ):
+        cli_module._snapshot_longitudinal_active_raw_mapping(
+            tampered_commitment,
+            candidate_records=candidate_records,
+            archived_records=archived_records,
         )
 
 
