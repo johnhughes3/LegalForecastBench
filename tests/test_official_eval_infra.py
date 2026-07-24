@@ -166,6 +166,7 @@ def _assert_exact_cell_policy(policy: Mapping[str, object]) -> None:
         "ReadFrozenManifests",
         "ListFrozenManifests",
         "ReadWritePerCaseResults",
+        "ReadWritePerCaseRunnerLogs",
         "ListPerCaseResults",
         "ReadMutationMarkers",
         "CreateMutationMarkers",
@@ -203,6 +204,12 @@ def _assert_exact_cell_policy(policy: Mapping[str, object]) -> None:
         "Effect": "Allow",
         "Action": ["s3:GetObject", "s3:PutObject"],
         "Resource": f"{RESULTS_BUCKET_ARN}/per-case/*/metrics/*",
+    }
+    assert statements["ReadWritePerCaseRunnerLogs"] == {
+        "Sid": "ReadWritePerCaseRunnerLogs",
+        "Effect": "Allow",
+        "Action": ["s3:GetObject", "s3:PutObject"],
+        "Resource": (f"{RESULTS_BUCKET_ARN}/per-case/*/reports/*/*.runner-log.jsonl"),
     }
     assert statements["ListPerCaseResults"] == {
         "Sid": "ListPerCaseResults",
@@ -682,6 +689,12 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
     output_keys_source = _function_source(per_case_source, "_output_keys")
     assert 'f"metrics/{cycle_slug}/{run_id}.runs.jsonl"' in output_keys_source
     assert 'f"metrics/{cycle_slug}/{run_id}.recovery.json"' in output_keys_source
+    run_source = _function_source(per_case_source, "run_per_case_evaluation")
+    assert 'f"reports/{_cycle_slug(packet_object)}/{run_id}.runner-log.jsonl"' in (
+        run_source
+    )
+    assert "aws s3 sync \\" in run_workflow
+    assert '"s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}/" \\' in run_workflow
     ordinary_put_source = _function_source(per_case_source, "_upload_path")
     assert '"put-object"' in ordinary_put_source
     assert '"--if-none-match"' not in ordinary_put_source

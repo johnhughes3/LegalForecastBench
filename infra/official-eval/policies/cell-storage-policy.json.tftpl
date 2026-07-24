@@ -45,6 +45,15 @@
       "Resource": "${results_bucket_arn}/per-case/*/metrics/*"
     },
     {
+      "Sid": "ReadWritePerCaseRunnerLogs",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": "${results_bucket_arn}/per-case/*/reports/*/*.runner-log.jsonl"
+    },
+    {
       "Sid": "ListPerCaseResults",
       "Effect": "Allow",
       "Action": "s3:ListBucket",
