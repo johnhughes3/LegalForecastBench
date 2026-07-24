@@ -379,6 +379,80 @@ uv run legalforecast acquisition finalize-rehearsal-corpus \
 The finalizer re-authenticates every exact-cohort output commitment, candidate and unit coverage, zero-review counts, zero billing, and packet exclusion of decision material before emitting `legalforecast.fixture_rehearsal_corpus.v1` with `official_eligible=false`.
 This success is test evidence only: production `build-decision-texts`, readiness, `finalize-corpus`, freeze, evaluation, and dispatch continue to reject every rehearsal artifact.
 
+### Protected paid-labeling authority
+
+Official paid unitization, structural review, and Stage B judge calls run only through `.github/workflows/official-paid-labeling.yaml`.
+The workflow assumes the distinct `${name_prefix}-authority` role defined by `infra/official-labeling`; it never reuses the evaluation cell role or packet-read role.
+That role's base policy grants only `dynamodb:DescribeTable`, `GetItem`, `PutItem`, `UpdateItem`, and `TransactWriteItems` against the one existing shared authority table.
+It grants no S3, `Scan`, delete, wildcard-resource, or table-administration permission.
+
+Provision these exact protected environments:
+
+- `legalforecastbench-official-labeling-authority-smoke`
+- `legalforecastbench-official-labeling-anthropic-unitize`
+- `legalforecastbench-official-labeling-google-review`
+- `legalforecastbench-official-labeling-openai-label`
+- `legalforecastbench-official-labeling-google-label`
+
+Each provider-bearing environment contains exactly one provider secret named `PROVIDER_API_KEY` and protected variables `LFB_GITHUB_LABELING_ROLE_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE`, `LFB_PROVIDER_ACCOUNT_ALIAS`, and `LFB_AWS_REGION`.
+The authority-smoke environment contains no provider secret; it holds only the exact non-secret authority variables named by its workflow.
+The workflow resolves the environment from a closed stage/provider mapping; the dispatcher cannot supply an environment or role ARN.
+It maps the one generic secret to `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `OPENAI_API_KEY` only inside the provider-call step.
+The provider-bearing job is pinned to a GitHub-hosted runner rather than a mutable runner-label variable, and its 7,200-second OIDC role session matches the 120-minute job timeout.
+AWS OIDC credentials are cleared through `GITHUB_ENV` before the private result artifact is uploaded, and the provider secret is step-scoped rather than persisted.
+
+Before dispatch, build a private Actions artifact containing `official-paid-labeling-job.json` and every path it names.
+All paths are relative to the artifact root; absolute paths, `..` escapes, unknown arguments, provider-authority arguments, provider-shard merge inputs, and shell fragments are rejected.
+Record the artifact-producing workflow run ID, exact artifact name, manifest SHA-256, full release SHA on `main`, stage, and provider as the protected workflow inputs.
+The manifest has this closed shape:
+
+```json
+{
+  "schema_version": "legalforecast.official_paid_labeling_job.v1",
+  "release_sha": "<40-character-main-commit>",
+  "stage": "llm-unitize",
+  "provider": "anthropic",
+  "arguments": {
+    "output-root": "cycle-root",
+    "selection": "inputs/selection.jsonl",
+    "parser-manifest": "inputs/parser-manifest.jsonl",
+    "model-registry": "inputs/stage-a-registry.json",
+    "model-key": ["anthropic:<model-id>"],
+    "provider-cycle-caps": "inputs/provider-cycle-caps.json",
+    "provider-journal": "cycle-root/provider-attempts.sqlite3"
+  }
+}
+```
+
+Include every additional lineage argument required by the selected acquisition command.
+The protected wrapper appends `--provider-authority-table`, `--provider-authority-region`, and `--execute`; the manifest may not supply them.
+It also requires the selected model and protected public account alias to match the frozen registry and provider-cycle-caps.
+The shared authority constructor runs `DescribeTable`, hashes the actual table ARN, compares it with `spend_authority.resource_identity_sha256`, verifies the exact two-key schema, and refuses any mismatch before a provider call.
+
+For Stage B, create one job manifest per provider.
+Each manifest names the complete frozen judge panel, while the protected wrapper appends the one `--execution-provider` allowed by its environment.
+Each provider job emits `llm-label-provider-shard` audit and run-card artifacts but no selected labels.
+Treat the private result artifact as a sequential baton: every paid stage must start from the immediately preceding result artifact, retain the same canonical `provider-journal` path, and use distinct provider-specific audit, labels, queue, log, and run-card paths.
+In particular, do not launch the Google and OpenAI Stage B shards in parallel from two copies of the same SQLite journal.
+The workflow-wide `official-paid-labeling` concurrency group serializes protected paid jobs as a second guard against accidental parallel dispatch.
+Run the first provider shard, rebuild the next sealed job artifact from that result with only the next manifest and provider-specific output paths changed, then run the second shard.
+The remote DynamoDB authority prevents aggregate overspend, but the local journal is the authenticated replay chain; divergent SQLite copies are intentionally not mergeable and will fail provider-free reconciliation.
+After every provider shard succeeds, merge them in a provider-free context by passing each authenticated audit and run card to `llm-label`; the merge revalidates the full candidate/provider cross-product, exact prompts, decision commitments, model outputs, frozen-unit coverage, and shared journal before producing the ordinary `llm-label` run card.
+No provider credential or remote authority role is needed by this finalization step.
+
+Record the following evidence before treating the path as live:
+
+1. Terraform plan/apply identity for `infra/official-labeling`, without copying the role ARN or AWS account ID into a public artifact.
+2. Protected workflow run URL, run attempt, release SHA, environment name, job-manifest SHA-256, provider-cycle-caps SHA-256, public provider account alias, and output run-card SHA-256.
+3. A provider-free live smoke from this workflow proving allowed `DescribeTable`, `GetItem`, `PutItem`, `UpdateItem`, and `TransactWriteItems` against the exact table and denied `Scan`, `DeleteItem`, an outside-table read/write, and table administration.
+4. Confirmation that the credential-clear step ran before artifact upload and the uploaded private artifact contains no credential material.
+
+Provisioning and the live provider-free permission smoke are external checkpoints.
+Until both are recorded, keep the official live-smoke, freeze, and dispatch gates blocked; committed code and static tests alone do not satisfy that operational evidence.
+Run the smoke through `.github/workflows/official-paid-labeling-authority-smoke.yaml` in `legalforecastbench-official-labeling-authority-smoke`.
+Set `LFB_OUTSIDE_AUTHORITY_TABLE` to a real, distinct canary table so an `AccessDenied` result proves the exact-table resource boundary rather than merely encountering a missing table.
+The smoke writes two TTL-bounded sentinel rows to the authority table, makes no provider call, suppresses denial diagnostics that can contain AWS account details, and uploads only the release SHA, public table-identity hash, and boolean allow/deny results.
+
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
 
 ```bash
@@ -398,6 +472,8 @@ uv run legalforecast acquisition llm-unitize \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --provider-authority-table <exact-shared-authority-table-name> \
+  --provider-authority-region <aws-region> \
   --execute --no-resume
 ```
 
@@ -418,6 +494,8 @@ uv run legalforecast acquisition llm-review-stage-a \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --provider-authority-table <exact-shared-authority-table-name> \
+  --provider-authority-region <aws-region> \
   --execute --no-resume
 ```
 
@@ -461,7 +539,7 @@ uv run legalforecast acquisition build-decision-texts \
 
 The command reconciles exact candidate and document coverage; verifies the target-cohort, authenticated clearance, and live-parser run-card commitments; admits only the single public, outcome-bearing, non-model-visible first written disposition entered on or after the Cycle 1 anchor; and binds the source and extracted-text hashes to the pinned parser revision. Fixture parser provenance is refused. It fails closed on missing, ambiguous, sealed, private, malformed restriction flags, unpinned, unauthenticated, or drifted inputs. `decision-texts.jsonl` is private Stage B and audit input only: never place it in a model-visible packet, hand-edit it, or substitute a manually assembled file.
 
-Pass that exact artifact, its immutable manifest, and the completed builder run card to Stage B. The parser manifest and Markdown remain required only to cross-check the authenticated artifact against the pinned live-Mistral lineage; `llm-label` never uses Markdown directly as prompt authority:
+Pass that exact artifact, its immutable manifest, and the completed builder run card to Stage B. The parser manifest and Markdown remain required only to cross-check the authenticated artifact against the pinned live-Mistral lineage; `llm-label` never uses Markdown directly as prompt authority. Run the following paid command once per provider through the protected workflow:
 
 ```bash
 uv run legalforecast acquisition llm-label \
@@ -481,10 +559,51 @@ uv run legalforecast acquisition llm-label \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --execution-provider <openai-or-google> \
+  --audit-output <provider-shard-audit.jsonl> \
+  --run-card-output <provider-shard-run-card.json> \
+  --provider-authority-table <exact-shared-authority-table-name> \
+  --provider-authority-region <aws-region> \
   --execute --no-resume
 ```
 
-Repeat `--model-key` for every entry in the frozen judge registry. Before the first provider reservation, the command replays the authenticated unitizer, structural-review, and apply-review cards; verifies exact candidate and case mapping, decision-document, disposition-date, text, text-hash, source hash and byte count, empty parser quality flags, selection, parser, and finalized-unit coverage and provenance; and requires the same canonical journal and exact caps artifact used by Stage A. It binds the decision JSONL, manifest, run-card, per-record, and text hashes plus the exact finalized-units file, candidate-envelope hashes, full Stage A card chain, journal identity, and stage-specific settled attempts into the label audit and `llm-label` run card. Changing `--output-root` cannot create a new ledger because `--provider-journal` must still resolve to the unitizer-committed canonical path. Any mismatch stops the stage without a provider call.
+Repeat `--model-key` for every entry in the frozen judge registry in every provider-shard job.
+Do not place OpenAI and Google credentials in one job.
+After all provider jobs complete, run the same command without a provider credential or authority-table argument, replacing `--execution-provider` with matching audit/card pairs:
+
+```bash
+uv run legalforecast acquisition llm-label \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --markdown-root <parsed-markdown-root> \
+  --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+  --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+  --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+  --unitization-review-run-card <apply-unitization-review-run-card.json> \
+  --model-registry <frozen-stage-b-judge-registry.json> \
+  --evaluated-model-registry <frozen-evaluated-model-registry.json> \
+  --model-key <every-frozen-judge-key-repeated> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --provider-shard-audit <openai-shard-audit.jsonl> \
+  --provider-shard-run-card <openai-shard-run-card.json> \
+  --provider-shard-audit <google-shard-audit.jsonl> \
+  --provider-shard-run-card <google-shard-run-card.json> \
+  --labels-output <labels.jsonl> \
+  --audit-output <llm-label-audit.jsonl> \
+  --lawyer-review-queue-output <lawyer-review-queue.jsonl> \
+  --run-card-output <llm-label-run-card.json> \
+  --execute --no-resume
+```
+
+Before the first provider reservation, each paid shard replays the authenticated unitizer, structural-review, and apply-review cards; verifies exact candidate and case mapping, decision-document, disposition-date, text, text-hash, source hash and byte count, empty parser quality flags, selection, parser, and finalized-unit coverage and provenance; and requires the same canonical journal and exact caps artifact used by Stage A.
+The provider-free merge binds the decision JSONL, manifest, run card, per-record and text hashes, exact finalized-units file, candidate-envelope hashes, full Stage A card chain, authenticated shard cards, journal identity, and complete settled-attempt cross-product into the final `llm-label` run card.
+Changing `--output-root` cannot create a new ledger because `--provider-journal` must still resolve to the unitizer-committed canonical path.
+Any mismatch stops the paid shard without a provider call or stops the merge without selected labels.
 
 After Stage B labeling completes, freeze the single cycle-level reliability sample before any lawyer adjudication:
 

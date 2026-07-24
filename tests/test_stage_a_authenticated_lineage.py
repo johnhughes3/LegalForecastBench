@@ -504,7 +504,8 @@ def test_provider_stage_replay_rejects_duplicate_cross_model_and_cross_stage_row
             "raw_response_json, normalized_response_json, "
             "reconstructed_result_json, input_tokens, output_tokens, "
             "actual_cost_usd, failure_type, failure_message, reserved_at, "
-            "completed_at FROM provider_attempts WHERE attempt_ordinal = 1"
+            "completed_at, authority_attempt_ordinal FROM provider_attempts "
+            "WHERE attempt_ordinal = 1"
         )
     with pytest.raises(cli.CommandError, match="one settled provider call"):
         cli._verified_provider_stage_attempts(

@@ -18,7 +18,7 @@ import tempfile
 import time
 import uuid
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Mapping, Sequence, Set
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
@@ -68,6 +68,15 @@ from legalforecast.evals.per_case_runner import (
     PerCaseExecutionBackend,
     PerCaseRunnerConfig,
     run_per_case_evaluation,
+)
+from legalforecast.evals.provider_spend_control import (
+    FrozenAttemptPolicy,
+    ProviderSpendAuthority,
+    ProviderSpendControlError,
+)
+from legalforecast.evals.provider_spend_dynamodb import (
+    DynamoDbAuthorityError,
+    DynamoDbProviderSpendAuthority,
 )
 from legalforecast.evals.scorers import (
     CalibrationBin,
@@ -630,6 +639,7 @@ from legalforecast.labeling.llm_pipeline import (
     llm_label_cases,
     llm_review_stage_a_units,
     llm_unitize_cases,
+    merge_llm_label_provider_shards,
     merge_structural_flags_into_review_queue,
     stage_a_structural_flag_records,
     stage_a_structural_review_prompt_records,
@@ -6350,6 +6360,7 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         help="Registry key in provider:model_id form for the Stage A unitizer.",
     )
     _add_provider_cycle_caps_argument(parser)
+    _add_provider_spend_authority_arguments(parser)
     parser.add_argument(
         "--provider-journal",
         type=Path,
@@ -6482,6 +6493,7 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         ),
     )
     _add_provider_cycle_caps_argument(parser)
+    _add_provider_spend_authority_arguments(parser)
     parser.add_argument(
         "--provider-journal",
         type=Path,
@@ -6526,6 +6538,33 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         help="Continue to later candidates after a model/validation failure.",
     )
     parser.add_argument(
+        "--execution-provider",
+        choices=("anthropic", "google", "openai"),
+        help=(
+            "Execute only this provider's entries from the complete frozen judge "
+            "panel and defer consensus. Protected workflows use this mode so one "
+            "job receives exactly one provider credential."
+        ),
+    )
+    parser.add_argument(
+        "--provider-shard-audit",
+        action="append",
+        type=Path,
+        help=(
+            "Authenticated llm-label-provider-shard audit to merge without any "
+            "provider credential. Repeat once per provider in the frozen panel."
+        ),
+    )
+    parser.add_argument(
+        "--provider-shard-run-card",
+        action="append",
+        type=Path,
+        help=(
+            "Completed run card authenticating the corresponding "
+            "--provider-shard-audit. Repeat in the same order."
+        ),
+    )
+    parser.add_argument(
         "--timeout-seconds",
         type=float,
         default=120.0,
@@ -6543,6 +6582,21 @@ def _add_provider_cycle_caps_argument(parser: argparse.ArgumentParser) -> None:
             "with --execute; each provider reservation cap must not exceed its "
             "recorded external spend limit."
         ),
+    )
+
+
+def _add_provider_spend_authority_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--provider-authority-table",
+        help=(
+            "DynamoDB table named by the provider-cycle-caps spend_authority "
+            "commitment. Required with --execute."
+        ),
+    )
+    parser.add_argument(
+        "--provider-authority-region",
+        default="us-east-1",
+        help="AWS region for the shared provider spend authority.",
     )
 
 
@@ -6588,6 +6642,7 @@ def _add_acquisition_llm_review_stage_a_arguments(
         help="Registry key for the structural reviewer (for Cycle 1, Gemini Flash).",
     )
     _add_provider_cycle_caps_argument(parser)
+    _add_provider_spend_authority_arguments(parser)
     parser.add_argument(
         "--provider-journal",
         type=Path,
@@ -32594,13 +32649,17 @@ def _verified_provider_stage_attempts(
     expected_prompts: Mapping[tuple[str, str], str],
     providers_by_model: Mapping[str, str],
     model_registry_sha256: str,
-    expected_validation_failures: Set[tuple[str, str]] = frozenset(),
+    expected_nonsettled_statuses: Mapping[tuple[str, str], str] | None = None,
+    allow_additional_calls: bool = False,
 ) -> JsonRecord:
+    nonsettled_statuses = dict(expected_nonsettled_statuses or {})
     rows = _provider_stage_attempt_rows(journal_path, stage=stage)
     rows_by_call: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
     for row in rows:
         key = (_required_str(row, "candidate_id"), _required_str(row, "model_key"))
         if key not in expected_prompts:
+            if allow_additional_calls:
+                continue
             raise CommandError(
                 f"{stage} journal contains an unexpected candidate/model call: {key}"
             )
@@ -32622,14 +32681,18 @@ def _verified_provider_stage_attempts(
         rows_by_call[key].append(row)
     if set(rows_by_call) != set(expected_prompts):
         raise CommandError(f"{stage} provider journal call coverage differs")
-    if not expected_validation_failures <= set(expected_prompts):
+    if not set(nonsettled_statuses) <= set(expected_prompts):
         raise CommandError(f"{stage} validation-failure audit coverage differs")
+    if not set(nonsettled_statuses.values()) <= {
+        "validated_response",
+        "reconstruction_failed",
+    }:
+        raise CommandError(f"{stage} validation-failure terminal status is invalid")
     for key, call_rows in rows_by_call.items():
-        expected_status = (
-            "validated_response" if key in expected_validation_failures else "settled"
-        )
+        expected_status = nonsettled_statuses.get(key, "settled")
         if sum(row.get("status") == expected_status for row in call_rows) != 1 or any(
-            row.get("status") in {"settled", "validated_response"}
+            row.get("status")
+            in {"settled", "validated_response", "reconstruction_failed"}
             and row.get("status") != expected_status
             for row in call_rows
         ):
@@ -32660,9 +32723,9 @@ def _provider_chain_commitment(
 
 def _label_stage_attempts_from_audit(
     audit_records: Sequence[Mapping[str, Any]],
-) -> tuple[dict[tuple[str, str], str], set[tuple[str, str]]]:
+) -> tuple[dict[tuple[str, str], str], dict[tuple[str, str], str]]:
     expected_prompts: dict[tuple[str, str], str] = {}
-    validation_failures: set[tuple[str, str]] = set()
+    nonsettled_statuses: dict[tuple[str, str], str] = {}
     for record in audit_records:
         candidate_id = _required_str(record, "candidate_id")
         raw_outputs = record.get("model_outputs", ())
@@ -32680,10 +32743,18 @@ def _label_stage_attempts_from_audit(
             expected_prompts[key] = _required_str(output, "provider_prompt_sha256")
             output_status = output.get("status")
             if output_status == "validation_failed":
-                validation_failures.add(key)
+                error_type = _required_str(output, "error_type")
+                if error_type == "LlmResponseValidationError":
+                    nonsettled_statuses[key] = "reconstruction_failed"
+                elif error_type == "FrozenUnitWorkflowRequiredError":
+                    nonsettled_statuses[key] = "validated_response"
+                else:
+                    raise CommandError(
+                        f"invalid llm-label validation failure type: {key}"
+                    )
             elif output_status is not None:
                 raise CommandError(f"invalid llm-label model output status: {key}")
-    return expected_prompts, validation_failures
+    return expected_prompts, nonsettled_statuses
 
 
 def _verify_stage_a_review_run_card(
@@ -32991,6 +33062,147 @@ def _verify_stage_a_review_run_card(
         raise CommandError("structural review output paths changed")
 
 
+def _verify_llm_label_provider_shard_run_card(
+    run_card_path: Path,
+    *,
+    audit_path: Path,
+    lineage: _StageAUnitizationLineage,
+    selection_path: Path,
+    parser_manifest_path: Path,
+    decision_texts_path: Path,
+    decision_texts_manifest_path: Path,
+    decision_texts_run_card_path: Path,
+    finalized_prediction_units_path: Path,
+    llm_unitization_run_card_path: Path,
+    llm_review_stage_a_run_card_path: Path,
+    unitization_review_run_card_path: Path,
+    model_registry_path: Path,
+    evaluated_model_registry_path: Path,
+    provider_cycle_caps_path: Path,
+) -> str:
+    """Authenticate one provider-isolated Stage B shard before merge."""
+
+    if run_card_path.is_symlink() or not run_card_path.is_file():
+        raise CommandError("llm-label provider-shard run card is not a regular file")
+    card = _read_json_object(run_card_path)
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != "llm-label-provider-shard"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not True
+        or card.get("paid_activity_executed") is not True
+    ):
+        raise CommandError("invalid authenticated llm-label provider-shard run card")
+    sources = card.get("source_commitments")
+    outputs = card.get("output_commitments")
+    execution = card.get("model_execution")
+    chain = card.get("provider_chain")
+    if not all(
+        isinstance(value, Mapping) for value in (sources, outputs, execution, chain)
+    ):
+        raise CommandError("llm-label provider-shard run card lacks commitments")
+    expected_sources = {
+        "selection": _stage_a_file_commitment(selection_path),
+        "parser_manifest": _stage_a_file_commitment(parser_manifest_path),
+        "decision_texts": _stage_a_file_commitment(decision_texts_path),
+        "decision_texts_manifest": _stage_a_file_commitment(
+            decision_texts_manifest_path
+        ),
+        "decision_texts_run_card": _stage_a_file_commitment(
+            decision_texts_run_card_path
+        ),
+        "finalized_prediction_units": _stage_a_file_commitment(
+            finalized_prediction_units_path
+        ),
+        "llm_unitization_run_card": _stage_a_file_commitment(
+            llm_unitization_run_card_path
+        ),
+        "llm_review_stage_a_run_card": _stage_a_file_commitment(
+            llm_review_stage_a_run_card_path
+        ),
+        "unitization_review_run_card": _stage_a_file_commitment(
+            unitization_review_run_card_path
+        ),
+        "model_registry": _stage_a_file_commitment(model_registry_path),
+        "evaluated_model_registry": _stage_a_file_commitment(
+            evaluated_model_registry_path
+        ),
+        "provider_cycle_caps": _stage_a_file_commitment(provider_cycle_caps_path),
+    }
+    if dict(cast(Mapping[str, object], sources)) != expected_sources:
+        raise CommandError("llm-label provider-shard source commitment changed")
+    output_records = cast(Mapping[str, object], outputs)
+    if output_records.get("audit") != _stage_a_file_commitment(audit_path):
+        raise CommandError("llm-label provider-shard audit commitment changed")
+    labels_path = _stage_a_committed_path(output_records, "labels")
+    lawyer_queue_path = _stage_a_committed_path(output_records, "lawyer_review_queue")
+    if _read_records(labels_path) or _read_records(lawyer_queue_path):
+        raise CommandError("llm-label provider shard must not emit selected labels")
+
+    execution_record = cast(Mapping[str, object], execution)
+    execution_provider = execution_record.get("execution_provider")
+    if execution_provider not in {"anthropic", "google", "openai"}:
+        raise CommandError("llm-label provider-shard provider is invalid")
+    raw_model_keys = execution_record.get("model_keys")
+    raw_executed_keys = execution_record.get("executed_model_keys")
+    if (
+        not isinstance(raw_model_keys, Sequence)
+        or isinstance(raw_model_keys, (str, bytes))
+        or not isinstance(raw_executed_keys, Sequence)
+        or isinstance(raw_executed_keys, (str, bytes))
+    ):
+        raise CommandError("llm-label provider-shard model keys are invalid")
+    model_keys = tuple(str(value) for value in cast(Sequence[object], raw_model_keys))
+    entries, registry_sha = _registry_entries_for_keys(model_registry_path, model_keys)
+    _require_complete_registry_panel(entries, model_registry_path=model_registry_path)
+    executed_entries = tuple(
+        entry for entry in entries if entry.provider.lower() == execution_provider
+    )
+    executed_model_keys = [entry.registry_key for entry in executed_entries]
+    providers = {entry.registry_key: entry.provider for entry in entries}
+    expected_execution = {
+        "model_keys": [entry.registry_key for entry in entries],
+        "executed_model_keys": executed_model_keys,
+        "model_entry_sha256": {
+            entry.registry_key: "sha256:" + model_registry_entry_sha256(entry)
+            for entry in entries
+        },
+        "model_registry_sha256": registry_sha,
+        "providers": providers,
+        "execution_provider": execution_provider,
+        "provider_shard_merge": False,
+    }
+    if dict(execution_record) != expected_execution:
+        raise CommandError("llm-label provider-shard execution commitment changed")
+    audit_records = _read_records(audit_path)
+    if any(
+        row.get("execution_provider") != execution_provider for row in audit_records
+    ):
+        raise CommandError("llm-label provider-shard audit provider changed")
+    expected_prompts, nonsettled_statuses = _label_stage_attempts_from_audit(
+        audit_records
+    )
+    stage_attempts = _verified_provider_stage_attempts(
+        stage="llm-label",
+        journal_path=lineage.provider_journal_path,
+        expected_prompts=expected_prompts,
+        providers_by_model={
+            entry.registry_key: entry.provider for entry in executed_entries
+        },
+        model_registry_sha256=registry_sha,
+        expected_nonsettled_statuses=nonsettled_statuses,
+        allow_additional_calls=True,
+    )
+    if dict(cast(Mapping[str, object], chain)) != _provider_chain_commitment(
+        lineage=lineage,
+        stage_attempts=stage_attempts,
+    ):
+        raise CommandError("llm-label provider-shard provider chain changed")
+    return cast(str, execution_provider)
+
+
 def _verify_llm_label_run_card(
     run_card_path: Path,
     *,
@@ -33015,14 +33227,16 @@ def _verify_llm_label_run_card(
     if run_card_path.is_symlink() or not run_card_path.is_file():
         raise CommandError("llm-label run card is not a regular file")
     card = _read_json_object(run_card_path)
+    provider_shard_merge = "provider_shard_run_cards" in card
+    expected_paid_activity = not provider_shard_merge
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or card.get("stage") != "llm-label"
         or card.get("status") != "completed"
         or card.get("dry_run") is not False
         or card.get("execute") is not True
-        or card.get("paid_activity_requested") is not True
-        or card.get("paid_activity_executed") is not True
+        or card.get("paid_activity_requested") is not expected_paid_activity
+        or card.get("paid_activity_executed") is not expected_paid_activity
     ):
         raise CommandError("invalid authenticated llm-label run card")
     sources = card.get("source_commitments")
@@ -33108,17 +33322,22 @@ def _verify_llm_label_run_card(
     providers = {entry.registry_key: entry.provider for entry in entries}
     expected_execution = {
         "model_keys": [entry.registry_key for entry in entries],
+        "executed_model_keys": (
+            [] if provider_shard_merge else [entry.registry_key for entry in entries]
+        ),
         "model_entry_sha256": {
             entry.registry_key: "sha256:" + model_registry_entry_sha256(entry)
             for entry in entries
         },
         "model_registry_sha256": registry_sha,
         "providers": providers,
+        "execution_provider": None,
+        "provider_shard_merge": provider_shard_merge,
     }
     if dict(execution_record) != expected_execution:
         raise CommandError("llm-label model execution commitment changed")
     audit_records = _read_records(audit_path)
-    expected_prompts, validation_failures = _label_stage_attempts_from_audit(
+    expected_prompts, nonsettled_statuses = _label_stage_attempts_from_audit(
         audit_records
     )
     stage_attempts = _verified_provider_stage_attempts(
@@ -33127,7 +33346,7 @@ def _verify_llm_label_run_card(
         expected_prompts=expected_prompts,
         providers_by_model=providers,
         model_registry_sha256=registry_sha,
-        expected_validation_failures=validation_failures,
+        expected_nonsettled_statuses=nonsettled_statuses,
     )
     if dict(chain_record) != _provider_chain_commitment(
         lineage=lineage, stage_attempts=stage_attempts
@@ -33147,7 +33366,11 @@ def _verify_llm_label_run_card(
         lineage.provider_journal_path, stage="llm-label"
     ):
         key = (_required_str(row, "candidate_id"), _required_str(row, "model_key"))
-        if row.get("status") not in {"settled", "validated_response"}:
+        if row.get("status") not in {
+            "settled",
+            "validated_response",
+            "reconstruction_failed",
+        }:
             continue
         output = audit_outputs[key]
         try:
@@ -33195,6 +33418,53 @@ def _verify_llm_label_run_card(
         lawyer_review_queue_records(audit_records)
     ):
         raise CommandError("llm-label lawyer queue does not reproduce from audit")
+    shard_audit_paths: tuple[Path, ...] = ()
+    shard_run_card_paths: tuple[Path, ...] = ()
+    if provider_shard_merge:
+        raw_shard_cards = card.get("provider_shard_run_cards")
+        if not isinstance(raw_shard_cards, Sequence) or isinstance(
+            raw_shard_cards, (str, bytes)
+        ):
+            raise CommandError("llm-label shard merge lacks shard run-card lineage")
+        collected_audits: list[Path] = []
+        collected_cards: list[Path] = []
+        for raw_commitment in cast(Sequence[object], raw_shard_cards):
+            if not isinstance(raw_commitment, Mapping):
+                raise CommandError("llm-label shard run-card commitment is invalid")
+            commitment = cast(Mapping[str, object], raw_commitment)
+            shard_card_path = _stage_a_committed_path(
+                {"run_card": commitment}, "run_card"
+            )
+            if dict(commitment) != _stage_a_file_commitment(shard_card_path):
+                raise CommandError("llm-label shard run-card commitment changed")
+            shard_card = _read_json_object(shard_card_path)
+            shard_outputs = shard_card.get("output_commitments")
+            if not isinstance(shard_outputs, Mapping):
+                raise CommandError("llm-label shard run card lacks outputs")
+            shard_audit_path = _stage_a_committed_path(
+                cast(Mapping[str, object], shard_outputs), "audit"
+            )
+            _verify_llm_label_provider_shard_run_card(
+                shard_card_path,
+                audit_path=shard_audit_path,
+                lineage=lineage,
+                selection_path=selection_path,
+                parser_manifest_path=parser_manifest_path,
+                decision_texts_path=decision_texts_path,
+                decision_texts_manifest_path=decision_texts_manifest_path,
+                decision_texts_run_card_path=decision_texts_run_card_path,
+                finalized_prediction_units_path=finalized_prediction_units_path,
+                llm_unitization_run_card_path=llm_unitization_run_card_path,
+                llm_review_stage_a_run_card_path=llm_review_stage_a_run_card_path,
+                unitization_review_run_card_path=unitization_review_run_card_path,
+                model_registry_path=model_registry_path,
+                evaluated_model_registry_path=evaluated_model_registry_path,
+                provider_cycle_caps_path=provider_cycle_caps_path,
+            )
+            collected_audits.append(shard_audit_path)
+            collected_cards.append(shard_card_path)
+        shard_audit_paths = tuple(collected_audits)
+        shard_run_card_paths = tuple(collected_cards)
     expected_inputs = (
         selection_path,
         parser_manifest_path,
@@ -33209,6 +33479,8 @@ def _verify_llm_label_run_card(
         evaluated_model_registry_path,
         provider_cycle_caps_path,
         lineage.provider_journal_path,
+        *shard_audit_paths,
+        *shard_run_card_paths,
     )
     raw_inputs = card.get("input_paths")
     raw_outputs = card.get("output_paths")
@@ -33278,6 +33550,15 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             args,
             markdown_root=markdown_root,
         )
+        provider_spend_authorities, provider_accounts = (
+            _remote_provider_spend_authorities(
+                args,
+                provider_caps=lineage.provider_caps,
+                provider_caps_sha256=lineage.provider_caps_sha256,
+                cycle_id=lineage.cohort_cycle_id,
+                providers=(lineage.registry_entry.provider,),
+            )
+        )
         result = llm_unitize_cases(
             selection_records=lineage.selection_records,
             parser_records=lineage.parser_records,
@@ -33294,6 +33575,8 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             },
             provider_cycle_id=lineage.cohort_cycle_id,
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_spend_authorities=provider_spend_authorities,
+            provider_accounts=provider_accounts,
         )
         _write_jsonl(prediction_units_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -33365,6 +33648,25 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     model_registry_path = cast(Path, args.model_registry)
     evaluated_registry_path = cast(Path, args.evaluated_model_registry)
     provider_caps_path = cast(Path | None, args.provider_cycle_caps)
+    execution_provider = cast(str | None, args.execution_provider)
+    provider_shard_audit_paths = tuple(
+        cast(list[Path] | None, args.provider_shard_audit) or ()
+    )
+    provider_shard_run_card_paths = tuple(
+        cast(list[Path] | None, args.provider_shard_run_card) or ()
+    )
+    if execution_provider is not None and provider_shard_audit_paths:
+        raise CommandError(
+            "--execution-provider cannot be combined with provider-shard merge inputs"
+        )
+    if bool(provider_shard_audit_paths) != bool(provider_shard_run_card_paths) or len(
+        provider_shard_audit_paths
+    ) != len(provider_shard_run_card_paths):
+        raise CommandError(
+            "--provider-shard-audit and --provider-shard-run-card must be repeated "
+            "together"
+        )
+    merge_provider_shards = bool(provider_shard_audit_paths)
     labels_path = _acquisition_path(
         args,
         "labels_output",
@@ -33422,6 +33724,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
                     "selection_count": len(selection_records),
                     "model_registry": str(model_registry_path),
                     "model_keys": list(model_keys),
+                    "execution_provider": execution_provider,
+                    "merge_provider_shards": merge_provider_shards,
                 }
             ],
         )
@@ -33459,50 +33763,131 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             registry_entries,
             evaluated_model_registry_path=evaluated_registry_path,
         )
-        caps_by_provider = {
-            entry.provider: lineage.provider_caps.cap_usd(entry.provider)
-            for entry in registry_entries
-        }
-        result = llm_label_cases(
-            selection_records=selection_records,
-            prediction_unit_records=finalized_unit_records,
-            decision_text_artifact=decision_text_artifact,
-            registry_entries=registry_entries,
-            model_registry_sha256=registry_sha256,
-            consensus_policy=LlmConsensusPolicy(cast(str, args.consensus_policy)),
-            high_confidence_threshold=cast(float, args.high_confidence_threshold),
-            timeout_seconds=cast(float, args.timeout_seconds),
-            continue_on_error=cast(bool, args.continue_on_error),
-            provider_journal_path=provider_journal_path,
-            provider_cycle_caps_usd=caps_by_provider,
-            provider_cycle_id=lineage.cohort_cycle_id,
-            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
-        )
+        if merge_provider_shards:
+            shard_audit_records: list[Mapping[str, Any]] = []
+            for audit_path, run_card_path in zip(
+                provider_shard_audit_paths,
+                provider_shard_run_card_paths,
+                strict=True,
+            ):
+                _verify_llm_label_provider_shard_run_card(
+                    run_card_path,
+                    audit_path=audit_path,
+                    lineage=lineage,
+                    selection_path=selection_path,
+                    parser_manifest_path=parser_manifest_path,
+                    decision_texts_path=decision_texts_path,
+                    decision_texts_manifest_path=decision_texts_manifest_path,
+                    decision_texts_run_card_path=decision_texts_run_card_path,
+                    finalized_prediction_units_path=prediction_units_path,
+                    llm_unitization_run_card_path=authenticated_unitization_card,
+                    llm_review_stage_a_run_card_path=authenticated_structural_card,
+                    unitization_review_run_card_path=cast(Path, review_card_path),
+                    model_registry_path=model_registry_path,
+                    evaluated_model_registry_path=evaluated_registry_path,
+                    provider_cycle_caps_path=cast(Path, provider_caps_path),
+                )
+                shard_audit_records.extend(_read_records(audit_path))
+            result = merge_llm_label_provider_shards(
+                selection_records=selection_records,
+                prediction_unit_records=finalized_unit_records,
+                decision_text_artifact=decision_text_artifact,
+                registry_entries=registry_entries,
+                provider_shard_audit_records=shard_audit_records,
+                model_registry_sha256=registry_sha256,
+                consensus_policy=LlmConsensusPolicy(cast(str, args.consensus_policy)),
+                high_confidence_threshold=cast(float, args.high_confidence_threshold),
+            )
+        else:
+            execution_entries = tuple(
+                entry
+                for entry in registry_entries
+                if execution_provider is None
+                or entry.provider.lower() == execution_provider
+            )
+            if not execution_entries:
+                raise CommandError(
+                    "--execution-provider has no model in the frozen judge panel"
+                )
+            caps_by_provider = {
+                entry.provider: lineage.provider_caps.cap_usd(entry.provider)
+                for entry in execution_entries
+            }
+            provider_spend_authorities, provider_accounts = (
+                _remote_provider_spend_authorities(
+                    args,
+                    provider_caps=lineage.provider_caps,
+                    provider_caps_sha256=lineage.provider_caps_sha256,
+                    cycle_id=lineage.cohort_cycle_id,
+                    providers=tuple(entry.provider for entry in execution_entries),
+                )
+            )
+            result = llm_label_cases(
+                selection_records=selection_records,
+                prediction_unit_records=finalized_unit_records,
+                decision_text_artifact=decision_text_artifact,
+                registry_entries=registry_entries,
+                model_registry_sha256=registry_sha256,
+                consensus_policy=LlmConsensusPolicy(cast(str, args.consensus_policy)),
+                high_confidence_threshold=cast(float, args.high_confidence_threshold),
+                timeout_seconds=cast(float, args.timeout_seconds),
+                continue_on_error=cast(bool, args.continue_on_error),
+                provider_journal_path=provider_journal_path,
+                provider_cycle_caps_usd=caps_by_provider,
+                provider_cycle_id=lineage.cohort_cycle_id,
+                provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+                provider_spend_authorities=provider_spend_authorities,
+                provider_accounts=provider_accounts,
+                execution_provider=execution_provider,
+                defer_consensus=execution_provider is not None,
+            )
         _write_jsonl(labels_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
         _write_jsonl(
             lawyer_review_queue_path,
             lawyer_review_queue_records(result.audit_records),
         )
-        expected_prompts, validation_failure_calls = _label_stage_attempts_from_audit(
-            result.audit_records
-        )
         providers_by_model = {
             entry.registry_key: entry.provider for entry in registry_entries
         }
+        execution_model_keys = [
+            entry.registry_key
+            for entry in registry_entries
+            if execution_provider is None
+            or entry.provider.lower() == execution_provider
+        ]
+        expected_prompts, nonsettled_statuses = _label_stage_attempts_from_audit(
+            result.audit_records
+        )
         stage_attempts = _verified_provider_stage_attempts(
             stage="llm-label",
             journal_path=provider_journal_path,
             expected_prompts=expected_prompts,
-            providers_by_model=providers_by_model,
+            providers_by_model=(
+                providers_by_model
+                if merge_provider_shards
+                else {key: providers_by_model[key] for key in execution_model_keys}
+            ),
             model_registry_sha256=registry_sha256,
-            expected_validation_failures=validation_failure_calls,
+            expected_nonsettled_statuses=nonsettled_statuses,
+            allow_additional_calls=execution_provider is not None,
+        )
+        provider_chain = _provider_chain_commitment(
+            lineage=lineage,
+            stage_attempts=stage_attempts,
         )
         completion_extra.update(
             {
-                "provider_chain": _provider_chain_commitment(
-                    lineage=lineage,
-                    stage_attempts=stage_attempts,
+                "provider_chain": provider_chain,
+                **(
+                    {
+                        "provider_shard_run_cards": [
+                            _stage_a_file_commitment(path)
+                            for path in provider_shard_run_card_paths
+                        ]
+                    }
+                    if merge_provider_shards
+                    else {}
                 ),
                 "stage_a_lineage": {
                     "llm_unitization_run_card": _stage_a_file_commitment(
@@ -33517,6 +33902,9 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
                 },
                 "model_execution": {
                     "model_keys": [entry.registry_key for entry in registry_entries],
+                    "executed_model_keys": (
+                        [] if merge_provider_shards else execution_model_keys
+                    ),
                     "model_entry_sha256": {
                         entry.registry_key: "sha256:"
                         + model_registry_entry_sha256(entry)
@@ -33524,6 +33912,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
                     },
                     "model_registry_sha256": registry_sha256,
                     "providers": providers_by_model,
+                    "execution_provider": execution_provider,
+                    "provider_shard_merge": merge_provider_shards,
                 },
                 "output_commitments": {
                     "labels": _stage_a_file_commitment(labels_path),
@@ -33566,7 +33956,11 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         )
     _write_acquisition_completion(
         args,
-        stage="llm-label",
+        stage=(
+            "llm-label-provider-shard"
+            if execution_provider is not None
+            else "llm-label"
+        ),
         input_paths=(
             selection_path,
             parser_manifest_path,
@@ -33581,6 +33975,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             evaluated_registry_path,
             *((provider_caps_path,) if provider_caps_path is not None else ()),
             *((provider_journal_arg,) if provider_journal_arg else ()),
+            *provider_shard_audit_paths,
+            *provider_shard_run_card_paths,
         ),
         output_paths=(
             labels_path,
@@ -33590,8 +33986,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         ),
         record_count=len(selection_records),
         dry_run=dry_run,
-        paid_activity_requested=not dry_run,
-        paid_activity_executed=not dry_run,
+        paid_activity_requested=not dry_run and not merge_provider_shards,
+        paid_activity_executed=not dry_run and not merge_provider_shards,
         extra=completion_extra,
     )
     return 0
@@ -33642,6 +34038,56 @@ def _require_complete_registry_panel(
             "llm-label must explicitly select every judge in the dedicated frozen "
             "judge registry"
         )
+
+
+def _remote_provider_spend_authorities(
+    args: argparse.Namespace,
+    *,
+    provider_caps: ProviderCycleCaps,
+    provider_caps_sha256: str,
+    cycle_id: str,
+    providers: Sequence[str],
+) -> tuple[dict[str, ProviderSpendAuthority], dict[str, str]]:
+    """Build the pre-labeling authorities committed by the caps artifact."""
+
+    table_name = cast(str | None, getattr(args, "provider_authority_table", None))
+    if table_name is None or not table_name.strip():
+        raise CommandError(
+            "paid labeling requires --provider-authority-table with --execute"
+        )
+    region = cast(str, getattr(args, "provider_authority_region", "us-east-1"))
+    try:
+        spend_policy = provider_caps.require_spend_authority()
+        ledger_sha256 = provider_caps_sha256.removeprefix("sha256:")
+        frozen_policy = FrozenAttemptPolicy(
+            reservation_ledger_sha256=ledger_sha256,
+            max_billable_attempts=spend_policy.max_billable_attempts,
+            failure_threshold=spend_policy.failure_threshold,
+            failure_window_seconds=spend_policy.failure_window_seconds,
+        )
+        authorities: dict[str, ProviderSpendAuthority] = {}
+        accounts: dict[str, str] = {}
+        for provider in sorted({value.lower() for value in providers}):
+            account = provider_caps.account(provider)
+            authorities[provider] = DynamoDbProviderSpendAuthority(
+                table_name=table_name,
+                authority_identity_sha256=(spend_policy.resource_identity_sha256),
+                cycle_id=cycle_id,
+                provider=provider,
+                account=account,
+                cap_microusd=provider_caps.cap_microusd(provider),
+                policy=frozen_policy,
+                region=region,
+            )
+            accounts[provider] = account
+    except (
+        ProviderJournalError,
+        ProviderSpendControlError,
+        DynamoDbAuthorityError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return authorities, accounts
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
@@ -33697,6 +34143,15 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
         entry, registry_sha = _registry_entry_for_key(
             registry_path, cast(str, args.model_key)
         )
+        provider_spend_authorities, provider_accounts = (
+            _remote_provider_spend_authorities(
+                args,
+                provider_caps=lineage.provider_caps,
+                provider_caps_sha256=lineage.provider_caps_sha256,
+                cycle_id=lineage.cohort_cycle_id,
+                providers=(entry.provider,),
+            )
+        )
         result = llm_review_stage_a_units(
             selection_records=selections,
             parser_records=_read_records(parser_path),
@@ -33711,6 +34166,8 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             },
             provider_cycle_id=lineage.cohort_cycle_id,
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_spend_authorities=provider_spend_authorities,
+            provider_accounts=provider_accounts,
         )
         _write_jsonl(flags_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
