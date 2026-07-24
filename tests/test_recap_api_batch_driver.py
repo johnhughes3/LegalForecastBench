@@ -1939,7 +1939,11 @@ def test_priority_tranche_reuses_exact_batch_local_terminal_observation(
             reason_code="strict_clean_screen_passed",
             evidence={
                 "candidate_id": reused_candidate_id,
-                "screen": {"eligible": True},
+                "canonical_rest_screen_complete": True,
+                "screen": {
+                    "status": "accepted_strict_civil_mtd_decision",
+                    "exclusion_reasons": [],
+                },
             },
             observed_at="2026-07-24T13:55:00+00:00",
         )
