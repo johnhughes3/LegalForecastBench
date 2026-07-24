@@ -21,6 +21,9 @@ from legalforecast.ingestion.case_dev_purchase import (
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
 
 RECAP_FETCH_BROKER_POLICY_VERSION = "courtlistener-recap-fetch-policy-v1"
+RECAP_FETCH_ATTEMPT_POLICY_NOT_APPLICABLE_REASON = (
+    "all-planned-documents-have-ordinary-explicit-public-evidence"
+)
 
 _CANONICAL_RECAP_DOCUMENT_ID = re.compile(r"[1-9][0-9]*")
 _CANONICAL_USD = re.compile(r"(0|[1-9][0-9]*)\.[0-9]{2}")
@@ -111,6 +114,7 @@ def generate_recap_fetch_broker_policy(
         selection_records, allow_unselected=broad_frontier_allowlist
     )
     attempt_documents: Mapping[str, Mapping[str, str]] = {}
+    attempt_policy_binding: dict[str, str]
     if attempt_policy_artifact is not None:
         if broad_frontier_allowlist:
             raise RecapFetchBrokerPolicyError(
@@ -129,10 +133,25 @@ def generate_recap_fetch_broker_policy(
                 budget_plan_artifact=budget_plan_artifact,
                 selection_records=selection_records,
             )
+            attempt_policy_sha256 = attempt_policy_artifact.get("policy_sha256")
+            if (
+                not isinstance(attempt_policy_sha256, str)
+                or _SHA256.fullmatch(attempt_policy_sha256) is None
+            ):
+                raise ValueError("attempt policy digest is invalid")
+            attempt_policy_binding = {
+                "status": "verified-artifact",
+                "policy_sha256": attempt_policy_sha256,
+            }
         except ValueError as exc:
             raise RecapFetchBrokerPolicyError(
                 f"attempt policy is invalid: {exc}"
             ) from exc
+    else:
+        attempt_policy_binding = {
+            "status": "not-applicable-explicit-public-only",
+            "reason": RECAP_FETCH_ATTEMPT_POLICY_NOT_APPLICABLE_REASON,
+        }
     allowed_documents: list[dict[str, str]] = []
     seen_candidates: set[str] = set()
     seen_documents: set[str] = set()
@@ -216,6 +235,7 @@ def generate_recap_fetch_broker_policy(
         "version": RECAP_FETCH_BROKER_POLICY_VERSION,
         "cycle_id": purchase_policy.cycle_id,
         "purchase_policy_sha256": purchase_policy.policy_sha256,
+        "attempt_policy": attempt_policy_binding,
         "cycle_cap_usd": f"{purchase_policy.hard_cap_usd:.2f}",
         "per_case_cap_usd": f"{purchase_policy.max_per_case_usd:.2f}",
         "reservation_usd": f"{purchase_policy.per_document_reservation_usd:.2f}",
@@ -421,6 +441,7 @@ def _verify_generated_policy_shape(policy: Mapping[str, object]) -> None:
         "version",
         "cycle_id",
         "purchase_policy_sha256",
+        "attempt_policy",
         "cycle_cap_usd",
         "per_case_cap_usd",
         "reservation_usd",
@@ -443,6 +464,7 @@ def _verify_generated_policy_shape(policy: Mapping[str, object]) -> None:
     digest = policy.get("purchase_policy_sha256")
     if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
         raise RecapFetchBrokerPolicyError("purchase policy digest is invalid")
+    _verify_attempt_policy_binding(policy.get("attempt_policy"))
     cycle_cap = _canonical_money(policy.get("cycle_cap_usd"), "cycle_cap_usd")
     per_case_cap = _canonical_money(policy.get("per_case_cap_usd"), "per_case_cap_usd")
     reservation = _canonical_money(policy.get("reservation_usd"), "reservation_usd")
@@ -498,6 +520,35 @@ def _verify_generated_policy_shape(policy: Mapping[str, object]) -> None:
         raise RecapFetchBrokerPolicyError(
             "opening case commitments must exactly equal opening committed spend"
         )
+
+
+def _verify_attempt_policy_binding(value: object) -> None:
+    if not isinstance(value, Mapping):
+        raise RecapFetchBrokerPolicyError("attempt policy binding must be an object")
+    binding = cast(Mapping[object, object], value)
+    status = binding.get("status")
+    if status == "verified-artifact":
+        if set(binding) != {"status", "policy_sha256"}:
+            raise RecapFetchBrokerPolicyError(
+                "verified attempt policy binding has an unexpected schema"
+            )
+        digest = binding.get("policy_sha256")
+        if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+            raise RecapFetchBrokerPolicyError(
+                "verified attempt policy digest is invalid"
+            )
+        return
+    if status == "not-applicable-explicit-public-only":
+        if set(binding) != {"status", "reason"}:
+            raise RecapFetchBrokerPolicyError(
+                "not-applicable attempt policy binding has an unexpected schema"
+            )
+        if binding.get("reason") != RECAP_FETCH_ATTEMPT_POLICY_NOT_APPLICABLE_REASON:
+            raise RecapFetchBrokerPolicyError(
+                "not-applicable attempt policy reason is invalid"
+            )
+        return
+    raise RecapFetchBrokerPolicyError("attempt policy binding status is invalid")
 
 
 def validate_recap_fetch_budget_plan_artifact(

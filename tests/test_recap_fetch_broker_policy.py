@@ -43,6 +43,10 @@ def test_golden_policy_is_hash_bound_and_excludes_unplanned_selection_docs() -> 
         "version": "courtlistener-recap-fetch-policy-v1",
         "cycle_id": "cycle-1",
         "purchase_policy_sha256": _purchase_policy()["policy_sha256"],
+        "attempt_policy": {
+            "status": "not-applicable-explicit-public-only",
+            "reason": ("all-planned-documents-have-ordinary-explicit-public-evidence"),
+        },
         "cycle_cap_usd": "100.00",
         "per_case_cap_usd": "10.00",
         "reservation_usd": "3.05",
@@ -54,7 +58,7 @@ def test_golden_policy_is_hash_bound_and_excludes_unplanned_selection_docs() -> 
         ],
     }
     assert broker_policy_sha256(policy) == (
-        "054c04aeeafc24adece388cf7b45fba6776964f56d995dc58d2e5bf1d98abb89"
+        "b5db71c6530f5bf75d433c076cbba35766a446b597789f2c18a887c01c04c69e"
     )
 
 
@@ -71,6 +75,10 @@ def test_courtlistener_rest_exact_nonsealed_evidence_is_allowlisted() -> None:
         {"recap_document": "123", "case_id": "case-1"},
         {"recap_document": "456", "case_id": "case-2"},
     ]
+    assert policy["attempt_policy"] == {
+        "status": "not-applicable-explicit-public-only",
+        "reason": "all-planned-documents-have-ordinary-explicit-public-evidence",
+    }
 
 
 def test_explicit_public_evidence_is_allowlisted() -> None:
@@ -306,6 +314,10 @@ def test_verified_attempt_policy_adds_all_incomplete_privacy_docs_to_union() -> 
         {"recap_document": "123", "case_id": "case-1"},
         {"recap_document": "456", "case_id": "case-2"},
     ]
+    assert policy["attempt_policy"] == {
+        "status": "verified-artifact",
+        "policy_sha256": attempt_policy["policy_sha256"],
+    }
     assert [
         (row["case_id"], row["recap_document"], row["evidence_class"])
         for row in attempt_policy["policy"]["allowed_documents"]
@@ -425,6 +437,65 @@ def test_attempt_policy_tamper_or_cross_candidate_reuse_fails_closed() -> None:
             selection_records=selection,
             attempt_policy_artifact=attempt,
         )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda policy: policy.pop("attempt_policy"),
+        lambda policy: policy.update(
+            {
+                "attempt_policy": {
+                    "status": "verified-artifact",
+                    "policy_sha256": "A" * 64,
+                }
+            }
+        ),
+        lambda policy: policy.update(
+            {
+                "attempt_policy": {
+                    "status": "not-applicable-explicit-public-only",
+                    "reason": "human-reviewed-public-documents",
+                }
+            }
+        ),
+        lambda policy: policy.update(
+            {
+                "attempt_policy": {
+                    "status": "not-applicable-explicit-public-only",
+                    "reason": (
+                        "all-planned-documents-have-ordinary-explicit-public-evidence"
+                    ),
+                    "policy_sha256": "a" * 64,
+                }
+            }
+        ),
+    ],
+    ids=(
+        "omitted",
+        "invalid-attempt-digest",
+        "invalid-not-applicable-reason",
+        "mixed-union-state",
+    ),
+)
+def test_attempt_policy_output_binding_tamper_or_omission_fails_closed(
+    tmp_path: Path,
+    mutate: Any,
+) -> None:
+    policy = generate_recap_fetch_broker_policy(
+        purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
+        budget_plan=_budget_plan(),
+        budget_plan_artifact=_budget_plan().to_record(),
+        selection_records=_selection(),
+    )
+    mutate(policy)
+
+    with pytest.raises(
+        RecapFetchBrokerPolicyError,
+        match=r"attempt policy|unexpected schema",
+    ):
+        write_recap_fetch_broker_policy(tmp_path / "broker-policy.json", policy)
 
 
 def test_reordering_inputs_produces_identical_bytes(tmp_path: Path) -> None:
@@ -706,7 +777,93 @@ def test_cli_writes_policy_and_reports_canonical_hash(
     assert report == {
         "output": str(output_path),
         "broker_policy_sha256": broker_policy_sha256(policy),
+        "attempt_policy": {
+            "status": "not-applicable-explicit-public-only",
+            "reason": ("all-planned-documents-have-ordinary-explicit-public-evidence"),
+        },
     }
+
+
+def test_cli_receipt_binds_verified_attempt_policy(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    selection = deepcopy(_selection())
+    selection[0]["documents"][0].update(
+        {
+            "redaction_or_seal_status": "unknown",
+            "restriction_evidence": [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_false",
+                "courtlistener_rest_recap_document_seal_status_unknown",
+                "courtlistener_rest_no_positive_restriction_marker",
+            ],
+            "is_sealed": None,
+            "is_private": None,
+            "is_available": False,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+        }
+    )
+    plan = _budget_plan()
+    purchase_policy = _purchase_policy()
+    cohort_policy = _cohort_policy()
+    attempt_policy = generate_recap_fetch_attempt_policy(
+        purchase_policy_artifact=purchase_policy,
+        cohort_policy_artifact=cohort_policy,
+        budget_plan=plan,
+        budget_plan_artifact=plan.to_record(),
+        selection_records=selection,
+    )
+    paths = {
+        "purchase": tmp_path / "purchase-policy.json",
+        "cohort": tmp_path / "cohort-policy.json",
+        "budget": tmp_path / "budget-plan.json",
+        "selection": tmp_path / "selection.jsonl",
+        "attempt": tmp_path / "attempt-policy.json",
+        "output": tmp_path / "broker-policy.json",
+    }
+    paths["purchase"].write_text(json.dumps(purchase_policy), encoding="utf-8")
+    paths["cohort"].write_text(json.dumps(cohort_policy), encoding="utf-8")
+    paths["budget"].write_text(json.dumps(plan.to_record()), encoding="utf-8")
+    paths["selection"].write_text(
+        "".join(json.dumps(record) + "\n" for record in selection),
+        encoding="utf-8",
+    )
+    paths["attempt"].write_text(json.dumps(attempt_policy), encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "generate-recap-fetch-broker-policy",
+                "--purchase-policy",
+                str(paths["purchase"]),
+                "--cohort-policy",
+                str(paths["cohort"]),
+                "--budget-plan",
+                str(paths["budget"]),
+                "--selection",
+                str(paths["selection"]),
+                "--attempt-policy",
+                str(paths["attempt"]),
+                "--output",
+                str(paths["output"]),
+            ]
+        )
+        == 0
+    )
+
+    policy = json.loads(paths["output"].read_text(encoding="utf-8"))
+    report = json.loads(capsys.readouterr().out)
+    expected_binding = {
+        "status": "verified-artifact",
+        "policy_sha256": attempt_policy["policy_sha256"],
+    }
+    assert policy["attempt_policy"] == expected_binding
+    assert report["attempt_policy"] == expected_binding
 
 
 def test_cli_rejects_purchase_policy_bound_to_another_cohort(
