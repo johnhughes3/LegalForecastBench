@@ -1,0 +1,10 @@
+github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+packet_bucket_name       = "replace-with-existing-private-packet-bucket"
+results_bucket_name      = "replace-with-existing-private-results-bucket"
+
+# Keep false unless the protected environment is intentionally configured to
+# use Bedrock and the matching direct-model or geographic-profile contract has
+# been reviewed. Global inference profiles are deliberately unsupported.
+enable_bedrock_runtime                    = false
+bedrock_direct_foundation_model_arns      = []
+bedrock_geographic_inference_profiles     = {}
