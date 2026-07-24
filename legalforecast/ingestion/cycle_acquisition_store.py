@@ -1753,6 +1753,121 @@ class CycleAcquisitionStore:
                 )
         return self._observation_by_id(observation_id)
 
+    def reuse_current_terminal_observation(
+        self,
+        candidate_id: str,
+        *,
+        batch_id: str,
+        source_observation: CandidateObservation,
+    ) -> CandidateObservation:
+        """Append an exact batch-local reference to the canonical terminal state.
+
+        ``source_observation`` pins both the canonical observation id and its
+        candidate/state/reason/evidence/timestamp projection.  The source is
+        re-read under the write transaction and must still be the candidate's
+        current accepted or excluded observation.  The copied terminal belongs
+        to ``batch_id`` and points back to the source through
+        ``supersedes_observation_id``, but it deliberately does not replace the
+        candidate's canonical current observation.
+
+        This is the provider-free reuse path for a candidate rediscovered in a
+        new immutable batch.  It cannot reinterpret evidence, reuse transient or
+        newly-free states, or silently accept target/source drift.
+        """
+
+        candidate_id = _require_text(candidate_id, "candidate_id")
+        batch_id = _require_text(batch_id, "batch_id")
+        if source_observation.candidate_id != candidate_id:
+            raise ValueError(
+                "source observation candidate identity does not match candidate_id"
+            )
+        if source_observation.state not in {"accepted", "excluded"}:
+            raise ValueError("source observation state must be accepted or excluded")
+        source_projection = _canonical_terminal_observation_projection(
+            source_observation
+        )
+        reused_observation_id: int
+        with self._transaction():
+            batch = self._connection.execute(
+                "SELECT 1 FROM batches WHERE batch_id = ?",
+                (batch_id,),
+            ).fetchone()
+            if batch is None:
+                raise KeyError(f"unknown batch: {batch_id}")
+            discovery = self._connection.execute(
+                """
+                SELECT 1 FROM discovery_hits
+                WHERE batch_id = ? AND candidate_id = ? LIMIT 1
+                """,
+                (batch_id, candidate_id),
+            ).fetchone()
+            if discovery is None:
+                raise KeyError(
+                    f"candidate {candidate_id} was not discovered in batch {batch_id}"
+                )
+            current_row = self._current_observation_row(candidate_id)
+            if current_row is None:
+                raise CycleAcquisitionStoreError(
+                    f"candidate {candidate_id} has no current observation to reuse"
+                )
+            current = _observation_from_row(current_row)
+            if (
+                current.observation_id != source_observation.observation_id
+                or _canonical_terminal_observation_projection(current)
+                != source_projection
+            ):
+                raise CycleAcquisitionStoreError(
+                    f"current observation drift for candidate {candidate_id}"
+                )
+            target_row = self._connection.execute(
+                """
+                SELECT * FROM candidate_observations
+                WHERE batch_id = ? AND candidate_id = ?
+                  AND state IN ('accepted', 'excluded', 'skipped_immutable')
+                ORDER BY observation_id DESC LIMIT 1
+                """,
+                (batch_id, candidate_id),
+            ).fetchone()
+            if target_row is not None:
+                target = _observation_from_row(target_row)
+                if (
+                    target.state == source_observation.state
+                    and target.supersedes_observation_id
+                    == source_observation.observation_id
+                    and _canonical_terminal_observation_projection(target)
+                    == source_projection
+                ):
+                    reused_observation_id = target.observation_id
+                else:
+                    raise CycleAcquisitionStoreError(
+                        "candidate "
+                        f"{candidate_id} already has a conflicting terminal "
+                        f"observation in batch {batch_id}"
+                    )
+            else:
+                reused_observation_id = int(
+                    self._connection.execute(
+                        """
+                        INSERT INTO candidate_observations(
+                            candidate_id, batch_id, state, reason_code,
+                            evidence_json, observed_at,
+                            supersedes_observation_id
+                        ) VALUES(?, ?, ?, ?, ?, ?, ?)
+                        RETURNING observation_id
+                        """,
+                        (
+                            candidate_id,
+                            batch_id,
+                            source_observation.state,
+                            source_observation.reason_code,
+                            _canonical_json(source_observation.evidence),
+                            source_observation.observed_at,
+                            source_observation.observation_id,
+                        ),
+                    ).fetchone()[0]
+                )
+        return self._observation_by_id(reused_observation_id)
+
     def current_observation(self, candidate_id: str) -> CandidateObservation | None:
         """Return the canonical evidenced state, excluding transient audit events."""
 
@@ -3207,6 +3322,22 @@ def _canonical_json(value: object) -> str:
         )
     except (TypeError, ValueError) as error:
         raise ValueError(f"value is not canonical JSON: {error}") from error
+
+
+def _canonical_terminal_observation_projection(
+    observation: CandidateObservation,
+) -> str:
+    """Return the canonical projection that provider-free reuse must preserve."""
+
+    return _canonical_json(
+        {
+            "candidate_id": observation.candidate_id,
+            "state": observation.state,
+            "reason_code": observation.reason_code,
+            "evidence": dict(observation.evidence),
+            "observed_at": observation.observed_at,
+        }
+    )
 
 
 def _is_safe_policy_upgrade(
