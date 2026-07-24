@@ -25,6 +25,7 @@ from legalforecast.ingestion.discovery_scheduler import (
 from legalforecast.ingestion.firecrawl_screening_identity import (
     firecrawl_screening_implementation,
     snapshot_firecrawl_screening_source_count,
+    source_manifest_sha256,
 )
 from legalforecast.ingestion.screening_snapshot_union import (
     ScreeningSnapshotUnionError,
@@ -223,6 +224,19 @@ def test_exact_union_policy_rebind_preserves_every_terminal_and_raw_record(
         == 0
     )
     source_union = union_snapshot_root / "source-union-complete"
+    source_union_manifest_path = source_union / "manifest.json"
+    source_union_manifest = json.loads(source_union_manifest_path.read_text())
+    source_implementation = source_union_manifest["stage_commitments"][
+        "firecrawl_screening_implementation"
+    ]
+    source_sha256 = source_implementation["source_sha256"]
+    source_sha256["legalforecast/ingestion/courtlistener_dates.py"] = (
+        "c414deb237d62fe6fbdd43863cdd4acf0387a5de54ecb21f0cd7c0ec88417f3d"
+    )
+    source_implementation["manifest_sha256"] = source_manifest_sha256(source_sha256)
+    source_union_manifest_path.write_text(
+        json.dumps(source_union_manifest, sort_keys=True, separators=(",", ":"))
+    )
     source_union_card = union_output / "run-cards" / "union-screening-snapshots.json"
     target_store = tmp_path / "target.sqlite3"
     with CycleAcquisitionStore(target_store) as store:

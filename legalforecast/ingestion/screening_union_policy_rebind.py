@@ -50,9 +50,17 @@ _CANDIDATE_ID = re.compile(r"courtlistener-docket-([0-9]+)\Z")
 _UNION_STAGE_SCHEMA = "legalforecast.screening_snapshot_union_inputs.v2"
 _UNION_RUN_SCHEMA = "legalforecast.screening_snapshot_union_summary.v1"
 _UNION_SOURCE_PATH = "legalforecast/ingestion/screening_snapshot_union.py"
+_AUDITED_COURTLISTENER_DATES_PREDECESSOR_SHA256 = (
+    "c414deb237d62fe6fbdd43863cdd4acf0387a5de54ecb21f0cd7c0ec88417f3d"
+)
 _AUDITED_IMPLEMENTATION_PREDECESSOR_SHA256 = {
     "legalforecast/cli.py": (
         "14020dcb3064993fdf81ad680e52ccf71f21ee69b639d0222f53a31c56ab8291"
+    ),
+    # The current parser only broadens recognized CourtListener time suffixes.
+    # Every accepted disposition is revalidated below under that current parser.
+    "legalforecast/ingestion/courtlistener_dates.py": (
+        _AUDITED_COURTLISTENER_DATES_PREDECESSOR_SHA256
     ),
     "legalforecast/ingestion/firecrawl_screening_identity.py": (
         "a8ea3f63d58df42b8f2993bac3b46119095584f9c47740a699d90bd5be857b32"
