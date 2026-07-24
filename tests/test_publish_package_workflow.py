@@ -41,7 +41,7 @@ def test_publish_package_uses_trusted_publishing_and_records_hashes() -> None:
     assert "contents: write" in WORKFLOW
     assert "id-token: write" in WORKFLOW
     assert (
-        "pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b"
+        "pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247"
         in WORKFLOW
     )
     assert "packages-dir: tmp/release-check/dist" in WORKFLOW
