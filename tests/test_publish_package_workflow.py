@@ -46,7 +46,7 @@ def test_publish_package_uses_trusted_publishing_and_records_hashes() -> None:
     )
     assert "packages-dir: tmp/release-check/dist" in WORKFLOW
     assert (
-        "softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b"
+        "softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228"
         in WORKFLOW
     )
     assert "tmp/release-check/package-artifact-hashes.json" in WORKFLOW
