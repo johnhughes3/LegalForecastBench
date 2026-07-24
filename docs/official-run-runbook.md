@@ -851,6 +851,48 @@ uv run legalforecast batch-002 seed-direct-search \
   --summary-output artifacts/cycle-1/official-acquisition/direct-search-transfer.json
 ```
 
+For a large saturated source, the provider-free priority-tranche command may schedule the most decision-looking leads first without changing source membership.
+It uses only committed docket-entry descriptions and valid post-anchor dates, and writes an exact self-hashed deferred frontier.
+Selected plus deferred candidates must be a disjoint union of the complete source; deferred means `unscreened_not_excluded`, never a merits or eligibility exclusion.
+When a docket contains both the motion and a later disposition, the acquisition-only priority record is selected separately from the earliest-entry reconstruction hint, so the later order, opinion, or R&R can drive rank without changing strict-screen evidence.
+Authenticated free-document availability is only a secondary scheduling signal after disposition/date evidence; it is never eligibility, disclosure, completeness, or public-availability proof.
+The priority source must be the complete output of `seed-novel-direct-search`, not the raw search or rebind batch.
+For a cross-cycle source, first run `rebind-direct-search`, then run `seed-novel-direct-search` against that exact rebind with every prior snapshot and manifest SHA-256 pinned; the reader preserves and verifies the original CourtListener authority, source-rebind digest, and prior-dedupe commitments through both provider-free carriers.
+
+```bash
+uv run legalforecast batch-002 materialize-direct-search-priority-tranche \
+  --source-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --source-batch-id <complete-saturated-source-batch-id> \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --batch-id <priority-tranche-001-batch-id> \
+  --tranche-size 500 \
+  --deferred-frontier-output artifacts/cycle-1/official-acquisition/priority-tranche-001-frontier.json \
+  --summary-output artifacts/cycle-1/official-acquisition/priority-tranche-001-summary.json
+```
+
+For tranche 2 and later, externally record the predecessor frontier file SHA-256 and supply both predecessor flags.
+The command re-authenticates the complete source, ranking policy, exact ranked order, predecessor self-hash, and source partition before writing anything.
+
+```bash
+uv run legalforecast batch-002 materialize-direct-search-priority-tranche \
+  --source-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --source-batch-id <complete-saturated-source-batch-id> \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --batch-id <priority-tranche-002-batch-id> \
+  --tranche-size 500 \
+  --predecessor-frontier artifacts/cycle-1/official-acquisition/priority-tranche-001-frontier.json \
+  --expected-predecessor-frontier-sha256 <externally-recorded-file-sha256> \
+  --deferred-frontier-output artifacts/cycle-1/official-acquisition/priority-tranche-002-frontier.json \
+  --summary-output artifacts/cycle-1/official-acquisition/priority-tranche-002-summary.json
+```
+
+This command has no network, provider, purchase, fee-acknowledgment, model-evaluation, freeze, or dispatch path.
+Run `observe` and `snapshot` separately for each selected tranche; each tranche snapshot is deliberately marked provisional and must not be treated as a globally saturated source, final cohort authority, or exclusion ledger.
+Missing or malformed ranking metadata only lowers scheduling priority; the strict screen remains the sole eligibility and exclusion authority, and ranking metadata is acquisition-only and never packet-visible.
+After the terminal tranche reports `deferred_count: 0` and `ranking_frontier_exhausted: true`, pass every externally hash-pinned tranche snapshot, in ordinal order, to `acquisition union-screening-snapshots`.
+Even that last isolated tranche reports `global_source_saturated: false`; only the authenticated final union may assert full-source terminal conservation.
+The union becomes non-provisional only if predecessor/frontier hashes form a contiguous chain and accepted-plus-excluded terminal rows exactly conserve the committed novel-source candidate-ID set; an incomplete, overlapping, mutated, or mixed chain fails closed.
+
 Reconstruct and strictly screen the transferred dockets through authenticated CourtListener REST. The durable request ledger enforces the configured minute, hour, and day ceilings; stopping at a ceiling is resumable and does not change candidate membership.
 
 ```bash

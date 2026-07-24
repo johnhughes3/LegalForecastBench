@@ -482,7 +482,9 @@ from legalforecast.ingestion.readiness_provenance import (
     verify_stage_b_readiness_provenance,
 )
 from legalforecast.ingestion.recap_api_batch_driver import (
+    DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
     RecapApiBatchDriverError,
+    materialize_direct_search_priority_tranche,
     read_batch_001_enrichment_failure_leads,
     read_saturated_direct_search_leads,
     read_verified_priority_dedupe_snapshots,
@@ -987,7 +989,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
             "(discover / seed-direct-search / rebind-direct-search / "
             "rebind-terminal-rest-observations / "
-            "seed-novel-direct-search / select-case-dev-ranked / observe / "
+            "seed-novel-direct-search / materialize-direct-search-priority-tranche / "
+            "select-case-dev-ranked / observe / "
             "seed-batch-001-leads / snapshot)."
         ),
     )
@@ -1133,6 +1136,24 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_novel_direct_seed_arguments(batch_002_novel_direct_seed)
+    batch_002_priority_tranche = batch_002_subparsers.add_parser(
+        "materialize-direct-search-priority-tranche",
+        help=(
+            "Rank a complete committed direct-search source and materialize one "
+            "provider-free tranche plus its exact deferred frontier."
+        ),
+        description=(
+            "Provider-free rank-only scheduling over a complete saturated "
+            "CourtListener-authoritative source. Decision-looking docket-entry "
+            "descriptions and valid post-anchor dates are priority signals only: "
+            "they never remove source candidates. The selected tranche and "
+            "hash-bound deferred frontier form an exact disjoint union of the "
+            "source. Deferred candidates remain unscreened, never excluded. "
+            "The command cannot call providers, purchase documents, evaluate "
+            "models, freeze a cycle, or dispatch packets."
+        ),
+    )
+    _add_batch_002_priority_tranche_arguments(batch_002_priority_tranche)
     batch_002_ranked_selection = batch_002_subparsers.add_parser(
         "select-case-dev-ranked",
         help=(
@@ -3827,6 +3848,71 @@ def _add_batch_002_novel_direct_seed_arguments(
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_novel_direct_seed)
+
+
+def _add_batch_002_priority_tranche_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Read-only store containing the complete saturated source batch.",
+    )
+    parser.add_argument(
+        "--source-batch-id",
+        required=True,
+        help="Exact complete source batch identifier.",
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Same-cycle target store for the selected screening tranche.",
+    )
+    parser.add_argument(
+        "--batch-id",
+        required=True,
+        help="New target batch identifier for this exact tranche.",
+    )
+    parser.add_argument(
+        "--tranche-size",
+        type=int,
+        required=True,
+        help="Maximum number of highest-priority remaining leads to materialize.",
+    )
+    parser.add_argument(
+        "--predecessor-frontier",
+        type=Path,
+        help=(
+            "Prior tranche's deferred-frontier JSON. Required for tranche 2+; "
+            "omit only for the first tranche."
+        ),
+    )
+    parser.add_argument(
+        "--expected-predecessor-frontier-sha256",
+        help=(
+            "Externally recorded lowercase SHA-256 of --predecessor-frontier; "
+            "required with that option."
+        ),
+    )
+    parser.add_argument(
+        "--deferred-frontier-output",
+        type=Path,
+        required=True,
+        help=(
+            "Destination for the self-hashed exact remaining frontier. It is "
+            "unscreened inventory, not an exclusion ledger."
+        ),
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Durable provider-free transfer page size, from 1 through 100.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_priority_tranche)
 
 
 def _add_batch_002_exact310_common_arguments(
@@ -15803,6 +15889,104 @@ def _cmd_batch_002_novel_direct_seed(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_batch_002_priority_tranche(args: argparse.Namespace) -> int:
+    predecessor_path = cast(Path | None, args.predecessor_frontier)
+    expected_predecessor_hash = cast(
+        str | None, args.expected_predecessor_frontier_sha256
+    )
+    if (predecessor_path is None) != (expected_predecessor_hash is None):
+        raise CommandError(
+            "--predecessor-frontier and "
+            "--expected-predecessor-frontier-sha256 must be supplied together"
+        )
+    frontier_output = cast(Path, args.deferred_frontier_output)
+    try:
+        predecessor: Mapping[str, object] | None = None
+        if predecessor_path is not None:
+            if predecessor_path.resolve(strict=False) == frontier_output.resolve(
+                strict=False
+            ):
+                raise ValueError(
+                    "deferred frontier output must not overwrite its predecessor"
+                )
+            if (
+                expected_predecessor_hash is None
+                or re.fullmatch(r"[0-9a-f]{64}", expected_predecessor_hash) is None
+            ):
+                raise ValueError(
+                    "expected predecessor frontier SHA-256 must be lowercase hex"
+                )
+            predecessor_bytes = predecessor_path.read_bytes()
+            actual_hash = hashlib.sha256(predecessor_bytes).hexdigest()
+            if actual_hash != expected_predecessor_hash:
+                raise ValueError(
+                    "predecessor frontier file SHA-256 does not match the "
+                    "external commitment"
+                )
+            predecessor = _read_json_object(predecessor_path)
+        source = read_saturated_direct_search_leads(
+            cast(Path, args.source_store),
+            source_batch_id=cast(str, args.source_batch_id),
+        )
+        existing_frontier: Mapping[str, object] | None = None
+        if frontier_output.exists():
+            if frontier_output.is_symlink() or not frontier_output.is_file():
+                raise ValueError(
+                    "existing deferred frontier output is not a regular file"
+                )
+            existing_frontier = _read_json_object(frontier_output)
+        with CycleAcquisitionStore(cast(Path, args.cycle_store)) as store:
+            target_exists = True
+            try:
+                store.batch_config(cast(str, args.batch_id))
+            except KeyError:
+                target_exists = False
+            if existing_frontier is not None and not target_exists:
+                raise ValueError(
+                    "deferred frontier output exists before its target batch; "
+                    "refusing pre-mutation ambiguity"
+                )
+            result = materialize_direct_search_priority_tranche(
+                store,
+                batch_id=cast(str, args.batch_id),
+                source=source,
+                tranche_size=cast(int, args.tranche_size),
+                predecessor_frontier=predecessor,
+                page_size=cast(int, args.page_size),
+            )
+        if existing_frontier is not None:
+            normalized_frontier = _loads_json(
+                json.dumps(dict(result.frontier), sort_keys=True, allow_nan=False)
+            )
+            if existing_frontier != normalized_frontier:
+                raise ValueError(
+                    "existing deferred frontier differs from the frozen target batch"
+                )
+        else:
+            _write_json(frontier_output, result.frontier)
+        frontier_file_sha256 = hashlib.sha256(frontier_output.read_bytes()).hexdigest()
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = result.to_record()
+    record.update(
+        {
+            "deferred_frontier_output": str(frontier_output),
+            "deferred_frontier_file_sha256": frontier_file_sha256,
+        }
+    )
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
 def _cmd_batch_002_exact310_plan(args: argparse.Namespace) -> int:
     try:
         result = plan_exact310_terminal_rest_rebind(
@@ -16366,23 +16550,61 @@ def _cmd_batch_002_snapshot(args: argparse.Namespace) -> int:
         with CycleAcquisitionStore(cycle_store) as store:
             cycle_hash = store.cycle_hash
             batch_digest = store.batch_digest(batch_id)
+            batch_config = store.batch_config(batch_id)
             if not store.snapshot_is_saturated(batch_id):
                 raise SnapshotVerificationError(
                     "batch-002 snapshot requires every discovery term to be "
                     "exhausted before publication"
                 )
+            stage_commitments: dict[str, object] = {
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            }
+            if (
+                batch_config.get("discovery_mode")
+                == DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA
+            ):
+                priority_fields = (
+                    "source_batch_id",
+                    "source_batch_digest",
+                    "source_cycle_hash",
+                    "source_candidate_count",
+                    "source_candidate_set_sha256",
+                    "source_candidate_id_set_sha256",
+                    "source_lineage_commitment_sha256",
+                    "ranking_policy_sha256",
+                    "tranche_ordinal",
+                    "requested_tranche_size",
+                    "predecessor_frontier_sha256",
+                    "selected_candidate_count",
+                    "selected_candidate_set_sha256",
+                    "cumulative_selected_count",
+                    "deferred_candidate_count",
+                    "deferred_candidate_set_sha256",
+                    "deferred_frontier_sha256",
+                    "chain_terminal",
+                    "ranking_frontier_exhausted",
+                    "global_source_saturated",
+                    "strict_screen_is_sole_eligibility_and_exclusion_authority",
+                    "ranking_metadata_visibility",
+                )
+                stage_commitments["direct_search_priority_tranche"] = {
+                    "schema_version": DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
+                    **{
+                        field: batch_config[field]
+                        for field in priority_fields
+                        if field in batch_config
+                    },
+                }
             snapshot_path = store.export_snapshot(
                 output_root,
                 snapshot_id=snapshot_id,
                 batch_id=batch_id,
                 complete=True,
-                stage_commitments={
-                    "courtlistener_rest_screen_inputs": {
-                        "schema_version": (
-                            "legalforecast.courtlistener_rest_screen_inputs.v1"
-                        )
-                    }
-                },
+                stage_commitments=stage_commitments,
             )
         manifest = verify_snapshot(
             snapshot_path,

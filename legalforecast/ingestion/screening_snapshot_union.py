@@ -53,6 +53,9 @@ RAWLESS_ACTIVE_REPROOF_POLICY = (
 RAWLESS_DIRECT_REST_ACTIVE_PROOF_POLICY = (
     "unique_raw_backed_authority_over_authenticated_rawless_direct_rest_proof_v1"
 )
+_DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA = (
+    "legalforecast.direct_search_priority_tranche.v1"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +98,135 @@ class ScreeningSnapshotUnion:
     canonical_raw_artifacts: tuple[UnionRawArtifact, ...]
     longitudinal_observations: tuple[Mapping[str, Any], ...]
     stage_commitment: Mapping[str, Any]
+
+
+def _priority_tranche_chain_commitment(
+    tranches: Sequence[tuple[Mapping[str, Any] | None, frozenset[str]]],
+    *,
+    union_candidate_ids: frozenset[str],
+) -> Mapping[str, object] | None:
+    """Authenticate a complete priority-tranche chain or leave it provisional."""
+
+    present = [item for item in tranches if item[0] is not None]
+    if not present:
+        return None
+    if len(present) != len(tranches):
+        raise ScreeningSnapshotUnionError(
+            "priority-tranche union mixes committed and uncommitted sources"
+        )
+    normalized: list[tuple[Mapping[str, Any], frozenset[str]]] = []
+    for raw, candidate_ids in present:
+        assert raw is not None
+        if raw.get("schema_version") != _DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA:
+            raise ScreeningSnapshotUnionError(
+                "priority-tranche union has an unsupported commitment schema"
+            )
+        ordinal = raw.get("tranche_ordinal")
+        if isinstance(ordinal, bool) or not isinstance(ordinal, int) or ordinal < 1:
+            raise ScreeningSnapshotUnionError(
+                "priority-tranche union has an invalid ordinal"
+            )
+        if raw.get("selected_candidate_count") != len(candidate_ids):
+            raise ScreeningSnapshotUnionError(
+                "priority-tranche snapshot candidate count drifted"
+            )
+        normalized.append((raw, candidate_ids))
+    normalized.sort(key=lambda item: cast(int, item[0]["tranche_ordinal"]))
+    if [item[0]["tranche_ordinal"] for item in normalized] != list(
+        range(1, len(normalized) + 1)
+    ):
+        raise ScreeningSnapshotUnionError(
+            "priority-tranche ordinals are not a complete contiguous chain"
+        )
+    common_fields = (
+        "source_batch_id",
+        "source_batch_digest",
+        "source_cycle_hash",
+        "source_candidate_count",
+        "source_candidate_set_sha256",
+        "source_candidate_id_set_sha256",
+        "source_lineage_commitment_sha256",
+        "ranking_policy_sha256",
+    )
+    first = normalized[0][0]
+    for commitment, _candidate_ids in normalized:
+        if any(commitment.get(field) != first.get(field) for field in common_fields):
+            raise ScreeningSnapshotUnionError(
+                "priority-tranche source or ranking commitments disagree"
+            )
+        if (
+            commitment.get("strict_screen_is_sole_eligibility_and_exclusion_authority")
+            is not True
+            or commitment.get("ranking_metadata_visibility")
+            != "acquisition_only_never_packet_visible"
+        ):
+            raise ScreeningSnapshotUnionError(
+                "priority-tranche authority or model-visibility contract is invalid"
+            )
+    source_count = first.get("source_candidate_count")
+    if isinstance(source_count, bool) or not isinstance(source_count, int):
+        raise ScreeningSnapshotUnionError("priority-tranche source count is invalid")
+    running = 0
+    prior_frontier: object = None
+    seen_ids: set[str] = set()
+    frontier_hashes: list[str] = []
+    for index, (commitment, candidate_ids) in enumerate(normalized, start=1):
+        if seen_ids.intersection(candidate_ids):
+            raise ScreeningSnapshotUnionError("priority-tranche snapshots overlap")
+        seen_ids.update(candidate_ids)
+        if commitment.get("predecessor_frontier_sha256") != prior_frontier:
+            raise ScreeningSnapshotUnionError(
+                "priority-tranche predecessor frontier chain is broken"
+            )
+        frontier_hash = commitment.get("deferred_frontier_sha256")
+        if (
+            not isinstance(frontier_hash, str)
+            or re.fullmatch(r"[0-9a-f]{64}", frontier_hash) is None
+        ):
+            raise ScreeningSnapshotUnionError(
+                "priority-tranche deferred frontier hash is invalid"
+            )
+        frontier_hashes.append(frontier_hash)
+        prior_frontier = frontier_hash
+        running += len(candidate_ids)
+        expected_terminal = index == len(normalized)
+        if (
+            commitment.get("cumulative_selected_count") != running
+            or commitment.get("deferred_candidate_count") != source_count - running
+            or commitment.get("chain_terminal") is not expected_terminal
+            or commitment.get("ranking_frontier_exhausted") is not expected_terminal
+            or commitment.get("global_source_saturated") is not False
+        ):
+            raise ScreeningSnapshotUnionError(
+                "priority-tranche cumulative/deferred reconciliation is invalid"
+            )
+    expected_id_hash = first.get("source_candidate_id_set_sha256")
+    actual_id_hash = hashlib.sha256(
+        json.dumps(
+            sorted(union_candidate_ids),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    if (
+        running != source_count
+        or frozenset(seen_ids) != union_candidate_ids
+        or expected_id_hash != actual_id_hash
+    ):
+        raise ScreeningSnapshotUnionError(
+            "priority-tranche terminal union does not conserve the novel source"
+        )
+    return {
+        "schema_version": "legalforecast.direct_search_priority_tranche_chain.v1",
+        **{field: first[field] for field in common_fields},
+        "tranche_count": len(normalized),
+        "frontier_sha256_chain": frontier_hashes,
+        "terminal_frontier_sha256": frontier_hashes[-1],
+        "deferred_candidate_count": 0,
+        "accepted_plus_excluded_count": len(union_candidate_ids),
+        "full_source_terminal": True,
+        "final_cohort_eligible": True,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +301,7 @@ def load_screening_snapshot_union(
     seen_manifest_sha256: set[str] = set()
     seen_batch_digests: set[str] = set()
     provisional_union = False
+    priority_tranches: list[tuple[Mapping[str, Any] | None, frozenset[str]]] = []
     firecrawl_screening_source_count = 0
     for snapshot, expected_manifest_hash in zip(
         snapshots, expected_manifest_sha256, strict=True
@@ -254,6 +387,19 @@ def load_screening_snapshot_union(
             raise ScreeningSnapshotUnionError(
                 f"source snapshot stage commitments are invalid: {snapshot}"
             )
+        priority_value = cast(Mapping[str, Any], source_stage_commitments).get(
+            "direct_search_priority_tranche"
+        )
+        if priority_value is not None and not isinstance(priority_value, Mapping):
+            raise ScreeningSnapshotUnionError(
+                "source priority-tranche commitment is invalid"
+            )
+        priority_tranches.append(
+            (
+                cast(Mapping[str, Any] | None, priority_value),
+                frozenset(source_candidate_ids),
+            )
+        )
         source_terminal_raw_by_candidate: dict[str, list[UnionRawArtifact]] = {}
         for artifact in source_terminal_raw:
             source_terminal_raw_by_candidate.setdefault(
@@ -313,7 +459,13 @@ def load_screening_snapshot_union(
         candidates=candidate_by_id,
         active_raw_overrides=active_raw_overrides,
     )
-    stage_commitment = {
+    priority_chain = _priority_tranche_chain_commitment(
+        priority_tranches,
+        union_candidate_ids=frozenset(candidate_by_id),
+    )
+    if priority_chain is not None:
+        provisional_union = False
+    stage_commitment: dict[str, object] = {
         "schema_version": "legalforecast.screening_snapshot_union_inputs.v2",
         "expected_cycle_hash": expected_cycle_hash,
         "source_count": len(source_commitments),
@@ -336,6 +488,8 @@ def load_screening_snapshot_union(
         "longitudinal_correction_count": len(longitudinal_corrections),
         "longitudinal_corrections": list(longitudinal_corrections),
     }
+    if priority_chain is not None:
+        stage_commitment["direct_search_priority_tranche_chain"] = priority_chain
     if provisional_union:
         stage_commitment.update(
             {
