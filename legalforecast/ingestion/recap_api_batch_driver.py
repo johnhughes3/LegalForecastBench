@@ -166,11 +166,38 @@ _DIRECT_SEARCH_DISPOSITION_PATTERN = (
     r"\b(?:grant(?:ed|ing)?|den(?:y|ied|ying)|dismiss(?:ed|ing)|"
     r"adopt(?:ed|ing)?|recommend(?:ed|ing)?|moot(?:ed)?)\b"
 )
+_DIRECT_SEARCH_CLEAN_YIELD_DEMOTION_PATTERNS: dict[str, str] = {
+    "appellate_court": r"^ca(?:[1-9]|1[0-1]|dc|fc)$",
+    "habeas_or_detention": (
+        r"(?:\(\s*hc\s*\)|\bhabeas\b|\bwrit\s+of\s+habeas\b|"
+        r"\b(?:immigration|ice)\s+detention\b)"
+    ),
+    "proposed_order": r"\bproposed\]?\s+order\b",
+    "party_voluntary_or_stipulated_dismissal": (
+        r"\b(?:plaintiff|petitioner)'?s\s+motion\s+to\s+dismiss\b|"
+        r"\b(?:voluntary|stipulated)\s+dismissal\b|"
+        r"\bstipulation\s+(?:of|for|to)\s+dismiss"
+    ),
+    "motion_moot_after_amendment_or_transfer": (
+        r"(?:\bamend(?:ed|ment|ing)?\b|\btransf(?:er|erred|erring)\b|"
+        r"\bwithdraw(?:n|al)?\b|\brefil(?:e|ed|ing)\b)"
+        r"[^.;:\n]{0,128}\b(?:motion\s+to\s+dismiss|moot)\b|"
+        r"\b(?:motion\s+to\s+dismiss|moot)\b[^.;:\n]{0,128}"
+        r"(?:\bamend(?:ed|ment|ing)?\b|\btransf(?:er|erred|erring)\b|"
+        r"\bwithdraw(?:n|al)?\b|\brefil(?:e|ed|ing)\b)"
+    ),
+    "rule_25_substitution_or_refile": (
+        r"\brule\s+25\b|\bsubstitut(?:e|ed|ion|ing)\b|"
+        r"\brefil(?:e|ed|ing)\b"
+    ),
+    "criminal_docket": r"(?:^|-)cr(?:-|$)",
+    "main_bankruptcy_docket": r"(?:^|-)bk(?:-|$)",
+}
 PRIOR_SNAPSHOT_PRIORITY_DEDUPE_SCHEMA = (
     "legalforecast.prior_screening_snapshot_priority_dedupe.v1"
 )
 _DIRECT_SEARCH_PRIORITY_POLICY: dict[str, object] = {
-    "schema_version": "legalforecast.direct_search_decision_signal_ranking.v2",
+    "schema_version": "legalforecast.direct_search_decision_signal_ranking.v3",
     "semantics": "rank_only_no_membership_exclusion",
     "structural_order": (
         "prescreen_clean_or_deferred_authoritative_bankruptcy",
@@ -182,6 +209,10 @@ _DIRECT_SEARCH_PRIORITY_POLICY: dict[str, object] = {
         "generic_motion_or_brief",
         "no_decision_entry_evidence",
     ),
+    "clean_yield_demotion_semantics": (
+        "frozen_discovery_metadata_rank_only_never_eligibility_or_exclusion"
+    ),
+    "clean_yield_demotion_patterns": _DIRECT_SEARCH_CLEAN_YIELD_DEMOTION_PATTERNS,
     "date_semantics": "valid_post_anchor_provider_metadata_only",
     "free_availability_semantics": (
         "secondary_rank_only_never_eligibility_or_completeness"
@@ -196,7 +227,9 @@ _DIRECT_SEARCH_PRIORITY_POLICY: dict[str, object] = {
     "disposition_pattern": _DIRECT_SEARCH_DISPOSITION_PATTERN,
     "tie_breakers": (
         "prescreen_structural_rank",
+        "clean_yield_demotion_rank",
         "decision_signal_rank",
+        "free_document_evidence",
         "newest_valid_entry_date",
         "lowest_entry_number",
         "numeric_docket_id",
@@ -544,21 +577,119 @@ def _positive_integer_prefix(value: object) -> int | None:
     return int(match.group(1)) if match is not None else None
 
 
-def _observation_priority(
+def _priority_observation_input_record(
     candidate_id: str, payload: Mapping[str, Any]
-) -> tuple[int, int, int, int, int, int, str]:
+) -> dict[str, object]:
+    """Project the frozen payload fields that can affect priority traversal."""
+
+    return {
+        "candidate_id": candidate_id,
+        "docket_id": payload.get("docket_id"),
+        "court_id": payload.get("court_id"),
+        "docket_number": payload.get("docket_number"),
+        "case_name": payload.get("case_name"),
+        "prescreen_exclusion_reason": payload.get("prescreen_exclusion_reason"),
+        "decision_entry_evidence": payload.get("decision_entry_evidence"),
+        "priority_decision_evidence": payload.get("priority_decision_evidence"),
+    }
+
+
+def _observation_priority(
+    candidate_id: str,
+    payload: Mapping[str, Any],
+    *,
+    priority_batch: bool = False,
+    ranking_policy_sha256: str | None = None,
+    priority_frontier_sha256: str | None = None,
+    ranking_record_commitments: Mapping[str, object] | None = None,
+) -> tuple[object, ...]:
     """Order unresolved candidates by expected free-screening cost.
 
-    The sort key uses only frozen discovery evidence, so it changes traversal
-    order without changing candidate membership or selected evidence.  Stored
-    prescreens are zero-request outcomes.  A low triggering entry number is the
-    strongest available proxy for a short docket; unknown sizes precede dockets
-    already proven likely to exceed the six-page reconstruction cap.  Direct
-    decision-search hits then outrank synthetic batch-001 retry leads, with
-    recent decisions and newer docket ids as stable final cost proxies.
+    Priority-tranche payloads must carry a hash-bound acquisition-only ranking
+    record.  That immutable record controls traversal before entry-number cost.
+    Legacy batches retain their historical cost ordering.
     """
 
     prescreen_rank = 0 if observe_prescreened_reason(payload) is not None else 1
+    if priority_batch:
+        if ranking_policy_sha256 != DIRECT_SEARCH_PRIORITY_POLICY_SHA256:
+            raise RecapApiBatchDriverError(
+                "priority batch ranking policy does not match the running policy"
+            )
+        raw_provenance = payload.get("priority_dedupe_provenance")
+        if not isinstance(raw_provenance, Mapping):
+            raise RecapApiBatchDriverError(
+                f"priority candidate {candidate_id!r} lacks ranking provenance"
+            )
+        provenance = cast("Mapping[str, object]", raw_provenance)
+        if provenance.get("ranking_policy_sha256") != ranking_policy_sha256:
+            raise RecapApiBatchDriverError(
+                f"priority candidate {candidate_id!r} ranking policy drifted"
+            )
+        if (
+            not isinstance(priority_frontier_sha256, str)
+            or provenance.get("frontier_sha256") != priority_frontier_sha256
+        ):
+            raise RecapApiBatchDriverError(
+                f"priority candidate {candidate_id!r} frontier drifted"
+            )
+        if provenance.get(
+            "observation_priority_input_sha256"
+        ) != _canonical_record_sha256(
+            _priority_observation_input_record(candidate_id, payload)
+        ):
+            raise RecapApiBatchDriverError(
+                f"priority candidate {candidate_id!r} input commitment drifted"
+            )
+        raw_record = provenance.get("ranking_record")
+        claimed_record_hash = provenance.get("ranking_record_sha256")
+        if (
+            not isinstance(raw_record, Mapping)
+            or not isinstance(claimed_record_hash, str)
+            or _canonical_record_sha256(cast("Mapping[str, object]", raw_record))
+            != claimed_record_hash
+            or not isinstance(ranking_record_commitments, Mapping)
+            or ranking_record_commitments.get(candidate_id) != claimed_record_hash
+        ):
+            raise RecapApiBatchDriverError(
+                f"priority candidate {candidate_id!r} ranking record is invalid"
+            )
+        record = cast("Mapping[str, object]", raw_record)
+        if record.get("candidate_id") != candidate_id:
+            raise RecapApiBatchDriverError(
+                f"priority candidate {candidate_id!r} ranking identity drifted"
+            )
+        integer_fields = (
+            "structural_rank",
+            "clean_yield_demotion_rank",
+            "signal_rank",
+            "date_rank",
+            "decision_ordinal",
+            "free_rank",
+            "entry_sort",
+            "docket_sort",
+        )
+        if any(
+            isinstance(record.get(field), bool)
+            or not isinstance(record.get(field), int)
+            for field in integer_fields
+        ):
+            raise RecapApiBatchDriverError(
+                f"priority candidate {candidate_id!r} ranking tuple is invalid"
+            )
+        return (
+            prescreen_rank,
+            cast(int, record["structural_rank"]),
+            cast(int, record["clean_yield_demotion_rank"]),
+            cast(int, record["signal_rank"]),
+            cast(int, record["date_rank"]),
+            cast(int, record["free_rank"]),
+            -cast(int, record["decision_ordinal"]),
+            cast(int, record["entry_sort"]),
+            cast(int, record["docket_sort"]),
+            candidate_id,
+        )
+
     raw_evidence = payload.get("decision_entry_evidence")
     evidence = (
         cast("Mapping[str, object]", raw_evidence)
@@ -683,6 +814,7 @@ def run_observe(
     """
 
     store.batch_digest(batch_id)
+    batch_config = store.batch_config(batch_id)
     _validate_frozen_eligibility_anchor(store, eligibility_anchor)
     require_reconstruction_auth(client)
     decision_window_end = _config_window_end(store, batch_id)
@@ -770,7 +902,24 @@ def run_observe(
         candidate_ids,
         key=lambda candidate_id: (
             refresh_rank(candidate_id),
-            _observation_priority(candidate_id, payloads[candidate_id]),
+            _observation_priority(
+                candidate_id,
+                payloads[candidate_id],
+                priority_batch=(
+                    batch_config.get("discovery_mode")
+                    == DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA
+                ),
+                ranking_policy_sha256=cast(
+                    "str | None", batch_config.get("ranking_policy_sha256")
+                ),
+                priority_frontier_sha256=cast(
+                    "str | None", batch_config.get("deferred_frontier_sha256")
+                ),
+                ranking_record_commitments=cast(
+                    "Mapping[str, object] | None",
+                    batch_config.get("selected_ranking_record_commitments"),
+                ),
+            ),
         ),
     )
 
@@ -1101,6 +1250,8 @@ class DirectSearchPriorityTrancheResult:
     selected_candidate_ids: tuple[str, ...]
     deferred_candidate_ids: tuple[str, ...]
     cumulative_selected_count: int
+    reused_observation_candidate_ids: tuple[str, ...]
+    reused_observation_commitment_sha256: str
     frontier_sha256: str
     frontier: Mapping[str, object]
     leads_seeded: int
@@ -1113,6 +1264,10 @@ class DirectSearchPriorityTrancheResult:
     @property
     def deferred_count(self) -> int:
         return len(self.deferred_candidate_ids)
+
+    @property
+    def reused_observation_count(self) -> int:
+        return len(self.reused_observation_candidate_ids)
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -1131,6 +1286,13 @@ class DirectSearchPriorityTrancheResult:
             "deferred_count": self.deferred_count,
             "deferred_candidate_ids": list(self.deferred_candidate_ids),
             "cumulative_selected_count": self.cumulative_selected_count,
+            "reused_observation_count": self.reused_observation_count,
+            "reused_observation_candidate_ids": list(
+                self.reused_observation_candidate_ids
+            ),
+            "reused_observation_commitment_sha256": (
+                self.reused_observation_commitment_sha256
+            ),
             "chain_terminal": self.deferred_count == 0,
             "ranking_frontier_exhausted": self.deferred_count == 0,
             "global_source_saturated": False,
@@ -2514,12 +2676,58 @@ def _priority_evidence_sort_key(
     )
 
 
+def _priority_clean_yield_demotion_reason(
+    lead: DirectSearchLead,
+    evidence: Mapping[str, object] | None,
+) -> str | None:
+    """Return one conservative rank-only clean-yield demotion signal."""
+
+    court_id = (lead.court_id or "").strip().lower()
+    if re.fullmatch(
+        _DIRECT_SEARCH_CLEAN_YIELD_DEMOTION_PATTERNS["appellate_court"],
+        court_id,
+    ):
+        return "appellate_metadata"
+    docket_number = (lead.docket_number or "").strip().lower()
+    if re.search(
+        _DIRECT_SEARCH_CLEAN_YIELD_DEMOTION_PATTERNS["criminal_docket"],
+        docket_number,
+    ):
+        return "criminal_metadata"
+    if re.search(
+        _DIRECT_SEARCH_CLEAN_YIELD_DEMOTION_PATTERNS["main_bankruptcy_docket"],
+        docket_number,
+    ):
+        return "main_bankruptcy_metadata"
+    raw_description = None if evidence is None else evidence.get("description")
+    description = raw_description if isinstance(raw_description, str) else ""
+    case_and_description = f"{lead.case_name or ''}\n{description}".lower()
+    if re.search(
+        _DIRECT_SEARCH_CLEAN_YIELD_DEMOTION_PATTERNS["habeas_or_detention"],
+        case_and_description,
+    ):
+        return "habeas_or_detention_metadata"
+    description_lower = description.lower()
+    for reason in (
+        "proposed_order",
+        "party_voluntary_or_stipulated_dismissal",
+        "motion_moot_after_amendment_or_transfer",
+        "rule_25_substitution_or_refile",
+    ):
+        if re.search(
+            _DIRECT_SEARCH_CLEAN_YIELD_DEMOTION_PATTERNS[reason],
+            description_lower,
+        ):
+            return reason
+    return None
+
+
 def _rank_direct_search_leads(
     source: DirectSearchSeedSource,
 ) -> tuple[tuple[DirectSearchLead, ...], tuple[dict[str, object], ...]]:
     ranked: list[
         tuple[
-            tuple[int, int, int, int, int, int, int, str],
+            tuple[int, int, int, int, int, int, int, int, str],
             DirectSearchLead,
             dict[str, object],
         ]
@@ -2535,6 +2743,10 @@ def _rank_direct_search_leads(
         signal_rank, signal_reason = _priority_signal(lead)
         date_rank, decision_ordinal, date_status = _priority_date_status(lead, source)
         evidence = lead.priority_decision_evidence or lead.decision_entry_evidence
+        clean_yield_demotion_reason = _priority_clean_yield_demotion_reason(
+            lead, evidence
+        )
+        clean_yield_demotion_rank = 1 if clean_yield_demotion_reason is not None else 0
         entry_number = (
             None
             if evidence is None
@@ -2548,10 +2760,11 @@ def _rank_direct_search_leads(
         )
         key = (
             structural_rank,
+            clean_yield_demotion_rank,
             signal_rank,
             date_rank,
-            -decision_ordinal,
             free_rank,
+            -decision_ordinal,
             entry_sort,
             docket_sort,
             lead.candidate_id,
@@ -2564,13 +2777,22 @@ def _rank_direct_search_leads(
                     "candidate_id": lead.candidate_id,
                     "structural_rank": structural_rank,
                     "prescreen_exclusion_reason": prescreen_reason,
+                    "clean_yield_demotion_rank": clean_yield_demotion_rank,
+                    "clean_yield_demotion_reason": (
+                        clean_yield_demotion_reason or "none"
+                    ),
                     "signal_rank": signal_rank,
                     "signal_reason": signal_reason,
+                    "date_rank": date_rank,
+                    "decision_ordinal": decision_ordinal,
                     "date_status": date_status,
+                    "free_rank": free_rank,
                     "entry_date_filed": (
                         None if evidence is None else evidence.get("entry_date_filed")
                     ),
                     "entry_number": entry_number,
+                    "entry_sort": entry_sort,
+                    "docket_sort": docket_sort,
                     "is_available": (
                         None if evidence is None else evidence.get("is_available")
                     ),
@@ -2651,6 +2873,79 @@ def _validate_priority_frontier(
     return deferred, raw_ordinal, claimed_hash
 
 
+def _priority_reuse_commitment(
+    observation: CandidateObservation,
+) -> dict[str, object]:
+    """Commit the exact canonical terminal projection reused by a new tranche."""
+
+    return {
+        "candidate_id": observation.candidate_id,
+        "source_observation_id": observation.observation_id,
+        "source_batch_id": observation.batch_id,
+        "state": observation.state,
+        "reason_code": observation.reason_code,
+        "evidence": dict(observation.evidence),
+        "observed_at": observation.observed_at,
+        "supersedes_observation_id": observation.supersedes_observation_id,
+    }
+
+
+def _priority_reusable_observations(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    source: DirectSearchSeedSource,
+    selected_ids: tuple[str, ...],
+) -> tuple[tuple[CandidateObservation, ...], tuple[dict[str, object], ...]]:
+    """Pin eligible prior terminals without consulting them during ranking."""
+
+    reusable: list[CandidateObservation] = []
+    for candidate_id in selected_ids:
+        observation = store.current_observation(candidate_id)
+        if observation is None or observation.batch_id == batch_id:
+            continue
+        if observation.state not in {"accepted", "excluded"}:
+            raise RecapApiBatchDriverError(
+                f"priority candidate {candidate_id!r} has a non-screening "
+                "current observation that cannot be reused"
+            )
+        if observation.state == "accepted":
+            raw_screen = observation.evidence.get("screen")
+            if (
+                observation.reason_code != "strict_clean_screen_passed"
+                or not isinstance(raw_screen, Mapping)
+                or cast("Mapping[str, object]", raw_screen).get("eligible") is not True
+            ):
+                raise RecapApiBatchDriverError(
+                    f"priority candidate {candidate_id!r} has an accepted "
+                    "observation that is not a strict clean-screen terminal"
+                )
+        if observation.batch_id != source.source_batch_id:
+            try:
+                source_config = store.batch_config(observation.batch_id)
+            except KeyError as exc:
+                raise RecapApiBatchDriverError(
+                    f"priority candidate {candidate_id!r} has an unbound "
+                    "source observation"
+                ) from exc
+            if (
+                source_config.get("discovery_mode")
+                != DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA
+                or source_config.get("source_batch_id") != source.source_batch_id
+                or source_config.get("source_batch_digest")
+                != source.source_batch_digest
+                or source_config.get("source_cycle_hash") != source.source_cycle_hash
+            ):
+                raise RecapApiBatchDriverError(
+                    f"priority candidate {candidate_id!r} already has a canonical "
+                    "observation outside this direct-search source lineage"
+                )
+        reusable.append(observation)
+    reusable.sort(key=lambda observation: observation.candidate_id)
+    commitments = tuple(_priority_reuse_commitment(item) for item in reusable)
+    return tuple(reusable), commitments
+
+
 def materialize_direct_search_priority_tranche(
     store: CycleAcquisitionStore,
     *,
@@ -2706,6 +3001,9 @@ def materialize_direct_search_priority_tranche(
         )
     ranked, ranking_records = _rank_direct_search_leads(source)
     ranked_ids = tuple(lead.candidate_id for lead in ranked)
+    ranking_records_by_id = {
+        cast(str, record["candidate_id"]): record for record in ranking_records
+    }
     source_candidate_id_set_sha256 = _candidate_id_set_sha256(tuple(sorted(ranked_ids)))
     if len(set(ranked_ids)) != len(ranked_ids) or set(ranked_ids) != {
         lead.candidate_id for lead in source.leads
@@ -2737,6 +3035,27 @@ def materialize_direct_search_priority_tranche(
     leads_by_id = {lead.candidate_id: lead for lead in ranked}
     selected = tuple(leads_by_id[candidate_id] for candidate_id in selected_ids)
     deferred = tuple(leads_by_id[candidate_id] for candidate_id in deferred_ids)
+    selected_ranking_record_commitments = {
+        candidate_id: _canonical_record_sha256(ranking_records_by_id[candidate_id])
+        for candidate_id in selected_ids
+    }
+    selected_ranking_record_commitment_sha256 = _canonical_record_sha256(
+        {"selected_ranking_record_commitments": (selected_ranking_record_commitments)}
+    )
+    reusable_observations, reused_observation_commitments = (
+        _priority_reusable_observations(
+            store,
+            batch_id=batch_id,
+            source=source,
+            selected_ids=selected_ids,
+        )
+    )
+    reused_observation_candidate_ids = tuple(
+        observation.candidate_id for observation in reusable_observations
+    )
+    reused_observation_commitment_sha256 = _canonical_record_sha256(
+        {"reused_observation_commitments": list(reused_observation_commitments)}
+    )
     if cumulative_ids + deferred_ids != ranked_ids:
         raise RecapApiBatchDriverError(
             "priority tranche union does not reconcile with complete source"
@@ -2762,7 +3081,15 @@ def materialize_direct_search_priority_tranche(
         "requested_tranche_size": tranche_size,
         "selected_candidate_ids": list(selected_ids),
         "selected_candidate_set_sha256": _lead_set_sha256(selected),
+        "selected_ranking_record_commitments": (selected_ranking_record_commitments),
+        "selected_ranking_record_commitment_sha256": (
+            selected_ranking_record_commitment_sha256
+        ),
         "cumulative_selected_candidate_ids": list(cumulative_ids),
+        "reused_observation_count": len(reusable_observations),
+        "reused_observation_candidate_ids": list(reused_observation_candidate_ids),
+        "reused_observation_commitments": list(reused_observation_commitments),
+        "reused_observation_commitment_sha256": (reused_observation_commitment_sha256),
         "deferred_candidate_ids": list(deferred_ids),
         "deferred_candidate_set_sha256": _lead_set_sha256(deferred),
         "chain_terminal": len(deferred) == 0,
@@ -2775,17 +3102,6 @@ def materialize_direct_search_priority_tranche(
     }
     frontier_hash = _canonical_record_sha256(frontier_without_hash)
     frontier = {**frontier_without_hash, "frontier_sha256": frontier_hash}
-    preexisting = [
-        candidate_id
-        for candidate_id in selected_ids
-        if (observation := store.current_observation(candidate_id)) is not None
-        and observation.batch_id != batch_id
-    ]
-    if preexisting:
-        raise RecapApiBatchDriverError(
-            "priority tranche selected candidates already have canonical "
-            "observations: " + ", ".join(preexisting)
-        )
     config = build_recap_api_batch_config(
         decision_window_start=source.search_window_start,
         decision_window_end=source.search_window_end,
@@ -2813,7 +3129,19 @@ def materialize_direct_search_priority_tranche(
             "predecessor_frontier_sha256": predecessor_hash,
             "selected_candidate_count": len(selected),
             "selected_candidate_set_sha256": _lead_set_sha256(selected),
+            "selected_ranking_record_commitments": (
+                selected_ranking_record_commitments
+            ),
+            "selected_ranking_record_commitment_sha256": (
+                selected_ranking_record_commitment_sha256
+            ),
             "cumulative_selected_count": cumulative_count,
+            "reused_observation_count": len(reusable_observations),
+            "reused_observation_candidate_ids": list(reused_observation_candidate_ids),
+            "reused_observation_commitments": list(reused_observation_commitments),
+            "reused_observation_commitment_sha256": (
+                reused_observation_commitment_sha256
+            ),
             "deferred_candidate_count": len(deferred),
             "deferred_candidate_set_sha256": _lead_set_sha256(deferred),
             "deferred_frontier_sha256": frontier_hash,
@@ -2844,13 +3172,24 @@ def materialize_direct_search_priority_tranche(
             selected_candidate_ids=selected_ids,
             deferred_candidate_ids=deferred_ids,
             cumulative_selected_count=cumulative_count,
+            reused_observation_candidate_ids=reused_observation_candidate_ids,
+            reused_observation_commitment_sha256=(reused_observation_commitment_sha256),
             frontier_sha256=frontier_hash,
             frontier=frontier,
             leads_seeded=seeded,
             already_seeded=already,
         )
 
+    def ensure_reused_observations() -> None:
+        for observation in reusable_observations:
+            store.reuse_current_terminal_observation(
+                observation.candidate_id,
+                batch_id=batch_id,
+                source_observation=observation,
+            )
+
     if progress.terminal_status is not None:
+        ensure_reused_observations()
         return result(seeded=0, already=True)
     offset = progress.hit_count
     starting_offset = offset
@@ -2883,7 +3222,13 @@ def materialize_direct_search_priority_tranche(
                     source,
                     transfer_term=DIRECT_SEARCH_PRIORITY_TRANCHE_TERM,
                     provenance_schema=DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
-                    selection_provenance=selection_provenance,
+                    selection_provenance={
+                        **selection_provenance,
+                        "ranking_record": ranking_records_by_id[lead.candidate_id],
+                        "ranking_record_sha256": (
+                            selected_ranking_record_commitments[lead.candidate_id]
+                        ),
+                    },
                 )
                 for lead in page
             ),
@@ -2891,6 +3236,7 @@ def materialize_direct_search_priority_tranche(
             terminal_status=terminal,
         )
         offset = next_offset
+    ensure_reused_observations()
     return result(seeded=len(selected) - starting_offset, already=False)
 
 
@@ -2942,6 +3288,11 @@ def _direct_search_lead_to_hit(
         payload["priority_decision_evidence"] = dict(lead.priority_decision_evidence)
     if lead.opinion_resolution_evidence is not None:
         payload["opinion_resolution_evidence"] = dict(lead.opinion_resolution_evidence)
+    if selection_provenance is not None:
+        provenance = cast(dict[str, object], payload["priority_dedupe_provenance"])
+        provenance["observation_priority_input_sha256"] = _canonical_record_sha256(
+            _priority_observation_input_record(lead.candidate_id, payload)
+        )
     return DiscoveryHit(
         provider_hit_id=(
             f"{transfer_term}:{source.source_batch_digest}:{lead.docket_id}"

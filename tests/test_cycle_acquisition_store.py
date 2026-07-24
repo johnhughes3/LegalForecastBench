@@ -718,6 +718,169 @@ def test_candidate_evidence_precedence_and_immutable_skip_audit(
         assert len(store.observations("candidate-2")) == 2
 
 
+@pytest.mark.parametrize(
+    ("state", "reason_code", "evidence"),
+    (
+        (
+            "accepted",
+            "strict_clean_screen_passed",
+            {"candidate_id": "candidate-1", "decision_date": "2026-07-23"},
+        ),
+        (
+            "excluded",
+            "strict_clean_screen_failed",
+            {"candidate_id": "candidate-1", "screen": {"eligible": False}},
+        ),
+    ),
+)
+def test_reuse_current_terminal_observation_is_exact_idempotent_and_noncanonical(
+    tmp_path: Path,
+    state: str,
+    reason_code: str,
+    evidence: dict[str, object],
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        store.ensure_batch("batch-002", {"start": "2026-07-01", "page_size": 50})
+        _discover_candidates(store, "candidate-1", batch_id="batch-002")
+        source = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state=state,
+            reason_code=reason_code,
+            evidence=evidence,
+            observed_at="2026-07-24T12:34:56Z",
+        )
+
+        reused = store.reuse_current_terminal_observation(
+            "candidate-1",
+            batch_id="batch-002",
+            source_observation=source,
+        )
+        repeated = store.reuse_current_terminal_observation(
+            "candidate-1",
+            batch_id="batch-002",
+            source_observation=source,
+        )
+
+        assert reused.observation_id == repeated.observation_id
+        assert reused.candidate_id == source.candidate_id
+        assert reused.batch_id == "batch-002"
+        assert reused.state == source.state
+        assert reused.reason_code == source.reason_code
+        assert reused.evidence == source.evidence
+        assert reused.observed_at == source.observed_at
+        assert reused.supersedes_observation_id == source.observation_id
+        assert store.current_observation("candidate-1") == source
+        assert store.batch_terminal_observation("batch-002", "candidate-1") == reused
+        assert len(store.observations("candidate-1")) == 2
+
+
+def test_reuse_current_terminal_observation_rejects_current_and_target_drift(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1", "candidate-2")
+        store.ensure_batch("batch-002", {"start": "2026-07-01", "page_size": 50})
+        _discover_candidates(
+            store,
+            "candidate-1",
+            "candidate-2",
+            batch_id="batch-002",
+        )
+        source = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="required_documents_complete",
+            evidence={"candidate_id": "candidate-1", "version": 1},
+            observed_at="2026-07-24T12:34:56Z",
+        )
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-002",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"candidate_id": "candidate-1", "version": 2},
+            observed_at="2026-07-24T12:35:56Z",
+            preserve_current=True,
+        )
+
+        with pytest.raises(
+            CycleAcquisitionStoreError,
+            match="conflicting terminal observation",
+        ):
+            store.reuse_current_terminal_observation(
+                "candidate-1",
+                batch_id="batch-002",
+                source_observation=source,
+            )
+
+        advanced = store.record_observation(
+            "candidate-2",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"candidate_id": "candidate-2", "version": 1},
+        )
+        store.record_observation(
+            "candidate-2",
+            batch_id="batch-001",
+            state="newly_free",
+            reason_code="required_documents_newly_free",
+            evidence={"candidate_id": "candidate-2", "document_id": "22"},
+        )
+        with pytest.raises(
+            CycleAcquisitionStoreError, match="current observation drift"
+        ):
+            store.reuse_current_terminal_observation(
+                "candidate-2",
+                batch_id="batch-002",
+                source_observation=advanced,
+            )
+
+
+def test_reuse_current_terminal_observation_rejects_wrong_candidate_and_nonterminal(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1", "candidate-2")
+        store.ensure_batch("batch-002", {"start": "2026-07-01", "page_size": 50})
+        _discover_candidates(
+            store,
+            "candidate-1",
+            "candidate-2",
+            batch_id="batch-002",
+        )
+        source = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"candidate_id": "candidate-1"},
+        )
+        transient = store.record_observation(
+            "candidate-2",
+            batch_id="batch-001",
+            state="transient_failure",
+            reason_code="fetch_error",
+            evidence={"candidate_id": "candidate-2", "status": 503},
+        )
+
+        with pytest.raises(ValueError, match="candidate identity"):
+            store.reuse_current_terminal_observation(
+                "candidate-2",
+                batch_id="batch-002",
+                source_observation=source,
+            )
+        with pytest.raises(ValueError, match="accepted or excluded"):
+            store.reuse_current_terminal_observation(
+                "candidate-2",
+                batch_id="batch-002",
+                source_observation=transient,
+            )
+
+
 def test_procedural_or_standing_order_is_immutable(tmp_path: Path) -> None:
     with _store(tmp_path) as store:
         _discover_candidates(store, "candidate-1")

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import re
+import sqlite3
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
@@ -16,7 +19,10 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerFixtureTransport,
     RecordedCourtListenerResponse,
 )
-from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.cycle_acquisition_store import (
+    ConfigMismatchError,
+    CycleAcquisitionStore,
+)
 from legalforecast.ingestion.recap_api_batch_driver import (
     DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA,
     DIRECT_SEARCH_CYCLE_REBIND_TERM,
@@ -664,6 +670,113 @@ def test_run_observe_prioritizes_cheaper_recent_candidates_deterministically(
         assert store.current_observation("courtlistener-docket-777") is not None
         assert store.current_observation("courtlistener-docket-555") is None
         assert store.current_observation("courtlistener-docket-999") is None
+    finally:
+        store.close()
+
+
+def test_run_observe_prioritizes_frozen_clean_signal_and_free_evidence_before_cost(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    template = next(lead for lead in source.leads if lead.docket_id == "200")
+
+    def lead(
+        docket_id: int,
+        *,
+        entry_number: int,
+        description: str,
+        is_available: bool,
+    ) -> recap_api_batch_driver.DirectSearchLead:
+        evidence: dict[str, object] = {
+            "entry_number": entry_number,
+            "description": description,
+            "entry_date_filed": "2026-07-06",
+            "is_available": is_available,
+        }
+        return replace(
+            template,
+            docket_id=str(docket_id),
+            court_id="nysd",
+            docket_number=f"1:26-cv-{docket_id:05d}",
+            case_name=f"Candidate {docket_id} v. Roe",
+            decision_entry_evidence=evidence,
+            priority_decision_evidence=evidence,
+        )
+
+    cheap_generic = lead(
+        555,
+        entry_number=5,
+        description="Motion to Dismiss",
+        is_available=False,
+    )
+    costly_clean_free = lead(
+        777,
+        entry_number=500,
+        description="ORDER granting defendant's motion to dismiss",
+        is_available=True,
+    )
+    leads = (cheap_generic, costly_clean_free)
+    candidate_set_sha256 = recap_api_batch_driver._lead_set_sha256(leads)
+    lineage = dict(source.source_lineage_commitments or {})
+    lineage.pop("source_lineage_commitment_sha256")
+    lineage.update(
+        {
+            "source_candidate_count": len(leads),
+            "source_candidate_set_sha256": candidate_set_sha256,
+            "selected_candidate_count": len(leads),
+            "selected_candidate_set_sha256": candidate_set_sha256,
+        }
+    )
+    lineage["source_lineage_commitment_sha256"] = (
+        recap_api_batch_driver._canonical_record_sha256(lineage)
+    )
+    priority_source = replace(
+        source,
+        leads=leads,
+        source_candidate_set_sha256=candidate_set_sha256,
+        source_lineage_commitments=lineage,
+    )
+
+    batch_id = "priority-observe"
+    store = CycleAcquisitionStore(path)
+    try:
+        materialize_direct_search_priority_tranche(
+            store,
+            batch_id=batch_id,
+            source=priority_source,
+            tranche_size=2,
+        )
+        client = _token_client(
+            [
+                _docket_response(777),
+                _entries_response(
+                    docket_id=777,
+                    results=[
+                        _motion_entry(777),
+                        {
+                            "id": 7002,
+                            "docket": 777,
+                            "entry_number": 500,
+                            "description": (
+                                "ORDER granting defendant's motion to dismiss"
+                            ),
+                            "date_filed": "2026-07-06",
+                        },
+                    ],
+                ),
+            ]
+        )
+        tally = run_observe(
+            store,
+            batch_id=batch_id,
+            client=client,
+            eligibility_anchor=date(2026, 6, 30),
+            limit=1,
+        )
+        assert tally.observed == 1
+        assert store.current_observation("courtlistener-docket-777") is not None
+        assert store.current_observation("courtlistener-docket-555") is None
     finally:
         store.close()
 
@@ -1535,6 +1648,151 @@ def test_priority_ranking_defers_known_structural_exclusions_without_dropping_th
     assert by_candidate["courtlistener-docket-500"]["structural_rank"] == 1
 
 
+def test_priority_ranking_demotes_obvious_low_yield_metadata_without_excluding(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    template = next(lead for lead in source.leads if lead.docket_id == "200")
+
+    def lead(
+        docket_id: int,
+        *,
+        case_name: str = "Alpha LLC v. Beta Inc.",
+        court_id: str = "nysd",
+        docket_number: str | None = None,
+        description: str = "ORDER granting motion to dismiss",
+    ) -> recap_api_batch_driver.DirectSearchLead:
+        return replace(
+            template,
+            docket_id=str(docket_id),
+            case_name=case_name,
+            court_id=court_id,
+            docket_number=docket_number or f"1:26-cv-{docket_id:05d}",
+            priority_decision_evidence={
+                "entry_number": 50,
+                "description": description,
+                "entry_date_filed": "2026-07-15",
+                "is_available": True,
+            },
+        )
+
+    retained = (
+        lead(
+            101,
+            description=(
+                "ORDER granting Motion for Judgment on the Pleadings under Rule 12(c)"
+            ),
+        ),
+        lead(
+            102,
+            case_name="Trustee v. Defendant LLC",
+            court_id="nysb",
+            docket_number="6:26-ap-00102",
+            description="ORDER dismissing adversary complaint under Rule 7012",
+        ),
+        lead(
+            103,
+            case_name="(PS) Smith v. Correctional Officer Jones",
+            court_id="caed",
+            description="ORDER granting motion to dismiss prisoner civil complaint",
+        ),
+        lead(
+            104,
+            description=(
+                "ORDER granting motion to dismiss for lack of "
+                "subject-matter jurisdiction"
+            ),
+        ),
+    )
+    demoted = (
+        lead(201, case_name="(HC) Can Xol v. Warden"),
+        lead(202, case_name="Ozturk v. Hyde", court_id="ca2"),
+        lead(203, description="[Proposed] Order Granting Motion to Dismiss"),
+        lead(
+            204,
+            description=(
+                "ORDER approving stipulated voluntary dismissal and denying "
+                "motion to dismiss as moot"
+            ),
+        ),
+        lead(
+            205,
+            description=(
+                "ORDER denying motion to dismiss as moot after amended complaint"
+            ),
+        ),
+        lead(
+            206,
+            description=(
+                "ORDER transferring case and denying pending motion to dismiss as moot"
+            ),
+        ),
+        lead(
+            207,
+            description=(
+                "ORDER under Rule 25 substituting successor and denying motion "
+                "to dismiss with leave to refile"
+            ),
+        ),
+        lead(
+            208,
+            case_name="United States v. Roe",
+            docket_number="1:26-cr-00208",
+        ),
+        lead(
+            209,
+            case_name="In re Example Debtor",
+            court_id="nysb",
+            docket_number="1:26-bk-00209",
+        ),
+    )
+    rank_source = replace(source, leads=(*demoted, *retained))
+
+    ranked, records = recap_api_batch_driver._rank_direct_search_leads(rank_source)
+
+    retained_ids = {lead.candidate_id for lead in retained}
+    demoted_ids = {lead.candidate_id for lead in demoted}
+    assert {lead.candidate_id for lead in ranked[: len(retained)]} == retained_ids
+    assert {lead.candidate_id for lead in ranked[len(retained) :]} == demoted_ids
+    assert {lead.candidate_id for lead in ranked} == retained_ids | demoted_ids
+    assert len(ranked) == len(retained) + len(demoted)
+
+    by_candidate = {row["candidate_id"]: row for row in records}
+    assert {
+        by_candidate[candidate_id]["clean_yield_demotion_rank"]
+        for candidate_id in retained_ids
+    } == {0}
+    assert {
+        by_candidate[candidate_id]["clean_yield_demotion_rank"]
+        for candidate_id in demoted_ids
+    } == {1}
+    assert (
+        by_candidate["courtlistener-docket-102"]["clean_yield_demotion_reason"]
+        == "none"
+    )
+    assert (
+        by_candidate["courtlistener-docket-103"]["clean_yield_demotion_reason"]
+        == "none"
+    )
+    assert (
+        by_candidate["courtlistener-docket-201"]["clean_yield_demotion_reason"]
+        == "habeas_or_detention_metadata"
+    )
+    assert (
+        by_candidate["courtlistener-docket-202"]["clean_yield_demotion_reason"]
+        == "appellate_metadata"
+    )
+    assert (
+        by_candidate["courtlistener-docket-208"]["clean_yield_demotion_reason"]
+        == "criminal_metadata"
+    )
+    assert (
+        by_candidate["courtlistener-docket-209"]["clean_yield_demotion_reason"]
+        == "main_bankruptcy_metadata"
+    )
+
+
 def _priority_novel_source(
     tmp_path: Path, path: Path
 ) -> recap_api_batch_driver.DirectSearchSeedSource:
@@ -1636,6 +1894,371 @@ def test_priority_tranches_rank_only_and_preserve_exact_deferred_frontier(
     assert terminal.deferred_count == 0
     assert terminal.frontier["ranking_frontier_exhausted"] is True
     assert terminal.frontier["global_source_saturated"] is False
+
+
+def test_priority_tranche_reuses_exact_batch_local_terminal_observation(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    reused_candidate_id = "courtlistener-docket-200"
+    with CycleAcquisitionStore(path) as store:
+        store.record_observation(
+            reused_candidate_id,
+            batch_id=source.source_batch_id,
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={
+                "candidate_id": reused_candidate_id,
+                "screen": {"eligible": True},
+            },
+            observed_at="2026-07-24T13:55:00+00:00",
+        )
+        first = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-reuse",
+            source=source,
+            tranche_size=1,
+        )
+        resumed = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-reuse",
+            source=source,
+            tranche_size=1,
+        )
+        client = _token_client([])
+        tally = run_observe(
+            store,
+            batch_id="priority-reuse",
+            client=client,
+            eligibility_anchor=date(2026, 6, 30),
+            limit=1,
+        )
+        config = store.batch_config("priority-reuse")
+
+    assert first.selected_candidate_ids == (reused_candidate_id,)
+    assert first.selected_count + first.deferred_count == len(source.leads)
+    assert first.reused_observation_candidate_ids == (reused_candidate_id,)
+    assert first.reused_observation_count == 1
+    assert len(first.reused_observation_commitment_sha256) == 64
+    assert first.frontier["reused_observation_candidate_ids"] == [reused_candidate_id]
+    assert first.frontier["reused_observation_count"] == 1
+    assert first.frontier["reused_observation_commitment_sha256"] == (
+        first.reused_observation_commitment_sha256
+    )
+    assert config["reused_observation_candidate_ids"] == [reused_candidate_id]
+    assert config["reused_observation_count"] == 1
+    assert config["reused_observation_commitment_sha256"] == (
+        first.reused_observation_commitment_sha256
+    )
+    assert resumed.already_seeded is True
+    assert resumed.frontier_sha256 == first.frontier_sha256
+    assert (
+        resumed.reused_observation_commitment_sha256
+        == first.reused_observation_commitment_sha256
+    )
+    assert tally.observed == 0
+    assert tally.skipped_already_observed == 1
+    assert client.request_count == 0
+
+
+def test_priority_tranche_reuses_terminal_from_bound_priority_lineage(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    candidate_id = "courtlistener-docket-200"
+    with CycleAcquisitionStore(path) as store:
+        materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-earlier",
+            source=source,
+            tranche_size=1,
+        )
+        earlier = store.record_observation(
+            candidate_id,
+            batch_id="priority-earlier",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"candidate_id": candidate_id, "screen": {"eligible": True}},
+        )
+        later = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-later",
+            source=source,
+            tranche_size=1,
+        )
+        copied = store.batch_terminal_observation("priority-later", candidate_id)
+
+    assert later.reused_observation_candidate_ids == (candidate_id,)
+    assert copied is not None
+    assert copied.supersedes_observation_id == earlier.observation_id
+
+
+def test_priority_tranche_fails_closed_if_reused_observation_drifts(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    reused_candidate_id = "courtlistener-docket-200"
+    with CycleAcquisitionStore(path) as store:
+        store.record_observation(
+            reused_candidate_id,
+            batch_id=source.source_batch_id,
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={
+                "candidate_id": reused_candidate_id,
+                "screen": {"eligible": True},
+            },
+            observed_at="2026-07-24T13:55:00+00:00",
+        )
+        materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-reuse-drift",
+            source=source,
+            tranche_size=1,
+        )
+        store.record_observation(
+            reused_candidate_id,
+            batch_id=source.source_batch_id,
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={
+                "candidate_id": reused_candidate_id,
+                "screen": {"eligible": True, "revision": 2},
+            },
+            observed_at="2026-07-24T14:00:00+00:00",
+        )
+
+        with pytest.raises(
+            (RecapApiBatchDriverError, ConfigMismatchError),
+            match=r"(reused observation|batch config|commitment)",
+        ):
+            materialize_direct_search_priority_tranche(
+                store,
+                batch_id="priority-reuse-drift",
+                source=source,
+                tranche_size=1,
+            )
+
+
+def test_priority_tranche_rejects_downstream_accepted_observation(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    candidate_id = "courtlistener-docket-200"
+    with CycleAcquisitionStore(path) as store:
+        strict = store.record_observation(
+            candidate_id,
+            batch_id=source.source_batch_id,
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"candidate_id": candidate_id, "screen": {"eligible": True}},
+        )
+        store.record_observation(
+            candidate_id,
+            batch_id=source.source_batch_id,
+            state="accepted",
+            reason_code="required_documents_complete",
+            evidence={
+                "candidate_id": candidate_id,
+                "source_observation_id": strict.observation_id,
+            },
+        )
+        with pytest.raises(
+            RecapApiBatchDriverError,
+            match="not a strict clean-screen terminal",
+        ):
+            materialize_direct_search_priority_tranche(
+                store,
+                batch_id="priority-downstream-reuse",
+                source=source,
+                tranche_size=1,
+            )
+
+
+def test_priority_tranche_rejects_wrong_lineage_observation(tmp_path: Path) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    candidate_id = "courtlistener-docket-200"
+    with CycleAcquisitionStore(path) as store:
+        source_hit = next(
+            hit
+            for hit in store.candidate_discovery_hits(source.source_batch_id)
+            if hit.candidate_id == candidate_id
+        )
+        store.ensure_batch("unrelated-batch", {"provider": "test"})
+        store.ensure_terms("unrelated-batch", ("test",))
+        store.commit_search_page(
+            "unrelated-batch",
+            "test",
+            None,
+            (
+                {
+                    "provider_hit_id": "unrelated-200",
+                    "candidate_id": candidate_id,
+                    "payload": source_hit.payload,
+                },
+            ),
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.record_observation(
+            candidate_id,
+            batch_id="unrelated-batch",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"candidate_id": candidate_id, "screen": {"eligible": True}},
+        )
+        with pytest.raises(
+            RecapApiBatchDriverError,
+            match=r"outside.*source lineage",
+        ):
+            materialize_direct_search_priority_tranche(
+                store,
+                batch_id="priority-wrong-lineage",
+                source=source,
+                tranche_size=1,
+            )
+
+
+def test_run_observe_rejects_priority_evidence_drift_before_transport(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    with CycleAcquisitionStore(path) as store:
+        result = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-drift",
+            source=source,
+            tranche_size=1,
+        )
+    selected_id = result.selected_candidate_ids[0]
+
+    with sqlite3.connect(path) as connection:
+        row = connection.execute(
+            """
+            SELECT payload_json FROM discovery_hits
+            WHERE batch_id = ? AND candidate_id = ?
+            """,
+            ("priority-drift", selected_id),
+        ).fetchone()
+        assert row is not None
+        payload = json.loads(str(row[0]))
+        payload["priority_decision_evidence"]["description"] = (
+            "[Proposed] Order Granting Motion to Dismiss"
+        )
+        connection.execute(
+            """
+            UPDATE discovery_hits SET payload_json = ?
+            WHERE batch_id = ? AND candidate_id = ?
+            """,
+            (
+                json.dumps(payload, sort_keys=True, separators=(",", ":")),
+                "priority-drift",
+                selected_id,
+            ),
+        )
+
+    with CycleAcquisitionStore(path) as store:
+        docket_id = int(selected_id.removeprefix("courtlistener-docket-"))
+        client = _token_client(
+            [
+                _docket_response(docket_id),
+                _entries_response(
+                    docket_id=docket_id,
+                    results=[
+                        _motion_entry(docket_id),
+                        {
+                            "id": 9000 + docket_id,
+                            "docket": docket_id,
+                            "entry_number": 70,
+                            "description": "ORDER granting motion to dismiss",
+                            "date_filed": "2026-07-14",
+                        },
+                    ],
+                ),
+            ]
+        )
+        error: RecapApiBatchDriverError | None = None
+        try:
+            run_observe(
+                store,
+                batch_id="priority-drift",
+                client=client,
+                eligibility_anchor=date(2026, 6, 30),
+                limit=1,
+            )
+        except RecapApiBatchDriverError as exc:
+            error = exc
+        assert client.request_count == 0
+        assert error is not None
+        assert re.search(
+            r"priority.*(?:commitment|provenance|drift)",
+            str(error),
+        )
+
+
+def test_run_observe_rejects_rehashed_priority_rank_drift_before_transport(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    with CycleAcquisitionStore(path) as store:
+        result = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-rank-drift",
+            source=source,
+            tranche_size=1,
+        )
+    selected_id = result.selected_candidate_ids[0]
+
+    with sqlite3.connect(path) as connection:
+        row = connection.execute(
+            """
+            SELECT payload_json FROM discovery_hits
+            WHERE batch_id = ? AND candidate_id = ?
+            """,
+            ("priority-rank-drift", selected_id),
+        ).fetchone()
+        assert row is not None
+        payload = json.loads(str(row[0]))
+        provenance = payload["priority_dedupe_provenance"]
+        provenance["ranking_record"]["signal_rank"] = 99
+        provenance["ranking_record_sha256"] = (
+            recap_api_batch_driver._canonical_record_sha256(
+                provenance["ranking_record"]
+            )
+        )
+        connection.execute(
+            """
+            UPDATE discovery_hits SET payload_json = ?
+            WHERE batch_id = ? AND candidate_id = ?
+            """,
+            (
+                json.dumps(payload, sort_keys=True, separators=(",", ":")),
+                "priority-rank-drift",
+                selected_id,
+            ),
+        )
+
+    with CycleAcquisitionStore(path) as store:
+        client = _token_client([])
+        with pytest.raises(
+            RecapApiBatchDriverError,
+            match=r"priority.*ranking record.*invalid",
+        ):
+            run_observe(
+                store,
+                batch_id="priority-rank-drift",
+                client=client,
+                eligibility_anchor=date(2026, 6, 30),
+                limit=1,
+            )
+        assert client.request_count == 0
 
 
 def test_priority_tranche_rejects_stale_or_mutated_frontier(tmp_path: Path) -> None:
