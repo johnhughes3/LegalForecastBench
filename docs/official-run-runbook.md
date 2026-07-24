@@ -662,18 +662,34 @@ uv run scripts/release_check.py
 Prepare the frozen run-input manifest, locked labels, model registry, and packet objects. The run-input manifest must use the same `cycle_id` as the dispatch and either omit `labels_sha256` or contain the SHA-256 of the exact labels JSONL. Generate and commit the hash-only freeze commitment before dispatch:
 
 ```bash
-uv run legalforecast freeze \
-  --cycle-id <cycle_id> \
+uv run legalforecast freeze <cycle_id> \
   --bundle-output manifests/<cycle_id>.freeze.json \
   --manifest <cycle-manifest> \
+  --units <prediction-units.jsonl> \
   --labels <labels.jsonl> \
   --exclusion-ledger <exclusion-ledger.jsonl> \
   --prompt <prompt-artifact> \
   --scorer <scorer-artifact> \
   --harness <harness-artifact> \
   --model-registry <model-registry.json> \
-  --baselines <baselines-artifact>
+  --baselines manifests/<cycle_id>.no-baselines.json \
+  --execution-policy <execution-policy.json> \
+  --labeling-policy <labeling-policy.json> \
+  --cohort-policy <cohort-policy.json>
 ```
+
+`--baselines` is required even when the frozen execution policy sets `allow_no_baselines` to `true`. The current freeze implementation requires an existing regular file and hash-binds its bytes, but it does not parse or schema-validate the baselines artifact. For Cycle 1, which has no frozen historical baseline corpus, use a reviewed, committed JSON sentinel rather than a zero-byte file:
+
+```json
+{
+  "schema_version": "legalforecast.no_baselines.v1",
+  "cycle_id": "<cycle_id>",
+  "status": "unavailable",
+  "reason": "No frozen historical baseline corpus exists for Cycle 1."
+}
+```
+
+The sentinel is a hash-bound disclosure, not the enforcement authority; `execution-policy.json` remains authoritative for `allow_no_baselines`, and the dispatch input must match it. Replace the sentinel with the frozen baseline artifact only in a later cycle that has one.
 
 Use `uv run legalforecast freeze --help` for the exact argument shape. The workflow verifies the committed freeze commitment, substituting the downloaded labels and model registry for their checkout paths, before matrix fan-out. The separately downloaded run-input manifest is validated and label-bound by the workflow's manifest-freeze step; it is not substituted for the cycle manifest recorded in the freeze bundle.
 
