@@ -18,5 +18,6 @@ The technical documentation in this folder is drafted and maintained with substa
 - [multiharness-adapter-spec.md](multiharness-adapter-spec.md): the community adapter contract.
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
 - [adapters/](adapters/): notes for the first-class fixture adapter tracks (LQ.AI, Hermes Agent, OpenClaw, and provider/runtime baselines).
+- [Claude Code native containment feasibility](adapters/claude-code-native-containment.md): pending host-specific, zero-provider-spend characterization of Claude Code 2.1.218 inside a whole-process systemd `DynamicUser` boundary; no successful capture or fixture is claimed.
 
 Historical planning and review documents have been removed from the working tree; they remain available in git history.
