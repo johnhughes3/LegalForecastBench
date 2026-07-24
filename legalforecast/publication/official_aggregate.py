@@ -93,6 +93,7 @@ _PACKET_TOKEN_FIELDS = (
 )
 _PACKET_SIZE_FIELDS = ("packet_size_bytes", "size_bytes")
 _TOKEN_ESTIMATE_BYTES_PER_TOKEN = 4
+_LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS = 272_000
 _PACKET_TOKEN_ESTIMATOR = (
     "manifest input/prompt token counts; fallback ceil(packet_size_bytes / 4)"
 )
@@ -1335,6 +1336,13 @@ def _packet_token_budget_record(
                 f"{over_budget}"
             )
 
+    long_context_surcharge_packets = [
+        packet
+        for packet in packet_tokens
+        if _required_int(packet, "estimated_input_tokens")
+        > _LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS
+    ]
+
     return {
         "estimator": _PACKET_TOKEN_ESTIMATOR,
         "bytes_per_token_fallback": _TOKEN_ESTIMATE_BYTES_PER_TOKEN,
@@ -1344,6 +1352,11 @@ def _packet_token_budget_record(
             else None
         ),
         "smallest_prompt_input_token_budget": smallest_prompt_budget,
+        "long_context_surcharge_threshold_tokens": (
+            _LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS
+        ),
+        "long_context_surcharge_packet_count": len(long_context_surcharge_packets),
+        "long_context_surcharge_packets": long_context_surcharge_packets,
         "registry_budgets": registry_budgets,
         "temperature_policy": _temperature_policy_record(registry_entries),
         "overall": _token_distribution(

@@ -65,10 +65,10 @@ def test_cycle_1_registry_records_provider_limits_and_current_prices() -> None:
         )
         for entry in registry.entries
     } == {
-        "anthropic:claude-sonnet-5": (1_000_000, 128_000, 2.0, 10.0),
-        "openai:gpt-5.6-luna": (1_050_000, 128_000, 1.0, 6.0),
-        "openai:gpt-5.6-sol": (1_050_000, 128_000, 5.0, 30.0),
-        "openai:gpt-5.6-terra": (1_050_000, 128_000, 2.5, 15.0),
+        "anthropic:claude-sonnet-5": (1_000_000, 16_000, 2.0, 10.0),
+        "openai:gpt-5.6-luna": (1_050_000, 16_000, 1.0, 6.0),
+        "openai:gpt-5.6-sol": (1_050_000, 16_000, 5.0, 30.0),
+        "openai:gpt-5.6-terra": (1_050_000, 16_000, 2.5, 15.0),
     }
 
     for entry in registry.entries:

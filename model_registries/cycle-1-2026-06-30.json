@@ -8,7 +8,7 @@
       "OpenAI's model page lists gpt-5.6-sol in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID and does not use the gpt-5.6 alias.",
       "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
     ],
-    "max_output_tokens": 128000,
+    "max_output_tokens": 16000,
     "model_id": "gpt-5.6-sol",
     "model_version_or_snapshot": "gpt-5.6-sol",
     "network_disabled": true,
@@ -33,7 +33,7 @@
       "OpenAI's model page lists gpt-5.6-terra in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID.",
       "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
     ],
-    "max_output_tokens": 128000,
+    "max_output_tokens": 16000,
     "model_id": "gpt-5.6-terra",
     "model_version_or_snapshot": "gpt-5.6-terra",
     "network_disabled": true,
@@ -58,7 +58,7 @@
       "OpenAI's model page lists gpt-5.6-luna in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID.",
       "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
     ],
-    "max_output_tokens": 128000,
+    "max_output_tokens": 16000,
     "model_id": "gpt-5.6-luna",
     "model_version_or_snapshot": "gpt-5.6-luna",
     "network_disabled": true,
@@ -83,7 +83,7 @@
       "Anthropic 4.6-generation and later dateless model IDs are pinned snapshots, not evergreen aliases.",
       "The recorded $2/$10 introductory pricing applies through August 31, 2026; standard $3/$15 pricing starts September 1, 2026."
     ],
-    "max_output_tokens": 128000,
+    "max_output_tokens": 16000,
     "model_id": "claude-sonnet-5",
     "model_version_or_snapshot": "claude-sonnet-5",
     "network_disabled": true,
