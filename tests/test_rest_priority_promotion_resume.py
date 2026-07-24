@@ -7,16 +7,13 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import cast
 
 import legalforecast.ingestion.rest_priority_subset_promotion as promotion_module
 import pytest
 from legalforecast.ingestion.cycle_acquisition_store import ConfigMismatchError
-from legalforecast.ingestion.rest_priority_subset_promotion import (
-    RestPrioritySubsetPromotionError,
-    RestPrioritySubsetPromotionResult,
-)
 from tests.test_rest_priority_subset_promotion import (
     _build_promotion_fixture,
     _promote,
@@ -26,14 +23,20 @@ from tests.test_rest_priority_subset_promotion import (
 
 def test_exact_published_snapshot_is_reused_on_resume(tmp_path: Path) -> None:
     fixture = _build_promotion_fixture(tmp_path)
-    first = cast(RestPrioritySubsetPromotionResult, _promote(fixture, tmp_path))
+    first = cast(
+        promotion_module.RestPrioritySubsetPromotionResult,
+        _promote(fixture, tmp_path),
+    )
     manifest_before = (first.snapshot_path / "manifest.json").read_bytes()
 
-    resumed = cast(RestPrioritySubsetPromotionResult, _promote(fixture, tmp_path))
+    resumed = cast(
+        promotion_module.RestPrioritySubsetPromotionResult,
+        _promote(fixture, tmp_path),
+    )
 
     assert resumed == first
     assert (first.snapshot_path / "manifest.json").read_bytes() == manifest_before
-    with sqlite3.connect(fixture.store_path) as connection:
+    with closing(sqlite3.connect(fixture.store_path)) as connection, connection:
         [snapshot_count] = connection.execute(
             "SELECT COUNT(*) FROM snapshots WHERE snapshot_id = ?",
             (first.snapshot_id,),
@@ -68,7 +71,10 @@ def test_resume_after_crash_immediately_after_snapshot_publication(
         "_snapshot_identity_sets",
         original_identity_reader,
     )
-    resumed = cast(RestPrioritySubsetPromotionResult, _promote(fixture, tmp_path))
+    resumed = cast(
+        promotion_module.RestPrioritySubsetPromotionResult,
+        _promote(fixture, tmp_path),
+    )
 
     assert resumed.snapshot_path == _promoted_snapshot_path(tmp_path)
     assert resumed.selected_candidate_ids == (
@@ -81,18 +87,27 @@ def test_resume_rejects_tampered_published_snapshot_payload(
     tmp_path: Path,
 ) -> None:
     fixture = _build_promotion_fixture(tmp_path)
-    result = cast(RestPrioritySubsetPromotionResult, _promote(fixture, tmp_path))
+    result = cast(
+        promotion_module.RestPrioritySubsetPromotionResult,
+        _promote(fixture, tmp_path),
+    )
     candidates = result.snapshot_path / "candidates.jsonl"
     candidates.write_bytes(candidates.read_bytes() + b"\n")
 
-    with pytest.raises(RestPrioritySubsetPromotionError, match="snapshot"):
+    with pytest.raises(
+        promotion_module.RestPrioritySubsetPromotionError,
+        match="snapshot",
+    ):
         _promote(fixture, tmp_path)
 
 
 def test_resume_rejects_target_batch_config_drift(tmp_path: Path) -> None:
     fixture = _build_promotion_fixture(tmp_path)
-    result = cast(RestPrioritySubsetPromotionResult, _promote(fixture, tmp_path))
-    with sqlite3.connect(fixture.store_path) as connection:
+    result = cast(
+        promotion_module.RestPrioritySubsetPromotionResult,
+        _promote(fixture, tmp_path),
+    )
+    with closing(sqlite3.connect(fixture.store_path)) as connection, connection:
         [raw_config] = connection.execute(
             "SELECT config_json FROM batches WHERE batch_id = ?",
             (result.batch_id,),
@@ -121,7 +136,7 @@ def test_resume_rejects_untracked_snapshot_directory_collision(
     collision.mkdir(parents=True)
 
     with pytest.raises(
-        RestPrioritySubsetPromotionError,
+        promotion_module.RestPrioritySubsetPromotionError,
         match="untracked snapshot target",
     ):
         _promote(fixture, tmp_path)

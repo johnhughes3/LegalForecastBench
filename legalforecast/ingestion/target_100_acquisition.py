@@ -146,11 +146,28 @@ def _build_target_stage_commands(
         config.expected_cycle_hash,
         "--expected-snapshot-manifest-sha256",
         config.expected_snapshot_manifest_sha256,
+        "--screened-cases",
+        str(config.authenticated_screened_cases),
+        "--expected-screened-cases-sha256",
+        config.screened_cases_sha256,
         "--target-clean-cases",
         str(config.candidate_pool_size),
         "--cost-per-missing-document-usd",
         config.cost_per_document_usd,
     ]
+    if config.raw_html_dir is not None:
+        assert config.authenticated_raw_html_manifest is not None
+        assert config.authenticated_raw_html_manifest_sha256 is not None
+        public_plan.extend(
+            (
+                "--raw-html-dir",
+                str(config.raw_html_dir),
+                "--authenticated-raw-html-manifest",
+                str(config.authenticated_raw_html_manifest),
+                "--expected-authenticated-raw-html-manifest-sha256",
+                config.authenticated_raw_html_manifest_sha256,
+            )
+        )
     if config.use_embedded_entries:
         public_plan.append("--use-embedded-entries")
 
@@ -307,6 +324,8 @@ def _validate_preparation_config(
         raise error_type("target case count must be positive")
     if config.candidate_pool_size < 1:
         raise error_type("candidate pool size must be positive")
+    if config.candidate_pool_size < config.target_case_count:
+        raise error_type("candidate pool size must be at least target case count")
     if _LOWERCASE_SHA256.fullmatch(config.expected_snapshot_manifest_sha256) is None:
         raise error_type(
             "expected snapshot manifest SHA-256 must be 64 lowercase hex digits"

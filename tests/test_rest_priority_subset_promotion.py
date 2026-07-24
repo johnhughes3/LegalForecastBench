@@ -914,6 +914,19 @@ def test_rejects_selection_policy_hash_tampering(tmp_path: Path) -> None:
         _promote(fixture, tmp_path)
 
 
+def test_non_ascii_selection_policy_uses_shared_canonical_commitment(
+    tmp_path: Path,
+) -> None:
+    fixture = _build_promotion_fixture(tmp_path)
+    policy = cast(dict[str, object], json.loads(fixture.policy_path.read_text()))
+    policy["approved_by"] = "José Hughes"
+    policy_sha256 = _write_json(fixture.policy_path, policy)
+
+    result = _promote(replace(fixture, policy_sha256=policy_sha256), tmp_path)
+
+    assert result is not None
+
+
 def test_commitment_validator_rejects_omission_overlap_and_terminal_drift(
     tmp_path: Path,
 ) -> None:

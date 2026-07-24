@@ -42,6 +42,7 @@ from legalforecast.ingestion.firecrawl_screening_identity import (
     REST_TERMINAL_SUBSET_PROMOTION_SCHEMA,
     REST_TERMINAL_SUBSET_PROMOTION_STAGE_KEY,
     FirecrawlScreeningIdentityError,
+    canonical_rest_commitment_json_bytes,
     rest_priority_deferred_omission_jsonl_bytes,
 )
 from legalforecast.ingestion.firecrawl_screening_identity import (
@@ -1294,14 +1295,8 @@ def _canonical_sha256(value: object) -> str:
 
 def _canonical_json(value: object) -> str:
     try:
-        return json.dumps(
-            value,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
-        )
-    except (TypeError, ValueError) as exc:
+        return canonical_rest_commitment_json_bytes(value).decode()
+    except (FirecrawlScreeningIdentityError, UnicodeDecodeError) as exc:
         raise RestPrioritySubsetPromotionError(
             "commitment input is not canonical JSON"
         ) from exc

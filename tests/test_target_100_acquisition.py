@@ -161,6 +161,37 @@ def test_target_cohort_commands_are_noncharging_and_bind_explicit_target(
     assert "case.dev" not in " ".join(flattened).lower()
 
 
+def test_target_command_builders_reject_candidate_pool_below_target(
+    tmp_path: Path,
+) -> None:
+    cohort = TargetCohortPreparationConfig(
+        output_root=tmp_path / "cohort",
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
+        candidate_pool_size=149,
+        target_case_count=150,
+        authenticated_screened_cases=tmp_path / "screened.jsonl",
+        screened_cases_sha256="c" * 64,
+        use_embedded_entries=True,
+    )
+    exact_100 = Target100PreparationConfig(
+        output_root=tmp_path / "exact-100",
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
+        candidate_pool_size=99,
+        authenticated_screened_cases=tmp_path / "screened.jsonl",
+        screened_cases_sha256="c" * 64,
+        use_embedded_entries=True,
+    )
+
+    with pytest.raises(ValueError, match="at least target case count"):
+        build_target_cohort_stage_commands(cohort)
+    with pytest.raises(ValueError, match="at least target case count"):
+        build_target_100_stage_commands(exact_100)
+
+
 @pytest.mark.parametrize(
     "manifest_sha256",
     (
@@ -465,7 +496,10 @@ def test_target_cohort_rejects_nonpositive_and_underfilled_targets_without_stage
 
     underfilled_root = tmp_path / "underfilled"
     assert main(command(4, underfilled_root)) == 2
-    assert "only 3 viable cases; 4 are required" in capsys.readouterr().err
+    assert (
+        "candidate pool size must be at least target case count"
+        in capsys.readouterr().err
+    )
     [underfilled_attempt] = underfilled_root.glob(
         "attempts/prepare-target-cohort/*/run-card.json"
     )
@@ -997,13 +1031,12 @@ def test_target_preparation_uses_owned_raw_bytes_after_source_mutation(
     admitted_payload = source_raw_path.read_bytes()
     real_main = cli.main
 
-    def mutate_source_after_plan(argv: list[str] | tuple[str, ...]) -> int:
-        result = real_main(argv)
+    def mutate_source_before_plan(argv: list[str] | tuple[str, ...]) -> int:
         if tuple(argv[:2]) == ("acquisition", "plan-public-downloads"):
             source_raw_path.write_bytes(b"<html>attacker replacement</html>")
-        return result
+        return real_main(argv)
 
-    monkeypatch.setattr(cli, "main", mutate_source_after_plan)
+    monkeypatch.setattr(cli, "main", mutate_source_before_plan)
     assert (
         main(
             [
@@ -1052,7 +1085,16 @@ def test_target_preparation_uses_owned_raw_bytes_after_source_mutation(
         for command in config["stage_commands"]
         if command["stage"] == "plan-public-downloads"
     )
-    assert "--raw-html-dir" not in public_plan["argv"]
+    assert public_plan["argv"][
+        public_plan["argv"].index("--screened-cases") + 1
+    ] == str(output_root / "00-authenticated-snapshot/screened-cases.jsonl")
+    assert public_plan["argv"][public_plan["argv"].index("--raw-html-dir") + 1] == str(
+        owned_raw_dir
+    )
+    assert public_plan["argv"][
+        public_plan["argv"].index("--authenticated-raw-html-manifest") + 1
+    ] == str(owned_manifest)
+    assert str(source_raw_dir) not in public_plan["argv"]
     assert bridge["argv"][bridge["argv"].index("--raw-html-dir") + 1] == str(
         owned_raw_dir
     )
@@ -1064,6 +1106,57 @@ def test_target_preparation_uses_owned_raw_bytes_after_source_mutation(
     assert str(owned_manifest.resolve()) in gap_inputs
     assert str((owned_raw_dir / "1000.html").resolve()) in gap_inputs
     assert str(source_raw_path.resolve()) not in gap_inputs
+
+
+def test_target_preparation_uses_owned_screened_bytes_before_public_plan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run-owned-screened"
+    source_screened = snapshot / "screened-cases.jsonl"
+    real_main = cli.main
+
+    def delete_source_before_plan(argv: list[str] | tuple[str, ...]) -> int:
+        if tuple(argv[:2]) == ("acquisition", "plan-public-downloads"):
+            source_screened.unlink()
+        return real_main(argv)
+
+    monkeypatch.setattr(cli, "main", delete_source_before_plan)
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--expected-snapshot-manifest-sha256",
+                _snapshot_manifest_sha256(snapshot),
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    summary = json.loads(
+        (output_root / "01-public-plan/public-packet-plan-summary.json").read_text()
+    )
+    owned_screened = output_root / "00-authenticated-snapshot/screened-cases.jsonl"
+    assert summary["authenticated_screened_cases_sha256"] == (
+        "sha256:" + hashlib.sha256(owned_screened.read_bytes()).hexdigest()
+    )
 
 
 @pytest.mark.parametrize("owned_input", ("screened", "raw"))

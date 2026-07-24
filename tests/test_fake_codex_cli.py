@@ -199,9 +199,14 @@ def test_cancellation_mode_emits_deterministic_structured_failure(
         text=True,
     )
     assert process.stdout is not None
-    prefix = [process.stdout.readline(), process.stdout.readline()]
-    os.kill(process.pid, cancellation_signal)
-    remainder, stderr = process.communicate(timeout=2)
+    try:
+        prefix = [process.stdout.readline(), process.stdout.readline()]
+        os.kill(process.pid, cancellation_signal)
+        remainder, stderr = process.communicate(timeout=5)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
 
     assert process.returncode == returncode
     assert stderr == ""

@@ -2526,7 +2526,7 @@ def _complete_snapshot(
                 batch_id=batch_id,
                 state="accepted",
                 reason_code="strict_clean_screen_passed",
-                evidence=record,
+                evidence={**record, "candidate_id": hit.candidate_id},
             )
             raw_html_path = raw_html_dir / f"{hit.candidate_id}.html"
             store.write_raw_artifact(

@@ -264,14 +264,6 @@ def plan_public_packet_downloads(
 
     if target_clean_cases <= 0:
         raise ValueError("target_clean_cases must be positive")
-    if (
-        raw_html_dir is not None
-        and raw_html_paths_by_candidate is not None
-        and raw_html_bytes_by_candidate is None
-    ):
-        raise ValueError(
-            "raw_html_dir and raw_html_paths_by_candidate are mutually exclusive"
-        )
     raw_source_count = sum(
         source is not None
         for source in (

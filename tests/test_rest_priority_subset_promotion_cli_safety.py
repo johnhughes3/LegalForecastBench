@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import sqlite3
 from pathlib import Path
 
@@ -198,6 +200,44 @@ def test_cli_rejects_untracked_resume_snapshot_before_target_batch_mutation(
             ).fetchone()
             is None
         )
+
+
+@pytest.mark.parametrize(
+    "malformed_value",
+    (None, "not-a-list", [1], ["duplicate", "duplicate"]),
+)
+def test_cli_dry_run_rejects_malformed_frontier_ids_with_failure_card(
+    tmp_path: Path,
+    malformed_value: object,
+) -> None:
+    fixture = _build_promotion_fixture(tmp_path)
+    frontier = json.loads(fixture.frontier_path.read_text(encoding="utf-8"))
+    frontier["selected_candidate_ids"] = malformed_value
+    fixture.frontier_path.write_text(
+        json.dumps(frontier, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    frontier_sha256 = hashlib.sha256(fixture.frontier_path.read_bytes()).hexdigest()
+    output_root = tmp_path / "dry-run-malformed"
+    args = _promotion_cli_args(
+        fixture,
+        output_root=output_root,
+        target_batch_id="dry-run-target",
+        snapshot_id="dry-run-snapshot",
+    )
+    args.remove("--execute")
+    args[args.index("--expected-priority-frontier-sha256") + 1] = frontier_sha256
+
+    assert cli_module.main(args) == 2
+
+    failure = json.loads(
+        (
+            output_root / "run-cards/promote-terminal-rest-priority-subset.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert failure["status"] == "failed"
+    assert "unique string list" in failure["failure_reason"]
+    assert failure["paid_activity_executed"] is False
 
 
 def test_cli_executes_and_resumes_exact_immutable_publication(

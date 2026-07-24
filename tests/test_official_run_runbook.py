@@ -905,6 +905,22 @@ def test_staged_rollout_rehearsal_preserves_model_a_artifacts(
     }
 
 
+def test_acquisition_snapshot_pin_is_not_self_derived() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    assert (
+        'SNAPSHOT_MANIFEST_SHA256="$(sha256sum "$SNAPSHOT/manifest.json"' not in runbook
+    )
+    assert (
+        "SNAPSHOT_MANIFEST_SHA256="
+        "'REPLACE_WITH_EXTERNALLY_RECORDED_MANIFEST_SHA256'" in runbook
+    )
+    assert (
+        """test "$(sha256sum "$SNAPSHOT/manifest.json" | cut -d' ' -f1)" """
+        """= "$SNAPSHOT_MANIFEST_SHA256\""""
+    ) in runbook
+
+
 def _tree_hashes(root: Path) -> dict[str, str]:
     return {
         path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()

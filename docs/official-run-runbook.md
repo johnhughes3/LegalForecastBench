@@ -1328,7 +1328,10 @@ Run the public-first preparation chain from that immutable snapshot. This comman
 
 ```bash
 SNAPSHOT=artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete
-SNAPSHOT_MANIFEST_SHA256="$(sha256sum "$SNAPSHOT/manifest.json" | cut -d' ' -f1)"
+# Set this to the digest recorded out of band when the snapshot was published.
+# Do not derive the admission pin from the mutable snapshot being admitted.
+SNAPSHOT_MANIFEST_SHA256='REPLACE_WITH_EXTERNALLY_RECORDED_MANIFEST_SHA256'
+test "$(sha256sum "$SNAPSHOT/manifest.json" | cut -d' ' -f1)" = "$SNAPSHOT_MANIFEST_SHA256"
 
 uv run legalforecast acquisition prepare-target-cohort \
   --output-root artifacts/cycle-1/official-acquisition/target-150-frontier \

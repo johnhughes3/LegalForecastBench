@@ -400,6 +400,23 @@ _REST_DEFERRED_OMISSION_FIELDS: Final = frozenset(
 )
 
 
+def canonical_rest_commitment_json_bytes(value: object) -> bytes:
+    """Serialize REST promotion commitments with one stable UTF-8 encoding."""
+
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode()
+    except (TypeError, ValueError) as exc:
+        raise FirecrawlScreeningIdentityError(
+            "REST commitment input is not canonical JSON"
+        ) from exc
+
+
 def rest_priority_candidate_id_set_sha256(candidate_ids: Sequence[str]) -> str:
     """Hash one unique candidate-ID set as sorted canonical JSON."""
 
@@ -409,7 +426,7 @@ def rest_priority_candidate_id_set_sha256(candidate_ids: Sequence[str]) -> str:
             "REST priority candidate IDs must be unique"
         )
     return hashlib.sha256(
-        json.dumps(sorted(normalized), sort_keys=True, separators=(",", ":")).encode()
+        canonical_rest_commitment_json_bytes(sorted(normalized))
     ).hexdigest()
 
 
@@ -426,14 +443,12 @@ def rest_priority_partition_sha256(
     deferred = _rest_candidate_ids(
         deferred_candidate_ids, "REST priority deferred candidate IDs"
     )
-    payload = json.dumps(
+    payload = canonical_rest_commitment_json_bytes(
         {
             "deferred_candidate_ids": deferred,
             "selected_candidate_ids": selected,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
+        }
+    )
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -446,20 +461,14 @@ def rest_priority_deferred_omission_jsonl_bytes(
         candidate_ids, "REST priority deferred candidate IDs"
     )
     return b"".join(
-        (
-            json.dumps(
-                {
-                    "candidate_id": candidate_id,
-                    "disposition": "unscreened_not_excluded",
-                    "schema_version": (
-                        "legalforecast.rest_priority_deferred_omission.v1"
-                    ),
-                },
-                sort_keys=True,
-                separators=(",", ":"),
-            )
-            + "\n"
-        ).encode()
+        canonical_rest_commitment_json_bytes(
+            {
+                "candidate_id": candidate_id,
+                "disposition": "unscreened_not_excluded",
+                "schema_version": ("legalforecast.rest_priority_deferred_omission.v1"),
+            }
+        )
+        + b"\n"
         for candidate_id in normalized
     )
 
@@ -640,7 +649,7 @@ def validate_rest_terminal_subset_promotion_commitment(
         eligibility_anchor_date=cast(str, typed["eligibility_anchor_date"]),
     )
     policy_sha256 = hashlib.sha256(
-        json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()
+        canonical_rest_commitment_json_bytes(policy)
     ).hexdigest()
     if typed.get("selection_policy_sha256") != policy_sha256:
         raise FirecrawlScreeningIdentityError(

@@ -3310,7 +3310,7 @@ def _complete_snapshot(
                     if accepted
                     else "strict_clean_screen_failed"
                 ),
-                evidence=record,
+                evidence={**record, "candidate_id": hit.candidate_id},
             )
             store.write_raw_artifact(
                 hit.candidate_id,

@@ -935,7 +935,9 @@ def test_public_packet_planner_rejects_directory_and_path_map_together(
 ) -> None:
     with pytest.raises(
         ValueError,
-        match="raw_html_dir and raw_html_paths_by_candidate are mutually exclusive",
+        match=(
+            "raw HTML directory, paths, and authenticated bytes are mutually exclusive"
+        ),
     ):
         plan_public_packet_downloads(
             (_screened_case(),),

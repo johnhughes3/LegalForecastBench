@@ -9,7 +9,6 @@ import signal
 import sys
 import time
 from pathlib import Path
-from types import FrameType
 from typing import Any
 
 THREAD_ID = "00000000-0000-7000-8000-000000000001"
@@ -31,6 +30,7 @@ MODES = {
     "timeout",
     "tool_request",
 }
+_cancellation_signal: int | None = None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -128,33 +128,27 @@ def _emit(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")), flush=True)
 
 
-class _CancellationSignal(BaseException):
-    def __init__(self, requested_signal: int) -> None:
-        self.requested_signal = requested_signal
-
-
-def _raise_cancellation_signal(
-    requested_signal: int,
-    frame: FrameType | None,
-) -> None:
+def _record_cancellation_signal(requested_signal: int, frame: object) -> None:
+    global _cancellation_signal
     del frame
-    raise _CancellationSignal(requested_signal)
+    _cancellation_signal = requested_signal
 
 
 def _run_cancellation(started: dict[str, Any]) -> int:
+    global _cancellation_signal
+    _cancellation_signal = None
     previous_handlers = {
         requested_signal: signal.getsignal(requested_signal)
         for requested_signal in (signal.SIGINT, signal.SIGTERM)
     }
     for requested_signal in previous_handlers:
-        signal.signal(requested_signal, _raise_cancellation_signal)
-    _emit(started)
-    _emit({"type": "turn.started"})
+        signal.signal(requested_signal, _record_cancellation_signal)
     try:
-        while True:
-            signal.pause()
-    except _CancellationSignal as exc:
-        return _fail("execution cancelled", 128 + exc.requested_signal)
+        _emit(started)
+        _emit({"type": "turn.started"})
+        while _cancellation_signal is None:
+            time.sleep(0.01)
+        return _fail("execution cancelled", 128 + _cancellation_signal)
     finally:
         for requested_signal, previous_handler in previous_handlers.items():
             signal.signal(requested_signal, previous_handler)

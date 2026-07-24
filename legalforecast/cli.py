@@ -4892,11 +4892,34 @@ def _add_acquisition_plan_public_downloads_arguments(
         help="Defaults to screened-cases.jsonl inside the verified snapshot.",
     )
     parser.add_argument(
+        "--expected-screened-cases-sha256",
+        help=(
+            "Required when --screened-cases is outside --snapshot: exact lowercase "
+            "SHA-256 of the authenticated owned screened-case bytes."
+        ),
+    )
+    parser.add_argument(
         "--raw-html-dir",
         type=Path,
         help=(
-            "Optional explicit raw-HTML directory; when provided it must exactly "
-            "match the directory committed by the verified snapshot."
+            "Optional raw-HTML directory. Direct mode requires the directory "
+            "committed by the snapshot; owned-input mode requires an authenticated "
+            "manifest and its exact SHA-256."
+        ),
+    )
+    parser.add_argument(
+        "--authenticated-raw-html-manifest",
+        type=Path,
+        help=(
+            "Authenticated JSONL inventory for an owned --raw-html-dir; must be "
+            "paired with its expected SHA-256."
+        ),
+    )
+    parser.add_argument(
+        "--expected-authenticated-raw-html-manifest-sha256",
+        help=(
+            "Exact lowercase SHA-256 of --authenticated-raw-html-manifest; enables "
+            "source-path-independent planning from owned buffers."
         ),
     )
     parser.add_argument(
@@ -8326,7 +8349,7 @@ def _cmd_acquisition_prepare_target(
     authenticated_screened_cases = (
         output_root / "00-authenticated-snapshot/screened-cases.jsonl"
     )
-    authenticated_screened_payload = _jsonl_bytes(snapshot_view.screened)
+    authenticated_screened_payload = snapshot_view.payloads["screened-cases.jsonl"]
     authenticated_screened_sha256 = hashlib.sha256(
         authenticated_screened_payload
     ).hexdigest()
@@ -8639,7 +8662,6 @@ def _cmd_acquisition_prepare_target(
             output_root,
             config=config,
             snapshot_manifest_sha256=snapshot_view.manifest_sha256,
-            snapshot_source_screened_cases_sha256=source_screened_cases_sha256,
         )
     except (CommandError, OSError, UnicodeError, ValueError) as exc:
         _write_target_100_attempt_failure(
@@ -9327,7 +9349,7 @@ def _expected_preparation_input_commitments(
     paths: dict[str, tuple[Path, ...]] = {
         "01-public-plan": (
             snapshot / "manifest.json",
-            snapshot / "screened-cases.jsonl",
+            authenticated_screened_cases,
         ),
         "02-free-download": (
             preparation_root / "01-public-plan/free-document-requests.jsonl",
@@ -9382,6 +9404,7 @@ def _expected_preparation_input_commitments(
         stage: {str(path.resolve()): _path_sha256(path) for path in stage_paths}
         for stage, stage_paths in paths.items()
     }
+    expected["01-public-plan"].update(authenticated_input_commitments)
     expected["03-gap-bridge"].update(authenticated_input_commitments)
     expected["03-gap-bridge"].update(bridge_route_commitments)
     return expected, tuple(independent_inputs)
@@ -12815,7 +12838,6 @@ def _target_100_stage_input_commitments(
     *,
     config: TargetCohortPreparationConfig | Target100PreparationConfig,
     snapshot_manifest_sha256: str,
-    snapshot_source_screened_cases_sha256: str,
 ) -> JsonRecord:
     """Hash the authoritative inputs consumed at each preparation boundary."""
 
@@ -12827,7 +12849,7 @@ def _target_100_stage_input_commitments(
     paths: dict[str, tuple[Path, ...]] = {
         "01-public-plan": (
             config.snapshot / "manifest.json",
-            config.snapshot / "screened-cases.jsonl",
+            screened_cases,
         ),
         "02-free-download": (
             output_root / "01-public-plan/free-document-requests.jsonl",
@@ -12862,10 +12884,9 @@ def _target_100_stage_input_commitments(
         str((config.snapshot / "manifest.json").resolve()): (
             "sha256:" + snapshot_manifest_sha256
         ),
-        str((config.snapshot / "screened-cases.jsonl").resolve()): (
-            "sha256:" + snapshot_source_screened_cases_sha256
-        ),
+        str(screened_cases.resolve()): "sha256:" + config.screened_cases_sha256,
     }
+    commitments["01-public-plan"].update(authenticated_input_commitments)
     commitments["03-gap-bridge"].update(authenticated_input_commitments)
     commitments["03-gap-bridge"].update(bridge_route_commitments)
     return commitments
@@ -20215,15 +20236,32 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     expected_cycle_hash = cast(str, args.expected_cycle_hash)
     canonical_screened_cases_path = snapshot_path / "screened-cases.jsonl"
     requested_screened_cases_path = cast(Path | None, args.screened_cases)
-    if requested_screened_cases_path is not None and (
-        requested_screened_cases_path.resolve()
+    screened_cases_path = requested_screened_cases_path or canonical_screened_cases_path
+    expected_screened_cases_sha256 = cast(
+        str | None, args.expected_screened_cases_sha256
+    )
+    requested_raw_html_dir = cast(Path | None, args.raw_html_dir)
+    raw_html_manifest_path = cast(Path | None, args.authenticated_raw_html_manifest)
+    expected_raw_html_manifest_sha256 = cast(
+        str | None, args.expected_authenticated_raw_html_manifest_sha256
+    )
+    authenticated_owned_input_route = any(
+        value is not None
+        for value in (
+            expected_screened_cases_sha256,
+            raw_html_manifest_path,
+            expected_raw_html_manifest_sha256,
+        )
+    )
+    if (
+        not authenticated_owned_input_route
+        and requested_screened_cases_path is not None
+        and requested_screened_cases_path.resolve()
         != canonical_screened_cases_path.resolve()
     ):
         raise CommandError(
             "--screened-cases must be the screened-cases.jsonl inside --snapshot"
         )
-    screened_cases_path = canonical_screened_cases_path
-    requested_raw_html_dir = cast(Path | None, args.raw_html_dir)
     requests_path = _acquisition_path(
         args,
         "requests_output",
@@ -20250,6 +20288,27 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         output_root / "public-packet-plan-summary.json",
     )
     try:
+        authenticated_screened_payload: bytes | None = None
+        authenticated_raw_html_bytes: Mapping[str, bytes] | None = None
+        authenticated_raw_html_manifest_sha256: str | None = None
+        if authenticated_owned_input_route:
+            (
+                authenticated_screened_records,
+                authenticated_screened_payload,
+                authenticated_screened_digest,
+                authenticated_raw_html_bytes,
+                authenticated_raw_html_manifest_sha256,
+            ) = _read_authenticated_bridge_inputs(
+                screened_cases_path=screened_cases_path,
+                expected_screened_cases_sha256=expected_screened_cases_sha256,
+                public_first=True,
+                raw_html_dir=requested_raw_html_dir,
+                raw_html_manifest_path=raw_html_manifest_path,
+                expected_raw_html_manifest_sha256=(expected_raw_html_manifest_sha256),
+            )
+        else:
+            authenticated_screened_records = None
+            authenticated_screened_digest = None
         _validate_external_snapshot_manifest_pin(
             snapshot_path,
             cast(str, args.expected_snapshot_manifest_sha256),
@@ -20258,6 +20317,8 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             snapshot_path,
             expected_manifest_sha256=cast(str, args.expected_snapshot_manifest_sha256),
             expected_cycle_hash=expected_cycle_hash,
+            authenticated_screened_cases_payload=authenticated_screened_payload,
+            authenticated_raw_html_bytes_by_candidate=(authenticated_raw_html_bytes),
         )
         snapshot_manifest = verified_snapshot.manifest
         snapshot_firecrawl_screening_source_count(
@@ -20284,7 +20345,28 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             snapshot_screened=verified_snapshot.screened,
             snapshot_exclusions=verified_snapshot.exclusions,
         )
+        if (
+            authenticated_screened_records is not None
+            and tuple(authenticated_screened_records) != verified_snapshot.screened
+        ):
+            raise SnapshotVerificationError(
+                "authenticated screened cases differ from the verified snapshot"
+            )
+        raw_html_bytes_by_candidate = (
+            _authenticated_snapshot_raw_html_bytes(
+                verified_snapshot,
+                requested=None,
+                use_embedded_entries=cast(bool, args.use_embedded_entries),
+            )
+            if authenticated_owned_input_route
+            else _authenticated_snapshot_raw_html_bytes(
+                verified_snapshot,
+                requested=requested_raw_html_dir,
+                use_embedded_entries=cast(bool, args.use_embedded_entries),
+            )
+        )
     except (
+        CommandError,
         SnapshotVerificationError,
         ScreeningSnapshotUnionError,
         FirecrawlScreeningIdentityError,
@@ -20304,11 +20386,6 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             paid_activity_requested=False,
         )
         raise CommandError(str(exc)) from exc
-    raw_html_bytes_by_candidate = _authenticated_snapshot_raw_html_bytes(
-        verified_snapshot,
-        requested=requested_raw_html_dir,
-        use_embedded_entries=cast(bool, args.use_embedded_entries),
-    )
     records = [dict(record) for record in verified_snapshot.screened]
     dry_run = _acquisition_dry_run(args)
     plan = plan_public_packet_downloads(
@@ -20323,7 +20400,11 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     summary = {
         **plan.summary_record(),
         "dry_run": dry_run,
-        "raw_html_dir": None,
+        "raw_html_dir": (
+            str(requested_raw_html_dir.resolve())
+            if authenticated_owned_input_route and requested_raw_html_dir is not None
+            else None
+        ),
         "requested_raw_html_dir": (
             str(requested_raw_html_dir) if requested_raw_html_dir is not None else None
         ),
@@ -20341,6 +20422,16 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         "verified_snapshot": str(snapshot_path.resolve()),
         "cycle_hash": snapshot_manifest["cycle_hash"],
         "batch_digest": snapshot_manifest["batch_digest"],
+        "authenticated_screened_cases_sha256": (
+            "sha256:" + authenticated_screened_digest
+            if authenticated_screened_digest is not None
+            else None
+        ),
+        "authenticated_raw_html_manifest_sha256": (
+            "sha256:" + authenticated_raw_html_manifest_sha256
+            if authenticated_raw_html_manifest_sha256 is not None
+            else None
+        ),
     }
     _write_json(summary_path, summary)
     if dry_run:
@@ -20375,10 +20466,15 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="plan-public-downloads",
-        input_paths=(
-            (snapshot_path, screened_cases_path)
-            if requested_raw_html_dir is None
-            else (snapshot_path, screened_cases_path, requested_raw_html_dir)
+        input_paths=tuple(
+            path
+            for path in (
+                snapshot_path,
+                screened_cases_path,
+                requested_raw_html_dir,
+                raw_html_manifest_path,
+            )
+            if path is not None
         ),
         output_paths=(
             requests_path,
@@ -21963,6 +22059,32 @@ def _cmd_acquisition_promote_terminal_rest_priority_subset(
                 "priority frontier parent source batch ID mismatch"
             )
 
+        def validated_frontier_candidate_ids(field: str) -> tuple[str, ...]:
+            value = frontier.get(field)
+            if not isinstance(value, list):
+                raise RestPrioritySubsetPromotionError(
+                    f"priority frontier {field} must be a unique string list"
+                )
+            candidate_ids: list[str] = []
+            for candidate_id in cast(list[object], value):
+                if not isinstance(candidate_id, str) or not candidate_id.strip():
+                    raise RestPrioritySubsetPromotionError(
+                        f"priority frontier {field} must be a unique string list"
+                    )
+                candidate_ids.append(candidate_id)
+            if len(candidate_ids) != len(set(candidate_ids)):
+                raise RestPrioritySubsetPromotionError(
+                    f"priority frontier {field} must be a unique string list"
+                )
+            return tuple(candidate_ids)
+
+        selected_candidate_ids = validated_frontier_candidate_ids(
+            "selected_candidate_ids"
+        )
+        deferred_candidate_ids = validated_frontier_candidate_ids(
+            "deferred_candidate_ids"
+        )
+
         with CycleAcquisitionStore(cycle_store_path, read_only=True) as store:
             if store.cycle_hash != cast(str, args.expected_cycle_hash):
                 raise RestPrioritySubsetPromotionError("cycle hash mismatch")
@@ -21998,12 +22120,8 @@ def _cmd_acquisition_promote_terminal_rest_priority_subset(
                 ),
                 "dry_run": True,
                 "verified_external_frontier": True,
-                "selected_candidate_count": len(
-                    cast(list[object], frontier.get("selected_candidate_ids", []))
-                ),
-                "deferred_candidate_count": len(
-                    cast(list[object], frontier.get("deferred_candidate_ids", []))
-                ),
+                "selected_candidate_count": len(selected_candidate_ids),
+                "deferred_candidate_count": len(deferred_candidate_ids),
                 "deferred_disposition": "unscreened_not_excluded",
                 **activity_flags,
             }
@@ -22563,7 +22681,7 @@ def _read_authenticated_bridge_inputs(
     raw_html_dir: Path | None,
     raw_html_manifest_path: Path | None,
     expected_raw_html_manifest_sha256: str | None,
-) -> tuple[list[JsonRecord], str, Mapping[str, bytes] | None, str | None]:
+) -> tuple[list[JsonRecord], bytes, str, Mapping[str, bytes] | None, str | None]:
     """Read bridge inputs once and return only authenticated buffers."""
 
     if public_first and expected_screened_cases_sha256 is None:
@@ -22604,7 +22722,7 @@ def _read_authenticated_bridge_inputs(
             "raw HTML manifest and expected manifest SHA-256"
         )
     if not pair[0]:
-        return records, screened_digest, None, None
+        return records, screened_payload, screened_digest, None, None
     if raw_html_dir is None:
         raise CommandError("--authenticated-raw-html-manifest requires --raw-html-dir")
     assert raw_html_manifest_path is not None
@@ -22670,7 +22788,7 @@ def _read_authenticated_bridge_inputs(
                 f"authenticated raw HTML content differs for candidate {candidate_id}"
             )
         raw_buffers[candidate_id] = payload
-    return records, screened_digest, raw_buffers, manifest_digest
+    return records, screened_payload, screened_digest, raw_buffers, manifest_digest
 
 
 @dataclass(frozen=True, slots=True)
@@ -25017,6 +25135,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         )
     (
         records,
+        _screened_cases_payload,
         screened_cases_sha256,
         raw_html_bytes_by_candidate,
         raw_html_manifest_sha256,
@@ -39522,6 +39641,11 @@ def _authenticated_snapshot_raw_html_bytes(
             raise CommandError(
                 "verified snapshot canonical raw projection is absent from "
                 "authenticated buffers"
+            )
+        if not artifact.content_authenticated:
+            raise CommandError(
+                "authenticated raw HTML does not match the canonical snapshot "
+                f"projection for {artifact.candidate_id}"
             )
         selected_artifacts.append(artifact)
 
