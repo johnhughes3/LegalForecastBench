@@ -153,6 +153,34 @@ def test_every_documented_acquisition_command_matches_current_cli_help(
         )
 
 
+def test_paid_labeling_runbook_names_exact_authority_and_external_smoke_gate() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    for value in (
+        ".github/workflows/official-paid-labeling.yaml",
+        ".github/workflows/official-paid-labeling-authority-smoke.yaml",
+        "infra/official-labeling",
+        "LFB_GITHUB_LABELING_ROLE_ARN",
+        "LFB_PROVIDER_AUTHORITY_TABLE",
+        "LFB_PROVIDER_ACCOUNT_ALIAS",
+        "legalforecastbench-official-labeling-authority-smoke",
+        "legalforecastbench-official-labeling-anthropic-unitize",
+        "legalforecastbench-official-labeling-google-review",
+        "legalforecastbench-official-labeling-openai-label",
+        "legalforecastbench-official-labeling-google-label",
+        "--execution-provider",
+        "--provider-shard-audit",
+        "--provider-shard-run-card",
+        "provider-free live smoke",
+        "sequential baton",
+        "do not launch the Google and OpenAI Stage B shards in parallel",
+        "divergent SQLite copies are intentionally not mergeable",
+    ):
+        assert value in runbook
+    assert "keep the official live-smoke, freeze, and dispatch gates blocked" in runbook
+    assert "Do not place OpenAI and Google credentials in one job." in runbook
+
+
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
 
