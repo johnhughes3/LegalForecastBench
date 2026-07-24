@@ -11,6 +11,7 @@ from types import MappingProxyType
 from typing import Any, cast
 
 import pytest
+from legalforecast.cli import main
 from legalforecast.ingestion.disclosure_review_authority import (
     CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY,
     MAIN_DISCLOSURE_REVIEW_AUTHORITY_REGISTRY,
@@ -23,6 +24,7 @@ from legalforecast.ingestion.disclosure_review_authority import (
     generate_disclosure_review_authority,
     load_main_disclosure_review_authority,
     verify_disclosure_review_authority,
+    write_disclosure_review_authority,
 )
 
 
@@ -88,6 +90,126 @@ def test_generate_and_verify_authority_round_trip() -> None:
         authority.reviewer_policy_sha256
         == hashlib.sha256(_reviewer_policy()).hexdigest()
     )
+
+
+def test_write_authority_is_immutable_and_idempotent(tmp_path: Path) -> None:
+    path = tmp_path / "authority.json"
+    artifact = _artifact()
+
+    write_disclosure_review_authority(
+        path,
+        artifact,
+        expected_identity=_identity(),
+        reviewer_policy_bytes=_reviewer_policy(),
+    )
+    first = path.read_bytes()
+    write_disclosure_review_authority(
+        path,
+        artifact,
+        expected_identity=_identity(),
+        reviewer_policy_bytes=_reviewer_policy(),
+    )
+
+    assert path.read_bytes() == authority_artifact_bytes(artifact)
+    assert path.read_bytes() == first
+
+    changed = generate_disclosure_review_authority(
+        _identity(), _reviewer_policy(reviewer_id="other-reviewer")
+    )
+    with pytest.raises(DisclosureReviewAuthorityError, match="immutable content"):
+        write_disclosure_review_authority(
+            path,
+            changed,
+            expected_identity=_identity(),
+            reviewer_policy_bytes=_reviewer_policy(reviewer_id="other-reviewer"),
+        )
+
+
+def test_write_authority_rejects_unexpected_identity(tmp_path: Path) -> None:
+    unexpected_identity = DisclosureReviewAuthorityIdentity(
+        cycle_id="unexpected-cycle",
+        cohort_policy_sha256=_identity().cohort_policy_sha256,
+        eligibility_anchor=_identity().eligibility_anchor,
+    )
+
+    with pytest.raises(
+        DisclosureReviewAuthorityError, match="authority cycle_id mismatch"
+    ):
+        write_disclosure_review_authority(
+            tmp_path / "authority.json",
+            _artifact(),
+            expected_identity=unexpected_identity,
+            reviewer_policy_bytes=_reviewer_policy(),
+        )
+
+
+def test_authority_artifact_cli_round_trip(tmp_path: Path) -> None:
+    cohort_fixture = json.loads(
+        Path("tests/fixtures/recap_fetch_broker_policy/cohort-policy.json").read_text()
+    )
+    cohort_fixture["policy"]["eligibility_anchor"] = "2026-06-30"
+    cohort_fixture["policy"]["stop_rule"]["search_window_end"] = "2026-07-23"
+    cohort_fixture["policy_sha256"] = hashlib.sha256(
+        json.dumps(
+            cohort_fixture["policy"], sort_keys=True, separators=(",", ":")
+        ).encode()
+    ).hexdigest()
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text(
+        json.dumps(cohort_fixture, sort_keys=True, separators=(",", ":")) + "\n"
+    )
+    reviewer_policy = tmp_path / "reviewer-policy.json"
+    reviewer_policy.write_bytes(_reviewer_policy())
+    authority_path = tmp_path / "authority.json"
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "generate-disclosure-review-authority",
+                "--cohort-policy",
+                str(cohort_policy),
+                "--reviewer-policy",
+                str(reviewer_policy),
+                "--output",
+                str(authority_path),
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "verify-disclosure-review-authority",
+                "--cohort-policy",
+                str(cohort_policy),
+                "--reviewer-policy",
+                str(reviewer_policy),
+                "--authority",
+                str(authority_path),
+            ]
+        )
+        == 0
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "generate-disclosure-review-authority",
+        "verify-disclosure-review-authority",
+    ],
+)
+def test_authority_artifact_cli_help_is_explicit(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["acquisition", command, "--help"])
+    assert exc.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "--cohort-policy" in help_text
+    assert "--reviewer-policy" in help_text
 
 
 @pytest.mark.parametrize("field", ["schema_version", "authority", "authority_sha256"])

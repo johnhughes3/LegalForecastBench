@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import base64
 import binascii
+import fcntl
 import hashlib
 import json
 import os
 import re
 import stat
+import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -164,6 +166,39 @@ def authority_artifact_bytes(artifact: Mapping[str, object]) -> bytes:
     """Serialize an authority artifact in its single canonical representation."""
 
     return _canonical_bytes(artifact)
+
+
+def write_disclosure_review_authority(
+    path: str | Path,
+    artifact: Mapping[str, object],
+    *,
+    expected_identity: DisclosureReviewAuthorityIdentity,
+    reviewer_policy_bytes: bytes,
+) -> None:
+    """Verify and atomically publish one immutable authority artifact."""
+
+    payload = authority_artifact_bytes(artifact)
+    verify_disclosure_review_authority(
+        payload,
+        expected_identity=expected_identity,
+        reviewer_policy_bytes=reviewer_policy_bytes,
+    )
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = os.open(f"{target}.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        if target.exists():
+            if target.read_bytes() != payload:
+                raise DisclosureReviewAuthorityError(
+                    "disclosure review authority already exists with different "
+                    "immutable content"
+                )
+            return
+        _atomic_write(target, payload)
+    finally:
+        os.close(lock_fd)
 
 
 def disclosure_authority_identity_from_cohort_policy(
@@ -544,6 +579,19 @@ def _canonical_bytes(value: object) -> bytes:
     return f"{text}\n".encode()
 
 
+def _atomic_write(path: Path, payload: bytes) -> None:
+    fd, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
+
+
 def _exact_fields(
     value: Mapping[str, object], expected: frozenset[str], label: str
 ) -> None:
@@ -598,4 +646,5 @@ __all__ = [
     "generate_disclosure_review_authority",
     "load_main_disclosure_review_authority",
     "verify_disclosure_review_authority",
+    "write_disclosure_review_authority",
 ]

@@ -74,6 +74,38 @@ The verified frozen cohort identity selects an immutable authority registry entr
 There is no caller-supplied expected-hash override; changing the policy or cohort bytes fails closed against the main-pinned authority.
 The `controlled_store_uri_prefix` and every review's `controlled_store_provenance` use the `private-store://` scheme; the signed URI must equal the prefix or be a descendant path with a segment boundary.
 
+## Provisioning a main-pinned authority
+
+Provisioning happens only after the final cohort decisions and reviewer policy have been independently approved.
+Generate both artifacts with their immutable producers; do not edit an older policy or hand-author the authority:
+
+```bash
+uv run legalforecast acquisition generate-cohort-policy \
+  --decisions <approved-cohort-decisions.json> \
+  --output <new-cohort-policy.json>
+
+policy_sha256="$(jq -er '.policy_sha256' <new-cohort-policy.json>)"
+uv run legalforecast acquisition verify-cohort-policy \
+  --policy <new-cohort-policy.json> \
+  --expected-sha256 "$policy_sha256"
+
+uv run legalforecast acquisition generate-disclosure-review-authority \
+  --cohort-policy <new-cohort-policy.json> \
+  --reviewer-policy <reviewed-human-hardware-reviewer-policy.json> \
+  --output <new-disclosure-review-authority.json>
+
+uv run legalforecast acquisition verify-disclosure-review-authority \
+  --cohort-policy <new-cohort-policy.json> \
+  --reviewer-policy <reviewed-human-hardware-reviewer-policy.json> \
+  --authority <new-disclosure-review-authority.json>
+```
+
+The cohort policy's internal `policy_sha256` is the registry identity commitment.
+The SHA-256 of the complete authority file bytes is the registry resource commitment; these two digests have different purposes and must not be substituted for one another.
+To provision production, add the generated authority file unchanged beneath `legalforecast/ingestion/disclosure_review_authorities/`, replace the registry identity with the exact verified cohort `cycle_id`, internal `policy_sha256`, and `eligibility_anchor`, and set its entry to `status="provisioned"` with the exact resource filename and complete-file SHA-256.
+The same change must add regressions proving that the prior cohort identity, an altered cohort or authority hash, an unprovisioned entry, and an ordinary non-`sk-*` software key all fail, while the exact new identity and reviewed resource pass.
+Until that reviewed main change lands, production preflight must continue to fail closed.
+
 ## Human decisions and canonical reviews
 
 `record-disclosure-review-decisions` is the supported production recorder.

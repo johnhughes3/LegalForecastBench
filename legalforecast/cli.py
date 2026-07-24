@@ -304,7 +304,11 @@ from legalforecast.ingestion.disclosure_clearance import (
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthority,
     DisclosureReviewAuthorityError,
+    disclosure_authority_identity_from_cohort_policy,
+    generate_disclosure_review_authority,
     load_main_disclosure_review_authority,
+    verify_disclosure_review_authority,
+    write_disclosure_review_authority,
 )
 from legalforecast.ingestion.disclosure_review_bundle import (
     ReviewBundleError,
@@ -1360,6 +1364,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Verify a cohort precommitment and optional expected hash.",
     )
     _add_verify_cohort_policy_arguments(acquisition_verify_cohort_policy)
+    acquisition_generate_disclosure_authority = acquisition_subparsers.add_parser(
+        "generate-disclosure-review-authority",
+        help=(
+            "Generate an immutable disclosure authority from exact cohort and "
+            "hardware reviewer policies."
+        ),
+    )
+    _add_generate_disclosure_review_authority_arguments(
+        acquisition_generate_disclosure_authority
+    )
+    acquisition_verify_disclosure_authority = acquisition_subparsers.add_parser(
+        "verify-disclosure-review-authority",
+        help=(
+            "Verify disclosure-authority bytes against exact cohort and hardware "
+            "reviewer policies."
+        ),
+    )
+    _add_verify_disclosure_review_authority_arguments(
+        acquisition_verify_disclosure_authority
+    )
     acquisition_generate_purchase_policy = acquisition_subparsers.add_parser(
         "generate-purchase-policy",
         help=(
@@ -4063,6 +4087,42 @@ def _add_verify_cohort_policy_arguments(parser: argparse.ArgumentParser) -> None
     parser.add_argument("--policy", type=Path, required=True)
     parser.add_argument("--expected-sha256")
     parser.set_defaults(handler=_cmd_verify_cohort_policy)
+
+
+def _add_generate_disclosure_review_authority_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help="Exact verified frozen cohort policy that selects the registry identity.",
+    )
+    parser.add_argument(
+        "--reviewer-policy",
+        type=Path,
+        required=True,
+        help="Exact canonical human hardware reviewer-policy bytes.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help=(
+            "New immutable authority artifact; changed content at an existing path "
+            "is rejected."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_generate_disclosure_review_authority)
+
+
+def _add_verify_disclosure_review_authority_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--reviewer-policy", type=Path, required=True)
+    parser.add_argument("--authority", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_verify_disclosure_review_authority)
 
 
 def _add_generate_purchase_policy_arguments(parser: argparse.ArgumentParser) -> None:
@@ -16303,6 +16363,52 @@ def _cmd_verify_cohort_policy(args: argparse.Namespace) -> int:
             expected_sha256=cast(str | None, args.expected_sha256),
         )
     except (CohortPolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_generate_disclosure_review_authority(args: argparse.Namespace) -> int:
+    try:
+        cohort_policy = _read_json_object(cast(Path, args.cohort_policy))
+        reviewer_policy_bytes = cast(Path, args.reviewer_policy).read_bytes()
+        identity = disclosure_authority_identity_from_cohort_policy(cohort_policy)
+        artifact = generate_disclosure_review_authority(identity, reviewer_policy_bytes)
+        write_disclosure_review_authority(
+            cast(Path, args.output),
+            artifact,
+            expected_identity=identity,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+        )
+    except (
+        CohortPolicyError,
+        DisclosureReviewAuthorityError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_verify_disclosure_review_authority(args: argparse.Namespace) -> int:
+    try:
+        cohort_policy = _read_json_object(cast(Path, args.cohort_policy))
+        identity = disclosure_authority_identity_from_cohort_policy(cohort_policy)
+        reviewer_policy_bytes = cast(Path, args.reviewer_policy).read_bytes()
+        authority_path = cast(Path, args.authority)
+        authority_bytes = authority_path.read_bytes()
+        verify_disclosure_review_authority(
+            authority_bytes,
+            expected_identity=identity,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+        )
+    except (
+        CohortPolicyError,
+        DisclosureReviewAuthorityError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
     return 0
 
