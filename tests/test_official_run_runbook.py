@@ -25,6 +25,37 @@ def _documented_command_block(runbook: str, command: str) -> str:
     return remainder.split("```", maxsplit=1)[0]
 
 
+def test_fan_in_audit_example_preserves_canonical_s3_receipt_identity() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    assert "--receipt-root s3://$LFB_RESULTS_BUCKET" in runbook
+    assert "--receipt-root tmp/result-store" not in runbook
+    assert "local fixture stores are appropriate for unit tests" in runbook
+
+
+def test_runbook_documents_attempt_bound_seal_and_publication_commit() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    assert "source_dispatch_run_attempt" in runbook
+    assert "official-dispatch-provenance-<run_id>-<run_attempt>" in runbook
+    assert "cycle-publication-state/<cycle_id>/seal.json" in runbook
+    assert "cycle_closure finish --writer-id <exact-writer-id>" in runbook
+    assert "cycle-publication-state/*/runs/*/*/intent.json" in runbook
+    assert "cycle-publication-state/*/runs/*/*/done.json" in runbook
+    assert (
+        "read-only GetObject authority for `cycle-publication-state/*/seal.json`"
+        in (runbook)
+    )
+    assert "prefix-conditioned `s3:ListBucket` authority" in runbook
+    assert "exact-key ListObjectsV2 probe before GetObject" in runbook
+    assert "malformed listing, or unexpected key fails closed" in runbook
+    assert (
+        "no broader marker listing, seal write, receipt, or report-prefix authority"
+        in runbook
+    )
+    assert "`.publication-complete.json` as the final successful operation" in runbook
+
+
 def _documented_acquisition_commands(runbook: str) -> list[tuple[str, str]]:
     commands: list[tuple[str, str]] = []
     for fenced_block in re.findall(r"```[^\n]*\n(.*?)```", runbook, flags=re.DOTALL):

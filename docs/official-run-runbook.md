@@ -1,6 +1,6 @@
 # Official Run Runbook
 
-This is the operator checklist for `.github/workflows/run-benchmark.yaml` on the current `main` branch. The workflow builds the matrix, runs isolated provider cells, resumes complete matching cells from the durable S3 result store, aggregates successful artifacts, and publishes the public aggregate to S3.
+This is the operator checklist for `.github/workflows/run-benchmark.yaml` and the provider-free `.github/workflows/fan-in-publish.yaml` on the current `main` branch. Shard dispatches run isolated provider cells and finalize one immutable receipt per workflow attempt. Fan-in selects accepted receipts, reads only their exact committed S3 versions, derives cadence counts from frozen artifacts, delegates Cartesian completeness to `official_aggregate`, and publishes only the verified public directory.
 
 ## Acquisition Downstream Preflight
 
@@ -677,46 +677,52 @@ uv run legalforecast freeze \
 
 Use `uv run legalforecast freeze --help` for the exact argument shape. The workflow verifies the committed freeze commitment, substituting the downloaded labels and model registry for their checkout paths, before matrix fan-out. The separately downloaded run-input manifest is validated and label-bound by the workflow's manifest-freeze step; it is not substituted for the cycle manifest recorded in the freeze bundle.
 
-Provision the protected GitHub environment `legalforecastbench-official-eval`, provider secrets, `LFB_RESULTS_BUCKET`, `LFB_PACKET_BUCKET`, `LFB_AWS_REGION`, `LFB_GITHUB_PACKET_READ_ROLE_ARN`, and the corresponding OIDC trust. Always set `max_projected_model_cost_usd` to an explicit non-empty limit for a live run.
+Provision the protected GitHub environments `legalforecastbench-official-eval` and `legalforecastbench-official-eval-fan-in`, provider secrets, `LFB_RESULTS_BUCKET`, `LFB_PACKET_BUCKET`, `LFB_AWS_REGION`, `LFB_GITHUB_PACKET_READ_ROLE_ARN`, `LFB_GITHUB_FAN_IN_ROLE_ARN`, and the corresponding OIDC trusts. The packet/result role used by each case writer must have create-only PutObject and exact-object GetObject authority for the two explicit resource patterns `cycle-publication-state/*/runs/*/*/intent.json` and `cycle-publication-state/*/runs/*/*/done.json`. It also needs read-only GetObject authority for `cycle-publication-state/*/seal.json` and prefix-conditioned `s3:ListBucket` authority only when the requested prefix matches that exact seal-key pattern. `begin` uses this exact-key ListObjectsV2 probe before GetObject because S3 otherwise returns 403 rather than 404 for an absent object when ListBucket is denied. The cell role must have no broader marker listing, seal write, receipt, or report-prefix authority. The fan-in role retains marker read/list and seal authority, finalizer marker and receipt writes, and canonical report publication. Always set `max_projected_model_cost_usd` to an explicit non-empty limit for a live run.
 
 ## Dispatch Sequence
 
-Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, `model_keys`, and intended comma-separated `ablations`. Keep `resume_existing_results: true`.
+Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, and exactly one declared shard through the `model_keys` and `ablations` inputs. Set `shard_only: true` and keep `resume_existing_results: true`.
 
-1. Run with `dry_run: true`, the full intended matrix, and an explicit spend cap. This validates inputs, hashes, model eligibility, projected cost, and matrix coverage without provider calls.
-2. Run a bounded live smoke by using a temporary frozen manifest containing the intended smoke cases. Do not edit a manifest after freezing it; create and commit a new freeze commitment for changed bytes.
-3. Run the full live matrix only after the dry run and smoke pass.
-4. For transient cell failures, use GitHub's re-run-failed-jobs action. A full redispatch is also safe: complete matching durable cells are reused and are not sent to the provider again.
+1. Run each declared shard with `dry_run: true` and an explicit spend cap. This validates the frozen schedule, hashes, model eligibility, projected cost, and exact shard identity without provider calls.
+2. Run the bounded smoke under its dedicated smoke freeze and prefix. Complete it with `Fan In Official Shards` in `verify_only: true` mode; verification-only may accept the smoke cycle because its entry point has no canonical publication code path.
+3. Dispatch every official shard only after the dry run and smoke pass. The frozen execution policy declares the exact shard schedule.
+4. For transient cell failures, use GitHub's re-run-failed-jobs action. The finalizer writes a new immutable per-attempt receipt and may adopt verified successful cells from an earlier attempt in the same workflow run.
+5. Do not use the legacy non-shard aggregate path for an official sharded cycle. Cross-run fan-in is a separate provider-free workflow and must not rerun the matrix.
+
+Every non-dry-run result writer creates its own immutable `cycle-publication-state/<cycle_id>/runs/<writer_id>/<run_attempt>/intent.json` before writing and creates the matching `done.json` afterward. Matrix cells use `<run_id>-case-<strategy_job_index>` and the shard finalizer uses `<run_id>-finalize-shard`, so GitHub's **Re-run failed jobs** path opens new attempt-scoped intents even when successful jobs from the prior attempt are not rerun. After creating its intent, a writer probes exactly `cycle-publication-state/<cycle_id>/seal.json`; an API error, malformed listing, or unexpected key fails closed, while an exact seal match is read and causes the late writer to abort before provider work. If a workflow is canceled before cleanup, do not fabricate completion evidence: inspect the run, prove that exact writer is no longer active, then use `cycle_closure finish --writer-id <exact-writer-id>` with the exact run attempt under the matching protected role before retrying publication.
 
 The resume identity includes the case, ablation, packet hash, solver/model identity, registry content, and repeat count. Current results bind to the canonical per-model registry-entry hash, so an unchanged model can resume across a registry amendment. Pre-amendment durable metrics that lack that field instead validate against the exact whole-registry hash recorded by their freeze in the provenance chain; supply that historical registry when recovering those cells. An unknown or mismatched registry hash fails closed rather than re-evaluating and overwriting durable outputs. Failed cells do not become canonical score rows. Preserve failed logs for audit.
 
 ## Aggregation
 
-On a successful live matrix, the workflow downloads all per-case artifacts, independently re-verifies the frozen manifest and labels hashes, runs the same official aggregation implementation exposed by the local CLI, uploads the aggregate artifact, and synchronizes the public directory to:
+After every declared shard has a receipt, dispatch `Fan In Official Shards` at the exact 40-character trusted release SHA and provide one accepted shard's `source_dispatch_run_id` and `source_dispatch_run_attempt`. The workflow validates the exact completed `run-benchmark.yaml` attempt through GitHub's attempt-specific API and requires that attempt's `Build benchmark matrix` job to have succeeded; the overall attempt may have failed before a later **Re-run failed jobs** attempt completed the shard. It downloads the source attempt's non-overwritable `official-dispatch-provenance-<run_id>-<run_attempt>` artifact and uses the exact frozen run-input manifest, labels, and model registry bytes. The artifact binds the run ID, source dispatch attempt, and release SHA; every accepted receipt must bind the same release SHA, and at least one accepted receipt must bind that exact source attempt even when its receipt was finalized by a later workflow attempt. Fan-in auto-selects singleton shards and refuses any multi-receipt shard until a committed [accepted-attempt map](schemas/accepted-attempt-map-v1.md) selects exactly one receipt for each ambiguity. It verifies that the current union contains no uncommitted or stale object, fetches each accepted object by its exact S3 `VersionId`, verifies its size and SHA-256, and materializes only those bytes for `official_aggregate`.
+
+For an amended freeze, keep every ancestor `*.freeze.json` bundle committed under `manifests/`. Fan-in supplies those committed bundles as the verification chain before it accepts the current amended bundle.
+
+Leave `clean_motion_count` and `prediction_unit_count` empty unless using them as assertions. Fan-in derives the authoritative counts from the frozen included manifest, finalized units, and run-input case set; a supplied mismatch fails closed. Publishing first creates the permanent `cycle-publication-state/<cycle_id>/seal.json` and waits for every pre-existing mutation intent to have a matching completion. It then requires a non-smoke identifier with frozen `cycle_series: official`, stable receipt and current union-VersionId inventories through the final commit boundary, an empty canonical destination prefix, and any accepted-attempt map to match a tracked `manifests/` file in the release checkout.
+
+The publishing entry point conditionally creates only the verified public directory under the canonical prefix. It claims the exact snapshot, writes every payload with create-only preconditions, rechecks the sealed receipt and union inventories immediately before commit, and creates `.publication-complete.json` as the final successful operation:
 
 ```text
 s3://$LFB_RESULTS_BUCKET/reports/<cycle_id>/multi-ablation/
 ```
 
-For a local audit or recovery aggregation, use:
+For a local audit with read authority to the durable result bucket, use the nonpublishing entry point. Strict receipt verification intentionally requires the canonical S3 object identities; local fixture stores are appropriate for unit tests, not a full official verification rehearsal.
 
 ```bash
-uv run legalforecast publish aggregate \
-  --per-case-dir tmp/official-downloads/<cycle_id> \
+uv run python -m legalforecast.publication.shard_fan_in \
+  --verify-only \
+  --freeze-bundle manifests/<cycle_id>.freeze.json \
+  --amendment-bundle manifests/<cycle_id>.ancestor.freeze.json \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --model-registry manifests/<cycle_id>.model-registry.json \
-  --labels private/labels/<cycle_id>.labels.jsonl \
-  --output-dir tmp/official-aggregate/<cycle_id> \
-  --cycle-id <cycle_id> \
-  --cycle-series <pilot|rapid|official|annual_aggregate> \
-  --clean-motion-count <count> \
-  --prediction-unit-count <count> \
-  --model-key provider:model-a \
-  --model-key provider:model-b \
-  --allow-no-baselines
+  --receipt-root s3://$LFB_RESULTS_BUCKET \
+  --output-dir tmp/fan-in-verification/<cycle_id> \
+  --accepted-attempt-map manifests/<cycle_id>.accepted-attempts.json
 ```
 
-Replace `--allow-no-baselines` with `--baseline-training-examples <frozen-corpus.jsonl>` once a compatible historical baseline corpus exists. Omit `--ablation` for the headline multi-ablation aggregation so the `full_packet` and `metadata_only` companion check remains active.
+Omit `--amendment-bundle` for an unamended root freeze and repeat it for every required ancestor of an amended freeze. Omit `--accepted-attempt-map` when every declared shard has exactly one receipt. Verification-only writes only `fan-in-report.json` to the requested output directory; its temporary materialized union, private debug output, and aggregate bundle are destroyed after aggregate validation. The report records the complete accepted map when present, every accepted receipt, the discovered inventory hash, frozen artifact hashes, derived counts, verified union commitment, and aggregate completeness facts.
+
+When the frozen execution policy requires a training baseline corpus, pass its exact bytes with `--baseline-training-examples <frozen-corpus.json>`; fan-in accepts the override only when its SHA-256 matches the freeze. Leave the option absent for an `allow_no_baselines: true` cycle whose required baselines artifact is metadata rather than a training corpus.
 
 ## Add Models To A Frozen Cycle
 

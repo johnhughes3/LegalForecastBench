@@ -35,18 +35,110 @@ def test_finalize_shard_builds_exact_mixed_origin_receipt(tmp_path: Path) -> Non
         provenance=_provenance(),
         manifest=_manifest(),
         completions=completions,
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
 
     assert receipt["expected_cell_count"] == 2
+    assert receipt["source_release_sha"] == "d" * 40
     assert [cell["origin"] for cell in receipt["cells"]] == ["fresh", "resumed"]
     assert receipt["workflow_run_id"] == "1001"
     assert receipt["workflow_run_attempt"] == 1
+    assert receipt["source_dispatch_run_attempt"] == 1
+    assert receipt["frozen_manifest_sha256"] == "6" * 64
+    assert receipt["run_input_manifest_sha256"] == "5" * 64
     assert receipt["receipt_key"].endswith("/1001/1.json")
     assert len(receipt["result_commitment_sha256"]) == 64
     shard_receipt_module.verify_committed_objects(receipt)
+
+
+@pytest.mark.parametrize("manifest_flag", ("--run-input-manifest", "--frozen-manifest"))
+def test_receipt_cli_names_run_input_manifest_unambiguously(
+    manifest_flag: str,
+) -> None:
+    args = shard_receipt_module._parser().parse_args(
+        [
+            "--dispatch-provenance",
+            "dispatch.json",
+            manifest_flag,
+            "run-input.json",
+            "--completions-root",
+            "completions",
+            "--labels",
+            "labels.jsonl",
+            "--model-registry",
+            "registry.json",
+            "--workflow-run-id",
+            "1001",
+            "--workflow-run-attempt",
+            "2",
+            "--source-dispatch-run-attempt",
+            "1",
+            "--source-release-sha",
+            "d" * 40,
+            "--receipt-root",
+            "s3://results",
+        ]
+    )
+
+    assert args.run_input_manifest == Path("run-input.json")
+
+
+def test_receipt_requires_a_full_git_release_sha(tmp_path: Path) -> None:
+    completions = (
+        _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
+        _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
+    )
+
+    with pytest.raises(
+        shard_receipt_module.ShardReceiptError,
+        match="full lowercase Git commit SHA",
+    ):
+        shard_receipt_module.build_shard_receipt(
+            provenance=_provenance(),
+            manifest=_manifest(),
+            completions=completions,
+            run_input_manifest_sha256="5" * 64,
+            labels_sha256="7" * 64,
+            model_registry_sha256="8" * 64,
+            source_dispatch_run_attempt=1,
+            source_release_sha="d" * 64,
+        )
+
+
+def test_receipt_source_attempt_must_match_dispatch_provenance(tmp_path: Path) -> None:
+    with pytest.raises(
+        shard_receipt_module.ShardReceiptError,
+        match="does not match dispatch provenance",
+    ):
+        shard_receipt_module.build_shard_receipt(
+            provenance=_provenance(),
+            manifest=_manifest(),
+            completions=(
+                _completion(
+                    tmp_path,
+                    case_id="case-1",
+                    repeat_count=3,
+                    origin="fresh",
+                ),
+                _completion(
+                    tmp_path,
+                    case_id="case-2",
+                    repeat_count=1,
+                    origin="fresh",
+                ),
+            ),
+            run_input_manifest_sha256="5" * 64,
+            labels_sha256="7" * 64,
+            model_registry_sha256="8" * 64,
+            source_dispatch_run_attempt=2,
+            source_release_sha="d" * 40,
+            current_workflow_run_id="1001",
+            current_workflow_run_attempt=2,
+        )
 
 
 @pytest.mark.parametrize("mutation", ("missing", "failed", "extra"))
@@ -69,9 +161,11 @@ def test_finalize_shard_rejects_incomplete_or_nonexact_cells(
             provenance=_provenance(),
             manifest=_manifest(),
             completions=completions,
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
+            source_dispatch_run_attempt=1,
+            source_release_sha="d" * 40,
         )
 
 
@@ -89,9 +183,11 @@ def test_finalize_shard_rejects_missing_frozen_repeat_case(tmp_path: Path) -> No
                 _completion(tmp_path, case_id="case-1", repeat_count=1, origin="fresh"),
                 _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
+            source_dispatch_run_attempt=1,
+            source_release_sha="d" * 40,
         )
 
 
@@ -117,9 +213,11 @@ def test_rerun_receipt_adopts_prior_cells_and_uses_current_attempt(
                 workflow_run_attempt=2,
             ),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
         current_workflow_run_id="1001",
         current_workflow_run_attempt=2,
     )
@@ -162,9 +260,11 @@ def test_rerun_receipt_selects_highest_valid_duplicate_attempt(
                 workflow_run_attempt=1,
             ),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
         current_workflow_run_id="1001",
         current_workflow_run_attempt=2,
     )
@@ -207,9 +307,11 @@ def test_rerun_receipt_rejects_conflicting_highest_attempt_duplicates(
                     workflow_run_attempt=2,
                 ),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
+            source_dispatch_run_attempt=1,
+            source_release_sha="d" * 40,
             current_workflow_run_id="1001",
             current_workflow_run_attempt=2,
         )
@@ -238,9 +340,11 @@ def test_rerun_receipt_rejects_future_completion(tmp_path: Path) -> None:
                     workflow_run_attempt=2,
                 ),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
+            source_dispatch_run_attempt=1,
+            source_release_sha="d" * 40,
             current_workflow_run_id="1001",
             current_workflow_run_attempt=2,
         )
@@ -272,9 +376,11 @@ def test_completion_rejects_frozen_identity_mismatch(
                     origin="fresh",
                 ),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
+            source_dispatch_run_attempt=1,
+            source_release_sha="d" * 40,
         )
 
 
@@ -288,9 +394,11 @@ def test_receipt_write_is_exclusive_but_new_attempt_has_new_key(
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
 
     first_path = shard_receipt_module.write_receipt_once(
@@ -321,9 +429,11 @@ def test_exact_version_verification_rejects_content_drift(tmp_path: Path) -> Non
         provenance=_provenance(),
         manifest=_manifest(),
         completions=completions,
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
     commitment = receipt["cells"][0]["objects"][0]
     identity = (str(commitment["uri"]), str(commitment["version_id"]))
@@ -343,14 +453,145 @@ def test_receipt_write_rejects_tampered_receipt_content(tmp_path: Path) -> None:
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
     receipt["labels_sha256"] = "0" * 64
 
     with pytest.raises(shard_receipt_module.ShardReceiptError, match="receipt_sha256"):
         shard_receipt_module.write_receipt_once(str(tmp_path / "receipts"), receipt)
+
+
+def test_strict_receipt_verifier_reconstructs_frozen_cells(tmp_path: Path) -> None:
+    receipt = shard_receipt_module.build_shard_receipt(
+        provenance=_provenance(),
+        manifest=_manifest(),
+        completions=(
+            _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
+            _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
+        ),
+        run_input_manifest_sha256="5" * 64,
+        labels_sha256="7" * 64,
+        model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
+    )
+
+    verified = shard_receipt_module.verify_shard_receipt(
+        receipt,
+        manifest=_manifest(),
+        repeat_policy={"case_ids": ["case-1"], "count": 3},
+        expected_identity=_receipt_identity(),
+        expected_shard=("fixture:model-a", "full_packet"),
+        actual_receipt_key=str(receipt["receipt_key"]),
+    )
+
+    assert verified == receipt
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("unknown_top_level", "receipt fields mismatch"),
+        ("wrong_key", "actual receipt key"),
+        ("wrong_frozen_identity", "labels_sha256 does not match"),
+        ("wrong_expected_count", "expected_cell_count"),
+        ("wrong_global_commitment", "result commitment"),
+        ("wrong_adoption_state", "receipt_adoption_state"),
+    ),
+)
+def test_strict_receipt_verifier_rejects_rehashed_invalid_receipt(
+    tmp_path: Path,
+    mutation: str,
+    message: str,
+) -> None:
+    receipt = shard_receipt_module.build_shard_receipt(
+        provenance=_provenance(),
+        manifest=_manifest(),
+        completions=(
+            _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
+            _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
+        ),
+        run_input_manifest_sha256="5" * 64,
+        labels_sha256="7" * 64,
+        model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
+    )
+    actual_key = str(receipt["receipt_key"])
+    if mutation == "unknown_top_level":
+        receipt["unexpected"] = True
+    elif mutation == "wrong_key":
+        actual_key = "shard-receipts/cycle-1/not-the-receipt.json"
+    elif mutation == "wrong_frozen_identity":
+        receipt["labels_sha256"] = "0" * 64
+    elif mutation == "wrong_expected_count":
+        receipt["expected_cell_count"] = 1
+    elif mutation == "wrong_global_commitment":
+        receipt["result_commitment_sha256"] = "0" * 64
+    elif mutation == "wrong_adoption_state":
+        receipt["cells"][0]["receipt_adoption_state"] = "adopted_prior_attempt"
+    receipt_without_hash = dict(receipt)
+    receipt_without_hash.pop("receipt_sha256")
+    receipt["receipt_sha256"] = hash_payload(receipt_without_hash)
+
+    with pytest.raises(shard_receipt_module.ShardReceiptError, match=message):
+        shard_receipt_module.verify_shard_receipt(
+            receipt,
+            manifest=_manifest(),
+            repeat_policy={"case_ids": ["case-1"], "count": 3},
+            expected_identity=_receipt_identity(),
+            expected_shard=("fixture:model-a", "full_packet"),
+            actual_receipt_key=actual_key,
+        )
+
+
+def test_strict_receipt_verifier_rejects_uri_reused_at_another_version(
+    tmp_path: Path,
+) -> None:
+    receipt = shard_receipt_module.build_shard_receipt(
+        provenance=_provenance(),
+        manifest=_manifest(),
+        completions=(
+            _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
+            _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
+        ),
+        run_input_manifest_sha256="5" * 64,
+        labels_sha256="7" * 64,
+        model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
+    )
+    first, second = receipt["cells"]
+    second["run_id"] = first["run_id"]
+    for first_object, second_object in zip(
+        first["objects"], second["objects"], strict=True
+    ):
+        second_object["uri"] = first_object["uri"]
+    second["result_commitment_sha256"] = hash_payload({"objects": second["objects"]})
+    receipt["result_commitment_sha256"] = hash_payload(
+        {
+            "objects": sorted(
+                [*first["objects"], *second["objects"]],
+                key=lambda value: (value["name"], value["uri"]),
+            )
+        }
+    )
+    receipt_without_hash = dict(receipt)
+    receipt_without_hash.pop("receipt_sha256")
+    receipt["receipt_sha256"] = hash_payload(receipt_without_hash)
+
+    with pytest.raises(shard_receipt_module.ShardReceiptError, match="URI is reused"):
+        shard_receipt_module.verify_shard_receipt(
+            receipt,
+            manifest=_manifest(),
+            repeat_policy={"case_ids": ["case-1"], "count": 3},
+            expected_identity=_receipt_identity(),
+            expected_shard=("fixture:model-a", "full_packet"),
+        )
 
 
 def test_completion_rejects_null_s3_version(tmp_path: Path) -> None:
@@ -373,9 +614,11 @@ def test_completion_rejects_null_s3_version(tmp_path: Path) -> None:
                     origin="fresh",
                 ),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
+            source_dispatch_run_attempt=1,
+            source_release_sha="d" * 40,
         )
 
 
@@ -412,9 +655,11 @@ def test_s3_receipt_writer_uses_atomic_if_none_match(
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
+        source_dispatch_run_attempt=1,
+        source_release_sha="d" * 40,
     )
     commands: list[list[str]] = []
 
@@ -466,6 +711,21 @@ def _provenance() -> dict[str, object]:
             "ablation": "full_packet",
         },
         "dispatches": [{"workflow_run_id": "1001", "workflow_run_attempt": 1}],
+    }
+
+
+def _receipt_identity() -> dict[str, str]:
+    return {
+        "freeze_bundle_sha256": "1" * 64,
+        "execution_policy_sha256": "2" * 64,
+        "execution_policy_artifact_sha256": "9" * 64,
+        "repeat_policy_sha256": hash_payload({"case_ids": ["case-1"], "count": 3}),
+        "attempt_policy_sha256": "3" * 64,
+        "receipt_policy_sha256": "4" * 64,
+        "frozen_manifest_sha256": "6" * 64,
+        "run_input_manifest_sha256": "5" * 64,
+        "labels_sha256": "7" * 64,
+        "model_registry_sha256": "8" * 64,
     }
 
 

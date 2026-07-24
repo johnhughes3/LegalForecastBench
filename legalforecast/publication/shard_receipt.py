@@ -23,10 +23,36 @@ from legalforecast.protocol.policy_artifacts import (
 )
 
 JsonRecord = dict[str, Any]
-RECEIPT_SCHEMA_VERSION = "legalforecast.shard_receipt.v1"
+RECEIPT_SCHEMA_VERSION = "legalforecast.shard_receipt.v2"
 CELL_SCHEMA_VERSION = "legalforecast.shard_cell_completion.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_GIT_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
 _RESULT_NAMES = ("accounting", "metrics", "runs")
+_RECEIPT_FIELDS = {
+    "schema_version",
+    "cycle_id",
+    "model_key",
+    "ablation",
+    "workflow_run_id",
+    "workflow_run_attempt",
+    "source_dispatch_run_attempt",
+    "source_release_sha",
+    "freeze_bundle_sha256",
+    "execution_policy_sha256",
+    "execution_policy_artifact_sha256",
+    "repeat_policy_sha256",
+    "attempt_policy_sha256",
+    "receipt_policy_sha256",
+    "frozen_manifest_sha256",
+    "run_input_manifest_sha256",
+    "labels_sha256",
+    "model_registry_sha256",
+    "expected_cell_count",
+    "cells",
+    "result_commitment_sha256",
+    "receipt_key",
+    "receipt_sha256",
+}
 
 
 class ShardReceiptError(ValueError):
@@ -101,9 +127,11 @@ def build_shard_receipt(
     provenance: Mapping[str, Any],
     manifest: Mapping[str, Any],
     completions: Sequence[Mapping[str, Any]],
-    frozen_manifest_sha256: str,
+    run_input_manifest_sha256: str,
     labels_sha256: str,
     model_registry_sha256: str,
+    source_dispatch_run_attempt: int,
+    source_release_sha: str,
     current_workflow_run_id: str | None = None,
     current_workflow_run_attempt: int | None = None,
 ) -> JsonRecord:
@@ -120,10 +148,8 @@ def build_shard_receipt(
     frozen_inputs = _mapping(
         provenance.get("frozen_result_inputs"), "frozen_result_inputs"
     )
+    frozen_manifest_sha256 = _required_sha256(frozen_inputs, "frozen_manifest_sha256")
     supplied_inputs = {
-        "frozen_manifest_sha256": _require_sha256(
-            frozen_manifest_sha256, "frozen_manifest_sha256"
-        ),
         "labels_sha256": _require_sha256(labels_sha256, "labels_sha256"),
         "model_registry_sha256": _require_sha256(
             model_registry_sha256, "model_registry_sha256"
@@ -171,10 +197,23 @@ def build_shard_receipt(
         raise ShardReceiptError(
             "current workflow_run_attempt precedes dispatch provenance"
         )
+    source_attempt = _positive_int(
+        {"source_dispatch_run_attempt": source_dispatch_run_attempt},
+        "source_dispatch_run_attempt",
+    )
+    if source_attempt != dispatch_workflow_run_attempt:
+        raise ShardReceiptError(
+            "source dispatch run attempt does not match dispatch provenance"
+        )
+    if source_attempt > workflow_run_attempt:
+        raise ShardReceiptError(
+            "source dispatch run attempt cannot follow the receipt attempt"
+        )
     expected_by_case = {cast(str, cell["case_id"]): cell for cell in expected}
     candidates_by_case: dict[str, list[JsonRecord]] = {}
     object_records: list[JsonRecord] = []
     object_identities: set[tuple[str, str]] = set()
+    object_uris: set[str] = set()
     for raw_completion in completions:
         completion = _validate_completion(
             raw_completion,
@@ -216,13 +255,17 @@ def build_shard_receipt(
             else "adopted_prior_attempt"
         )
         for object_record in cast(list[JsonRecord], completion["objects"]):
+            uri = cast(str, object_record["uri"])
             identity = (
-                cast(str, object_record["uri"]),
+                uri,
                 cast(str, object_record["version_id"]),
             )
             if identity in object_identities:
                 raise ShardReceiptError("result object version is reused across cells")
+            if uri in object_uris:
+                raise ShardReceiptError("result object URI is reused across cells")
             object_identities.add(identity)
+            object_uris.add(uri)
             object_records.append(object_record)
     sorted_completions = [observed_by_case[key] for key in sorted(observed_by_case)]
     receipt: JsonRecord = {
@@ -232,6 +275,10 @@ def build_shard_receipt(
         "ablation": ablation,
         "workflow_run_id": workflow_run_id,
         "workflow_run_attempt": workflow_run_attempt,
+        "source_dispatch_run_attempt": source_attempt,
+        "source_release_sha": _require_commit_sha(
+            source_release_sha, "source_release_sha"
+        ),
         "freeze_bundle_sha256": _required_sha256(
             provenance, "current_freeze_bundle_sha256"
         ),
@@ -242,6 +289,10 @@ def build_shard_receipt(
         "repeat_policy_sha256": repeat_policy_sha256,
         "attempt_policy_sha256": _required_sha256(provenance, "attempt_policy_sha256"),
         "receipt_policy_sha256": _required_sha256(provenance, "receipt_policy_sha256"),
+        "frozen_manifest_sha256": frozen_manifest_sha256,
+        "run_input_manifest_sha256": _require_sha256(
+            run_input_manifest_sha256, "run_input_manifest_sha256"
+        ),
         **supplied_inputs,
         "expected_cell_count": len(expected),
         "cells": sorted_completions,
@@ -274,6 +325,151 @@ def receipt_key(receipt: Mapping[str, Any]) -> str:
     return f"shard-receipts/{cycle_id}/{shard_slug}/{run_id}/{attempt}.json"
 
 
+def verify_shard_receipt(
+    receipt: Mapping[str, Any],
+    *,
+    manifest: Mapping[str, Any],
+    repeat_policy: Mapping[str, Any],
+    expected_identity: Mapping[str, str],
+    expected_shard: tuple[str, str],
+    actual_receipt_key: str | None = None,
+) -> JsonRecord:
+    """Strictly revalidate an untrusted receipt against frozen shard inputs."""
+
+    record = dict(receipt)
+    _exact_keys(record, _RECEIPT_FIELDS, "receipt")
+    if record.get("schema_version") != RECEIPT_SCHEMA_VERSION:
+        raise ShardReceiptError("unsupported shard receipt schema")
+    _require_commit_sha(record.get("source_release_sha"), "source_release_sha")
+    source_attempt = _positive_int(record, "source_dispatch_run_attempt")
+    if source_attempt > _positive_int(record, "workflow_run_attempt"):
+        raise ShardReceiptError(
+            "source dispatch run attempt cannot follow the receipt attempt"
+        )
+    supplied_hash = _required_sha256(record, "receipt_sha256")
+    without_hash = dict(record)
+    without_hash.pop("receipt_sha256")
+    if hash_payload(without_hash) != supplied_hash:
+        raise ShardReceiptError("receipt_sha256 does not match receipt content")
+
+    derived_key = receipt_key(record)
+    if record.get("receipt_key") != derived_key:
+        raise ShardReceiptError("receipt_key does not match receipt identity")
+    if actual_receipt_key is not None and actual_receipt_key != derived_key:
+        raise ShardReceiptError("actual receipt key does not match receipt identity")
+
+    model_key, ablation = expected_shard
+    if _required_str(record, "model_key") != model_key:
+        raise ShardReceiptError("receipt model_key does not match declared shard")
+    if _required_str(record, "ablation") != ablation:
+        raise ShardReceiptError("receipt ablation does not match declared shard")
+    for field, expected in expected_identity.items():
+        supplied = _required_sha256(record, field)
+        if supplied != _require_sha256(expected, field):
+            raise ShardReceiptError(f"receipt {field} does not match frozen identity")
+
+    repeat_policy_sha256 = policy_content_sha256(repeat_policy)
+    if _required_sha256(record, "repeat_policy_sha256") != repeat_policy_sha256:
+        raise ShardReceiptError("receipt repeat policy hash does not match content")
+    expected_cells = derive_expected_cells(
+        manifest=manifest,
+        model_key=model_key,
+        ablation=ablation,
+        repeat_policy=repeat_policy,
+    )
+    if _positive_int(record, "expected_cell_count") != len(expected_cells):
+        raise ShardReceiptError("receipt expected_cell_count does not match freeze")
+
+    raw_cells = record.get("cells")
+    if not isinstance(raw_cells, list):
+        raise ShardReceiptError("receipt cells must be an array")
+    expected_by_case = {
+        cast(str, expected["case_id"]): expected for expected in expected_cells
+    }
+    verified_by_case: dict[str, JsonRecord] = {}
+    object_records: list[JsonRecord] = []
+    object_identities: set[tuple[str, str]] = set()
+    object_uris: set[str] = set()
+    workflow_run_id = _required_str(record, "workflow_run_id")
+    workflow_run_attempt = _positive_int(record, "workflow_run_attempt")
+    cycle_id = _required_str(record, "cycle_id")
+    execution_policy_sha256 = _required_sha256(record, "execution_policy_sha256")
+    for raw_cell in cast(list[object], raw_cells):
+        cell = dict(_mapping(raw_cell, "receipt cell"))
+        producer_attempt = _positive_int(cell, "producer_workflow_run_attempt")
+        adoption_state = _required_str(cell, "receipt_adoption_state")
+        cell.pop("producer_workflow_run_attempt")
+        cell.pop("receipt_adoption_state")
+        validated = _validate_completion(
+            cell,
+            workflow_run_id=workflow_run_id,
+            workflow_run_attempt=workflow_run_attempt,
+            repeat_policy_sha256=repeat_policy_sha256,
+            execution_policy_sha256=execution_policy_sha256,
+            cycle_id=cycle_id,
+        )
+        if _positive_int(validated, "workflow_run_attempt") != producer_attempt:
+            raise ShardReceiptError(
+                "producer_workflow_run_attempt does not match cell completion"
+            )
+        expected_adoption_state = (
+            "current_attempt"
+            if producer_attempt == workflow_run_attempt
+            else "adopted_prior_attempt"
+        )
+        if adoption_state != expected_adoption_state:
+            raise ShardReceiptError(
+                "receipt_adoption_state does not match producer attempt"
+            )
+        case_id = _required_str(validated, "case_id")
+        expected = expected_by_case.get(case_id)
+        if expected is None:
+            raise ShardReceiptError(f"extra receipt cell: {case_id}")
+        if case_id in verified_by_case:
+            raise ShardReceiptError(f"duplicate receipt cell: {case_id}")
+        for field in (
+            "model_key",
+            "ablation",
+            "packet_object_key",
+            "packet_sha256",
+            "repeat_count",
+        ):
+            if validated[field] != expected[field]:
+                raise ShardReceiptError(
+                    f"receipt cell {case_id} {field} does not match frozen cell"
+                )
+        validated["producer_workflow_run_attempt"] = producer_attempt
+        validated["receipt_adoption_state"] = adoption_state
+        verified_by_case[case_id] = validated
+        for object_record in cast(list[JsonRecord], validated["objects"]):
+            uri = cast(str, object_record["uri"])
+            identity = (
+                uri,
+                cast(str, object_record["version_id"]),
+            )
+            if identity in object_identities:
+                raise ShardReceiptError("result object version is reused across cells")
+            if uri in object_uris:
+                raise ShardReceiptError("result object URI is reused across cells")
+            object_identities.add(identity)
+            object_uris.add(uri)
+            object_records.append(object_record)
+
+    missing = sorted(set(expected_by_case) - set(verified_by_case))
+    if missing:
+        raise ShardReceiptError(f"missing receipt cells: {missing}")
+    expected_result_commitment = hash_payload(
+        {"objects": sorted(object_records, key=_object_sort_key)}
+    )
+    if (
+        _required_sha256(record, "result_commitment_sha256")
+        != expected_result_commitment
+    ):
+        raise ShardReceiptError("receipt result commitment does not match cells")
+    record["cells"] = [verified_by_case[key] for key in sorted(verified_by_case)]
+    return record
+
+
 def verify_committed_objects(receipt: Mapping[str, Any]) -> None:
     """Re-read every exact result version and verify content commitments."""
 
@@ -281,6 +477,7 @@ def verify_committed_objects(receipt: Mapping[str, Any]) -> None:
     if not isinstance(cells, list):
         raise ShardReceiptError("receipt cells must be an array")
     seen: set[tuple[str, str]] = set()
+    seen_uris: set[str] = set()
     for raw_cell in cast(list[object], cells):
         cell = _mapping(raw_cell, "receipt cell")
         objects = cell.get("objects")
@@ -294,16 +491,28 @@ def verify_committed_objects(receipt: Mapping[str, Any]) -> None:
             )
             if identity in seen:
                 raise ShardReceiptError("result object version is reused across cells")
+            if identity[0] in seen_uris:
+                raise ShardReceiptError("result object URI is reused across cells")
             seen.add(identity)
+            seen_uris.add(identity[0])
             payload = _read_exact_object(commitment)
-            if len(payload) != _positive_int(commitment, "size_bytes", minimum=0):
-                raise ShardReceiptError("result object size commitment mismatch")
-            if hashlib.sha256(payload).hexdigest() != _required_sha256(
-                commitment, "sha256"
-            ):
-                raise ShardReceiptError("result object content commitment mismatch")
-            if _required_str(commitment, "name") == "metrics":
-                _verify_metrics_identity(payload, cell)
+            verify_committed_payload(commitment, cell=cell, payload=payload)
+
+
+def verify_committed_payload(
+    commitment: Mapping[str, Any],
+    *,
+    cell: Mapping[str, Any],
+    payload: bytes,
+) -> None:
+    """Verify bytes fetched by exact object version against one receipt cell."""
+
+    if len(payload) != _positive_int(commitment, "size_bytes", minimum=0):
+        raise ShardReceiptError("result object size commitment mismatch")
+    if hashlib.sha256(payload).hexdigest() != _required_sha256(commitment, "sha256"):
+        raise ShardReceiptError("result object content commitment mismatch")
+    if _required_str(commitment, "name") == "metrics":
+        _verify_metrics_identity(payload, cell)
 
 
 def write_receipt_once(root: str, receipt: Mapping[str, Any]) -> str:
@@ -568,26 +777,36 @@ def _load_completions(root: Path) -> tuple[Mapping[str, Any], ...]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dispatch-provenance", type=Path, required=True)
-    parser.add_argument("--frozen-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--run-input-manifest",
+        "--frozen-manifest",
+        dest="run_input_manifest",
+        type=Path,
+        required=True,
+    )
     parser.add_argument("--completions-root", type=Path, required=True)
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--model-registry", type=Path, required=True)
     parser.add_argument("--workflow-run-id", required=True)
     parser.add_argument("--workflow-run-attempt", type=int, required=True)
+    parser.add_argument("--source-dispatch-run-attempt", type=int, required=True)
+    parser.add_argument("--source-release-sha", required=True)
     parser.add_argument("--receipt-root", required=True)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    manifest_path = cast(Path, args.frozen_manifest)
+    manifest_path = cast(Path, args.run_input_manifest)
     receipt = build_shard_receipt(
         provenance=_load_json(cast(Path, args.dispatch_provenance)),
         manifest=_load_json(manifest_path),
         completions=_load_completions(cast(Path, args.completions_root)),
-        frozen_manifest_sha256=_sha256_file(manifest_path),
+        run_input_manifest_sha256=_sha256_file(manifest_path),
         labels_sha256=_sha256_file(cast(Path, args.labels)),
         model_registry_sha256=_sha256_file(cast(Path, args.model_registry)),
+        source_dispatch_run_attempt=cast(int, args.source_dispatch_run_attempt),
+        source_release_sha=cast(str, args.source_release_sha),
         current_workflow_run_id=cast(str, args.workflow_run_id),
         current_workflow_run_attempt=cast(int, args.workflow_run_attempt),
     )
@@ -633,6 +852,12 @@ def _required_sha256(record: Mapping[str, Any], field: str) -> str:
 def _require_sha256(value: object, field: str) -> str:
     if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
         raise ShardReceiptError(f"{field} must be a lowercase SHA-256 digest")
+    return value
+
+
+def _require_commit_sha(value: object, field: str) -> str:
+    if not isinstance(value, str) or _GIT_COMMIT_SHA.fullmatch(value) is None:
+        raise ShardReceiptError(f"{field} must be a full lowercase Git commit SHA")
     return value
 
 
