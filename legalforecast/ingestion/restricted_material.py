@@ -36,6 +36,15 @@ _ACCESS_LABEL_RESTRICTED_TEXT = re.compile(
     r"\b(?:under[\s_-]+seal|sealed|restricted|private)\b",
     re.IGNORECASE,
 )
+_PUBLIC_HEARING_SANCTION_WARNING = re.compile(
+    r"\bviolation\s+of\s+these\s+prohibitions\s+may\s+result\s+in\s+sanctions"
+    r"\s*,\s*including\s+removal\s+of\s+court(?:[\s-]+)issued\s+media"
+    r"\s+credentials\s*,\s*restricted\s+entry\s+to\s+future\s+hearings"
+    r"\s*,\s*denial\s+of\s+entry\s+to\s+future\s+hearings\s*,\s*or\s+any"
+    r"\s+other\s+sanctions\s+deemed\s+necessary\s+by\s+the\s+court\b"
+    r"(?=\s*(?:[.!?]|$))",
+    re.IGNORECASE,
+)
 
 
 def restricted_material_markers(
@@ -63,11 +72,36 @@ def restricted_material_markers(
                 markers.add(f"status_{normalized_key}_{_identifier(match.group(0))}")
     for text in text_fields:
         for match in _RESTRICTED_TEXT.finditer(text):
+            if _is_prospective_hearing_sanction_warning(text, match):
+                continue
             markers.add(f"text_{_identifier(match.group(0))}")
     for text in access_label_fields:
         for match in _ACCESS_LABEL_RESTRICTED_TEXT.finditer(text):
             markers.add(f"access_{_identifier(match.group(0))}")
     return tuple(sorted(markers))
+
+
+def contains_prospective_hearing_sanction_warning(text: str) -> bool:
+    """Return whether text contains the narrow public-hearing warning shape."""
+
+    return any(
+        _is_prospective_hearing_sanction_warning(text, match)
+        for match in _RESTRICTED_TEXT.finditer(text)
+    )
+
+
+def _is_prospective_hearing_sanction_warning(
+    text: str,
+    match: re.Match[str],
+) -> bool:
+    """Recognize only the frozen public-hearing warning boilerplate."""
+
+    if _identifier(match.group(0)) != "restrictedentry":
+        return False
+    return any(
+        warning.start() <= match.start() and match.end() <= warning.end()
+        for warning in _PUBLIC_HEARING_SANCTION_WARNING.finditer(text)
+    )
 
 
 def _identifier(value: str) -> str:

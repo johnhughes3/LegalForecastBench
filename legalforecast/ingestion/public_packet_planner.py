@@ -34,7 +34,10 @@ from legalforecast.ingestion.operative_complaint import (
     select_operative_complaint_entry,
 )
 from legalforecast.ingestion.provenance import DocumentRole
-from legalforecast.ingestion.restricted_material import restricted_material_markers
+from legalforecast.ingestion.restricted_material import (
+    contains_prospective_hearing_sanction_warning,
+    restricted_material_markers,
+)
 
 _OPTIONAL_BRIEF_ROLES = frozenset({CourtListenerEntryRole.REPLY})
 _CASE_MIX_DIMENSIONS = (
@@ -907,6 +910,7 @@ def _entry_from_embedded_record(
                 records=(record,),
                 text_fields=(_optional_str(record, "text") or "",),
             ),
+            reconcile_derived_entry_text=True,
         ),
     )
 
@@ -935,7 +939,10 @@ def _document_from_embedded_record(
 
 
 def _merged_restriction_markers(
-    record: Mapping[str, Any], detected: tuple[str, ...]
+    record: Mapping[str, Any],
+    detected: tuple[str, ...],
+    *,
+    reconcile_derived_entry_text: bool = False,
 ) -> tuple[str, ...]:
     explicit = record.get("restriction_markers")
     if explicit is None:
@@ -948,7 +955,21 @@ def _merged_restriction_markers(
             raise ValueError(
                 "embedded restriction_markers must contain non-empty strings"
             )
-        markers.append(marker.strip())
+        normalized_marker = marker.strip()
+        embedded_text = record.get("text")
+        if (
+            reconcile_derived_entry_text
+            and normalized_marker == "text_restrictedentry"
+            and normalized_marker not in detected
+            and isinstance(embedded_text, str)
+            and contains_prospective_hearing_sanction_warning(embedded_text)
+        ):
+            # Older snapshots persist detector-derived markers. Reconcile only
+            # this exact prospective-sanction false positive against the
+            # unchanged source text; every genuine or non-text marker remains
+            # fail-closed.
+            continue
+        markers.append(normalized_marker)
     return tuple(sorted(set((*detected, *markers))))
 
 
