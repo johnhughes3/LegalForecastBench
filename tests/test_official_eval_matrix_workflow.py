@@ -469,9 +469,32 @@ def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None
         "projected_model_cost += row_repeat_count * projected_cost_for_row" in WORKFLOW
     )
     assert "projected model cost $" in WORKFLOW
+    assert "required for live runs" in WORKFLOW
+    assert "early-warning dispatch ceiling" in WORKFLOW
+    assert "not a provider or account cap" in WORKFLOW
+    assert (
+        "Non-dry-run official evaluation requires "
+        "max_projected_model_cost_usd" in WORKFLOW
+    )
+    assert "recommended_dispatch_ceiling = projected_model_cost * 2" in WORKFLOW
+    assert "budget > recommended_dispatch_ceiling" in WORKFLOW
+    assert "exceeds the 2x projected early-warning ceiling" in WORKFLOW
     assert (
         'output.write(f"projected_model_cost_usd={projected_model_cost:.6f}' in WORKFLOW
     )
+    assert '"recommended_max_projected_model_cost_usd="' in WORKFLOW
+    assert 'f"{recommended_dispatch_ceiling:.6f}\\n"' in WORKFLOW
+
+
+def test_official_eval_matrix_workflow_flags_long_context_surcharge_packets() -> None:
+    assert "LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS = 272_000" in WORKFLOW
+    assert "long_context_surcharge_packets = []" in WORKFLOW
+    assert "input_tokens > LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS" in WORKFLOW
+    assert '"estimated_input_tokens": input_tokens' in WORKFLOW
+    assert "Long-context surcharge packet warning" in WORKFLOW
+    assert "GITHUB_STEP_SUMMARY" in WORKFLOW
+    assert "long_context_surcharge_packet_count" in WORKFLOW
+    assert "long_context_surcharge_packets_json" in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_marks_repeat_sampling_subset() -> None:
