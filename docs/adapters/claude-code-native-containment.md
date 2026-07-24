@@ -97,6 +97,8 @@ The expected executable observations are the version and hash in the pin table a
 
 After that review and table update, request the exact whole-process capture from the repository root. The command relies on the reviewed probe's pinned default executable path, so the 273 MB Claude binary is not an argv file token that sudo-gate would stage. Outer mode has no `--output` option: it emits one JSON document on stdout. `sudo-request` relays command stdout separately while approval status, URLs, command stderr, and client errors remain on stderr, so redirect stdout only and never use `2>&1`.
 
+The first request attempt on 2026-07-24 was rejected before approval or execution with HTTP 413 because the reviewed 79,441-byte probe exceeded sudo-gate's configured per-file attachment cap. It produced no evidence. Do not bypass staged-file attestation with ordinary sudo or an unreviewed loader. A future capture requires either a separately reviewed sudo-gate capacity change or a source-transport refactor whose complete staged bytes, reconstruction, and final source hash receive a new independent review.
+
 ```bash
 set -euo pipefail
 umask 077
