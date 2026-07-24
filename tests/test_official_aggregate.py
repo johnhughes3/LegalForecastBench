@@ -205,6 +205,9 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     assert packet_budget["by_ablation"]["full_packet"]["count"] == 1
     assert packet_budget["smallest_context_limit"] == 200_000
     assert packet_budget["smallest_prompt_input_token_budget"] == 195_904
+    assert packet_budget["long_context_surcharge_threshold_tokens"] == 272_000
+    assert packet_budget["long_context_surcharge_packet_count"] == 0
+    assert packet_budget["long_context_surcharge_packets"] == []
     assert packet_budget["registry_budgets"] == [
         {
             "context_limit": 200_000,
@@ -1030,6 +1033,50 @@ def test_official_aggregate_rejects_packet_over_smallest_context_budget(
         )
 
 
+def test_official_aggregate_lists_long_context_surcharge_packets_in_run_card(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(
+        tmp_path,
+        packet_size_bytes=1_088_004,
+    )
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:solver",),
+        context_limit=1_050_000,
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(per_case_dir)
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
+            model_registry_path=registry_path,
+            allow_no_baselines=True,
+            ablation="full_packet",
+        )
+    )
+
+    run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
+    packet_budget = run_card["packet_token_budget"]
+    assert packet_budget["long_context_surcharge_packet_count"] == 1
+    assert packet_budget["long_context_surcharge_packets"] == [
+        {
+            "ablation": "full_packet",
+            "case_id": "case-1",
+            "estimated_input_tokens": 272_001,
+        }
+    ]
+
+
 def test_official_aggregate_reports_repeat_sampling_variance(
     tmp_path: Path,
 ) -> None:
@@ -1446,7 +1493,12 @@ def _write_labels(tmp_path: Path) -> Path:
     return labels_path
 
 
-def _write_model_registry(tmp_path: Path, model_keys: tuple[str, ...]) -> Path:
+def _write_model_registry(
+    tmp_path: Path,
+    model_keys: tuple[str, ...],
+    *,
+    context_limit: int = 200_000,
+) -> Path:
     registry_path = tmp_path / "model-registry.json"
     records: list[dict[str, Any]] = []
     for model_key in model_keys:
@@ -1467,7 +1519,7 @@ def _write_model_registry(tmp_path: Path, model_keys: tuple[str, ...]) -> Path:
                 "network_disabled": True,
                 "search_disabled": True,
                 "tool_policy": "controlled_docket_tool_only",
-                "context_limit": 200000,
+                "context_limit": context_limit,
                 "pricing_source": "fixture",
                 "input_token_price": 0.25,
                 "output_token_price": 1.0,
