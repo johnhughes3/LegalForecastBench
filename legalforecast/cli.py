@@ -18,7 +18,7 @@ import tempfile
 import time
 import uuid
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Mapping, Sequence, Set
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
@@ -68,6 +68,15 @@ from legalforecast.evals.per_case_runner import (
     PerCaseExecutionBackend,
     PerCaseRunnerConfig,
     run_per_case_evaluation,
+)
+from legalforecast.evals.provider_spend_control import (
+    FrozenAttemptPolicy,
+    ProviderSpendAuthority,
+    ProviderSpendControlError,
+)
+from legalforecast.evals.provider_spend_dynamodb import (
+    DynamoDbAuthorityError,
+    DynamoDbProviderSpendAuthority,
 )
 from legalforecast.evals.scorers import (
     CalibrationBin,
@@ -6350,6 +6359,7 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         help="Registry key in provider:model_id form for the Stage A unitizer.",
     )
     _add_provider_cycle_caps_argument(parser)
+    _add_provider_spend_authority_arguments(parser)
     parser.add_argument(
         "--provider-journal",
         type=Path,
@@ -6482,6 +6492,7 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         ),
     )
     _add_provider_cycle_caps_argument(parser)
+    _add_provider_spend_authority_arguments(parser)
     parser.add_argument(
         "--provider-journal",
         type=Path,
@@ -6546,6 +6557,21 @@ def _add_provider_cycle_caps_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_provider_spend_authority_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--provider-authority-table",
+        help=(
+            "DynamoDB table named by the provider-cycle-caps spend_authority "
+            "commitment. Required with --execute."
+        ),
+    )
+    parser.add_argument(
+        "--provider-authority-region",
+        default="us-east-1",
+        help="AWS region for the shared provider spend authority.",
+    )
+
+
 def _add_acquisition_llm_review_stage_a_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -6588,6 +6614,7 @@ def _add_acquisition_llm_review_stage_a_arguments(
         help="Registry key for the structural reviewer (for Cycle 1, Gemini Flash).",
     )
     _add_provider_cycle_caps_argument(parser)
+    _add_provider_spend_authority_arguments(parser)
     parser.add_argument(
         "--provider-journal",
         type=Path,
@@ -32594,8 +32621,9 @@ def _verified_provider_stage_attempts(
     expected_prompts: Mapping[tuple[str, str], str],
     providers_by_model: Mapping[str, str],
     model_registry_sha256: str,
-    expected_validation_failures: Set[tuple[str, str]] = frozenset(),
+    expected_nonsettled_statuses: Mapping[tuple[str, str], str] | None = None,
 ) -> JsonRecord:
+    nonsettled_statuses = dict(expected_nonsettled_statuses or {})
     rows = _provider_stage_attempt_rows(journal_path, stage=stage)
     rows_by_call: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
     for row in rows:
@@ -32622,14 +32650,18 @@ def _verified_provider_stage_attempts(
         rows_by_call[key].append(row)
     if set(rows_by_call) != set(expected_prompts):
         raise CommandError(f"{stage} provider journal call coverage differs")
-    if not expected_validation_failures <= set(expected_prompts):
+    if not set(nonsettled_statuses) <= set(expected_prompts):
         raise CommandError(f"{stage} validation-failure audit coverage differs")
+    if not set(nonsettled_statuses.values()) <= {
+        "validated_response",
+        "reconstruction_failed",
+    }:
+        raise CommandError(f"{stage} validation-failure terminal status is invalid")
     for key, call_rows in rows_by_call.items():
-        expected_status = (
-            "validated_response" if key in expected_validation_failures else "settled"
-        )
+        expected_status = nonsettled_statuses.get(key, "settled")
         if sum(row.get("status") == expected_status for row in call_rows) != 1 or any(
-            row.get("status") in {"settled", "validated_response"}
+            row.get("status")
+            in {"settled", "validated_response", "reconstruction_failed"}
             and row.get("status") != expected_status
             for row in call_rows
         ):
@@ -32660,9 +32692,9 @@ def _provider_chain_commitment(
 
 def _label_stage_attempts_from_audit(
     audit_records: Sequence[Mapping[str, Any]],
-) -> tuple[dict[tuple[str, str], str], set[tuple[str, str]]]:
+) -> tuple[dict[tuple[str, str], str], dict[tuple[str, str], str]]:
     expected_prompts: dict[tuple[str, str], str] = {}
-    validation_failures: set[tuple[str, str]] = set()
+    nonsettled_statuses: dict[tuple[str, str], str] = {}
     for record in audit_records:
         candidate_id = _required_str(record, "candidate_id")
         raw_outputs = record.get("model_outputs", ())
@@ -32680,10 +32712,18 @@ def _label_stage_attempts_from_audit(
             expected_prompts[key] = _required_str(output, "provider_prompt_sha256")
             output_status = output.get("status")
             if output_status == "validation_failed":
-                validation_failures.add(key)
+                error_type = _required_str(output, "error_type")
+                if error_type == "LlmResponseValidationError":
+                    nonsettled_statuses[key] = "reconstruction_failed"
+                elif error_type == "FrozenUnitWorkflowRequiredError":
+                    nonsettled_statuses[key] = "validated_response"
+                else:
+                    raise CommandError(
+                        f"invalid llm-label validation failure type: {key}"
+                    )
             elif output_status is not None:
                 raise CommandError(f"invalid llm-label model output status: {key}")
-    return expected_prompts, validation_failures
+    return expected_prompts, nonsettled_statuses
 
 
 def _verify_stage_a_review_run_card(
@@ -33118,7 +33158,7 @@ def _verify_llm_label_run_card(
     if dict(execution_record) != expected_execution:
         raise CommandError("llm-label model execution commitment changed")
     audit_records = _read_records(audit_path)
-    expected_prompts, validation_failures = _label_stage_attempts_from_audit(
+    expected_prompts, nonsettled_statuses = _label_stage_attempts_from_audit(
         audit_records
     )
     stage_attempts = _verified_provider_stage_attempts(
@@ -33127,7 +33167,7 @@ def _verify_llm_label_run_card(
         expected_prompts=expected_prompts,
         providers_by_model=providers,
         model_registry_sha256=registry_sha,
-        expected_validation_failures=validation_failures,
+        expected_nonsettled_statuses=nonsettled_statuses,
     )
     if dict(chain_record) != _provider_chain_commitment(
         lineage=lineage, stage_attempts=stage_attempts
@@ -33147,7 +33187,11 @@ def _verify_llm_label_run_card(
         lineage.provider_journal_path, stage="llm-label"
     ):
         key = (_required_str(row, "candidate_id"), _required_str(row, "model_key"))
-        if row.get("status") not in {"settled", "validated_response"}:
+        if row.get("status") not in {
+            "settled",
+            "validated_response",
+            "reconstruction_failed",
+        }:
             continue
         output = audit_outputs[key]
         try:
@@ -33278,6 +33322,15 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             args,
             markdown_root=markdown_root,
         )
+        provider_spend_authorities, provider_accounts = (
+            _remote_provider_spend_authorities(
+                args,
+                provider_caps=lineage.provider_caps,
+                provider_caps_sha256=lineage.provider_caps_sha256,
+                cycle_id=lineage.cohort_cycle_id,
+                providers=(lineage.registry_entry.provider,),
+            )
+        )
         result = llm_unitize_cases(
             selection_records=lineage.selection_records,
             parser_records=lineage.parser_records,
@@ -33294,6 +33347,8 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             },
             provider_cycle_id=lineage.cohort_cycle_id,
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_spend_authorities=provider_spend_authorities,
+            provider_accounts=provider_accounts,
         )
         _write_jsonl(prediction_units_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -33463,6 +33518,15 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             entry.provider: lineage.provider_caps.cap_usd(entry.provider)
             for entry in registry_entries
         }
+        provider_spend_authorities, provider_accounts = (
+            _remote_provider_spend_authorities(
+                args,
+                provider_caps=lineage.provider_caps,
+                provider_caps_sha256=lineage.provider_caps_sha256,
+                cycle_id=lineage.cohort_cycle_id,
+                providers=tuple(entry.provider for entry in registry_entries),
+            )
+        )
         result = llm_label_cases(
             selection_records=selection_records,
             prediction_unit_records=finalized_unit_records,
@@ -33477,6 +33541,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             provider_cycle_caps_usd=caps_by_provider,
             provider_cycle_id=lineage.cohort_cycle_id,
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_spend_authorities=provider_spend_authorities,
+            provider_accounts=provider_accounts,
         )
         _write_jsonl(labels_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -33484,7 +33550,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             lawyer_review_queue_path,
             lawyer_review_queue_records(result.audit_records),
         )
-        expected_prompts, validation_failure_calls = _label_stage_attempts_from_audit(
+        expected_prompts, nonsettled_statuses = _label_stage_attempts_from_audit(
             result.audit_records
         )
         providers_by_model = {
@@ -33496,7 +33562,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             expected_prompts=expected_prompts,
             providers_by_model=providers_by_model,
             model_registry_sha256=registry_sha256,
-            expected_validation_failures=validation_failure_calls,
+            expected_nonsettled_statuses=nonsettled_statuses,
         )
         completion_extra.update(
             {
@@ -33644,6 +33710,56 @@ def _require_complete_registry_panel(
         )
 
 
+def _remote_provider_spend_authorities(
+    args: argparse.Namespace,
+    *,
+    provider_caps: ProviderCycleCaps,
+    provider_caps_sha256: str,
+    cycle_id: str,
+    providers: Sequence[str],
+) -> tuple[dict[str, ProviderSpendAuthority], dict[str, str]]:
+    """Build the pre-labeling authorities committed by the caps artifact."""
+
+    table_name = cast(str | None, getattr(args, "provider_authority_table", None))
+    if table_name is None or not table_name.strip():
+        raise CommandError(
+            "paid labeling requires --provider-authority-table with --execute"
+        )
+    region = cast(str, getattr(args, "provider_authority_region", "us-east-1"))
+    try:
+        spend_policy = provider_caps.require_spend_authority()
+        ledger_sha256 = provider_caps_sha256.removeprefix("sha256:")
+        frozen_policy = FrozenAttemptPolicy(
+            reservation_ledger_sha256=ledger_sha256,
+            max_billable_attempts=spend_policy.max_billable_attempts,
+            failure_threshold=spend_policy.failure_threshold,
+            failure_window_seconds=spend_policy.failure_window_seconds,
+        )
+        authorities: dict[str, ProviderSpendAuthority] = {}
+        accounts: dict[str, str] = {}
+        for provider in sorted({value.lower() for value in providers}):
+            account = provider_caps.account(provider)
+            authorities[provider] = DynamoDbProviderSpendAuthority(
+                table_name=table_name,
+                authority_identity_sha256=(spend_policy.resource_identity_sha256),
+                cycle_id=cycle_id,
+                provider=provider,
+                account=account,
+                cap_microusd=provider_caps.cap_microusd(provider),
+                policy=frozen_policy,
+                region=region,
+            )
+            accounts[provider] = account
+    except (
+        ProviderJournalError,
+        ProviderSpendControlError,
+        DynamoDbAuthorityError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return authorities, accounts
+
+
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     provider_journal_arg = cast(Path | None, args.provider_journal)
@@ -33697,6 +33813,15 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
         entry, registry_sha = _registry_entry_for_key(
             registry_path, cast(str, args.model_key)
         )
+        provider_spend_authorities, provider_accounts = (
+            _remote_provider_spend_authorities(
+                args,
+                provider_caps=lineage.provider_caps,
+                provider_caps_sha256=lineage.provider_caps_sha256,
+                cycle_id=lineage.cohort_cycle_id,
+                providers=(entry.provider,),
+            )
+        )
         result = llm_review_stage_a_units(
             selection_records=selections,
             parser_records=_read_records(parser_path),
@@ -33711,6 +33836,8 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             },
             provider_cycle_id=lineage.cohort_cycle_id,
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_spend_authorities=provider_spend_authorities,
+            provider_accounts=provider_accounts,
         )
         _write_jsonl(flags_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
