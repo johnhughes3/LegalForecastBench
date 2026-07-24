@@ -231,7 +231,21 @@ def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
     assert '--concurrency-group "${CONCURRENCY_GROUP}"' in BUILD_MATRIX_JOB
     assert (
         "- name: Upload dispatch provenance\n"
-        "        uses: actions/upload-artifact@v7" in BUILD_MATRIX_JOB
+        "        uses: actions/upload-artifact@"
+        "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in BUILD_MATRIX_JOB
+    )
+
+
+def test_official_eval_actions_use_immutable_commit_pins() -> None:
+    action_references = re.findall(
+        r"^\s*uses:\s+([^@\s]+)@([^\s#]+)",
+        WORKFLOW,
+        flags=re.MULTILINE,
+    )
+
+    assert action_references
+    assert all(
+        re.fullmatch(r"[0-9a-f]{40}", revision) for _, revision in action_references
     )
 
 
@@ -623,7 +637,9 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
 def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None:
     assert "aggregate-results:" in WORKFLOW
     assert "needs.run-case.result == 'success'" in WORKFLOW
-    assert "actions/download-artifact@v8.0.1" in WORKFLOW
+    assert (
+        "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" in WORKFLOW
+    )
     assert "uv run python -m legalforecast.publication.official_aggregate" in WORKFLOW
     assert "--per-case-dir /tmp/lfb-per-case-artifacts" in WORKFLOW
     assert "/tmp/lfb-run-inputs-requested-ablations.json" in WORKFLOW
@@ -674,7 +690,9 @@ def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> N
     assert "Dry run: would evaluate" in WORKFLOW
     assert "if: ${{ inputs.dry_run }}" in WORKFLOW
     assert "if: ${{ !inputs.dry_run }}" in WORKFLOW
-    assert "actions/upload-artifact@v7" in WORKFLOW
+    assert (
+        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in WORKFLOW
+    )
     assert "overwrite: true" not in WORKFLOW
     assert (
         "retention-days: ${{ "

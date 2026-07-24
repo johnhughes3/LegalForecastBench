@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import shlex
 from functools import cache
 from pathlib import Path
 from types import ModuleType
@@ -12,8 +13,23 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import build_parser, main
+from legalforecast.protocol.freeze import REQUIRED_FREEZE_ARTIFACTS, build_arg_parser
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_documented_freeze_command_parses_against_real_cli() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    command = _extract_bash_command(runbook, "uv run legalforecast freeze ")
+    argv = shlex.split(command.replace("\\\n", " "))
+
+    assert argv[:4] == ["uv", "run", "legalforecast", "freeze"]
+    assert "--cycle-id" not in argv
+
+    args = build_arg_parser().parse_args(argv[4:])
+    assert args.cycle_id == "<cycle_id>"
+    for artifact_name in REQUIRED_FREEZE_ARTIFACTS:
+        assert getattr(args, artifact_name.value)
 
 
 def _documented_command_block(runbook: str, command: str) -> str:
@@ -23,6 +39,13 @@ def _documented_command_block(runbook: str, command: str) -> str:
     remainder = blocks[1]
     assert "```" in remainder, f"{command} command block is not closed"
     return remainder.split("```", maxsplit=1)[0]
+
+
+def _extract_bash_command(markdown: str, prefix: str) -> str:
+    for block in re.findall(r"```bash\n(.*?)\n```", markdown, flags=re.DOTALL):
+        if block.lstrip().startswith(prefix):
+            return block
+    raise AssertionError(f"documented bash command not found: {prefix}")
 
 
 def test_fan_in_audit_example_preserves_canonical_s3_receipt_identity() -> None:
