@@ -342,10 +342,14 @@ def stable_evidence_projection(evidence: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(access, dict):
         _fail("containment evidence omitted external process access")
     typed_access = cast(dict[str, Any], access)
-    for key in ("cwd", "environ", "fd", "root", "signal"):
+    access_keys = {"cwd", "environ", "fd", "root", "signal"}
+    if set(typed_access) != access_keys:
+        _fail("containment evidence external process access schema is unsupported")
+    for key in sorted(access_keys):
         value = typed_access.get(key)
-        if value in {"permission-denied", "not-visible"}:
-            typed_access[key] = "<runtime-access-denied>"
+        if value not in {"permission-denied", "not-visible"}:
+            _fail(f"containment evidence external process access {key} was not denied")
+        typed_access[key] = "<runtime-access-denied>"
 
     cleanup = typed_boundary.get("transient_unit_cleanup")
     if not isinstance(cleanup, dict):
@@ -709,7 +713,8 @@ def _remove_external_canary_directory(canary_dir: Path) -> None:
     try:
         shutil.rmtree(canary_dir)
     except FileNotFoundError:
-        pass
+        # Cleanup is idempotent: another fail-closed path may already have removed it.
+        return
 
 
 def _launch_external_process_canary() -> tuple[

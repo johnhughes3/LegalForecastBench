@@ -1,6 +1,6 @@
 # Claude Code 2.1.218 Host-Specific Native Containment Feasibility
 
-Status: the probe source and tests are branch-local work in progress. No evidence receipt or fixture is present in this branch, and this revision claims no successful capture. The probe must receive independent source review and sudo-gate approval before capture. GitHub issue `#196` remains open.
+Status: the probe and test sources are present in the repository. No evidence receipt or fixture is present, and this revision claims no successful capture. The probe must receive independent source review and sudo-gate approval before capture. GitHub issue `#196` remains open.
 
 ## Purpose and claim boundary
 
@@ -21,7 +21,7 @@ Issue `#196` records earlier Claude Code observations, but the pending capture t
 | Executable | `/work/.local/share/claude/versions/2.1.218` |
 | Version | `2.1.218 (Claude Code)` |
 | Executable SHA-256 | `e12071751a9336b8af1012c103358ff04ac18f9aaff4a738cff7ba5cdfaf63f2` |
-| Probe source SHA-256 approved for capture | `69d0ff468995e6efacba3fd1072462572093316a0fa4610eae057241365439d7` |
+| Probe source SHA-256 approved for capture | `e5ce86ea5f0127f7e10678adc9dd1b533061c3b15b0515260a9155b6c85f6f5a` |
 | Future fixture | `tests/fixtures/claude_native_containment/claude-code-native-containment-2.1.218.json` |
 | Model label used by the local stub | `claude-sonnet-4-6` |
 | Required provider requests | `0` |
@@ -104,7 +104,7 @@ set -euo pipefail
 umask 077
 
 probe_path="$(realpath scripts/probe_claude_code_native_containment.py)"
-approved_probe_sha256="69d0ff468995e6efacba3fd1072462572093316a0fa4610eae057241365439d7"
+approved_probe_sha256="e5ce86ea5f0127f7e10678adc9dd1b533061c3b15b0515260a9155b6c85f6f5a"
 [[ "${approved_probe_sha256}" =~ ^[0-9a-f]{64}$ ]] || {
   echo "capture forbidden: insert the independently approved probe SHA-256" >&2
   exit 1

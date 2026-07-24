@@ -1231,16 +1231,6 @@ def test_stable_evidence_projection_normalizes_only_explicit_runtime_ids() -> No
             (
                 "outer_boundary",
                 "observed_runtime",
-                "external_process",
-                "access",
-                "root",
-            ),
-            "accessible",
-        ),
-        (
-            (
-                "outer_boundary",
-                "observed_runtime",
                 "supervisor_boundary",
                 "dumpable_disabled",
             ),
@@ -1270,6 +1260,24 @@ def test_stable_projection_preserves_security_fact_drift(
     assert module.stable_evidence_projection(first) != (
         module.stable_evidence_projection(drifted)
     )
+
+
+@pytest.mark.parametrize("tamper", ["missing", "unexpected", "extra"])
+def test_stable_projection_rejects_nonexact_external_access_schema(
+    tamper: str,
+) -> None:
+    module = _probe_module()
+    receipt = _realistic_runtime_receipt()
+    access = receipt["outer_boundary"]["observed_runtime"]["external_process"]["access"]
+    if tamper == "missing":
+        access.pop("root")
+    elif tamper == "unexpected":
+        access["root"] = "accessible"
+    else:
+        access["unexpected"] = "not-visible"
+
+    with pytest.raises(module.ProbeError, match="external process access"):
+        module.stable_evidence_projection(receipt)
 
 
 @pytest.mark.parametrize(
