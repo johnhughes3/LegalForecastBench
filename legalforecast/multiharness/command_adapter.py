@@ -205,7 +205,7 @@ class CommandAdapter:
             raise CommandAdapterError("max_private_log_bytes must be positive")
         if os.name != "posix":
             raise CommandAdapterError(
-                "command adapter process-tree containment requires POSIX process groups"
+                "command adapter process-group cleanup requires POSIX process groups"
             )
         workspace.mkdir(parents=True, exist_ok=True)
         private_logs = workspace / "private-logs"
@@ -248,33 +248,33 @@ class CommandAdapter:
                         process.wait(timeout=self.timeout_seconds)
                 except subprocess.TimeoutExpired:
                     status = "timed_out"
-                    termination_requested, forced_kill = _terminate_process_tree(
+                    termination_requested, forced_kill = _terminate_process_group(
                         process,
                         self.termination_grace_seconds,
                     )
                 except (KeyboardInterrupt, _CommandCancellationSignal) as exc:
                     status = "cancelled"
                     pending_error = exc
-                    termination_requested, forced_kill = _terminate_process_tree(
+                    termination_requested, forced_kill = _terminate_process_group(
                         process,
                         self.termination_grace_seconds,
                     )
                 except Exception as exc:
                     status = "exception"
                     pending_error = exc
-                    termination_requested, forced_kill = _terminate_process_tree(
+                    termination_requested, forced_kill = _terminate_process_group(
                         process,
                         self.termination_grace_seconds,
                     )
                 else:
                     returncode = process.returncode
                     status = "completed" if returncode == 0 else "failed"
-                    termination_requested, forced_kill = _terminate_process_tree(
+                    termination_requested, forced_kill = _terminate_process_group(
                         process,
                         self.termination_grace_seconds,
                     )
-                    if returncode == 0 and termination_requested:
-                        status = "descendants_terminated"
+                    if returncode == 0 and (termination_requested or forced_kill):
+                        status = "process_group_cleanup_requested"
                 returncode = process.returncode
 
             stdout_content, stdout_truncated = _bounded_private_log(
@@ -313,9 +313,10 @@ class CommandAdapter:
             raise CommandAdapterError(
                 f"command adapter {phase} could not complete; see private logs"
             ) from pending_error
-        if status == "descendants_terminated":
+        if status == "process_group_cleanup_requested":
             raise CommandAdapterError(
-                f"command adapter {phase} left descendant processes; see private logs"
+                f"command adapter {phase} left processes in its original process "
+                "group; group-scoped cleanup was requested; see private logs"
             )
         if returncode != 0:
             raise CommandAdapterError(
@@ -360,7 +361,7 @@ _TRUNCATION_MARKER = b"\n...[truncated by LegalForecastBench]...\n"
 
 
 class _CommandCancellationSignal(BaseException):
-    """Internal interruption raised while a contained command is active."""
+    """Internal interruption raised while a command-adapter subprocess is active."""
 
 
 def _raise_command_cancellation_signal(
@@ -385,10 +386,16 @@ def _command_cancellation_signal_handlers() -> Generator[None, None, None]:
         signal.signal(signal.SIGTERM, previous_handler)
 
 
-def _terminate_process_tree(
+def _terminate_process_group(
     process: subprocess.Popen[bytes],
     grace_seconds: float,
 ) -> tuple[bool, bool]:
+    """Best-effort cleanup of the adapter leader's original process group.
+
+    Descendants that create a new session or process group are outside this
+    helper's scope. The returned booleans report whether SIGTERM and SIGKILL
+    were delivered to the original group, not whether every descendant stopped.
+    """
     process_group_id = process.pid
     if not _process_group_exists(process_group_id):
         process.poll()
@@ -396,7 +403,7 @@ def _terminate_process_tree(
             try:
                 process.wait(timeout=grace_seconds)
             except subprocess.TimeoutExpired:
-                pass
+                return False, False
         return False, False
 
     termination_requested = _signal_process_group(process_group_id, signal.SIGTERM)
@@ -406,11 +413,14 @@ def _terminate_process_tree(
     forced_kill = _signal_process_group(process_group_id, signal.SIGKILL)
     _wait_for_process_group_exit(process, process_group_id, grace_seconds)
     if process.poll() is None:
-        process.kill()
+        try:
+            process.kill()
+        except (ProcessLookupError, PermissionError):
+            pass  # The leader exited or is no longer signalable; preserve the receipt.
     try:
         process.wait(timeout=grace_seconds)
     except subprocess.TimeoutExpired:
-        pass
+        return termination_requested, forced_kill
     return termination_requested, forced_kill
 
 
@@ -444,7 +454,7 @@ def _signal_process_group(
 ) -> bool:
     try:
         os.killpg(process_group_id, requested_signal)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         return False
     return True
 

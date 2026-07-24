@@ -473,7 +473,7 @@ def _child_probe_result(workspace: Path) -> tuple[bool, bool]:
     try:
         os.kill(pid, signal.SIGKILL)
     except OSError:
-        pass
+        pass  # The probe cleanup is best-effort after the child-state check.
     return True, True
 
 

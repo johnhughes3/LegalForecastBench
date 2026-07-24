@@ -53,7 +53,7 @@ The deterministic loopback provider is a probe instrument, not the treatment pro
 | Host-repository canary | **visible** | The diagnostic fallback had no whole-process filesystem boundary. |
 | Evaluator-private canary | **visible** | The diagnostic fallback did not preserve the solver/evaluator trust split. |
 | External-network canary | **reachable** | The diagnostic fallback had no enforced egress boundary. |
-| Background descendant | cleaned by Codex exit | The scripted `sleep` did not survive the diagnostic process exit. |
+| Background descendant | not observed after Codex exit | The non-daemonizing scripted `sleep` did not survive the diagnostic process exit. This does not establish cleanup of descendants that create another session or process group; stronger host-owned containment is tracked in [issue #267](https://github.com/johnhughes3/LegalForecastBench/issues/267). |
 
 The credential result is especially important: the committed fixture records child environment variable names only, never values. The requested setting and observed inheritance are both preserved so later runtime work can reproduce and fix the discrepancy instead of assuming that a configuration declaration enforced the boundary.
 

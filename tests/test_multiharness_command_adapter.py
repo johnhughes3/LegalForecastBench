@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 import pytest
+from legalforecast.multiharness import command_adapter as command_adapter_module
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterError,
@@ -39,6 +40,87 @@ def test_manifest_file_validation_and_capabilities_loading(tmp_path: Path) -> No
     assert receipt["returncode"] == 0
     assert receipt["termination_requested"] is False
     assert receipt["forced_kill"] is False
+
+
+def test_permission_denied_group_cleanup_preserves_success_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = _write_adapter_script(tmp_path)
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        termination_grace_seconds=0.01,
+    )
+    probe_count = 0
+
+    def deny_group_signals(
+        process_group_id: int,
+        requested_signal: int,
+    ) -> None:
+        del process_group_id
+        nonlocal probe_count
+        if requested_signal != 0:
+            raise PermissionError
+        probe_count += 1
+        if probe_count > 1:
+            raise ProcessLookupError
+
+    monkeypatch.setattr(command_adapter_module.os, "killpg", deny_group_signals)
+    workspace = tmp_path / "workspace"
+
+    capabilities = adapter.capabilities(workspace)
+
+    assert capabilities.adapter_id == "fixture-adapter"
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "completed"
+    assert receipt["returncode"] == 0
+    assert receipt["termination_requested"] is False
+    assert receipt["forced_kill"] is False
+
+
+def test_zero_exit_fails_closed_when_only_forced_group_kill_is_delivered(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = _write_adapter_script(tmp_path)
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        termination_grace_seconds=0.01,
+    )
+    forced_kill_delivered = False
+
+    def deny_graceful_group_signal(
+        process_group_id: int,
+        requested_signal: int,
+    ) -> None:
+        del process_group_id
+        nonlocal forced_kill_delivered
+        if requested_signal == signal.SIGTERM:
+            raise PermissionError
+        if requested_signal == signal.SIGKILL:
+            forced_kill_delivered = True
+            return
+        if forced_kill_delivered:
+            raise ProcessLookupError
+
+    monkeypatch.setattr(
+        command_adapter_module.os,
+        "killpg",
+        deny_graceful_group_signal,
+    )
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(
+        CommandAdapterError,
+        match="group-scoped cleanup was requested",
+    ):
+        adapter.capabilities(workspace)
+
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "process_group_cleanup_requested"
+    assert receipt["returncode"] == 0
+    assert receipt["termination_requested"] is False
+    assert receipt["forced_kill"] is True
 
 
 def test_relative_command_resolution(tmp_path: Path) -> None:
@@ -316,6 +398,40 @@ def test_timeout_uses_graceful_termination_before_forced_kill(tmp_path: Path) ->
     assert receipt["forced_kill"] is False
 
 
+def test_permission_denied_group_cleanup_preserves_timeout_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = _write_adapter_script(tmp_path, sleep_seconds=60)
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=0.01,
+        termination_grace_seconds=0.01,
+    )
+    real_killpg = os.killpg
+
+    def deny_group_signals(
+        process_group_id: int,
+        requested_signal: int,
+    ) -> None:
+        if requested_signal == 0:
+            real_killpg(process_group_id, requested_signal)
+            return
+        raise PermissionError
+
+    monkeypatch.setattr(command_adapter_module.os, "killpg", deny_group_signals)
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match="timed out"):
+        adapter.capabilities(workspace)
+
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "timed_out"
+    assert receipt["returncode"] == -signal.SIGKILL
+    assert receipt["termination_requested"] is False
+    assert receipt["forced_kill"] is False
+
+
 def test_nonzero_parent_crash_cleans_surviving_descendants(tmp_path: Path) -> None:
     script, pid_dir = _write_process_tree_script(tmp_path, behavior="crash")
     adapter = CommandAdapter(
@@ -336,7 +452,9 @@ def test_nonzero_parent_crash_cleans_surviving_descendants(tmp_path: Path) -> No
     assert receipt["forced_kill"] is True
 
 
-def test_zero_exit_with_surviving_descendants_fails_closed(tmp_path: Path) -> None:
+def test_zero_exit_with_surviving_same_group_descendants_fails_closed(
+    tmp_path: Path,
+) -> None:
     script, pid_dir = _write_process_tree_script(tmp_path, behavior="exit_zero")
     adapter = CommandAdapter(
         manifest=_manifest(command=(sys.executable, str(script))),
@@ -345,12 +463,15 @@ def test_zero_exit_with_surviving_descendants_fails_closed(tmp_path: Path) -> No
     )
     workspace = tmp_path / "workspace"
 
-    with pytest.raises(CommandAdapterError, match="left descendant processes"):
+    with pytest.raises(
+        CommandAdapterError,
+        match="left processes in its original process group",
+    ):
         adapter.capabilities(workspace)
 
     _assert_process_tree_stopped(pid_dir)
     receipt = _execution_receipt(workspace)
-    assert receipt["status"] == "descendants_terminated"
+    assert receipt["status"] == "process_group_cleanup_requested"
     assert receipt["returncode"] == 0
     assert receipt["termination_requested"] is True
 
@@ -414,6 +535,89 @@ def test_user_cancellation_cleans_process_tree_and_writes_typed_receipt(
     assert receipt["status"] == "cancelled"
     assert receipt["returncode"] == -signal.SIGKILL
     assert receipt["forced_kill"] is True
+
+
+def test_permission_denied_group_cleanup_preserves_cancellation_receipt(
+    tmp_path: Path,
+) -> None:
+    adapter_pid_path = tmp_path / "adapter.pid"
+    script = tmp_path / "sleep_adapter.py"
+    script.write_text(
+        "\n".join(
+            [
+                "import os, pathlib, time",
+                f"pathlib.Path({str(adapter_pid_path)!r}).write_text(",
+                "    str(os.getpid()), encoding='utf-8'",
+                ")",
+                "time.sleep(60)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    manifest_path = _write_manifest(
+        tmp_path,
+        command=(sys.executable, str(script)),
+    )
+    workspace = tmp_path / "workspace"
+    driver = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "\n".join(
+                [
+                    "from pathlib import Path",
+                    "from legalforecast.multiharness import command_adapter as module",
+                    "from legalforecast.multiharness.command_adapter import (",
+                    "    CommandAdapter, CommandAdapterError,",
+                    ")",
+                    "real_killpg = module.os.killpg",
+                    "def deny_group_signals(process_group_id, requested_signal):",
+                    "    if requested_signal == 0:",
+                    "        return real_killpg(process_group_id, requested_signal)",
+                    "    raise PermissionError",
+                    "module.os.killpg = deny_group_signals",
+                    "adapter = CommandAdapter.from_manifest_file(",
+                    f"    Path({str(manifest_path)!r}),",
+                    "    timeout_seconds=10,",
+                    "    termination_grace_seconds=0.01,",
+                    ")",
+                    "try:",
+                    f"    adapter.capabilities(Path({str(workspace)!r}))",
+                    "except CommandAdapterError as exc:",
+                    "    print(str(exc))",
+                    "    raise SystemExit(0 if 'was cancelled' in str(exc) else 3)",
+                    "raise SystemExit(4)",
+                ]
+            ),
+        ],
+        cwd=Path.cwd(),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline and not adapter_pid_path.is_file():
+            time.sleep(0.01)
+        assert adapter_pid_path.is_file()
+        os.kill(driver.pid, signal.SIGTERM)
+        stdout, stderr = driver.communicate(timeout=3)
+    finally:
+        if driver.poll() is None:
+            driver.kill()
+            driver.wait(timeout=2)
+
+    assert driver.returncode == 0, (stdout, stderr)
+    assert stdout.strip() == "command adapter capabilities was cancelled"
+    assert stderr == ""
+    adapter_pid = int(adapter_pid_path.read_text(encoding="utf-8"))
+    assert not _pid_is_running(adapter_pid)
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "cancelled"
+    assert receipt["returncode"] == -signal.SIGKILL
+    assert receipt["termination_requested"] is False
+    assert receipt["forced_kill"] is False
 
 
 def test_process_tree_cleanup_is_repeatable(tmp_path: Path) -> None:
