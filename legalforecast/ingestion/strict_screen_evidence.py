@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 from datetime import date
 from typing import Any, cast
 
 from legalforecast.ingestion.courtlistener_dates import (
+    parse_courtlistener_display_time,
     parse_courtlistener_filed_date,
 )
 
@@ -510,23 +510,7 @@ def _screened_filed_moment(
         raise StrictScreenEvidenceError(f"{label} must be a recognized filed date")
     if rendered is None:
         raise StrictScreenEvidenceError(f"{label} must be a recognized filed date")
-    time_match = re.search(
-        r"\b(?P<hour>\d{1,2}):(?P<minute>\d{2})\s*"
-        r"(?P<meridiem>a\.?m\.?|p\.?m\.?)\b",
-        rendered,
-        flags=re.IGNORECASE,
-    )
-    if time_match is None:
-        return parsed, None
-    hour = int(time_match.group("hour"))
-    minute = int(time_match.group("minute"))
-    if not 1 <= hour <= 12 or not 0 <= minute <= 59:
-        raise StrictScreenEvidenceError(f"{label} contains an invalid filed time")
-    if time_match.group("meridiem").lower().startswith("p") and hour != 12:
-        hour += 12
-    elif time_match.group("meridiem").lower().startswith("a") and hour == 12:
-        hour = 0
-    return parsed, hour * 60 + minute
+    return parsed, parse_courtlistener_display_time(rendered)
 
 
 def _earliest_screened_row_ids(

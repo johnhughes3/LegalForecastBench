@@ -1,13 +1,36 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import date
 from typing import Any
 
 import pytest
 from legalforecast.ingestion.strict_screen_evidence import (
     StrictScreenEvidenceError,
+    _screened_filed_moment,
     validate_strict_screen_evidence,
 )
+
+
+@pytest.mark.parametrize(
+    ("rendered", "expected_minutes"),
+    (
+        ("July 2, 2026, 9 a.m.", 540),
+        ("July 2, 2026, noon", 720),
+        ("July 2, 2026, midnight", 0),
+        ("July 2, 2026, 12 p.m.", 720),
+        ("July 2, 2026, 12 a.m.", 0),
+    ),
+)
+def test_screened_filed_moment_parses_supported_display_times(
+    rendered: str,
+    expected_minutes: int,
+) -> None:
+    assert _screened_filed_moment(
+        rendered,
+        fallback=None,
+        label="filed_at",
+    ) == (date(2026, 7, 2), expected_minutes)
 
 
 def test_numbered_legacy_decision_screen_binds_by_entry_number() -> None:
@@ -91,6 +114,29 @@ def test_later_same_day_timed_decision_need_not_be_benchmark_linked() -> None:
         }
     )
     evidence["mtd_decision_screen"]["actual_mtd_decision_entry_count"] = 2
+
+    validate_strict_screen_evidence(
+        evidence,
+        expected_candidate_id="courtlistener-docket-73330394",
+    )
+
+
+def test_later_same_day_decision_cannot_replace_on_the_hour_earliest_linkage() -> None:
+    evidence = _evidence_with_same_day_timed_decisions()
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match="does not bind the selected and earliest screened MTD disposition",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id="courtlistener-docket-73330394",
+        )
+
+
+def test_on_the_hour_earliest_same_day_decision_can_be_linked() -> None:
+    evidence = _evidence_with_same_day_timed_decisions()
+    evidence["motion_linkage"]["links"][0]["disposition_entry_ids"].append("entry-11")
 
     validate_strict_screen_evidence(
         evidence,
@@ -225,6 +271,36 @@ def _evidence_with_unnumbered_decision() -> dict[str, Any]:
     evidence["motion_linkage"]["links"][0]["disposition_entry_ids"].append(
         "minute-entry-2"
     )
+    return evidence
+
+
+def _evidence_with_same_day_timed_decisions() -> dict[str, Any]:
+    evidence = deepcopy(_evidence())
+    evidence["selected_entries"][1]["filed_at"] = "July 2, 2026, 10:30 a.m."
+    evidence["mtd_decision_screen"]["decision_entries"][0]["filed_at"] = (
+        "July 2, 2026, 10:30 a.m."
+    )
+    evidence["selected_entries"].append(
+        {
+            "row_id": "entry-11",
+            "entry_number": "11",
+            "filed_at": "July 2, 2026, 9 a.m.",
+            "text": "Earlier written order denying the motion to dismiss.",
+            "role": "decision",
+            "restriction_markers": [],
+            "documents": [],
+        }
+    )
+    evidence["mtd_decision_screen"]["decision_entries"].append(
+        {
+            "row_id": "entry-11",
+            "entry_number": "11",
+            "filed_at": "July 2, 2026, 9 a.m.",
+            "actual_mtd_decision": True,
+            "exclusion_reasons": [],
+        }
+    )
+    evidence["mtd_decision_screen"]["actual_mtd_decision_entry_count"] = 2
     return evidence
 
 
