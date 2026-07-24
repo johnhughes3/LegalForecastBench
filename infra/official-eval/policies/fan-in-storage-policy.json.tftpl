@@ -1,0 +1,90 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadExactPerCaseVersions",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "${results_bucket_arn}/per-case/*/metrics/*"
+    },
+    {
+      "Sid": "ReadShardReceipts",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "${results_bucket_arn}/shard-receipts/*/*/*/*.json"
+    },
+    {
+      "Sid": "CreateShardReceipts",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "${results_bucket_arn}/shard-receipts/*/*/*/*.json",
+      "Condition": {
+        "Null": {
+          "s3:if-none-match": "false"
+        }
+      }
+    },
+    {
+      "Sid": "ReadCycleClosure",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": [
+        "${results_bucket_arn}/cycle-publication-state/*/runs/*/*/intent.json",
+        "${results_bucket_arn}/cycle-publication-state/*/runs/*/*/done.json",
+        "${results_bucket_arn}/cycle-publication-state/*/seal.json"
+      ]
+    },
+    {
+      "Sid": "CreateCycleClosure",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": [
+        "${results_bucket_arn}/cycle-publication-state/*/runs/*/*/intent.json",
+        "${results_bucket_arn}/cycle-publication-state/*/runs/*/*/done.json",
+        "${results_bucket_arn}/cycle-publication-state/*/seal.json"
+      ],
+      "Condition": {
+        "Null": {
+          "s3:if-none-match": "false"
+        }
+      }
+    },
+    {
+      "Sid": "ReadCanonicalPublication",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "${results_bucket_arn}/reports/*/multi-ablation/*"
+    },
+    {
+      "Sid": "CreateCanonicalPublication",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "${results_bucket_arn}/reports/*/multi-ablation/*",
+      "Condition": {
+        "Null": {
+          "s3:if-none-match": "false"
+        }
+      }
+    },
+    {
+      "Sid": "ListFanInNamespaces",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "${results_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "cycle-publication-state/*/runs/*",
+            "cycle-publication-state/*/seal.json",
+            "per-case/*",
+            "reports/*/multi-ablation/*",
+            "shard-receipts/*"
+          ]
+        }
+      }
+    }
+  ]
+}
