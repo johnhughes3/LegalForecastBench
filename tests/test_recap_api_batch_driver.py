@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any, cast
@@ -20,10 +21,12 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA,
     DIRECT_SEARCH_CYCLE_REBIND_TERM,
     DIRECT_SEARCH_NOVEL_TRANSFER_TERM,
+    DIRECT_SEARCH_PRIORITY_TRANCHE_TERM,
     DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
     DIRECT_SEARCH_TRANSFER_TERM,
     Batch001Lead,
     RecapApiBatchDriverError,
+    materialize_direct_search_priority_tranche,
     read_batch_001_enrichment_failure_leads,
     read_saturated_direct_search_leads,
     read_verified_priority_dedupe_snapshots,
@@ -1125,6 +1128,7 @@ def _build_saturated_direct_search_store(
                             "description": "ORDER granting motion to dismiss",
                             "entry_date_filed": "2026-07-14",
                             "absolute_url": "/api/rest/v4/recap-documents/8200/",
+                            "is_available": True,
                         }
                     ],
                 },
@@ -1165,7 +1169,7 @@ def _build_saturated_direct_search_store(
                             "docket_entry_id": 7100,
                             "entry_number": 19,
                             "document_number": "19",
-                            "description": "Order on motion to dismiss",
+                            "description": "Motion to dismiss",
                             "entry_date_filed": "2026-07-13",
                             "absolute_url": "/api/rest/v4/recap-documents/8100/",
                         },
@@ -1338,13 +1342,400 @@ def test_read_saturated_direct_search_aggregates_minimum_entry_evidence(
         "docket_entry_id": 7100,
         "entry_number": 19,
         "document_number": "19",
-        "description": "Order on motion to dismiss",
+        "description": "Motion to dismiss",
         "entry_date_filed": "2026-07-13",
         "absolute_url": "/api/rest/v4/recap-documents/8100/",
+    }
+    assert lead_200.priority_decision_evidence == {
+        "id": 8200,
+        "docket_entry_id": 7200,
+        "entry_number": 70,
+        "document_number": "70",
+        "description": "ORDER granting motion to dismiss",
+        "entry_date_filed": "2026-07-14",
+        "absolute_url": "/api/rest/v4/recap-documents/8200/",
+        "is_available": True,
     }
     assert source.leads[1].decision_entry_evidence is None
     assert source.leads[2].decision_entry_evidence is not None
     assert source.leads[2].decision_entry_evidence["entry_number"] == 501
+
+
+@pytest.mark.parametrize(
+    ("description", "expected"),
+    (
+        ("MOTION to Dismiss", (2, "generic_motion_or_brief")),
+        (
+            "MOTION for Judgment on the Pleadings under Rule 12(c)",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "Memorandum in Support of Motion to Dismiss",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "Proposed Order Granting Motion to Dismiss",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "Standing Order Regarding Motions to Dismiss",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "ORDER granting motion 12 to extend the discovery deadline",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "ORDER granting motion for protective order. Motion to Dismiss "
+            "remains pending.",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "ORDER: Motion to Enlarge Page Limits for briefing is GRANTED. "
+            "Defendants may file an Omnibus Motion to Dismiss.",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "REPLY to response to Motion to Dismiss (Exhibit: prior Court Order)",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "The motion to transfer is granted, and the Court leaves for the "
+            "transferee court the pending motion to dismiss.",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "Plaintiff is hereby NOTIFIED that Defendant filed a motion to "
+            "dismiss that, if granted, could result in dismissal.",
+            (2, "generic_motion_or_brief"),
+        ),
+        (
+            "ORDER granting Motion for Judgment on the Pleadings under Rule 12(c)",
+            (0, "action_linked_disposition_or_substantive_recommendation"),
+        ),
+        (
+            "ORDER dismissing Count I under Rule 12(b)(6)",
+            (0, "action_linked_disposition_or_substantive_recommendation"),
+        ),
+        (
+            "ORDER dismissing adversary complaint under Rule 7012",
+            (0, "action_linked_disposition_or_substantive_recommendation"),
+        ),
+        (
+            "REPORT AND RECOMMENDATION re Motion to Dismiss",
+            (0, "action_linked_disposition_or_substantive_recommendation"),
+        ),
+        (
+            "Order on Motion to Dismiss",
+            (1, "anchored_adjudicative_event"),
+        ),
+    ),
+)
+def test_priority_signal_distinguishes_decisions_from_filing_descriptions(
+    description: str,
+    expected: tuple[int, str],
+) -> None:
+    assert (
+        recap_api_batch_driver._priority_signal_for_evidence(
+            {"description": description}
+        )
+        == expected
+    )
+
+
+def test_priority_evidence_prefers_actual_order_over_newer_motion() -> None:
+    actual_order = {
+        "entry_number": 40,
+        "description": "ORDER granting motion to dismiss",
+        "entry_date_filed": "2026-07-12",
+        "is_available": True,
+    }
+    newer_motion = {
+        "entry_number": 50,
+        "description": "MOTION to Dismiss",
+        "entry_date_filed": "2026-07-15",
+        "is_available": True,
+    }
+
+    selected = min(
+        (newer_motion, actual_order),
+        key=lambda evidence: recap_api_batch_driver._priority_evidence_sort_key(
+            evidence,
+            window_start=date(2026, 7, 11),
+            window_end=date(2026, 7, 15),
+            eligibility_anchor="2026-06-30",
+        ),
+    )
+
+    assert selected is actual_order
+
+
+def test_priority_ranking_defers_known_structural_exclusions_without_dropping_them(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    civil = next(lead for lead in source.leads if lead.docket_id == "200")
+    criminal = replace(
+        next(lead for lead in source.leads if lead.docket_id == "300"),
+        priority_decision_evidence={
+            "entry_number": 90,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-15",
+            "is_available": True,
+        },
+    )
+    adversary = replace(
+        next(lead for lead in source.leads if lead.docket_id == "400"),
+        court_id="nysb",
+        docket_number="6:26-ap-00400",
+        case_name="Trustee v. Defendant LLC",
+        priority_decision_evidence={
+            "entry_number": 80,
+            "description": "ORDER dismissing adversary complaint under Rule 7012",
+            "entry_date_filed": "2026-07-15",
+            "is_available": True,
+        },
+    )
+    bankruptcy_main = replace(
+        adversary,
+        docket_id="500",
+        docket_number="6:26-bk-00500",
+        case_name="In re Example Debtor",
+        priority_decision_evidence={
+            "entry_number": 100,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-15",
+            "is_available": True,
+        },
+    )
+    rank_source = replace(
+        source,
+        leads=(civil, criminal, adversary, bankruptcy_main),
+    )
+
+    ranked, records = recap_api_batch_driver._rank_direct_search_leads(rank_source)
+
+    assert tuple(lead.docket_id for lead in ranked) == ("400", "200", "300", "500")
+    assert {lead.docket_id for lead in ranked} == {"200", "300", "400", "500"}
+    by_candidate = {row["candidate_id"]: row for row in records}
+    assert (
+        by_candidate["courtlistener-docket-400"]["prescreen_exclusion_reason"] is None
+    )
+    assert by_candidate["courtlistener-docket-400"]["structural_rank"] == 0
+    assert (
+        by_candidate["courtlistener-docket-300"]["prescreen_exclusion_reason"]
+        == "criminal_case"
+    )
+    assert by_candidate["courtlistener-docket-300"]["structural_rank"] == 1
+    assert (
+        by_candidate["courtlistener-docket-500"]["prescreen_exclusion_reason"]
+        == "bankruptcy_court"
+    )
+    assert by_candidate["courtlistener-docket-500"]["structural_rank"] == 1
+
+
+def _priority_novel_source(
+    tmp_path: Path, path: Path
+) -> recap_api_batch_driver.DirectSearchSeedSource:
+    raw_source = read_saturated_direct_search_leads(
+        path, source_batch_id="direct-search"
+    )
+    snapshot, manifest_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="priority-prior",
+        candidate_ids=("courtlistener-docket-999",),
+    )
+    prior = read_verified_priority_dedupe_snapshots(
+        (snapshot,), expected_manifest_sha256=(manifest_hash,)
+    )
+    with CycleAcquisitionStore(path) as store:
+        seed_novel_direct_search_leads(
+            store,
+            batch_id="priority-novel-source",
+            source=raw_source,
+            prior_snapshots=prior,
+        )
+    return read_saturated_direct_search_leads(
+        path, source_batch_id="priority-novel-source"
+    )
+
+
+def test_priority_tranches_rank_only_and_preserve_exact_deferred_frontier(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+
+    with CycleAcquisitionStore(path) as store:
+        first = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-1",
+            source=source,
+            tranche_size=1,
+        )
+        again = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-1",
+            source=source,
+            tranche_size=1,
+        )
+
+    assert first.selected_candidate_ids == ("courtlistener-docket-200",)
+    assert first.deferred_candidate_ids == (
+        "courtlistener-docket-400",
+        "courtlistener-docket-300",
+    )
+    assert first.selected_count + first.deferred_count == len(source.leads)
+    assert first.frontier["deferred_disposition"] == "unscreened_not_excluded"
+    assert first.frontier["global_source_saturated"] is False
+    assert (
+        first.frontier["strict_screen_is_sole_eligibility_and_exclusion_authority"]
+        is True
+    )
+    ranking_rows = cast(list[dict[str, object]], first.frontier["ranking_records"])
+    lead_200_rank = next(
+        row for row in ranking_rows if row["candidate_id"] == "courtlistener-docket-200"
+    )
+    assert lead_200_rank["entry_number"] == 70
+    assert lead_200_rank["is_available"] is True
+    assert lead_200_rank["signal_reason"] == (
+        "action_linked_disposition_or_substantive_recommendation"
+    )
+    assert first.frontier["source_candidate_set_sha256"] == (
+        source.source_candidate_set_sha256
+    )
+    assert again.already_seeded is True
+    assert again.frontier_sha256 == first.frontier_sha256
+    with CycleAcquisitionStore(path) as store:
+        config = store.batch_config("priority-1")
+        assert config["provisional_frontier"] is True
+        assert config["final_cohort_eligible"] is False
+        assert config["full_source_terminal"] is False
+        assert store.current_observation("courtlistener-docket-300") is None
+
+    with CycleAcquisitionStore(path) as store:
+        second = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-2",
+            source=source,
+            tranche_size=1,
+            predecessor_frontier=first.frontier,
+        )
+    assert second.selected_candidate_ids == ("courtlistener-docket-400",)
+    assert second.deferred_candidate_ids == ("courtlistener-docket-300",)
+    assert second.cumulative_selected_count == 2
+    with CycleAcquisitionStore(path) as store:
+        terminal = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-3",
+            source=source,
+            tranche_size=1,
+            predecessor_frontier=second.frontier,
+        )
+    assert terminal.deferred_count == 0
+    assert terminal.frontier["ranking_frontier_exhausted"] is True
+    assert terminal.frontier["global_source_saturated"] is False
+
+
+def test_priority_tranche_rejects_stale_or_mutated_frontier(tmp_path: Path) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    with CycleAcquisitionStore(path) as store:
+        first = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-1",
+            source=source,
+            tranche_size=1,
+        )
+        mutated = dict(first.frontier)
+        mutated["ranking_policy_sha256"] = "0" * 64
+        with pytest.raises(RecapApiBatchDriverError, match=r"ranking policy|frontier"):
+            materialize_direct_search_priority_tranche(
+                store,
+                batch_id="priority-2",
+                source=source,
+                tranche_size=1,
+                predecessor_frontier=mutated,
+            )
+
+    with CycleAcquisitionStore(path) as store:
+        progress = store.term_progress(
+            "priority-1", DIRECT_SEARCH_PRIORITY_TRANCHE_TERM
+        )
+        assert progress.terminal_status == "exhausted"
+
+
+def test_priority_tranche_rejects_source_without_manifest_pinned_dedupe(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = read_saturated_direct_search_leads(path, source_batch_id="direct-search")
+    with CycleAcquisitionStore(path) as store:
+        with pytest.raises(RecapApiBatchDriverError, match="manifest-pinned novel"):
+            materialize_direct_search_priority_tranche(
+                store,
+                batch_id="priority-raw-source",
+                source=source,
+                tranche_size=1,
+            )
+        with pytest.raises(KeyError):
+            store.batch_config("priority-raw-source")
+
+
+def test_priority_tranche_accepts_rebind_then_manifest_pinned_novel_source(
+    tmp_path: Path,
+) -> None:
+    old_path = _build_saturated_direct_search_store(tmp_path)
+    old_source = read_saturated_direct_search_leads(
+        old_path, source_batch_id="direct-search"
+    )
+    current_path = tmp_path / "current-cycle.sqlite3"
+    with CycleAcquisitionStore(current_path) as store:
+        store.ensure_cycle(
+            {
+                "schema_version": "test",
+                "eligibility_anchor": "2026-06-30",
+                "current_screening_policy": True,
+            }
+        )
+        rebind_direct_search_leads(
+            store,
+            batch_id="current-cycle-rebind",
+            source=old_source,
+        )
+    rebound = read_saturated_direct_search_leads(
+        current_path, source_batch_id="current-cycle-rebind"
+    )
+    assert rebound.source_candidate_set_sha256 == old_source.source_candidate_set_sha256
+
+    snapshot, manifest_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="rebind-prior",
+        candidate_ids=("courtlistener-docket-999",),
+    )
+    prior = read_verified_priority_dedupe_snapshots(
+        (snapshot,), expected_manifest_sha256=(manifest_hash,)
+    )
+    with CycleAcquisitionStore(current_path) as store:
+        seed_novel_direct_search_leads(
+            store,
+            batch_id="current-cycle-novel",
+            source=rebound,
+            prior_snapshots=prior,
+        )
+    novel = read_saturated_direct_search_leads(
+        current_path, source_batch_id="current-cycle-novel"
+    )
+    with CycleAcquisitionStore(current_path) as store:
+        result = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-1",
+            source=novel,
+            tranche_size=2,
+        )
+    assert result.selected_count == 2
+    assert result.deferred_count == 1
 
 
 def test_seed_opinion_bankruptcy_lead_defers_to_authoritative_docket(

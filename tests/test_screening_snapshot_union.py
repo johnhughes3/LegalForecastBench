@@ -40,6 +40,74 @@ from legalforecast.ingestion.strict_screen_evidence import (
     validate_strict_screen_evidence,
 )
 
+
+def test_complete_priority_tranche_chain_clears_only_at_zero_deferred() -> None:
+    candidate_ids = frozenset({"courtlistener-docket-1", "courtlistener-docket-2"})
+    candidate_hash = hashlib.sha256(
+        json.dumps(
+            sorted(candidate_ids), sort_keys=True, separators=(",", ":")
+        ).encode()
+    ).hexdigest()
+    common: dict[str, object] = {
+        "schema_version": "legalforecast.direct_search_priority_tranche.v1",
+        "source_batch_id": "novel-source",
+        "source_batch_digest": "a" * 64,
+        "source_cycle_hash": "b" * 64,
+        "source_candidate_count": 2,
+        "source_candidate_set_sha256": "c" * 64,
+        "source_candidate_id_set_sha256": candidate_hash,
+        "source_lineage_commitment_sha256": "d" * 64,
+        "ranking_policy_sha256": "e" * 64,
+        "strict_screen_is_sole_eligibility_and_exclusion_authority": True,
+        "ranking_metadata_visibility": "acquisition_only_never_packet_visible",
+        "requested_tranche_size": 1,
+    }
+    first = {
+        **common,
+        "tranche_ordinal": 1,
+        "predecessor_frontier_sha256": None,
+        "deferred_frontier_sha256": "1" * 64,
+        "selected_candidate_count": 1,
+        "cumulative_selected_count": 1,
+        "deferred_candidate_count": 1,
+        "chain_terminal": False,
+        "ranking_frontier_exhausted": False,
+        "global_source_saturated": False,
+    }
+    second = {
+        **common,
+        "tranche_ordinal": 2,
+        "predecessor_frontier_sha256": "1" * 64,
+        "deferred_frontier_sha256": "2" * 64,
+        "selected_candidate_count": 1,
+        "cumulative_selected_count": 2,
+        "deferred_candidate_count": 0,
+        "chain_terminal": True,
+        "ranking_frontier_exhausted": True,
+        "global_source_saturated": False,
+    }
+
+    result = union_module._priority_tranche_chain_commitment(
+        (
+            (first, frozenset({"courtlistener-docket-1"})),
+            (second, frozenset({"courtlistener-docket-2"})),
+        ),
+        union_candidate_ids=candidate_ids,
+    )
+
+    assert result is not None
+    assert result["full_source_terminal"] is True
+    assert result["accepted_plus_excluded_count"] == 2
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError, match="cumulative/deferred reconciliation"
+    ):
+        union_module._priority_tranche_chain_commitment(
+            ((first, frozenset({"courtlistener-docket-1"})),),
+            union_candidate_ids=frozenset({"courtlistener-docket-1"}),
+        )
+
+
 _CYCLE_POLICY = {"eligibility_anchor": "2026-06-30", "fixture": True}
 
 

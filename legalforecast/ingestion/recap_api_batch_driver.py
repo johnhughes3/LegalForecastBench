@@ -123,9 +123,93 @@ DIRECT_SEARCH_NOVEL_TRANSFER_TERM = "courtlistener-novel-direct-search-transfer-
 DIRECT_SEARCH_NOVEL_TRANSFER_PROVENANCE_SCHEMA = (
     "legalforecast.courtlistener_novel_direct_search_transfer.v1"
 )
+DIRECT_SEARCH_PRIORITY_TRANCHE_TERM = "courtlistener-direct-search-priority-tranche-v1"
+DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA = (
+    "legalforecast.direct_search_priority_tranche.v1"
+)
+DIRECT_SEARCH_DEFERRED_FRONTIER_SCHEMA = (
+    "legalforecast.direct_search_deferred_frontier.v1"
+)
+_DIRECT_SEARCH_TARGET_MOTION_TOKENS = (
+    "motion to dismiss",
+    "judgment on the pleadings",
+    "rule 12",
+    "12(b)",
+    "12(c)",
+    "rule 7012",
+    "7012(b)",
+    "adversary complaint",
+    "adversary proceeding",
+)
+_DIRECT_SEARCH_TARGET_MOTION_PATTERN = (
+    r"\b(?:motions?\s+(?:to\s+dismiss|for\s+judgment\s+on\s+(?:the\s+)?pleadings)|"
+    r"rule\s+12(?:\([bc]\)(?:\(\d+\))?)?|12\([bc]\)(?:\(\d+\))?|"
+    r"(?:rule\s+)?7012(?:\(b\))?|"
+    r"adversary\s+(?:complaint|proceeding))\b"
+)
+_DIRECT_SEARCH_ADJUDICATIVE_DOCUMENT_PATTERN = (
+    r"\b(?:order|opinion|memorandum\s+(?:opinion|decision)|"
+    r"memorandum\s+and\s+order|judgment)\b"
+)
+_DIRECT_SEARCH_SUBSTANTIVE_RECOMMENDATION_PATTERN = (
+    r"\b(?:report\s+(?:and|&)\s+recommendation|"
+    r"findings\s+(?:and|&)\s+recommendation|r\s*&?\s*r)\b"
+)
+_DIRECT_SEARCH_NON_DECISION_DOCUMENT_PATTERN = (
+    r"(?:\b(?:proposed|standing)\s+order\b|"
+    r"^\s*(?:reply|response|opposition|memorandum\s+in\s+support)\b|"
+    r"\b(?:plaintiff|petitioner)'?s\s+motion\s+to\s+dismiss\b|"
+    r"\b(?:page\s+limits?|extension\s+of\s+time|briefing\s+schedule)\b|"
+    r"\b(?:notified|advised)\b[^.;:\n]{0,160}\bmotion\s+to\s+dismiss\b)"
+)
+_DIRECT_SEARCH_DISPOSITION_PATTERN = (
+    r"\b(?:grant(?:ed|ing)?|den(?:y|ied|ying)|dismiss(?:ed|ing)|"
+    r"adopt(?:ed|ing)?|recommend(?:ed|ing)?|moot(?:ed)?)\b"
+)
 PRIOR_SNAPSHOT_PRIORITY_DEDUPE_SCHEMA = (
     "legalforecast.prior_screening_snapshot_priority_dedupe.v1"
 )
+_DIRECT_SEARCH_PRIORITY_POLICY: dict[str, object] = {
+    "schema_version": "legalforecast.direct_search_decision_signal_ranking.v2",
+    "semantics": "rank_only_no_membership_exclusion",
+    "structural_order": (
+        "prescreen_clean_or_deferred_authoritative_bankruptcy",
+        "known_prescreen_reason_deferred_not_excluded",
+    ),
+    "signal_order": (
+        "action_linked_disposition_or_substantive_recommendation",
+        "anchored_adjudicative_event",
+        "generic_motion_or_brief",
+        "no_decision_entry_evidence",
+    ),
+    "date_semantics": "valid_post_anchor_provider_metadata_only",
+    "free_availability_semantics": (
+        "secondary_rank_only_never_eligibility_or_completeness"
+    ),
+    "target_motion_vocabulary": _DIRECT_SEARCH_TARGET_MOTION_TOKENS,
+    "target_motion_pattern": _DIRECT_SEARCH_TARGET_MOTION_PATTERN,
+    "adjudicative_document_pattern": _DIRECT_SEARCH_ADJUDICATIVE_DOCUMENT_PATTERN,
+    "substantive_recommendation_pattern": (
+        _DIRECT_SEARCH_SUBSTANTIVE_RECOMMENDATION_PATTERN
+    ),
+    "non_decision_document_pattern": _DIRECT_SEARCH_NON_DECISION_DOCUMENT_PATTERN,
+    "disposition_pattern": _DIRECT_SEARCH_DISPOSITION_PATTERN,
+    "tie_breakers": (
+        "prescreen_structural_rank",
+        "decision_signal_rank",
+        "newest_valid_entry_date",
+        "lowest_entry_number",
+        "numeric_docket_id",
+        "candidate_id",
+    ),
+}
+DIRECT_SEARCH_PRIORITY_POLICY_SHA256 = hashlib.sha256(
+    json.dumps(
+        _DIRECT_SEARCH_PRIORITY_POLICY,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+).hexdigest()
 _POSITIVE_ASCII_INTEGER = re.compile(r"[1-9][0-9]*")
 _SNAPSHOT_METADATA_FILES = (
     "manifest.json",
@@ -821,6 +905,7 @@ class DirectSearchLead:
     case_name: str | None
     decision_entry_evidence: Mapping[str, object] | None
     opinion_resolution_evidence: Mapping[str, object] | None = None
+    priority_decision_evidence: Mapping[str, object] | None = None
 
     @property
     def candidate_id(self) -> str:
@@ -829,7 +914,7 @@ class DirectSearchLead:
     def commitment_record(self) -> dict[str, object]:
         """Return the canonical source record covered by the set commitment."""
 
-        return {
+        record: dict[str, object] = {
             "docket_id": self.docket_id,
             "court_id": self.court_id,
             "docket_number": self.docket_number,
@@ -846,6 +931,9 @@ class DirectSearchLead:
             ),
             "source_hits": [hit.to_record() for hit in self.source_hits],
         }
+        if self.priority_decision_evidence is not None:
+            record["priority_decision_evidence"] = dict(self.priority_decision_evidence)
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -868,6 +956,7 @@ class DirectSearchSeedSource:
     search_window_start: date
     search_window_end: date
     leads: tuple[DirectSearchLead, ...]
+    source_lineage_commitments: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -999,6 +1088,67 @@ class NovelDirectSearchSeedResult:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class DirectSearchPriorityTrancheResult:
+    """One exact rank-only tranche and its committed deferred frontier."""
+
+    batch_id: str
+    source_batch_id: str
+    source_batch_digest: str
+    source_candidate_set_sha256: str
+    ranking_policy_sha256: str
+    tranche_ordinal: int
+    selected_candidate_ids: tuple[str, ...]
+    deferred_candidate_ids: tuple[str, ...]
+    cumulative_selected_count: int
+    frontier_sha256: str
+    frontier: Mapping[str, object]
+    leads_seeded: int
+    already_seeded: bool
+
+    @property
+    def selected_count(self) -> int:
+        return len(self.selected_candidate_ids)
+
+    @property
+    def deferred_count(self) -> int:
+        return len(self.deferred_candidate_ids)
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "schema_version": DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
+            "batch_id": self.batch_id,
+            "term": DIRECT_SEARCH_PRIORITY_TRANCHE_TERM,
+            "selection_semantics": "rank_only_no_membership_exclusion",
+            "deferred_disposition": "unscreened_not_excluded",
+            "source_batch_id": self.source_batch_id,
+            "source_batch_digest": self.source_batch_digest,
+            "source_candidate_set_sha256": self.source_candidate_set_sha256,
+            "ranking_policy_sha256": self.ranking_policy_sha256,
+            "tranche_ordinal": self.tranche_ordinal,
+            "selected_count": self.selected_count,
+            "selected_candidate_ids": list(self.selected_candidate_ids),
+            "deferred_count": self.deferred_count,
+            "deferred_candidate_ids": list(self.deferred_candidate_ids),
+            "cumulative_selected_count": self.cumulative_selected_count,
+            "chain_terminal": self.deferred_count == 0,
+            "ranking_frontier_exhausted": self.deferred_count == 0,
+            "global_source_saturated": False,
+            "strict_screen_is_sole_eligibility_and_exclusion_authority": True,
+            "ranking_metadata_visibility": "acquisition_only_never_packet_visible",
+            "frontier_sha256": self.frontier_sha256,
+            "leads_seeded": self.leads_seeded,
+            "already_seeded": self.already_seeded,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "evaluation_activity_executed": False,
+            "freeze_activity_executed": False,
+            "dispatch_activity_executed": False,
+        }
+
+
 def read_saturated_direct_search_leads(
     source_store_path: str | Path,
     *,
@@ -1032,7 +1182,33 @@ def read_saturated_direct_search_leads(
                 "direct-search batch config is not an object"
             )
         config = cast(dict[str, object], decoded)
-        if config.get("provider") != "courtlistener":
+        lineage_fields = (
+            "discovery_mode",
+            "selection_semantics",
+            "source_batch_id",
+            "source_batch_digest",
+            "source_cycle_hash",
+            "source_candidate_count",
+            "source_candidate_set_sha256",
+            "prior_snapshot_dedupe_schema",
+            "prior_snapshot_commitment_sha256",
+            "prior_snapshot_count",
+            "cross_cycle_snapshot_count",
+            "selected_candidate_count",
+            "selected_candidate_set_sha256",
+            "excluded_from_target_candidate_count",
+            "excluded_from_target_candidate_set_sha256",
+        )
+        source_lineage_commitments = {
+            field: config[field] for field in lineage_fields if field in config
+        }
+        source_lineage_commitments["authoritative_source_batch_digest"] = (
+            source_batch_digest
+        )
+        source_lineage_commitment_sha256 = _canonical_record_sha256(
+            source_lineage_commitments
+        )
+        if config.get("provider") not in {"courtlistener", RECAP_API_PROVIDER}:
             raise RecapApiBatchDriverError(
                 "direct-search source batch is not CourtListener-authoritative"
             )
@@ -1110,8 +1286,18 @@ def read_saturated_direct_search_leads(
                 "direct-search source batch is not fully exhausted"
             )
         try:
-            window_start = date.fromisoformat(str(config["search_window_start"]))
-            window_end = date.fromisoformat(str(config["search_window_end"]))
+            raw_window_start = (
+                config["search_window_start"]
+                if "search_window_start" in config
+                else config["decision_window_start"]
+            )
+            raw_window_end = (
+                config["search_window_end"]
+                if "search_window_end" in config
+                else config["decision_window_end"]
+            )
+            window_start = date.fromisoformat(str(raw_window_start))
+            window_end = date.fromisoformat(str(raw_window_end))
         except (KeyError, ValueError) as exc:
             raise RecapApiBatchDriverError(
                 "direct-search source batch has invalid search window"
@@ -1183,22 +1369,24 @@ def read_saturated_direct_search_leads(
                 str,
                 dict[str, object],
                 tuple[int, int, str, dict[str, object]] | None,
+                tuple[dict[str, object], ...],
             ]
         ],
     ] = {}
     try:
         for row in rows:
-            docket_id = str(row["candidate_id"])
-            if _POSITIVE_ASCII_INTEGER.fullmatch(docket_id) is None:
+            stored_candidate_id = str(row["candidate_id"])
+            stored_numeric = stored_candidate_id.removeprefix("courtlistener-docket-")
+            if _POSITIVE_ASCII_INTEGER.fullmatch(stored_numeric) is None:
                 raise RecapApiBatchDriverError(
                     "direct-search candidate id is not numeric or not a canonical "
-                    f"positive integer: {docket_id!r}"
+                    f"positive integer: {stored_candidate_id!r}"
                 )
             payload_json = str(row["payload_json"])
             parsed = cast(object, json.loads(payload_json))
             if not isinstance(parsed, dict):
                 raise RecapApiBatchDriverError(
-                    f"direct-search payload is not an object: {docket_id}"
+                    f"direct-search payload is not an object: {stored_candidate_id}"
                 )
             payload = cast(dict[str, object], parsed)
             raw_payload_docket_id = payload.get("docket_id")
@@ -1206,17 +1394,22 @@ def read_saturated_direct_search_leads(
                 raw_payload_docket_id, str | int
             ):
                 raise RecapApiBatchDriverError(
-                    f"direct-search payload docket id is invalid: {docket_id}"
+                    f"direct-search payload docket id is invalid: {stored_candidate_id}"
                 )
-            payload_docket_id = str(raw_payload_docket_id)
-            if (
-                _POSITIVE_ASCII_INTEGER.fullmatch(payload_docket_id) is None
-                or payload_docket_id != docket_id
-            ):
+            docket_id = str(raw_payload_docket_id)
+            if _POSITIVE_ASCII_INTEGER.fullmatch(
+                docket_id
+            ) is None or stored_candidate_id not in {
+                docket_id,
+                f"courtlistener-docket-{docket_id}",
+            }:
                 raise RecapApiBatchDriverError(
-                    f"direct-search payload docket id mismatch: {docket_id}"
+                    f"direct-search payload docket id mismatch: {stored_candidate_id}"
                 )
             evidence = _minimum_direct_search_entry_evidence(payload, docket_id)
+            priority_options = _direct_search_priority_evidence_options(
+                payload, docket_id
+            )
             grouped.setdefault(docket_id, []).append(
                 (
                     str(row["term"]),
@@ -1224,6 +1417,7 @@ def read_saturated_direct_search_leads(
                     payload_json,
                     payload,
                     evidence,
+                    priority_options,
                 )
             )
     except json.JSONDecodeError as exc:
@@ -1244,36 +1438,120 @@ def read_saturated_direct_search_leads(
         minimum_evidence = (
             representative[4][3] if representative[4] is not None else None
         )
-        representative_hit = DirectSearchHitProvenance(
-            provider_hit_id=representative[1],
-            query_term=representative[0],
-            payload_sha256=hashlib.sha256(representative[2].encode()).hexdigest(),
-        )
-        source_hits = tuple(
-            sorted(
-                (
-                    DirectSearchHitProvenance(
-                        provider_hit_id=provider_hit_id,
-                        query_term=term,
-                        payload_sha256=hashlib.sha256(
-                            payload_json.encode()
-                        ).hexdigest(),
-                    )
-                    for (
-                        term,
-                        provider_hit_id,
-                        payload_json,
-                        _payload,
-                        _evidence,
-                    ) in docket_rows
-                ),
-                key=lambda hit: (
-                    hit.query_term,
-                    hit.provider_hit_id,
-                    hit.payload_sha256,
+        priority_options = tuple(evidence for row in docket_rows for evidence in row[5])
+        priority_evidence = (
+            min(
+                priority_options,
+                key=lambda evidence: _priority_evidence_sort_key(
+                    evidence,
+                    window_start=window_start,
+                    window_end=window_end,
+                    eligibility_anchor=source_eligibility_anchor,
                 ),
             )
+            if priority_options
+            else None
         )
+        raw_transfer = primary.get("direct_search_provenance")
+        if isinstance(raw_transfer, Mapping):
+            transfer = cast(Mapping[str, object], raw_transfer)
+            raw_source_hits = transfer.get("source_hits")
+            if not isinstance(raw_source_hits, list):
+                raise RecapApiBatchDriverError(
+                    f"direct-search transfer source hits are invalid: {docket_id}"
+                )
+            transferred_hits: list[DirectSearchHitProvenance] = []
+            for raw_hit in cast(list[object], raw_source_hits):
+                if not isinstance(raw_hit, Mapping):
+                    raise RecapApiBatchDriverError(
+                        f"direct-search transfer source hit is invalid: {docket_id}"
+                    )
+                hit = cast(Mapping[str, object], raw_hit)
+                provider_hit_id = hit.get("provider_hit_id")
+                query_term = hit.get("query_term")
+                payload_sha256 = hit.get("payload_sha256")
+                if (
+                    not isinstance(provider_hit_id, str)
+                    or not provider_hit_id
+                    or not isinstance(query_term, str)
+                    or not query_term
+                    or not isinstance(payload_sha256, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", payload_sha256) is None
+                ):
+                    raise RecapApiBatchDriverError(
+                        f"direct-search transfer source hit is invalid: {docket_id}"
+                    )
+                transferred_hits.append(
+                    DirectSearchHitProvenance(
+                        provider_hit_id=provider_hit_id,
+                        query_term=query_term,
+                        payload_sha256=payload_sha256,
+                    )
+                )
+            source_hits = tuple(
+                sorted(
+                    transferred_hits,
+                    key=lambda hit: (
+                        hit.query_term,
+                        hit.provider_hit_id,
+                        hit.payload_sha256,
+                    ),
+                )
+            )
+            source_provider_hit_id = transfer.get("source_provider_hit_id")
+            source_query_term = transfer.get("source_query_term")
+            source_payload_sha256 = transfer.get("source_payload_sha256")
+            representative_hit = DirectSearchHitProvenance(
+                provider_hit_id=(
+                    source_provider_hit_id
+                    if isinstance(source_provider_hit_id, str)
+                    else ""
+                ),
+                query_term=source_query_term
+                if isinstance(source_query_term, str)
+                else "",
+                payload_sha256=(
+                    source_payload_sha256
+                    if isinstance(source_payload_sha256, str)
+                    else ""
+                ),
+            )
+            if representative_hit not in source_hits:
+                raise RecapApiBatchDriverError(
+                    f"direct-search transfer representative hit is invalid: {docket_id}"
+                )
+        else:
+            representative_hit = DirectSearchHitProvenance(
+                provider_hit_id=representative[1],
+                query_term=representative[0],
+                payload_sha256=hashlib.sha256(representative[2].encode()).hexdigest(),
+            )
+            source_hits = tuple(
+                sorted(
+                    (
+                        DirectSearchHitProvenance(
+                            provider_hit_id=provider_hit_id,
+                            query_term=term,
+                            payload_sha256=hashlib.sha256(
+                                payload_json.encode()
+                            ).hexdigest(),
+                        )
+                        for (
+                            term,
+                            provider_hit_id,
+                            payload_json,
+                            _payload,
+                            _evidence,
+                            _priority_options,
+                        ) in docket_rows
+                    ),
+                    key=lambda hit: (
+                        hit.query_term,
+                        hit.provider_hit_id,
+                        hit.payload_sha256,
+                    ),
+                )
+            )
         leads_list.append(
             DirectSearchLead(
                 docket_id=docket_id,
@@ -1287,6 +1565,7 @@ def read_saturated_direct_search_leads(
                 case_name=_optional_str(primary.get("case_name"))
                 or _optional_str(primary.get("caseName")),
                 decision_entry_evidence=minimum_evidence,
+                priority_decision_evidence=priority_evidence,
                 opinion_resolution_evidence=(
                     cast(Mapping[str, object], primary["opinion_resolution_evidence"])
                     if isinstance(primary.get("opinion_resolution_evidence"), Mapping)
@@ -1316,6 +1595,14 @@ def read_saturated_direct_search_leads(
             separators=(",", ":"),
         ).encode()
     ).hexdigest()
+    frozen_selected_sha256 = config.get("selected_candidate_set_sha256")
+    if (
+        frozen_selected_sha256 is not None
+        and frozen_selected_sha256 != candidate_set_sha256
+    ):
+        raise RecapApiBatchDriverError(
+            "direct-search transferred candidate set changed after its frozen dedupe"
+        )
     return DirectSearchSeedSource(
         source_batch_id=source_batch_id,
         source_batch_digest=source_batch_digest,
@@ -1333,6 +1620,10 @@ def read_saturated_direct_search_leads(
         search_window_start=window_start,
         search_window_end=window_end,
         leads=leads,
+        source_lineage_commitments={
+            **source_lineage_commitments,
+            "source_lineage_commitment_sha256": (source_lineage_commitment_sha256),
+        },
     )
 
 
@@ -1574,7 +1865,22 @@ def _minimum_direct_search_entry_evidence(
 ) -> tuple[int, int, str, dict[str, object]] | None:
     raw_documents = payload.get("recap_documents")
     if raw_documents is None:
-        return None
+        transferred = payload.get("decision_entry_evidence")
+        if transferred is None:
+            return None
+        if not isinstance(transferred, Mapping):
+            raise RecapApiBatchDriverError(
+                f"direct-search decision entry evidence is not an object: {docket_id}"
+            )
+        evidence = dict(cast(Mapping[str, object], transferred))
+        entry_number = _positive_integer_prefix(evidence.get("entry_number"))
+        if entry_number is None or entry_number <= 0:
+            return None
+        evidence["entry_number"] = entry_number
+        canonical = json.dumps(
+            evidence, sort_keys=True, separators=(",", ":"), default=str
+        )
+        return (entry_number, 0, canonical, evidence)
     if not isinstance(raw_documents, list):
         raise RecapApiBatchDriverError(
             f"direct-search recap_documents is not a list: {docket_id}"
@@ -1605,6 +1911,66 @@ def _minimum_direct_search_entry_evidence(
         )
         options.append((entry_number, attachment_rank, canonical_document, evidence))
     return min(options, key=lambda item: item[:3]) if options else None
+
+
+def _direct_search_priority_evidence_options(
+    payload: Mapping[str, object], docket_id: str
+) -> tuple[dict[str, object], ...]:
+    transferred = payload.get("priority_decision_evidence")
+    if transferred is not None:
+        if not isinstance(transferred, Mapping):
+            raise RecapApiBatchDriverError(
+                f"direct-search priority evidence is not an object: {docket_id}"
+            )
+        evidence = dict(cast(Mapping[str, object], transferred))
+        entry_number = _positive_integer_prefix(evidence.get("entry_number"))
+        if entry_number is None or entry_number <= 0:
+            raise RecapApiBatchDriverError(
+                f"direct-search priority evidence has invalid entry: {docket_id}"
+            )
+        evidence["entry_number"] = entry_number
+        raw_available = evidence.get("is_available")
+        if raw_available is not None and not isinstance(raw_available, bool):
+            raise RecapApiBatchDriverError(
+                f"direct-search priority evidence availability is invalid: {docket_id}"
+            )
+        return (evidence,)
+    raw_documents = payload.get("recap_documents")
+    if raw_documents is None:
+        return ()
+    if not isinstance(raw_documents, list):
+        raise RecapApiBatchDriverError(
+            f"direct-search recap_documents is not a list: {docket_id}"
+        )
+    options: list[dict[str, object]] = []
+    for raw_document in cast(list[object], raw_documents):
+        if not isinstance(raw_document, Mapping):
+            raise RecapApiBatchDriverError(
+                f"direct-search recap document is not an object: {docket_id}"
+            )
+        document = cast(Mapping[str, object], raw_document)
+        entry_number = _positive_integer_prefix(document.get("entry_number"))
+        if entry_number is None or entry_number <= 0:
+            continue
+        raw_available = document.get("is_available")
+        if raw_available is not None and not isinstance(raw_available, bool):
+            raise RecapApiBatchDriverError(
+                f"direct-search recap availability is invalid: {docket_id}"
+            )
+        options.append(
+            {
+                "id": document.get("id"),
+                "docket_entry_id": document.get("docket_entry_id"),
+                "entry_number": entry_number,
+                "document_number": document.get("document_number"),
+                "description": document.get("description")
+                or document.get("short_description"),
+                "entry_date_filed": document.get("entry_date_filed"),
+                "absolute_url": document.get("absolute_url"),
+                "is_available": raw_available,
+            }
+        )
+    return tuple(options)
 
 
 def seed_direct_search_leads(
@@ -1995,6 +2361,539 @@ def seed_novel_direct_search_leads(
     )
 
 
+def _canonical_record_sha256(record: Mapping[str, object]) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            dict(record),
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+
+
+def _priority_date_status(
+    lead: DirectSearchLead, source: DirectSearchSeedSource
+) -> tuple[int, int, str]:
+    evidence = lead.priority_decision_evidence or lead.decision_entry_evidence
+    return _priority_date_status_for_evidence(
+        evidence,
+        window_start=source.search_window_start,
+        window_end=source.search_window_end,
+        eligibility_anchor=source.source_eligibility_anchor,
+    )
+
+
+def _priority_date_status_for_evidence(
+    evidence: Mapping[str, object] | None,
+    *,
+    window_start: date,
+    window_end: date,
+    eligibility_anchor: str | None,
+) -> tuple[int, int, str]:
+    raw_date = None if evidence is None else evidence.get("entry_date_filed")
+    if not isinstance(raw_date, str):
+        return 1, 0, "missing"
+    try:
+        parsed = date.fromisoformat(raw_date)
+    except ValueError:
+        return 1, 0, "invalid"
+    anchor = window_start
+    if eligibility_anchor is not None:
+        try:
+            anchor = max(anchor, date.fromisoformat(eligibility_anchor))
+        except ValueError as exc:
+            raise RecapApiBatchDriverError(
+                "direct-search source has invalid eligibility anchor"
+            ) from exc
+    if not anchor <= parsed <= window_end:
+        return 1, parsed.toordinal(), "outside_committed_window"
+    return 0, parsed.toordinal(), "valid_post_anchor"
+
+
+def _priority_signal(lead: DirectSearchLead) -> tuple[int, str]:
+    return _priority_signal_for_evidence(
+        lead.priority_decision_evidence or lead.decision_entry_evidence
+    )
+
+
+def _priority_signal_for_evidence(
+    evidence: Mapping[str, object] | None,
+) -> tuple[int, str]:
+    if evidence is None:
+        return 3, "no_decision_entry_evidence"
+    raw_description = evidence.get("description")
+    description = raw_description.lower() if isinstance(raw_description, str) else ""
+    target_motion = re.search(_DIRECT_SEARCH_TARGET_MOTION_PATTERN, description)
+    target_pending = re.search(
+        rf"(?:"
+        rf"(?:{_DIRECT_SEARCH_TARGET_MOTION_PATTERN})"
+        r"[^.;:\n]{0,96}\b(?:remains?|is|are)\s+pending\b|"
+        r"\bpending\s+"
+        rf"(?:{_DIRECT_SEARCH_TARGET_MOTION_PATTERN})"
+        r")",
+        description,
+    )
+    if re.search(_DIRECT_SEARCH_NON_DECISION_DOCUMENT_PATTERN, description):
+        return 2, "generic_motion_or_brief"
+    disposition = _description_patterns_share_clause(
+        description,
+        _DIRECT_SEARCH_TARGET_MOTION_PATTERN,
+        _DIRECT_SEARCH_DISPOSITION_PATTERN,
+    )
+    substantive_recommendation = _description_patterns_share_clause(
+        description,
+        _DIRECT_SEARCH_TARGET_MOTION_PATTERN,
+        _DIRECT_SEARCH_SUBSTANTIVE_RECOMMENDATION_PATTERN,
+    )
+    # The target phrase itself contains ``judgment`` for Rule 12(c) motions.
+    # Remove that phrase before treating ``judgment`` as a decision-document
+    # signal, so a bare motion cannot outrank an actual order.
+    adjudicative_context = re.sub(
+        r"\b(?:motion\s+for\s+)?judgment\s+on\s+the\s+pleadings\b",
+        "",
+        description,
+    )
+    adjudicative_document = _description_patterns_share_clause(
+        adjudicative_context,
+        _DIRECT_SEARCH_TARGET_MOTION_PATTERN,
+        _DIRECT_SEARCH_ADJUDICATIVE_DOCUMENT_PATTERN,
+    )
+    if (
+        target_motion is not None
+        and target_pending is None
+        and (disposition or substantive_recommendation)
+    ):
+        return 0, "action_linked_disposition_or_substantive_recommendation"
+    if target_motion is not None and target_pending is None and adjudicative_document:
+        return 1, "anchored_adjudicative_event"
+    return 2, "generic_motion_or_brief"
+
+
+def _description_patterns_share_clause(
+    description: str,
+    left_pattern: str,
+    right_pattern: str,
+) -> bool:
+    """Return whether two metadata signals occur in one short docket-text clause."""
+
+    separator_free_gap = r"[^.;:\n]{0,128}"
+    return (
+        re.search(
+            rf"(?:{left_pattern}){separator_free_gap}(?:{right_pattern})|"
+            rf"(?:{right_pattern}){separator_free_gap}(?:{left_pattern})",
+            description,
+        )
+        is not None
+    )
+
+
+def _priority_evidence_sort_key(
+    evidence: Mapping[str, object],
+    *,
+    window_start: date,
+    window_end: date,
+    eligibility_anchor: str | None,
+) -> tuple[int, int, int, int, int, str]:
+    signal_rank, _reason = _priority_signal_for_evidence(evidence)
+    date_rank, ordinal, _status = _priority_date_status_for_evidence(
+        evidence,
+        window_start=window_start,
+        window_end=window_end,
+        eligibility_anchor=eligibility_anchor,
+    )
+    free_rank = 0 if evidence.get("is_available") is True else 1
+    entry_number = _positive_integer_prefix(evidence.get("entry_number"))
+    return (
+        signal_rank,
+        date_rank,
+        -ordinal,
+        free_rank,
+        entry_number if entry_number is not None else 2**31,
+        json.dumps(dict(evidence), sort_keys=True, separators=(",", ":"), default=str),
+    )
+
+
+def _rank_direct_search_leads(
+    source: DirectSearchSeedSource,
+) -> tuple[tuple[DirectSearchLead, ...], tuple[dict[str, object], ...]]:
+    ranked: list[
+        tuple[
+            tuple[int, int, int, int, int, int, int, str],
+            DirectSearchLead,
+            dict[str, object],
+        ]
+    ] = []
+    for lead in source.leads:
+        prescreen_reason = prescreen_recap_candidate(
+            court_id=lead.court_id,
+            docket_number=lead.docket_number,
+            case_name=lead.case_name,
+            defer_bankruptcy_to_authoritative_docket=(source.source_search_type == "o"),
+        )
+        structural_rank = 0 if prescreen_reason is None else 1
+        signal_rank, signal_reason = _priority_signal(lead)
+        date_rank, decision_ordinal, date_status = _priority_date_status(lead, source)
+        evidence = lead.priority_decision_evidence or lead.decision_entry_evidence
+        entry_number = (
+            None
+            if evidence is None
+            else _positive_integer_prefix(evidence.get("entry_number"))
+        )
+        entry_sort = entry_number if entry_number is not None else 2**31
+        docket_number = _positive_integer_prefix(lead.docket_id)
+        docket_sort = docket_number if docket_number is not None else 2**63
+        free_rank = (
+            0 if evidence is not None and evidence.get("is_available") is True else 1
+        )
+        key = (
+            structural_rank,
+            signal_rank,
+            date_rank,
+            -decision_ordinal,
+            free_rank,
+            entry_sort,
+            docket_sort,
+            lead.candidate_id,
+        )
+        ranked.append(
+            (
+                key,
+                lead,
+                {
+                    "candidate_id": lead.candidate_id,
+                    "structural_rank": structural_rank,
+                    "prescreen_exclusion_reason": prescreen_reason,
+                    "signal_rank": signal_rank,
+                    "signal_reason": signal_reason,
+                    "date_status": date_status,
+                    "entry_date_filed": (
+                        None if evidence is None else evidence.get("entry_date_filed")
+                    ),
+                    "entry_number": entry_number,
+                    "is_available": (
+                        None if evidence is None else evidence.get("is_available")
+                    ),
+                    "description": (
+                        None if evidence is None else evidence.get("description")
+                    ),
+                    "lead_commitment_sha256": _canonical_record_sha256(
+                        lead.commitment_record()
+                    ),
+                },
+            )
+        )
+    ranked.sort(key=lambda item: item[0])
+    leads = tuple(item[1] for item in ranked)
+    records = tuple(
+        {"rank": rank, **item[2]} for rank, item in enumerate(ranked, start=1)
+    )
+    return leads, records
+
+
+def _validate_priority_frontier(
+    frontier: Mapping[str, object],
+    *,
+    source: DirectSearchSeedSource,
+    ranked_ids: tuple[str, ...],
+    source_lineage: Mapping[str, object],
+    source_lineage_hash: str,
+) -> tuple[tuple[str, ...], int, str]:
+    supplied = dict(frontier)
+    claimed_hash = supplied.pop("frontier_sha256", None)
+    if (
+        not isinstance(claimed_hash, str)
+        or re.fullmatch(r"[0-9a-f]{64}", claimed_hash) is None
+        or _canonical_record_sha256(supplied) != claimed_hash
+    ):
+        raise RecapApiBatchDriverError("deferred frontier self-hash is invalid")
+    expected_fields: dict[str, object] = {
+        "schema_version": DIRECT_SEARCH_DEFERRED_FRONTIER_SCHEMA,
+        "source_batch_id": source.source_batch_id,
+        "source_batch_digest": source.source_batch_digest,
+        "source_cycle_hash": source.source_cycle_hash,
+        "source_candidate_set_sha256": source.source_candidate_set_sha256,
+        "source_candidate_id_set_sha256": _candidate_id_set_sha256(
+            tuple(sorted(ranked_ids))
+        ),
+        "source_lineage_commitments": dict(source_lineage),
+        "source_lineage_commitment_sha256": source_lineage_hash,
+        "ranking_policy_sha256": DIRECT_SEARCH_PRIORITY_POLICY_SHA256,
+        "ranked_candidate_ids": list(ranked_ids),
+    }
+    for field, expected in expected_fields.items():
+        if supplied.get(field) != expected:
+            raise RecapApiBatchDriverError(
+                f"deferred frontier {field} does not match current "
+                "source/ranking policy"
+            )
+    raw_cumulative = supplied.get("cumulative_selected_candidate_ids")
+    raw_deferred = supplied.get("deferred_candidate_ids")
+    raw_ordinal = supplied.get("tranche_ordinal")
+    if not isinstance(raw_cumulative, list) or not isinstance(raw_deferred, list):
+        raise RecapApiBatchDriverError("deferred frontier structure is invalid")
+    cumulative_values = cast(list[object], raw_cumulative)
+    deferred_values = cast(list[object], raw_deferred)
+    if (
+        not all(isinstance(value, str) for value in cumulative_values)
+        or not all(isinstance(value, str) for value in deferred_values)
+        or isinstance(raw_ordinal, bool)
+        or not isinstance(raw_ordinal, int)
+        or raw_ordinal < 1
+    ):
+        raise RecapApiBatchDriverError("deferred frontier structure is invalid")
+    cumulative = tuple(cast(list[str], cumulative_values))
+    deferred = tuple(cast(list[str], deferred_values))
+    if cumulative + deferred != ranked_ids or len(set(ranked_ids)) != len(ranked_ids):
+        raise RecapApiBatchDriverError(
+            "deferred frontier does not exactly partition the ranked source"
+        )
+    return deferred, raw_ordinal, claimed_hash
+
+
+def materialize_direct_search_priority_tranche(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    source: DirectSearchSeedSource,
+    tranche_size: int,
+    predecessor_frontier: Mapping[str, object] | None = None,
+    page_size: int = 100,
+) -> DirectSearchPriorityTrancheResult:
+    """Materialize a provider-free rank-only tranche and exact deferred frontier."""
+
+    if tranche_size < 1:
+        raise ValueError("tranche_size must be positive")
+    if not 1 <= page_size <= 100:
+        raise ValueError("page_size must be from 1 through 100")
+    if store.cycle_hash != source.source_cycle_hash:
+        raise RecapApiBatchDriverError(
+            "direct-search source and priority target cycle identities differ"
+        )
+    if batch_id == source.source_batch_id:
+        raise RecapApiBatchDriverError(
+            "direct-search source and priority target batch ids must differ"
+        )
+    source_lineage = dict(source.source_lineage_commitments or {})
+    claimed_lineage_hash = source_lineage.pop("source_lineage_commitment_sha256", None)
+    if claimed_lineage_hash is None:
+        source_lineage = {
+            "authoritative_source_batch_digest": source.source_batch_digest
+        }
+        claimed_lineage_hash = _canonical_record_sha256(source_lineage)
+    if (
+        not isinstance(claimed_lineage_hash, str)
+        or _canonical_record_sha256(source_lineage) != claimed_lineage_hash
+    ):
+        raise RecapApiBatchDriverError(
+            "direct-search source lineage commitment is invalid"
+        )
+    prior_snapshot_hash = source_lineage.get("prior_snapshot_commitment_sha256")
+    prior_snapshot_count = source_lineage.get("prior_snapshot_count")
+    if (
+        source_lineage.get("discovery_mode")
+        != DIRECT_SEARCH_NOVEL_TRANSFER_PROVENANCE_SCHEMA
+        or source_lineage.get("selection_semantics") != "priority_dedupe_only"
+        or not isinstance(prior_snapshot_hash, str)
+        or re.fullmatch(r"[0-9a-f]{64}", prior_snapshot_hash) is None
+        or isinstance(prior_snapshot_count, bool)
+        or not isinstance(prior_snapshot_count, int)
+        or prior_snapshot_count < 1
+    ):
+        raise RecapApiBatchDriverError(
+            "priority tranche requires a complete manifest-pinned novel "
+            "direct-search source"
+        )
+    ranked, ranking_records = _rank_direct_search_leads(source)
+    ranked_ids = tuple(lead.candidate_id for lead in ranked)
+    source_candidate_id_set_sha256 = _candidate_id_set_sha256(tuple(sorted(ranked_ids)))
+    if len(set(ranked_ids)) != len(ranked_ids) or set(ranked_ids) != {
+        lead.candidate_id for lead in source.leads
+    }:
+        raise RecapApiBatchDriverError(
+            "priority ranking does not exactly preserve the complete source"
+        )
+    if predecessor_frontier is None:
+        remaining_ids = ranked_ids
+        predecessor_ordinal = 0
+        predecessor_hash = None
+    else:
+        remaining_ids, predecessor_ordinal, predecessor_hash = (
+            _validate_priority_frontier(
+                predecessor_frontier,
+                source=source,
+                ranked_ids=ranked_ids,
+                source_lineage=source_lineage,
+                source_lineage_hash=claimed_lineage_hash,
+            )
+        )
+    if not remaining_ids:
+        raise RecapApiBatchDriverError("deferred frontier is already empty")
+    tranche_ordinal = predecessor_ordinal + 1
+    selected_ids = remaining_ids[:tranche_size]
+    deferred_ids = remaining_ids[len(selected_ids) :]
+    cumulative_count = len(ranked_ids) - len(deferred_ids)
+    cumulative_ids = ranked_ids[:cumulative_count]
+    leads_by_id = {lead.candidate_id: lead for lead in ranked}
+    selected = tuple(leads_by_id[candidate_id] for candidate_id in selected_ids)
+    deferred = tuple(leads_by_id[candidate_id] for candidate_id in deferred_ids)
+    if cumulative_ids + deferred_ids != ranked_ids:
+        raise RecapApiBatchDriverError(
+            "priority tranche union does not reconcile with complete source"
+        )
+    frontier_without_hash: dict[str, object] = {
+        "schema_version": DIRECT_SEARCH_DEFERRED_FRONTIER_SCHEMA,
+        "selection_semantics": "rank_only_no_membership_exclusion",
+        "deferred_disposition": "unscreened_not_excluded",
+        "source_batch_id": source.source_batch_id,
+        "source_batch_digest": source.source_batch_digest,
+        "source_cycle_hash": source.source_cycle_hash,
+        "source_candidate_count": len(source.leads),
+        "source_candidate_set_sha256": source.source_candidate_set_sha256,
+        "source_candidate_id_set_sha256": source_candidate_id_set_sha256,
+        "source_lineage_commitments": source_lineage,
+        "source_lineage_commitment_sha256": claimed_lineage_hash,
+        "ranking_policy": dict(_DIRECT_SEARCH_PRIORITY_POLICY),
+        "ranking_policy_sha256": DIRECT_SEARCH_PRIORITY_POLICY_SHA256,
+        "ranking_records": list(ranking_records),
+        "ranked_candidate_ids": list(ranked_ids),
+        "predecessor_frontier_sha256": predecessor_hash,
+        "tranche_ordinal": tranche_ordinal,
+        "requested_tranche_size": tranche_size,
+        "selected_candidate_ids": list(selected_ids),
+        "selected_candidate_set_sha256": _lead_set_sha256(selected),
+        "cumulative_selected_candidate_ids": list(cumulative_ids),
+        "deferred_candidate_ids": list(deferred_ids),
+        "deferred_candidate_set_sha256": _lead_set_sha256(deferred),
+        "chain_terminal": len(deferred) == 0,
+        "ranking_frontier_exhausted": len(deferred) == 0,
+        "global_source_saturated": False,
+        "strict_screen_is_sole_eligibility_and_exclusion_authority": True,
+        "ranking_metadata_visibility": "acquisition_only_never_packet_visible",
+        "provider_activity_executed": False,
+        "paid_activity_executed": False,
+    }
+    frontier_hash = _canonical_record_sha256(frontier_without_hash)
+    frontier = {**frontier_without_hash, "frontier_sha256": frontier_hash}
+    preexisting = [
+        candidate_id
+        for candidate_id in selected_ids
+        if (observation := store.current_observation(candidate_id)) is not None
+        and observation.batch_id != batch_id
+    ]
+    if preexisting:
+        raise RecapApiBatchDriverError(
+            "priority tranche selected candidates already have canonical "
+            "observations: " + ", ".join(preexisting)
+        )
+    config = build_recap_api_batch_config(
+        decision_window_start=source.search_window_start,
+        decision_window_end=source.search_window_end,
+        auth_mode="authenticated",
+        query_terms=(DIRECT_SEARCH_PRIORITY_TRANCHE_TERM,),
+        page_size=page_size,
+        top_k_per_term=max(len(selected), 1),
+    )
+    config.update(
+        {
+            "discovery_mode": DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
+            "selection_semantics": "rank_only_no_membership_exclusion",
+            "deferred_disposition": "unscreened_not_excluded",
+            "source_batch_id": source.source_batch_id,
+            "source_batch_digest": source.source_batch_digest,
+            "source_cycle_hash": source.source_cycle_hash,
+            "source_candidate_count": len(source.leads),
+            "source_candidate_set_sha256": source.source_candidate_set_sha256,
+            "source_candidate_id_set_sha256": source_candidate_id_set_sha256,
+            "source_lineage_commitment_sha256": claimed_lineage_hash,
+            "source_lineage_commitments": source_lineage,
+            "ranking_policy_sha256": DIRECT_SEARCH_PRIORITY_POLICY_SHA256,
+            "tranche_ordinal": tranche_ordinal,
+            "requested_tranche_size": tranche_size,
+            "predecessor_frontier_sha256": predecessor_hash,
+            "selected_candidate_count": len(selected),
+            "selected_candidate_set_sha256": _lead_set_sha256(selected),
+            "cumulative_selected_count": cumulative_count,
+            "deferred_candidate_count": len(deferred),
+            "deferred_candidate_set_sha256": _lead_set_sha256(deferred),
+            "deferred_frontier_sha256": frontier_hash,
+            "chain_terminal": len(deferred) == 0,
+            "ranking_frontier_exhausted": len(deferred) == 0,
+            "global_source_saturated": False,
+            "provisional_frontier": True,
+            "final_cohort_eligible": False,
+            "full_source_terminal": False,
+            "strict_screen_is_sole_eligibility_and_exclusion_authority": True,
+            "ranking_metadata_visibility": "acquisition_only_never_packet_visible",
+            "provider_activity_requested": False,
+            "paid_activity_requested": False,
+        }
+    )
+    store.ensure_batch(batch_id, config)
+    store.ensure_terms(batch_id, (DIRECT_SEARCH_PRIORITY_TRANCHE_TERM,))
+    progress = store.term_progress(batch_id, DIRECT_SEARCH_PRIORITY_TRANCHE_TERM)
+
+    def result(*, seeded: int, already: bool) -> DirectSearchPriorityTrancheResult:
+        return DirectSearchPriorityTrancheResult(
+            batch_id=batch_id,
+            source_batch_id=source.source_batch_id,
+            source_batch_digest=source.source_batch_digest,
+            source_candidate_set_sha256=source.source_candidate_set_sha256,
+            ranking_policy_sha256=DIRECT_SEARCH_PRIORITY_POLICY_SHA256,
+            tranche_ordinal=tranche_ordinal,
+            selected_candidate_ids=selected_ids,
+            deferred_candidate_ids=deferred_ids,
+            cumulative_selected_count=cumulative_count,
+            frontier_sha256=frontier_hash,
+            frontier=frontier,
+            leads_seeded=seeded,
+            already_seeded=already,
+        )
+
+    if progress.terminal_status is not None:
+        return result(seeded=0, already=True)
+    offset = progress.hit_count
+    starting_offset = offset
+    if offset > len(selected):
+        raise RecapApiBatchDriverError(
+            "priority tranche progress exceeds frozen selected count"
+        )
+    selection_provenance = {
+        "schema_version": DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
+        "ranking_policy_sha256": DIRECT_SEARCH_PRIORITY_POLICY_SHA256,
+        "frontier_sha256": frontier_hash,
+        "tranche_ordinal": tranche_ordinal,
+        "selection_semantics": "rank_only_no_membership_exclusion",
+        "deferred_disposition": "unscreened_not_excluded",
+        "strict_screen_is_sole_eligibility_and_exclusion_authority": True,
+        "ranking_metadata_visibility": "acquisition_only_never_packet_visible",
+    }
+    while offset < len(selected):
+        page = selected[offset : offset + page_size]
+        next_offset = offset + len(page)
+        next_cursor = str(next_offset) if next_offset < len(selected) else None
+        terminal = None if next_cursor is not None else TermTerminalStatus.EXHAUSTED
+        progress = store.commit_search_page(
+            batch_id,
+            DIRECT_SEARCH_PRIORITY_TRANCHE_TERM,
+            progress.cursor,
+            tuple(
+                _direct_search_lead_to_hit(
+                    lead,
+                    source,
+                    transfer_term=DIRECT_SEARCH_PRIORITY_TRANCHE_TERM,
+                    provenance_schema=DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
+                    selection_provenance=selection_provenance,
+                )
+                for lead in page
+            ),
+            next_cursor=next_cursor,
+            terminal_status=terminal,
+        )
+        offset = next_offset
+    return result(seeded=len(selected) - starting_offset, already=False)
+
+
 def _direct_search_lead_to_hit(
     lead: DirectSearchLead,
     source: DirectSearchSeedSource,
@@ -2039,6 +2938,8 @@ def _direct_search_lead_to_hit(
         payload["priority_dedupe_provenance"] = dict(selection_provenance)
     if lead.decision_entry_evidence is not None:
         payload["decision_entry_evidence"] = dict(lead.decision_entry_evidence)
+    if lead.priority_decision_evidence is not None:
+        payload["priority_decision_evidence"] = dict(lead.priority_decision_evidence)
     if lead.opinion_resolution_evidence is not None:
         payload["opinion_resolution_evidence"] = dict(lead.opinion_resolution_evidence)
     return DiscoveryHit(

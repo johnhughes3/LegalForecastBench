@@ -1330,6 +1330,75 @@ def test_cli_novel_direct_seed_help_states_priority_only_cross_cycle_contract(
     assert "--prior-snapshot-manifest-sha256" in help_text
 
 
+def test_cli_priority_tranche_writes_exact_deferred_frontier_and_resumes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    frontier_path = tmp_path / "priority-1-frontier.json"
+    summary_path = tmp_path / "priority-1-summary.json"
+    _build_direct_search_store(store_path)
+    snapshot, manifest_hash = _build_cli_prior_snapshot(
+        tmp_path, candidate_id="courtlistener-docket-999"
+    )
+    assert main(_novel_direct_seed_args(store_path, snapshot, manifest_hash)) == 0
+    capsys.readouterr()
+    args = [
+        "batch-002",
+        "materialize-direct-search-priority-tranche",
+        "--source-store",
+        str(store_path),
+        "--source-batch-id",
+        "novel-direct-search-rest-screen",
+        "--cycle-store",
+        str(store_path),
+        "--batch-id",
+        "priority-1",
+        "--tranche-size",
+        "1",
+        "--deferred-frontier-output",
+        str(frontier_path),
+        "--summary-output",
+        str(summary_path),
+    ]
+
+    assert main(args) == 0
+    first = json.loads(capsys.readouterr().out)
+    frontier = json.loads(frontier_path.read_text(encoding="utf-8"))
+    assert first["selected_candidate_ids"] == ["courtlistener-docket-555"]
+    assert first["deferred_candidate_ids"] == ["courtlistener-docket-777"]
+    assert first["provider_activity_executed"] is False
+    assert frontier["deferred_disposition"] == "unscreened_not_excluded"
+    assert (
+        first["deferred_frontier_file_sha256"]
+        == hashlib.sha256(frontier_path.read_bytes()).hexdigest()
+    )
+    assert json.loads(summary_path.read_text(encoding="utf-8")) == first
+
+    assert main(args) == 0
+    second = json.loads(capsys.readouterr().out)
+    assert second["already_seeded"] is True
+    assert second["leads_seeded"] == 0
+
+
+def test_cli_priority_tranche_help_is_explicitly_rank_only_and_provider_free(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            [
+                "batch-002",
+                "materialize-direct-search-priority-tranche",
+                "--help",
+            ]
+        )
+    assert exc_info.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "rank-only scheduling" in help_text
+    assert "Deferred candidates remain unscreened, never excluded" in help_text
+    assert "cannot call providers" in help_text
+    assert "--expected-predecessor-frontier-sha256" in help_text
+
+
 def test_cli_batch_002_live_help_distinguishes_discover_and_observe(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
