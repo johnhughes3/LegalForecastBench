@@ -5,10 +5,16 @@ from __future__ import annotations
 import re
 from datetime import date
 
+_DISPLAY_TIME = (
+    r"(?:(?P<special>noon|midnight)|"
+    r"(?P<hour>1[0-2]|[1-9])(?::(?P<minute>[0-5]\d))?\s+"
+    r"(?P<meridiem>[ap])\.m\.)"
+)
+_DISPLAY_TIME_SUFFIX = re.compile(rf",\s+{_DISPLAY_TIME}$")
 _MONTH_DATE = re.compile(
     r"^(?P<month>[A-Z][a-z]+)\.?(?:\s+)"
     r"(?P<day>\d{1,2}),\s+(?P<year>\d{4})"
-    r"(?:,\s+(?:noon|midnight|(?:1[0-2]|[1-9])(?::[0-5]\d)?\s+[ap]\.m\.))?$"
+    rf"(?:,\s+{_DISPLAY_TIME})?$"
 )
 
 _MONTHS = {
@@ -72,3 +78,23 @@ def parse_courtlistener_filed_date(value: str | None) -> date | None:
         )
     except ValueError:
         return None
+
+
+def parse_courtlistener_display_time(value: str | None) -> int | None:
+    """Return minutes since midnight for a CourtListener display-time suffix."""
+
+    if value is None:
+        return None
+    match = _DISPLAY_TIME_SUFFIX.search(value.strip())
+    if match is None:
+        return None
+    special = match.group("special")
+    if special == "noon":
+        return 12 * 60
+    if special == "midnight":
+        return 0
+    hour = int(match.group("hour")) % 12
+    minute = int(match.group("minute") or 0)
+    if match.group("meridiem") == "p":
+        hour += 12
+    return hour * 60 + minute

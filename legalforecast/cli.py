@@ -561,6 +561,10 @@ from legalforecast.ingestion.screening_snapshot_union import (
     authenticated_rawless_direct_rest_active_proof_matches,
     load_screening_snapshot_union,
 )
+from legalforecast.ingestion.screening_union_policy_rebind import (
+    ScreeningUnionPolicyRebindError,
+    rebind_screening_union_policy,
+)
 from legalforecast.ingestion.snapshot_quarantine import (
     SnapshotQuarantineError,
     quarantine_orphan_snapshot,
@@ -1333,6 +1337,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_union_screening_snapshots_arguments(
         acquisition_union_screening_snapshots
+    )
+    acquisition_rebind_screening_union_policy = acquisition_subparsers.add_parser(
+        "rebind-screening-union-policy",
+        help=(
+            "Rebind one exact authenticated screening union to the current cycle "
+            "without provider or paid activity."
+        ),
+        description=(
+            "Authenticate a complete saturated union snapshot and its exact union "
+            "run card, permit only the pinned restricted-material false-positive "
+            "policy transition, validate every accepted disposition against the "
+            "frozen anchor, preserve every exclusion, and copy every authenticated "
+            "raw observation into a current-cycle snapshot. Any other policy drift "
+            "fails closed. This command has no provider, PACER, fee acknowledgment, "
+            "purchase, evaluation, freeze, or dispatch path."
+        ),
+    )
+    _add_acquisition_rebind_screening_union_policy_arguments(
+        acquisition_rebind_screening_union_policy
     )
     acquisition_funnel_report = acquisition_subparsers.add_parser(
         "funnel-report",
@@ -3040,6 +3063,63 @@ def _add_acquisition_union_screening_snapshots_arguments(
     parser.add_argument("--snapshot-root", type=Path, required=True)
     parser.add_argument("--snapshot-id", required=True)
     parser.set_defaults(handler=_cmd_acquisition_union_screening_snapshots)
+
+
+def _add_acquisition_rebind_screening_union_policy_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--source-snapshot",
+        type=Path,
+        required=True,
+        help="Exact complete saturated screening-union snapshot.",
+    )
+    parser.add_argument(
+        "--expected-source-snapshot-manifest-sha256",
+        required=True,
+        help="Externally pinned lowercase SHA-256 of the source manifest.",
+    )
+    parser.add_argument(
+        "--source-union-run-card",
+        type=Path,
+        required=True,
+        help="Exact completed union-screening-snapshots run card.",
+    )
+    parser.add_argument(
+        "--expected-source-union-run-card-sha256",
+        required=True,
+        help="Externally pinned lowercase SHA-256 of the union run card.",
+    )
+    parser.add_argument(
+        "--source-cycle-store",
+        type=Path,
+        required=True,
+        help="Read-only source cycle store proving the predecessor policy.",
+    )
+    parser.add_argument("--expected-source-cycle-hash", required=True)
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Current target-cycle store receiving the exact replay batch.",
+    )
+    parser.add_argument("--expected-target-cycle-hash", required=True)
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument("--snapshot-root", type=Path, required=True)
+    parser.add_argument("--snapshot-id", required=True)
+    parser.add_argument(
+        "--raw-artifact-output-root",
+        type=Path,
+        help=("New owned raw-observation directory; defaults under --output-root."),
+    )
+    parser.add_argument(
+        "--rebind-run-card-output",
+        type=Path,
+        help=("Immutable policy-rebind authority card; defaults under --output-root."),
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_rebind_screening_union_policy)
 
 
 def _add_acquisition_funnel_report_arguments(parser: argparse.ArgumentParser) -> None:
@@ -18297,6 +18377,150 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
         )
         raise CommandError(str(exc)) from exc
     return 0
+
+
+def _cmd_acquisition_rebind_screening_union_policy(
+    args: argparse.Namespace,
+) -> int:
+    """Publish one exact current-cycle replay of an authenticated union."""
+
+    output_root = _acquisition_output_root(args)
+    source_snapshot = cast(Path, args.source_snapshot)
+    source_union_run_card = cast(Path, args.source_union_run_card)
+    source_cycle_store = cast(Path, args.source_cycle_store)
+    cycle_store = cast(Path, args.cycle_store)
+    snapshot_root = cast(Path, args.snapshot_root)
+    snapshot_id = cast(str, args.snapshot_id)
+    raw_artifact_output_root = _acquisition_path(
+        args,
+        "raw_artifact_output_root",
+        output_root / "rebound-raw-artifacts",
+    )
+    rebind_run_card_output = _acquisition_path(
+        args,
+        "rebind_run_card_output",
+        output_root / "screening-union-policy-rebind.json",
+    )
+    summary_output = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "screening-union-policy-rebind-summary.json",
+    )
+    input_paths = (
+        source_snapshot,
+        source_union_run_card,
+        source_cycle_store,
+        cycle_store,
+    )
+    output_paths = (
+        snapshot_root / snapshot_id,
+        raw_artifact_output_root,
+        rebind_run_card_output,
+        summary_output,
+    )
+    provider_flags: JsonRecord = {
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    if _acquisition_dry_run(args):
+        summary: JsonRecord = {
+            "schema_version": (
+                "legalforecast.screening_union_policy_rebind_summary.v1"
+            ),
+            "dry_run": True,
+            "source_snapshot": str(source_snapshot.resolve()),
+            "target_cycle_store": str(cycle_store.resolve()),
+            "target_batch_id": cast(str, args.batch_id),
+            "target_snapshot": str((snapshot_root / snapshot_id).resolve()),
+            "authority_verification_deferred_until_execute": True,
+            **provider_flags,
+        }
+        _write_json(summary_output, summary)
+        _write_acquisition_completion(
+            args,
+            stage="rebind-screening-union-policy",
+            input_paths=input_paths,
+            output_paths=(summary_output,),
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+    try:
+        result = rebind_screening_union_policy(
+            source_snapshot_path=source_snapshot,
+            expected_source_snapshot_manifest_sha256=cast(
+                str, args.expected_source_snapshot_manifest_sha256
+            ),
+            source_union_run_card_path=source_union_run_card,
+            expected_source_union_run_card_sha256=cast(
+                str, args.expected_source_union_run_card_sha256
+            ),
+            source_cycle_store_path=source_cycle_store,
+            expected_source_cycle_hash=cast(str, args.expected_source_cycle_hash),
+            target_cycle_store_path=cycle_store,
+            expected_target_cycle_hash=cast(str, args.expected_target_cycle_hash),
+            target_batch_id=cast(str, args.batch_id),
+            snapshot_output_root=snapshot_root,
+            snapshot_id=snapshot_id,
+            raw_artifact_output_root=raw_artifact_output_root,
+            run_card_path=rebind_run_card_output,
+        )
+        summary = {
+            "schema_version": (
+                "legalforecast.screening_union_policy_rebind_summary.v1"
+            ),
+            "dry_run": False,
+            "source_snapshot": str(source_snapshot.resolve()),
+            "target_cycle_store": str(cycle_store.resolve()),
+            "target_batch_id": cast(str, args.batch_id),
+            "snapshot_path": str(result.snapshot_path),
+            "snapshot_manifest_sha256": result.snapshot_manifest_sha256,
+            "run_card_path": str(result.run_card_path),
+            "run_card_sha256": result.run_card_sha256,
+            "candidate_count": result.candidate_count,
+            "accepted_count": result.accepted_count,
+            "excluded_count": result.excluded_count,
+            "raw_artifact_count": result.raw_artifact_count,
+            "reconciled": (
+                result.accepted_count + result.excluded_count == result.candidate_count
+            ),
+            **provider_flags,
+        }
+        _write_json(summary_output, summary)
+        _write_acquisition_completion(
+            args,
+            stage="rebind-screening-union-policy",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=result.accepted_count,
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+    except (
+        ScreeningUnionPolicyRebindError,
+        CycleAcquisitionStoreError,
+        OSError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="rebind-screening-union-policy",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=provider_flags,
+        )
+        raise CommandError(str(exc)) from exc
 
 
 def _owned_raw_records_from_snapshot(

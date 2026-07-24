@@ -1172,6 +1172,27 @@ The union compares duplicate candidates by terminal state, reason code, and the 
 
 All manifest-authenticated raw versions remain archived under `<candidate-id>/<sha256>.html` and in `union-raw-observations.jsonl`. For an excluded canonical candidate, the earliest unambiguous UTC capture remains its packet projection. `union-raw-artifacts.jsonl` contains exactly one authenticated canonical row per candidate and is the `--raw-html-dir` union-root projection consumed downstream. Ambiguous or invalid retrieval timestamps, raw content drift, or candidate/path ownership mismatch fail closed. Do not delete an older observation or hand-select one to force a merge.
 
+If an already terminal union was screened under the corrected restricted-material implementation but its cycle store was initialized with the immediately preceding restricted-material source hash, use the one-purpose provider-free rebind below instead of re-fetching dockets or hand-editing the cycle identity:
+
+```bash
+uv run legalforecast acquisition rebind-screening-union-policy \
+  --output-root artifacts/cycle-1/official-acquisition/current-policy-rebind \
+  --source-snapshot <complete-union-snapshot> \
+  --expected-source-snapshot-manifest-sha256 <pinned-union-manifest-sha256> \
+  --source-union-run-card <completed-union-run-card> \
+  --expected-source-union-run-card-sha256 <pinned-union-run-card-sha256> \
+  --source-cycle-store <source-cycle-store> \
+  --expected-source-cycle-hash <pinned-source-cycle-hash> \
+  --cycle-store <current-target-cycle-store> \
+  --expected-target-cycle-hash <pinned-target-cycle-hash> \
+  --batch-id <new-exact-rebind-batch-id> \
+  --snapshot-root artifacts/cycle-1/official-acquisition/current-policy-rebind/snapshots \
+  --snapshot-id <new-current-policy-snapshot-id> \
+  --execute --no-resume
+```
+
+This compatibility route permits only the pinned `restricted_material_public_hearing_false_positive_fix_v1` hash transition. It authenticates the complete source union and run card, validates every accepted strict-screen record and post-anchor disposition, preserves every exclusion and original evidence namespace, preserves each source terminal observation timestamp, owns every source raw observation under the target root, and proves exact candidate conservation. The snapshot commits the closed rebind implementation source set as well as the inherited mixed-source union lineage, so later union loading rejects implementation drift. Source inputs, the target cycle store, the snapshot root, the raw root, and the immutable run card are checked for symlink traversal and unsafe overlap before target mutation. Any other policy drift, invalid accepted evidence, raw mismatch, extra output file, unsafe path, or nonterminal source fails closed. The command is restart-safe and has no provider, PACER, purchase, evaluation, freeze, or dispatch path.
+
 If the primary Firecrawl acquisition completed without exhausting its immutable cap, skip the recovery sequence and strict-screen its committed CourtListener docket bytes directly:
 
 ```bash

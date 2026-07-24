@@ -34,6 +34,19 @@ FIRECRAWL_SCREENING_DIRECT_STAGE_KEYS: Final = frozenset(
     }
 )
 SCREENING_SNAPSHOT_UNION_STAGE_KEY: Final = "screening_snapshot_union_inputs"
+SCREENING_UNION_POLICY_REBIND_STAGE_KEY: Final = "screening_union_policy_rebind"
+SCREENING_UNION_POLICY_REBIND_IMPLEMENTATION_SCHEMA: Final = (
+    "legalforecast.screening_union_policy_rebind_implementation.v1"
+)
+SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS: Final = (
+    "legalforecast/cli.py",
+    "legalforecast/ingestion/cycle_acquisition_store.py",
+    "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "legalforecast/ingestion/restricted_material.py",
+    "legalforecast/ingestion/screening_snapshot_union.py",
+    "legalforecast/ingestion/screening_union_policy_rebind.py",
+    "legalforecast/ingestion/strict_screen_evidence.py",
+)
 SOURCE_NEUTRAL_DIRECT_STAGE_KEYS: Final = frozenset(
     {
         "courtlistener_discovery_inputs",
@@ -302,6 +315,112 @@ def firecrawl_screening_implementation(
     }
 
 
+def screening_union_policy_rebind_implementation(
+    *, source_root: Path | None = None
+) -> dict[str, object]:
+    """Return the exact implementation commitment for the policy rebind."""
+
+    root = (
+        Path(__file__).resolve().parents[2]
+        if source_root is None
+        else source_root.resolve()
+    )
+    source_sha256: dict[str, str] = {}
+    for relative_path in SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS:
+        path = root / relative_path
+        if path.is_symlink() or not path.is_file():
+            raise FirecrawlScreeningIdentityError(
+                "screening-union policy-rebind source is missing or unsafe: "
+                f"{relative_path}"
+            )
+        source_sha256[relative_path] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return {
+        "schema_version": SCREENING_UNION_POLICY_REBIND_IMPLEMENTATION_SCHEMA,
+        "source_sha256": source_sha256,
+        "manifest_sha256": _ordered_source_manifest_sha256(
+            source_sha256,
+            ordered_paths=SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS,
+        ),
+    }
+
+
+def validate_screening_union_policy_rebind_implementation(
+    commitment: object,
+    *,
+    require_current: bool,
+) -> dict[str, object]:
+    """Validate the closed policy-rebind implementation commitment."""
+
+    if not isinstance(commitment, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            "screening-union policy-rebind implementation must be an object"
+        )
+    typed = cast(Mapping[str, object], commitment)
+    if set(typed) != {"schema_version", "source_sha256", "manifest_sha256"}:
+        raise FirecrawlScreeningIdentityError(
+            "screening-union policy-rebind implementation has unexpected fields"
+        )
+    if (
+        typed.get("schema_version")
+        != SCREENING_UNION_POLICY_REBIND_IMPLEMENTATION_SCHEMA
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "screening-union policy-rebind implementation schema mismatch"
+        )
+    source_value = typed.get("source_sha256")
+    if not isinstance(source_value, Mapping):
+        raise FirecrawlScreeningIdentityError(
+            "screening-union policy-rebind source commitment must be an object"
+        )
+    source_mapping = cast(Mapping[object, object], source_value)
+    if set(source_mapping) != set(SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS):
+        raise FirecrawlScreeningIdentityError(
+            "screening-union policy-rebind source key set changed"
+        )
+    normalized_sources: dict[str, str] = {}
+    for path in SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS:
+        digest = source_mapping.get(path)
+        if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+            raise FirecrawlScreeningIdentityError(
+                f"screening-union policy-rebind source SHA-256 is malformed: {path}"
+            )
+        normalized_sources[path] = digest
+    manifest_sha256 = typed.get("manifest_sha256")
+    if (
+        not isinstance(manifest_sha256, str)
+        or _SHA256.fullmatch(manifest_sha256) is None
+        or _ordered_source_manifest_sha256(
+            normalized_sources,
+            ordered_paths=SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS,
+        )
+        != manifest_sha256
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "screening-union policy-rebind source manifest commitment mismatch"
+        )
+    normalized: dict[str, object] = {
+        "schema_version": SCREENING_UNION_POLICY_REBIND_IMPLEMENTATION_SCHEMA,
+        "source_sha256": normalized_sources,
+        "manifest_sha256": manifest_sha256,
+    }
+    if require_current and _canonical_commitment(normalized) != _canonical_commitment(
+        screening_union_policy_rebind_implementation()
+    ):
+        raise FirecrawlScreeningIdentityError(
+            "screening-union policy-rebind sources do not match current code"
+        )
+    return normalized
+
+
+def _ordered_source_manifest_sha256(
+    source_sha256: Mapping[str, str], *, ordered_paths: tuple[str, ...]
+) -> str:
+    payload = b"".join(
+        f"{path}\0{source_sha256[path]}\n".encode() for path in ordered_paths
+    )
+    return hashlib.sha256(payload).hexdigest()
+
+
 def source_manifest_sha256(source_sha256: Mapping[str, str]) -> str:
     """Hash an exact ordered ``path\0sha256\n`` source manifest."""
 
@@ -468,6 +587,17 @@ def _stage_firecrawl_screening_source_count(
     require_current: bool,
     label: str,
 ) -> int:
+    rebind_value = stage_commitments.get(SCREENING_UNION_POLICY_REBIND_STAGE_KEY)
+    if rebind_value is not None:
+        if not isinstance(rebind_value, Mapping):
+            raise FirecrawlScreeningIdentityError(
+                f"{label} screening-union policy rebind must be an object"
+            )
+        rebind = cast(Mapping[str, object], rebind_value)
+        validate_screening_union_policy_rebind_implementation(
+            rebind.get("implementation"),
+            require_current=require_current,
+        )
     direct_keys = FIRECRAWL_SCREENING_DIRECT_STAGE_KEYS.intersection(stage_commitments)
     union_present = SCREENING_SNAPSHOT_UNION_STAGE_KEY in stage_commitments
     union_value = stage_commitments.get(SCREENING_SNAPSHOT_UNION_STAGE_KEY)
