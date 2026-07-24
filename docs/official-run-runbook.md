@@ -379,6 +379,11 @@ uv run legalforecast acquisition finalize-rehearsal-corpus \
 The finalizer re-authenticates every exact-cohort output commitment, candidate and unit coverage, zero-review counts, zero billing, and packet exclusion of decision material before emitting `legalforecast.fixture_rehearsal_corpus.v1` with `official_eligible=false`.
 This success is test evidence only: production `build-decision-texts`, readiness, `finalize-corpus`, freeze, evaluation, and dispatch continue to reject every rehearsal artifact.
 
+The shared DynamoDB spend table is owned by the table-only `infra/provider-authority` module.
+Stage A/B requires this table, but does not require evaluation roles, S3 result infrastructure, `run-benchmark`, or an evaluation workflow.
+If the reviewed table already exists, import it into protected Terraform state after verifying the exact key schema and safeguards; otherwise review a table-only plan and obtain a separately authorized Terraform apply.
+Only the ARN-derived resource-identity SHA-256 is frozen into `provider-cycle-caps`; the table ARN and AWS account ID remain protected configuration.
+
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
 
 ```bash
