@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
 import time
 import urllib.error
@@ -15,7 +16,7 @@ import urllib.request
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol, cast
 
 from legalforecast.ingestion.provenance import DocumentRole
@@ -368,7 +369,12 @@ def verify_completed_free_document_manifest(
 ) -> tuple[FreeDocumentDownloadRecord, ...]:
     """Verify and return immutable completed download evidence for resume."""
 
-    root = Path(output_root).resolve()
+    configured_root = Path(output_root)
+    if configured_root.is_symlink():
+        raise FreeDocumentDownloadError(
+            "completed free-download root must not be a symlink"
+        )
+    root = configured_root.resolve()
     manifest = Path(manifest_path)
     if manifest.is_symlink() or not manifest.is_file():
         raise FreeDocumentDownloadError(
@@ -414,31 +420,165 @@ def verify_completed_free_document_manifest(
         raise FreeDocumentDownloadError(
             "completed free-download checkpoint is unreadable or invalid"
         ) from exc
-    if len(checkpoint) != len(records) or any(
+    if any(
         checkpoint.get(_request_key(request)) != record
         for request, record in zip(requests, records, strict=True)
     ):
         raise FreeDocumentDownloadError(
             "completed free-download manifest does not match its checkpoint"
         )
-    for request, record in zip(requests, records, strict=True):
-        document_path = _document_output_path(root, request)
-        if (
-            document_path.is_symlink()
-            or not document_path.is_file()
-            or document_path.stat().st_nlink != 1
-        ):
+    _verify_completed_checkpoint_documents(root, checkpoint.values())
+    return records
+
+
+def _verify_completed_checkpoint_documents(
+    output_root: Path,
+    records: Iterable[FreeDocumentDownloadRecord],
+) -> None:
+    """Authenticate every document named by a shared download checkpoint."""
+
+    seen_paths: set[str] = set()
+    for record in records:
+        if record.local_path in seen_paths:
             raise FreeDocumentDownloadError(
-                "completed free-download document must be a singly linked regular "
-                f"file: {record.candidate_id}/{record.source_document_id}"
+                "completed free-download checkpoint repeats a document path: "
+                f"{record.local_path}"
             )
-        digest, byte_count = _hash_path(document_path)
+        seen_paths.add(record.local_path)
+        document_path = _checkpoint_document_path(output_root, record)
+        digest, byte_count = _hash_verified_completed_document(
+            output_root,
+            document_path,
+            label=f"{record.candidate_id}/{record.source_document_id}",
+        )
         if digest != record.sha256 or byte_count != record.byte_count:
             raise FreeDocumentDownloadError(
-                "completed free-download document bytes differ from the manifest: "
+                "completed free-download document bytes differ from the checkpoint: "
                 f"{record.candidate_id}/{record.source_document_id}"
             )
-    return records
+
+
+def _checkpoint_document_path(
+    output_root: Path,
+    record: FreeDocumentDownloadRecord,
+) -> Path:
+    try:
+        _validate_public_document_url(record.source_url)
+        local_path = PurePosixPath(record.local_path)
+        if (
+            local_path.is_absolute()
+            or len(local_path.parts) != 3
+            or any(part in {"", ".", ".."} for part in local_path.parts)
+        ):
+            raise ValueError("local_path must be one canonical relative document path")
+        extension = local_path.suffix.removeprefix(".")
+        if not extension:
+            raise ValueError("local_path must include a file extension")
+        request = FreeDocumentDownloadRequest(
+            candidate_id=record.candidate_id,
+            source_provider=record.source_provider,
+            source_document_id=record.source_document_id,
+            docket_entry_number=record.docket_entry_number,
+            document_role=record.document_role,
+            source_url=record.source_url,
+            file_extension=extension,
+        )
+        expected = _document_output_path(output_root, request)
+        if expected.relative_to(output_root).as_posix() != record.local_path:
+            raise ValueError("local_path does not match the record identity")
+        return expected
+    except (OSError, ValueError) as exc:
+        raise FreeDocumentDownloadError(
+            "completed free-download checkpoint has an invalid document identity/path: "
+            f"{record.candidate_id}/{record.source_document_id}"
+        ) from exc
+
+
+def _hash_verified_completed_document(
+    output_root: Path,
+    path: Path,
+    *,
+    label: str,
+) -> tuple[str, int]:
+    _reject_document_parent_symlinks(output_root, path, label=label)
+    descriptor: int | None = None
+    try:
+        before_path = path.lstat()
+        if not stat.S_ISREG(before_path.st_mode) or before_path.st_nlink != 1:
+            raise FreeDocumentDownloadError(
+                "completed free-download document must be a singly linked regular "
+                f"non-symlink file: {label}"
+            )
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+        )
+        before_fd = os.fstat(descriptor)
+        if _stable_stat_identity(before_path) != _stable_stat_identity(before_fd):
+            raise FreeDocumentDownloadError(
+                f"completed free-download document changed while opening: {label}"
+            )
+        digest = hashlib.sha256()
+        byte_count = 0
+        while chunk := os.read(descriptor, 1024 * 1024):
+            digest.update(chunk)
+            byte_count += len(chunk)
+        after_fd = os.fstat(descriptor)
+        after_path = path.lstat()
+        identity = _stable_stat_identity(before_fd)
+        if identity != _stable_stat_identity(
+            after_fd
+        ) or identity != _stable_stat_identity(after_path):
+            raise FreeDocumentDownloadError(
+                f"completed free-download document changed while reading: {label}"
+            )
+        return digest.hexdigest(), byte_count
+    except FileNotFoundError as exc:
+        raise FreeDocumentDownloadError(
+            f"completed free-download document is missing: {label}"
+        ) from exc
+    except OSError as exc:
+        raise FreeDocumentDownloadError(
+            "completed free-download document must be a singly linked regular "
+            f"non-symlink file: {label}"
+        ) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _reject_document_parent_symlinks(
+    output_root: Path,
+    path: Path,
+    *,
+    label: str,
+) -> None:
+    try:
+        relative = path.relative_to(output_root)
+    except ValueError as exc:
+        raise FreeDocumentDownloadError(
+            f"completed free-download document escapes the output root: {label}"
+        ) from exc
+    current = output_root
+    for part in relative.parts[:-1]:
+        current /= part
+        if current.is_symlink():
+            raise FreeDocumentDownloadError(
+                "completed free-download document parent must not be a symlink: "
+                f"{label}"
+            )
+
+
+def _stable_stat_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_nlink,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
 
 
 def is_free_document_dry_run_manifest(

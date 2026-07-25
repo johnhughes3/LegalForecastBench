@@ -16,6 +16,7 @@ from legalforecast.ingestion.free_document_downloader import (
     UrlLibFreeDocumentSource,
     _AllowlistedRedirectHandler,
     download_free_docket_documents,
+    verify_completed_free_document_manifest,
 )
 from legalforecast.ingestion.provenance import DocumentRole
 
@@ -288,6 +289,103 @@ def test_downloader_rejects_intermediate_symlink_escape_with_domain_error(
     assert tuple(outside.iterdir()) == ()
 
 
+def test_completed_manifest_accepts_authenticated_shared_checkpoint_extras(
+    tmp_path: Path,
+) -> None:
+    first_request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+        candidate_id="cand-1",
+    )
+    extra_request = _request(
+        "doc-2",
+        docket_entry_number=2,
+        role=DocumentRole.MTD_MEMORANDUM,
+        url="https://www.courtlistener.com/recap/doc-2.pdf",
+        candidate_id="cand-2",
+    )
+    records = download_free_docket_documents(
+        (first_request, extra_request),
+        output_root=tmp_path,
+        source=FixtureFreeDocumentSource(
+            {
+                first_request.source_url: b"%PDF first",
+                extra_request.source_url: b"%PDF extra",
+            }
+        ),
+    )
+    manifest = tmp_path / "stage-02-manifest.jsonl"
+    manifest.write_text(
+        json.dumps(records[0].to_record(), sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    verified = verify_completed_free_document_manifest(
+        (first_request,),
+        output_root=tmp_path,
+        manifest_path=manifest,
+    )
+
+    assert verified == (records[0],)
+
+
+@pytest.mark.parametrize("substitution", ("bytes", "symlink", "hardlink"))
+def test_completed_manifest_rejects_invalid_shared_checkpoint_extra(
+    tmp_path: Path,
+    substitution: str,
+) -> None:
+    first_request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+        candidate_id="cand-1",
+    )
+    extra_request = _request(
+        "doc-2",
+        docket_entry_number=2,
+        role=DocumentRole.MTD_MEMORANDUM,
+        url="https://www.courtlistener.com/recap/doc-2.pdf",
+        candidate_id="cand-2",
+    )
+    records = download_free_docket_documents(
+        (first_request, extra_request),
+        output_root=tmp_path,
+        source=FixtureFreeDocumentSource(
+            {
+                first_request.source_url: b"%PDF first",
+                extra_request.source_url: b"%PDF extra",
+            }
+        ),
+    )
+    manifest = tmp_path / "stage-02-manifest.jsonl"
+    manifest.write_text(
+        json.dumps(records[0].to_record(), sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    extra_document = tmp_path / records[1].local_path
+    alias = tmp_path / "extra-alias.pdf"
+    if substitution == "bytes":
+        extra_document.write_bytes(b"%PDF tampered")
+    elif substitution == "symlink":
+        extra_document.rename(alias)
+        extra_document.symlink_to(alias)
+    else:
+        os.link(extra_document, alias)
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match=r"completed free-download (document|checkpoint)",
+    ):
+        verify_completed_free_document_manifest(
+            (first_request,),
+            output_root=tmp_path,
+            manifest_path=manifest,
+        )
+
+
 def test_live_source_aborts_oversize_response(monkeypatch: pytest.MonkeyPatch) -> None:
     class _Response:
         headers = Message()
@@ -476,9 +574,10 @@ def _request(
     docket_entry_number: int,
     role: DocumentRole,
     url: str,
+    candidate_id: str = "cand-1",
 ) -> FreeDocumentDownloadRequest:
     return FreeDocumentDownloadRequest(
-        candidate_id="cand-1",
+        candidate_id=candidate_id,
         source_provider="courtlistener",
         source_document_id=source_document_id,
         docket_entry_number=docket_entry_number,
