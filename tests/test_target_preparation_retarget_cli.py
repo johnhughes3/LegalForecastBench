@@ -759,6 +759,19 @@ def test_retarget_reuse_checkpoint_commitments_are_rederived_from_bytes(
         destination_document_root=destination_root,
         imported_records=imported_records,
     )
+
+    destination_checkpoint.write_text('{"candidate_id":"attacker"}\n', encoding="utf-8")
+    with pytest.raises(cli.CommandError, match="checkpoint commitment mismatch"):
+        cli._verify_retarget_reuse_checkpoint_commitments(
+            reuse_receipt=receipt,
+            source_document_root=source_root,
+            destination_document_root=destination_root,
+            imported_records=imported_records,
+        )
+
+    destination_checkpoint.write_bytes(
+        checkpoint_payload((*imported_records, appended_record))
+    )
     receipt["source_checkpoint_sha256"] = "sha256:" + "0" * 64
 
     with pytest.raises(cli.CommandError, match="checkpoint commitment mismatch"):

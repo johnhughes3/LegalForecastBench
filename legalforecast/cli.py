@@ -14021,14 +14021,20 @@ def _verify_retarget_reuse_checkpoint_commitments(
     source_checkpoint = source_document_root / ".download-checkpoint.jsonl"
     destination_checkpoint = destination_document_root / ".download-checkpoint.jsonl"
     source_records = _read_records(source_checkpoint)
+    try:
+        destination_projection_sha256 = verified_checkpoint_projection_sha256(
+            imported_records,
+            checkpoint_path=destination_checkpoint,
+        )
+    except FreeDocumentDownloadError as exc:
+        raise CommandError(
+            "retarget document-reuse checkpoint commitment mismatch"
+        ) from exc
     if (
         reuse_receipt.get("source_checkpoint_sha256") != _path_sha256(source_checkpoint)
         or reuse_receipt.get("source_checkpoint_record_count") != len(source_records)
         or reuse_receipt.get("destination_checkpoint_sha256")
-        != verified_checkpoint_projection_sha256(
-            imported_records,
-            checkpoint_path=destination_checkpoint,
-        )
+        != destination_projection_sha256
     ):
         raise CommandError("retarget document-reuse checkpoint commitment mismatch")
 
