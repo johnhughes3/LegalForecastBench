@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import legalforecast.cli as cli_module
+import legalforecast.ingestion.screening_snapshot_union as snapshot_union_module
 import pytest
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
@@ -407,6 +408,111 @@ def test_plan_public_rejects_owned_raw_identity_not_in_snapshot(
         == 2
     )
     assert "does not bind exactly once" in capsys.readouterr().err
+
+
+def test_plan_public_rejects_empty_owned_raw_manifest_without_placeholder_bytes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    raw_html = _docket_html(decision_dates=("June 30, 2026",)).encode("utf-8")
+    snapshot, cycle_hash = _snapshot(
+        tmp_path / "snapshot",
+        store_path=tmp_path / "cycle.sqlite3",
+        batch_id="empty-owned-raw",
+        candidate_id="courtlistener-docket-101",
+        raw_html=raw_html,
+    )
+    verified = cli_module.load_verified_screening_snapshot(
+        snapshot,
+        expected_manifest_sha256=_manifest_sha256(snapshot),
+        expected_cycle_hash=cycle_hash,
+        authenticated_raw_html_bytes_by_candidate={},
+    )
+    [artifact] = verified.raw_artifacts
+    assert artifact.content is None
+    assert artifact.content_authenticated is False
+
+    owned_root = tmp_path / "owned"
+    owned_root.mkdir()
+    owned_screened = owned_root / "screened-cases.jsonl"
+    screened_payload = (snapshot / "screened-cases.jsonl").read_bytes()
+    owned_screened.write_bytes(screened_payload)
+    owned_raw_dir = owned_root / "raw"
+    owned_raw_dir.mkdir()
+    owned_manifest = owned_root / "raw-html-manifest.jsonl"
+    owned_manifest.write_bytes(b"")
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "plan-public-downloads",
+                "--snapshot",
+                str(snapshot),
+                "--expected-snapshot-manifest-sha256",
+                _manifest_sha256(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--screened-cases",
+                str(owned_screened),
+                "--expected-screened-cases-sha256",
+                hashlib.sha256(screened_payload).hexdigest(),
+                "--raw-html-dir",
+                str(owned_raw_dir),
+                "--authenticated-raw-html-manifest",
+                str(owned_manifest),
+                "--expected-authenticated-raw-html-manifest-sha256",
+                hashlib.sha256(b"").hexdigest(),
+                "--target-clean-cases",
+                "1",
+                "--output-root",
+                str(tmp_path / "rejected-empty-owned-raw"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "does not match the canonical snapshot projection" in capsys.readouterr().err
+    assert not (
+        tmp_path / "rejected-empty-owned-raw/public-packet-selection.jsonl"
+    ).exists()
+
+
+def test_partial_owned_raw_mapping_never_synthesizes_placeholder_bytes(
+    tmp_path: Path,
+) -> None:
+    first = b"<html>first</html>"
+    second = b"<html>second</html>"
+    first_path = tmp_path / "101.html"
+    second_path = tmp_path / "202.html"
+    first_path.write_bytes(first)
+    second_path.write_bytes(second)
+    rows = (
+        {
+            "candidate_id": "courtlistener-docket-101",
+            "path": str(first_path.resolve()),
+            "sha256": hashlib.sha256(first).hexdigest(),
+            "byte_count": len(first),
+            "retrieved_at": "2026-07-24T11:00:00+00:00",
+        },
+        {
+            "candidate_id": "courtlistener-docket-202",
+            "path": str(second_path.resolve()),
+            "sha256": hashlib.sha256(second).hexdigest(),
+            "byte_count": len(second),
+            "retrieved_at": "2026-07-24T11:00:00+00:00",
+        },
+    )
+
+    first_artifact, second_artifact = snapshot_union_module._raw_records(
+        rows,
+        authenticated_raw_html_bytes_by_candidate={"101": first},
+    )
+
+    assert first_artifact.content == first
+    assert first_artifact.content_authenticated is True
+    assert second_artifact.content is None
+    assert second_artifact.content_authenticated is False
 
 
 def test_plan_public_raw_admission_failure_writes_nonpaid_run_card(

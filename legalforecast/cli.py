@@ -19063,6 +19063,13 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                     for artifact in union.canonical_raw_artifacts
                 }
                 for artifact in union.raw_artifacts:
+                    content = artifact.content
+                    if content is None or not artifact.content_authenticated:
+                        raise CycleAcquisitionStoreError(
+                            "screening snapshot union source contains "
+                            "unauthenticated raw content for "
+                            f"{artifact.candidate_id}"
+                        )
                     destination = (
                         owned_raw_dir
                         / safe_path_component(
@@ -19074,7 +19081,7 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                     committed = store.write_raw_artifact(
                         artifact.candidate_id,
                         destination,
-                        artifact.content,
+                        content,
                         retrieved_at=artifact.retrieved_at,
                         validator=_validate_raw_docket_bytes,
                     )
@@ -19082,7 +19089,7 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                         committed = store.rehome_raw_artifact(
                             artifact.candidate_id,
                             destination,
-                            artifact.content,
+                            content,
                             validator=_validate_raw_docket_bytes,
                         )
                     if committed.retrieved_at != artifact.retrieved_at:
@@ -39626,7 +39633,7 @@ def _authenticated_snapshot_raw_html_bytes(
         (artifact.candidate_id, artifact.sha256, artifact.byte_count): artifact
         for artifact in snapshot.raw_artifacts
     }
-    selected_artifacts: list[UnionRawArtifact] = []
+    selected_artifacts: list[tuple[UnionRawArtifact, bytes]] = []
     for record in selected_records:
         byte_count = record.get("byte_count")
         if not isinstance(byte_count, int) or isinstance(byte_count, bool):
@@ -39642,17 +39649,18 @@ def _authenticated_snapshot_raw_html_bytes(
                 "verified snapshot canonical raw projection is absent from "
                 "authenticated buffers"
             )
-        if not artifact.content_authenticated:
+        content = artifact.content
+        if not artifact.content_authenticated or content is None:
             raise CommandError(
                 "authenticated raw HTML does not match the canonical snapshot "
                 f"projection for {artifact.candidate_id}"
             )
-        selected_artifacts.append(artifact)
+        selected_artifacts.append((artifact, content))
 
     requested_directory = requested.resolve() if requested is not None else None
     artifact_paths = [
         (_raw_html_lookup_id(artifact.candidate_id, artifact.path), artifact.path)
-        for artifact in selected_artifacts
+        for artifact, _content in selected_artifacts
     ]
     parents = {path.parent for _candidate_id, path in artifact_paths}
     if requested_directory is not None:
@@ -39680,7 +39688,7 @@ def _authenticated_snapshot_raw_html_bytes(
             )
 
     by_candidate: dict[str, bytes] = {}
-    for artifact, (candidate_id, path) in zip(
+    for (_artifact, content), (candidate_id, path) in zip(
         selected_artifacts, artifact_paths, strict=True
     ):
         if path.suffix.casefold() != ".html":
@@ -39692,7 +39700,7 @@ def _authenticated_snapshot_raw_html_bytes(
                 "verified snapshot canonical raw projection duplicates candidates: "
                 + candidate_id
             )
-        by_candidate[candidate_id] = artifact.content
+        by_candidate[candidate_id] = content
     return by_candidate
 
 
