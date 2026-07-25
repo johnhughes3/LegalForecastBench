@@ -16,6 +16,7 @@ from legalforecast.ingestion.firecrawl_screening_identity import (
     source_manifest_sha256,
 )
 from legalforecast.ingestion.target_100_acquisition import (
+    Target100StageCommand,
     TargetCohortPreparationConfig,
 )
 from pytest import CaptureFixture
@@ -356,6 +357,20 @@ def test_stop_after_retarget_import_exits_before_providers_or_success_evidence(
     assert not (destination / "04-cost-ranking").exists()
     assert not (destination / "05-budget").exists()
     assert not (destination / "06-clearance-inputs").exists()
+
+
+def test_retarget_public_plan_nonzero_status_fails_before_import(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = Target100StageCommand(stage="plan-public-downloads", argv=("ignored",))
+
+    def fail_public_plan(_: Target100StageCommand) -> int:
+        return 2
+
+    monkeypatch.setattr(cli, "_run_retarget_public_plan", fail_public_plan)
+
+    with pytest.raises(cli.CommandError, match="public-plan stage failed"):
+        cli._require_retarget_public_plan_success(command)
 
 
 def test_only_authenticated_retarget_accepts_historical_screening_implementation(

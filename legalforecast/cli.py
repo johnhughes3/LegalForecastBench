@@ -13219,6 +13219,13 @@ def _run_retarget_public_plan(command: Target100StageCommand) -> int:
     )
 
 
+def _require_retarget_public_plan_success(command: Target100StageCommand) -> None:
+    """Make the provider-free planning stage's success contract explicit."""
+
+    if _run_retarget_public_plan(command) != 0:
+        raise CommandError("retarget import public-plan stage failed")
+
+
 def _execute_target_retarget_import(
     *,
     args: argparse.Namespace,
@@ -13268,7 +13275,7 @@ def _execute_target_retarget_import(
     )
     if not commands or commands[0].stage != "plan-public-downloads":
         raise CommandError("retarget import lacks the provider-free public-plan stage")
-    _run_retarget_public_plan(commands[0])
+    _require_retarget_public_plan_success(commands[0])
 
     source_requests, source_records, stage_02_count = (
         _verified_retarget_source_downloads(source)

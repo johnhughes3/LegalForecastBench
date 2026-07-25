@@ -14,6 +14,7 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadError,
     FreeDocumentDownloadRequest,
     UrlLibFreeDocumentSource,
+    _adopt_authenticated_destination,
     _AllowlistedRedirectHandler,
     download_free_docket_documents,
     reuse_authenticated_free_documents,
@@ -714,12 +715,14 @@ def test_reuse_rejects_symlink_parent_before_recovering_external_temporary(
     )
     os.link(outside_document, temporary)
 
-    with pytest.raises(FreeDocumentDownloadError):
-        reuse_authenticated_free_documents(
-            (request,),
-            authenticated_source_records=(source_record,),
-            source_output_root=source_root,
-            destination_output_root=destination_root,
+    with pytest.raises(FreeDocumentDownloadError, match="parent must not be a symlink"):
+        _adopt_authenticated_destination(
+            request,
+            source_record=source_record,
+            source_path=source_root / source_record.local_path,
+            source_root=source_root,
+            destination_path=destination_root / source_record.local_path,
+            destination_root=destination_root,
         )
 
     assert temporary.exists()

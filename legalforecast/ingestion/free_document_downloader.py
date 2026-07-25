@@ -1040,6 +1040,11 @@ def _adopt_authenticated_destination(
     destination_root: Path,
 ) -> FreeDocumentDownloadRecord:
     label = f"{request.candidate_id}/{request.source_document_id}"
+    _reject_document_parent_symlinks(
+        destination_root,
+        destination_path,
+        label=label,
+    )
     _recover_owned_reuse_temporary(
         destination_path,
         expected_hash=source_record.sha256,
