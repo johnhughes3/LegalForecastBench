@@ -422,6 +422,7 @@ from legalforecast.ingestion.free_document_downloader import (
     download_free_docket_documents,
     is_free_document_dry_run_manifest,
     reuse_authenticated_free_documents,
+    verified_checkpoint_projection_sha256,
     verify_completed_free_document_manifest,
 )
 from legalforecast.ingestion.funnel_report import (
@@ -13986,6 +13987,7 @@ def _verified_retarget_final_input_commitments(
         reuse_receipt=reuse_receipt,
         source_document_root=receipt.source_root / "documents/free",
         destination_document_root=output_root / "documents/free",
+        imported_records=verified_imported,
     )
     claimed_reuse_hash = reuse_receipt.get("receipt_sha256")
     unhashed_reuse = dict(reuse_receipt)
@@ -14012,6 +14014,7 @@ def _verify_retarget_reuse_checkpoint_commitments(
     reuse_receipt: Mapping[str, Any],
     source_document_root: Path,
     destination_document_root: Path,
+    imported_records: tuple[FreeDocumentDownloadRecord, ...],
 ) -> None:
     """Re-derive reuse checkpoint provenance from the committed bytes."""
 
@@ -14022,7 +14025,10 @@ def _verify_retarget_reuse_checkpoint_commitments(
         reuse_receipt.get("source_checkpoint_sha256") != _path_sha256(source_checkpoint)
         or reuse_receipt.get("source_checkpoint_record_count") != len(source_records)
         or reuse_receipt.get("destination_checkpoint_sha256")
-        != _path_sha256(destination_checkpoint)
+        != verified_checkpoint_projection_sha256(
+            imported_records,
+            checkpoint_path=destination_checkpoint,
+        )
     ):
         raise CommandError("retarget document-reuse checkpoint commitment mismatch")
 

@@ -697,18 +697,67 @@ def test_retarget_reuse_checkpoint_commitments_are_rederived_from_bytes(
     destination_checkpoint = destination_root / ".download-checkpoint.jsonl"
     source_root.mkdir()
     destination_root.mkdir()
-    source_checkpoint.write_text('{"record":1}\n{"record":2}\n', encoding="utf-8")
-    destination_checkpoint.write_text('{"record":1}\n', encoding="utf-8")
+    imported_records = tuple(
+        cli.FreeDocumentDownloadRecord(
+            candidate_id=f"candidate-{index}",
+            source_provider="courtlistener",
+            source_document_id=f"document-{index}",
+            docket_entry_number=index,
+            document_role=cli.DocumentRole.COMPLAINT,
+            source_url=f"https://www.courtlistener.com/recap/document-{index}.pdf",
+            local_path=(
+                f"candidate-{index}/courtlistener/entry-{index}_document-{index}.pdf"
+            ),
+            sha256=str(index) * 64,
+            byte_count=index,
+            free_or_purchased="free",
+            retry_count=0,
+            rate_limited=False,
+            reused_existing=True,
+        )
+        for index in (1, 2)
+    )
+    appended_record = cli.FreeDocumentDownloadRecord(
+        candidate_id="candidate-3",
+        source_provider="courtlistener",
+        source_document_id="document-3",
+        docket_entry_number=3,
+        document_role=cli.DocumentRole.MTD_MEMORANDUM,
+        source_url="https://www.courtlistener.com/recap/document-3.pdf",
+        local_path="candidate-3/courtlistener/entry-3_document-3.pdf",
+        sha256="3" * 64,
+        byte_count=3,
+        free_or_purchased="free",
+        retry_count=0,
+        rate_limited=False,
+        reused_existing=False,
+    )
+
+    def checkpoint_payload(
+        records: tuple[cli.FreeDocumentDownloadRecord, ...],
+    ) -> bytes:
+        return "".join(
+            json.dumps(record.to_record(), sort_keys=True) + "\n"
+            for record in sorted(records, key=lambda record: record.local_path)
+        ).encode()
+
+    source_checkpoint.write_bytes(checkpoint_payload(imported_records))
+    destination_checkpoint.write_bytes(
+        checkpoint_payload((*imported_records, appended_record))
+    )
     receipt: dict[str, object] = {
         "source_checkpoint_sha256": cli._path_sha256(source_checkpoint),
         "source_checkpoint_record_count": 2,
-        "destination_checkpoint_sha256": cli._path_sha256(destination_checkpoint),
+        "destination_checkpoint_sha256": (
+            "sha256:" + hashlib.sha256(checkpoint_payload(imported_records)).hexdigest()
+        ),
     }
 
     cli._verify_retarget_reuse_checkpoint_commitments(
         reuse_receipt=receipt,
         source_document_root=source_root,
         destination_document_root=destination_root,
+        imported_records=imported_records,
     )
     receipt["source_checkpoint_sha256"] = "sha256:" + "0" * 64
 
@@ -717,6 +766,7 @@ def test_retarget_reuse_checkpoint_commitments_are_rederived_from_bytes(
             reuse_receipt=receipt,
             source_document_root=source_root,
             destination_document_root=destination_root,
+            imported_records=imported_records,
         )
 
 
