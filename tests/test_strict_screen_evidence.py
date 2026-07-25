@@ -231,6 +231,58 @@ def test_earlier_generic_anchor_need_not_be_benchmark_linked() -> None:
     )
 
 
+def test_blank_unnumbered_nonactual_anchor_is_retained_as_auxiliary() -> None:
+    evidence = _evidence_with_blank_unnumbered_nonactual_anchor()
+
+    validate_strict_screen_evidence(
+        evidence,
+        expected_candidate_id="courtlistener-docket-73330394",
+    )
+
+
+def test_blank_unnumbered_auxiliary_cannot_be_an_actual_screened_decision() -> None:
+    evidence = _evidence_with_blank_unnumbered_nonactual_anchor()
+    evidence["mtd_decision_screen"]["decision_entries"].append(
+        {
+            "row_id": "minute-entry-13",
+            "entry_number": None,
+            "filed_at": "2026-07-02",
+            "actual_mtd_decision": True,
+            "exclusion_reasons": [],
+        }
+    )
+    evidence["mtd_decision_screen"]["actual_mtd_decision_entry_count"] = 2
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match="decision screen references a blank auxiliary row",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id="courtlistener-docket-73330394",
+        )
+
+
+@pytest.mark.parametrize(
+    "linkage_field",
+    ("motion_entry_ids", "disposition_entry_ids"),
+)
+def test_blank_unnumbered_auxiliary_cannot_be_linked(
+    linkage_field: str,
+) -> None:
+    evidence = _evidence_with_blank_unnumbered_nonactual_anchor()
+    evidence["motion_linkage"]["links"][0][linkage_field].append("minute-entry-13")
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match="motion_linkage references a blank auxiliary row",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id="courtlistener-docket-73330394",
+        )
+
+
 def test_decision_row_id_and_entry_number_must_identify_the_same_selected_row() -> None:
     evidence = _evidence()
     evidence["mtd_decision_screen"]["decision_entries"][0]["row_id"] = "entry-5"
@@ -243,6 +295,48 @@ def test_decision_row_id_and_entry_number_must_identify_the_same_selected_row() 
             evidence,
             expected_candidate_id="courtlistener-docket-73330394",
         )
+
+
+def _evidence_with_blank_unnumbered_nonactual_anchor() -> dict[str, Any]:
+    evidence = deepcopy(_evidence())
+    evidence["selected_entries"].append(
+        {
+            "row_id": "minute-entry-13",
+            "entry_number": None,
+            "filed_at": "2026-07-02",
+            "text": "",
+            "role": "decision",
+            "restriction_markers": [],
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "Order on Motion to Dismiss Party",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                    "freely_available": False,
+                    "restriction_markers": [],
+                }
+            ],
+        }
+    )
+    evidence["mtd_decision_screen"]["anchor_disposition_entries"] = [
+        {
+            "row_id": "entry-12",
+            "entry_number": "12",
+            "filed_at": "2026-07-02",
+            "actual_mtd_decision": True,
+            "exclusion_reasons": [],
+        },
+        {
+            "row_id": "minute-entry-13",
+            "entry_number": None,
+            "filed_at": "2026-07-02",
+            "actual_mtd_decision": False,
+            "exclusion_reasons": ["mtd_disposition_unproven"],
+        },
+    ]
+    return evidence
 
 
 def _evidence_with_unnumbered_decision() -> dict[str, Any]:
