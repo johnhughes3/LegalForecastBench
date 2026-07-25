@@ -230,6 +230,9 @@ def test_exact_union_policy_rebind_preserves_every_terminal_and_raw_record(
         "firecrawl_screening_implementation"
     ]
     source_sha256 = source_implementation["source_sha256"]
+    source_sha256["legalforecast/ingestion/cycle_acquisition_store.py"] = (
+        "8056af7bb6ca810fe945153f0e79ded8d4879abf0305a7bda98e99805739807a"
+    )
     source_sha256["legalforecast/ingestion/courtlistener_dates.py"] = (
         "c414deb237d62fe6fbdd43863cdd4acf0387a5de54ecb21f0cd7c0ec88417f3d"
     )

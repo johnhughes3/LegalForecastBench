@@ -57,6 +57,11 @@ _AUDITED_IMPLEMENTATION_PREDECESSOR_SHA256 = {
     "legalforecast/cli.py": (
         "14020dcb3064993fdf81ad680e52ccf71f21ee69b639d0222f53a31c56ab8291"
     ),
+    # The intervening store change only adds provider-free reuse of a current
+    # terminal observation; it does not change screening or snapshot semantics.
+    "legalforecast/ingestion/cycle_acquisition_store.py": (
+        "8056af7bb6ca810fe945153f0e79ded8d4879abf0305a7bda98e99805739807a"
+    ),
     # The current parser only broadens recognized CourtListener time suffixes.
     # Every accepted disposition is revalidated below under that current parser.
     "legalforecast/ingestion/courtlistener_dates.py": (
@@ -577,7 +582,7 @@ def _verify_union_authority(
         if _AUDITED_IMPLEMENTATION_PREDECESSOR_SHA256.get(path) != source_hashes[path]:
             raise ScreeningUnionPolicyRebindError(
                 "source union screening implementation differs outside the "
-                "audited verifier and policy-rebind wrapper additions"
+                "exact audited policy-rebind predecessor set"
             )
     if source_run_card.get("schema_version") != _UNION_RUN_SCHEMA:
         raise ScreeningUnionPolicyRebindError(
