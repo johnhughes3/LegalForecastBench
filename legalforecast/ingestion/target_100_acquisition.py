@@ -100,6 +100,14 @@ class Target100StageCommand:
     argv: tuple[str, ...]
 
 
+def _require_validated[T](value: T | None, *, message: str) -> T:
+    """Defensively enforce an invariant already checked by config validation."""
+
+    if value is None:
+        raise TargetCohortPreparationError(message)
+    return value
+
+
 def build_target_cohort_stage_commands(
     config: TargetCohortPreparationConfig,
 ) -> tuple[Target100StageCommand, ...]:
@@ -156,16 +164,22 @@ def _build_target_stage_commands(
         config.cost_per_document_usd,
     ]
     if config.raw_html_dir is not None:
-        assert config.authenticated_raw_html_manifest is not None
-        assert config.authenticated_raw_html_manifest_sha256 is not None
+        raw_manifest = _require_validated(
+            config.authenticated_raw_html_manifest,
+            message="authenticated raw-HTML manifest is required with raw HTML",
+        )
+        raw_manifest_sha256 = _require_validated(
+            config.authenticated_raw_html_manifest_sha256,
+            message="authenticated raw-HTML manifest SHA-256 is required with raw HTML",
+        )
         public_plan.extend(
             (
                 "--raw-html-dir",
                 str(config.raw_html_dir),
                 "--authenticated-raw-html-manifest",
-                str(config.authenticated_raw_html_manifest),
+                str(raw_manifest),
                 "--expected-authenticated-raw-html-manifest-sha256",
-                config.authenticated_raw_html_manifest_sha256,
+                raw_manifest_sha256,
             )
         )
     if config.use_embedded_entries:
@@ -186,8 +200,11 @@ def _build_target_stage_commands(
     if config.live_public_download:
         download_free.append("--live-public-download")
     else:
-        assert config.fixture_documents is not None
-        download_free.extend(("--fixture-documents", str(config.fixture_documents)))
+        fixture_documents = _require_validated(
+            config.fixture_documents,
+            message="fixture documents are required without live public download",
+        )
+        download_free.extend(("--fixture-documents", str(fixture_documents)))
 
     bridge = [
         "acquisition",
@@ -211,25 +228,34 @@ def _build_target_stage_commands(
     ]
     if config.raw_html_dir is not None:
         bridge.extend(("--raw-html-dir", str(config.raw_html_dir)))
-        assert config.authenticated_raw_html_manifest is not None
-        assert config.authenticated_raw_html_manifest_sha256 is not None
+        raw_manifest = _require_validated(
+            config.authenticated_raw_html_manifest,
+            message="authenticated raw-HTML manifest is required with raw HTML",
+        )
+        raw_manifest_sha256 = _require_validated(
+            config.authenticated_raw_html_manifest_sha256,
+            message="authenticated raw-HTML manifest SHA-256 is required with raw HTML",
+        )
         bridge.extend(
             (
                 "--authenticated-raw-html-manifest",
-                str(config.authenticated_raw_html_manifest),
+                str(raw_manifest),
                 "--expected-authenticated-raw-html-manifest-sha256",
-                config.authenticated_raw_html_manifest_sha256,
+                raw_manifest_sha256,
             )
         )
     if config.use_embedded_entries:
         bridge.append("--use-embedded-entries")
     if config.live_courtlistener:
-        assert config.request_ledger is not None
+        request_ledger = _require_validated(
+            config.request_ledger,
+            message="request ledger is required with live CourtListener REST",
+        )
         bridge.extend(
             (
                 "--live-courtlistener",
                 "--request-ledger",
-                str(config.request_ledger),
+                str(request_ledger),
                 "--courtlistener-rate-profile",
                 config.courtlistener_rate_profile,
                 "--request-budget-max-wait-seconds",
@@ -237,8 +263,11 @@ def _build_target_stage_commands(
             )
         )
     else:
-        assert config.courtlistener_fixture is not None
-        bridge.extend(("--courtlistener-fixture", str(config.courtlistener_fixture)))
+        courtlistener_fixture = _require_validated(
+            config.courtlistener_fixture,
+            message="CourtListener fixture is required without live CourtListener REST",
+        )
+        bridge.extend(("--courtlistener-fixture", str(courtlistener_fixture)))
 
     download_bridge_free = [
         "acquisition",
@@ -255,10 +284,11 @@ def _build_target_stage_commands(
     if config.live_public_download:
         download_bridge_free.append("--live-public-download")
     else:
-        assert config.fixture_documents is not None
-        download_bridge_free.extend(
-            ("--fixture-documents", str(config.fixture_documents))
+        fixture_documents = _require_validated(
+            config.fixture_documents,
+            message="fixture documents are required without live public download",
         )
+        download_bridge_free.extend(("--fixture-documents", str(fixture_documents)))
 
     merge_free_downloads = (
         "acquisition",

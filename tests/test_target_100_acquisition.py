@@ -22,6 +22,7 @@ from legalforecast.ingestion.disclosure_review_bundle import prepare_review_work
 from legalforecast.ingestion.target_100_acquisition import (
     Target100PreparationConfig,
     TargetCohortPreparationConfig,
+    TargetCohortPreparationError,
     build_target_100_stage_commands,
     build_target_cohort_stage_commands,
 )
@@ -127,6 +128,32 @@ def test_target_100_commands_are_resumable_noncharging_and_exactly_capped(
     assert commands[0].argv[
         commands[0].argv.index("--expected-snapshot-manifest-sha256") + 1
     ] == ("b" * 64)
+
+
+def test_target_command_builder_defensively_rejects_missing_narrowed_value(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = Target100PreparationConfig(
+        output_root=tmp_path / "run",
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
+        candidate_pool_size=100,
+        authenticated_screened_cases=tmp_path / "authenticated-screened.jsonl",
+        screened_cases_sha256="c" * 64,
+        raw_html_dir=tmp_path / "raw",
+        live_public_download=True,
+        live_courtlistener=True,
+        request_ledger=tmp_path / "courtlistener-requests.sqlite3",
+    )
+    monkeypatch.setattr(Target100PreparationConfig, "validate", lambda self: None)
+
+    with pytest.raises(
+        TargetCohortPreparationError,
+        match="authenticated raw-HTML manifest is required",
+    ):
+        build_target_100_stage_commands(config)
 
 
 def test_target_cohort_commands_are_noncharging_and_bind_explicit_target(
