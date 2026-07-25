@@ -136,7 +136,7 @@ def validate_strict_screen_evidence(
         assert isinstance(text_value, str)
         blank_auxiliary = not text_value.strip()
         if blank_auxiliary and (
-            role != "other"
+            (role != "other" and entry_number is not None)
             or entry_number in target_numbers
             or entry_number in decision_numbers
         ):
@@ -190,7 +190,8 @@ def validate_strict_screen_evidence(
                 # CourtListener emits a synthetic blank document object for some
                 # unnumbered text-only minute rows. It is structural padding, not
                 # document evidence, and therefore may survive only in this exact
-                # non-downloadable shape. Numbered rows and blank rows still fail.
+                # non-downloadable shape. Numbered rows and blank rows without a
+                # separate document description still fail.
                 if (
                     entry_number is not None
                     or blank_auxiliary
@@ -205,9 +206,10 @@ def validate_strict_screen_evidence(
         if blank_auxiliary:
             # CourtListener REST legitimately leaves administrative entry text
             # blank while supplying the row narrative as a RECAP document
-            # description. Retain such rows so packet completeness and
-            # restriction markers remain auditable, but never let one satisfy
-            # the required motion, decision, or linkage evidence.
+            # description. Its derived role can overstate that narrative, so
+            # retain an unnumbered row as auxiliary regardless of role while
+            # later forbidding the strict decision screen and linkage from
+            # relying on it.
             if not has_document_description:
                 _text(text_value, f"selected_entries[{index}].text")
             blank_auxiliary_row_ids.add(row_id)
@@ -298,6 +300,10 @@ def validate_strict_screen_evidence(
             decision.get("filed_at"),
             fallback=row_id_to_filed_at[normalized_row_id],
             label=f"{decision_label}.filed_at",
+        )
+    if blank_auxiliary_row_ids & screened_decision_row_ids:
+        raise StrictScreenEvidenceError(
+            "MTD decision screen references a blank auxiliary row"
         )
     if not set(decision_numbers).issubset(screened_decision_numbers):
         raise StrictScreenEvidenceError(
