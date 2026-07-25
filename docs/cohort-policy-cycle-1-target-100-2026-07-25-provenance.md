@@ -6,7 +6,7 @@ It is not a policy artifact and is never consumed as runtime authority.
 ## Human authority
 
 - `LegalForecastBench-5qd6.86` records John's exact first-run `launch_case_count=100`, with acquisition toward at least 150 retained only as a nonblocking reserve; it closed on 2026-07-17 before packet exposure.
-- On 2026-07-25 John explicitly changed the pending acquisition goal from 150 to 100 and directed that everything else remain unchanged. `LegalForecastBench-5qd6.75.16.4` records that amendment in its durable notes.
+- On 2026-07-25 John explicitly changed the pending first-run launch target from 150 to 100 and directed that everything else remain unchanged. `LegalForecastBench-5qd6.75.16.4` records that amendment in its durable notes; acquisition toward 150 remains the pre-existing nonblocking reserve.
 - The immediately preceding exact-148 policy draft recorded the unchanged acquisition values in `LegalForecastBench-5qd6.75.8` on 2026-07-25: current cycle hash, `2026-06-30` anchor, source window through `2026-07-23`, cheapest-complete selection, `$567.30` cycle cap, `$73.20` per-case cap, 14-day overlap, packet completeness, quarantine and same-cap replacement. The exact-100 decisions change only the launch target and terminal claim tier, as John directed.
 - The 400-prediction-unit claim floor is preserved from the prior generated exact-100 policy with identity `d27bf66cd895ec42b912aafc535bf53cf9e9d38182bff9e32ff5ac72c0bc0128`. It can only downgrade the public claim class to provisional feasibility; it cannot admit a case, relax a quality gate, authorize spending, or change the frozen exact-100 denominator.
 
