@@ -36,14 +36,14 @@ class ProviderJournalReplayMismatchError(ProviderJournalError):
 
 @dataclass(frozen=True, slots=True)
 class ProviderCycleCap:
-    """One externally bounded provider reservation cap for an official cycle."""
+    """One provider reservation cap plus optional legacy evidence annotations."""
 
     provider: str
     cycle_reservation_cap_usd: Decimal
-    external_spend_limit_usd: Decimal
-    external_limit_scope: str
-    external_limit_source: str
-    verified_at: str
+    external_spend_limit_usd: Decimal | None
+    external_limit_scope: str | None
+    external_limit_source: str | None
+    verified_at: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,7 +128,7 @@ def verify_provider_journal_identity(
 
 
 def load_provider_cycle_caps(path: str | Path) -> ProviderCycleCaps:
-    """Load and fail-closed validate an externally bounded caps artifact."""
+    """Load and fail-closed validate provider cycle reservation caps."""
 
     source = Path(path)
     try:
@@ -159,25 +159,21 @@ def load_provider_cycle_caps(path: str | Path) -> ProviderCycleCaps:
         if provider in providers:
             raise ProviderJournalError(f"duplicate provider cap for {provider!r}")
         cap = _positive_decimal(raw, "cycle_reservation_cap_usd")
-        external_limit = _positive_decimal(raw, "external_spend_limit_usd")
-        if cap > external_limit:
-            raise ProviderJournalError(
-                f"provider {provider!r} cycle reservation cap {cap} exceeds "
-                f"documented external spend limit {external_limit}"
-            )
-        verified_at = _required_nonempty_string(raw, "verified_at")
-        try:
-            datetime.fromisoformat(verified_at.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise ProviderJournalError(
-                f"provider {provider!r} verified_at must be ISO 8601"
-            ) from exc
+        external_limit = _optional_positive_decimal(raw, "external_spend_limit_usd")
+        verified_at = _optional_nonempty_string(raw, "verified_at")
+        if verified_at is not None:
+            try:
+                datetime.fromisoformat(verified_at.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ProviderJournalError(
+                    f"provider {provider!r} verified_at must be ISO 8601"
+                ) from exc
         providers[provider] = ProviderCycleCap(
             provider=provider,
             cycle_reservation_cap_usd=cap,
             external_spend_limit_usd=external_limit,
-            external_limit_scope=_required_nonempty_string(raw, "external_limit_scope"),
-            external_limit_source=_required_nonempty_string(
+            external_limit_scope=_optional_nonempty_string(raw, "external_limit_scope"),
+            external_limit_source=_optional_nonempty_string(
                 raw, "external_limit_source"
             ),
             verified_at=verified_at,
@@ -753,6 +749,12 @@ def _required_nonempty_string(record: Mapping[str, object], field: str) -> str:
     return value.strip()
 
 
+def _optional_nonempty_string(record: Mapping[str, object], field: str) -> str | None:
+    if field not in record:
+        return None
+    return _required_nonempty_string(record, field)
+
+
 def _nonempty_identity(value: str, field: str) -> str:
     if not value.strip():
         raise ValueError(f"provider journal {field} must be non-empty")
@@ -772,6 +774,14 @@ def _positive_decimal(record: Mapping[str, object], field: str) -> Decimal:
     if not parsed.is_finite() or parsed <= 0:
         raise ProviderJournalError(f"provider cycle caps {field} must be positive")
     return parsed
+
+
+def _optional_positive_decimal(
+    record: Mapping[str, object], field: str
+) -> Decimal | None:
+    if field not in record:
+        return None
+    return _positive_decimal(record, field)
 
 
 def _now() -> str:

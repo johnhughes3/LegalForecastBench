@@ -40,7 +40,7 @@ def test_journal_closes_connection_when_pragma_fails(
     assert connection.closed is True
 
 
-def test_provider_cycle_caps_load_externally_bounded_provider_caps(
+def test_provider_cycle_caps_load_optional_legacy_external_evidence_annotations(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "provider-cycle-caps.json"
@@ -64,9 +64,41 @@ def test_provider_cycle_caps_load_externally_bounded_provider_caps(
     assert caps.cycle_id == "cycle-1"
     assert caps.cap_usd("openai") == 100.0
     assert caps.cap_usd("OpenAI") == 100.0
+    cap = caps.providers["openai"]
+    assert cap.external_spend_limit_usd == 215
+    assert cap.external_limit_scope == "organization monthly spend limit"
+    assert cap.external_limit_source == "operator verification 2026-07-12"
+    assert cap.verified_at == "2026-07-12T16:00:00Z"
 
 
-def test_provider_cycle_caps_reject_cap_above_external_limit(tmp_path: Path) -> None:
+def test_provider_cycle_caps_load_without_legacy_external_evidence(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-cycle-caps.json"
+    path.write_text(
+        """{
+          "schema_version": "legalforecast.provider_cycle_caps.v1",
+          "cycle_id": "cycle-1",
+          "providers": [{
+            "provider": "openai",
+            "cycle_reservation_cap_usd": "100.00"
+          }]
+        }"""
+    )
+
+    caps = load_provider_cycle_caps(path)
+
+    cap = caps.providers["openai"]
+    assert cap.cycle_reservation_cap_usd == 100
+    assert cap.external_spend_limit_usd is None
+    assert cap.external_limit_scope is None
+    assert cap.external_limit_source is None
+    assert cap.verified_at is None
+
+
+def test_provider_cycle_cap_does_not_derive_authority_from_legacy_external_limit(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "provider-cycle-caps.json"
     path.write_text(
         """{
@@ -83,8 +115,10 @@ def test_provider_cycle_caps_reject_cap_above_external_limit(tmp_path: Path) -> 
         }"""
     )
 
-    with pytest.raises(ProviderJournalError, match="exceeds documented external"):
-        load_provider_cycle_caps(path)
+    caps = load_provider_cycle_caps(path)
+
+    assert caps.cap_usd("anthropic") == 200.01
+    assert caps.providers["anthropic"].external_spend_limit_usd == 200
 
 
 def test_provider_cycle_caps_reject_missing_provider(tmp_path: Path) -> None:
