@@ -624,7 +624,10 @@ def test_process_tree_cleanup_is_repeatable(tmp_path: Path) -> None:
     script, pid_dir = _write_process_tree_script(tmp_path, behavior="sleep")
     adapter = CommandAdapter(
         manifest=_manifest(command=(sys.executable, str(script))),
-        timeout_seconds=0.5,
+        # The fixture itself allows up to one second for its child and
+        # grandchild to publish readiness. Keep startup headroom separate from
+        # the timeout behavior this test exercises on loaded CI workers.
+        timeout_seconds=2,
         termination_grace_seconds=0.05,
     )
     workspace = tmp_path / "workspace"

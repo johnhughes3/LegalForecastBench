@@ -10,7 +10,7 @@ import signal
 import sys
 import time
 from collections.abc import Mapping
-from typing import Any, NoReturn
+from typing import Any
 
 FIXTURE_VERSION = "2.1.211 (Claude Code fixture)"
 FIXTURE_CLAUDE_CODE_VERSION = "2.1.211"
@@ -37,6 +37,8 @@ MODES = {
     "tool_request",
     "version_drift",
 }
+
+_cancellation_requested = False
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -124,17 +126,20 @@ def _result_event(
 
 
 def _install_cancellation_handler() -> None:
-    def cancel(_signum: int, _frame: object) -> NoReturn:
-        _emit(_result_event(subtype="cancelled", is_error=True))
-        raise SystemExit(130)
+    global _cancellation_requested
+    _cancellation_requested = False
+
+    def cancel(_signum: int, _frame: object) -> None:
+        global _cancellation_requested
+        _cancellation_requested = True
 
     signal.signal(signal.SIGTERM, cancel)
     signal.signal(signal.SIGINT, cancel)
 
 
-def _wait_forever() -> NoReturn:
-    while True:
-        time.sleep(60)
+def _wait_for_cancellation() -> None:
+    while not _cancellation_requested:
+        time.sleep(0.01)
 
 
 def _run_stream(args: argparse.Namespace, mode: str) -> int:
@@ -143,12 +148,17 @@ def _run_stream(args: argparse.Namespace, mode: str) -> int:
         # as soon as it reads the init event without racing default SIGTERM.
         _install_cancellation_handler()
     _emit(_init_event(args, mode))
+    if mode == "cancellation":
+        # A signal can arrive after the init line reaches the pipe but before
+        # BufferedWriter.flush() returns. The handler records intent only; emit
+        # after normal control flow resumes so stdout is never re-entered.
+        _wait_for_cancellation()
+        _emit(_result_event(subtype="cancelled", is_error=True))
+        return 130
 
     if mode == "timeout":
         time.sleep(60)
         return 0
-    if mode == "cancellation":
-        _wait_forever()
     if mode == "mixed_output":
         print("FAKE_CLAUDE_MIXED_STDOUT", flush=True)
         return 0
