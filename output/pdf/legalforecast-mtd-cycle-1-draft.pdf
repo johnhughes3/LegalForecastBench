@@ -286,7 +286,7 @@ Q
 q
 1 0 0 1 57.84 641.64 cm
 q
-BT 1 0 0 1 0 16 Tm 190.35 0 Td 13 TL /F1 10 Tf .2 .254902 .333333 rg (Author: John J. Hughes III) Tj  T* -22.225 0 Td (Version: 2026-07-17 repository draft) Tj T* -168.125 0 Td ET
+BT 1 0 0 1 0 16 Tm 190.35 0 Td 13 TL /F1 10 Tf .2 .254902 .333333 rg (Author: John J. Hughes III) Tj  T* -22.225 0 Td (Version: 2026-07-25 repository draft) Tj T* -168.125 0 Td ET
 Q
 Q
 q
@@ -375,7 +375,7 @@ endstream
 endobj
 31 0 obj
 <<
-/Length 7050
+/Length 7246
 >>
 stream
 1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
@@ -418,67 +418,67 @@ BT 1 0 0 1 0 2.4 Tm /F2 10.6 Tf 13 TL (2.1 Cohort and target disposition) Tj T* 
 Q
 Q
 q
-1 0 0 1 57.84 531.14 cm
+1 0 0 1 57.84 506.74 cm
 q
-BT 1 0 0 1 0 63.95 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (Cycle 1 is organized around a frozen, acquisition-shaped convenience cohort selected before model outputs or Stage B labels are) Tj T* (inspected. The cohort is deliberately nonrepresentative: source coverage, public-document availability, and acquisition cost affect) Tj T* (which otherwise eligible matters can be completed in time. Candidate matters must still satisfy the cycle) Tj (') Tj (s dated eligibility, motion,) Tj T* (document, and disposition rules, with the strict screen as the sole eligibility and exclusion authority. Acquisition records source) Tj T* (handles, retrieval status, hashes, exclusions, omissions, and completeness evidence. The official freeze binds at least 150 eligible) Tj T* (matters; a shortfall blocks the official run rather than silently changing the denominator or weakening the inclusion rule.) Tj T* ET
+BT 1 0 0 1 0 88.35 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (Cycle 1 is organized around a frozen, acquisition-shaped convenience cohort selected before model outputs or Stage B labels are) Tj T* (inspected. The cohort is deliberately nonrepresentative: source coverage, public-document availability, and acquisition cost affect) Tj T* (which otherwise eligible matters can be completed in time. Candidate matters must still satisfy the cycle) Tj (') Tj (s dated eligibility, motion,) Tj T* (document, and disposition rules, with the strict screen as the sole eligibility and exclusion authority. Acquisition records source) Tj T* (handles, retrieval status, hashes, exclusions, omissions, and completeness evidence. The first official freeze binds exactly 100 eligible) Tj T* (matters under the frozen exact-100 cohort policy. Acquisition toward at least 150 may continue as a nonblocking reserve, but reserve) Tj T* (cases cannot silently enter the first run; using them requires a separately named extension or later cycle with its own cohort, budget,) Tj T* (freeze, dispatch, and claims.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 476.34 cm
+1 0 0 1 57.84 451.94 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The target outcome is the first written disposition of the target motion. This anchor avoids choosing among later procedural events) Tj T* (after their substantive direction is known. A later amended complaint, renewed motion, reconsideration order, appeal, or settlement) Tj T* (may matter to litigants, but it is not substituted for the frozen target. Withdrawals and corrections use explicit records and superseding) Tj T* (publications rather than silent edits.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 421.54 cm
+1 0 0 1 57.84 397.14 cm
 q
 BT 1 0 0 1 0 39.55 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (The labeling protocol separates the motion, prediction unit, and outcome. Reviewers determine whether each claim was challenged,) Tj T* (the relevant defendant grouping, and whether the first written disposition fully dismissed the unit. Ambiguous or unsupported units) Tj T* -0.038515 Tw (follow the protocol) Tj (') Tj (s adjudication and exclusion rules. Locked labels remain private until the publication gate because early disclosure) Tj T* 0 Tw (would defeat the benchmark) Tj (') Tj (s contamination boundary.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 400.54 cm
+1 0 0 1 57.84 376.14 cm
 q
 .113725 .305882 .447059 rg
 BT 1 0 0 1 0 2.4 Tm /F2 10.6 Tf 13 TL (2.2 Model-visible packets) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 345.74 cm
+1 0 0 1 57.84 321.34 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (Each case packet contains only material permitted by the frozen packet policy. The full-packet condition may include a controlled) Tj T* -0.0714 Tw (docket chronology, operative complaint material, the target motion and supporting memorandum, opposition, reply, and other allowed) Tj T* 0 Tw (pre-decision filings when available. Every included source has a stable identifier and content hash. Packet construction records) Tj T* (missing optional sections rather than filling them with outcome-derived text.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 290.94 cm
+1 0 0 1 57.84 266.54 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The packet excludes the target written disposition and screens docket entries and filing text for outcome leakage. An audit) Tj T* (representation can retain information needed to explain an exclusion while the model-visible representation removes it. This) Tj T* (distinction prevents an operational audit trail from becoming an accidental model input. Restricted source bytes are not committed to) Tj T* (the public repository merely because their hashes or source handles can be disclosed.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 223.94 cm
+1 0 0 1 57.84 199.54 cm
 q
 BT 1 0 0 1 0 51.75 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (The headline ) Tj /F5 9.25 Tf (full_packet) Tj /F3 9.25 Tf ( condition is paired with ) Tj /F5 9.25 Tf (metadata_only) Tj /F3 9.25 Tf ( unless an operator explicitly requests a single-ablation) Tj T* (diagnostic. The metadata condition removes the substantive record while preserving the declared metadata feature surface. Because) Tj T* (each model configuration is evaluated on both conditions for the same cases and prediction units, the analysis can report a paired) Tj T* (difference. The difference is evidence about these frozen packet conditions on this cohort; it is not automatically a general causal) Tj T* (estimate of the value of legal text.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 202.94 cm
+1 0 0 1 57.84 178.54 cm
 q
 .113725 .305882 .447059 rg
 BT 1 0 0 1 0 2.4 Tm /F2 10.6 Tf 13 TL (2.3 Model and prompt identities) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 148.14 cm
+1 0 0 1 57.84 123.74 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The model registry freezes provider, model identifier or snapshot, execution backend, solver contract, and allowed settings. Official) Tj T* (prompts request a probability and a short rationale for every prediction unit. The output schema is fixed before dispatch. The parser) Tj T* (accepts only declared structures and probabilities in range. Missing or malformed required units follow the documented fail-closed) Tj T* (defaults; they are not silently dropped to improve coverage or score.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 93.34 cm
+1 0 0 1 57.84 68.94 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (Registry and prompt identity are part of the result. A provider label alone is not enough because hosted model behavior, tool) Tj T* (availability, inference settings, and wrapper logic can differ. The public run card therefore records the frozen identities and relevant) Tj T* (execution settings. Cross-cycle comparisons require special caution when any of those identities, the cohort, or the packet policy) Tj T* (changes.) Tj T* ET
@@ -1514,12 +1514,12 @@ xref
 0000005445 00000 n 
 0000005552 00000 n 
 0000013017 00000 n 
-0000020119 00000 n 
-0000027715 00000 n 
-0000035351 00000 n 
-0000045255 00000 n 
-0000052807 00000 n 
-0000060252 00000 n 
+0000020315 00000 n 
+0000027911 00000 n 
+0000035547 00000 n 
+0000045451 00000 n 
+0000053003 00000 n 
+0000060448 00000 n 
 trailer
 <<
 /ID 
@@ -1531,5 +1531,5 @@ trailer
 /Size 38
 >>
 startxref
-65488
+65684
 %%EOF

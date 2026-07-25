@@ -141,9 +141,9 @@ class DisclosureReviewAuthorityRegistryEntry:
 
 
 CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY = DisclosureReviewAuthorityIdentity(
-    cycle_id="cycle-1-superseding-target-100-2026-07-14",
+    cycle_id="cycle-1-target-100-2026-07-25",
     cohort_policy_sha256=(
-        "d27bf66cd895ec42b912aafc535bf53cf9e9d38182bff9e32ff5ac72c0bc0128"
+        "0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed"
     ),
     eligibility_anchor=date(2026, 6, 30),
 )

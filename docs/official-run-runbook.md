@@ -1368,17 +1368,24 @@ Set paths for the exact completed preparation outputs, a normal acquisition revi
 The frozen cohort policy selects the reviewer authority from the immutable main-pinned registry; callers cannot supply or replace the expected reviewer-policy digest.
 
 ```zsh
-review_requests=artifacts/cycle-1/official-acquisition/target-150-frontier/06-clearance-inputs/disclosure-review-requests.jsonl
-download_manifest=artifacts/cycle-1/official-acquisition/target-150-frontier/03c-merged-downloads/document-downloads-merged.jsonl
-document_root=artifacts/cycle-1/official-acquisition/target-150-frontier/documents/free
-restriction_evidence=artifacts/cycle-1/official-acquisition/target-150-frontier/06-clearance-inputs/restriction-evidence.jsonl
-review_root=artifacts/cycle-1/official-acquisition/target-150-frontier/disclosure-review
-clearance_root=artifacts/cycle-1/official-acquisition/target-150-frontier/free-clearance
+preparation_root=artifacts/cycle-1/official-acquisition-main-e0d7177-20260716/target-150-plus-five-current-policy-v1/15-final-provider-free-union-main-4d3ba85-v1/33-10k-continuation-main-5781216-v1/21-target100-retarget-main-182bd3d-v1
+review_requests="$preparation_root/06-clearance-inputs/disclosure-review-requests.jsonl"
+download_manifest="$preparation_root/03c-merged-downloads/document-downloads-merged.jsonl"
+document_root="$preparation_root/documents/free"
+restriction_evidence="$preparation_root/06-clearance-inputs/restriction-evidence.jsonl"
+review_root="$preparation_root/07-free-disclosure-review"
+clearance_root="$preparation_root/08-free-clearance"
+launch_root="$preparation_root/09-launch-100"
 private_review_root=<absolute-controlled-private-review-root>
 reviewer_policy=<externally-reviewed-human-hardware-reviewer-policy.json>
-cohort_policy=<frozen-cohort-policy.json>
+cohort_policy=docs/cohort-policy-cycle-1-target-100-2026-07-25.json
 controlled_store_uri=private-store://<authority>/<cycle-1-review-location>
 ```
+
+The current generated policy binds cycle hash `35f70123bfc966512d61119746ba09716332a181c074f131d553b56b610641cb`, the `2026-06-30` eligibility anchor, the saturated source window through `2026-07-23`, exactly 100 launch cases, and the unchanged `$567.30` cap.
+Its internal policy identity is `0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed`.
+The value-by-value human-authority and source derivation record is [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md).
+The main registry intentionally marks this identity unprovisioned until `LegalForecastBench-5qd6.39.7.1` supplies the reviewed human hardware signer; stop at preflight rather than substituting the superseded July 14 policy or an ordinary software key.
 
 First prepare the value-redacted worksheet and the private exact-byte inspection map.
 The private root must not equal, contain, or be contained by the acquisition output root.
@@ -1515,19 +1522,19 @@ Clearance success is necessary but does not by itself authorize a downstream com
 Before projection, recovery, parse, extension, packet planning, or finalization, require that command's current verifier to consume the completed clearance run card and carry its exact signed-review source commitments and reviewer-policy pin.
 If the live downstream contract omits that lineage, stop here and fix the gate; do not pass loose clearance files as a substitute.
 
-Only after clearance succeeds may the supported 100-case launch cohort be projected from the 150-case preparation. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases. It does not replace or lower the 150-case acquisition objective.
+Only after clearance succeeds may the supported 100-case launch cohort be projected from the 150-case preparation. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases. The first run has an exact-100 target; continued acquisition toward 150 is a nonblocking reserve and does not change that frozen denominator.
 
 ```bash
 uv run legalforecast acquisition project-target-cohort \
-  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100 \
-  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/03-gap-bridge/public-packet-selection-reconciled.jsonl \
-  --case-relevance artifacts/cycle-1/official-acquisition/target-150-frontier/03-gap-bridge/case-relevance.jsonl \
-  --download-manifest artifacts/cycle-1/official-acquisition/target-150-frontier/03c-merged-downloads/document-downloads-merged.jsonl \
-  --disclosure-clearance artifacts/cycle-1/official-acquisition/target-150-frontier/free-clearance/disclosure-clearance.jsonl \
-  --clearance-run-card artifacts/cycle-1/official-acquisition/target-150-frontier/free-clearance/run-cards/clear-disclosures.json \
-  --restriction-evidence artifacts/cycle-1/official-acquisition/target-150-frontier/06-clearance-inputs/restriction-evidence.jsonl \
-  --preparation-summary artifacts/cycle-1/official-acquisition/target-150-frontier/target-cohort-preparation-summary.json \
-  --preparation-config artifacts/cycle-1/official-acquisition/target-150-frontier/target-cohort-config.json \
+  --output-root "$launch_root" \
+  --selection "$preparation_root/03-gap-bridge/public-packet-selection-reconciled.jsonl" \
+  --case-relevance "$preparation_root/03-gap-bridge/case-relevance.jsonl" \
+  --download-manifest "$download_manifest" \
+  --disclosure-clearance "$clearance_root/disclosure-clearance.jsonl" \
+  --clearance-run-card "$clearance_root/run-cards/clear-disclosures.json" \
+  --restriction-evidence "$restriction_evidence" \
+  --preparation-summary "$preparation_root/target-cohort-preparation-summary.json" \
+  --preparation-config "$preparation_root/target-cohort-config.json" \
   --snapshot-manifest artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete/manifest.json \
   --target-case-count 100 \
   --cost-per-document-usd 3.05 \
@@ -1543,24 +1550,29 @@ If fewer than 100 post-clearance cases fit the unchanged cap, acquire more candi
 Paid acquisition remains a separate, operator-visible stage. First freeze the cohort and purchase-policy artifacts required by the CLI. Unknown-status RECAP documents additionally require one immutable attempt policy derived from the exact executable plan and selection; it grants only bounded spend authority and never parser or packet eligibility:
 
 ```bash
+purchase_policy=<verified-purchase-policy.json>
+purchase_ledger=<absolute-canonical-purchase-ledger-path>
+attempt_policy="$preparation_root/recap-fetch-attempt-policy-v1.json"
+broker_policy="$preparation_root/courtlistener-recap-fetch-policy-v1.json"
+
 uv run legalforecast acquisition generate-recap-fetch-attempt-policy \
-  --purchase-policy <verified-purchase-policy.json> \
-  --cohort-policy <frozen-cohort-policy.json> \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
-  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
-  --output artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json
+  --purchase-policy "$purchase_policy" \
+  --cohort-policy "$cohort_policy" \
+  --budget-plan "$launch_root/missing-core-budget-plan.json" \
+  --selection "$launch_root/target-cohort-selection.jsonl" \
+  --output "$attempt_policy"
 ```
 
 Generate the signed RECAP Fetch broker allowlist from those exact post-clearance outputs and the attempt authority:
 
 ```bash
 uv run legalforecast acquisition generate-recap-fetch-broker-policy \
-  --purchase-policy <verified-purchase-policy.json> \
-  --cohort-policy <frozen-cohort-policy.json> \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
-  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
-  --attempt-policy artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json \
-  --output artifacts/cycle-1/official-acquisition/target-150-frontier/courtlistener-recap-fetch-policy-v1.json
+  --purchase-policy "$purchase_policy" \
+  --cohort-policy "$cohort_policy" \
+  --budget-plan "$launch_root/missing-core-budget-plan.json" \
+  --selection "$launch_root/target-cohort-selection.jsonl" \
+  --attempt-policy "$attempt_policy" \
+  --output "$broker_policy"
 ```
 
 Inspect the projected total, allowlisted numeric RECAP document IDs, and remaining budget before invoking the only fee-bearing happy path:
@@ -1569,11 +1581,11 @@ Ledger initialization is a mandatory, non-provider step. The absolute ledger pat
 
 ```bash
 uv run legalforecast acquisition init-purchase-ledger \
-  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier \
-  --purchase-policy <verified-purchase-policy.json> \
-  --cohort-policy <frozen-cohort-policy.json> \
-  --purchase-ledger <absolute-canonical-purchase-ledger-path> \
-  --initialization-receipt-output artifacts/cycle-1/official-acquisition/target-150-frontier/purchase-ledger-initialization.json \
+  --output-root "$preparation_root" \
+  --purchase-policy "$purchase_policy" \
+  --cohort-policy "$cohort_policy" \
+  --purchase-ledger "$purchase_ledger" \
+  --initialization-receipt-output "$preparation_root/purchase-ledger-initialization.json" \
   --execute --resume
 ```
 
@@ -1582,13 +1594,13 @@ Case.dev may support noncharging search and docket enrichment, but its legacy pa
 
 ```bash
 uv run legalforecast acquisition purchase-missing-recap-fetch \
-  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
-  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
-  --purchase-policy <verified-purchase-policy.json> \
-  --cohort-policy <frozen-cohort-policy.json> \
-  --purchase-ledger <absolute-canonical-purchase-ledger-path> \
-  --attempt-policy artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json \
+  --output-root "$preparation_root" \
+  --budget-plan "$launch_root/missing-core-budget-plan.json" \
+  --selection "$launch_root/target-cohort-selection.jsonl" \
+  --purchase-policy "$purchase_policy" \
+  --cohort-policy "$cohort_policy" \
+  --purchase-ledger "$purchase_ledger" \
+  --attempt-policy "$attempt_policy" \
   --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
   --live-purchase --acknowledge-pacer-fees \
   --execute --resume
@@ -1599,16 +1611,16 @@ Never substitute a Case.dev live purchase, a Case.dev fee-bearing docket refresh
 The purchase result is not parser- or packet-eligible. Recover every purchased unknown-status document through a fresh authenticated CourtListener detail check. This noncharging stage writes a URL-free quarantine manifest, fresh restriction evidence, the exact disclosure-review request queue, and a committed document tree. Do not hand-author the review requests or copy the PDFs into another recovery root:
 
 ```bash
-quarantine_recovery_root=artifacts/cycle-1/official-acquisition/target-150-frontier/purchased-quarantine-recovery
+quarantine_recovery_root="$preparation_root/purchased-quarantine-recovery"
 
 uv run legalforecast acquisition recover-recap-fetch-quarantine \
   --output-root "$quarantine_recovery_root" \
-  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
-  --purchase-policy <verified-purchase-policy.json> \
-  --cohort-policy <frozen-cohort-policy.json> \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
-  --purchase-ledger <absolute-canonical-purchase-ledger-path> \
-  --attempt-policy artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json \
+  --selection "$launch_root/target-cohort-selection.jsonl" \
+  --purchase-policy "$purchase_policy" \
+  --cohort-policy "$cohort_policy" \
+  --budget-plan "$launch_root/missing-core-budget-plan.json" \
+  --purchase-ledger "$purchase_ledger" \
+  --attempt-policy "$attempt_policy" \
   --manifest-output "$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl" \
   --restriction-evidence-output "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
   --review-requests-output "$quarantine_recovery_root/disclosure-review-requests.jsonl" \
@@ -1625,8 +1637,8 @@ purchased_review_requests="$quarantine_recovery_root/disclosure-review-requests.
 purchased_download_manifest="$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl"
 purchased_document_root="$quarantine_recovery_root/documents/recap-fetch-quarantine"
 purchased_restriction_evidence="$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl"
-purchased_review_root=artifacts/cycle-1/official-acquisition/target-150-frontier/purchased-disclosure-review
-purchased_clearance_root=artifacts/cycle-1/official-acquisition/target-150-frontier/purchased-clearance
+purchased_review_root="$preparation_root/purchased-disclosure-review"
+purchased_clearance_root="$preparation_root/purchased-clearance"
 purchased_private_review_root=<absolute-controlled-private-review-root-for-purchased-documents>
 
 uv run legalforecast acquisition prepare-disclosure-review \
@@ -1662,16 +1674,16 @@ uv run legalforecast acquisition clear-disclosures \
 Clearance alone does not rewrite the canonical purchase state. Bind the signed review, fresh restriction evidence, recovered bytes, attempt authority, and purchase operation into the immutable post-recovery resolution artifact:
 
 ```bash
-resolved_post_recovery=artifacts/cycle-1/official-acquisition/target-150-frontier/resolved-post-recovery/resolved-post-recovery-documents.jsonl
+resolved_post_recovery="$preparation_root/resolved-post-recovery/resolved-post-recovery-documents.jsonl"
 
 uv run legalforecast acquisition resolve-post-recovery-documents \
-  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier/resolved-post-recovery \
-  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
-  --purchase-policy <verified-purchase-policy.json> \
-  --cohort-policy <frozen-cohort-policy.json> \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
-  --purchase-ledger <absolute-canonical-purchase-ledger-path> \
-  --attempt-policy artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json \
+  --output-root "$preparation_root/resolved-post-recovery" \
+  --selection "$launch_root/target-cohort-selection.jsonl" \
+  --purchase-policy "$purchase_policy" \
+  --cohort-policy "$cohort_policy" \
+  --budget-plan "$launch_root/missing-core-budget-plan.json" \
+  --purchase-ledger "$purchase_ledger" \
+  --attempt-policy "$attempt_policy" \
   --download-manifest "$purchased_download_manifest" \
   --disclosure-clearance "$purchased_clearance_root/disclosure-clearance.jsonl" \
   --clearance-run-card "$purchased_clearance_root/run-cards/clear-disclosures.json" \
