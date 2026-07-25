@@ -2508,8 +2508,16 @@ def _courtlistener_page(
         )
     if not use_embedded_entries:
         raise CourtListenerCaseDevBridgeError("raw_courtlistener_html_missing")
+    ai = _mapping(record.get("ai"), "ai")
+    critical_entry_numbers = frozenset(
+        _entry_numbers(ai.get("target_motion_entry_numbers"))
+        + _entry_numbers(ai.get("decision_entry_numbers"))
+    )
     entries = tuple(
-        _embedded_entry(item)
+        _embedded_entry(
+            item,
+            critical_entry_numbers=critical_entry_numbers,
+        )
         for item in _mapping_sequence(
             record.get("selected_entries"), "selected_entries"
         )
@@ -2525,26 +2533,42 @@ def _courtlistener_page(
     )
 
 
-def _embedded_entry(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry:
+def _embedded_entry(
+    record: Mapping[str, Any],
+    *,
+    critical_entry_numbers: frozenset[int],
+) -> CourtListenerWebDocketEntry:
     entry_markers = _string_sequence(record.get("restriction_markers"))
+    raw_text = record.get("text")
+    if raw_text is None:
+        raise CourtListenerCaseDevBridgeError("text_missing")
+    if not isinstance(raw_text, str):
+        raise CourtListenerCaseDevBridgeError("text_invalid")
+    documents = tuple(
+        CourtListenerWebDocument(
+            kind=_optional_str(document, "kind") or "",
+            description=_optional_str(document, "description") or "",
+            href=_optional_str(document, "href"),
+            action_label=_optional_str(document, "action_label"),
+            pacer_only=_optional_bool(document, "pacer_only", default=False),
+            restriction_markers=_string_sequence(document.get("restriction_markers")),
+        )
+        for document in _mapping_sequence(record.get("documents"), "documents")
+    )
+    text = raw_text.strip()
+    entry_number = _optional_str(record, "entry_number")
+    if not text:
+        normalized_entry_number = _positive_entry_number(entry_number)
+        if normalized_entry_number in critical_entry_numbers or not any(
+            document.description for document in documents
+        ):
+            raise CourtListenerCaseDevBridgeError("text_missing")
     return CourtListenerWebDocketEntry(
         row_id=_required_str(record, "row_id"),
-        entry_number=_optional_str(record, "entry_number"),
+        entry_number=entry_number,
         filed_at=_optional_str(record, "filed_at"),
-        text=_required_str(record, "text"),
-        documents=tuple(
-            CourtListenerWebDocument(
-                kind=_optional_str(document, "kind") or "",
-                description=_optional_str(document, "description") or "",
-                href=_optional_str(document, "href"),
-                action_label=_optional_str(document, "action_label"),
-                pacer_only=_optional_bool(document, "pacer_only", default=False),
-                restriction_markers=_string_sequence(
-                    document.get("restriction_markers")
-                ),
-            )
-            for document in _mapping_sequence(record.get("documents"), "documents")
-        ),
+        text=text,
+        documents=documents,
         restriction_markers=entry_markers,
     )
 

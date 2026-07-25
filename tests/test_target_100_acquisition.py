@@ -85,6 +85,400 @@ def _snapshot_manifest_sha256(snapshot: Path) -> str:
     return hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest()
 
 
+def test_preparation_clearance_inputs_ignore_unrecovered_paid_gaps(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "prepared"
+    (output_root / "03-gap-bridge").mkdir(parents=True)
+    (output_root / "03c-merged-downloads").mkdir(parents=True)
+    free_document = {
+        "source_document_id": "free-decision",
+        "redaction_or_seal_status": "public",
+        "restriction_evidence": ["courtlistener_public_download"],
+        "is_sealed": False,
+        "is_private": False,
+        "requires_paid_recovery": False,
+    }
+    unknown_paid_gap = {
+        "source_document_id": "paid-motion",
+        "redaction_or_seal_status": "unknown",
+        "restriction_evidence": ["no_positive_restriction_marker"],
+        "is_sealed": None,
+        "is_private": None,
+        "requires_paid_recovery": True,
+    }
+    _write_jsonl(
+        output_root / "03-gap-bridge/case-relevance.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "documents": [free_document, unknown_paid_gap],
+            }
+        ],
+    )
+    _write_jsonl(
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "source_document_id": "free-decision",
+                "sha256": "a" * 64,
+                "byte_count": 10,
+                "free_or_purchased": "free",
+            }
+        ],
+    )
+
+    cli._prepare_target_100_clearance_inputs(output_root, resume=False)
+
+    restrictions = _read_jsonl(
+        output_root / "06-clearance-inputs/restriction-evidence.jsonl"
+    )
+    requests = _read_jsonl(
+        output_root / "06-clearance-inputs/disclosure-review-requests.jsonl"
+    )
+    assert [
+        (row["candidate_id"], row["source_document_id"]) for row in restrictions
+    ] == [("case-1", "free-decision")]
+    assert [(row["candidate_id"], row["source_document_id"]) for row in requests] == [
+        ("case-1", "free-decision")
+    ]
+    restriction_path = output_root / "06-clearance-inputs/restriction-evidence.jsonl"
+    request_path = output_root / "06-clearance-inputs/disclosure-review-requests.jsonl"
+    restriction_bytes = restriction_path.read_bytes()
+    request_bytes = request_path.read_bytes()
+    cli._prepare_target_100_clearance_inputs(output_root, resume=True)
+    assert restriction_path.read_bytes() == restriction_bytes
+    assert request_path.read_bytes() == request_bytes
+    request_path.write_bytes(request_bytes + b"\n")
+    with pytest.raises(cli.CommandError, match="resume artifact mismatch"):
+        cli._prepare_target_100_clearance_inputs(output_root, resume=True)
+    assert restriction_path.read_bytes() == restriction_bytes
+
+
+def test_preparation_clearance_inputs_route_acquired_unknown_to_review(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "prepared"
+    (output_root / "03-gap-bridge").mkdir(parents=True)
+    (output_root / "03c-merged-downloads").mkdir(parents=True)
+    _write_jsonl(
+        output_root / "03-gap-bridge/case-relevance.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "documents": [
+                    {
+                        "source_document_id": "unknown-document",
+                        "redaction_or_seal_status": "unknown",
+                        "restriction_evidence": ["no_positive_restriction_marker"],
+                        "is_sealed": None,
+                        "is_private": None,
+                        "requires_paid_recovery": True,
+                    }
+                ],
+            }
+        ],
+    )
+    _write_jsonl(
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "source_document_id": "unknown-document",
+                "sha256": "a" * 64,
+                "byte_count": 10,
+                "free_or_purchased": "purchased",
+            }
+        ],
+    )
+
+    cli._prepare_target_100_clearance_inputs(output_root, resume=False)
+
+    [restriction] = _read_jsonl(
+        output_root / "06-clearance-inputs/restriction-evidence.jsonl"
+    )
+    [review_request] = _read_jsonl(
+        output_root / "06-clearance-inputs/disclosure-review-requests.jsonl"
+    )
+    assert restriction["restriction_status"] == "unknown"
+    assert review_request["restriction_status"] == "unknown"
+
+
+def test_preparation_clearance_inputs_reject_acquired_restricted_document(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "prepared"
+    (output_root / "03-gap-bridge").mkdir(parents=True)
+    (output_root / "03c-merged-downloads").mkdir(parents=True)
+    _write_jsonl(
+        output_root / "03-gap-bridge/case-relevance.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "documents": [
+                    {
+                        "source_document_id": "sealed-document",
+                        "redaction_or_seal_status": "sealed",
+                        "restriction_evidence": ["courtlistener_sealed"],
+                        "is_sealed": True,
+                        "is_private": False,
+                    }
+                ],
+            }
+        ],
+    )
+    _write_jsonl(
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "source_document_id": "sealed-document",
+                "sha256": "a" * 64,
+                "byte_count": 10,
+                "free_or_purchased": "free",
+            }
+        ],
+    )
+
+    with pytest.raises(
+        cli.TargetCohortProjectionError,
+        match="sealed/private/restricted",
+    ):
+        cli._prepare_target_100_clearance_inputs(output_root, resume=False)
+    assert not (output_root / "06-clearance-inputs").exists()
+
+
+def test_merge_download_manifests_filters_to_reconciled_selection(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "downloads.jsonl"
+    selection_path = tmp_path / "selection.jsonl"
+    output_root = tmp_path / "merged"
+    _write_jsonl(
+        manifest_path,
+        [
+            {
+                "candidate_id": candidate_id,
+                "source_document_id": f"{candidate_id}-decision",
+                "local_path": f"{candidate_id}/decision.pdf",
+                "sha256": "a" * 64,
+            }
+            for candidate_id in ("selected-case", "excluded-case")
+        ],
+    )
+    _write_jsonl(
+        selection_path,
+        [{"candidate_id": "selected-case", "selected": True}],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "merge-download-manifests",
+                "--download-manifest",
+                str(manifest_path),
+                "--candidate-selection",
+                str(selection_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "document-downloads-merged.jsonl") == [
+        {
+            "candidate_id": "selected-case",
+            "local_path": "selected-case/decision.pdf",
+            "sha256": "a" * 64,
+            "source_document_id": "selected-case-decision",
+        }
+    ]
+    run_card = json.loads(
+        (output_root / "run-cards/merge-download-manifests.json").read_text()
+    )
+    assert run_card["candidate_selection_applied"] is True
+    assert run_card["candidate_selection_sha256"] == (
+        "sha256:" + hashlib.sha256(selection_path.read_bytes()).hexdigest()
+    )
+    assert run_card["selected_candidate_count"] == 1
+    assert run_card["selected_candidate_ids_sha256"] == cli._canonical_json_sha256(
+        ["selected-case"]
+    )
+    assert run_card["excluded_manifest_record_count"] == 1
+
+
+@pytest.mark.parametrize("alias_kind", ["file_symlink", "parent_symlink", "hardlink"])
+def test_merge_candidate_selection_rejects_filesystem_aliases(
+    tmp_path: Path,
+    alias_kind: str,
+    capsys: CaptureFixture[str],
+) -> None:
+    preparation_root = tmp_path / alias_kind / "prepared"
+    selection_path = (
+        preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+    )
+    external_selection = tmp_path / alias_kind / "external-selection.jsonl"
+    manifest_path = tmp_path / alias_kind / "downloads.jsonl"
+    external_selection.parent.mkdir(parents=True)
+    _write_jsonl(
+        external_selection,
+        [{"candidate_id": "selected-case", "selected": True}],
+    )
+    _write_jsonl(
+        manifest_path,
+        [
+            {
+                "candidate_id": "selected-case",
+                "source_document_id": "selected-case-decision",
+                "local_path": "selected-case/decision.pdf",
+                "sha256": "a" * 64,
+            }
+        ],
+    )
+    if alias_kind == "parent_symlink":
+        external_parent = tmp_path / alias_kind / "external-gap"
+        external_parent.mkdir()
+        (external_parent / selection_path.name).write_bytes(
+            external_selection.read_bytes()
+        )
+        selection_path.parent.parent.mkdir(parents=True)
+        selection_path.parent.symlink_to(external_parent, target_is_directory=True)
+    else:
+        selection_path.parent.mkdir(parents=True)
+        if alias_kind == "file_symlink":
+            selection_path.symlink_to(external_selection)
+        else:
+            selection_path.hardlink_to(external_selection)
+
+    frozen_config = {
+        "stage_commands": [
+            {
+                "stage": "merge-free-downloads",
+                "argv": [
+                    "acquisition",
+                    "merge-download-manifests",
+                    "--candidate-selection",
+                    str(selection_path),
+                ],
+            }
+        ]
+    }
+    with pytest.raises(cli.CommandError, match=r"symlink|singly linked"):
+        cli._frozen_merge_candidate_selection_path(
+            preparation_root=preparation_root,
+            config=frozen_config,
+        )
+    output_root = tmp_path / alias_kind / "merged"
+    assert (
+        main(
+            [
+                "acquisition",
+                "merge-download-manifests",
+                "--download-manifest",
+                str(manifest_path),
+                "--candidate-selection",
+                str(selection_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    error = capsys.readouterr().err
+    assert "symlink" in error or "singly linked" in error
+    assert not (output_root / "document-downloads-merged.jsonl").exists()
+    assert not (output_root / "run-cards/merge-download-manifests.json").exists()
+
+
+def test_preparation_clearance_inputs_reject_duplicate_manifest_key(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "prepared"
+    (output_root / "03-gap-bridge").mkdir(parents=True)
+    (output_root / "03c-merged-downloads").mkdir(parents=True)
+    _write_jsonl(
+        output_root / "03-gap-bridge/case-relevance.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "documents": [
+                    {
+                        "source_document_id": "free-decision",
+                        "redaction_or_seal_status": "public",
+                        "restriction_evidence": ["courtlistener_public_download"],
+                        "is_sealed": False,
+                        "is_private": False,
+                    }
+                ],
+            }
+        ],
+    )
+    manifest_record = {
+        "candidate_id": "case-1",
+        "source_document_id": "free-decision",
+        "sha256": "a" * 64,
+        "byte_count": 10,
+        "free_or_purchased": "free",
+    }
+    _write_jsonl(
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
+        [manifest_record, dict(manifest_record)],
+    )
+
+    with pytest.raises(cli.CommandError, match="duplicate free document manifest"):
+        cli._prepare_target_100_clearance_inputs(output_root, resume=False)
+    assert not (output_root / "06-clearance-inputs").exists()
+
+
+def test_preparation_clearance_inputs_reject_manifest_key_missing_from_relevance(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "prepared"
+    (output_root / "03-gap-bridge").mkdir(parents=True)
+    (output_root / "03c-merged-downloads").mkdir(parents=True)
+    _write_jsonl(
+        output_root / "03-gap-bridge/case-relevance.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "documents": [
+                    {
+                        "source_document_id": "different-document",
+                        "redaction_or_seal_status": "public",
+                        "restriction_evidence": ["courtlistener_public_download"],
+                        "is_sealed": False,
+                        "is_private": False,
+                    }
+                ],
+            }
+        ],
+    )
+    _write_jsonl(
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
+        [
+            {
+                "candidate_id": "case-1",
+                "source_document_id": "free-decision",
+                "sha256": "a" * 64,
+                "byte_count": 10,
+                "free_or_purchased": "free",
+            }
+        ],
+    )
+
+    with pytest.raises(
+        cli.TargetCohortProjectionError,
+        match="requested document is absent from case relevance",
+    ):
+        cli._prepare_target_100_clearance_inputs(output_root, resume=False)
+    assert not (output_root / "06-clearance-inputs").exists()
+
+
 def test_target_100_commands_are_resumable_noncharging_and_exactly_capped(
     tmp_path: Path,
 ) -> None:
@@ -125,6 +519,7 @@ def test_target_100_commands_are_resumable_noncharging_and_exactly_capped(
     assert "--live-courtlistener" in commands[2].argv
     assert "--request-ledger" in commands[2].argv
     assert "--live-public-download" in commands[1].argv
+    assert "--candidate-selection" in commands[4].argv
     assert commands[0].argv[
         commands[0].argv.index("--expected-snapshot-manifest-sha256") + 1
     ] == ("b" * 64)
@@ -306,6 +701,44 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
     frontier_artifact = json.loads(frontier_path.read_text())
     frontier = frontier_artifact["policy"]["candidates"]
     budget = json.loads(budget_path.read_text())
+
+    current_inputs, _ = cli._expected_preparation_input_commitments(
+        preparation_root=output_root,
+        config=config,
+    )
+    reconciled_selection = (
+        output_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+    )
+    assert str(reconciled_selection.resolve()) in current_inputs["03c-merged-downloads"]
+    assert (
+        cli._frozen_merge_candidate_selection_path(
+            preparation_root=output_root,
+            config=config,
+        )
+        == reconciled_selection.resolve()
+    )
+    legacy_config = json.loads(json.dumps(config))
+    merge_command = next(
+        command
+        for command in legacy_config["stage_commands"]
+        if command["stage"] == "merge-free-downloads"
+    )
+    selection_index = merge_command["argv"].index("--candidate-selection")
+    del merge_command["argv"][selection_index : selection_index + 2]
+    legacy_inputs, _ = cli._expected_preparation_input_commitments(
+        preparation_root=output_root,
+        config=legacy_config,
+    )
+    assert (
+        str(reconciled_selection.resolve()) not in legacy_inputs["03c-merged-downloads"]
+    )
+    assert (
+        cli._frozen_merge_candidate_selection_path(
+            preparation_root=output_root,
+            config=legacy_config,
+        )
+        is None
+    )
 
     assert summary["schema_version"] == ("legalforecast.target_cohort_preparation.v1")
     assert config["schema_version"] == "legalforecast.target_cohort_config.v1"
@@ -3197,6 +3630,17 @@ def test_target_100_resume_rejects_mutated_and_injected_stage_artifacts(
     assert success_card_path.read_bytes() == success_card_before
 
     stage_artifact.write_bytes(stage_before)
+    selection_artifact = (
+        output_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+    )
+    selection_before = selection_artifact.read_bytes()
+    selection_artifact.write_bytes(selection_before + b"\n")
+    assert main(command) == 2
+    assert "stage" in capsys.readouterr().err
+    assert summary_path.read_bytes() == summary_before
+    assert success_card_path.read_bytes() == success_card_before
+
+    selection_artifact.write_bytes(selection_before)
     injected = output_root / "03-gap-bridge/unexpected.json"
     injected.write_text("{}\n")
     assert main(command) == 2
@@ -3211,7 +3655,7 @@ def test_target_100_resume_rejects_mutated_and_injected_stage_artifacts(
     assert summary_path.read_bytes() == summary_before
     assert success_card_path.read_bytes() == success_card_before
     assert (
-        len(list(output_root.glob("attempts/prepare-target-100/*/run-card.json"))) == 3
+        len(list(output_root.glob("attempts/prepare-target-100/*/run-card.json"))) == 4
     )
 
 

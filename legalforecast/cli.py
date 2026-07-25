@@ -5952,6 +5952,14 @@ def _add_acquisition_merge_download_manifests_arguments(
         ),
     )
     parser.add_argument(
+        "--candidate-selection",
+        type=Path,
+        help=(
+            "Optional reconciled selected-candidate JSONL. When provided, emit "
+            "only manifest rows owned by its unique selected candidate IDs."
+        ),
+    )
+    parser.add_argument(
         "--manifest-output",
         type=Path,
         help="Merged parser-consumable JSONL; defaults under --output-root.",
@@ -8664,6 +8672,7 @@ def _cmd_acquisition_prepare_target(
         stage_input_commitments = _target_100_stage_input_commitments(
             output_root,
             config=config,
+            frozen_config=config_record,
             snapshot_manifest_sha256=snapshot_view.manifest_sha256,
         )
     except (CommandError, OSError, UnicodeError, ValueError) as exc:
@@ -9042,7 +9051,6 @@ def _verify_completed_preparation_for_frontier(
             preparation_summary=summary,
             preparation_config_path=preparation_config_path,
             snapshot_manifest_path=snapshot_manifest_path,
-            candidate_pool_size=candidate_pool_size,
         )
     raw_run_card_path = typed_wrapper_paths.get("run_card")
     if not isinstance(raw_run_card_path, str):
@@ -9183,8 +9191,12 @@ def _verify_generic_preparation_frontier(
     preparation_summary: Mapping[str, Any],
     preparation_config_path: Path,
     snapshot_manifest_path: Path,
-    candidate_pool_size: int,
 ) -> None:
+    resolved_candidate_pool_size = len(
+        _read_records(
+            preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+        )
+    )
     frontier_path = preparation_root / "05-budget/full-candidate-frontier.json"
     if frontier_path.is_symlink() or not frontier_path.is_file():
         raise CommandError("generic preparation full frontier is missing")
@@ -9195,12 +9207,12 @@ def _verify_generic_preparation_frontier(
         or Path(raw_frontier_path).resolve() != frontier_path.resolve()
         or preparation_summary.get("full_candidate_frontier_sha256") != frontier_sha256
         or preparation_summary.get("full_candidate_frontier_count")
-        != candidate_pool_size
+        != resolved_candidate_pool_size
     ):
         raise CommandError("generic preparation full frontier summary mismatch")
     artifact = _read_json_object(frontier_path)
     candidates = _verified_target_cohort_frontier_rows(artifact)
-    if len(candidates) != candidate_pool_size:
+    if len(candidates) != resolved_candidate_pool_size:
         raise CommandError("generic preparation full frontier count mismatch")
     policy = cast(Mapping[str, Any], artifact["policy"])
     expected_commitments = {
@@ -9301,6 +9313,34 @@ def _frozen_preparation_flag_path(
     return Path(unique_values.pop())
 
 
+def _frozen_merge_candidate_selection_path(
+    *, preparation_root: Path, config: Mapping[str, Any]
+) -> Path | None:
+    """Return the exact reconciled selection frozen into the merge command."""
+
+    candidate_selection = _frozen_preparation_flag_path(
+        config,
+        flag="--candidate-selection",
+    )
+    if candidate_selection is None:
+        return None
+    expected_candidate_selection = Path(
+        os.path.abspath(
+            preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+        )
+    )
+    lexical_candidate_selection = Path(os.path.abspath(candidate_selection))
+    if lexical_candidate_selection != expected_candidate_selection:
+        raise CommandError(
+            "frozen merge candidate selection is outside the preparation root"
+        )
+    _read_singly_linked_regular_input(
+        candidate_selection,
+        label="frozen merge candidate selection",
+    )
+    return expected_candidate_selection
+
+
 def _expected_preparation_input_commitments(
     *,
     preparation_root: Path,
@@ -9377,6 +9417,12 @@ def _expected_preparation_input_commitments(
             preparation_root / "03c-merged-downloads/document-downloads-merged.jsonl",
         ),
     }
+    candidate_selection = _frozen_merge_candidate_selection_path(
+        preparation_root=preparation_root,
+        config=config,
+    )
+    if candidate_selection is not None:
+        paths["03c-merged-downloads"] += (candidate_selection,)
     independent_inputs: list[Path] = []
     courtlistener_fixture = _frozen_preparation_flag_path(
         config, flag="--courtlistener-fixture"
@@ -9486,7 +9532,20 @@ def _prepare_target_100_clearance_inputs(
     manifest = _read_records(
         output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
     )
-    restrictions = restriction_evidence_from_case_relevance(relevance)
+    try:
+        manifest_keys = _unique_frontier_document_keys(
+            manifest,
+            label="free document manifest",
+        )
+    except ValueError as exc:
+        raise CommandError(
+            "free document manifest contains an invalid document key"
+        ) from exc
+    restrictions = restriction_evidence_from_case_relevance(
+        relevance,
+        document_keys=manifest_keys,
+        allow_unknown=True,
+    )
     restriction_index = {
         (
             cast(str, row["candidate_id"]),
@@ -9494,18 +9553,6 @@ def _prepare_target_100_clearance_inputs(
         ): row
         for row in restrictions
     }
-    manifest_keys = {
-        (
-            cast(str, row.get("candidate_id")),
-            cast(str, row.get("source_document_id")),
-        )
-        for row in manifest
-    }
-    if any(
-        not candidate_id or not document_id
-        for candidate_id, document_id in manifest_keys
-    ):
-        raise CommandError("free document manifest contains an invalid document key")
     missing = sorted(manifest_keys - set(restriction_index))
     if missing:
         raise CommandError(
@@ -11597,7 +11644,9 @@ def _validate_disclosure_review_paths(
                 raise CommandError("disclosure review outputs share an inode")
 
 
-def _reject_existing_parent_symlink(path: Path) -> None:
+def _reject_existing_parent_symlink(
+    path: Path, *, label: str = "disclosure review output"
+) -> None:
     # Preserve the caller's original components, including ``..``. Resolving or
     # applying ``abspath`` first would erase ``symlink/..`` even though the
     # kernel follows the symlink before processing the parent traversal.
@@ -11616,9 +11665,81 @@ def _reject_existing_parent_symlink(path: Path) -> None:
             continue
         current = current / component
         if current.is_symlink():
+            raise CommandError(f"{label} parent is a symlink: {current}")
+
+
+def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
+    """Read one immutable input without following a final symlink."""
+
+    _reject_existing_parent_symlink(path, label=label)
+    try:
+        lexical_before = path.lstat()
+    except OSError as exc:
+        raise CommandError(
+            f"{label} must be a singly linked regular non-symlink file: {path}"
+        ) from exc
+    if not stat.S_ISREG(lexical_before.st_mode) or lexical_before.st_nlink != 1:
+        raise CommandError(
+            f"{label} must be a singly linked regular non-symlink file: {path}"
+        )
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise CommandError(
+            f"{label} must be a singly linked regular non-symlink file: {path}"
+        ) from exc
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
             raise CommandError(
-                f"disclosure review output parent is a symlink: {current}"
+                f"{label} must be a singly linked regular non-symlink file: {path}"
             )
+        with os.fdopen(descriptor, "rb", closefd=False) as handle:
+            payload = handle.read()
+        after = os.fstat(descriptor)
+        lexical_after = path.lstat()
+        stable_identity = (
+            (
+                lexical_before.st_dev,
+                lexical_before.st_ino,
+                lexical_before.st_size,
+                lexical_before.st_mtime_ns,
+                lexical_before.st_nlink,
+            )
+            == (
+                before.st_dev,
+                before.st_ino,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_nlink,
+            )
+            == (
+                after.st_dev,
+                after.st_ino,
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_nlink,
+            )
+            == (
+                lexical_after.st_dev,
+                lexical_after.st_ino,
+                lexical_after.st_size,
+                lexical_after.st_mtime_ns,
+                lexical_after.st_nlink,
+            )
+        )
+        if (
+            not stable_identity
+            or not stat.S_ISREG(after.st_mode)
+            or after.st_nlink != 1
+        ):
+            raise CommandError(f"{label} changed while it was being read: {path}")
+        return payload
+    except OSError as exc:
+        raise CommandError(f"{label} could not be read safely: {path}: {exc}") from exc
+    finally:
+        os.close(descriptor)
 
 
 def _ensure_disclosure_review_artifact(
@@ -12840,6 +12961,7 @@ def _target_100_stage_input_commitments(
     output_root: Path,
     *,
     config: TargetCohortPreparationConfig | Target100PreparationConfig,
+    frozen_config: Mapping[str, Any],
     snapshot_manifest_sha256: str,
 ) -> JsonRecord:
     """Hash the authoritative inputs consumed at each preparation boundary."""
@@ -12877,6 +12999,12 @@ def _target_100_stage_input_commitments(
             output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
         ),
     }
+    candidate_selection = _frozen_merge_candidate_selection_path(
+        preparation_root=output_root,
+        config=frozen_config,
+    )
+    if candidate_selection is not None:
+        paths["03c-merged-downloads"] += (candidate_selection,)
     if config.courtlistener_fixture is not None:
         paths["03-gap-bridge"] += (config.courtlistener_fixture,)
     commitments = {
@@ -22248,12 +22376,13 @@ _PACER_GAP_LEGACY_CHECKPOINT_SCHEMA = (
 )
 _PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
 _PACER_GAP_BRIDGE_SEMANTIC_REVISION = (
-    "courtlistener-rest-recap-storage-host-2026-07-16-v4"
+    "courtlistener-rest-described-embedded-rows-2026-07-25-v5"
 )
 # Keep known revisions loadable; only stale emitted download bindings replay.
 _PACER_GAP_COMPATIBLE_SEMANTIC_REVISIONS = frozenset(
     {
         _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+        "courtlistener-rest-recap-storage-host-2026-07-16-v4",
         "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3",
         "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
         "courtlistener-complaint-and-main-description-2026-07-15-v1",
@@ -22274,6 +22403,15 @@ _PACER_GAP_EXCLUSION_REPLAY_REVISIONS: Mapping[str, frozenset[str | None]] = {
     ),
     "courtlistener_rest_entry_number_alias_conflict": frozenset(
         {"courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"}
+    ),
+    "text_missing": frozenset(
+        {
+            None,
+            "courtlistener-complaint-and-main-description-2026-07-15-v1",
+            "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
+            "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3",
+            "courtlistener-rest-recap-storage-host-2026-07-16-v4",
+        }
     ),
 }
 _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
@@ -25458,6 +25596,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
 def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     manifest_paths = tuple(cast(Sequence[Path], args.download_manifest))
+    candidate_selection_path = cast(Path | None, args.candidate_selection)
     output_path = _acquisition_path(
         args,
         "manifest_output",
@@ -25466,6 +25605,47 @@ def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
     merged = merge_download_manifest_records(
         _read_records(path) for path in manifest_paths
     )
+    merged_before_candidate_filter = len(merged)
+    candidate_selection_sha256: str | None = None
+    selected_candidate_count: int | None = None
+    selected_candidate_ids_sha256: str | None = None
+    if candidate_selection_path is not None:
+        selection_payload = _read_singly_linked_regular_input(
+            candidate_selection_path,
+            label="candidate selection",
+        )
+        try:
+            selection_records = _read_jsonl_payload(
+                selection_payload,
+                label=str(candidate_selection_path),
+            )
+        except ValueError as exc:
+            raise CommandError(f"candidate selection is invalid: {exc}") from exc
+        candidate_ids: set[str] = set()
+        for selection in selection_records:
+            candidate_id = _required_str(selection, "candidate_id")
+            if candidate_id in candidate_ids:
+                raise CommandError(
+                    f"candidate selection has duplicate candidate ID: {candidate_id}"
+                )
+            if selection.get("selected") is not True:
+                raise CommandError(
+                    "candidate selection contains a non-selected candidate: "
+                    f"{candidate_id}"
+                )
+            candidate_ids.add(candidate_id)
+        if not candidate_ids:
+            raise CommandError("candidate selection is empty")
+        candidate_selection_sha256 = (
+            "sha256:" + hashlib.sha256(selection_payload).hexdigest()
+        )
+        selected_candidate_count = len(candidate_ids)
+        selected_candidate_ids_sha256 = _canonical_json_sha256(sorted(candidate_ids))
+        merged = tuple(
+            record
+            for record in merged
+            if _required_str(record, "candidate_id") in candidate_ids
+        )
     dry_run = _acquisition_dry_run(args)
     if dry_run:
         _write_jsonl(
@@ -25484,12 +25664,25 @@ def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="merge-download-manifests",
-        input_paths=manifest_paths,
+        input_paths=(
+            manifest_paths
+            if candidate_selection_path is None
+            else (*manifest_paths, candidate_selection_path)
+        ),
         output_paths=(output_path,),
         record_count=len(merged),
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
+        extra={
+            "candidate_selection_applied": candidate_selection_path is not None,
+            "candidate_selection_sha256": candidate_selection_sha256,
+            "selected_candidate_count": selected_candidate_count,
+            "selected_candidate_ids_sha256": selected_candidate_ids_sha256,
+            "excluded_manifest_record_count": (
+                merged_before_candidate_filter - len(merged)
+            ),
+        },
     )
     return 0
 

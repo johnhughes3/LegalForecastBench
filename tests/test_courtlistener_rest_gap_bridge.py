@@ -77,6 +77,109 @@ def test_courtlistener_rest_bridge_emits_real_public_recap_id_for_plan() -> None
     assert client.request_count == 3
 
 
+def test_bridge_accepts_blank_embedded_row_with_authenticated_description() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    selected_entries.append(
+        {
+            "row_id": "minute-entry-471775493",
+            "entry_number": None,
+            "filed_at": "2026-06-30",
+            "text": "",
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "Order on Motion to Dismiss Party",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                }
+            ],
+        }
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_client(*_clean_responses()),
+        use_embedded_entries=True,
+    )
+
+    assert selection["candidate_id"] == "123"
+
+
+def test_bridge_accepts_blank_numbered_complaint_with_description() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    complaint = next(
+        entry for entry in selected_entries if entry["entry_number"] == "1"
+    )
+    complaint["text"] = ""
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_client(*_clean_responses()),
+        use_embedded_entries=True,
+    )
+
+    assert selection["candidate_id"] == "123"
+
+
+@pytest.mark.parametrize("entry_number", ("5", "16"))
+def test_bridge_rejects_blank_critical_entry_with_description(
+    entry_number: str,
+) -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    critical_entry = next(
+        entry for entry in selected_entries if entry["entry_number"] == entry_number
+    )
+    critical_entry["text"] = ""
+
+    with pytest.raises(CourtListenerCaseDevBridgeError, match="text_missing"):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*_clean_responses()),
+            use_embedded_entries=True,
+        )
+
+
+def test_bridge_rejects_blank_embedded_row_without_description() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    selected_entries.append(
+        {
+            "row_id": "minute-entry-empty",
+            "entry_number": None,
+            "filed_at": "2026-06-30",
+            "text": "",
+            "documents": [
+                {
+                    "kind": "main",
+                    "description": "",
+                    "href": None,
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(CourtListenerCaseDevBridgeError, match="text_missing"):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*_clean_responses()),
+            use_embedded_entries=True,
+        )
+
+
 def test_bridge_recovers_operative_complaint_from_complete_paginated_rest() -> None:
     screened, gap, downloads = _complaint_gap_inputs()
     responses = (
@@ -1158,6 +1261,52 @@ def test_semantic_replay_requires_exact_consistent_legacy_exclusion() -> None:
     )
 
 
+def test_text_missing_semantic_replay_requires_any_pre_v5_revision() -> None:
+    reason = "text_missing"
+    checkpoint: dict[str, Any] = {
+        "bridge_semantic_revision": (
+            "courtlistener-rest-recap-storage-host-2026-07-16-v4"
+        ),
+        "outcome": "exclusion",
+        "payload": {
+            "exclusion_record": {
+                "primary_exclusion_reason": reason,
+                "exclusion_reasons": [reason],
+            }
+        },
+    }
+
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["bridge_semantic_revision"] = (
+        "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3"
+    )
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint.pop("bridge_semantic_revision")
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    for revision in (
+        "courtlistener-complaint-and-main-description-2026-07-15-v1",
+        "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
+    ):
+        checkpoint["bridge_semantic_revision"] = revision
+        assert _bridge_checkpoint_requires_semantic_replay(
+            checkpoint, bridge_provider="courtlistener_rest"
+        )
+
+    checkpoint["bridge_semantic_revision"] = _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+
 def test_success_semantic_replay_requires_exact_stale_download_binding() -> None:
     stale_url = "https://www.courtlistener.com/recap/example.pdf"
     checkpoint: dict[str, Any] = {
@@ -1316,7 +1465,7 @@ def test_exclusion_semantic_replay_is_reason_and_revision_specific(
     )
 
 
-def test_current_v4_poststate_has_zero_semantic_replay_candidates() -> None:
+def test_current_v5_poststate_has_zero_semantic_replay_candidates() -> None:
     exclusion_reasons = (
         "courtlistener_recap_already_available",
         "courtlistener_recap_document_match_not_found",
