@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -222,6 +223,33 @@ def test_write_and_verify_provider_free_retarget_import_receipt(
         == receipt_path
     )
     assert receipt_path.read_bytes() == before
+
+
+def test_retarget_receipt_creation_fsyncs_file_and_parent_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    values = _valid_inputs(tmp_path)
+    fsynced_modes: list[int] = []
+
+    def record_fsync(descriptor: int) -> None:
+        fsynced_modes.append(os.fstat(descriptor).st_mode)
+
+    monkeypatch.setattr(os, "fsync", record_fsync)
+
+    write_retarget_import_receipt(
+        source=values.source_evidence,
+        target_root=values.target,
+        snapshot=values.snapshot,
+        source_stage_commitments=values.source_stages,
+        target_stage_commitments=values.target_stages,
+        semantic_replay=values.replay,
+        source_before=values.before,
+        source_after=values.after,
+    )
+
+    assert any(stat.S_ISREG(mode) for mode in fsynced_modes)
+    assert any(stat.S_ISDIR(mode) for mode in fsynced_modes)
 
 
 def test_failed_source_authentication_rejects_config_and_attempt_drift(

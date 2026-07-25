@@ -13975,6 +13975,11 @@ def _verified_retarget_final_input_commitments(
         or reuse_receipt.get("paid_activity_executed") is not False
     ):
         raise CommandError("retarget document-reuse receipt is inconsistent")
+    _verify_retarget_reuse_checkpoint_commitments(
+        reuse_receipt=reuse_receipt,
+        source_document_root=receipt.source_root / "documents/free",
+        destination_document_root=output_root / "documents/free",
+    )
     claimed_reuse_hash = reuse_receipt.get("receipt_sha256")
     unhashed_reuse = dict(reuse_receipt)
     unhashed_reuse.pop("receipt_sha256", None)
@@ -13993,6 +13998,26 @@ def _verified_retarget_final_input_commitments(
         ),
     )
     return {str(path.resolve()): _path_sha256(path) for path in paths}
+
+
+def _verify_retarget_reuse_checkpoint_commitments(
+    *,
+    reuse_receipt: Mapping[str, Any],
+    source_document_root: Path,
+    destination_document_root: Path,
+) -> None:
+    """Re-derive reuse checkpoint provenance from the committed bytes."""
+
+    source_checkpoint = source_document_root / ".download-checkpoint.jsonl"
+    destination_checkpoint = destination_document_root / ".download-checkpoint.jsonl"
+    source_records = _read_records(source_checkpoint)
+    if (
+        reuse_receipt.get("source_checkpoint_sha256") != _path_sha256(source_checkpoint)
+        or reuse_receipt.get("source_checkpoint_record_count") != len(source_records)
+        or reuse_receipt.get("destination_checkpoint_sha256")
+        != _path_sha256(destination_checkpoint)
+    ):
+        raise CommandError("retarget document-reuse checkpoint commitment mismatch")
 
 
 def _target_100_stage_input_commitments(

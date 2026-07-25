@@ -673,6 +673,38 @@ def test_retarget_rejects_current_plan_that_differs_from_authenticated_source(
         )
 
 
+def test_retarget_reuse_checkpoint_commitments_are_rederived_from_bytes(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source-documents"
+    destination_root = tmp_path / "destination-documents"
+    source_checkpoint = source_root / ".download-checkpoint.jsonl"
+    destination_checkpoint = destination_root / ".download-checkpoint.jsonl"
+    source_root.mkdir()
+    destination_root.mkdir()
+    source_checkpoint.write_text('{"record":1}\n{"record":2}\n', encoding="utf-8")
+    destination_checkpoint.write_text('{"record":1}\n', encoding="utf-8")
+    receipt: dict[str, object] = {
+        "source_checkpoint_sha256": cli._path_sha256(source_checkpoint),
+        "source_checkpoint_record_count": 2,
+        "destination_checkpoint_sha256": cli._path_sha256(destination_checkpoint),
+    }
+
+    cli._verify_retarget_reuse_checkpoint_commitments(
+        reuse_receipt=receipt,
+        source_document_root=source_root,
+        destination_document_root=destination_root,
+    )
+    receipt["source_checkpoint_sha256"] = "sha256:" + "0" * 64
+
+    with pytest.raises(cli.CommandError, match="checkpoint commitment mismatch"):
+        cli._verify_retarget_reuse_checkpoint_commitments(
+            reuse_receipt=receipt,
+            source_document_root=source_root,
+            destination_document_root=destination_root,
+        )
+
+
 @pytest.mark.parametrize("mutation", ("missing", "contradictory"))
 def test_existing_live_seed_receipt_rejects_missing_or_contradictory_live_state(
     tmp_path: Path,

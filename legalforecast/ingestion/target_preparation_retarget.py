@@ -1042,6 +1042,22 @@ def _write_exclusive_regular(path: Path, payload: bytes) -> None:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+    directory_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    try:
+        directory = os.open(path.parent, directory_flags)
+    except OSError as exc:
+        raise RetargetImportError(
+            f"cannot open immutable receipt directory: {path.parent}"
+        ) from exc
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
 
 
 def _stage_commitment_sha256(
