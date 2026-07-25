@@ -211,6 +211,8 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
                 str(public_plan),
                 "--snapshot",
                 str(snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
                 "--expected-cycle-hash",
                 target_cycle_hash,
                 "--target-clean-cases",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -847,6 +848,8 @@ def test_bridge_pacer_gaps_cli_runs_noncharging_courtlistener_rest_mode(
                 "bridge-pacer-gaps",
                 "--screened-cases",
                 str(screened_path),
+                "--expected-screened-cases-sha256",
+                hashlib.sha256(screened_path.read_bytes()).hexdigest(),
                 "--use-embedded-entries",
                 "--courtlistener-fixture",
                 str(fixture_path),
@@ -910,6 +913,8 @@ def test_bridge_replays_pre_storage_host_success_and_rejects_tamper(
         "bridge-pacer-gaps",
         "--screened-cases",
         str(screened_path),
+        "--expected-screened-cases-sha256",
+        hashlib.sha256(screened_path.read_bytes()).hexdigest(),
         "--use-embedded-entries",
         "--courtlistener-fixture",
         str(fixture_path),
@@ -1048,6 +1053,8 @@ def test_bridge_replays_exclusions_with_superseded_semantics(
         "bridge-pacer-gaps",
         "--screened-cases",
         str(screened_path),
+        "--expected-screened-cases-sha256",
+        hashlib.sha256(screened_path.read_bytes()).hexdigest(),
         "--use-embedded-entries",
         "--courtlistener-fixture",
         str(fixture_path),
@@ -1409,6 +1416,8 @@ def test_semantic_replay_that_remains_excluded_runs_only_once(
         "bridge-pacer-gaps",
         "--screened-cases",
         str(screened_path),
+        "--expected-screened-cases-sha256",
+        hashlib.sha256(screened_path.read_bytes()).hexdigest(),
         "--use-embedded-entries",
         "--courtlistener-fixture",
         str(fixture_path),
@@ -1520,6 +1529,8 @@ def test_courtlistener_rest_bridge_checkpoints_and_resumes_without_refetch(
         "bridge-pacer-gaps",
         "--screened-cases",
         str(screened_path),
+        "--expected-screened-cases-sha256",
+        hashlib.sha256(screened_path.read_bytes()).hexdigest(),
         "--use-embedded-entries",
         "--courtlistener-fixture",
         str(fixture_path),

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import pairwise
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, cast
 
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -22,6 +23,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.firecrawl_screening_identity import (
     FirecrawlScreeningIdentityError,
     snapshot_firecrawl_screening_source_count,
+    validate_rest_terminal_subset_promotions_in_snapshot,
 )
 from legalforecast.ingestion.strict_screen_evidence import (
     StrictScreenEvidenceError,
@@ -73,6 +75,7 @@ class UnionRawArtifact:
     candidate_id: str
     path: Path
     content: bytes
+    content_authenticated: bool
     sha256: str
     byte_count: int
     retrieved_at: str
@@ -234,6 +237,9 @@ class _VerifiedSourceSnapshot:
     manifest: Mapping[str, Any]
     manifest_sha256: str
     candidates: tuple[UnionCandidate, ...]
+    screened: tuple[Mapping[str, Any], ...]
+    exclusions: tuple[Mapping[str, Any], ...]
+    payloads: Mapping[str, bytes]
     strict_screen_history: Mapping[str, tuple[Mapping[str, Any], ...]]
     raw_artifacts: tuple[UnionRawArtifact, ...]
 
@@ -245,6 +251,9 @@ class VerifiedScreeningSnapshot:
     manifest: Mapping[str, Any]
     manifest_sha256: str
     candidates: tuple[UnionCandidate, ...]
+    screened: tuple[Mapping[str, Any], ...]
+    exclusions: tuple[Mapping[str, Any], ...]
+    payloads: Mapping[str, bytes]
     raw_artifacts: tuple[UnionRawArtifact, ...]
 
 
@@ -253,6 +262,8 @@ def load_verified_screening_snapshot(
     *,
     expected_manifest_sha256: str,
     expected_cycle_hash: str,
+    authenticated_screened_cases_payload: bytes | None = None,
+    authenticated_raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
 ) -> VerifiedScreeningSnapshot:
     """Authenticate one terminal screening snapshot without trusting live paths."""
 
@@ -260,11 +271,18 @@ def load_verified_screening_snapshot(
         _canonical_snapshot_directory(snapshot, "screening snapshot"),
         expected_manifest_sha256=expected_manifest_sha256,
         expected_cycle_hash=expected_cycle_hash,
+        authenticated_screened_cases_payload=authenticated_screened_cases_payload,
+        authenticated_raw_html_bytes_by_candidate=(
+            authenticated_raw_html_bytes_by_candidate
+        ),
     )
     return VerifiedScreeningSnapshot(
         manifest=verified.manifest,
         manifest_sha256=verified.manifest_sha256,
         candidates=verified.candidates,
+        screened=verified.screened,
+        exclusions=verified.exclusions,
+        payloads=verified.payloads,
         raw_artifacts=verified.raw_artifacts,
     )
 
@@ -387,6 +405,24 @@ def load_screening_snapshot_union(
             raise ScreeningSnapshotUnionError(
                 f"source snapshot stage commitments are invalid: {snapshot}"
             )
+        try:
+            validate_rest_terminal_subset_promotions_in_snapshot(
+                cast(Mapping[str, object], source_stage_commitments),
+                snapshot_candidates=tuple(
+                    {
+                        "candidate_id": candidate.candidate_id,
+                        "state": candidate.state,
+                        "reason_code": candidate.reason_code,
+                        "evidence": dict(candidate.evidence),
+                        "observed_at": candidate.observed_at,
+                    }
+                    for candidate in source_candidates
+                ),
+                snapshot_screened=verified_source.screened,
+                snapshot_exclusions=verified_source.exclusions,
+            )
+        except FirecrawlScreeningIdentityError as exc:
+            raise ScreeningSnapshotUnionError(str(exc)) from exc
         priority_value = cast(Mapping[str, Any], source_stage_commitments).get(
             "direct_search_priority_tranche"
         )
@@ -1241,6 +1277,9 @@ def _load_verified_source_snapshot(
     *,
     expected_manifest_sha256: str,
     expected_cycle_hash: str,
+    enforce_union_identity: bool = True,
+    authenticated_screened_cases_payload: bytes | None = None,
+    authenticated_raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
 ) -> _VerifiedSourceSnapshot:
     """Authenticate one immutable byte set and consume only those buffers."""
 
@@ -1272,18 +1311,24 @@ def _load_verified_source_snapshot(
         if not isinstance(parsed_commitment, Mapping):
             raise SnapshotVerificationError(f"invalid commitment for {filename}")
         commitment = cast(Mapping[str, object], parsed_commitment)
-        try:
-            payload = _read_regular_file(
-                snapshot / filename,
-                f"snapshot file {filename}",
-            )
-        except ScreeningSnapshotUnionError as error:
-            cause = error.__cause__
-            if not isinstance(cause, OSError) or cause.errno != errno.ENOENT:
-                raise
-            raise SnapshotVerificationError(
-                f"missing snapshot file {filename}"
-            ) from error
+        if (
+            filename == "screened-cases.jsonl"
+            and authenticated_screened_cases_payload is not None
+        ):
+            payload = authenticated_screened_cases_payload
+        else:
+            try:
+                payload = _read_regular_file(
+                    snapshot / filename,
+                    f"snapshot file {filename}",
+                )
+            except ScreeningSnapshotUnionError as error:
+                cause = error.__cause__
+                if not isinstance(cause, OSError) or cause.errno != errno.ENOENT:
+                    raise
+                raise SnapshotVerificationError(
+                    f"missing snapshot file {filename}"
+                ) from error
         if (
             commitment.get("sha256") != hashlib.sha256(payload).hexdigest()
             or commitment.get("byte_count") != len(payload)
@@ -1313,9 +1358,21 @@ def _load_verified_source_snapshot(
     return _VerifiedSourceSnapshot(
         manifest=manifest,
         manifest_sha256=manifest_sha256,
-        candidates=_candidate_records(candidate_rows),
+        candidates=_candidate_records(
+            candidate_rows,
+            require_evidence_identity=enforce_union_identity,
+        ),
+        screened=tuple(screened),
+        exclusions=tuple(exclusions),
+        payloads=MappingProxyType({"manifest.json": manifest_payload, **payloads}),
         strict_screen_history=_strict_screen_history(observation_rows),
-        raw_artifacts=_raw_records(raw_rows),
+        raw_artifacts=_raw_records(
+            raw_rows,
+            require_candidate_path_ownership=enforce_union_identity,
+            authenticated_raw_html_bytes_by_candidate=(
+                authenticated_raw_html_bytes_by_candidate
+            ),
+        ),
     )
 
 
@@ -1408,6 +1465,8 @@ def _require_snapshot_links(
 
 def _candidate_records(
     records: Sequence[Mapping[str, Any]],
+    *,
+    require_evidence_identity: bool = True,
 ) -> tuple[UnionCandidate, ...]:
     candidates: list[UnionCandidate] = []
     for row_number, record in enumerate(records, start=1):
@@ -1438,7 +1497,10 @@ def _candidate_records(
                 f"candidate {candidate_id} lacks terminal evidence"
             )
         evidence_record = cast(Mapping[str, Any], evidence)
-        if evidence_record.get("candidate_id") != candidate_id:
+        if (
+            require_evidence_identity
+            and evidence_record.get("candidate_id") != candidate_id
+        ):
             raise ScreeningSnapshotUnionError(
                 f"candidate {candidate_id} evidence identity mismatch"
             )
@@ -1491,48 +1553,89 @@ def _strict_screen_history(
 
 def _raw_records(
     records: Sequence[Mapping[str, Any]],
+    *,
+    require_candidate_path_ownership: bool = True,
+    authenticated_raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
 ) -> tuple[UnionRawArtifact, ...]:
     artifacts: list[UnionRawArtifact] = []
+    authenticated_match_counts = {
+        candidate_id: 0
+        for candidate_id in authenticated_raw_html_bytes_by_candidate or {}
+    }
     for row_number, record in enumerate(records, start=1):
         candidate_id = _string(
             record.get("candidate_id"), f"raw row {row_number} candidate_id"
         )
-        raw_path = _canonical_absolute_path(
-            record.get("path"), f"raw row {row_number} path"
-        )
-        try:
-            is_regular = stat.S_ISREG(raw_path.lstat().st_mode)
-        except OSError as error:
-            raise ScreeningSnapshotUnionError(
-                f"raw artifact is not a canonical regular file for {candidate_id}"
-            ) from error
-        if not is_regular:
-            raise ScreeningSnapshotUnionError(
-                f"raw artifact is not a canonical regular file for {candidate_id}"
+        external_raw_inputs = authenticated_raw_html_bytes_by_candidate is not None
+        raw_path = (
+            _declared_canonical_absolute_path(
+                record.get("path"), f"raw row {row_number} path"
             )
-        content = _read_regular_file(raw_path, f"raw artifact for {candidate_id}")
-        digest = hashlib.sha256(content).hexdigest()
+            if external_raw_inputs
+            else _canonical_absolute_path(
+                record.get("path"), f"raw row {row_number} path"
+            )
+        )
         byte_count = record.get("byte_count")
+        expected_digest = record.get("sha256")
         if (
-            record.get("sha256") != digest
+            not isinstance(expected_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", expected_digest) is None
             or not isinstance(byte_count, int)
             or isinstance(byte_count, bool)
-            or byte_count != len(content)
+            or byte_count < 0
         ):
             raise ScreeningSnapshotUnionError(
                 f"raw artifact commitment mismatch for {candidate_id}"
             )
-        _validate_raw_artifact_ownership(
-            candidate_id=candidate_id,
-            raw_path=raw_path,
-            sha256=digest,
-        )
+        content_authenticated = not external_raw_inputs
+        if external_raw_inputs:
+            lookup_id = _raw_artifact_lookup_id(candidate_id, raw_path)
+            candidate_payload = authenticated_raw_html_bytes_by_candidate.get(lookup_id)
+            if (
+                candidate_payload is not None
+                and hashlib.sha256(candidate_payload).hexdigest() == expected_digest
+                and len(candidate_payload) == byte_count
+            ):
+                content = candidate_payload
+                content_authenticated = True
+                authenticated_match_counts[lookup_id] = (
+                    authenticated_match_counts.get(lookup_id, 0) + 1
+                )
+            else:
+                content = b""
+        else:
+            try:
+                is_regular = stat.S_ISREG(raw_path.lstat().st_mode)
+            except OSError as error:
+                raise ScreeningSnapshotUnionError(
+                    f"raw artifact is not a canonical regular file for {candidate_id}"
+                ) from error
+            if not is_regular:
+                raise ScreeningSnapshotUnionError(
+                    f"raw artifact is not a canonical regular file for {candidate_id}"
+                )
+            content = _read_regular_file(raw_path, f"raw artifact for {candidate_id}")
+            if (
+                hashlib.sha256(content).hexdigest() != expected_digest
+                or len(content) != byte_count
+            ):
+                raise ScreeningSnapshotUnionError(
+                    f"raw artifact commitment mismatch for {candidate_id}"
+                )
+        if require_candidate_path_ownership:
+            _validate_raw_artifact_ownership(
+                candidate_id=candidate_id,
+                raw_path=raw_path,
+                sha256=expected_digest,
+            )
         artifacts.append(
             UnionRawArtifact(
                 candidate_id=candidate_id,
                 path=raw_path,
                 content=content,
-                sha256=digest,
+                content_authenticated=content_authenticated,
+                sha256=expected_digest,
                 byte_count=byte_count,
                 retrieved_at=_string(
                     record.get("retrieved_at"),
@@ -1540,7 +1643,28 @@ def _raw_records(
                 ),
             )
         )
+    unmatched = sorted(
+        candidate_id
+        for candidate_id, match_count in authenticated_match_counts.items()
+        if match_count != 1
+    )
+    if unmatched:
+        raise ScreeningSnapshotUnionError(
+            "authenticated raw HTML does not bind exactly once to snapshot rows: "
+            + ", ".join(unmatched)
+        )
     return tuple(artifacts)
+
+
+def _raw_artifact_lookup_id(candidate_id: str, raw_path: Path) -> str:
+    """Map a snapshot raw row to the planner's docket-ID lookup identity."""
+
+    if raw_path.stem.isdigit():
+        return raw_path.stem
+    prefix = "courtlistener-docket-"
+    if candidate_id.startswith(prefix) and candidate_id[len(prefix) :].isdigit():
+        return candidate_id[len(prefix) :]
+    return candidate_id
 
 
 def _validate_raw_artifact_ownership(
@@ -1550,7 +1674,8 @@ def _validate_raw_artifact_ownership(
 
     direct_stems = {candidate_id}
     namespaced = re.fullmatch(
-        r"courtlistener-docket-(?P<docket_id>[0-9]+)", candidate_id
+        r"(?:courtlistener-docket|case-dev)-(?P<docket_id>[0-9]+)",
+        candidate_id,
     )
     if namespaced is not None:
         direct_stems.add(namespaced.group("docket_id"))
@@ -1693,6 +1818,21 @@ def _canonical_absolute_path(value: object, label: str) -> Path:
         raise ScreeningSnapshotUnionError(
             f"{label} must be an existing canonical absolute path without symlinks"
         )
+    return path
+
+
+def _declared_canonical_absolute_path(value: object, label: str) -> Path:
+    """Validate a committed path lexically when authenticated bytes replace it."""
+
+    text = _string(value, label)
+    path = Path(text)
+    if (
+        not path.is_absolute()
+        or str(path) != text
+        or ".." in path.parts
+        or "." in path.parts
+    ):
+        raise ScreeningSnapshotUnionError(f"{label} must be a canonical absolute path")
     return path
 
 

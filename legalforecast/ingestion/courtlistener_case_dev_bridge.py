@@ -441,6 +441,7 @@ def bridge_courtlistener_case_dev_documents(
     *,
     client: CaseDevClient,
     raw_html_dir: str | Path | None = None,
+    raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
     use_embedded_entries: bool = False,
     target_clean_cases: int = 150,
 ) -> CourtListenerCaseDevBridgeResult:
@@ -452,7 +453,15 @@ def bridge_courtlistener_case_dev_documents(
 
     if target_clean_cases <= 0:
         raise ValueError("target_clean_cases must be positive")
-    if raw_html_dir is None and not use_embedded_entries:
+    if raw_html_dir is not None and raw_html_bytes_by_candidate is not None:
+        raise ValueError(
+            "raw_html_dir and raw_html_bytes_by_candidate are mutually exclusive"
+        )
+    if (
+        raw_html_dir is None
+        and raw_html_bytes_by_candidate is None
+        and not use_embedded_entries
+    ):
         raise ValueError("raw_html_dir is required unless use_embedded_entries=True")
     records = tuple(screened_case_records)
     html_root = None if raw_html_dir is None else Path(raw_html_dir)
@@ -470,6 +479,11 @@ def bridge_courtlistener_case_dev_documents(
                 record,
                 client=client,
                 raw_html_dir=html_root,
+                raw_html_bytes=(
+                    raw_html_bytes_by_candidate.get(_screened_candidate_id(record))
+                    if raw_html_bytes_by_candidate is not None
+                    else None
+                ),
                 use_embedded_entries=use_embedded_entries,
             )
         except CourtListenerCaseDevBridgeError as exc:
@@ -511,6 +525,7 @@ def bridge_public_plan_paid_gaps(
     free_download_records: Iterable[Mapping[str, Any]],
     client: CaseDevClient,
     raw_html_dir: str | Path | None = None,
+    raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
     use_embedded_entries: bool = False,
     validate_free_downloads: bool = True,
 ) -> CourtListenerCaseDevBridgeResult:
@@ -555,6 +570,7 @@ def bridge_public_plan_paid_gaps(
                 free_download_records=(),
                 client=client,
                 raw_html_dir=html_root,
+                raw_html_bytes_by_candidate=raw_html_bytes_by_candidate,
                 use_embedded_entries=use_embedded_entries,
                 validate_free_downloads=False,
             )
@@ -604,6 +620,7 @@ def bridge_public_plan_paid_gaps_via_courtlistener(
     free_download_records: Iterable[Mapping[str, Any]],
     client: CourtListenerClient,
     raw_html_dir: str | Path | None = None,
+    raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
     use_embedded_entries: bool = False,
 ) -> CourtListenerCaseDevBridgeResult:
     """Reconcile public paid gaps using only noncharging CourtListener GETs."""
@@ -642,6 +659,7 @@ def bridge_public_plan_paid_gaps_via_courtlistener(
                     free_download_records=free_downloads,
                     client=client,
                     raw_html_dir=raw_html_dir,
+                    raw_html_bytes_by_candidate=raw_html_bytes_by_candidate,
                     use_embedded_entries=use_embedded_entries,
                     validate_free_downloads=False,
                 )
@@ -688,6 +706,7 @@ def bridge_public_plan_paid_gap_candidate(
     free_download_records: Iterable[Mapping[str, Any]],
     client: CaseDevClient,
     raw_html_dir: str | Path | None = None,
+    raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
     use_embedded_entries: bool = False,
     validate_free_downloads: bool = True,
 ) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
@@ -722,6 +741,11 @@ def bridge_public_plan_paid_gap_candidate(
         screened_case_record,
         client=client,
         raw_html_dir=None if raw_html_dir is None else Path(raw_html_dir),
+        raw_html_bytes=(
+            raw_html_bytes_by_candidate.get(candidate_id)
+            if raw_html_bytes_by_candidate is not None
+            else None
+        ),
         use_embedded_entries=use_embedded_entries,
         paid_gap_reasons=_string_sequence(paid_gap_record.get("paid_gap_reasons")),
     )
@@ -739,6 +763,7 @@ def bridge_public_plan_paid_gap_candidate_via_courtlistener(
     free_download_records: Iterable[Mapping[str, Any]],
     client: CourtListenerClient,
     raw_html_dir: str | Path | None = None,
+    raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
     use_embedded_entries: bool = False,
     validate_free_downloads: bool = True,
 ) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
@@ -778,6 +803,11 @@ def bridge_public_plan_paid_gap_candidate_via_courtlistener(
         candidate_id=candidate_id,
         source_url=source_url,
         raw_html_dir=None if raw_html_dir is None else Path(raw_html_dir),
+        raw_html_bytes=(
+            raw_html_bytes_by_candidate.get(candidate_id)
+            if raw_html_bytes_by_candidate is not None
+            else None
+        ),
         use_embedded_entries=use_embedded_entries,
     )
     if page.has_next_page:
@@ -1288,11 +1318,17 @@ def merge_download_manifest_records(
     return tuple(merged)
 
 
+def _screened_candidate_id(record: Mapping[str, Any]) -> str:
+    candidate = _mapping(record.get("candidate"), "candidate")
+    return _required_str_any(candidate, "docket_id", "candidate_key")
+
+
 def _bridge_candidate(
     record: Mapping[str, Any],
     *,
     client: CaseDevClient,
     raw_html_dir: Path | None,
+    raw_html_bytes: bytes | None,
     use_embedded_entries: bool,
     paid_gap_reasons: tuple[str, ...] = (),
 ) -> tuple[
@@ -1317,6 +1353,7 @@ def _bridge_candidate(
         candidate_id=candidate_id,
         source_url=source_url,
         raw_html_dir=raw_html_dir,
+        raw_html_bytes=raw_html_bytes,
         use_embedded_entries=use_embedded_entries,
     )
     if page.has_next_page:
@@ -2450,8 +2487,15 @@ def _courtlistener_page(
     candidate_id: str,
     source_url: str | None,
     raw_html_dir: Path | None,
+    raw_html_bytes: bytes | None,
     use_embedded_entries: bool,
 ) -> CourtListenerWebDocketPage:
+    if raw_html_bytes is not None:
+        return parse_courtlistener_docket_html(
+            raw_html_bytes.decode("utf-8"),
+            source_url=source_url,
+            docket_id=candidate_id,
+        )
     html_path = None if raw_html_dir is None else raw_html_dir / f"{candidate_id}.html"
     if html_path is not None and html_path.is_file():
         return parse_courtlistener_docket_html(

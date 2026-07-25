@@ -1901,6 +1901,8 @@ def test_union_command_archives_and_resumes_authenticated_terminal_correction(
                 str(tmp_path / "public-plan"),
                 "--snapshot",
                 str(snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
                 "--expected-cycle-hash",
                 _cycle_hash(stale_root),
                 "--raw-html-dir",

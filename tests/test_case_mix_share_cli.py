@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import hashlib
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
 from legalforecast.cli import build_parser
 
 
-def test_plan_public_downloads_parses_case_mix_share_as_exact_decimal() -> None:
+def test_plan_public_downloads_parses_case_mix_share_as_exact_decimal(
+    tmp_path: Path,
+) -> None:
     args = build_parser().parse_args(
-        _plan_public_downloads_args("0.299999999999999999")
+        _plan_public_downloads_args("0.299999999999999999", tmp_path)
     )
 
     assert args.max_case_mix_share == Decimal("0.299999999999999999")
@@ -32,9 +36,10 @@ def test_plan_public_downloads_parses_case_mix_share_as_exact_decimal() -> None:
 def test_plan_public_downloads_rejects_invalid_case_mix_share_at_parse_time(
     value: str,
     capsys: Any,
+    tmp_path: Path,
 ) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        build_parser().parse_args(_plan_public_downloads_args(value))
+        build_parser().parse_args(_plan_public_downloads_args(value, tmp_path))
 
     assert exc_info.value.code == 2
     error = capsys.readouterr().err
@@ -58,14 +63,20 @@ def test_plan_public_downloads_help_documents_exact_floor_cap(
     assert "rejected" in output
 
 
-def _plan_public_downloads_args(share: str) -> list[str]:
+def _plan_public_downloads_args(share: str, tmp_path: Path) -> list[str]:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    manifest = snapshot / "manifest.json"
+    manifest.write_text("{}\n", encoding="utf-8")
     return [
         "acquisition",
         "plan-public-downloads",
         "--output-root",
         "unused-output-root",
         "--snapshot",
-        "unused-snapshot",
+        str(snapshot),
+        "--expected-snapshot-manifest-sha256",
+        hashlib.sha256(manifest.read_bytes()).hexdigest(),
         "--expected-cycle-hash",
         "unused-cycle-hash",
         f"--max-case-mix-share={share}",

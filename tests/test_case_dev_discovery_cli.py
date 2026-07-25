@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -120,6 +121,10 @@ def test_discover_case_dev_writes_resumable_self_contained_checkpoint(
                 str(tmp_path / "planner"),
                 "--snapshot",
                 str(partial_snapshot),
+                "--expected-snapshot-manifest-sha256",
+                hashlib.sha256(
+                    (partial_snapshot / "manifest.json").read_bytes()
+                ).hexdigest(),
                 "--expected-cycle-hash",
                 summary["cycle_hash"],
                 "--execute",
