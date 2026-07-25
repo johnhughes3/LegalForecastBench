@@ -1326,6 +1326,69 @@ def test_target_preparation_resume_rejects_route_mutation(
     assert main(command) == 2
 
 
+def test_target_preparation_resumes_after_interruption_with_bridge_checkpoints(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run-bridge-interruption"
+    command = [
+        "acquisition",
+        "prepare-target-cohort",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--expected-snapshot-manifest-sha256",
+        _snapshot_manifest_sha256(snapshot),
+        "--target-case-count",
+        "2",
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+        "--execute",
+    ]
+    child_main = cli.main
+    interrupt_bridge = True
+
+    def interrupt_after_bridge(
+        argv: list[str] | tuple[str, ...],
+    ) -> int:
+        nonlocal interrupt_bridge
+        result = child_main(argv)
+        if interrupt_bridge and tuple(argv[:2]) == ("acquisition", "bridge-pacer-gaps"):
+            interrupt_bridge = False
+            return 2
+        return result
+
+    monkeypatch.setattr(cli, "main", interrupt_after_bridge)
+    assert main(command) == 2
+    manifest_path = output_root / "02-free-download/free-document-downloads.jsonl"
+    manifest_before = manifest_path.read_bytes()
+    bridge_checkpoints = tuple(
+        (output_root / "03-gap-bridge/checkpoints/pacer-gap-bridge").glob("*.json")
+    )
+    assert len(bridge_checkpoints) == 2
+    assert not (output_root / "target-cohort-preparation-summary.json").exists()
+
+    monkeypatch.setattr(cli, "main", child_main)
+    assert main(command) == 0
+
+    assert manifest_path.read_bytes() == manifest_before
+    bridge_card = json.loads(
+        (output_root / "03-gap-bridge/run-cards/bridge-pacer-gaps.json").read_text()
+    )
+    assert bridge_card["resumed_terminal_candidate_count"] == 2
+    assert bridge_card["checkpoint_terminal_candidate_count"] == 2
+    assert bridge_card["reconciled"] is True
+
+
 def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -1460,7 +1460,9 @@ def test_recover_purchased_audits_incomplete_recovery_as_failure(
     assert failure["failure_reason"] == "recovered 0 of 1 purchased documents"
 
 
-def test_download_free_fixture_stage_is_idempotent(tmp_path: Path) -> None:
+def test_download_free_fixture_stage_resume_preserves_manifest_bytes(
+    tmp_path: Path,
+) -> None:
     output_root = tmp_path / "acquisition"
     requests_path = tmp_path / "free-requests.jsonl"
     fixture_path = tmp_path / "free-fixtures.json"
@@ -1493,14 +1495,304 @@ def test_download_free_fixture_stage_is_idempotent(tmp_path: Path) -> None:
         str(fixture_path),
     ]
     assert main(command) == 0
+    manifest_path = output_root / "free-document-downloads.jsonl"
+    first_manifest = manifest_path.read_bytes()
     assert main(command) == 0
 
-    records = _read_jsonl(output_root / "free-document-downloads.jsonl")
-    assert records[0]["reused_existing"] is True
+    assert manifest_path.read_bytes() == first_manifest
+    records = _read_jsonl(manifest_path)
+    assert records[0]["reused_existing"] is False
     assert records[0]["sha256"] == hashlib.sha256(fixture_bytes).hexdigest()
     log_records = _read_jsonl(output_root / "logs" / "download-free.jsonl")
     assert len(log_records) == 2
     assert all(record["paid_activity_executed"] is False for record in log_records)
+
+
+def test_download_free_execute_replaces_exact_dry_run_manifest(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    requests_path = tmp_path / "free-requests.jsonl"
+    fixture_path = tmp_path / "free-fixtures.json"
+    source_url = "https://www.courtlistener.com/recap/gov.uscourts/doc-1.pdf"
+    _write_jsonl(
+        requests_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "source_provider": "courtlistener",
+                "source_document_id": "complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "source_url": source_url,
+            }
+        ],
+    )
+    fixture_bytes = b"%PDF Complaint fixture bytes"
+    _write_json(fixture_path, {source_url: fixture_bytes.decode()})
+    command = [
+        "acquisition",
+        "download-free",
+        "--requests",
+        str(requests_path),
+        "--output-root",
+        str(output_root),
+        "--fixture-documents",
+        str(fixture_path),
+    ]
+
+    assert main(command) == 0
+    assert _read_jsonl(output_root / "free-document-downloads.jsonl") == [
+        {
+            "document_output_root": str(output_root / "documents/free"),
+            "dry_run": True,
+            "request_count": 1,
+            "stage": "download-free",
+        }
+    ]
+
+    assert main([*command, "--execute"]) == 0
+    [record] = _read_jsonl(output_root / "free-document-downloads.jsonl")
+    assert record["candidate_id"] == "cand-1"
+    assert record["sha256"] == hashlib.sha256(fixture_bytes).hexdigest()
+    assert record["reused_existing"] is False
+
+
+def test_download_free_resume_rejects_changed_requests_without_rewriting_manifest(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    requests_path = tmp_path / "free-requests.jsonl"
+    fixture_path = tmp_path / "free-fixtures.json"
+    source_url = "https://www.courtlistener.com/recap/gov.uscourts/doc-1.pdf"
+    request = {
+        "candidate_id": "cand-1",
+        "source_provider": "courtlistener",
+        "source_document_id": "complaint",
+        "docket_entry_number": 1,
+        "document_role": "complaint",
+        "source_url": source_url,
+    }
+    _write_jsonl(requests_path, [request])
+    _write_json(fixture_path, {source_url: "%PDF Complaint fixture bytes"})
+    command = [
+        "acquisition",
+        "download-free",
+        "--requests",
+        str(requests_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+        "--fixture-documents",
+        str(fixture_path),
+    ]
+
+    assert main(command) == 0
+    manifest_path = output_root / "free-document-downloads.jsonl"
+    manifest_before = manifest_path.read_bytes()
+    changed_url = "https://www.courtlistener.com/recap/gov.uscourts/doc-2.pdf"
+    _write_jsonl(requests_path, [{**request, "source_url": changed_url}])
+    _write_json(
+        fixture_path,
+        {
+            source_url: "%PDF Complaint fixture bytes",
+            changed_url: "%PDF Changed request bytes",
+        },
+    )
+
+    assert main(command) == 2
+    assert "completed free-download manifest does not match current requests" in (
+        capsys.readouterr().err
+    )
+    assert manifest_path.read_bytes() == manifest_before
+
+
+def test_download_free_resume_rejects_blank_manifest_row_with_failure_card(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    requests_path = tmp_path / "free-requests.jsonl"
+    fixture_path = tmp_path / "free-fixtures.json"
+    source_url = "https://www.courtlistener.com/recap/gov.uscourts/doc-1.pdf"
+    _write_jsonl(
+        requests_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "source_provider": "courtlistener",
+                "source_document_id": "complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "source_url": source_url,
+            }
+        ],
+    )
+    _write_json(fixture_path, {source_url: "%PDF Complaint fixture bytes"})
+    command = [
+        "acquisition",
+        "download-free",
+        "--requests",
+        str(requests_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+        "--fixture-documents",
+        str(fixture_path),
+    ]
+
+    assert main(command) == 0
+    manifest_path = output_root / "free-document-downloads.jsonl"
+    manifest_path.write_bytes(manifest_path.read_bytes() + b"\n")
+
+    assert main(command) == 2
+    assert "unreadable or invalid" in capsys.readouterr().err
+    failure = _read_json(output_root / "run-cards/download-free.json")
+    assert failure["status"] == "failed"
+    assert failure["paid_activity_requested"] is False
+
+
+def test_download_free_resume_rejects_broken_manifest_symlink(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    requests_path = tmp_path / "free-requests.jsonl"
+    fixture_path = tmp_path / "free-fixtures.json"
+    source_url = "https://www.courtlistener.com/recap/gov.uscourts/doc-1.pdf"
+    _write_jsonl(
+        requests_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "source_provider": "courtlistener",
+                "source_document_id": "complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "source_url": source_url,
+            }
+        ],
+    )
+    _write_json(fixture_path, {source_url: "%PDF Complaint fixture bytes"})
+    output_root.mkdir()
+    manifest_path = output_root / "free-document-downloads.jsonl"
+    manifest_path.symlink_to(tmp_path / "missing-manifest-target.jsonl")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "download-free",
+                "--requests",
+                str(requests_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--fixture-documents",
+                str(fixture_path),
+            ]
+        )
+        == 2
+    )
+
+    assert "singly linked regular non-symlink file" in capsys.readouterr().err
+    assert manifest_path.is_symlink()
+    assert not (tmp_path / "missing-manifest-target.jsonl").exists()
+    failure = _read_json(output_root / "run-cards/download-free.json")
+    assert failure["status"] == "failed"
+
+
+def test_download_free_resume_attributes_invalid_checkpoint(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    requests_path = tmp_path / "free-requests.jsonl"
+    fixture_path = tmp_path / "free-fixtures.json"
+    source_url = "https://www.courtlistener.com/recap/gov.uscourts/doc-1.pdf"
+    _write_jsonl(
+        requests_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "source_provider": "courtlistener",
+                "source_document_id": "complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "source_url": source_url,
+            }
+        ],
+    )
+    _write_json(fixture_path, {source_url: "%PDF Complaint fixture bytes"})
+    command = [
+        "acquisition",
+        "download-free",
+        "--requests",
+        str(requests_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+        "--fixture-documents",
+        str(fixture_path),
+    ]
+
+    assert main(command) == 0
+    checkpoint = output_root / "documents/free/.download-checkpoint.jsonl"
+    checkpoint.write_bytes(checkpoint.read_bytes() + b"\n")
+
+    assert main(command) == 2
+    assert "completed free-download checkpoint is unreadable or invalid" in (
+        capsys.readouterr().err
+    )
+
+
+def test_download_free_resume_rejects_changed_document_bytes_without_refetch(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    requests_path = tmp_path / "free-requests.jsonl"
+    fixture_path = tmp_path / "free-fixtures.json"
+    source_url = "https://www.courtlistener.com/recap/gov.uscourts/doc-1.pdf"
+    _write_jsonl(
+        requests_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "source_provider": "courtlistener",
+                "source_document_id": "complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "source_url": source_url,
+            }
+        ],
+    )
+    fixture_bytes = b"%PDF Complaint fixture bytes"
+    _write_json(fixture_path, {source_url: fixture_bytes.decode()})
+    command = [
+        "acquisition",
+        "download-free",
+        "--requests",
+        str(requests_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+        "--fixture-documents",
+        str(fixture_path),
+    ]
+
+    assert main(command) == 0
+    manifest_path = output_root / "free-document-downloads.jsonl"
+    manifest_before = manifest_path.read_bytes()
+    [record] = _read_jsonl(manifest_path)
+    document_path = output_root / "documents/free" / str(record["local_path"])
+    document_path.write_bytes(b"%PDF Changed on-disk bytes")
+
+    assert main(command) == 2
+    assert "completed free-download document bytes differ" in (capsys.readouterr().err)
+    assert manifest_path.read_bytes() == manifest_before
+    assert document_path.read_bytes() == b"%PDF Changed on-disk bytes"
 
 
 def test_download_free_no_resume_rejects_existing_artifacts(

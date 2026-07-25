@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import urllib.request
 from email.message import Message
 from pathlib import Path
@@ -82,11 +83,11 @@ def test_downloader_resumes_existing_documents_without_refetch(tmp_path: Path) -
     )
 
     assert first[0].reused_existing is False
-    assert second[0].reused_existing is True
+    assert second == first
     assert source.requested_urls == ("https://www.courtlistener.com/recap/doc-1.pdf",)
 
 
-def test_corrupt_existing_document_is_refetched(tmp_path: Path) -> None:
+def test_corrupt_existing_document_fails_closed_without_refetch(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF original"}
     )
@@ -102,13 +103,14 @@ def test_corrupt_existing_document_is_refetched(tmp_path: Path) -> None:
     path = tmp_path / first.local_path
     path.write_bytes(b"%PDF corrupt")
 
-    [resumed] = download_free_docket_documents(
-        (request,), output_root=tmp_path, source=source
-    )
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="differs from its download checkpoint",
+    ):
+        download_free_docket_documents((request,), output_root=tmp_path, source=source)
 
-    assert resumed.reused_existing is False
-    assert path.read_bytes() == b"%PDF original"
-    assert source.requested_urls == (request.source_url, request.source_url)
+    assert path.read_bytes() == b"%PDF corrupt"
+    assert source.requested_urls == (request.source_url,)
 
 
 def test_failed_atomic_publish_leaves_no_final_named_partial(
@@ -158,6 +160,132 @@ def test_checkpoint_rows_hash_bytes_on_disk(tmp_path: Path) -> None:
         rows[0]["sha256"]
         == hashlib.sha256((tmp_path / record.local_path).read_bytes()).hexdigest()
     )
+
+
+@pytest.mark.parametrize("substitution", ("symlink", "hardlink"))
+def test_downloader_rejects_substituted_checkpoint_file(
+    tmp_path: Path,
+    substitution: str,
+) -> None:
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complete"}
+    )
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    download_free_docket_documents((request,), output_root=tmp_path, source=source)
+    checkpoint = tmp_path / ".download-checkpoint.jsonl"
+    alias = tmp_path / "checkpoint-alias.jsonl"
+    if substitution == "symlink":
+        checkpoint.rename(alias)
+        checkpoint.symlink_to(alias)
+    else:
+        os.link(checkpoint, alias)
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="download checkpoint must be a singly linked regular non-symlink file",
+    ):
+        download_free_docket_documents((request,), output_root=tmp_path, source=source)
+
+    assert source.requested_urls == (request.source_url,)
+
+
+def test_downloader_rejects_blank_checkpoint_row_with_domain_error(
+    tmp_path: Path,
+) -> None:
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complete"}
+    )
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    download_free_docket_documents((request,), output_root=tmp_path, source=source)
+    checkpoint = tmp_path / ".download-checkpoint.jsonl"
+    checkpoint.write_bytes(checkpoint.read_bytes() + b"\n")
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="download checkpoint is unreadable or invalid",
+    ):
+        download_free_docket_documents((request,), output_root=tmp_path, source=source)
+
+    assert source.requested_urls == (request.source_url,)
+
+
+@pytest.mark.parametrize("substitution", ("symlink", "hardlink"))
+def test_partial_resume_rejects_substituted_document_file(
+    tmp_path: Path,
+    substitution: str,
+) -> None:
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complete"}
+    )
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    [record] = download_free_docket_documents(
+        (request,),
+        output_root=tmp_path,
+        source=source,
+    )
+    document = tmp_path / record.local_path
+    alias = tmp_path / "document-alias.pdf"
+    if substitution == "symlink":
+        document.rename(alias)
+        document.symlink_to(alias)
+    else:
+        os.link(document, alias)
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="existing document artifact must be a singly linked regular "
+        "non-symlink file",
+    ):
+        download_free_docket_documents((request,), output_root=tmp_path, source=source)
+
+    assert source.requested_urls == (request.source_url,)
+
+
+def test_downloader_rejects_intermediate_symlink_escape_with_domain_error(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "downloads"
+    output_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (output_root / "cand-1").symlink_to(outside, target_is_directory=True)
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complete"}
+    )
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="document output path escapes the output root",
+    ):
+        download_free_docket_documents(
+            (request,),
+            output_root=output_root,
+            source=source,
+        )
+
+    assert source.requested_urls == ()
+    assert tuple(outside.iterdir()) == ()
 
 
 def test_live_source_aborts_oversize_response(monkeypatch: pytest.MonkeyPatch) -> None:

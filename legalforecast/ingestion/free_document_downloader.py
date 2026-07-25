@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -15,7 +16,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.path_safety import safe_path_component
@@ -359,6 +360,115 @@ def download_free_docket_documents(
     return tuple(records)
 
 
+def verify_completed_free_document_manifest(
+    requests: tuple[FreeDocumentDownloadRequest, ...],
+    *,
+    output_root: str | Path,
+    manifest_path: str | Path,
+) -> tuple[FreeDocumentDownloadRecord, ...]:
+    """Verify and return immutable completed download evidence for resume."""
+
+    root = Path(output_root).resolve()
+    manifest = Path(manifest_path)
+    if manifest.is_symlink() or not manifest.is_file():
+        raise FreeDocumentDownloadError(
+            "completed free-download manifest must be a regular non-symlink file"
+        )
+    if manifest.stat().st_nlink != 1:
+        raise FreeDocumentDownloadError(
+            "completed free-download manifest must be singly linked"
+        )
+    try:
+        payload = manifest.read_bytes()
+        lines = payload.splitlines()
+        if any(not line.strip() for line in lines):
+            raise ValueError("completed free-download manifest contains a blank row")
+        records = tuple(
+            _download_record_from_mapping(
+                json.loads(line),
+                label=f"completed free-download manifest row {line_number}",
+            )
+            for line_number, line in enumerate(lines, start=1)
+        )
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
+        raise FreeDocumentDownloadError(
+            "completed free-download manifest is unreadable or invalid"
+        ) from exc
+    if len(records) != len(requests) or any(
+        not _record_matches_request(record, request, output_root=root)
+        for record, request in zip(records, requests, strict=True)
+    ):
+        raise FreeDocumentDownloadError(
+            "completed free-download manifest does not match current requests"
+        )
+    try:
+        checkpoint = _read_checkpoint(root / ".download-checkpoint.jsonl")
+    except (
+        FreeDocumentDownloadError,
+        OSError,
+        UnicodeError,
+        ValueError,
+        TypeError,
+        KeyError,
+    ) as exc:
+        raise FreeDocumentDownloadError(
+            "completed free-download checkpoint is unreadable or invalid"
+        ) from exc
+    if len(checkpoint) != len(records) or any(
+        checkpoint.get(_request_key(request)) != record
+        for request, record in zip(requests, records, strict=True)
+    ):
+        raise FreeDocumentDownloadError(
+            "completed free-download manifest does not match its checkpoint"
+        )
+    for request, record in zip(requests, records, strict=True):
+        document_path = _document_output_path(root, request)
+        if (
+            document_path.is_symlink()
+            or not document_path.is_file()
+            or document_path.stat().st_nlink != 1
+        ):
+            raise FreeDocumentDownloadError(
+                "completed free-download document must be a singly linked regular "
+                f"file: {record.candidate_id}/{record.source_document_id}"
+            )
+        digest, byte_count = _hash_path(document_path)
+        if digest != record.sha256 or byte_count != record.byte_count:
+            raise FreeDocumentDownloadError(
+                "completed free-download document bytes differ from the manifest: "
+                f"{record.candidate_id}/{record.source_document_id}"
+            )
+    return records
+
+
+def is_free_document_dry_run_manifest(
+    manifest_path: str | Path,
+    *,
+    request_count: int,
+    document_output_root: str | Path,
+) -> bool:
+    """Recognize only the exact canonical planning stub written by the CLI."""
+
+    manifest = Path(manifest_path)
+    if manifest.is_symlink() or not manifest.is_file() or manifest.stat().st_nlink != 1:
+        raise FreeDocumentDownloadError(
+            "free-download manifest must be a singly linked regular non-symlink file"
+        )
+    expected = (
+        json.dumps(
+            {
+                "stage": "download-free",
+                "dry_run": True,
+                "request_count": request_count,
+                "document_output_root": str(Path(document_output_root)),
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    return manifest.read_bytes() == expected
+
+
 def _reject_existing_outputs(
     requests: tuple[FreeDocumentDownloadRequest, ...],
     *,
@@ -388,21 +498,39 @@ def _download_one(
 ) -> FreeDocumentDownloadRecord:
     _validate_public_document_url(request.source_url)
     output_path = _document_output_path(output_root, request)
-    if output_path.exists():
+    if output_path.is_symlink() or output_path.exists():
+        if (
+            output_path.is_symlink()
+            or not output_path.is_file()
+            or output_path.stat().st_nlink != 1
+        ):
+            raise FreeDocumentDownloadError(
+                "existing document artifact must be a singly linked regular "
+                "non-symlink file: "
+                f"{output_path.relative_to(output_root).as_posix()}"
+            )
         if not allow_existing:
             raise FreeDocumentDownloadError(
                 "existing document artifact present while resume is disabled: "
                 f"{output_path.relative_to(output_root).as_posix()}"
             )
-        digest, _ = _hash_path(output_path)
-        if expected is not None and expected.sha256 == digest:
-            return _record_for_path(
-                request,
-                output_root=output_root,
-                output_path=output_path,
-                fetch=FreeDocumentFetch(content=b""),
-                reused_existing=True,
+        if expected is None:
+            raise FreeDocumentDownloadError(
+                "existing document artifact lacks a matching download checkpoint: "
+                f"{output_path.relative_to(output_root).as_posix()}"
             )
+        if not _record_matches_request(expected, request, output_root=output_root):
+            raise FreeDocumentDownloadError(
+                "download checkpoint does not match current request: "
+                f"{request.candidate_id}/{request.source_document_id}"
+            )
+        digest, byte_count = _hash_path(output_path)
+        if expected.sha256 != digest or expected.byte_count != byte_count:
+            raise FreeDocumentDownloadError(
+                "existing document artifact differs from its download checkpoint: "
+                f"{output_path.relative_to(output_root).as_posix()}"
+            )
+        return expected
     if isinstance(source, UrlLibFreeDocumentSource):
         fetch = _stream_live_document(source, request.source_url, output_path)
         return _record_for_path(
@@ -538,32 +666,42 @@ def _hash_path(path: Path) -> tuple[str, int]:
 
 
 def _read_checkpoint(path: Path) -> dict[str, FreeDocumentDownloadRecord]:
+    if path.is_symlink():
+        raise FreeDocumentDownloadError(
+            "download checkpoint must be a singly linked regular non-symlink file"
+        )
     if not path.exists():
         return {}
-    records: dict[str, FreeDocumentDownloadRecord] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        raw = json.loads(line)
-        record = FreeDocumentDownloadRecord(
-            candidate_id=raw["candidate_id"],
-            source_provider=raw["source_provider"],
-            source_document_id=raw["source_document_id"],
-            docket_entry_number=raw["docket_entry_number"],
-            document_role=DocumentRole(raw["document_role"]),
-            source_url=raw["source_url"],
-            local_path=raw["local_path"],
-            sha256=raw["sha256"],
-            byte_count=raw["byte_count"],
-            free_or_purchased=raw["free_or_purchased"],
-            retry_count=raw["retry_count"],
-            rate_limited=raw["rate_limited"],
-            reused_existing=raw["reused_existing"],
+    if not path.is_file() or path.stat().st_nlink != 1:
+        raise FreeDocumentDownloadError(
+            "download checkpoint must be a singly linked regular non-symlink file"
         )
-        records[
-            "\0".join(
-                (record.candidate_id, record.source_provider, record.source_document_id)
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if any(not line.strip() for line in lines):
+            raise ValueError("download checkpoint contains a blank row")
+        records: dict[str, FreeDocumentDownloadRecord] = {}
+        for line_number, line in enumerate(lines, start=1):
+            raw = json.loads(line)
+            record = _download_record_from_mapping(
+                raw,
+                label=f"download checkpoint row {line_number}",
             )
-        ] = record
-    return records
+            key = "\0".join(
+                (
+                    record.candidate_id,
+                    record.source_provider,
+                    record.source_document_id,
+                )
+            )
+            if key in records:
+                raise ValueError(f"download checkpoint repeats row identity: {key}")
+            records[key] = record
+        return records
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
+        raise FreeDocumentDownloadError(
+            "download checkpoint is unreadable or invalid"
+        ) from exc
 
 
 def _write_checkpoint(
@@ -602,6 +740,117 @@ def _record_for_content(
     )
 
 
+def _download_record_from_mapping(
+    raw: object,
+    *,
+    label: str,
+) -> FreeDocumentDownloadRecord:
+    expected_fields = frozenset(
+        {
+            "candidate_id",
+            "source_provider",
+            "source_document_id",
+            "docket_entry_number",
+            "document_role",
+            "source_url",
+            "local_path",
+            "sha256",
+            "byte_count",
+            "free_or_purchased",
+            "retry_count",
+            "rate_limited",
+            "reused_existing",
+        }
+    )
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{label} has invalid fields")
+    mapping = cast(Mapping[object, object], raw)
+    if (
+        any(not isinstance(key, str) for key in mapping)
+        or frozenset(cast(str, key) for key in mapping) != expected_fields
+    ):
+        raise ValueError(f"{label} has invalid fields")
+    string_fields = (
+        "candidate_id",
+        "source_provider",
+        "source_document_id",
+        "document_role",
+        "source_url",
+        "local_path",
+        "sha256",
+        "free_or_purchased",
+    )
+    string_values: dict[str, str] = {}
+    for field in string_fields:
+        value = mapping[field]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{label} has invalid string fields")
+        string_values[field] = value
+    docket_entry_number = mapping["docket_entry_number"]
+    if docket_entry_number is not None and (
+        not isinstance(docket_entry_number, int)
+        or isinstance(docket_entry_number, bool)
+    ):
+        raise ValueError(f"{label} has invalid docket entry number")
+    byte_count = mapping["byte_count"]
+    if (
+        not isinstance(byte_count, int)
+        or isinstance(byte_count, bool)
+        or byte_count < 0
+    ):
+        raise ValueError(f"{label} has invalid numeric fields")
+    retry_count = mapping["retry_count"]
+    if (
+        not isinstance(retry_count, int)
+        or isinstance(retry_count, bool)
+        or retry_count < 0
+    ):
+        raise ValueError(f"{label} has invalid numeric fields")
+    rate_limited = mapping["rate_limited"]
+    reused_existing = mapping["reused_existing"]
+    if not isinstance(rate_limited, bool) or not isinstance(reused_existing, bool):
+        raise ValueError(f"{label} has invalid boolean fields")
+    if (
+        string_values["free_or_purchased"] != "free"
+        or re.fullmatch(r"[0-9a-f]{64}", string_values["sha256"]) is None
+    ):
+        raise ValueError(f"{label} has invalid free-document commitment")
+    return FreeDocumentDownloadRecord(
+        candidate_id=string_values["candidate_id"],
+        source_provider=string_values["source_provider"],
+        source_document_id=string_values["source_document_id"],
+        docket_entry_number=docket_entry_number,
+        document_role=DocumentRole(string_values["document_role"]),
+        source_url=string_values["source_url"],
+        local_path=string_values["local_path"],
+        sha256=string_values["sha256"],
+        byte_count=byte_count,
+        free_or_purchased=string_values["free_or_purchased"],
+        retry_count=retry_count,
+        rate_limited=rate_limited,
+        reused_existing=reused_existing,
+    )
+
+
+def _record_matches_request(
+    record: FreeDocumentDownloadRecord,
+    request: FreeDocumentDownloadRequest,
+    *,
+    output_root: Path,
+) -> bool:
+    expected_path = _document_output_path(output_root, request)
+    return (
+        record.candidate_id == request.candidate_id
+        and record.source_provider == request.source_provider
+        and record.source_document_id == request.source_document_id
+        and record.docket_entry_number == request.docket_entry_number
+        and record.document_role is request.document_role
+        and record.source_url == request.source_url
+        and record.local_path == expected_path.relative_to(output_root).as_posix()
+        and record.free_or_purchased == "free"
+    )
+
+
 def _document_output_path(
     output_root: Path,
     request: FreeDocumentDownloadRequest,
@@ -625,8 +874,14 @@ def _document_output_path(
         else f"entry-{request.docket_entry_number}"
     )
     filename = f"{entry_prefix}_{document_id}.{extension}"
-    output_path = (output_root / candidate_id / provider / filename).resolve()
-    output_path.relative_to(output_root)
+    output_path = output_root / candidate_id / provider / filename
+    try:
+        output_path.resolve().relative_to(output_root)
+    except ValueError as exc:
+        raise FreeDocumentDownloadError(
+            "document output path escapes the output root: "
+            f"{candidate_id}/{provider}/{filename}"
+        ) from exc
     return output_path
 
 

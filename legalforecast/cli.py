@@ -419,6 +419,8 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentSource,
     UrlLibFreeDocumentSource,
     download_free_docket_documents,
+    is_free_document_dry_run_manifest,
+    verify_completed_free_document_manifest,
 )
 from legalforecast.ingestion.funnel_report import (
     FunnelReportError,
@@ -28036,20 +28038,46 @@ def _cmd_acquisition_download_free(args: argparse.Namespace) -> int:
             ],
         )
     else:
-        fixture_path = cast(Path | None, args.fixture_documents)
-        live_public_download = cast(bool, args.live_public_download)
-        source = _free_document_source(
-            fixture_path=fixture_path,
-            live_public_download=live_public_download,
-        )
         try:
-            records = download_free_docket_documents(
-                requests,
-                output_root=document_root,
-                source=source,
-                allow_existing=cast(bool, args.resume),
+            manifest_already_completed = (
+                cast(bool, args.resume)
+                and (manifest_path.exists() or manifest_path.is_symlink())
+                and not is_free_document_dry_run_manifest(
+                    manifest_path,
+                    request_count=len(requests),
+                    document_output_root=document_root,
+                )
             )
-        except FreeDocumentDownloadError as exc:
+            if manifest_already_completed:
+                verify_completed_free_document_manifest(
+                    requests,
+                    output_root=document_root,
+                    manifest_path=manifest_path,
+                )
+            else:
+                fixture_path = cast(Path | None, args.fixture_documents)
+                live_public_download = cast(bool, args.live_public_download)
+                source = _free_document_source(
+                    fixture_path=fixture_path,
+                    live_public_download=live_public_download,
+                )
+                records = download_free_docket_documents(
+                    requests,
+                    output_root=document_root,
+                    source=source,
+                    allow_existing=cast(bool, args.resume),
+                )
+                _write_jsonl(
+                    manifest_path,
+                    [record.to_record() for record in records],
+                )
+        except (
+            CommandError,
+            FreeDocumentDownloadError,
+            OSError,
+            UnicodeError,
+            ValueError,
+        ) as exc:
             _write_acquisition_failure(
                 args,
                 stage="download-free",
@@ -28058,8 +28086,9 @@ def _cmd_acquisition_download_free(args: argparse.Namespace) -> int:
                 reason=str(exc),
                 paid_activity_requested=False,
             )
+            if isinstance(exc, CommandError):
+                raise
             raise CommandError(str(exc)) from exc
-        _write_jsonl(manifest_path, [record.to_record() for record in records])
     _write_acquisition_completion(
         args,
         stage="download-free",
