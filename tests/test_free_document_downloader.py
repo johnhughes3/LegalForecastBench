@@ -676,6 +676,56 @@ def test_reuse_recovers_owned_linked_temporary_after_publish_crash(
     assert not temporary.exists()
 
 
+def test_reuse_rejects_symlink_parent_before_recovering_external_temporary(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    destination_root = tmp_path / "destination"
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    [source_record] = download_free_docket_documents(
+        (request,),
+        output_root=source_root,
+        source=FixtureFreeDocumentSource({request.source_url: b"%PDF source"}),
+    )
+    reuse_authenticated_free_documents(
+        (request,),
+        authenticated_source_records=(source_record,),
+        source_output_root=source_root,
+        destination_output_root=destination_root,
+    )
+    destination_candidate_root = destination_root / request.candidate_id
+    outside_candidate_root = tmp_path / "outside" / request.candidate_id
+    outside_candidate_root.parent.mkdir()
+    destination_candidate_root.rename(outside_candidate_root)
+    destination_candidate_root.symlink_to(
+        outside_candidate_root,
+        target_is_directory=True,
+    )
+    outside_document = outside_candidate_root / Path(
+        source_record.local_path
+    ).relative_to(request.candidate_id)
+    temporary = outside_document.parent / (
+        f".{outside_document.name}.attacker.reuse-partial"
+    )
+    os.link(outside_document, temporary)
+
+    with pytest.raises(FreeDocumentDownloadError):
+        reuse_authenticated_free_documents(
+            (request,),
+            authenticated_source_records=(source_record,),
+            source_output_root=source_root,
+            destination_output_root=destination_root,
+        )
+
+    assert temporary.exists()
+    assert outside_document.stat().st_nlink == 2
+
+
 def test_reuse_rejects_overlapping_source_and_destination_roots(
     tmp_path: Path,
 ) -> None:

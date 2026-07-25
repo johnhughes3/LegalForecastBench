@@ -471,12 +471,17 @@ def reuse_authenticated_free_documents(
                 destination_checkpoint_path,
                 destination_checkpoint.values(),
             )
-            _verify_published_checkpoint(
-                destination_checkpoint_path,
-                expected_records=destination_checkpoint,
-                expected_payload=expected_payload,
-                output_root=destination_root,
+            published_records, published_payload = _read_checkpoint_payload(
+                destination_checkpoint_path
             )
+            if (
+                published_records != destination_checkpoint
+                or published_payload != expected_payload
+            ):
+                raise FreeDocumentDownloadError(
+                    "destination checkpoint changed during authenticated reuse"
+                )
+            _verify_completed_checkpoint_documents(destination_root, (record,))
         records.append(record)
 
     if destination_checkpoint_path.exists():
@@ -600,6 +605,11 @@ def _verify_completed_checkpoint_documents(
             )
         seen_paths.add(record.local_path)
         document_path = _checkpoint_document_path(output_root, record)
+        _reject_document_parent_symlinks(
+            output_root,
+            document_path,
+            label=f"{record.candidate_id}/{record.source_document_id}",
+        )
         _recover_owned_reuse_temporary(
             document_path,
             expected_hash=record.sha256,

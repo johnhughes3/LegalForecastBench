@@ -13273,6 +13273,11 @@ def _execute_target_retarget_import(
     source_requests, source_records, stage_02_count = (
         _verified_retarget_source_downloads(source)
     )
+    _verify_retarget_public_plan_matches_source(
+        output_root=config.output_root,
+        source_requests=source_requests,
+        stage_02_count=stage_02_count,
+    )
     destination_document_root = config.output_root / "documents/free"
     reuse = reuse_authenticated_free_documents(
         source_requests,
@@ -13446,7 +13451,8 @@ def _baseline_seed_bindings(
             raise CommandError("retarget bridge checkpoint digest is invalid")
         bindings.append((filename, digest))
     bindings.sort()
-    if len(bindings) != len(set(bindings)) or rebase_receipt.get(
+    filenames = [filename for filename, _ in bindings]
+    if len(filenames) != len(set(filenames)) or rebase_receipt.get(
         "checkpoint_count"
     ) != len(bindings):
         raise CommandError("retarget bridge checkpoint bindings do not reconcile")
@@ -13634,6 +13640,26 @@ def _verify_and_seed_target_retarget_import(
     )
     _seed_target_retarget_bridge(config=config)
     return receipt
+
+
+def _verify_retarget_public_plan_matches_source(
+    *,
+    output_root: Path,
+    source_requests: tuple[FreeDocumentDownloadRequest, ...],
+    stage_02_count: int,
+) -> None:
+    """Bind today's provider-free plan to the authenticated imported prefix."""
+
+    target_stage_02_requests = tuple(
+        _free_document_download_request(record)
+        for record in _read_records(
+            output_root / "01-public-plan/free-document-requests.jsonl"
+        )
+    )
+    if target_stage_02_requests != source_requests[:stage_02_count]:
+        raise CommandError(
+            "retarget current public plan differs from authenticated source requests"
+        )
 
 
 def _path_sha256(path: Path) -> str:

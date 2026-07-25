@@ -11,7 +11,6 @@ from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import main
 from legalforecast.ingestion.firecrawl_screening_identity import (
     firecrawl_screening_implementation,
     source_manifest_sha256,
@@ -130,7 +129,9 @@ def test_retarget_cli_rejects_aliasing_roots_before_any_tree_mutation(
     (source.resolve() / "sentinel.txt").write_text("unchanged\n", encoding="utf-8")
     before = _tree_snapshot(arena)
 
-    assert main(_minimal_retarget_command(source=source, destination=destination)) == 2
+    assert (
+        cli.main(_minimal_retarget_command(source=source, destination=destination)) == 2
+    )
 
     stderr = capsys.readouterr().err
     expected = "symlink" if relationship.endswith("symlink") else "disjoint"
@@ -143,7 +144,7 @@ def test_retarget_cli_help_and_stop_after_constraints(
     capsys: CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit, match="0"):
-        main(["acquisition", "prepare-target-cohort", "--help"])
+        cli.main(["acquisition", "prepare-target-cohort", "--help"])
     help_text = capsys.readouterr().out
     assert "--retarget-source-preparation-root" in help_text
     assert "--stop-after {retarget-import}" in help_text
@@ -152,7 +153,7 @@ def test_retarget_cli_help_and_stop_after_constraints(
 
     no_source = tmp_path / "no-source"
     assert (
-        main(
+        cli.main(
             _minimal_retarget_command(
                 source=None,
                 destination=no_source,
@@ -170,7 +171,7 @@ def test_retarget_cli_help_and_stop_after_constraints(
     source_before = _tree_snapshot(source)
     dry_run_destination = tmp_path / "dry-run-destination"
     assert (
-        main(
+        cli.main(
             _minimal_retarget_command(
                 source=source,
                 destination=dry_run_destination,
@@ -186,7 +187,7 @@ def test_retarget_cli_help_and_stop_after_constraints(
 
     wrong_count_destination = tmp_path / "wrong-count-destination"
     assert (
-        main(
+        cli.main(
             _minimal_retarget_command(
                 source=source,
                 destination=wrong_count_destination,
@@ -346,7 +347,7 @@ def test_stop_after_retarget_import_exits_before_providers_or_success_evidence(
         source=source,
     )
 
-    assert main(command) == 0
+    assert cli.main(command) == 0
 
     assert calls == ["retarget-import"]
     assert not (destination / "target-cohort-preparation-summary.json").exists()
@@ -394,7 +395,7 @@ def test_only_authenticated_retarget_accepts_historical_screening_implementation
         source=source,
     )
 
-    assert main(retarget_command) == 0
+    assert cli.main(retarget_command) == 0
     assert imported == [retarget_destination]
 
     ordinary_destination = tmp_path / "ordinary-preparation"
@@ -405,7 +406,7 @@ def test_only_authenticated_retarget_accepts_historical_screening_implementation
         fixture_documents=fixture_documents,
         courtlistener_fixture=courtlistener_fixture,
     )
-    assert main(ordinary_command) == 2
+    assert cli.main(ordinary_command) == 2
     assert (
         "screening sources do not match the committed implementation"
         in capsys.readouterr().err
@@ -465,7 +466,7 @@ def test_retarget_resume_skips_committed_public_plan_and_advances(
         courtlistener_fixture=courtlistener_fixture,
         source=source,
     )
-    assert main(stop_command) == 0
+    assert cli.main(stop_command) == 0
     assert receipt_path.is_file()
     stage_01_before = {path: path.read_bytes() for path in stage_01_evidence}
 
@@ -509,7 +510,7 @@ def test_retarget_resume_skips_committed_public_plan_and_advances(
         stop_after=False,
     )
 
-    assert main(resume_command) == 2
+    assert cli.main(resume_command) == 2
     assert verification_calls == [destination]
     assert screening_requirements == []
     assert advanced_stages == ["download-free"]
@@ -530,7 +531,7 @@ def test_retarget_resume_skips_committed_public_plan_and_advances(
         courtlistener_fixture=current_courtlistener_fixture,
     )
 
-    assert main(ordinary_command) == 2
+    assert cli.main(ordinary_command) == 2
     assert screening_requirements == [True]
     assert advanced_stages == ["download-free", "download-free"]
 
@@ -604,6 +605,72 @@ def test_live_seed_receipt_commits_zero_provider_fields_and_exact_bindings(
     claimed = unhashed.pop("receipt_sha256")
     assert claimed == cli._canonical_json_sha256(unhashed)
     assert not os.path.samestat(baseline_checkpoint.stat(), live_checkpoint.stat())
+
+
+def test_live_seed_rejects_duplicate_checkpoint_filename_bindings(
+    tmp_path: Path,
+) -> None:
+    config, baseline_checkpoint, _ = _seed_fixture(tmp_path)
+    receipt_path = (
+        config.output_root / "retarget-import/bridge-baseline/run-cards/"
+        "rebase-pacer-gap-checkpoints-receipt.json"
+    )
+    digest = "sha256:" + hashlib.sha256(baseline_checkpoint.read_bytes()).hexdigest()
+    _write_json(
+        receipt_path,
+        {
+            "checkpoint_count": 2,
+            "checkpoint_bindings": [
+                {
+                    "current_filename": baseline_checkpoint.name,
+                    "current_sha256": digest,
+                },
+                {
+                    "current_filename": baseline_checkpoint.name,
+                    "current_sha256": "sha256:" + "f" * 64,
+                },
+            ],
+        },
+    )
+
+    with pytest.raises(cli.CommandError, match="bindings do not reconcile"):
+        cli._seed_target_retarget_bridge(config=config)
+
+
+def test_retarget_rejects_current_plan_that_differs_from_authenticated_source(
+    tmp_path: Path,
+) -> None:
+    current_request = cli.FreeDocumentDownloadRequest(
+        candidate_id="candidate-a",
+        source_provider="courtlistener",
+        source_document_id="current-document",
+        docket_entry_number=1,
+        document_role=cli.DocumentRole.COMPLAINT,
+        source_url="https://www.courtlistener.com/recap/current-document.pdf",
+    )
+    plan_path = tmp_path / "01-public-plan/free-document-requests.jsonl"
+    plan_path.parent.mkdir(parents=True)
+    plan_path.write_text(
+        json.dumps(current_request.to_record(), sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    source_request = cli.FreeDocumentDownloadRequest(
+        candidate_id="candidate-a",
+        source_provider="courtlistener",
+        source_document_id="authenticated-source-document",
+        docket_entry_number=1,
+        document_role=cli.DocumentRole.COMPLAINT,
+        source_url=(
+            "https://www.courtlistener.com/recap/authenticated-source-document.pdf"
+        ),
+    )
+
+    with pytest.raises(cli.CommandError, match="public plan differs"):
+        cli._verify_retarget_public_plan_matches_source(
+            output_root=tmp_path,
+            source_requests=(source_request,),
+            stage_02_count=1,
+        )
 
 
 @pytest.mark.parametrize("mutation", ("missing", "contradictory"))
