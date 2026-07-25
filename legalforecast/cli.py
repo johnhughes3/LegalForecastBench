@@ -415,11 +415,13 @@ from legalforecast.ingestion.firecrawl_source import (
 from legalforecast.ingestion.free_document_downloader import (
     FixtureFreeDocumentSource,
     FreeDocumentDownloadError,
+    FreeDocumentDownloadRecord,
     FreeDocumentDownloadRequest,
     FreeDocumentSource,
     UrlLibFreeDocumentSource,
     download_free_docket_documents,
     is_free_document_dry_run_manifest,
+    reuse_authenticated_free_documents,
     verify_completed_free_document_manifest,
 )
 from legalforecast.ingestion.funnel_report import (
@@ -600,15 +602,31 @@ from legalforecast.ingestion.snapshot_replay import (
 from legalforecast.ingestion.target_100_acquisition import (
     Target100PreparationConfig,
     Target100PreparationError,
+    Target100StageCommand,
     TargetCohortPreparationConfig,
     TargetCohortPreparationError,
     build_target_100_stage_commands,
     build_target_cohort_stage_commands,
+    validate_retarget_preparation_roots,
 )
 from legalforecast.ingestion.target_cohort_projection import (
     TargetCohortProjectionError,
     project_target_cohort,
     restriction_evidence_from_case_relevance,
+)
+from legalforecast.ingestion.target_preparation_retarget import (
+    RETARGET_IMPORT_RECEIPT_FILENAME,
+    FailedSourcePreparation,
+    RetargetImportError,
+    RetargetImportReceipt,
+    SemanticReplayPlan,
+    SnapshotCommitment,
+    SourceTreeCommitment,
+    build_stage_commitment,
+    compute_source_tree_commitment,
+    inspect_failed_source_preparation,
+    verify_retarget_import_receipt,
+    write_retarget_import_receipt,
 )
 from legalforecast.ingestion.terminal_subset_promotion import (
     TerminalSubsetPromotionError,
@@ -2435,6 +2453,24 @@ def _add_acquisition_prepare_target_cohort_arguments(
         type=int,
         required=True,
         help="Required positive target size, frozen into the preparation config.",
+    )
+    parser.add_argument(
+        "--retarget-source-preparation-root",
+        type=Path,
+        help=(
+            "Executed failed preparation root to authenticate and import without "
+            "provider activity. Retarget mode requires exactly 100 cases and a "
+            "disjoint fresh output root."
+        ),
+    )
+    parser.add_argument(
+        "--stop-after",
+        choices=("retarget-import",),
+        help=(
+            "Execution-only retarget boundary. `retarget-import` publishes the "
+            "immutable provider-free import receipt and exits before normal "
+            "CourtListener resume or canonical preparation success evidence."
+        ),
     )
     parser.set_defaults(handler=_cmd_acquisition_prepare_target_cohort)
 
@@ -8268,6 +8304,33 @@ def _cmd_acquisition_prepare_target(
 
     output_root = cast(Path, args.output_root)
     target_case_count = profile.target_case_count(args)
+    retarget_source_root = cast(
+        Path | None, getattr(args, "retarget_source_preparation_root", None)
+    )
+    stop_after = cast(str | None, getattr(args, "stop_after", None))
+    source_preparation: FailedSourcePreparation | None = None
+    source_tree_before: SourceTreeCommitment | None = None
+    if stop_after is not None and retarget_source_root is None:
+        raise CommandError("--stop-after requires --retarget-source-preparation-root")
+    if stop_after is not None and _acquisition_dry_run(args):
+        raise CommandError("--stop-after retarget-import requires --execute")
+    if retarget_source_root is not None:
+        if profile is not _TARGET_COHORT_PREPARATION:
+            raise CommandError(
+                "retarget import is available only through prepare-target-cohort"
+            )
+        try:
+            validate_retarget_preparation_roots(
+                source_root=retarget_source_root,
+                destination_root=output_root,
+                target_case_count=target_case_count,
+            )
+            source_preparation = inspect_failed_source_preparation(retarget_source_root)
+            source_tree_before = compute_source_tree_commitment(source_preparation.root)
+        except (RetargetImportError, TargetCohortPreparationError) as exc:
+            # The output path is not yet trusted. Never write a failure card into a
+            # source/target alias or otherwise mutate either tree on preflight.
+            raise CommandError(str(exc)) from exc
     summary_path = _acquisition_path(
         args,
         "summary_output",
@@ -8324,7 +8387,13 @@ def _cmd_acquisition_prepare_target(
             )
         snapshot_firecrawl_screening_source_count(
             cast(Mapping[str, object], snapshot_manifest),
-            require_current=True,
+            # Retargeting authenticates the exact historical snapshot twice:
+            # through its externally pinned manifest and through the immutable
+            # failed-preparation config/source-tree receipt. Requiring the current
+            # CLI source hash here would make the retarget implementation invalidate
+            # the very snapshot it is designed to migrate. Ordinary preparations
+            # continue to require the current screening implementation.
+            require_current=source_preparation is None,
         )
         stage_commitments = snapshot_manifest.get("stage_commitments")
         if not isinstance(stage_commitments, Mapping):
@@ -8374,6 +8443,24 @@ def _cmd_acquisition_prepare_target(
             protected_paths=_target_100_protected_paths(args),
         )
         raise CommandError(reason)
+    retarget_snapshot_commitment: SnapshotCommitment | None = None
+    if source_preparation is not None:
+        retarget_snapshot_commitment = SnapshotCommitment(
+            manifest_sha256="sha256:" + snapshot_view.manifest_sha256,
+            cycle_hash=expected_cycle_hash,
+            batch_digest=cast(str, snapshot_manifest["batch_digest"]),
+        )
+        try:
+            retarget_snapshot_commitment.validate()
+        except RetargetImportError as exc:
+            raise CommandError(str(exc)) from exc
+        if (
+            retarget_snapshot_commitment.to_record()
+            != source_preparation.snapshot.to_record()
+        ):
+            raise CommandError(
+                "retarget source and requested snapshot commitments differ"
+            )
     authenticated_screened_cases = (
         output_root / "00-authenticated-snapshot/screened-cases.jsonl"
     )
@@ -8449,6 +8536,13 @@ def _cmd_acquisition_prepare_target(
         ),
         resume=cast(bool, args.resume),
     )
+    if retarget_source_root is not None:
+        if not isinstance(config, TargetCohortPreparationConfig):
+            raise CommandError("retarget import requires generic cohort preparation")
+        config = replace(
+            config,
+            retarget_source_preparation_root=retarget_source_root,
+        )
     try:
         commands = (
             build_target_100_stage_commands(cast(Target100PreparationConfig, config))
@@ -8494,6 +8588,8 @@ def _cmd_acquisition_prepare_target(
                 "run_card": success_run_card_path,
                 "log": success_log_path,
             },
+            retarget_source=source_preparation,
+            retarget_source_tree=source_tree_before,
         )
         if cast(bool, args.resume):
             completed_evidence_exists = (
@@ -8585,7 +8681,53 @@ def _cmd_acquisition_prepare_target(
         )
         raise CommandError(reason)
 
+    retarget_receipt: RetargetImportReceipt | None = None
+    if source_preparation is not None:
+        if source_tree_before is None or retarget_snapshot_commitment is None:
+            raise CommandError("retarget preflight commitments are incomplete")
+        try:
+            if stop_after == "retarget-import":
+                _execute_target_retarget_import(
+                    args=args,
+                    config=cast(TargetCohortPreparationConfig, config),
+                    commands=commands,
+                    source=source_preparation,
+                    source_tree_before=source_tree_before,
+                    snapshot=retarget_snapshot_commitment,
+                    config_path=config_path,
+                )
+                return 0
+            retarget_receipt = _verify_and_seed_target_retarget_import(
+                args=args,
+                config=cast(TargetCohortPreparationConfig, config),
+                source=source_preparation,
+            )
+        except (
+            CommandError,
+            FreeDocumentDownloadError,
+            RetargetImportError,
+            OSError,
+            UnicodeError,
+            ValueError,
+        ) as exc:
+            _write_target_100_attempt_failure(
+                args,
+                profile=profile,
+                reason=str(exc),
+                extra={"config_sha256": config_record["config_sha256"]},
+                protected_paths=_target_100_protected_paths(args),
+            )
+            if isinstance(exc, CommandError):
+                raise
+            raise CommandError(str(exc)) from exc
+
     for command in commands:
+        if source_preparation is not None and command.stage == "plan-public-downloads":
+            # The verified import receipt already commits every stage-01 byte.
+            # Re-running this otherwise deterministic stage would still rewrite
+            # generated-at run-card metadata and append a log row, invalidating the
+            # immutable receipt before final lineage verification.
+            continue
         result = main(command.argv)
         if result != 0:
             reason = (
@@ -8716,6 +8858,18 @@ def _cmd_acquisition_prepare_target(
             "config_sha256": config_record["config_sha256"],
             "stage_input_commitments": stage_input_commitments,
             "stage_commitments": stage_commitments,
+            **(
+                {
+                    "retarget_import_receipt_sha256": (
+                        retarget_receipt.receipt_file_sha256
+                    ),
+                    "retarget_import_receipt_self_hash": (
+                        retarget_receipt.receipt_sha256
+                    ),
+                }
+                if retarget_receipt is not None
+                else {}
+            ),
             "selected_candidate_ids_sha256": _canonical_json_sha256(selected_ids),
             "frontier_sha256": _canonical_json_sha256(
                 [row.to_record() for row in budget_plan.frontier_rows]
@@ -8765,6 +8919,15 @@ def _cmd_acquisition_prepare_target(
             "config_sha256": config_record["config_sha256"],
             "completed_stages": list(stage_commitments),
             "zero_paid_activity_evidence": True,
+            **(
+                {
+                    "retarget_import_receipt_sha256": (
+                        retarget_receipt.receipt_file_sha256
+                    )
+                }
+                if retarget_receipt is not None
+                else {}
+            ),
         },
     )
     return 0
@@ -8993,6 +9156,31 @@ def _verify_completed_preparation_for_frontier(
         raise CommandError(
             "preparation stage input commitment mismatch or non-exhaustive mapping"
         )
+    verified_retarget_receipt: RetargetImportReceipt | None = None
+    raw_retarget_lineage = config.get("retarget_import")
+    if raw_retarget_lineage is not None:
+        retarget_lineage = _mapping(
+            raw_retarget_lineage, "retarget import config lineage"
+        )
+        verified_retarget_receipt = verify_retarget_import_receipt(
+            Path(_required_str(retarget_lineage, "receipt_path")),
+            source_root=Path(
+                _required_str(retarget_lineage, "source_preparation_root")
+            ),
+            target_root=preparation_root,
+        )
+        if (
+            summary.get("retarget_import_receipt_sha256")
+            != verified_retarget_receipt.receipt_file_sha256
+            or summary.get("retarget_import_receipt_self_hash")
+            != verified_retarget_receipt.receipt_sha256
+        ):
+            raise CommandError("preparation retarget summary commitment mismatch")
+    elif (
+        "retarget_import_receipt_sha256" in summary
+        or "retarget_import_receipt_self_hash" in summary
+    ):
+        raise CommandError("preparation has unexpected retarget summary commitment")
     actual_outputs = _target_100_stage_commitments(preparation_root)
     if dict(cast(Mapping[str, Any], committed_outputs)) != actual_outputs:
         raise CommandError(
@@ -9092,6 +9280,14 @@ def _verify_completed_preparation_for_frontier(
         or success_card.get("zero_paid_activity_evidence") is not True
     ):
         raise CommandError("completed preparation success run card is inconsistent")
+    if verified_retarget_receipt is not None:
+        if (
+            success_card.get("retarget_import_receipt_sha256")
+            != verified_retarget_receipt.receipt_file_sha256
+        ):
+            raise CommandError("preparation retarget run-card commitment mismatch")
+    elif "retarget_import_receipt_sha256" in success_card:
+        raise CommandError("preparation has unexpected retarget run-card commitment")
     committed_output_paths = success_card.get("output_paths")
     if not isinstance(committed_output_paths, Sequence) or isinstance(
         committed_output_paths, (str, bytes)
@@ -9473,6 +9669,19 @@ def _expected_preparation_input_commitments(
     expected["01-public-plan"].update(authenticated_input_commitments)
     expected["03-gap-bridge"].update(authenticated_input_commitments)
     expected["03-gap-bridge"].update(bridge_route_commitments)
+    retarget_commitments = _verified_retarget_final_input_commitments(
+        output_root=preparation_root,
+        frozen_config=config,
+    )
+    if retarget_commitments:
+        expected["retarget-import"] = retarget_commitments
+        source_root = Path(
+            _required_str(
+                _mapping(config.get("retarget_import"), "retarget import lineage"),
+                "source_preparation_root",
+            )
+        )
+        independent_inputs.append(source_root)
     return expected, tuple(independent_inputs)
 
 
@@ -12642,6 +12851,8 @@ def _target_100_config_record(
     stage_commands: Sequence[Mapping[str, Any]],
     driver_execute: bool,
     wrapper_artifact_paths: Mapping[str, Path],
+    retarget_source: FailedSourcePreparation | None = None,
+    retarget_source_tree: SourceTreeCommitment | None = None,
 ) -> JsonRecord:
     record: JsonRecord = {
         "schema_version": profile.config_schema,
@@ -12714,6 +12925,24 @@ def _target_100_config_record(
         },
         "stage_commands": _semantic_target_100_stage_commands(stage_commands),
     }
+    if (retarget_source is None) != (retarget_source_tree is None):
+        raise CommandError("retarget source and tree commitments must be paired")
+    if retarget_source is not None and retarget_source_tree is not None:
+        expected_root = getattr(config, "retarget_source_preparation_root", None)
+        if expected_root is None or expected_root.resolve() != retarget_source.root:
+            raise CommandError("retarget source config root commitment mismatch")
+        record["retarget_import"] = {
+            "source_preparation_root": str(retarget_source.root),
+            "source_config_file_sha256": retarget_source.config_file_sha256,
+            "source_config_self_hash": retarget_source.config_self_hash,
+            "source_tree_commitment": retarget_source_tree.to_record(),
+            "receipt_path": str(
+                (config.output_root / RETARGET_IMPORT_RECEIPT_FILENAME).resolve()
+            ),
+            "immutable_baseline_root": str(
+                (config.output_root / "retarget-import").resolve()
+            ),
+        }
     record["config_sha256"] = _canonical_json_sha256(record)
     return record
 
@@ -12738,6 +12967,673 @@ def _ensure_target_100_config(
             )
         return
     _atomic_write_json(path, record)
+
+
+_RETARGET_IMPORT_ROOT = "retarget-import"
+_RETARGET_IMPORTED_DOCUMENTS = "imported-free-documents.jsonl"
+_RETARGET_DOCUMENT_REUSE_RECEIPT = "free-document-reuse-receipt.json"
+_RETARGET_BRIDGE_BASELINE = "bridge-baseline"
+_RETARGET_LIVE_SEED_RECEIPT = "live-bridge-seed-receipt.json"
+
+
+def _retarget_owned_source_path(
+    source: FailedSourcePreparation,
+    field_name: str,
+) -> Path:
+    raw_path = source.config_record.get(field_name)
+    if not isinstance(raw_path, str) or not raw_path:
+        raise CommandError(f"retarget source config lacks {field_name}")
+    try:
+        path = Path(raw_path).resolve(strict=True)
+        path.relative_to(source.root)
+    except (OSError, ValueError) as exc:
+        raise CommandError(
+            f"retarget source config {field_name} is outside the failed root"
+        ) from exc
+    return path
+
+
+def _retarget_source_stage_paths(
+    source: FailedSourcePreparation,
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    authenticated = (
+        "00-authenticated-snapshot/screened-cases.jsonl",
+        "00-authenticated-snapshot/raw-html-manifest.jsonl",
+    )
+    public_plan_root = source.root / "01-public-plan"
+    public_plan = tuple(
+        path.relative_to(source.root).as_posix()
+        for path in sorted(public_plan_root.rglob("*"))
+        if path.is_file()
+    )
+    bridge_paths = (
+        "02-free-download/free-document-downloads.jsonl",
+        "03b-bridge-free-download/free-document-downloads.jsonl",
+        "documents/free/.download-checkpoint.jsonl",
+        "03-gap-bridge/checkpoints/pacer-gap-bridge-progress-config.json",
+        *tuple(
+            path.relative_to(source.root).as_posix()
+            for path in sorted(
+                (source.root / "03-gap-bridge/checkpoints/pacer-gap-bridge").glob(
+                    "*.json"
+                )
+            )
+        ),
+    )
+    return authenticated, public_plan, bridge_paths
+
+
+def _verified_retarget_source_downloads(
+    source: FailedSourcePreparation,
+) -> tuple[
+    tuple[FreeDocumentDownloadRequest, ...],
+    tuple[FreeDocumentDownloadRecord, ...],
+    int,
+]:
+    source_document_root = source.root / "documents/free"
+    stage_02_requests = tuple(
+        _free_document_download_request(record)
+        for record in _read_records(
+            source.root / "01-public-plan/free-document-requests.jsonl"
+        )
+    )
+    stage_02_records = verify_completed_free_document_manifest(
+        stage_02_requests,
+        output_root=source_document_root,
+        manifest_path=(source.root / "02-free-download/free-document-downloads.jsonl"),
+    )
+    stage_03b_requests = tuple(
+        _free_document_download_request(record)
+        for record in _read_records(
+            source.root / "03-gap-bridge/pacer-gap-free-document-requests.jsonl"
+        )
+    )
+    stage_03b_records = verify_completed_free_document_manifest(
+        stage_03b_requests,
+        output_root=source_document_root,
+        manifest_path=(
+            source.root / "03b-bridge-free-download/free-document-downloads.jsonl"
+        ),
+    )
+    request_keys = [
+        (request.candidate_id, request.source_provider, request.source_document_id)
+        for request in (*stage_02_requests, *stage_03b_requests)
+    ]
+    if len(request_keys) != len(set(request_keys)):
+        raise CommandError(
+            "retarget source stage-02 and stage-03b document requests overlap"
+        )
+    return (
+        (*stage_02_requests, *stage_03b_requests),
+        (*stage_02_records, *stage_03b_records),
+        len(stage_02_records),
+    )
+
+
+def _retarget_rebase_namespace(
+    *,
+    args: argparse.Namespace,
+    config: TargetCohortPreparationConfig,
+    source: FailedSourcePreparation,
+    baseline_root: Path,
+) -> argparse.Namespace:
+    return argparse.Namespace(
+        output_root=baseline_root,
+        execute=True,
+        resume=cast(bool, args.resume),
+        log_output=None,
+        run_card_output=None,
+        previous_screened_cases=(
+            source.root / "00-authenticated-snapshot/screened-cases.jsonl"
+        ),
+        current_screened_cases=config.authenticated_screened_cases,
+        previous_public_selection=(
+            source.root / "01-public-plan/public-packet-selection.jsonl"
+        ),
+        current_public_selection=(
+            config.output_root / "01-public-plan/public-packet-selection.jsonl"
+        ),
+        previous_paid_gaps=(
+            source.root / "01-public-plan/public-packet-paid-gaps.jsonl"
+        ),
+        current_paid_gaps=(
+            config.output_root / "01-public-plan/public-packet-paid-gaps.jsonl"
+        ),
+        previous_free_download_manifest=(
+            source.root / "02-free-download/free-document-downloads.jsonl"
+        ),
+        current_free_download_manifest=(
+            config.output_root / "02-free-download/free-document-downloads.jsonl"
+        ),
+        previous_checkpoint_dir=(
+            source.root / "03-gap-bridge/checkpoints/pacer-gap-bridge"
+        ),
+        previous_checkpoint_config=(
+            source.root
+            / "03-gap-bridge/checkpoints/pacer-gap-bridge-progress-config.json"
+        ),
+        current_raw_html_dir=config.raw_html_dir,
+        current_authenticated_raw_html_manifest=(
+            config.authenticated_raw_html_manifest
+        ),
+        checkpoint_dir=None,
+        checkpoint_config_output=None,
+        receipt_output=None,
+        previous_snapshot=None,
+        expected_previous_snapshot_manifest_sha256=None,
+        current_snapshot=None,
+        expected_current_snapshot_manifest_sha256=None,
+        expected_added_candidate_id=None,
+        expected_invalidated_candidate_id=None,
+    )
+
+
+def _semantic_replay_plan_from_rebase(
+    *,
+    receipt: Mapping[str, Any],
+    source_checkpoint_dir: Path,
+) -> SemanticReplayPlan:
+    raw_ids = receipt.get("semantic_replay_candidate_ids")
+    if not isinstance(raw_ids, list):
+        raise CommandError("retarget rebase receipt has invalid semantic replay IDs")
+    raw_candidate_ids = cast(list[object], raw_ids)
+    if not all(isinstance(candidate_id, str) for candidate_id in raw_candidate_ids):
+        raise CommandError("retarget rebase receipt has invalid semantic replay IDs")
+    candidate_ids = tuple(cast(list[str], raw_candidate_ids))
+    if (
+        receipt.get("missing_replay_candidate_count") != 0
+        or receipt.get("missing_replay_candidate_ids") != []
+    ):
+        raise CommandError(
+            "retarget import refuses previously uncheckpointed replay candidates"
+        )
+    invalidations = receipt.get("invalidated_checkpoints")
+    if not isinstance(invalidations, list):
+        raise CommandError("retarget rebase receipt lacks checkpoint invalidations")
+    invalidation_by_id = {
+        _required_str(
+            _mapping(row, "checkpoint invalidation"), "candidate_id"
+        ): _mapping(row, "checkpoint invalidation")
+        for row in cast(list[object], invalidations)
+    }
+    source_revisions: set[str] = set()
+    target_revisions: set[str] = set()
+    source_by_id: dict[str, JsonRecord] = {}
+    for path in sorted(source_checkpoint_dir.glob("*.json")):
+        checkpoint = _read_json_object(path)
+        source_by_id[_required_str(checkpoint, "candidate_id")] = checkpoint
+    for candidate_id in candidate_ids:
+        checkpoint = source_by_id.get(candidate_id)
+        invalidation = invalidation_by_id.get(candidate_id)
+        if checkpoint is None or invalidation is None:
+            raise CommandError(
+                f"retarget semantic replay lacks checkpoint evidence: {candidate_id}"
+            )
+        exclusion = _mapping(
+            _mapping(checkpoint.get("payload"), "checkpoint payload").get(
+                "exclusion_record"
+            ),
+            "checkpoint exclusion",
+        )
+        if (
+            checkpoint.get("outcome") != "exclusion"
+            or exclusion.get("primary_exclusion_reason") != "text_missing"
+            or exclusion.get("exclusion_reasons") != ["text_missing"]
+            or invalidation.get("reason") != "stale_bridge_semantic_revision"
+        ):
+            raise CommandError(
+                f"retarget semantic replay is not an exact text_missing transition: "
+                f"{candidate_id}"
+            )
+        source_revision = invalidation.get("previous_bridge_semantic_revision")
+        target_revision = invalidation.get("current_bridge_semantic_revision")
+        if not isinstance(source_revision, str) or not isinstance(target_revision, str):
+            raise CommandError("retarget semantic replay revision is invalid")
+        source_revisions.add(source_revision)
+        target_revisions.add(target_revision)
+    if len(source_revisions) != 1 or target_revisions != {
+        _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+    }:
+        raise CommandError("retarget semantic replay revisions are not exact")
+    plan = SemanticReplayPlan(
+        source_semantic_revision=next(iter(source_revisions)),
+        target_semantic_revision=_PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+        reason_code="text_missing",
+        candidate_ids=candidate_ids,
+    )
+    plan.validate()
+    return plan
+
+
+def _run_retarget_public_plan(command: Target100StageCommand) -> int:
+    """Run the exact authenticated historical snapshot through today's planner."""
+
+    public_plan_args = build_parser().parse_args(command.argv)
+    if getattr(public_plan_args, "handler", None) is not (
+        _cmd_acquisition_plan_public_downloads
+    ):
+        raise CommandError("retarget import public-plan command identity differs")
+    return _cmd_acquisition_plan_public_downloads(
+        public_plan_args,
+        require_current_screening=False,
+    )
+
+
+def _execute_target_retarget_import(
+    *,
+    args: argparse.Namespace,
+    config: TargetCohortPreparationConfig,
+    commands: Sequence[Target100StageCommand],
+    source: FailedSourcePreparation,
+    source_tree_before: SourceTreeCommitment,
+    snapshot: SnapshotCommitment,
+    config_path: Path,
+) -> RetargetImportReceipt:
+    receipt_path = config.output_root / RETARGET_IMPORT_RECEIPT_FILENAME
+    if receipt_path.exists() or receipt_path.is_symlink():
+        receipt = verify_retarget_import_receipt(
+            receipt_path,
+            source_root=source.root,
+            target_root=config.output_root,
+        )
+        imported_manifest = (
+            config.output_root / _RETARGET_IMPORT_ROOT / _RETARGET_IMPORTED_DOCUMENTS
+        )
+        imported_records = _read_records(imported_manifest)
+        verify_completed_free_document_manifest(
+            tuple(
+                _free_document_download_request(record) for record in imported_records
+            ),
+            output_root=config.output_root / "documents/free",
+            manifest_path=imported_manifest,
+        )
+        return receipt
+    source_screened = _retarget_owned_source_path(
+        source, "authenticated_screened_cases"
+    )
+    source_raw_dir = _retarget_owned_source_path(source, "raw_html_dir")
+    source_raw_manifest = _retarget_owned_source_path(
+        source, "authenticated_raw_html_manifest"
+    )
+    source_screened_sha = _required_str(source.config_record, "screened_cases_sha256")
+    source_raw_manifest_sha = _required_str(
+        source.config_record, "authenticated_raw_html_manifest_sha256"
+    )
+    _verified_target_authenticated_paths(
+        screened_cases=source_screened,
+        screened_cases_sha256=source_screened_sha.removeprefix("sha256:"),
+        raw_html_dir=source_raw_dir,
+        raw_html_manifest=source_raw_manifest,
+        raw_html_manifest_sha256=source_raw_manifest_sha.removeprefix("sha256:"),
+    )
+    if not commands or commands[0].stage != "plan-public-downloads":
+        raise CommandError("retarget import lacks the provider-free public-plan stage")
+    _run_retarget_public_plan(commands[0])
+
+    source_requests, source_records, stage_02_count = (
+        _verified_retarget_source_downloads(source)
+    )
+    destination_document_root = config.output_root / "documents/free"
+    reuse = reuse_authenticated_free_documents(
+        source_requests,
+        authenticated_source_records=source_records,
+        source_output_root=source.root / "documents/free",
+        destination_output_root=destination_document_root,
+    )
+    imported_manifest_path = (
+        config.output_root / _RETARGET_IMPORT_ROOT / _RETARGET_IMPORTED_DOCUMENTS
+    )
+    imported_manifest_payload = _jsonl_bytes(
+        record.to_record() for record in reuse.records
+    )
+    _write_immutable_bytes(
+        imported_manifest_path,
+        imported_manifest_payload,
+        resume=cast(bool, args.resume),
+    )
+    stage_02_manifest_path = (
+        config.output_root / "02-free-download/free-document-downloads.jsonl"
+    )
+    _write_immutable_bytes(
+        stage_02_manifest_path,
+        _jsonl_bytes(record.to_record() for record in reuse.records[:stage_02_count]),
+        resume=cast(bool, args.resume),
+    )
+    reuse_receipt_path = (
+        config.output_root / _RETARGET_IMPORT_ROOT / _RETARGET_DOCUMENT_REUSE_RECEIPT
+    )
+    reuse_record: JsonRecord = {
+        "schema_version": "legalforecast.target_retarget_document_reuse.v1",
+        "source_preparation_root": str(source.root),
+        "destination_document_root": str(destination_document_root.resolve()),
+        "source_checkpoint_sha256": ("sha256:" + reuse.source_checkpoint_sha256),
+        "source_checkpoint_record_count": reuse.source_checkpoint_record_count,
+        "destination_checkpoint_sha256": (
+            "sha256:" + reuse.destination_checkpoint_sha256
+        ),
+        "imported_record_count": len(reuse.records),
+        "stage_02_record_count": stage_02_count,
+        "imported_manifest_sha256": _bytes_sha256(imported_manifest_payload),
+        "provider_client_constructed": False,
+        "provider_request_count": 0,
+        "network_request_count": 0,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    reuse_record["receipt_sha256"] = _canonical_json_sha256(reuse_record)
+    _write_immutable_bytes(
+        reuse_receipt_path,
+        _projection_json_bytes(reuse_record),
+        resume=cast(bool, args.resume),
+    )
+
+    baseline_root = (
+        config.output_root / _RETARGET_IMPORT_ROOT / _RETARGET_BRIDGE_BASELINE
+    )
+    rebase_args = _retarget_rebase_namespace(
+        args=args,
+        config=config,
+        source=source,
+        baseline_root=baseline_root,
+    )
+    rebase_receipt = _rebase_pacer_gap_checkpoints(rebase_args)
+    if (
+        rebase_receipt.get("provider_request_count") != 0
+        or rebase_receipt.get("network_request_count") != 0
+        or rebase_receipt.get("provider_client_constructed") is not False
+        or rebase_receipt.get("paid_activity_requested") is not False
+        or rebase_receipt.get("paid_activity_executed") is not False
+    ):
+        raise CommandError(
+            "retarget checkpoint rebase recorded provider or paid activity"
+        )
+    semantic_replay = _semantic_replay_plan_from_rebase(
+        receipt=rebase_receipt,
+        source_checkpoint_dir=(
+            source.root / "03-gap-bridge/checkpoints/pacer-gap-bridge"
+        ),
+    )
+
+    source_authenticated, source_public, source_bridge = _retarget_source_stage_paths(
+        source
+    )
+    source_stages = (
+        build_stage_commitment(
+            source.root,
+            stage="source-authenticated-inputs",
+            relative_paths=source_authenticated,
+        ),
+        build_stage_commitment(
+            source.root,
+            stage="source-public-plan",
+            relative_paths=source_public,
+        ),
+        build_stage_commitment(
+            source.root,
+            stage="source-download-and-bridge-evidence",
+            relative_paths=source_bridge,
+        ),
+    )
+    target_stable_paths = (
+        "00-authenticated-snapshot/screened-cases.jsonl",
+        "00-authenticated-snapshot/raw-html-manifest.jsonl",
+        "02-free-download/free-document-downloads.jsonl",
+        f"{_RETARGET_IMPORT_ROOT}/{_RETARGET_IMPORTED_DOCUMENTS}",
+        f"{_RETARGET_IMPORT_ROOT}/{_RETARGET_DOCUMENT_REUSE_RECEIPT}",
+        *tuple(
+            path.relative_to(config.output_root).as_posix()
+            for path in sorted((config.output_root / "01-public-plan").rglob("*"))
+            if path.is_file()
+        ),
+    )
+    baseline_paths = tuple(
+        path.relative_to(config.output_root).as_posix()
+        for path in sorted(baseline_root.rglob("*"))
+        if path.is_file()
+    )
+    target_stages = (
+        build_stage_commitment(
+            config.output_root,
+            stage="target-stable-import-artifacts",
+            relative_paths=target_stable_paths,
+        ),
+        build_stage_commitment(
+            config.output_root,
+            stage="target-immutable-bridge-baseline",
+            relative_paths=baseline_paths,
+        ),
+        build_stage_commitment(
+            config.output_root,
+            stage="target-config",
+            relative_paths=(config_path.relative_to(config.output_root).as_posix(),),
+        ),
+    )
+    source_tree_after = compute_source_tree_commitment(source.root)
+    receipt_path = write_retarget_import_receipt(
+        source=source,
+        target_root=config.output_root,
+        snapshot=snapshot,
+        source_stage_commitments=source_stages,
+        target_stage_commitments=target_stages,
+        semantic_replay=semantic_replay,
+        source_before=source_tree_before,
+        source_after=source_tree_after,
+    )
+    return verify_retarget_import_receipt(
+        receipt_path,
+        source_root=source.root,
+        target_root=config.output_root,
+    )
+
+
+def _baseline_seed_bindings(
+    baseline_root: Path,
+) -> tuple[tuple[str, str], ...]:
+    rebase_receipt = _read_json_object(
+        baseline_root / "run-cards/rebase-pacer-gap-checkpoints-receipt.json"
+    )
+    raw_bindings = rebase_receipt.get("checkpoint_bindings")
+    if not isinstance(raw_bindings, list):
+        raise CommandError("retarget bridge baseline lacks checkpoint bindings")
+    bindings: list[tuple[str, str]] = []
+    for raw_binding in cast(list[object], raw_bindings):
+        binding = _mapping(raw_binding, "retarget bridge checkpoint binding")
+        filename = _required_str(binding, "current_filename")
+        digest = _required_str(binding, "current_sha256")
+        if not re.fullmatch(r"[0-9]{6}-[0-9a-f]{16}\.json", filename):
+            raise CommandError("retarget bridge checkpoint filename is invalid")
+        if re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
+            raise CommandError("retarget bridge checkpoint digest is invalid")
+        bindings.append((filename, digest))
+    bindings.sort()
+    if len(bindings) != len(set(bindings)) or rebase_receipt.get(
+        "checkpoint_count"
+    ) != len(bindings):
+        raise CommandError("retarget bridge checkpoint bindings do not reconcile")
+    return tuple(bindings)
+
+
+def _retarget_live_seed_record(
+    *,
+    baseline_root: Path,
+    live_checkpoint_root: Path,
+    live_config: Path,
+    bindings: Sequence[tuple[str, str]],
+    baseline_config_payload: bytes,
+) -> JsonRecord:
+    record: JsonRecord = {
+        "schema_version": "legalforecast.target_retarget_live_seed.v1",
+        "baseline_root": str(baseline_root.resolve()),
+        "live_checkpoint_root": str(live_checkpoint_root.resolve()),
+        "live_checkpoint_config": str(live_config.resolve()),
+        "checkpoint_count": len(bindings),
+        "checkpoint_bindings": [
+            {"filename": filename, "sha256": digest} for filename, digest in bindings
+        ],
+        "checkpoint_config_sha256": _bytes_sha256(baseline_config_payload),
+        "source_files_hardlinked": False,
+        "provider_client_constructed": False,
+        "provider_request_count": 0,
+        "network_request_count": 0,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    record["receipt_sha256"] = _canonical_json_sha256(record)
+    return record
+
+
+def _verify_target_retarget_live_seed(
+    *,
+    output_root: Path,
+) -> Path:
+    import_root = output_root / _RETARGET_IMPORT_ROOT
+    baseline_root = import_root / _RETARGET_BRIDGE_BASELINE
+    baseline_checkpoint_root = baseline_root / "checkpoints/pacer-gap-bridge"
+    baseline_config = (
+        baseline_root / "checkpoints/pacer-gap-bridge-progress-config.json"
+    )
+    live_checkpoint_root = output_root / "03-gap-bridge/checkpoints/pacer-gap-bridge"
+    live_config = (
+        output_root / "03-gap-bridge/checkpoints/pacer-gap-bridge-progress-config.json"
+    )
+    seed_receipt_path = import_root / _RETARGET_LIVE_SEED_RECEIPT
+    bindings = _baseline_seed_bindings(baseline_root)
+    baseline_config_payload = _read_regular_non_symlink_bytes(
+        baseline_config, "retarget bridge baseline config"
+    )
+    expected_receipt = _retarget_live_seed_record(
+        baseline_root=baseline_root,
+        live_checkpoint_root=live_checkpoint_root,
+        live_config=live_config,
+        bindings=bindings,
+        baseline_config_payload=baseline_config_payload,
+    )
+    if _read_json_object(seed_receipt_path) != expected_receipt:
+        raise CommandError("retarget live-seed receipt commitment mismatch")
+    for filename, digest in bindings:
+        baseline_path = baseline_checkpoint_root / filename
+        live_path = live_checkpoint_root / filename
+        baseline_payload = _read_regular_non_symlink_bytes(
+            baseline_path, "retarget bridge baseline checkpoint"
+        )
+        live_payload = _read_regular_non_symlink_bytes(
+            live_path, "retarget live bridge checkpoint"
+        )
+        if _bytes_sha256(baseline_payload) != digest:
+            raise CommandError("retarget bridge baseline checkpoint hash mismatch")
+        if live_payload != baseline_payload:
+            raise CommandError(
+                "retarget live bridge checkpoint contradicts its immutable seed"
+            )
+        if os.path.samestat(baseline_path.stat(), live_path.stat()):
+            raise CommandError("retarget live bridge checkpoint hard-links baseline")
+    if (
+        _read_regular_non_symlink_bytes(
+            live_config, "retarget live bridge checkpoint config"
+        )
+        != baseline_config_payload
+    ):
+        raise CommandError("retarget live bridge checkpoint config drifted")
+    if os.path.samestat(baseline_config.stat(), live_config.stat()):
+        raise CommandError("retarget live bridge config hard-links baseline")
+    return seed_receipt_path
+
+
+def _seed_target_retarget_bridge(
+    *,
+    config: TargetCohortPreparationConfig,
+) -> Path:
+    import_root = config.output_root / _RETARGET_IMPORT_ROOT
+    baseline_root = import_root / _RETARGET_BRIDGE_BASELINE
+    baseline_checkpoint_root = baseline_root / "checkpoints/pacer-gap-bridge"
+    baseline_config = (
+        baseline_root / "checkpoints/pacer-gap-bridge-progress-config.json"
+    )
+    live_checkpoint_root = (
+        config.output_root / "03-gap-bridge/checkpoints/pacer-gap-bridge"
+    )
+    live_config = (
+        config.output_root
+        / "03-gap-bridge/checkpoints/pacer-gap-bridge-progress-config.json"
+    )
+    seed_receipt_path = import_root / _RETARGET_LIVE_SEED_RECEIPT
+    bindings = _baseline_seed_bindings(baseline_root)
+    baseline_config_payload = _read_regular_non_symlink_bytes(
+        baseline_config, "retarget bridge baseline config"
+    )
+    allowed_names = {filename for filename, _ in bindings}
+    seed_record = _retarget_live_seed_record(
+        baseline_root=baseline_root,
+        live_checkpoint_root=live_checkpoint_root,
+        live_config=live_config,
+        bindings=bindings,
+        baseline_config_payload=baseline_config_payload,
+    )
+    if seed_receipt_path.exists() or seed_receipt_path.is_symlink():
+        if _read_json_object(seed_receipt_path) != seed_record:
+            raise CommandError("retarget live-seed receipt commitment mismatch")
+    else:
+        existing_names: set[str] = (
+            {path.name for path in live_checkpoint_root.glob("*.json")}
+            if live_checkpoint_root.is_dir()
+            else set[str]()
+        )
+        if existing_names - allowed_names:
+            raise CommandError(
+                "retarget live checkpoints progressed before seed receipt publication"
+            )
+        for filename, digest in bindings:
+            baseline_path = baseline_checkpoint_root / filename
+            payload = _read_regular_non_symlink_bytes(
+                baseline_path, "retarget bridge baseline checkpoint"
+            )
+            if _bytes_sha256(payload) != digest:
+                raise CommandError("retarget bridge baseline checkpoint hash mismatch")
+            _write_immutable_bytes(
+                live_checkpoint_root / filename,
+                payload,
+                resume=True,
+            )
+        _write_immutable_bytes(live_config, baseline_config_payload, resume=True)
+        _write_immutable_bytes(
+            seed_receipt_path,
+            _projection_json_bytes(seed_record),
+            resume=False,
+        )
+    return _verify_target_retarget_live_seed(output_root=config.output_root)
+
+
+def _verify_and_seed_target_retarget_import(
+    *,
+    args: argparse.Namespace,
+    config: TargetCohortPreparationConfig,
+    source: FailedSourcePreparation,
+) -> RetargetImportReceipt:
+    receipt_path = config.output_root / RETARGET_IMPORT_RECEIPT_FILENAME
+    if not receipt_path.is_file() or receipt_path.is_symlink():
+        raise CommandError(
+            "retarget import receipt is missing; rerun with "
+            "--stop-after retarget-import before normal resume"
+        )
+    receipt = verify_retarget_import_receipt(
+        receipt_path,
+        source_root=source.root,
+        target_root=config.output_root,
+    )
+    imported_manifest = (
+        config.output_root / _RETARGET_IMPORT_ROOT / _RETARGET_IMPORTED_DOCUMENTS
+    )
+    imported_records = _read_records(imported_manifest)
+    imported_requests = tuple(
+        _free_document_download_request(record) for record in imported_records
+    )
+    verify_completed_free_document_manifest(
+        imported_requests,
+        output_root=config.output_root / "documents/free",
+        manifest_path=imported_manifest,
+    )
+    _seed_target_retarget_bridge(config=config)
+    return receipt
 
 
 def _path_sha256(path: Path) -> str:
@@ -12971,7 +13867,106 @@ def _target_100_stage_commitments(output_root: Path) -> JsonRecord:
             for path in sorted(stage_root.rglob("*"))
             if path.is_file()
         }
+    retarget_root = output_root / "retarget-import"
+    retarget_receipt = output_root / RETARGET_IMPORT_RECEIPT_FILENAME
+    if retarget_root.is_dir() or retarget_receipt.is_file():
+        retarget_paths = [
+            path for path in sorted(retarget_root.rglob("*")) if path.is_file()
+        ]
+        if retarget_receipt.is_file():
+            retarget_paths.append(retarget_receipt)
+        commitments["retarget-import"] = {
+            str(path.relative_to(output_root)): _path_sha256(path)
+            for path in retarget_paths
+        }
     return commitments
+
+
+def _verified_retarget_final_input_commitments(
+    *,
+    output_root: Path,
+    frozen_config: Mapping[str, Any],
+) -> dict[str, str]:
+    raw_lineage = frozen_config.get("retarget_import")
+    if raw_lineage is None:
+        return {}
+    lineage = _mapping(raw_lineage, "retarget import config lineage")
+    if set(lineage) != {
+        "source_preparation_root",
+        "source_config_file_sha256",
+        "source_config_self_hash",
+        "source_tree_commitment",
+        "receipt_path",
+        "immutable_baseline_root",
+    }:
+        raise CommandError("retarget import config lineage fields differ")
+    source_root = Path(_required_str(lineage, "source_preparation_root"))
+    receipt_path = Path(_required_str(lineage, "receipt_path"))
+    expected_receipt_path = output_root / RETARGET_IMPORT_RECEIPT_FILENAME
+    baseline_root = output_root / _RETARGET_IMPORT_ROOT
+    if (
+        receipt_path.resolve() != expected_receipt_path.resolve()
+        or Path(_required_str(lineage, "immutable_baseline_root")).resolve()
+        != baseline_root.resolve()
+    ):
+        raise CommandError("retarget import config paths differ from target root")
+    receipt = verify_retarget_import_receipt(
+        receipt_path,
+        source_root=source_root,
+        target_root=output_root,
+    )
+    if (
+        lineage.get("source_config_file_sha256") != receipt.source.config_file_sha256
+        or lineage.get("source_config_self_hash") != receipt.source.config_self_hash
+        or lineage.get("source_tree_commitment") != receipt.source_after.to_record()
+    ):
+        raise CommandError("retarget import source lineage commitment mismatch")
+    imported_manifest = baseline_root / _RETARGET_IMPORTED_DOCUMENTS
+    imported_records = _read_records(imported_manifest)
+    imported_requests = tuple(
+        _free_document_download_request(record) for record in imported_records
+    )
+    verified_imported = verify_completed_free_document_manifest(
+        imported_requests,
+        output_root=output_root / "documents/free",
+        manifest_path=imported_manifest,
+    )
+    reuse_receipt_path = baseline_root / _RETARGET_DOCUMENT_REUSE_RECEIPT
+    reuse_receipt = _read_json_object(reuse_receipt_path)
+    if (
+        reuse_receipt.get("schema_version")
+        != "legalforecast.target_retarget_document_reuse.v1"
+        or reuse_receipt.get("source_preparation_root") != str(receipt.source_root)
+        or reuse_receipt.get("destination_document_root")
+        != str((output_root / "documents/free").resolve())
+        or reuse_receipt.get("imported_record_count") != len(verified_imported)
+        or reuse_receipt.get("imported_manifest_sha256")
+        != _path_sha256(imported_manifest)
+        or reuse_receipt.get("provider_client_constructed") is not False
+        or reuse_receipt.get("provider_request_count") != 0
+        or reuse_receipt.get("network_request_count") != 0
+        or reuse_receipt.get("paid_activity_requested") is not False
+        or reuse_receipt.get("paid_activity_executed") is not False
+    ):
+        raise CommandError("retarget document-reuse receipt is inconsistent")
+    claimed_reuse_hash = reuse_receipt.get("receipt_sha256")
+    unhashed_reuse = dict(reuse_receipt)
+    unhashed_reuse.pop("receipt_sha256", None)
+    if claimed_reuse_hash != _canonical_json_sha256(unhashed_reuse):
+        raise CommandError("retarget document-reuse receipt self-hash mismatch")
+    seed_receipt_path = _verify_target_retarget_live_seed(output_root=output_root)
+    paths = (
+        expected_receipt_path,
+        imported_manifest,
+        reuse_receipt_path,
+        seed_receipt_path,
+        *tuple(
+            path
+            for path in sorted((baseline_root / _RETARGET_BRIDGE_BASELINE).rglob("*"))
+            if path.is_file()
+        ),
+    )
+    return {str(path.resolve()): _path_sha256(path) for path in paths}
 
 
 def _target_100_stage_input_commitments(
@@ -13037,6 +14032,12 @@ def _target_100_stage_input_commitments(
     commitments["01-public-plan"].update(authenticated_input_commitments)
     commitments["03-gap-bridge"].update(authenticated_input_commitments)
     commitments["03-gap-bridge"].update(bridge_route_commitments)
+    retarget_commitments = _verified_retarget_final_input_commitments(
+        output_root=output_root,
+        frozen_config=frozen_config,
+    )
+    if retarget_commitments:
+        commitments["retarget-import"] = retarget_commitments
     return commitments
 
 
@@ -20385,7 +21386,11 @@ def _canonical_raw_retrieved_at(value: str, *, candidate_id: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
-def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
+def _cmd_acquisition_plan_public_downloads(
+    args: argparse.Namespace,
+    *,
+    require_current_screening: bool = True,
+) -> int:
     output_root = _acquisition_output_root(args)
     snapshot_path = cast(Path, args.snapshot)
     expected_cycle_hash = cast(str, args.expected_cycle_hash)
@@ -20478,7 +21483,7 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         snapshot_manifest = verified_snapshot.manifest
         snapshot_firecrawl_screening_source_count(
             cast(Mapping[str, object], snapshot_manifest),
-            require_current=True,
+            require_current=require_current_screening,
         )
         stage_commitments = snapshot_manifest.get("stage_commitments")
         if not isinstance(stage_commitments, Mapping):

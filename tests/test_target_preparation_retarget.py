@@ -459,6 +459,46 @@ def test_receipt_remains_verifiable_after_normal_resume_writes_success(
     assert verified.receipt_file_sha256.startswith("sha256:")
 
 
+def test_receipt_commits_immutable_baseline_but_allows_progressed_live_state(
+    tmp_path: Path,
+) -> None:
+    values = _valid_inputs(tmp_path)
+    receipt_path = write_retarget_import_receipt(
+        source=values.source_evidence,
+        target_root=values.target,
+        snapshot=values.snapshot,
+        source_stage_commitments=values.source_stages,
+        target_stage_commitments=values.target_stages,
+        semantic_replay=values.replay,
+        source_before=values.before,
+        source_after=values.after,
+    )
+    progressed_live_checkpoint = (
+        values.target
+        / "03-gap-bridge/checkpoints/pacer-gap-bridge/000002-progressed.json"
+    )
+    _write_json(
+        progressed_live_checkpoint,
+        {"candidate_id": "candidate-c", "outcome": "success"},
+    )
+
+    verified = verify_retarget_import_receipt(
+        receipt_path,
+        source_root=values.source,
+        target_root=values.target,
+    )
+    assert verified.receipt_file_sha256.startswith("sha256:")
+
+    immutable_baseline = values.target / "imported/checkpoint.json"
+    immutable_baseline.write_text('{"tampered":true}\n', encoding="utf-8")
+    with pytest.raises(RetargetImportError, match="artifact SHA-256 mismatch"):
+        verify_retarget_import_receipt(
+            receipt_path,
+            source_root=values.source,
+            target_root=values.target,
+        )
+
+
 def test_rejects_symlink_and_hardlink_artifacts(tmp_path: Path) -> None:
     source = _source_root(tmp_path)
     original = source / "03-gap-bridge/checkpoints/a.json"

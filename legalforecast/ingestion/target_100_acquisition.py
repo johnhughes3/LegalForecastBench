@@ -358,7 +358,12 @@ def _validate_preparation_config(
         isinstance(config, TargetCohortPreparationConfig)
         and config.retarget_source_preparation_root is not None
     ):
-        _validate_retarget_roots(config, error_type)
+        validate_retarget_preparation_roots(
+            source_root=config.retarget_source_preparation_root,
+            destination_root=config.output_root,
+            target_case_count=config.target_case_count,
+            error_type=error_type,
+        )
     if config.target_case_count < 1:
         raise error_type("target case count must be positive")
     if config.candidate_pool_size < 1:
@@ -407,32 +412,38 @@ def _validate_preparation_config(
         raise error_type("--request-ledger is only valid with live CourtListener REST")
 
 
-def _validate_retarget_roots(
-    config: TargetCohortPreparationConfig,
-    error_type: type[TargetCohortPreparationError],
+def validate_retarget_preparation_roots(
+    *,
+    source_root: Path,
+    destination_root: Path,
+    target_case_count: int,
+    error_type: type[TargetCohortPreparationError] = TargetCohortPreparationError,
 ) -> None:
-    source = _require_validated(
-        config.retarget_source_preparation_root,
-        message="retarget source preparation root is required in retarget mode",
-    )
-    if config.target_case_count != 100:
+    """Fail before any write when a retarget source and destination can alias."""
+
+    if target_case_count != 100:
         raise error_type("retarget target case count must be exactly 100")
     _reject_existing_path_symlinks(
-        source,
+        source_root,
         label="retarget source preparation root",
         error_type=error_type,
     )
     _reject_existing_path_symlinks(
-        config.output_root,
+        destination_root,
         label="retarget destination preparation root",
         error_type=error_type,
     )
-    source_absolute = Path(os.path.abspath(source))
-    destination_absolute = Path(os.path.abspath(config.output_root))
+    source_absolute = Path(os.path.abspath(source_root))
+    destination_absolute = Path(os.path.abspath(destination_root))
     if (
         source_absolute == destination_absolute
         or source_absolute.is_relative_to(destination_absolute)
         or destination_absolute.is_relative_to(source_absolute)
+        or (
+            source_absolute.exists()
+            and destination_absolute.exists()
+            and os.path.samefile(source_absolute, destination_absolute)
+        )
     ):
         raise error_type(
             "retarget source and destination preparation roots must be disjoint"
