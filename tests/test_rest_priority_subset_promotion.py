@@ -97,20 +97,33 @@ def _snapshot_manifest_sha256(snapshot: Path) -> str:
     return _sha256_file(snapshot / "manifest.json")
 
 
-def _decision_evidence(docket_id: str, *, entry_number: int) -> dict[str, object]:
+def _decision_evidence(
+    docket_id: str,
+    *,
+    entry_number: int,
+    unicode_metadata: bool = False,
+) -> dict[str, object]:
     return {
         "id": 8_000 + int(docket_id),
         "docket_entry_id": 7_000 + int(docket_id),
         "entry_number": entry_number,
         "document_number": str(entry_number),
-        "description": "ORDER granting motion to dismiss",
+        "description": (
+            "ORDER granting motion to dismiss for García"
+            if unicode_metadata
+            else "ORDER granting motion to dismiss"
+        ),
         "entry_date_filed": "2026-07-20",
         "absolute_url": f"/api/rest/v4/recap-documents/{8_000 + int(docket_id)}/",
         "is_available": True,
     }
 
 
-def _build_direct_search_source(store_path: Path) -> None:
+def _build_direct_search_source(
+    store_path: Path,
+    *,
+    unicode_metadata: bool = False,
+) -> None:
     with CycleAcquisitionStore(store_path) as store:
         store.ensure_cycle(
             {
@@ -147,6 +160,7 @@ def _build_direct_search_source(store_path: Path) -> None:
                             _decision_evidence(
                                 docket_id,
                                 entry_number=10 + index,
+                                unicode_metadata=unicode_metadata,
                             )
                         ],
                     },
@@ -372,9 +386,13 @@ def _build_promotion_fixture(
     *,
     accepted_anchor: str = _ANCHOR_TEXT,
     omit_excluded_terminal: bool = False,
+    unicode_metadata: bool = False,
 ) -> _PromotionFixture:
     store_path = tmp_path / "cycle.sqlite3"
-    _build_direct_search_source(store_path)
+    _build_direct_search_source(
+        store_path,
+        unicode_metadata=unicode_metadata,
+    )
     prior_snapshot, prior_manifest_sha256 = _build_prior_snapshot(tmp_path)
 
     source = read_saturated_direct_search_leads(
@@ -613,6 +631,14 @@ def test_promotes_mixed_terminal_subset_and_preserves_exclusion(
     }
     [target_exclusion] = _read_jsonl(target / "exclusions.jsonl")
     assert target_exclusion == fixture.source_exclusion
+
+
+def test_promotes_frontier_with_non_ascii_provider_metadata(tmp_path: Path) -> None:
+    fixture = _build_promotion_fixture(tmp_path, unicode_metadata=True)
+
+    _promote(fixture, tmp_path)
+
+    assert _promoted_snapshot_path(tmp_path).is_dir()
 
 
 def test_omission_inventory_is_exact_and_never_an_exclusion(tmp_path: Path) -> None:
