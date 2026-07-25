@@ -11672,6 +11672,16 @@ def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
     """Read one immutable input without following a final symlink."""
 
     _reject_existing_parent_symlink(path, label=label)
+    try:
+        lexical_before = path.lstat()
+    except OSError as exc:
+        raise CommandError(
+            f"{label} must be a singly linked regular non-symlink file: {path}"
+        ) from exc
+    if not stat.S_ISREG(lexical_before.st_mode) or lexical_before.st_nlink != 1:
+        raise CommandError(
+            f"{label} must be a singly linked regular non-symlink file: {path}"
+        )
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags)
@@ -11691,6 +11701,13 @@ def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
         lexical_after = path.lstat()
         stable_identity = (
             (
+                lexical_before.st_dev,
+                lexical_before.st_ino,
+                lexical_before.st_size,
+                lexical_before.st_mtime_ns,
+                lexical_before.st_nlink,
+            )
+            == (
                 before.st_dev,
                 before.st_ino,
                 before.st_size,
