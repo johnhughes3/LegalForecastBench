@@ -38,7 +38,7 @@ Recovery outputs default to `checkpoints/<recovery-run-id>-recap-{entries,docket
 
 Do not substitute a parser. The LegalForecastBench wrapper pins the reviewed parser revision `9402306972462a5bdd0da7f687c5e6b4cea373a0`, verifies that checkout is clean, requires a nonempty `MISTRAL_API_KEY`, and constructs the parser child environment from only that key, `PATH`, the environment-only fallback guard, and nonempty locale variables.
 
-The live parser may run only from the dedicated development path `/agents/sandbox/legalforecastbench/parser`, resolving only `MISTRAL_API_KEY` through a dependent secret reference to the canonical acquisition-folder value. If the path is absent or the authoritative masked Infisical UI inventory exposes any additional secret name, stop the parse stage. The identical no-copy, no-folder-import rule, exact labeling-stage inventory, reference-permission requirement, and complete value-free preflights are defined in [the acquisition systemd launcher](acquisition-systemd-launcher.md). Run the parser defense-in-depth sentinel from an allowlisted empty caller environment; it verifies the required name and rejects every known labeling or acquisition credential without expanding or printing values:
+The live parser may run only from the dedicated development path `/agents/sandbox/legalforecastbench/parser`, resolving only `MISTRAL_API_KEY` through a dependent secret reference to the canonical acquisition-folder value. If the path is absent or the authoritative masked Infisical UI inventory exposes any additional secret name, stop the parse stage. The identical no-copy, no-folder-import rule, exact labeling-stage inventory, reference-permission requirement, and complete value-free preflights are defined in [the acquisition systemd launcher](acquisition-systemd-launcher.md). Run the parser defense-in-depth sentinel from an allowlisted empty caller environment; it verifies the required name and nonempty value and rejects every known labeling or acquisition credential without printing or exporting values:
 
 ```bash
 env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
@@ -47,7 +47,7 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
   -- zsh -dfc '
     required=(MISTRAL_API_KEY)
     forbidden=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY CASE_DEV_API_KEY COURTLISTENER_API_TOKEN RECAP_API_TOKEN FIRECRAWL_API_KEY PACER_USERNAME PACER_PASSWORD)
-    for name in $required; do (( ${+parameters[$name]} )) || { print -u2 -- "$name=missing"; exit 1; }; done
+    for name in $required; do (( ${+parameters[$name]} )) && [[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done
     for name in $forbidden; do (( ! ${+parameters[$name]} )) || { print -u2 -- "$name=unexpected"; exit 1; }; done'
 ```
 

@@ -50,7 +50,12 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
     assert "required=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY)" in launcher_docs
     assert "forbidden=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY" in launcher_docs
     assert "forbidden=(MISTRAL_API_KEY CASE_DEV_API_KEY" in launcher_docs
-    assert "${+parameters[$name]}" in launcher_docs
+    required_loop = (
+        "for name in $required; do (( ${+parameters[$name]} )) && "
+        '[[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done'
+    )
+    assert launcher_docs.count(required_loop) == 2
+    assert required_loop in runbook
     assert "dependent secret reference" in runbook
     assert "acquisition-systemd-launcher.md" in runbook
     assert "authoritative masked Infisical UI inventory" in runbook

@@ -26,7 +26,7 @@ Reference resolution requires the sandbox identity to read both the stage view a
 Do not copy credential values.
 Do not enable folder imports: an import would expose acquisition and unrelated provider credentials to the stage process.
 The masked Infisical UI inventory is the authoritative exact-inventory check and must match the stage allowlist before the stage starts.
-Then run the defense-in-depth sentinels below from an allowlisted empty caller environment; they inspect zsh parameter-name metadata only and reject every known cross-stage credential without expanding or printing a value:
+Then run the defense-in-depth sentinels below from an allowlisted empty caller environment; they inspect zsh parameter-name metadata, expand required values only to confirm they are nonempty, and reject every known cross-stage credential without printing or exporting a value:
 
 ```bash
 env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
@@ -35,7 +35,7 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
   -- zsh -dfc '
     required=(MISTRAL_API_KEY)
     forbidden=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY CASE_DEV_API_KEY COURTLISTENER_API_TOKEN RECAP_API_TOKEN FIRECRAWL_API_KEY PACER_USERNAME PACER_PASSWORD)
-    for name in $required; do (( ${+parameters[$name]} )) || { print -u2 -- "$name=missing"; exit 1; }; done
+    for name in $required; do (( ${+parameters[$name]} )) && [[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done
     for name in $forbidden; do (( ! ${+parameters[$name]} )) || { print -u2 -- "$name=unexpected"; exit 1; }; done'
 
 env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
@@ -44,7 +44,7 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
   -- zsh -dfc '
     required=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY)
     forbidden=(MISTRAL_API_KEY CASE_DEV_API_KEY COURTLISTENER_API_TOKEN RECAP_API_TOKEN FIRECRAWL_API_KEY PACER_USERNAME PACER_PASSWORD)
-    for name in $required; do (( ${+parameters[$name]} )) || { print -u2 -- "$name=missing"; exit 1; }; done
+    for name in $required; do (( ${+parameters[$name]} )) && [[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done
     for name in $forbidden; do (( ! ${+parameters[$name]} )) || { print -u2 -- "$name=unexpected"; exit 1; }; done'
 ```
 
