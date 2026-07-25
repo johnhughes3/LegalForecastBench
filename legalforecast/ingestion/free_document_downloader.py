@@ -590,6 +590,27 @@ def verify_completed_free_document_manifest(
     return records
 
 
+def verified_checkpoint_projection_sha256(
+    records: tuple[FreeDocumentDownloadRecord, ...],
+    *,
+    checkpoint_path: str | Path,
+) -> str:
+    """Hash an authenticated checkpoint subset while allowing later appended rows."""
+
+    checkpoint, _ = _read_checkpoint_payload(Path(checkpoint_path))
+    projected: list[FreeDocumentDownloadRecord] = []
+    seen: set[str] = set()
+    for record in records:
+        key = _record_key(record)
+        if key in seen or checkpoint.get(key) != record:
+            raise FreeDocumentDownloadError(
+                "download checkpoint does not contain the authenticated projection"
+            )
+        seen.add(key)
+        projected.append(record)
+    return "sha256:" + hashlib.sha256(_checkpoint_payload(projected)).hexdigest()
+
+
 def _verify_completed_checkpoint_documents(
     output_root: Path,
     records: Iterable[FreeDocumentDownloadRecord],
@@ -1386,12 +1407,16 @@ def _read_checkpoint_payload(
 def _write_checkpoint(
     path: Path, records: Iterable[FreeDocumentDownloadRecord]
 ) -> bytes:
-    ordered = sorted(records, key=lambda record: record.local_path)
-    payload = "".join(
-        json.dumps(record.to_record(), sort_keys=True) + "\n" for record in ordered
-    ).encode()
+    payload = _checkpoint_payload(records)
     _atomic_write(path, payload)
     return payload
+
+
+def _checkpoint_payload(records: Iterable[FreeDocumentDownloadRecord]) -> bytes:
+    ordered = sorted(records, key=lambda record: record.local_path)
+    return "".join(
+        json.dumps(record.to_record(), sort_keys=True) + "\n" for record in ordered
+    ).encode()
 
 
 def _verify_published_checkpoint(
