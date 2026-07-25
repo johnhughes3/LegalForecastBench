@@ -311,6 +311,90 @@ def test_merge_download_manifests_filters_to_reconciled_selection(
     assert run_card["excluded_manifest_record_count"] == 1
 
 
+@pytest.mark.parametrize("alias_kind", ["file_symlink", "parent_symlink", "hardlink"])
+def test_merge_candidate_selection_rejects_filesystem_aliases(
+    tmp_path: Path,
+    alias_kind: str,
+    capsys: CaptureFixture[str],
+) -> None:
+    preparation_root = tmp_path / alias_kind / "prepared"
+    selection_path = (
+        preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+    )
+    external_selection = tmp_path / alias_kind / "external-selection.jsonl"
+    manifest_path = tmp_path / alias_kind / "downloads.jsonl"
+    external_selection.parent.mkdir(parents=True)
+    _write_jsonl(
+        external_selection,
+        [{"candidate_id": "selected-case", "selected": True}],
+    )
+    _write_jsonl(
+        manifest_path,
+        [
+            {
+                "candidate_id": "selected-case",
+                "source_document_id": "selected-case-decision",
+                "local_path": "selected-case/decision.pdf",
+                "sha256": "a" * 64,
+            }
+        ],
+    )
+    if alias_kind == "parent_symlink":
+        external_parent = tmp_path / alias_kind / "external-gap"
+        external_parent.mkdir()
+        (external_parent / selection_path.name).write_bytes(
+            external_selection.read_bytes()
+        )
+        selection_path.parent.parent.mkdir(parents=True)
+        selection_path.parent.symlink_to(external_parent, target_is_directory=True)
+    else:
+        selection_path.parent.mkdir(parents=True)
+        if alias_kind == "file_symlink":
+            selection_path.symlink_to(external_selection)
+        else:
+            selection_path.hardlink_to(external_selection)
+
+    frozen_config = {
+        "stage_commands": [
+            {
+                "stage": "merge-free-downloads",
+                "argv": [
+                    "acquisition",
+                    "merge-download-manifests",
+                    "--candidate-selection",
+                    str(selection_path),
+                ],
+            }
+        ]
+    }
+    with pytest.raises(cli.CommandError, match=r"symlink|singly linked"):
+        cli._frozen_merge_candidate_selection_path(
+            preparation_root=preparation_root,
+            config=frozen_config,
+        )
+    output_root = tmp_path / alias_kind / "merged"
+    assert (
+        main(
+            [
+                "acquisition",
+                "merge-download-manifests",
+                "--download-manifest",
+                str(manifest_path),
+                "--candidate-selection",
+                str(selection_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    error = capsys.readouterr().err
+    assert "symlink" in error or "singly linked" in error
+    assert not (output_root / "document-downloads-merged.jsonl").exists()
+    assert not (output_root / "run-cards/merge-download-manifests.json").exists()
+
+
 def test_preparation_clearance_inputs_reject_duplicate_manifest_key(
     tmp_path: Path,
 ) -> None:

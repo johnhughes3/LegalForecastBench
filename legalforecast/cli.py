@@ -9324,13 +9324,20 @@ def _frozen_merge_candidate_selection_path(
     )
     if candidate_selection is None:
         return None
-    expected_candidate_selection = (
-        preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
-    ).resolve()
-    if candidate_selection.resolve() != expected_candidate_selection:
+    expected_candidate_selection = Path(
+        os.path.abspath(
+            preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+        )
+    )
+    lexical_candidate_selection = Path(os.path.abspath(candidate_selection))
+    if lexical_candidate_selection != expected_candidate_selection:
         raise CommandError(
             "frozen merge candidate selection is outside the preparation root"
         )
+    _read_singly_linked_regular_input(
+        candidate_selection,
+        label="frozen merge candidate selection",
+    )
     return expected_candidate_selection
 
 
@@ -11637,7 +11644,9 @@ def _validate_disclosure_review_paths(
                 raise CommandError("disclosure review outputs share an inode")
 
 
-def _reject_existing_parent_symlink(path: Path) -> None:
+def _reject_existing_parent_symlink(
+    path: Path, *, label: str = "disclosure review output"
+) -> None:
     # Preserve the caller's original components, including ``..``. Resolving or
     # applying ``abspath`` first would erase ``symlink/..`` even though the
     # kernel follows the symlink before processing the parent traversal.
@@ -11656,9 +11665,64 @@ def _reject_existing_parent_symlink(path: Path) -> None:
             continue
         current = current / component
         if current.is_symlink():
+            raise CommandError(f"{label} parent is a symlink: {current}")
+
+
+def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
+    """Read one immutable input without following a final symlink."""
+
+    _reject_existing_parent_symlink(path, label=label)
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise CommandError(
+            f"{label} must be a singly linked regular non-symlink file: {path}"
+        ) from exc
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
             raise CommandError(
-                f"disclosure review output parent is a symlink: {current}"
+                f"{label} must be a singly linked regular non-symlink file: {path}"
             )
+        with os.fdopen(descriptor, "rb", closefd=False) as handle:
+            payload = handle.read()
+        after = os.fstat(descriptor)
+        lexical_after = path.lstat()
+        stable_identity = (
+            (
+                before.st_dev,
+                before.st_ino,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_nlink,
+            )
+            == (
+                after.st_dev,
+                after.st_ino,
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_nlink,
+            )
+            == (
+                lexical_after.st_dev,
+                lexical_after.st_ino,
+                lexical_after.st_size,
+                lexical_after.st_mtime_ns,
+                lexical_after.st_nlink,
+            )
+        )
+        if (
+            not stable_identity
+            or not stat.S_ISREG(after.st_mode)
+            or after.st_nlink != 1
+        ):
+            raise CommandError(f"{label} changed while it was being read: {path}")
+        return payload
+    except OSError as exc:
+        raise CommandError(f"{label} could not be read safely: {path}: {exc}") from exc
+    finally:
+        os.close(descriptor)
 
 
 def _ensure_disclosure_review_artifact(
@@ -25529,7 +25593,17 @@ def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
     selected_candidate_count: int | None = None
     selected_candidate_ids_sha256: str | None = None
     if candidate_selection_path is not None:
-        selection_records = _read_records(candidate_selection_path)
+        selection_payload = _read_singly_linked_regular_input(
+            candidate_selection_path,
+            label="candidate selection",
+        )
+        try:
+            selection_records = _read_jsonl_payload(
+                selection_payload,
+                label=str(candidate_selection_path),
+            )
+        except ValueError as exc:
+            raise CommandError(f"candidate selection is invalid: {exc}") from exc
         candidate_ids: set[str] = set()
         for selection in selection_records:
             candidate_id = _required_str(selection, "candidate_id")
@@ -25545,7 +25619,9 @@ def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
             candidate_ids.add(candidate_id)
         if not candidate_ids:
             raise CommandError("candidate selection is empty")
-        candidate_selection_sha256 = _path_sha256(candidate_selection_path)
+        candidate_selection_sha256 = (
+            "sha256:" + hashlib.sha256(selection_payload).hexdigest()
+        )
         selected_candidate_count = len(candidate_ids)
         selected_candidate_ids_sha256 = _canonical_json_sha256(sorted(candidate_ids))
         merged = tuple(
