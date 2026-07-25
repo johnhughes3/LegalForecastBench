@@ -301,6 +301,8 @@ def _build_target_stage_commands(
         str(free_download_root / "free-document-downloads.jsonl"),
         "--download-manifest",
         str(bridge_free_download_root / "free-document-downloads.jsonl"),
+        "--candidate-selection",
+        str(bridge_root / "public-packet-selection-reconciled.jsonl"),
     )
 
     filter_core = (

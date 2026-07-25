@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -181,7 +181,10 @@ def project_target_cohort(
     exact_filter_results = tuple(
         filter_result_index[candidate_id] for candidate_id in selected_ids
     )
-    exact_restrictions = restriction_evidence_from_case_relevance(exact_relevance)
+    exact_restrictions = restriction_evidence_from_case_relevance(
+        exact_relevance,
+        document_keys=frozenset(_document_key(row) for row in exact_manifest),
+    )
 
     exclusion_records = _projection_exclusions(
         selection_index=selection_index,
@@ -361,15 +364,30 @@ def _validate_clearance_binding(
 
 def restriction_evidence_from_case_relevance(
     case_relevance: Sequence[Mapping[str, Any]],
+    *,
+    document_keys: Set[tuple[str, str]] | None = None,
+    allow_unknown: bool = False,
 ) -> tuple[JsonRecord, ...]:
-    """Flatten docket-derived restriction evidence for clearance inputs."""
+    """Flatten docket restriction evidence for the requested documents."""
 
+    requested_keys = None if document_keys is None else frozenset(document_keys)
+    resolved_keys: set[tuple[str, str]] = set()
+    candidate_ids: set[str] = set()
     output: list[JsonRecord] = []
     for case in case_relevance:
         candidate_id = _required_str(case, "candidate_id")
+        if candidate_id in candidate_ids:
+            raise TargetCohortProjectionError(
+                f"duplicate case relevance candidate: {candidate_id}"
+            )
+        candidate_ids.add(candidate_id)
         for source_document_id, document in sorted(
             _relevance_document_index(case).items()
         ):
+            key = (candidate_id, source_document_id)
+            if requested_keys is not None and key not in requested_keys:
+                continue
+            resolved_keys.add(key)
             status = document.get("redaction_or_seal_status")
             evidence = document.get("restriction_evidence")
             if not isinstance(status, str) or not status:
@@ -378,10 +396,13 @@ def restriction_evidence_from_case_relevance(
                     f"{candidate_id}/{source_document_id}"
                 )
             if (
-                status not in _PUBLIC_RESTRICTION_STATUSES
-                or status in _RESTRICTED_STATUSES
+                status in _RESTRICTED_STATUSES
                 or document.get("is_sealed") is True
                 or document.get("is_private") is True
+                or (
+                    status not in _PUBLIC_RESTRICTION_STATUSES
+                    and not (allow_unknown and status == "unknown")
+                )
             ):
                 raise TargetCohortProjectionError(
                     "case relevance document is sealed/private/restricted: "
@@ -411,6 +432,15 @@ def restriction_evidence_from_case_relevance(
                     "is_sealed": document.get("is_sealed"),
                     "is_private": document.get("is_private"),
                 }
+            )
+    if requested_keys is not None:
+        missing = sorted(requested_keys - resolved_keys)
+        if missing:
+            raise TargetCohortProjectionError(
+                "requested document is absent from case relevance: "
+                + ", ".join(
+                    f"{candidate}/{document}" for candidate, document in missing
+                )
             )
     return tuple(output)
 

@@ -120,6 +120,38 @@ def test_extension_preserves_base_prefix_and_selects_only_omitted_frontier() -> 
     assert combined_plan["excluded_case_plans"] == []
 
 
+def test_extension_preserves_manifest_scoped_base_with_unknown_paid_gap() -> None:
+    inputs = _inputs(paid_after=0)
+    full = inputs["full_pool_artifacts"]
+    relevance = _jsonl(full["case-relevance.jsonl"])
+    first_paid_gap = relevance[0]["documents"][1]
+    first_paid_gap["redaction_or_seal_status"] = "unknown"
+    first_paid_gap["is_sealed"] = None
+    first_paid_gap["restriction_evidence"] = ["no_positive_restriction_marker"]
+    full["case-relevance.jsonl"] = _jsonl_bytes(relevance)
+    _rebuild_base(inputs)
+    base_restrictions = inputs["base_projection_artifacts"][
+        "restriction-evidence.jsonl"
+    ]
+
+    extension = extend_target_cohort(**inputs)
+
+    first_base_restrictions = [
+        row
+        for row in _jsonl(base_restrictions)
+        if row["candidate_id"] == _candidate_id(0)
+    ]
+    assert [row["source_document_id"] for row in first_base_restrictions] == [
+        f"{_candidate_id(0)}-complaint"
+    ]
+    assert extension.combined_artifacts["restriction-evidence.jsonl"].startswith(
+        base_restrictions
+    )
+    assert extension.base_candidate_ids == tuple(
+        _candidate_id(index) for index in range(100)
+    )
+
+
 def test_extension_is_byte_identical_on_resume() -> None:
     inputs = _inputs()
 

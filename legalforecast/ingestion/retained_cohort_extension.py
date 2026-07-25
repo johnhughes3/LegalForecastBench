@@ -822,7 +822,10 @@ def _verify_base_is_exact_full_pool_subset(
 
     base_relevance = [full_relevance[candidate_id] for candidate_id in base_ids]
     try:
-        restrictions = restriction_evidence_from_case_relevance(base_relevance)
+        restrictions = restriction_evidence_from_case_relevance(
+            base_relevance,
+            document_keys=frozenset(merged_index),
+        )
     except TargetCohortProjectionError as exc:
         raise RetainedCohortExtensionError(str(exc)) from exc
     if list(restrictions) != parsed["restriction-evidence.jsonl"]:

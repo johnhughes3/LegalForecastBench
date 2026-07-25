@@ -5952,6 +5952,14 @@ def _add_acquisition_merge_download_manifests_arguments(
         ),
     )
     parser.add_argument(
+        "--candidate-selection",
+        type=Path,
+        help=(
+            "Optional reconciled selected-candidate JSONL. When provided, emit "
+            "only manifest rows owned by its unique selected candidate IDs."
+        ),
+    )
+    parser.add_argument(
         "--manifest-output",
         type=Path,
         help="Merged parser-consumable JSONL; defaults under --output-root.",
@@ -9042,7 +9050,6 @@ def _verify_completed_preparation_for_frontier(
             preparation_summary=summary,
             preparation_config_path=preparation_config_path,
             snapshot_manifest_path=snapshot_manifest_path,
-            candidate_pool_size=candidate_pool_size,
         )
     raw_run_card_path = typed_wrapper_paths.get("run_card")
     if not isinstance(raw_run_card_path, str):
@@ -9183,8 +9190,12 @@ def _verify_generic_preparation_frontier(
     preparation_summary: Mapping[str, Any],
     preparation_config_path: Path,
     snapshot_manifest_path: Path,
-    candidate_pool_size: int,
 ) -> None:
+    resolved_candidate_pool_size = len(
+        _read_records(
+            preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+        )
+    )
     frontier_path = preparation_root / "05-budget/full-candidate-frontier.json"
     if frontier_path.is_symlink() or not frontier_path.is_file():
         raise CommandError("generic preparation full frontier is missing")
@@ -9195,12 +9206,12 @@ def _verify_generic_preparation_frontier(
         or Path(raw_frontier_path).resolve() != frontier_path.resolve()
         or preparation_summary.get("full_candidate_frontier_sha256") != frontier_sha256
         or preparation_summary.get("full_candidate_frontier_count")
-        != candidate_pool_size
+        != resolved_candidate_pool_size
     ):
         raise CommandError("generic preparation full frontier summary mismatch")
     artifact = _read_json_object(frontier_path)
     candidates = _verified_target_cohort_frontier_rows(artifact)
-    if len(candidates) != candidate_pool_size:
+    if len(candidates) != resolved_candidate_pool_size:
         raise CommandError("generic preparation full frontier count mismatch")
     policy = cast(Mapping[str, Any], artifact["policy"])
     expected_commitments = {
@@ -9377,6 +9388,19 @@ def _expected_preparation_input_commitments(
             preparation_root / "03c-merged-downloads/document-downloads-merged.jsonl",
         ),
     }
+    candidate_selection = _frozen_preparation_flag_path(
+        config,
+        flag="--candidate-selection",
+    )
+    if candidate_selection is not None:
+        expected_candidate_selection = (
+            preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+        )
+        if candidate_selection.resolve() != expected_candidate_selection.resolve():
+            raise CommandError(
+                "frozen merge candidate selection is outside the preparation root"
+            )
+        paths["03c-merged-downloads"] += (candidate_selection,)
     independent_inputs: list[Path] = []
     courtlistener_fixture = _frozen_preparation_flag_path(
         config, flag="--courtlistener-fixture"
@@ -9486,7 +9510,20 @@ def _prepare_target_100_clearance_inputs(
     manifest = _read_records(
         output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
     )
-    restrictions = restriction_evidence_from_case_relevance(relevance)
+    try:
+        manifest_keys = _unique_frontier_document_keys(
+            manifest,
+            label="free document manifest",
+        )
+    except ValueError as exc:
+        raise CommandError(
+            "free document manifest contains an invalid document key"
+        ) from exc
+    restrictions = restriction_evidence_from_case_relevance(
+        relevance,
+        document_keys=manifest_keys,
+        allow_unknown=True,
+    )
     restriction_index = {
         (
             cast(str, row["candidate_id"]),
@@ -9494,18 +9531,6 @@ def _prepare_target_100_clearance_inputs(
         ): row
         for row in restrictions
     }
-    manifest_keys = {
-        (
-            cast(str, row.get("candidate_id")),
-            cast(str, row.get("source_document_id")),
-        )
-        for row in manifest
-    }
-    if any(
-        not candidate_id or not document_id
-        for candidate_id, document_id in manifest_keys
-    ):
-        raise CommandError("free document manifest contains an invalid document key")
     missing = sorted(manifest_keys - set(restriction_index))
     if missing:
         raise CommandError(
@@ -12870,6 +12895,7 @@ def _target_100_stage_input_commitments(
         "03c-merged-downloads": (
             output_root / "02-free-download/free-document-downloads.jsonl",
             output_root / "03b-bridge-free-download/free-document-downloads.jsonl",
+            output_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl",
         ),
         "05-budget": (output_root / "04-core-filter/core-filter-results.jsonl",),
         "06-clearance-inputs": (
@@ -22248,12 +22274,13 @@ _PACER_GAP_LEGACY_CHECKPOINT_SCHEMA = (
 )
 _PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
 _PACER_GAP_BRIDGE_SEMANTIC_REVISION = (
-    "courtlistener-rest-recap-storage-host-2026-07-16-v4"
+    "courtlistener-rest-described-embedded-rows-2026-07-25-v5"
 )
 # Keep known revisions loadable; only stale emitted download bindings replay.
 _PACER_GAP_COMPATIBLE_SEMANTIC_REVISIONS = frozenset(
     {
         _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+        "courtlistener-rest-recap-storage-host-2026-07-16-v4",
         "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3",
         "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
         "courtlistener-complaint-and-main-description-2026-07-15-v1",
@@ -22274,6 +22301,15 @@ _PACER_GAP_EXCLUSION_REPLAY_REVISIONS: Mapping[str, frozenset[str | None]] = {
     ),
     "courtlistener_rest_entry_number_alias_conflict": frozenset(
         {"courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"}
+    ),
+    "text_missing": frozenset(
+        {
+            None,
+            "courtlistener-complaint-and-main-description-2026-07-15-v1",
+            "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
+            "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3",
+            "courtlistener-rest-recap-storage-host-2026-07-16-v4",
+        }
     ),
 }
 _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
@@ -25458,6 +25494,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
 def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     manifest_paths = tuple(cast(Sequence[Path], args.download_manifest))
+    candidate_selection_path = cast(Path | None, args.candidate_selection)
     output_path = _acquisition_path(
         args,
         "manifest_output",
@@ -25466,6 +25503,35 @@ def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
     merged = merge_download_manifest_records(
         _read_records(path) for path in manifest_paths
     )
+    merged_before_candidate_filter = len(merged)
+    candidate_selection_sha256: str | None = None
+    selected_candidate_count: int | None = None
+    selected_candidate_ids_sha256: str | None = None
+    if candidate_selection_path is not None:
+        selection_records = _read_records(candidate_selection_path)
+        candidate_ids: set[str] = set()
+        for selection in selection_records:
+            candidate_id = _required_str(selection, "candidate_id")
+            if candidate_id in candidate_ids:
+                raise CommandError(
+                    f"candidate selection has duplicate candidate ID: {candidate_id}"
+                )
+            if selection.get("selected") is not True:
+                raise CommandError(
+                    "candidate selection contains a non-selected candidate: "
+                    f"{candidate_id}"
+                )
+            candidate_ids.add(candidate_id)
+        if not candidate_ids:
+            raise CommandError("candidate selection is empty")
+        candidate_selection_sha256 = _path_sha256(candidate_selection_path)
+        selected_candidate_count = len(candidate_ids)
+        selected_candidate_ids_sha256 = _canonical_json_sha256(sorted(candidate_ids))
+        merged = tuple(
+            record
+            for record in merged
+            if _required_str(record, "candidate_id") in candidate_ids
+        )
     dry_run = _acquisition_dry_run(args)
     if dry_run:
         _write_jsonl(
@@ -25484,12 +25550,25 @@ def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="merge-download-manifests",
-        input_paths=manifest_paths,
+        input_paths=(
+            manifest_paths
+            if candidate_selection_path is None
+            else (*manifest_paths, candidate_selection_path)
+        ),
         output_paths=(output_path,),
         record_count=len(merged),
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
+        extra={
+            "candidate_selection_applied": candidate_selection_path is not None,
+            "candidate_selection_sha256": candidate_selection_sha256,
+            "selected_candidate_count": selected_candidate_count,
+            "selected_candidate_ids_sha256": selected_candidate_ids_sha256,
+            "excluded_manifest_record_count": (
+                merged_before_candidate_filter - len(merged)
+            ),
+        },
     )
     return 0
 

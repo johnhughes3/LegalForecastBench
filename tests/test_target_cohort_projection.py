@@ -171,6 +171,32 @@ def test_projection_allows_paid_only_candidate_without_manifest_rows() -> None:
     assert projection.budget_plan.total_estimated_cost_usd == "6.10"
 
 
+def test_projection_scopes_restrictions_to_acquired_manifest_documents() -> None:
+    relevance = _relevance("case-a", missing_count=1)
+    paid_gap = relevance["documents"][1]
+    paid_gap["redaction_or_seal_status"] = "unknown"
+    paid_gap["is_sealed"] = None
+    paid_gap["restriction_evidence"] = ["no_positive_restriction_marker"]
+
+    projection = project_target_cohort(
+        selections=[_selection("case-a")],
+        case_relevance=[relevance],
+        download_manifest=[_download("case-a", "case-a-complaint")],
+        clearance_records=[_clearance("case-a", "case-a-complaint")],
+        target_case_count=1,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="100.00",
+        max_missing_core_documents_per_case=24,
+    )
+
+    assert [
+        (row["candidate_id"], row["source_document_id"])
+        for row in projection.restriction_evidence
+    ] == [("case-a", "case-a-complaint")]
+    [case_plan] = projection.budget_plan.case_plans
+    assert case_plan.purchase_document_ids == ("case-a-mtd-0",)
+
+
 def test_projection_rejects_missing_manifest_for_available_document() -> None:
     with pytest.raises(
         TargetCohortProjectionError,
