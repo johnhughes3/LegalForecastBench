@@ -2529,9 +2529,22 @@ def _canonical_record_sha256(record: Mapping[str, object]) -> str:
             dict(record),
             sort_keys=True,
             separators=(",", ":"),
+            ensure_ascii=True,
             allow_nan=False,
         ).encode()
     ).hexdigest()
+
+
+def direct_search_record_sha256(record: Mapping[str, object]) -> str:
+    """Hash direct-search evidence with its frozen producer canonicalization."""
+
+    return _canonical_record_sha256(record)
+
+
+def direct_search_frontier_sha256(frontier: Mapping[str, object]) -> str:
+    """Hash a frontier with the exact canonicalization used by its producer."""
+
+    return direct_search_record_sha256(frontier)
 
 
 def _priority_date_status(
@@ -2985,10 +2998,10 @@ def materialize_direct_search_priority_tranche(
         source_lineage = {
             "authoritative_source_batch_digest": source.source_batch_digest
         }
-        claimed_lineage_hash = _canonical_record_sha256(source_lineage)
+        claimed_lineage_hash = direct_search_record_sha256(source_lineage)
     if (
         not isinstance(claimed_lineage_hash, str)
-        or _canonical_record_sha256(source_lineage) != claimed_lineage_hash
+        or direct_search_record_sha256(source_lineage) != claimed_lineage_hash
     ):
         raise RecapApiBatchDriverError(
             "direct-search source lineage commitment is invalid"
@@ -3046,10 +3059,10 @@ def materialize_direct_search_priority_tranche(
     selected = tuple(leads_by_id[candidate_id] for candidate_id in selected_ids)
     deferred = tuple(leads_by_id[candidate_id] for candidate_id in deferred_ids)
     selected_ranking_record_commitments = {
-        candidate_id: _canonical_record_sha256(ranking_records_by_id[candidate_id])
+        candidate_id: direct_search_record_sha256(ranking_records_by_id[candidate_id])
         for candidate_id in selected_ids
     }
-    selected_ranking_record_commitment_sha256 = _canonical_record_sha256(
+    selected_ranking_record_commitment_sha256 = direct_search_record_sha256(
         {"selected_ranking_record_commitments": (selected_ranking_record_commitments)}
     )
     reusable_observations, reused_observation_commitments = (
@@ -3110,7 +3123,7 @@ def materialize_direct_search_priority_tranche(
         "provider_activity_executed": False,
         "paid_activity_executed": False,
     }
-    frontier_hash = _canonical_record_sha256(frontier_without_hash)
+    frontier_hash = direct_search_frontier_sha256(frontier_without_hash)
     frontier = {**frontier_without_hash, "frontier_sha256": frontier_hash}
     config = build_recap_api_batch_config(
         decision_window_start=source.search_window_start,

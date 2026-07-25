@@ -53,6 +53,8 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     DIRECT_SEARCH_PRIORITY_POLICY_SHA256,
     DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
     DIRECT_SEARCH_PRIORITY_TRANCHE_TERM,
+    direct_search_frontier_sha256,
+    direct_search_record_sha256,
 )
 from legalforecast.ingestion.strict_screen_evidence import (
     StrictScreenEvidenceError,
@@ -621,7 +623,7 @@ def _validate_frontier_self_hash(frontier: Mapping[str, object]) -> None:
     if (
         not isinstance(claimed, str)
         or _SHA256.fullmatch(claimed) is None
-        or _canonical_sha256(supplied) != claimed
+        or direct_search_frontier_sha256(supplied) != claimed
     ):
         raise RestPrioritySubsetPromotionError("priority frontier self-hash is invalid")
 
@@ -717,14 +719,17 @@ def _validate_exact_first_frontier(
         frontier.get("source_lineage_commitments"),
         "source_lineage_commitments",
     )
-    if _canonical_sha256(source_lineage) != frontier.get(
+    if direct_search_record_sha256(source_lineage) != frontier.get(
         "source_lineage_commitment_sha256"
     ):
         raise RestPrioritySubsetPromotionError(
             "priority source-lineage commitment is invalid"
         )
     ranking_policy = _mapping(frontier.get("ranking_policy"), "ranking_policy")
-    if _canonical_sha256(ranking_policy) != DIRECT_SEARCH_PRIORITY_POLICY_SHA256:
+    if (
+        direct_search_record_sha256(ranking_policy)
+        != DIRECT_SEARCH_PRIORITY_POLICY_SHA256
+    ):
         raise RestPrioritySubsetPromotionError(
             "priority frontier ranking-policy content is invalid"
         )
@@ -753,14 +758,14 @@ def _validate_exact_first_frontier(
             "selected ranking-record commitments do not cover the exact tranche"
         )
     for candidate_id in selected:
-        if selected_commitments[candidate_id] != _canonical_sha256(
+        if selected_commitments[candidate_id] != direct_search_record_sha256(
             records_by_id[candidate_id]
         ):
             raise RestPrioritySubsetPromotionError(
                 f"selected ranking record changed for {candidate_id}"
             )
     if frontier.get("selected_ranking_record_commitment_sha256") != (
-        _canonical_sha256(
+        direct_search_record_sha256(
             {"selected_ranking_record_commitments": dict(selected_commitments)}
         )
     ):
