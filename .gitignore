@@ -50,6 +50,7 @@ local-data/
 *.sqlite3-journal
 *.sqlite3-wal
 *.sqlite3-shm
+docs/cohort-policy-*.json.lock
 
 # Beads / Dolt local runtime
 .beads/

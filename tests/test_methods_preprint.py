@@ -68,6 +68,9 @@ def test_manuscript_covers_required_methods_without_claiming_results() -> None:
     assert "Harness-comparison appendix" not in source
     assert "LegalForecastBench is an independent project." in source
     assert "not legal advice" in source.lower()
+    assert "first official freeze binds exactly 100 eligible matters" in source
+    assert "at least 150 may continue as a nonblocking reserve" in source
+    assert "official freeze binds at least 150 eligible matters" not in source
 
     assert "recompute each unit loss from" in source
     assert "probability_fully_dismissed" in source

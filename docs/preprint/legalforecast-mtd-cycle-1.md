@@ -3,7 +3,7 @@
 Status: Pre-results methods draft - no Cycle 1 result claimed
 
 Author: John J. Hughes III
-Version: 2026-07-17 repository draft
+Version: 2026-07-25 repository draft
 
 ## Abstract
 
@@ -33,7 +33,7 @@ LegalForecast-MTD's contribution is the combination of a pre-decision federal li
 
 ### 2.1 Cohort and target disposition
 
-Cycle 1 is organized around a frozen, acquisition-shaped convenience cohort selected before model outputs or Stage B labels are inspected. The cohort is deliberately nonrepresentative: source coverage, public-document availability, and acquisition cost affect which otherwise eligible matters can be completed in time. Candidate matters must still satisfy the cycle's dated eligibility, motion, document, and disposition rules, with the strict screen as the sole eligibility and exclusion authority. Acquisition records source handles, retrieval status, hashes, exclusions, omissions, and completeness evidence. The official freeze binds at least 150 eligible matters; a shortfall blocks the official run rather than silently changing the denominator or weakening the inclusion rule.
+Cycle 1 is organized around a frozen, acquisition-shaped convenience cohort selected before model outputs or Stage B labels are inspected. The cohort is deliberately nonrepresentative: source coverage, public-document availability, and acquisition cost affect which otherwise eligible matters can be completed in time. Candidate matters must still satisfy the cycle's dated eligibility, motion, document, and disposition rules, with the strict screen as the sole eligibility and exclusion authority. Acquisition records source handles, retrieval status, hashes, exclusions, omissions, and completeness evidence. The first official freeze binds exactly 100 eligible matters under the frozen exact-100 cohort policy. Acquisition toward at least 150 may continue as a nonblocking reserve, but reserve cases cannot silently enter the first run; using them requires a separately named extension or later cycle with its own cohort, budget, freeze, dispatch, and claims.
 
 The target outcome is the first written disposition of the target motion. This anchor avoids choosing among later procedural events after their substantive direction is known. A later amended complaint, renewed motion, reconsideration order, appeal, or settlement may matter to litigants, but it is not substituted for the frozen target. Withdrawals and corrections use explicit records and superseding publications rather than silent edits.
 

@@ -12,6 +12,10 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.cohort_policy import (
+    generate_cohort_policy,
+    verify_cohort_policy,
+)
 from legalforecast.ingestion.disclosure_review_authority import (
     CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY,
     MAIN_DISCLOSURE_REVIEW_AUTHORITY_REGISTRY,
@@ -26,6 +30,15 @@ from legalforecast.ingestion.disclosure_review_authority import (
     verify_disclosure_review_authority,
     write_disclosure_review_authority,
 )
+
+_CURRENT_POLICY_PATH = Path("docs/cohort-policy-cycle-1-target-100-2026-07-25.json")
+_CURRENT_DECISIONS_PATH = Path(
+    "docs/cohort-policy-cycle-1-target-100-2026-07-25-decisions.json"
+)
+_CURRENT_POLICY_SHA256 = (
+    "0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed"
+)
+_CURRENT_CYCLE_HASH = "35f70123bfc966512d61119746ba09716332a181c074f131d553b56b610641cb"
 
 
 def _ssh_string(value: bytes) -> bytes:
@@ -47,17 +60,6 @@ def _reviewer_policy(*, reviewer_id: str = "john-hughes") -> bytes:
         "signature_namespace": "legalforecast-disclosure-review-v1",
     }
     return (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
-
-
-def _cohort_policy() -> dict[str, object]:
-    return {
-        "schema_version": "legalforecast.cohort_policy.v1",
-        "policy": {
-            "cycle_id": CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY.cycle_id,
-            "eligibility_anchor": "2026-06-30",
-        },
-        "policy_sha256": CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY.cohort_policy_sha256,
-    }
 
 
 def _identity() -> DisclosureReviewAuthorityIdentity:
@@ -328,11 +330,42 @@ def test_identity_derivation_checks_loaded_policy_semantics(
         disclosure_authority_identity_from_cohort_policy(artifact)
 
 
-def test_main_registry_is_immutable_and_official_entry_is_unprovisioned(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import legalforecast.ingestion.disclosure_review_authority as module
+def test_current_exact100_policy_is_generated_and_registry_bound() -> None:
+    decisions = json.loads(_CURRENT_DECISIONS_PATH.read_text(encoding="utf-8"))
+    artifact = json.loads(_CURRENT_POLICY_PATH.read_text(encoding="utf-8"))
 
+    assert generate_cohort_policy(decisions) == artifact
+    assert verify_cohort_policy(artifact) == _CURRENT_POLICY_SHA256
+    assert artifact["policy"]["cycle_acquisition_hash"] == _CURRENT_CYCLE_HASH
+    assert artifact["policy"]["eligibility_anchor"] == "2026-06-30"
+    assert artifact["policy"]["stop_rule"] == {
+        "mode": "target_or_deadline",
+        "search_window_end": "2026-07-23",
+        "stop_on_budget_headroom_exhaustion": True,
+        "stop_on_frontier_exhaustion": True,
+        "target_clean_cases": 100,
+    }
+    assert artifact["policy"]["purchase_policy"] == {
+        "cycle_budget_usd": "567.30",
+        "max_per_case_usd": "73.20",
+        "reservation_headroom_required": True,
+        "rule": "buy_cheapest_complete",
+    }
+    identity = disclosure_authority_identity_from_cohort_policy(artifact)
+    assert identity == CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY
+    assert tuple(MAIN_DISCLOSURE_REVIEW_AUTHORITY_REGISTRY) == (identity,)
+
+    old_identity = DisclosureReviewAuthorityIdentity(
+        cycle_id="cycle-1-superseding-target-100-2026-07-14",
+        cohort_policy_sha256=(
+            "d27bf66cd895ec42b912aafc535bf53cf9e9d38182bff9e32ff5ac72c0bc0128"
+        ),
+        eligibility_anchor=date(2026, 6, 30),
+    )
+    assert old_identity not in MAIN_DISCLOSURE_REVIEW_AUTHORITY_REGISTRY
+
+
+def test_main_registry_is_immutable_and_official_entry_is_unprovisioned() -> None:
     with pytest.raises(TypeError):
         cast(
             dict[
@@ -351,18 +384,9 @@ def test_main_registry_is_immutable_and_official_entry_is_unprovisioned(
         DisclosureReviewAuthorityError,
         match=r"LegalForecastBench-5qd6\.39\.7\.1",
     ):
-
-        def verify_official_policy(artifact: Mapping[str, Any]) -> str:
-            del artifact
-            return CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY.cohort_policy_sha256
-
-        monkeypatch.setattr(
-            module,
-            "verify_cohort_policy",
-            verify_official_policy,
-        )
         load_main_disclosure_review_authority(
-            _cohort_policy(), reviewer_policy_bytes=_reviewer_policy()
+            json.loads(_CURRENT_POLICY_PATH.read_text(encoding="utf-8")),
+            reviewer_policy_bytes=_reviewer_policy(),
         )
 
 

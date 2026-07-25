@@ -1368,17 +1368,23 @@ Set paths for the exact completed preparation outputs, a normal acquisition revi
 The frozen cohort policy selects the reviewer authority from the immutable main-pinned registry; callers cannot supply or replace the expected reviewer-policy digest.
 
 ```zsh
-review_requests=artifacts/cycle-1/official-acquisition/target-150-frontier/06-clearance-inputs/disclosure-review-requests.jsonl
-download_manifest=artifacts/cycle-1/official-acquisition/target-150-frontier/03c-merged-downloads/document-downloads-merged.jsonl
-document_root=artifacts/cycle-1/official-acquisition/target-150-frontier/documents/free
-restriction_evidence=artifacts/cycle-1/official-acquisition/target-150-frontier/06-clearance-inputs/restriction-evidence.jsonl
-review_root=artifacts/cycle-1/official-acquisition/target-150-frontier/disclosure-review
-clearance_root=artifacts/cycle-1/official-acquisition/target-150-frontier/free-clearance
+preparation_root=artifacts/cycle-1/official-acquisition-main-e0d7177-20260716/target-150-plus-five-current-policy-v1/15-final-provider-free-union-main-4d3ba85-v1/33-10k-continuation-main-5781216-v1/21-target100-retarget-main-182bd3d-v1
+review_requests="$preparation_root/06-clearance-inputs/disclosure-review-requests.jsonl"
+download_manifest="$preparation_root/03c-merged-downloads/document-downloads-merged.jsonl"
+document_root="$preparation_root/documents/free"
+restriction_evidence="$preparation_root/06-clearance-inputs/restriction-evidence.jsonl"
+review_root="$preparation_root/07-free-disclosure-review"
+clearance_root="$preparation_root/08-free-clearance"
 private_review_root=<absolute-controlled-private-review-root>
 reviewer_policy=<externally-reviewed-human-hardware-reviewer-policy.json>
-cohort_policy=<frozen-cohort-policy.json>
+cohort_policy=docs/cohort-policy-cycle-1-target-100-2026-07-25.json
 controlled_store_uri=private-store://<authority>/<cycle-1-review-location>
 ```
+
+The current generated policy binds cycle hash `35f70123bfc966512d61119746ba09716332a181c074f131d553b56b610641cb`, the `2026-06-30` eligibility anchor, the saturated source window through `2026-07-23`, exactly 100 launch cases, and the unchanged `$567.30` cap.
+Its internal policy identity is `0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed`.
+The value-by-value human-authority and source derivation record is [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md).
+The main registry intentionally marks this identity unprovisioned until `LegalForecastBench-5qd6.39.7.1` supplies the reviewed human hardware signer; stop at preflight rather than substituting the superseded July 14 policy or an ordinary software key.
 
 First prepare the value-redacted worksheet and the private exact-byte inspection map.
 The private root must not equal, contain, or be contained by the acquisition output root.

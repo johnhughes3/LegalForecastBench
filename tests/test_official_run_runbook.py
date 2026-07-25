@@ -593,7 +593,13 @@ def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None
         maxsplit=1,
     )[1].split("### Step 6:", maxsplit=1)[0]
 
-    assert "cohort_policy=<frozen-cohort-policy.json>" in section
+    assert (
+        "cohort_policy=docs/cohort-policy-cycle-1-target-100-2026-07-25.json" in section
+    )
+    assert "21-target100-retarget-main-182bd3d-v1" in section
+    assert "cohort-policy-cycle-1-target-100-2026-07-25-provenance.md" in section
+    assert "0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed" in section
+    assert "LegalForecastBench-5qd6.39.7.1" in section
     assert "--expected-reviewer-policy-sha256" not in section
 
     required_options = {
