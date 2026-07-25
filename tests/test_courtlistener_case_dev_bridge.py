@@ -75,6 +75,21 @@ def test_bridge_uses_authoritative_case_dev_ids_and_keeps_free_first() -> None:
     assert core_filter.purchase_document_ids == ("case-dev-mtd",)
 
 
+def test_bridge_missing_raw_input_error_lists_both_supported_sources() -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "raw_html_dir or raw_html_bytes_by_candidate is required unless "
+            "use_embedded_entries=True"
+        ),
+    ):
+        bridge_courtlistener_case_dev_documents(
+            (_screened_case(),),
+            client=_client(),
+            target_clean_cases=1,
+        )
+
+
 def test_legacy_bridge_does_not_treat_available_urls_as_ready_bytes() -> None:
     screened = _screened_case()
     entries = screened["selected_entries"]

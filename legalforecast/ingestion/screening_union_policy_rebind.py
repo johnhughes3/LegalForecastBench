@@ -361,20 +361,25 @@ def rebind_screening_union_policy(
                     raise ScreeningUnionPolicyRebindError(
                         "source raw artifact lacks a candidate owner"
                     )
+                content = artifact.content
+                if content is None or not artifact.content_authenticated:
+                    raise ScreeningUnionPolicyRebindError(
+                        "source raw artifact content is not authenticated"
+                    )
                 destination = (
                     raw_root / artifact.candidate_id / f"{artifact.sha256}.html"
                 )
                 committed = target_store.write_raw_artifact(
                     artifact.candidate_id,
                     destination,
-                    artifact.content,
+                    content,
                     retrieved_at=artifact.retrieved_at,
                 )
                 if committed.path.resolve() != destination.resolve():
                     committed = target_store.rehome_raw_artifact(
                         artifact.candidate_id,
                         destination,
-                        artifact.content,
+                        content,
                     )
                 if (
                     committed.sha256 != artifact.sha256

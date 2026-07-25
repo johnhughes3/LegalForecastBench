@@ -74,7 +74,7 @@ class UnionCandidate:
 class UnionRawArtifact:
     candidate_id: str
     path: Path
-    content: bytes
+    content: bytes | None
     content_authenticated: bool
     sha256: str
     byte_count: int
@@ -1558,20 +1558,19 @@ def _raw_records(
     authenticated_raw_html_bytes_by_candidate: Mapping[str, bytes] | None = None,
 ) -> tuple[UnionRawArtifact, ...]:
     artifacts: list[UnionRawArtifact] = []
+    external_raw_inputs = authenticated_raw_html_bytes_by_candidate
     authenticated_match_counts = {
-        candidate_id: 0
-        for candidate_id in authenticated_raw_html_bytes_by_candidate or {}
+        candidate_id: 0 for candidate_id in external_raw_inputs or {}
     }
     for row_number, record in enumerate(records, start=1):
         candidate_id = _string(
             record.get("candidate_id"), f"raw row {row_number} candidate_id"
         )
-        external_raw_inputs = authenticated_raw_html_bytes_by_candidate is not None
         raw_path = (
             _declared_canonical_absolute_path(
                 record.get("path"), f"raw row {row_number} path"
             )
-            if external_raw_inputs
+            if external_raw_inputs is not None
             else _canonical_absolute_path(
                 record.get("path"), f"raw row {row_number} path"
             )
@@ -1588,10 +1587,10 @@ def _raw_records(
             raise ScreeningSnapshotUnionError(
                 f"raw artifact commitment mismatch for {candidate_id}"
             )
-        content_authenticated = not external_raw_inputs
-        if external_raw_inputs:
+        content_authenticated = external_raw_inputs is None
+        if external_raw_inputs is not None:
             lookup_id = _raw_artifact_lookup_id(candidate_id, raw_path)
-            candidate_payload = authenticated_raw_html_bytes_by_candidate.get(lookup_id)
+            candidate_payload = external_raw_inputs.get(lookup_id)
             if (
                 candidate_payload is not None
                 and hashlib.sha256(candidate_payload).hexdigest() == expected_digest
@@ -1603,7 +1602,7 @@ def _raw_records(
                     authenticated_match_counts.get(lookup_id, 0) + 1
                 )
             else:
-                content = b""
+                content = None
         else:
             try:
                 is_regular = stat.S_ISREG(raw_path.lstat().st_mode)

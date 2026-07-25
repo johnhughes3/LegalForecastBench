@@ -462,7 +462,10 @@ def bridge_courtlistener_case_dev_documents(
         and raw_html_bytes_by_candidate is None
         and not use_embedded_entries
     ):
-        raise ValueError("raw_html_dir is required unless use_embedded_entries=True")
+        raise ValueError(
+            "raw_html_dir or raw_html_bytes_by_candidate is required unless "
+            "use_embedded_entries=True"
+        )
     records = tuple(screened_case_records)
     html_root = None if raw_html_dir is None else Path(raw_html_dir)
     selections: list[Mapping[str, Any]] = []
