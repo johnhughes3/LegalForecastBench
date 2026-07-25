@@ -65,7 +65,7 @@ def test_gemini_stable_identity_caveat_and_exact_served_version_gate_are_frozen(
     assert "every official response must return that exact modelVersion" in caveats
 
 
-def test_cycle_1_provider_caps_stay_below_verified_external_limits() -> None:
+def test_cycle_1_provider_caps_freeze_only_cycle_reservation_authority() -> None:
     caps = load_provider_cycle_caps(PROVIDER_CAPS)
 
     assert caps.cycle_id == "cycle-1"
@@ -75,7 +75,10 @@ def test_cycle_1_provider_caps_stay_below_verified_external_limits() -> None:
         "openai": 50.0,
     }
     assert all(
-        cap.cycle_reservation_cap_usd < cap.external_spend_limit_usd
+        cap.external_spend_limit_usd is None
+        and cap.external_limit_scope is None
+        and cap.external_limit_source is None
+        and cap.verified_at is None
         for cap in caps.providers.values()
     )
 

@@ -6710,8 +6710,9 @@ def _add_provider_cycle_caps_argument(parser: argparse.ArgumentParser) -> None:
         type=Path,
         help=(
             "Frozen legalforecast.provider_cycle_caps.v1 JSON artifact. Required "
-            "with --execute; each provider reservation cap must not exceed its "
-            "recorded external spend limit."
+            "with --execute; pins the per-provider cycle reservation caps consumed "
+            "by the shared journal. Legacy external-spend evidence fields are "
+            "optional annotations and do not grant spend authority."
         ),
     )
 

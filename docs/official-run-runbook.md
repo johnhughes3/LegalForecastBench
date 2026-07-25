@@ -383,6 +383,8 @@ The shared DynamoDB spend table is owned by the table-only `infra/provider-autho
 Stage A/B requires this table, but does not require evaluation roles, S3 result infrastructure, `run-benchmark`, or an evaluation workflow.
 If the reviewed table already exists, import it into protected Terraform state after verifying the exact key schema and safeguards; otherwise review a table-only plan and obtain a separately authorized Terraform apply.
 Only the ARN-derived resource-identity SHA-256 is frozen into `provider-cycle-caps`; the table ARN and AWS account ID remain protected configuration.
+The caps artifact remains mandatory because its cycle-bound per-provider reservation caps govern the shared journal, but launch does not require documentary or admin-API evidence of an external account spending limit.
+Legacy `external_spend_limit_usd`, `external_limit_scope`, `external_limit_source`, and `verified_at` fields are accepted only as optional annotations: they neither constrain the reservation cap nor grant provider spend authority, and the canonical Cycle 1 artifact omits them.
 
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
 
