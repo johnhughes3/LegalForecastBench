@@ -2346,6 +2346,23 @@ def _add_acquisition_rebase_pacer_gap_checkpoints_arguments(
         help="Prior progress-config JSON bound to the preserved checkpoints.",
     )
     parser.add_argument(
+        "--current-raw-html-dir",
+        type=Path,
+        help=(
+            "Target-owned authenticated raw HTML directory. Required when the prior "
+            "progress config binds raw HTML; its contents are reauthenticated against "
+            "the prior frozen manifest digest without provider activity."
+        ),
+    )
+    parser.add_argument(
+        "--current-authenticated-raw-html-manifest",
+        type=Path,
+        help=(
+            "Target-owned raw HTML manifest. Required with --current-raw-html-dir "
+            "when the prior progress config binds mixed raw/embedded sources."
+        ),
+    )
+    parser.add_argument(
         "--checkpoint-dir",
         type=Path,
         help=(
@@ -22939,6 +22956,33 @@ def _read_authenticated_bridge_inputs(
     return records, screened_payload, screened_digest, raw_buffers, manifest_digest
 
 
+def _progress_config_authenticated_raw_inputs(
+    config: Mapping[str, Any],
+) -> tuple[Path | None, Path | None, str | None]:
+    """Return the exact raw inputs frozen in a bridge progress config."""
+
+    raw_dir_value = config.get("requested_raw_html_dir")
+    manifest_value = config.get("authenticated_raw_html_manifest")
+    digest_value = config.get("authenticated_raw_html_manifest_sha256")
+    values = (raw_dir_value, manifest_value, digest_value)
+    if all(value is None for value in values):
+        return None, None, None
+    if (
+        not all(isinstance(value, str) and bool(value) for value in values)
+        or not Path(cast(str, raw_dir_value)).is_absolute()
+        or not Path(cast(str, manifest_value)).is_absolute()
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", cast(str, digest_value)) is None
+    ):
+        raise CommandError(
+            "previous checkpoint config has incomplete authenticated raw HTML bindings"
+        )
+    return (
+        Path(cast(str, raw_dir_value)),
+        Path(cast(str, manifest_value)),
+        cast(str, digest_value).removeprefix("sha256:"),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class _AuthenticatedPublicFirstBridgeInputs:
     public_selections: tuple[JsonRecord, ...]
@@ -22954,6 +22998,71 @@ class _AuthenticatedPublicFirstBridgeAdmission:
     inputs: _AuthenticatedPublicFirstBridgeInputs
     routed_candidate_ids: tuple[str, ...]
     source_commitments: tuple[JsonRecord, ...]
+
+
+def _bridge_progress_config_record(
+    *,
+    screened_cases_sha256: str,
+    public_selection_sha256: str,
+    paid_gaps_sha256: str,
+    free_download_manifest_sha256: str,
+    screened_case_count: int,
+    public_selection_count: int,
+    paid_gap_count: int,
+    use_embedded_entries: bool,
+    transport_mode: str,
+    source_commitments: Sequence[Mapping[str, Any]],
+    bridge_provider: str | None,
+    authenticated_raw_html_manifest: Path | None,
+    authenticated_raw_html_manifest_sha256: str | None,
+    requested_raw_html_dir: Path | None,
+) -> JsonRecord:
+    """Build the shared, path-bound public-first bridge progress config."""
+
+    raw_values = (
+        authenticated_raw_html_manifest,
+        authenticated_raw_html_manifest_sha256,
+        requested_raw_html_dir,
+    )
+    if any(value is None for value in raw_values) and not all(
+        value is None for value in raw_values
+    ):
+        raise CommandError(
+            "authenticated raw HTML manifest, digest, and directory must be paired"
+        )
+    config: JsonRecord = {
+        "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
+        "mode": "public_first",
+        "screened_cases_sha256": "sha256:" + screened_cases_sha256,
+        "public_selection_sha256": "sha256:" + public_selection_sha256,
+        "paid_gaps_sha256": "sha256:" + paid_gaps_sha256,
+        "free_download_manifest_sha256": ("sha256:" + free_download_manifest_sha256),
+        "screened_case_count": screened_case_count,
+        "public_selection_count": public_selection_count,
+        "paid_gap_count": paid_gap_count,
+        "use_embedded_entries": use_embedded_entries,
+        "transport_mode": transport_mode,
+        "source_commitments": [dict(record) for record in source_commitments],
+        "free_lookup_only": True,
+        "pacer_fee_acknowledgment_allowed": False,
+    }
+    if bridge_provider is not None:
+        config["bridge_provider"] = bridge_provider
+    if authenticated_raw_html_manifest is not None:
+        assert authenticated_raw_html_manifest_sha256 is not None
+        assert requested_raw_html_dir is not None
+        config.update(
+            {
+                "authenticated_raw_html_manifest": str(
+                    authenticated_raw_html_manifest.resolve()
+                ),
+                "authenticated_raw_html_manifest_sha256": (
+                    "sha256:" + authenticated_raw_html_manifest_sha256
+                ),
+                "requested_raw_html_dir": str(requested_raw_html_dir.resolve()),
+            }
+        )
+    return config
 
 
 def _read_authenticated_public_first_bridge_inputs(
@@ -23817,9 +23926,9 @@ def _append_only_route_changes(
     )
 
 
-def _cmd_acquisition_rebase_pacer_gap_checkpoints(
+def _rebase_pacer_gap_checkpoints(
     args: argparse.Namespace,
-) -> int:
+) -> JsonRecord:
     """Reindex durable bridge checkpoints without any provider activity."""
 
     output_root = _acquisition_output_root(args)
@@ -23833,6 +23942,41 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
     current_free_path = cast(Path, args.current_free_download_manifest)
     previous_checkpoint_dir = cast(Path, args.previous_checkpoint_dir)
     previous_config_path = cast(Path, args.previous_checkpoint_config)
+    current_raw_html_dir = cast(Path | None, args.current_raw_html_dir)
+    current_raw_html_manifest = cast(
+        Path | None, args.current_authenticated_raw_html_manifest
+    )
+    _reject_symlink_path_components(
+        label="previous checkpoint config", path=previous_config_path
+    )
+    try:
+        previous_config = _read_json_object_payload(
+            _read_regular_non_symlink_bytes(
+                previous_config_path, "previous checkpoint config"
+            ),
+            label="previous checkpoint config",
+        )
+    except ValueError as exc:
+        raise CommandError(str(exc)) from exc
+    (
+        previous_raw_html_dir,
+        previous_raw_html_manifest,
+        frozen_raw_html_manifest_sha256,
+    ) = _progress_config_authenticated_raw_inputs(previous_config)
+    prior_has_raw_inputs = previous_raw_html_dir is not None
+    current_raw_values = (current_raw_html_dir, current_raw_html_manifest)
+    if prior_has_raw_inputs and any(value is None for value in current_raw_values):
+        raise CommandError(
+            "mixed-source rebase requires --current-raw-html-dir and "
+            "--current-authenticated-raw-html-manifest"
+        )
+    if not prior_has_raw_inputs and any(
+        value is not None for value in current_raw_values
+    ):
+        raise CommandError(
+            "current authenticated raw HTML cannot be introduced when the prior "
+            "checkpoint config has no frozen raw manifest digest"
+        )
     append_core_values = (
         args.previous_snapshot,
         args.expected_previous_snapshot_manifest_sha256,
@@ -23900,6 +24044,16 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         current_free_path,
         previous_checkpoint_dir,
         previous_config_path,
+        *(
+            (
+                previous_raw_html_dir,
+                cast(Path, previous_raw_html_manifest),
+                cast(Path, current_raw_html_dir),
+                cast(Path, current_raw_html_manifest),
+            )
+            if prior_has_raw_inputs
+            else ()
+        ),
         *snapshot_input_paths,
     )
     _validate_pacer_gap_rebase_paths(
@@ -23913,12 +24067,31 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             previous_free_path,
             current_free_path,
             previous_config_path,
+            *(
+                (
+                    cast(Path, previous_raw_html_manifest),
+                    cast(Path, current_raw_html_manifest),
+                )
+                if prior_has_raw_inputs
+                else ()
+            ),
         ),
         protected_directories=(
-            cast(Path, previous_snapshot),
-            cast(Path, current_snapshot),
+            *(
+                (cast(Path, previous_snapshot), cast(Path, current_snapshot))
+                if append_mode
+                else ()
+            ),
+            *(
+                (
+                    previous_raw_html_dir,
+                    cast(Path, current_raw_html_dir),
+                )
+                if prior_has_raw_inputs
+                else ()
+            ),
         )
-        if append_mode
+        if append_mode or prior_has_raw_inputs
         else (),
         previous_checkpoint_dir=previous_checkpoint_dir,
         checkpoint_dir=checkpoint_dir,
@@ -23938,6 +24111,80 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
     current_paid = _read_records(current_paid_path)
     previous_free = _read_records(previous_free_path)
     current_free = _read_records(current_free_path)
+    previous_raw_html_bytes: Mapping[str, bytes] | None = None
+    current_raw_html_bytes: Mapping[str, bytes] | None = None
+    if prior_has_raw_inputs:
+        assert previous_raw_html_dir is not None
+        assert previous_raw_html_manifest is not None
+        assert current_raw_html_dir is not None
+        assert current_raw_html_manifest is not None
+        assert frozen_raw_html_manifest_sha256 is not None
+        previous_screened_config_sha256 = previous_config.get("screened_cases_sha256")
+        if (
+            not isinstance(previous_screened_config_sha256, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", previous_screened_config_sha256)
+            is None
+        ):
+            raise CommandError(
+                "previous checkpoint config has invalid screened-cases commitment"
+            )
+        _verified_target_authenticated_paths(
+            screened_cases=previous_screened_path,
+            screened_cases_sha256=previous_screened_config_sha256.removeprefix(
+                "sha256:"
+            ),
+            raw_html_dir=previous_raw_html_dir,
+            raw_html_manifest=previous_raw_html_manifest,
+            raw_html_manifest_sha256=frozen_raw_html_manifest_sha256,
+        )
+        _verified_target_authenticated_paths(
+            screened_cases=current_screened_path,
+            screened_cases_sha256=_sha256_path(current_screened_path).removeprefix(
+                "sha256:"
+            ),
+            raw_html_dir=current_raw_html_dir,
+            raw_html_manifest=current_raw_html_manifest,
+            raw_html_manifest_sha256=frozen_raw_html_manifest_sha256,
+        )
+        (
+            authenticated_previous_screened,
+            _previous_screened_payload,
+            _previous_screened_sha256,
+            previous_raw_html_bytes,
+            previous_raw_manifest_sha256,
+        ) = _read_authenticated_bridge_inputs(
+            screened_cases_path=previous_screened_path,
+            expected_screened_cases_sha256=(
+                previous_screened_config_sha256.removeprefix("sha256:")
+            ),
+            public_first=True,
+            raw_html_dir=previous_raw_html_dir,
+            raw_html_manifest_path=previous_raw_html_manifest,
+            expected_raw_html_manifest_sha256=frozen_raw_html_manifest_sha256,
+        )
+        (
+            authenticated_current_screened,
+            _current_screened_payload,
+            _current_screened_sha256,
+            current_raw_html_bytes,
+            current_raw_manifest_sha256,
+        ) = _read_authenticated_bridge_inputs(
+            screened_cases_path=current_screened_path,
+            expected_screened_cases_sha256=(
+                _sha256_path(current_screened_path).removeprefix("sha256:")
+            ),
+            public_first=True,
+            raw_html_dir=current_raw_html_dir,
+            raw_html_manifest_path=current_raw_html_manifest,
+            expected_raw_html_manifest_sha256=frozen_raw_html_manifest_sha256,
+        )
+        if (
+            authenticated_previous_screened != previous_screened
+            or authenticated_current_screened != current_screened
+            or previous_raw_manifest_sha256 != frozen_raw_html_manifest_sha256
+            or current_raw_manifest_sha256 != frozen_raw_html_manifest_sha256
+        ):
+            raise CommandError("authenticated mixed-source rebase inputs drifted")
     append_proof: JsonRecord | None = None
     expected_added_ids = set(expected_added_candidate_ids)
     expected_invalidated_ids = set(expected_invalidated_candidate_ids)
@@ -24111,12 +24358,17 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             + ", ".join(sorted(unpinned_material_changes))
         )
 
-    previous_config = _read_json_object(previous_config_path)
     if previous_config.get("schema_version") not in {
         _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA,
         _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
     }:
         raise CommandError("previous checkpoint config schema is unsupported")
+    previous_transport_mode = previous_config.get("transport_mode")
+    previous_bridge_provider = previous_config.get("bridge_provider")
+    if previous_transport_mode not in {"fixture", "live"}:
+        raise CommandError("previous checkpoint config has unsupported transport_mode")
+    if previous_bridge_provider not in {"case.dev", "courtlistener_rest"}:
+        raise CommandError("previous checkpoint config has unsupported bridge_provider")
     expected_previous_fields: Mapping[str, object] = {
         "mode": "public_first",
         "screened_cases_sha256": _sha256_path(previous_screened_path),
@@ -24127,8 +24379,6 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "public_selection_count": len(previous_public),
         "paid_gap_count": len(previous_paid),
         "use_embedded_entries": True,
-        "transport_mode": "live",
-        "bridge_provider": "courtlistener_rest",
         "free_lookup_only": True,
         "pacer_fee_acknowledgment_allowed": False,
     }
@@ -24168,7 +24418,7 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         screened_records=previous_screened,
         routed_candidate_ids=previous_route_ids,
         raw_html_dir=None,
-        raw_html_bytes_by_candidate=None,
+        raw_html_bytes_by_candidate=previous_raw_html_bytes,
         use_embedded_entries=True,
     )
     if [dict(record) for record in source_commitments] != expected_source_commitments:
@@ -24243,25 +24493,47 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         screened_records=current_screened,
         routed_candidate_ids=current_route_ids,
         raw_html_dir=None,
-        raw_html_bytes_by_candidate=None,
+        raw_html_bytes_by_candidate=current_raw_html_bytes,
         use_embedded_entries=True,
     )
     current_config: JsonRecord = {
         **previous_config,
-        "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
-        "screened_cases_sha256": _sha256_path(current_screened_path),
-        "public_selection_sha256": _sha256_path(current_public_path),
-        "paid_gaps_sha256": _sha256_path(current_paid_path),
-        "free_download_manifest_sha256": _sha256_path(current_free_path),
-        "screened_case_count": len(current_screened),
-        "public_selection_count": len(current_public),
-        "paid_gap_count": len(current_paid),
-        "source_commitments": current_source_commitments,
+        **_bridge_progress_config_record(
+            screened_cases_sha256=_sha256_path(current_screened_path).removeprefix(
+                "sha256:"
+            ),
+            public_selection_sha256=_sha256_path(current_public_path).removeprefix(
+                "sha256:"
+            ),
+            paid_gaps_sha256=_sha256_path(current_paid_path).removeprefix("sha256:"),
+            free_download_manifest_sha256=_sha256_path(current_free_path).removeprefix(
+                "sha256:"
+            ),
+            screened_case_count=len(current_screened),
+            public_selection_count=len(current_public),
+            paid_gap_count=len(current_paid),
+            use_embedded_entries=True,
+            transport_mode=cast(str, previous_transport_mode),
+            source_commitments=current_source_commitments,
+            bridge_provider=cast(str, previous_bridge_provider),
+            authenticated_raw_html_manifest=current_raw_html_manifest,
+            authenticated_raw_html_manifest_sha256=(frozen_raw_html_manifest_sha256),
+            requested_raw_html_dir=current_raw_html_dir,
+        ),
     }
     current_index_by_id = {
         _required_str(record, "candidate_id"): index
         for index, record in enumerate(current_paid)
     }
+    semantic_replay_candidate_ids = {
+        candidate_id
+        for candidate_id, (_filename, checkpoint) in checkpoint_by_id.items()
+        if candidate_id in current_paid_by_id
+        and _bridge_checkpoint_requires_semantic_replay(
+            checkpoint, bridge_provider=cast(str, previous_bridge_provider)
+        )
+    }
+    missing_replay_candidate_ids = set(current_paid_by_id) - set(checkpoint_by_id)
     checkpoint_payloads: dict[str, bytes] = {}
     bindings: list[JsonRecord] = []
     invalidations: list[JsonRecord] = []
@@ -24305,12 +24577,40 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
                     in removed_invalidated_candidate_ids,
                 }
             )
+    for candidate_id in sorted(semantic_replay_candidate_ids):
+        previous_filename, checkpoint = checkpoint_by_id[candidate_id]
+        invalidations.append(
+            {
+                "candidate_id": candidate_id,
+                "reason": "stale_bridge_semantic_revision",
+                "previous_outcome": checkpoint["outcome"],
+                "previous_bridge_semantic_revision": checkpoint.get(
+                    "bridge_semantic_revision"
+                ),
+                "current_bridge_semantic_revision": (
+                    _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+                ),
+                "previous_filename": previous_filename,
+                "previous_sha256": "sha256:"
+                + hashlib.sha256(
+                    prior_checkpoint_payloads[previous_filename]
+                ).hexdigest(),
+                "previous_candidate_input_sha256": checkpoint["candidate_input_sha256"],
+                "current_candidate_input_sha256": _canonical_json_sha256(
+                    {
+                        "screened_case": current_screened_by_id[candidate_id],
+                        "paid_gap": current_paid_by_id[candidate_id],
+                    }
+                ),
+            }
+        )
     terminal_count = 0
     for candidate_id, (previous_filename, checkpoint) in sorted(
         (
             item
             for item in checkpoint_by_id.items()
             if item[0] not in expected_invalidated_ids
+            and item[0] not in semantic_replay_candidate_ids
         ),
         key=lambda item: current_index_by_id[item[0]],
     ):
@@ -24405,6 +24705,35 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             ("free_download_manifest", previous_free_path, current_free_path),
         )
     }
+    raw_html_rebinding: JsonRecord | None = None
+    if prior_has_raw_inputs:
+        assert previous_raw_html_dir is not None
+        assert previous_raw_html_manifest is not None
+        assert current_raw_html_dir is not None
+        assert current_raw_html_manifest is not None
+        assert frozen_raw_html_manifest_sha256 is not None
+        artifact_commitments["authenticated_raw_html_manifest"] = {
+            "previous_path": str(previous_raw_html_manifest.resolve()),
+            "previous_sha256": "sha256:" + frozen_raw_html_manifest_sha256,
+            "current_path": str(current_raw_html_manifest.resolve()),
+            "current_sha256": "sha256:" + frozen_raw_html_manifest_sha256,
+        }
+        raw_html_rebinding = {
+            "previous_raw_html_dir": str(previous_raw_html_dir.resolve()),
+            "current_raw_html_dir": str(current_raw_html_dir.resolve()),
+            "previous_authenticated_raw_html_manifest": str(
+                previous_raw_html_manifest.resolve()
+            ),
+            "current_authenticated_raw_html_manifest": str(
+                current_raw_html_manifest.resolve()
+            ),
+            "authenticated_raw_html_manifest_sha256": (
+                "sha256:" + frozen_raw_html_manifest_sha256
+            ),
+            "authenticated_raw_html_artifact_count": len(
+                cast(Mapping[str, bytes], current_raw_html_bytes)
+            ),
+        }
     bound_candidate_ids = {
         _required_str(binding, "candidate_id") for binding in bindings
     }
@@ -24412,7 +24741,9 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         set(current_paid_by_id) - bound_candidate_ids
     )
     expected_replay_candidate_ids = (
-        added_paid_candidate_ids | replay_invalidated_candidate_ids
+        added_paid_candidate_ids
+        | replay_invalidated_candidate_ids
+        | semantic_replay_candidate_ids
     )
     if (
         append_mode
@@ -24426,6 +24757,7 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "schema_version": _PACER_GAP_REBASE_RECEIPT_SCHEMA,
         "status": "completed",
         "artifact_commitments": artifact_commitments,
+        "authenticated_raw_html_rebinding": raw_html_rebinding,
         "previous_checkpoint_config": {
             "path": str(previous_config_path.resolve()),
             "sha256": _sha256_path(previous_config_path),
@@ -24445,11 +24777,17 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "invalidated_checkpoint_count": len(invalidations),
         "replay_required_candidate_count": len(current_paid) - len(bindings),
         "replay_required_candidate_ids": replay_required_candidate_ids,
+        "semantic_replay_candidate_count": len(semantic_replay_candidate_ids),
+        "semantic_replay_candidate_ids": sorted(semantic_replay_candidate_ids),
+        "missing_replay_candidate_count": len(missing_replay_candidate_ids),
+        "missing_replay_candidate_ids": sorted(missing_replay_candidate_ids),
         "terminal_checkpoint_count": terminal_count,
         "retryable_checkpoint_count": len(bindings) - terminal_count,
         "added_free_document_count": len(added_free_ids),
         "reused_existing_transition_count": reuse_transition_count,
         "provider_request_count": 0,
+        "provider_client_constructed": False,
+        "network_request_count": 0,
         "paid_activity_requested": False,
         "paid_activity_executed": False,
         "pacer_fee_acknowledgment_allowed": False,
@@ -24465,6 +24803,15 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "invalidated_candidate_ids": sorted(expected_invalidated_ids),
         "removed_invalidated_candidate_ids": sorted(removed_invalidated_candidate_ids),
         "replay_invalidated_candidate_ids": sorted(replay_invalidated_candidate_ids),
+        "source_commitment_count": len(current_source_commitments),
+        "raw_html_source_commitment_count": sum(
+            commitment.get("source") == "raw_html"
+            for commitment in current_source_commitments
+        ),
+        "embedded_entries_source_commitment_count": sum(
+            commitment.get("source") == "embedded_entries"
+            for commitment in current_source_commitments
+        ),
     }
     dry_run = _acquisition_dry_run(args)
     if not dry_run:
@@ -24492,14 +24839,27 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             "retryable_checkpoint_count": len(bindings) - terminal_count,
             "invalidated_checkpoint_count": len(invalidations),
             "replay_required_candidate_count": len(current_paid) - len(bindings),
+            "semantic_replay_candidate_count": len(semantic_replay_candidate_ids),
+            "missing_replay_candidate_count": len(missing_replay_candidate_ids),
             "added_free_document_count": len(added_free_ids),
             "reused_existing_transition_count": reuse_transition_count,
             "provider_request_count": 0,
+            "provider_client_constructed": False,
+            "network_request_count": 0,
             "pacer_fee_acknowledgment_allowed": False,
             "receipt_sha256": "sha256:"
             + hashlib.sha256(_json_bytes(receipt)).hexdigest(),
         },
     )
+    return receipt
+
+
+def _cmd_acquisition_rebase_pacer_gap_checkpoints(
+    args: argparse.Namespace,
+) -> int:
+    """CLI adapter for the callable provider-free checkpoint rebase."""
+
+    _rebase_pacer_gap_checkpoints(args)
     return 0
 
 
@@ -24624,48 +24984,27 @@ def _public_first_bridge_with_checkpoints(
     routed_ids = public_first_admission.routed_candidate_ids
     if bridge_provider not in {"case.dev", "courtlistener_rest"}:
         raise CommandError("unsupported paid-gap bridge provider")
-    config: JsonRecord = {
-        "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
-        "mode": "public_first",
-        "screened_cases_sha256": "sha256:" + screened_cases_sha256,
-        "public_selection_sha256": (
-            "sha256:" + public_first_inputs.public_selection_sha256
+    config = _bridge_progress_config_record(
+        screened_cases_sha256=screened_cases_sha256,
+        public_selection_sha256=public_first_inputs.public_selection_sha256,
+        paid_gaps_sha256=public_first_inputs.paid_gaps_sha256,
+        free_download_manifest_sha256=(
+            public_first_inputs.free_download_manifest_sha256
         ),
-        "paid_gaps_sha256": "sha256:" + public_first_inputs.paid_gaps_sha256,
-        "free_download_manifest_sha256": (
-            "sha256:" + public_first_inputs.free_download_manifest_sha256
+        screened_case_count=len(records),
+        public_selection_count=len(public_selections),
+        paid_gap_count=len(paid_gaps),
+        use_embedded_entries=cast(bool, args.use_embedded_entries),
+        transport_mode="fixture" if fixture_path is not None else "live",
+        source_commitments=public_first_admission.source_commitments,
+        bridge_provider=(
+            bridge_provider if bridge_provider == "courtlistener_rest" else None
         ),
-        "screened_case_count": len(records),
-        "public_selection_count": len(public_selections),
-        "paid_gap_count": len(paid_gaps),
-        "use_embedded_entries": cast(bool, args.use_embedded_entries),
-        "transport_mode": "fixture" if fixture_path is not None else "live",
-        "source_commitments": [
-            dict(commitment) for commitment in public_first_admission.source_commitments
-        ],
-        "free_lookup_only": True,
-        "pacer_fee_acknowledgment_allowed": False,
-    }
-    if authenticated_raw_html_manifest is not None:
-        if authenticated_raw_html_manifest_sha256 is None:
-            raise CommandError("authenticated raw HTML manifest digest is missing")
-        config.update(
-            {
-                "authenticated_raw_html_manifest": str(
-                    authenticated_raw_html_manifest.resolve()
-                ),
-                "authenticated_raw_html_manifest_sha256": (
-                    "sha256:" + authenticated_raw_html_manifest_sha256
-                ),
-                "requested_raw_html_dir": (
-                    None
-                    if requested_raw_html_dir is None
-                    else str(requested_raw_html_dir.resolve())
-                ),
-            }
-        )
+        authenticated_raw_html_manifest=authenticated_raw_html_manifest,
+        authenticated_raw_html_manifest_sha256=(authenticated_raw_html_manifest_sha256),
+        requested_raw_html_dir=requested_raw_html_dir,
+    )
     if bridge_provider == "courtlistener_rest":
-        config["bridge_provider"] = bridge_provider
         if fixture_path is None:
             request_ledger = cast(Path, args.request_ledger)
             profile = cast(str, args.courtlistener_rate_profile)

@@ -23,6 +23,24 @@ from legalforecast.ingestion.screening_snapshot_union import (
     LONGITUDINAL_CORRECTION_POLICY_V2,
 )
 
+_ROOT20_V4_TEXT_MISSING_CANDIDATE_IDS = [
+    "69241167",
+    "69300671",
+    "70525291",
+    "71677178",
+    "71723505",
+    "71843630",
+    "71924713",
+    "71942225",
+    "71994417",
+    "72059948",
+    "72145108",
+    "72239064",
+    "73150723",
+    "73371863",
+    "73659929",
+]
+
 
 def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
     capsys: Any,
@@ -67,6 +85,8 @@ def test_rebase_pacer_gap_checkpoints_help_is_explicitly_noncharging(
     assert "--previous-snapshot" in output
     assert "--expected-added-candidate-id" in output
     assert "--expected-invalidated-candidate-id" in output
+    assert "--current-raw-html-dir" in output
+    assert "--current-authenticated-raw-html-manifest" in output
     assert "same-cycle union" in output
     assert "constructs no provider client" in output
     assert "performs no purchase" in output
@@ -83,7 +103,8 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
         lambda *args, **kwargs: pytest.fail("rebase constructed a provider client"),
     )
 
-    assert main(fixture["command"]) == 0
+    parsed = cli.build_parser().parse_args(fixture["command"])
+    receipt = cli._rebase_pacer_gap_checkpoints(parsed)
     first_bytes = {
         path.name: path.read_bytes()
         for path in fixture["destination_checkpoint_dir"].glob("*.json")
@@ -96,6 +117,10 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
         for path in fixture["destination_checkpoint_dir"].glob("*.json")
     }
     assert fixture["destination_config"].read_bytes() == first_config
+    assert _read_json(fixture["destination_config"])["transport_mode"] == "live"
+    assert _read_json(fixture["destination_config"])["bridge_provider"] == (
+        "courtlistener_rest"
+    )
     assert fixture["receipt"].read_bytes() == first_receipt
 
     checkpoints = sorted(
@@ -109,7 +134,7 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
     assert checkpoints[0]["outcome"] == "success"
     assert checkpoints[0]["payload"]["selection_record"]["cost_rank"] == 1
     assert all(record["resumable_attempt_count"] == 2 for record in checkpoints)
-    receipt = _read_json(fixture["receipt"])
+    assert receipt == _read_json(fixture["receipt"])
     assert receipt["previous_checkpoint_count"] == 2
     assert receipt["previously_uncheckpointed_candidate_count"] == 0
     assert receipt["checkpoint_count"] == 1
@@ -140,6 +165,125 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
         )
         for binding in receipt["checkpoint_bindings"]
     } == {("cl-456", 2, 1)}
+
+
+def test_rebase_pacer_gap_checkpoints_reauthenticates_and_rebinds_mixed_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _mixed_source_pacer_gap_rebase_fixture(tmp_path)
+    monkeypatch.setattr(
+        cli,
+        "_courtlistener_bridge_client",
+        lambda *args, **kwargs: pytest.fail("rebase constructed a provider client"),
+    )
+
+    assert main(fixture["command"]) == 0
+
+    config = _read_json(fixture["destination_config"])
+    assert config["transport_mode"] == "fixture"
+    assert config["bridge_provider"] == "courtlistener_rest"
+    assert config["authenticated_raw_html_manifest"] == str(
+        fixture["current_raw_manifest"].resolve()
+    )
+    assert config["requested_raw_html_dir"] == str(fixture["current_raw_dir"].resolve())
+    assert config["authenticated_raw_html_manifest_sha256"] == (
+        "sha256:"
+        + hashlib.sha256(fixture["current_raw_manifest"].read_bytes()).hexdigest()
+    )
+    commitments = cast(list[dict[str, object]], config["source_commitments"])
+    assert len(commitments) == 151
+    assert sum(row["source"] == "raw_html" for row in commitments) == 134
+    assert sum(row["source"] == "embedded_entries" for row in commitments) == 17
+
+    checkpoints = [
+        _read_json(path)
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    ]
+    assert len(checkpoints) == 135
+    assert fixture["retained_v4_candidate_id"] in {
+        row["candidate_id"] for row in checkpoints
+    }
+    assert not set(fixture["semantic_replay_candidate_ids"]) & {
+        row["candidate_id"] for row in checkpoints
+    }
+    assert {row["bridge_semantic_revision"] for row in checkpoints} == {
+        "courtlistener-rest-recap-storage-host-2026-07-16-v4"
+    }
+    receipt = _read_json(fixture["receipt"])
+    assert receipt["source_commitment_count"] == 151
+    assert receipt["raw_html_source_commitment_count"] == 134
+    assert receipt["embedded_entries_source_commitment_count"] == 17
+    assert receipt["authenticated_raw_html_rebinding"] == {
+        "previous_raw_html_dir": str(fixture["previous_raw_dir"].resolve()),
+        "current_raw_html_dir": str(fixture["current_raw_dir"].resolve()),
+        "previous_authenticated_raw_html_manifest": str(
+            fixture["previous_raw_manifest"].resolve()
+        ),
+        "current_authenticated_raw_html_manifest": str(
+            fixture["current_raw_manifest"].resolve()
+        ),
+        "authenticated_raw_html_manifest_sha256": (
+            "sha256:"
+            + hashlib.sha256(fixture["current_raw_manifest"].read_bytes()).hexdigest()
+        ),
+        "authenticated_raw_html_artifact_count": 134,
+    }
+    assert receipt["previous_checkpoint_count"] == 150
+    assert receipt["source_commitment_count"] == 151
+    assert receipt["semantic_replay_candidate_ids"] == (
+        _ROOT20_V4_TEXT_MISSING_CANDIDATE_IDS
+    )
+    assert receipt["semantic_replay_candidate_count"] == 15
+    assert receipt["missing_replay_candidate_ids"] == []
+    assert receipt["missing_replay_candidate_count"] == 0
+    assert receipt["replay_required_candidate_count"] == 15
+    previous_checkpoints = [
+        _read_json(path) for path in fixture["previous_checkpoint_dir"].glob("*.json")
+    ]
+    success_candidate_ids = {
+        row["candidate_id"]
+        for row in previous_checkpoints
+        if row["outcome"] == "success"
+    }
+    assert len(success_candidate_ids) == 102
+    assert not success_candidate_ids & set(receipt["semantic_replay_candidate_ids"])
+    assert "70965642" not in {row["candidate_id"] for row in previous_checkpoints}
+    assert receipt["provider_client_constructed"] is False
+    assert receipt["provider_request_count"] == 0
+    assert receipt["network_request_count"] == 0
+    assert receipt["paid_activity_executed"] is False
+
+
+@pytest.mark.parametrize("source", ["previous", "current"])
+def test_rebase_pacer_gap_checkpoints_rejects_mixed_raw_source_tamper(
+    tmp_path: Path,
+    source: str,
+) -> None:
+    fixture = _mixed_source_pacer_gap_rebase_fixture(tmp_path)
+    raw_dir = cast(Path, fixture[f"{source}_raw_dir"])
+    raw_path = next(raw_dir.glob("*.html"))
+    raw_path.write_bytes(raw_path.read_bytes() + b"tamper")
+
+    assert main(fixture["command"]) == 2
+    assert not fixture["receipt"].exists()
+
+
+@pytest.mark.parametrize(
+    "missing_flag",
+    ["--current-raw-html-dir", "--current-authenticated-raw-html-manifest"],
+)
+def test_rebase_pacer_gap_checkpoints_requires_current_mixed_source_pair(
+    tmp_path: Path,
+    missing_flag: str,
+) -> None:
+    fixture = _mixed_source_pacer_gap_rebase_fixture(tmp_path)
+    command = list(fixture["command"])
+    flag_index = command.index(missing_flag)
+    del command[flag_index : flag_index + 2]
+
+    assert main(command) == 2
+    assert not fixture["receipt"].exists()
 
 
 def test_rebase_pacer_gap_checkpoints_append_only_union_schedules_only_addition(
@@ -3060,6 +3204,253 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
         "destination_checkpoint_dir": destination_checkpoint_dir,
         "destination_config": destination_config,
         "receipt": receipt,
+    }
+
+
+def _mixed_source_pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
+    previous = tmp_path / "previous"
+    current = tmp_path / "current"
+    output = tmp_path / "output"
+    previous.mkdir()
+    current.mkdir()
+    orphan_public = _fully_free_case()
+    orphan_candidate = cast(dict[str, object], orphan_public["candidate"])
+    orphan_candidate["docket_id"] = "70965642"
+    orphan_candidate["candidate_key"] = "70965642"
+    orphan_candidate["url"] = (
+        "https://www.courtlistener.com/docket/70965642/orphan-public/"
+    )
+    orphan_metadata = cast(dict[str, object], orphan_candidate["metadata"])
+    orphan_metadata["case_id"] = "70965642"
+    orphan_metadata["case_name"] = "Orphan Public v. Example"
+    orphan_public["candidate_id"] = "70965642"
+    screened_records: list[dict[str, object]] = [orphan_public]
+    for index in range(150):
+        candidate_id = (
+            _ROOT20_V4_TEXT_MISSING_CANDIDATE_IDS[index - 102]
+            if 102 <= index < 117
+            else f"cl-mixed-{index:03d}"
+        )
+        screened = _screened_case_variant(
+            candidate_id=candidate_id,
+            docket_number=f"1:26-cv-{index:05d}",
+            case_name=f"Mixed {index} v. Example",
+        )
+        screened["candidate_id"] = candidate_id
+        screened["selected_entries"] = cast(
+            list[dict[str, object]], screened["selected_entries"]
+        )[1:]
+        screened_records.append(screened)
+    plan = plan_public_packet_downloads(
+        screened_records,
+        use_embedded_entries=True,
+        target_clean_cases=151,
+    )
+    public = [record.to_record() for record in plan.selected_cases]
+    paid = [record.to_record() for record in plan.paid_gap_cases]
+    assert [record["candidate_id"] for record in public] == ["70965642"]
+    assert len(paid) == 150
+    free = [
+        {
+            **request.to_record(),
+            "local_path": f"{request.candidate_id}/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+    ]
+    paths = {
+        "previous_screened": previous / "screened.jsonl",
+        "current_screened": current / "screened.jsonl",
+        "previous_public": previous / "public.jsonl",
+        "current_public": current / "public.jsonl",
+        "previous_paid": previous / "paid.jsonl",
+        "current_paid": current / "paid.jsonl",
+        "previous_free": previous / "free.jsonl",
+        "current_free": current / "free.jsonl",
+    }
+    _write_jsonl(paths["previous_screened"], screened_records)
+    paths["current_screened"].write_bytes(paths["previous_screened"].read_bytes())
+    _write_jsonl(paths["previous_public"], public)
+    paths["current_public"].write_bytes(paths["previous_public"].read_bytes())
+    _write_jsonl(paths["previous_paid"], paid)
+    paths["current_paid"].write_bytes(paths["previous_paid"].read_bytes())
+    _write_jsonl(paths["previous_free"], free)
+    paths["current_free"].write_bytes(paths["previous_free"].read_bytes())
+
+    route_ids = [
+        *(cast(str, record["candidate_id"]) for record in public),
+        *(cast(str, record["candidate_id"]) for record in paid),
+    ]
+    raw_candidate_ids = route_ids[:134]
+    raw_payloads = {
+        candidate_id: f"<html>{candidate_id}</html>".encode()
+        for candidate_id in raw_candidate_ids
+    }
+    raw_manifest_rows = sorted(
+        (
+            {
+                "candidate_id": candidate_id,
+                "relative_path": f"{candidate_id}.html",
+                "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+                "byte_count": len(payload),
+            }
+            for candidate_id, payload in raw_payloads.items()
+        ),
+        key=lambda row: cast(str, row["candidate_id"]),
+    )
+    previous_raw_dir = previous / "raw-html"
+    current_raw_dir = current / "raw-html"
+    previous_raw_dir.mkdir()
+    current_raw_dir.mkdir()
+    for candidate_id, payload in raw_payloads.items():
+        (previous_raw_dir / f"{candidate_id}.html").write_bytes(payload)
+        (current_raw_dir / f"{candidate_id}.html").write_bytes(payload)
+    previous_raw_manifest = previous / "raw-html-manifest.jsonl"
+    current_raw_manifest = current / "raw-html-manifest.jsonl"
+    _write_jsonl(previous_raw_manifest, raw_manifest_rows)
+    current_raw_manifest.write_bytes(previous_raw_manifest.read_bytes())
+    raw_manifest_sha256 = hashlib.sha256(previous_raw_manifest.read_bytes()).hexdigest()
+
+    source_commitments = cli._bridge_source_commitments(
+        screened_records=screened_records,
+        routed_candidate_ids=route_ids,
+        raw_html_dir=None,
+        raw_html_bytes_by_candidate=raw_payloads,
+        use_embedded_entries=True,
+    )
+    assert sum(row["source"] == "raw_html" for row in source_commitments) == 134
+    assert sum(row["source"] == "embedded_entries" for row in source_commitments) == 17
+    config = {
+        "schema_version": "legalforecast.pacer_gap_bridge_progress_config.v2",
+        "mode": "public_first",
+        "screened_cases_sha256": cli._sha256_path(paths["previous_screened"]),
+        "public_selection_sha256": cli._sha256_path(paths["previous_public"]),
+        "paid_gaps_sha256": cli._sha256_path(paths["previous_paid"]),
+        "free_download_manifest_sha256": cli._sha256_path(paths["previous_free"]),
+        "screened_case_count": len(screened_records),
+        "public_selection_count": 1,
+        "paid_gap_count": len(paid),
+        "use_embedded_entries": True,
+        "transport_mode": "fixture",
+        "bridge_provider": "courtlistener_rest",
+        "source_commitments": source_commitments,
+        "free_lookup_only": True,
+        "pacer_fee_acknowledgment_allowed": False,
+        "authenticated_raw_html_manifest": str(previous_raw_manifest.resolve()),
+        "authenticated_raw_html_manifest_sha256": ("sha256:" + raw_manifest_sha256),
+        "requested_raw_html_dir": str(previous_raw_dir.resolve()),
+    }
+    previous_checkpoint_dir = previous / "checkpoints"
+    previous_checkpoint_dir.mkdir()
+    screened_by_id = {
+        cli._bridge_candidate_id(record): record for record in screened_records
+    }
+    semantic_replay_candidate_ids = list(_ROOT20_V4_TEXT_MISSING_CANDIDATE_IDS)
+    semantic_replay_candidate_id_set = set(semantic_replay_candidate_ids)
+    nonsemantic_paid_ids = [
+        cast(str, gap["candidate_id"])
+        for gap in paid
+        if cast(str, gap["candidate_id"]) not in semantic_replay_candidate_id_set
+    ]
+    success_candidate_ids = set(nonsemantic_paid_ids[:102])
+    retained_v4_candidate_id = nonsemantic_paid_ids[0]
+    for index, gap in enumerate(paid):
+        candidate_id = cast(str, gap["candidate_id"])
+        outcome = "success" if candidate_id in success_candidate_ids else "exclusion"
+        reason = (
+            "text_missing"
+            if candidate_id in semantic_replay_candidate_id_set
+            else "operative_complaint_not_found"
+        )
+        checkpoint = {
+            "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2",
+            "bridge_semantic_revision": (
+                "courtlistener-rest-recap-storage-host-2026-07-16-v4"
+            ),
+            "input_index": index,
+            "candidate_id": candidate_id,
+            "candidate_input_sha256": cli._canonical_json_sha256(
+                {"screened_case": screened_by_id[candidate_id], "paid_gap": gap}
+            ),
+            "outcome": outcome,
+            "resumable_attempt_count": 1,
+            "cumulative_courtlistener_request_count": 1,
+            "payload": (
+                _pacer_gap_success_payload(gap, index=index)
+                if outcome == "success"
+                else {
+                    "exclusion_record": (
+                        bridge_module.case_dev_bridge_exclusion_record(
+                            screened_by_id[candidate_id],
+                            reason=reason,
+                            detail=f"fixture {reason}",
+                        )
+                    )
+                }
+            ),
+        }
+        _write_json(
+            cli._bridge_checkpoint_path(
+                previous_checkpoint_dir,
+                input_index=index,
+                candidate_id=candidate_id,
+            ),
+            checkpoint,
+        )
+    previous_config = previous / "progress-config.json"
+    _write_json(previous_config, config)
+    destination_checkpoint_dir = output / "checkpoints/pacer-gap-bridge"
+    destination_checkpoint_dir.mkdir(parents=True)
+    for source in previous_checkpoint_dir.glob("*.json"):
+        (destination_checkpoint_dir / source.name).write_bytes(source.read_bytes())
+    destination_config = output / "checkpoints/pacer-gap-bridge-progress-config.json"
+    destination_config.write_bytes(previous_config.read_bytes())
+    receipt = output / "run-cards/rebase-pacer-gap-checkpoints-receipt.json"
+    command = [
+        "acquisition",
+        "rebase-pacer-gap-checkpoints",
+        "--previous-screened-cases",
+        str(paths["previous_screened"]),
+        "--current-screened-cases",
+        str(paths["current_screened"]),
+        "--previous-public-selection",
+        str(paths["previous_public"]),
+        "--current-public-selection",
+        str(paths["current_public"]),
+        "--previous-paid-gaps",
+        str(paths["previous_paid"]),
+        "--current-paid-gaps",
+        str(paths["current_paid"]),
+        "--previous-free-download-manifest",
+        str(paths["previous_free"]),
+        "--current-free-download-manifest",
+        str(paths["current_free"]),
+        "--previous-checkpoint-dir",
+        str(previous_checkpoint_dir),
+        "--previous-checkpoint-config",
+        str(previous_config),
+        "--current-raw-html-dir",
+        str(current_raw_dir),
+        "--current-authenticated-raw-html-manifest",
+        str(current_raw_manifest),
+        "--output-root",
+        str(output),
+        "--execute",
+    ]
+    return {
+        **paths,
+        "command": command,
+        "previous_checkpoint_dir": previous_checkpoint_dir,
+        "destination_checkpoint_dir": destination_checkpoint_dir,
+        "destination_config": destination_config,
+        "receipt": receipt,
+        "previous_raw_dir": previous_raw_dir,
+        "current_raw_dir": current_raw_dir,
+        "previous_raw_manifest": previous_raw_manifest,
+        "current_raw_manifest": current_raw_manifest,
+        "semantic_replay_candidate_ids": semantic_replay_candidate_ids,
+        "retained_v4_candidate_id": retained_v4_candidate_id,
     }
 
 
