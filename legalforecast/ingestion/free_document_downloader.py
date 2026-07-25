@@ -330,6 +330,16 @@ class FreeDocumentDownloadRecord:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class FreeDocumentReuseResult:
+    """Authenticated local-reuse evidence for a provider-free import."""
+
+    records: tuple[FreeDocumentDownloadRecord, ...]
+    source_checkpoint_sha256: str
+    source_checkpoint_record_count: int
+    destination_checkpoint_sha256: str
+
+
 def download_free_docket_documents(
     requests: tuple[FreeDocumentDownloadRequest, ...],
     *,
@@ -361,6 +371,143 @@ def download_free_docket_documents(
     return tuple(records)
 
 
+def reuse_authenticated_free_documents(
+    requests: tuple[FreeDocumentDownloadRequest, ...],
+    *,
+    authenticated_source_records: tuple[FreeDocumentDownloadRecord, ...],
+    source_output_root: str | Path,
+    destination_output_root: str | Path,
+) -> FreeDocumentReuseResult:
+    """Materialize authenticated documents without constructing a provider."""
+
+    source_root, destination_root = _validated_reuse_roots(
+        source_output_root=source_output_root,
+        destination_output_root=destination_output_root,
+    )
+    source_checkpoint_path = source_root / ".download-checkpoint.jsonl"
+    source_checkpoint, source_checkpoint_payload = _read_checkpoint_payload(
+        source_checkpoint_path
+    )
+    authenticated_by_key: dict[str, FreeDocumentDownloadRecord] = {}
+    for record in authenticated_source_records:
+        key = _record_key(record)
+        if key in authenticated_by_key:
+            raise FreeDocumentDownloadError(
+                "authenticated source records repeat a request identity"
+            )
+        authenticated_by_key[key] = record
+    if source_checkpoint != authenticated_by_key:
+        raise FreeDocumentDownloadError(
+            "authenticated source records do not exactly match the shared checkpoint"
+        )
+    _verify_completed_checkpoint_documents(
+        source_root,
+        source_checkpoint.values(),
+    )
+    source_checkpoint_sha256 = hashlib.sha256(source_checkpoint_payload).hexdigest()
+
+    destination_checkpoint_path = destination_root / ".download-checkpoint.jsonl"
+    destination_checkpoint, _ = _read_checkpoint_payload(destination_checkpoint_path)
+    _verify_completed_checkpoint_documents(
+        destination_root,
+        destination_checkpoint.values(),
+    )
+    records: list[FreeDocumentDownloadRecord] = []
+    seen_request_keys: set[str] = set()
+    for request in requests:
+        key = _request_key(request)
+        if key in seen_request_keys:
+            raise FreeDocumentDownloadError(
+                "local reuse requests repeat a request identity"
+            )
+        seen_request_keys.add(key)
+        source_record = source_checkpoint.get(key)
+        if source_record is None or not _record_matches_request(
+            source_record,
+            request,
+            output_root=source_root,
+        ):
+            raise FreeDocumentDownloadError(
+                "authenticated source checkpoint does not match reuse request: "
+                f"{request.candidate_id}/{request.source_document_id}"
+            )
+        existing = destination_checkpoint.get(key)
+        if existing is not None:
+            if not _record_matches_request(
+                existing,
+                request,
+                output_root=destination_root,
+            ):
+                raise FreeDocumentDownloadError(
+                    "destination checkpoint does not match reuse request: "
+                    f"{request.candidate_id}/{request.source_document_id}"
+                )
+            if (
+                existing.sha256 != source_record.sha256
+                or existing.byte_count != source_record.byte_count
+            ):
+                raise FreeDocumentDownloadError(
+                    "destination checkpoint conflicts with authenticated source: "
+                    f"{request.candidate_id}/{request.source_document_id}"
+                )
+            _adopt_authenticated_destination(
+                request,
+                source_record=source_record,
+                source_path=_checkpoint_document_path(source_root, source_record),
+                source_root=source_root,
+                destination_path=_document_output_path(destination_root, request),
+                destination_root=destination_root,
+            )
+            record = existing
+        else:
+            record = _materialize_authenticated_document(
+                request,
+                source_record=source_record,
+                source_root=source_root,
+                destination_root=destination_root,
+            )
+            destination_checkpoint[key] = record
+            expected_payload = _write_checkpoint(
+                destination_checkpoint_path,
+                destination_checkpoint.values(),
+            )
+            _verify_published_checkpoint(
+                destination_checkpoint_path,
+                expected_records=destination_checkpoint,
+                expected_payload=expected_payload,
+                output_root=destination_root,
+            )
+        records.append(record)
+
+    if destination_checkpoint_path.exists():
+        published_checkpoint, destination_payload = _read_checkpoint_payload(
+            destination_checkpoint_path
+        )
+        if published_checkpoint != destination_checkpoint:
+            raise FreeDocumentDownloadError(
+                "destination checkpoint changed after authenticated reuse"
+            )
+        _verify_completed_checkpoint_documents(
+            destination_root,
+            published_checkpoint.values(),
+        )
+    else:
+        destination_payload = _write_checkpoint(destination_checkpoint_path, ())
+        _verify_published_checkpoint(
+            destination_checkpoint_path,
+            expected_records={},
+            expected_payload=destination_payload,
+            output_root=destination_root,
+        )
+    destination_checkpoint_sha256 = hashlib.sha256(destination_payload).hexdigest()
+    return FreeDocumentReuseResult(
+        records=tuple(records),
+        source_checkpoint_sha256=source_checkpoint_sha256,
+        source_checkpoint_record_count=len(source_checkpoint),
+        destination_checkpoint_sha256=destination_checkpoint_sha256,
+    )
+
+
 def verify_completed_free_document_manifest(
     requests: tuple[FreeDocumentDownloadRequest, ...],
     *,
@@ -375,17 +522,17 @@ def verify_completed_free_document_manifest(
             "completed free-download root must not be a symlink"
         )
     root = configured_root.resolve()
+    request_keys = tuple(_request_key(request) for request in requests)
+    if len(set(request_keys)) != len(request_keys):
+        raise FreeDocumentDownloadError(
+            "completed free-download current requests repeat a request identity"
+        )
     manifest = Path(manifest_path)
-    if manifest.is_symlink() or not manifest.is_file():
-        raise FreeDocumentDownloadError(
-            "completed free-download manifest must be a regular non-symlink file"
-        )
-    if manifest.stat().st_nlink != 1:
-        raise FreeDocumentDownloadError(
-            "completed free-download manifest must be singly linked"
-        )
     try:
-        payload = manifest.read_bytes()
+        payload = _read_stable_regular_file(
+            manifest,
+            label="completed free-download manifest",
+        )
         lines = payload.splitlines()
         if any(not line.strip() for line in lines):
             raise ValueError("completed free-download manifest contains a blank row")
@@ -396,7 +543,14 @@ def verify_completed_free_document_manifest(
             )
             for line_number, line in enumerate(lines, start=1)
         )
-    except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
+    except (
+        FreeDocumentDownloadError,
+        OSError,
+        UnicodeError,
+        ValueError,
+        TypeError,
+        KeyError,
+    ) as exc:
         raise FreeDocumentDownloadError(
             "completed free-download manifest is unreadable or invalid"
         ) from exc
@@ -446,7 +600,12 @@ def _verify_completed_checkpoint_documents(
             )
         seen_paths.add(record.local_path)
         document_path = _checkpoint_document_path(output_root, record)
-        digest, byte_count = _hash_verified_completed_document(
+        _recover_owned_reuse_temporary(
+            document_path,
+            expected_hash=record.sha256,
+            expected_bytes=record.byte_count,
+        )
+        digest, byte_count, _ = _hash_verified_completed_document(
             output_root,
             document_path,
             label=f"{record.candidate_id}/{record.source_document_id}",
@@ -499,12 +658,16 @@ def _hash_verified_completed_document(
     path: Path,
     *,
     label: str,
-) -> tuple[str, int]:
+    allowed_link_counts: frozenset[int] = frozenset({1}),
+) -> tuple[str, int, tuple[int, ...]]:
     _reject_document_parent_symlinks(output_root, path, label=label)
     descriptor: int | None = None
     try:
         before_path = path.lstat()
-        if not stat.S_ISREG(before_path.st_mode) or before_path.st_nlink != 1:
+        if (
+            not stat.S_ISREG(before_path.st_mode)
+            or before_path.st_nlink not in allowed_link_counts
+        ):
             raise FreeDocumentDownloadError(
                 "completed free-download document must be a singly linked regular "
                 f"non-symlink file: {label}"
@@ -532,7 +695,7 @@ def _hash_verified_completed_document(
             raise FreeDocumentDownloadError(
                 f"completed free-download document changed while reading: {label}"
             )
-        return digest.hexdigest(), byte_count
+        return digest.hexdigest(), byte_count, identity
     except FileNotFoundError as exc:
         raise FreeDocumentDownloadError(
             f"completed free-download document is missing: {label}"
@@ -545,6 +708,54 @@ def _hash_verified_completed_document(
     finally:
         if descriptor is not None:
             os.close(descriptor)
+
+
+def _recover_owned_reuse_temporary(
+    destination: Path,
+    *,
+    expected_hash: str,
+    expected_bytes: int,
+) -> None:
+    try:
+        metadata = destination.lstat()
+    except FileNotFoundError:
+        return
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink == 1:
+        return
+    if metadata.st_nlink != 2:
+        raise FreeDocumentDownloadError(
+            "completed free-download document must be singly linked after reuse"
+        )
+    prefix = f".{destination.name}."
+    candidates: list[Path] = []
+    for sibling in destination.parent.iterdir():
+        if not (
+            sibling.name.startswith(prefix) and sibling.name.endswith(".reuse-partial")
+        ):
+            continue
+        sibling_metadata = sibling.lstat()
+        if (
+            stat.S_ISREG(sibling_metadata.st_mode)
+            and sibling_metadata.st_dev == metadata.st_dev
+            and sibling_metadata.st_ino == metadata.st_ino
+        ):
+            candidates.append(sibling)
+    if len(candidates) != 1:
+        raise FreeDocumentDownloadError(
+            "completed free-download document has unrecoverable link aliases"
+        )
+    digest, byte_count, _ = _hash_verified_completed_document(
+        destination.parent,
+        destination,
+        label=destination.name,
+        allowed_link_counts=frozenset({2}),
+    )
+    if digest != expected_hash or byte_count != expected_bytes:
+        raise FreeDocumentDownloadError(
+            "linked reuse temporary differs from the authenticated checkpoint"
+        )
+    candidates[0].unlink()
+    _fsync_directory(destination.parent)
 
 
 def _reject_document_parent_symlinks(
@@ -578,6 +789,308 @@ def _stable_stat_identity(value: os.stat_result) -> tuple[int, ...]:
         value.st_size,
         value.st_mtime_ns,
         value.st_ctime_ns,
+    )
+
+
+def _validated_reuse_roots(
+    *,
+    source_output_root: str | Path,
+    destination_output_root: str | Path,
+) -> tuple[Path, Path]:
+    source_configured = Path(source_output_root)
+    destination_configured = Path(destination_output_root)
+    _reject_existing_path_symlinks(source_configured, label="source document root")
+    _reject_existing_path_symlinks(
+        destination_configured,
+        label="destination document root",
+    )
+    source_root = source_configured.resolve()
+    destination_root = destination_configured.resolve()
+    if not source_root.is_dir():
+        raise FreeDocumentDownloadError(
+            "authenticated source document root must be an existing directory"
+        )
+    if (
+        source_root == destination_root
+        or source_root.is_relative_to(destination_root)
+        or destination_root.is_relative_to(source_root)
+    ):
+        raise FreeDocumentDownloadError(
+            "source and destination document roots must be disjoint"
+        )
+    if destination_root.exists() and not destination_root.is_dir():
+        raise FreeDocumentDownloadError("destination document root must be a directory")
+    destination_root.mkdir(parents=True, exist_ok=True)
+    if (
+        source_root.stat().st_dev == destination_root.stat().st_dev
+        and source_root.stat().st_ino == destination_root.stat().st_ino
+    ):
+        raise FreeDocumentDownloadError(
+            "source and destination document roots must be disjoint"
+        )
+    return source_root, destination_root
+
+
+def _reject_existing_path_symlinks(path: Path, *, label: str) -> None:
+    if path.is_absolute():
+        current = Path(path.anchor)
+        components = path.parts[1:]
+    else:
+        current = Path.cwd()
+        components = path.parts
+    for part in components:
+        if part in {"", "."}:
+            continue
+        if part == "..":
+            current = current.parent
+            continue
+        current = current / part
+        if current.is_symlink():
+            raise FreeDocumentDownloadError(f"{label} must not traverse a symlink")
+
+
+def _read_stable_regular_file(path: Path, *, label: str) -> bytes:
+    _reject_existing_path_symlinks(path.parent, label=f"{label} parent")
+    descriptor: int | None = None
+    try:
+        lexical_before = path.lstat()
+        if not stat.S_ISREG(lexical_before.st_mode) or lexical_before.st_nlink != 1:
+            raise FreeDocumentDownloadError(
+                f"{label} must be a singly linked regular non-symlink file"
+            )
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+        )
+        before = os.fstat(descriptor)
+        if _stable_stat_identity(lexical_before) != _stable_stat_identity(before):
+            raise FreeDocumentDownloadError(f"{label} changed while opening")
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 1024 * 1024):
+            chunks.append(chunk)
+        after = os.fstat(descriptor)
+        lexical_after = path.lstat()
+        identity = _stable_stat_identity(before)
+        if identity != _stable_stat_identity(
+            after
+        ) or identity != _stable_stat_identity(lexical_after):
+            raise FreeDocumentDownloadError(f"{label} changed while reading")
+        return b"".join(chunks)
+    except OSError as exc:
+        raise FreeDocumentDownloadError(
+            f"{label} must be a singly linked regular non-symlink file"
+        ) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _materialize_authenticated_document(
+    request: FreeDocumentDownloadRequest,
+    *,
+    source_record: FreeDocumentDownloadRecord,
+    source_root: Path,
+    destination_root: Path,
+) -> FreeDocumentDownloadRecord:
+    source_path = _checkpoint_document_path(source_root, source_record)
+    destination_path = _document_output_path(destination_root, request)
+    if destination_path.is_symlink() or destination_path.exists():
+        return _adopt_authenticated_destination(
+            request,
+            source_record=source_record,
+            source_path=source_path,
+            source_root=source_root,
+            destination_path=destination_path,
+            destination_root=destination_root,
+        )
+
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    _reject_document_parent_symlinks(
+        destination_root,
+        destination_path,
+        label=f"{request.candidate_id}/{request.source_document_id}",
+    )
+    source_descriptor: int | None = None
+    temporary: Path | None = None
+    published = False
+    completed = False
+    try:
+        before_source_path = source_path.lstat()
+        if (
+            not stat.S_ISREG(before_source_path.st_mode)
+            or before_source_path.st_nlink != 1
+        ):
+            raise FreeDocumentDownloadError(
+                "authenticated source document must be a singly linked regular "
+                f"non-symlink file: {request.candidate_id}/{request.source_document_id}"
+            )
+        source_descriptor = os.open(
+            source_path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+        )
+        before_source_fd = os.fstat(source_descriptor)
+        if _stable_stat_identity(before_source_path) != _stable_stat_identity(
+            before_source_fd
+        ):
+            raise FreeDocumentDownloadError(
+                "authenticated source document changed while opening: "
+                f"{request.candidate_id}/{request.source_document_id}"
+            )
+        temporary_descriptor, temporary_name = tempfile.mkstemp(
+            dir=destination_path.parent,
+            prefix=f".{destination_path.name}.",
+            suffix=".reuse-partial",
+        )
+        temporary = Path(temporary_name)
+        digest = hashlib.sha256()
+        byte_count = 0
+        with os.fdopen(temporary_descriptor, "wb") as destination_handle:
+            while chunk := os.read(source_descriptor, 1024 * 1024):
+                destination_handle.write(chunk)
+                digest.update(chunk)
+                byte_count += len(chunk)
+            destination_handle.flush()
+            os.fsync(destination_handle.fileno())
+        after_source_fd = os.fstat(source_descriptor)
+        after_source_path = source_path.lstat()
+        source_identity = _stable_stat_identity(before_source_fd)
+        if source_identity != _stable_stat_identity(
+            after_source_fd
+        ) or source_identity != _stable_stat_identity(after_source_path):
+            raise FreeDocumentDownloadError(
+                "authenticated source document changed while copying: "
+                f"{request.candidate_id}/{request.source_document_id}"
+            )
+        if (
+            digest.hexdigest() != source_record.sha256
+            or byte_count != source_record.byte_count
+        ):
+            raise FreeDocumentDownloadError(
+                "authenticated source document bytes differ from the checkpoint: "
+                f"{request.candidate_id}/{request.source_document_id}"
+            )
+        os.link(temporary, destination_path, follow_symlinks=False)
+        published = True
+        temporary.unlink()
+        temporary = None
+        _fsync_directory(destination_path.parent)
+        destination_digest, destination_byte_count, destination_identity = (
+            _hash_verified_completed_document(
+                destination_root,
+                destination_path,
+                label=f"{request.candidate_id}/{request.source_document_id}",
+            )
+        )
+        if (
+            destination_digest != source_record.sha256
+            or destination_byte_count != source_record.byte_count
+            or (
+                destination_identity[0] == before_source_fd.st_dev
+                and destination_identity[1] == before_source_fd.st_ino
+            )
+        ):
+            raise FreeDocumentDownloadError(
+                "materialized free document does not match its authenticated source: "
+                f"{request.candidate_id}/{request.source_document_id}"
+            )
+        record = _reused_record_for_destination(
+            request,
+            source_record=source_record,
+            destination_root=destination_root,
+            destination_path=destination_path,
+        )
+        completed = True
+        return record
+    except FileExistsError as exc:
+        raise FreeDocumentDownloadError(
+            "destination document appeared during authenticated reuse: "
+            f"{request.candidate_id}/{request.source_document_id}"
+        ) from exc
+    except OSError as exc:
+        raise FreeDocumentDownloadError(
+            "failed to materialize authenticated free document: "
+            f"{request.candidate_id}/{request.source_document_id}"
+        ) from exc
+    finally:
+        if source_descriptor is not None:
+            os.close(source_descriptor)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        if published and not completed:
+            destination_path.unlink(missing_ok=True)
+
+
+def _adopt_authenticated_destination(
+    request: FreeDocumentDownloadRequest,
+    *,
+    source_record: FreeDocumentDownloadRecord,
+    source_path: Path,
+    source_root: Path,
+    destination_path: Path,
+    destination_root: Path,
+) -> FreeDocumentDownloadRecord:
+    label = f"{request.candidate_id}/{request.source_document_id}"
+    _recover_owned_reuse_temporary(
+        destination_path,
+        expected_hash=source_record.sha256,
+        expected_bytes=source_record.byte_count,
+    )
+    source_digest, source_byte_count, source_identity = (
+        _hash_verified_completed_document(
+            source_root,
+            source_path,
+            label=label,
+        )
+    )
+    destination_digest, destination_byte_count, destination_identity = (
+        _hash_verified_completed_document(
+            destination_root,
+            destination_path,
+            label=label,
+        )
+    )
+    if (
+        source_digest != source_record.sha256
+        or source_byte_count != source_record.byte_count
+        or destination_digest != source_record.sha256
+        or destination_byte_count != source_record.byte_count
+        or (
+            source_identity[0] == destination_identity[0]
+            and source_identity[1] == destination_identity[1]
+        )
+    ):
+        raise FreeDocumentDownloadError(
+            f"existing destination does not match authenticated source: {label}"
+        )
+    return _reused_record_for_destination(
+        request,
+        source_record=source_record,
+        destination_root=destination_root,
+        destination_path=destination_path,
+    )
+
+
+def _reused_record_for_destination(
+    request: FreeDocumentDownloadRequest,
+    *,
+    source_record: FreeDocumentDownloadRecord,
+    destination_root: Path,
+    destination_path: Path,
+) -> FreeDocumentDownloadRecord:
+    return FreeDocumentDownloadRecord(
+        candidate_id=request.candidate_id,
+        source_provider=request.source_provider,
+        source_document_id=request.source_document_id,
+        docket_entry_number=request.docket_entry_number,
+        document_role=request.document_role,
+        source_url=request.source_url,
+        local_path=destination_path.relative_to(destination_root).as_posix(),
+        sha256=source_record.sha256,
+        byte_count=source_record.byte_count,
+        free_or_purchased="free",
+        retry_count=source_record.retry_count,
+        rate_limited=source_record.rate_limited,
+        reused_existing=True,
     )
 
 
@@ -727,6 +1240,12 @@ def _request_key(request: FreeDocumentDownloadRequest) -> str:
     )
 
 
+def _record_key(record: FreeDocumentDownloadRecord) -> str:
+    return "\0".join(
+        (record.candidate_id, record.source_provider, record.source_document_id)
+    )
+
+
 def _require_free_space(
     root: Path,
     requests: tuple[FreeDocumentDownloadRequest, ...],
@@ -806,18 +1325,21 @@ def _hash_path(path: Path) -> tuple[str, int]:
 
 
 def _read_checkpoint(path: Path) -> dict[str, FreeDocumentDownloadRecord]:
-    if path.is_symlink():
-        raise FreeDocumentDownloadError(
-            "download checkpoint must be a singly linked regular non-symlink file"
-        )
-    if not path.exists():
-        return {}
-    if not path.is_file() or path.stat().st_nlink != 1:
-        raise FreeDocumentDownloadError(
-            "download checkpoint must be a singly linked regular non-symlink file"
-        )
+    records, _ = _read_checkpoint_payload(path)
+    return records
+
+
+def _read_checkpoint_payload(
+    path: Path,
+) -> tuple[dict[str, FreeDocumentDownloadRecord], bytes]:
+    if not path.exists() and not path.is_symlink():
+        return {}, b""
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        payload = _read_stable_regular_file(
+            path,
+            label="download checkpoint",
+        )
+        lines = payload.decode("utf-8").splitlines()
         if any(not line.strip() for line in lines):
             raise ValueError("download checkpoint contains a blank row")
         records: dict[str, FreeDocumentDownloadRecord] = {}
@@ -837,7 +1359,9 @@ def _read_checkpoint(path: Path) -> dict[str, FreeDocumentDownloadRecord]:
             if key in records:
                 raise ValueError(f"download checkpoint repeats row identity: {key}")
             records[key] = record
-        return records
+        return records, payload
+    except FreeDocumentDownloadError:
+        raise
     except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
         raise FreeDocumentDownloadError(
             "download checkpoint is unreadable or invalid"
@@ -846,12 +1370,31 @@ def _read_checkpoint(path: Path) -> dict[str, FreeDocumentDownloadRecord]:
 
 def _write_checkpoint(
     path: Path, records: Iterable[FreeDocumentDownloadRecord]
-) -> None:
+) -> bytes:
     ordered = sorted(records, key=lambda record: record.local_path)
     payload = "".join(
         json.dumps(record.to_record(), sort_keys=True) + "\n" for record in ordered
     ).encode()
     _atomic_write(path, payload)
+    return payload
+
+
+def _verify_published_checkpoint(
+    path: Path,
+    *,
+    expected_records: Mapping[str, FreeDocumentDownloadRecord],
+    expected_payload: bytes,
+    output_root: Path,
+) -> None:
+    published_records, published_payload = _read_checkpoint_payload(path)
+    if published_records != expected_records or published_payload != expected_payload:
+        raise FreeDocumentDownloadError(
+            "destination checkpoint changed during authenticated reuse"
+        )
+    _verify_completed_checkpoint_documents(
+        output_root,
+        published_records.values(),
+    )
 
 
 def _record_for_content(

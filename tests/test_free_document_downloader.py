@@ -16,6 +16,7 @@ from legalforecast.ingestion.free_document_downloader import (
     UrlLibFreeDocumentSource,
     _AllowlistedRedirectHandler,
     download_free_docket_documents,
+    reuse_authenticated_free_documents,
     verify_completed_free_document_manifest,
 )
 from legalforecast.ingestion.provenance import DocumentRole
@@ -331,6 +332,39 @@ def test_completed_manifest_accepts_authenticated_shared_checkpoint_extras(
     assert verified == (records[0],)
 
 
+def test_completed_manifest_rejects_duplicate_requested_identity(
+    tmp_path: Path,
+) -> None:
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    records = download_free_docket_documents(
+        (request, request),
+        output_root=tmp_path,
+        source=FixtureFreeDocumentSource({request.source_url: b"%PDF first"}),
+    )
+    manifest = tmp_path / "duplicate-manifest.jsonl"
+    manifest.write_text(
+        "".join(
+            json.dumps(record.to_record(), sort_keys=True) + "\n" for record in records
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="current requests repeat a request identity",
+    ):
+        verify_completed_free_document_manifest(
+            (request, request),
+            output_root=tmp_path,
+            manifest_path=manifest,
+        )
+
+
 @pytest.mark.parametrize("substitution", ("bytes", "symlink", "hardlink"))
 def test_completed_manifest_rejects_invalid_shared_checkpoint_extra(
     tmp_path: Path,
@@ -383,6 +417,287 @@ def test_completed_manifest_rejects_invalid_shared_checkpoint_extra(
             (first_request,),
             output_root=tmp_path,
             manifest_path=manifest,
+        )
+
+
+def test_reuses_authenticated_documents_without_constructing_a_provider(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    destination_root = tmp_path / "destination"
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    [source_record] = download_free_docket_documents(
+        (request,),
+        output_root=source_root,
+        source=FixtureFreeDocumentSource({request.source_url: b"%PDF source"}),
+    )
+    source_path = source_root / source_record.local_path
+    source_identity = source_path.stat().st_dev, source_path.stat().st_ino
+
+    result = reuse_authenticated_free_documents(
+        (request,),
+        authenticated_source_records=(source_record,),
+        source_output_root=source_root,
+        destination_output_root=destination_root,
+    )
+
+    assert len(result.records) == 1
+    assert result.source_checkpoint_record_count == 1
+    assert result.records[0].reused_existing is True
+    destination_path = destination_root / result.records[0].local_path
+    assert destination_path.read_bytes() == b"%PDF source"
+    assert (destination_path.stat().st_dev, destination_path.stat().st_ino) != (
+        source_identity
+    )
+    assert source_path.read_bytes() == b"%PDF source"
+    assert (
+        result.source_checkpoint_sha256
+        == hashlib.sha256(
+            (source_root / ".download-checkpoint.jsonl").read_bytes()
+        ).hexdigest()
+    )
+    assert (
+        result.destination_checkpoint_sha256
+        == hashlib.sha256(
+            (destination_root / ".download-checkpoint.jsonl").read_bytes()
+        ).hexdigest()
+    )
+
+
+def test_reuse_requires_the_complete_authenticated_source_checkpoint(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    requests = (
+        _request(
+            "doc-1",
+            docket_entry_number=1,
+            role=DocumentRole.COMPLAINT,
+            url="https://www.courtlistener.com/recap/doc-1.pdf",
+            candidate_id="cand-1",
+        ),
+        _request(
+            "doc-2",
+            docket_entry_number=2,
+            role=DocumentRole.MTD_MEMORANDUM,
+            url="https://www.courtlistener.com/recap/doc-2.pdf",
+            candidate_id="cand-2",
+        ),
+    )
+    records = download_free_docket_documents(
+        requests,
+        output_root=source_root,
+        source=FixtureFreeDocumentSource(
+            {request.source_url: b"%PDF source" for request in requests}
+        ),
+    )
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="authenticated source records do not exactly match",
+    ):
+        reuse_authenticated_free_documents(
+            (requests[0],),
+            authenticated_source_records=(records[0],),
+            source_output_root=source_root,
+            destination_output_root=tmp_path / "destination",
+        )
+
+
+def test_reuse_preserves_shared_destination_checkpoint_extras(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    destination_root = tmp_path / "destination"
+    requests = (
+        _request(
+            "doc-1",
+            docket_entry_number=1,
+            role=DocumentRole.COMPLAINT,
+            url="https://www.courtlistener.com/recap/doc-1.pdf",
+            candidate_id="cand-1",
+        ),
+        _request(
+            "doc-2",
+            docket_entry_number=2,
+            role=DocumentRole.MTD_MEMORANDUM,
+            url="https://www.courtlistener.com/recap/doc-2.pdf",
+            candidate_id="cand-2",
+        ),
+    )
+    source_records = download_free_docket_documents(
+        requests,
+        output_root=source_root,
+        source=FixtureFreeDocumentSource(
+            {request.source_url: b"%PDF source" for request in requests}
+        ),
+    )
+
+    first = reuse_authenticated_free_documents(
+        (requests[0],),
+        authenticated_source_records=source_records,
+        source_output_root=source_root,
+        destination_output_root=destination_root,
+    )
+    first_path = destination_root / first.records[0].local_path
+    first_identity = first_path.stat().st_dev, first_path.stat().st_ino
+    second = reuse_authenticated_free_documents(
+        (requests[1],),
+        authenticated_source_records=source_records,
+        source_output_root=source_root,
+        destination_output_root=destination_root,
+    )
+
+    checkpoint_rows = [
+        json.loads(line)
+        for line in (destination_root / ".download-checkpoint.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert len(checkpoint_rows) == 2
+    assert (first_path.stat().st_dev, first_path.stat().st_ino) == first_identity
+    assert second.records[0].source_document_id == "doc-2"
+
+
+def test_reuse_rejects_conflicting_existing_destination_bytes(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    destination_root = tmp_path / "destination"
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    source_records = download_free_docket_documents(
+        (request,),
+        output_root=source_root,
+        source=FixtureFreeDocumentSource({request.source_url: b"%PDF source"}),
+    )
+    download_free_docket_documents(
+        (request,),
+        output_root=destination_root,
+        source=FixtureFreeDocumentSource(
+            {request.source_url: b"%PDF conflicting destination"}
+        ),
+    )
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="destination checkpoint conflicts with authenticated source",
+    ):
+        reuse_authenticated_free_documents(
+            (request,),
+            authenticated_source_records=source_records,
+            source_output_root=source_root,
+            destination_output_root=destination_root,
+        )
+
+
+@pytest.mark.parametrize("aliased_root", ("source", "destination"))
+def test_reuse_rejects_lexical_symlink_parent_traversal(
+    tmp_path: Path,
+    aliased_root: str,
+) -> None:
+    base = tmp_path / "base"
+    outside = tmp_path / "outside"
+    branch = outside / "branch"
+    base.mkdir()
+    branch.mkdir(parents=True)
+    (base / "link").symlink_to(branch, target_is_directory=True)
+    source_root = outside / "source"
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    records = download_free_docket_documents(
+        (request,),
+        output_root=source_root,
+        source=FixtureFreeDocumentSource({request.source_url: b"%PDF source"}),
+    )
+    source_argument = (
+        base / "link" / ".." / "source" if aliased_root == "source" else source_root
+    )
+    destination_argument = (
+        base / "link" / ".." / "destination"
+        if aliased_root == "destination"
+        else tmp_path / "destination"
+    )
+
+    with pytest.raises(FreeDocumentDownloadError, match="must not traverse a symlink"):
+        reuse_authenticated_free_documents(
+            (request,),
+            authenticated_source_records=records,
+            source_output_root=source_argument,
+            destination_output_root=destination_argument,
+        )
+
+
+def test_reuse_recovers_owned_linked_temporary_after_publish_crash(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    destination_root = tmp_path / "destination"
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    [source_record] = download_free_docket_documents(
+        (request,),
+        output_root=source_root,
+        source=FixtureFreeDocumentSource({request.source_url: b"%PDF source"}),
+    )
+    destination = destination_root / source_record.local_path
+    destination.parent.mkdir(parents=True)
+    temporary = destination.parent / f".{destination.name}.crash.reuse-partial"
+    temporary.write_bytes(b"%PDF source")
+    os.link(temporary, destination)
+    assert destination.stat().st_nlink == 2
+
+    result = reuse_authenticated_free_documents(
+        (request,),
+        authenticated_source_records=(source_record,),
+        source_output_root=source_root,
+        destination_output_root=destination_root,
+    )
+
+    assert result.records[0].sha256 == source_record.sha256
+    assert destination.stat().st_nlink == 1
+    assert not temporary.exists()
+
+
+def test_reuse_rejects_overlapping_source_and_destination_roots(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    records = download_free_docket_documents(
+        (request,),
+        output_root=source_root,
+        source=FixtureFreeDocumentSource({request.source_url: b"%PDF source"}),
+    )
+
+    with pytest.raises(FreeDocumentDownloadError, match="must be disjoint"):
+        reuse_authenticated_free_documents(
+            (request,),
+            authenticated_source_records=records,
+            source_output_root=source_root,
+            destination_output_root=source_root / "nested",
         )
 
 
