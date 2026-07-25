@@ -626,6 +626,10 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
         output_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
     )
     assert str(reconciled_selection.resolve()) in current_inputs["03c-merged-downloads"]
+    assert cli._frozen_merge_candidate_selection_path(
+        preparation_root=output_root,
+        config=config,
+    ) == reconciled_selection.resolve()
     legacy_config = json.loads(json.dumps(config))
     merge_command = next(
         command
@@ -640,6 +644,13 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
     )
     assert (
         str(reconciled_selection.resolve()) not in legacy_inputs["03c-merged-downloads"]
+    )
+    assert (
+        cli._frozen_merge_candidate_selection_path(
+            preparation_root=output_root,
+            config=legacy_config,
+        )
+        is None
     )
 
     assert summary["schema_version"] == ("legalforecast.target_cohort_preparation.v1")

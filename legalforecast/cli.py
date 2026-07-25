@@ -8672,6 +8672,7 @@ def _cmd_acquisition_prepare_target(
         stage_input_commitments = _target_100_stage_input_commitments(
             output_root,
             config=config,
+            frozen_config=config_record,
             snapshot_manifest_sha256=snapshot_view.manifest_sha256,
         )
     except (CommandError, OSError, UnicodeError, ValueError) as exc:
@@ -9312,6 +9313,27 @@ def _frozen_preparation_flag_path(
     return Path(unique_values.pop())
 
 
+def _frozen_merge_candidate_selection_path(
+    *, preparation_root: Path, config: Mapping[str, Any]
+) -> Path | None:
+    """Return the exact reconciled selection frozen into the merge command."""
+
+    candidate_selection = _frozen_preparation_flag_path(
+        config,
+        flag="--candidate-selection",
+    )
+    if candidate_selection is None:
+        return None
+    expected_candidate_selection = (
+        preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+    ).resolve()
+    if candidate_selection.resolve() != expected_candidate_selection:
+        raise CommandError(
+            "frozen merge candidate selection is outside the preparation root"
+        )
+    return expected_candidate_selection
+
+
 def _expected_preparation_input_commitments(
     *,
     preparation_root: Path,
@@ -9388,18 +9410,11 @@ def _expected_preparation_input_commitments(
             preparation_root / "03c-merged-downloads/document-downloads-merged.jsonl",
         ),
     }
-    candidate_selection = _frozen_preparation_flag_path(
-        config,
-        flag="--candidate-selection",
+    candidate_selection = _frozen_merge_candidate_selection_path(
+        preparation_root=preparation_root,
+        config=config,
     )
     if candidate_selection is not None:
-        expected_candidate_selection = (
-            preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
-        )
-        if candidate_selection.resolve() != expected_candidate_selection.resolve():
-            raise CommandError(
-                "frozen merge candidate selection is outside the preparation root"
-            )
         paths["03c-merged-downloads"] += (candidate_selection,)
     independent_inputs: list[Path] = []
     courtlistener_fixture = _frozen_preparation_flag_path(
@@ -12865,6 +12880,7 @@ def _target_100_stage_input_commitments(
     output_root: Path,
     *,
     config: TargetCohortPreparationConfig | Target100PreparationConfig,
+    frozen_config: Mapping[str, Any],
     snapshot_manifest_sha256: str,
 ) -> JsonRecord:
     """Hash the authoritative inputs consumed at each preparation boundary."""
@@ -12895,7 +12911,6 @@ def _target_100_stage_input_commitments(
         "03c-merged-downloads": (
             output_root / "02-free-download/free-document-downloads.jsonl",
             output_root / "03b-bridge-free-download/free-document-downloads.jsonl",
-            output_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl",
         ),
         "05-budget": (output_root / "04-core-filter/core-filter-results.jsonl",),
         "06-clearance-inputs": (
@@ -12903,6 +12918,12 @@ def _target_100_stage_input_commitments(
             output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
         ),
     }
+    candidate_selection = _frozen_merge_candidate_selection_path(
+        preparation_root=output_root,
+        config=frozen_config,
+    )
+    if candidate_selection is not None:
+        paths["03c-merged-downloads"] += (candidate_selection,)
     if config.courtlistener_fixture is not None:
         paths["03-gap-bridge"] += (config.courtlistener_fixture,)
     commitments = {
