@@ -9,6 +9,7 @@ exact cohort is projected only after authenticated disclosure clearance.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,6 +53,7 @@ class TargetCohortPreparationConfig:
     courtlistener_rate_profile: str = "base"
     request_budget_max_wait_seconds: float = 120.0
     resume: bool = True
+    retarget_source_preparation_root: Path | None = None
 
     def validate(self) -> None:
         _validate_preparation_config(self, TargetCohortPreparationError)
@@ -352,6 +354,11 @@ def _validate_preparation_config(
     config: TargetCohortPreparationConfig | Target100PreparationConfig,
     error_type: type[TargetCohortPreparationError],
 ) -> None:
+    if (
+        isinstance(config, TargetCohortPreparationConfig)
+        and config.retarget_source_preparation_root is not None
+    ):
+        _validate_retarget_roots(config, error_type)
     if config.target_case_count < 1:
         raise error_type("target case count must be positive")
     if config.candidate_pool_size < 1:
@@ -398,3 +405,58 @@ def _validate_preparation_config(
         raise error_type("--request-ledger is required with live CourtListener REST")
     if not config.live_courtlistener and config.request_ledger is not None:
         raise error_type("--request-ledger is only valid with live CourtListener REST")
+
+
+def _validate_retarget_roots(
+    config: TargetCohortPreparationConfig,
+    error_type: type[TargetCohortPreparationError],
+) -> None:
+    source = _require_validated(
+        config.retarget_source_preparation_root,
+        message="retarget source preparation root is required in retarget mode",
+    )
+    if config.target_case_count != 100:
+        raise error_type("retarget target case count must be exactly 100")
+    _reject_existing_path_symlinks(
+        source,
+        label="retarget source preparation root",
+        error_type=error_type,
+    )
+    _reject_existing_path_symlinks(
+        config.output_root,
+        label="retarget destination preparation root",
+        error_type=error_type,
+    )
+    source_absolute = Path(os.path.abspath(source))
+    destination_absolute = Path(os.path.abspath(config.output_root))
+    if (
+        source_absolute == destination_absolute
+        or source_absolute.is_relative_to(destination_absolute)
+        or destination_absolute.is_relative_to(source_absolute)
+    ):
+        raise error_type(
+            "retarget source and destination preparation roots must be disjoint"
+        )
+
+
+def _reject_existing_path_symlinks(
+    path: Path,
+    *,
+    label: str,
+    error_type: type[TargetCohortPreparationError],
+) -> None:
+    if path.is_absolute():
+        current = Path(path.anchor)
+        components = path.parts[1:]
+    else:
+        current = Path.cwd()
+        components = path.parts
+    for part in components:
+        if part in {"", "."}:
+            continue
+        if part == "..":
+            current = current.parent
+            continue
+        current /= part
+        if current.is_symlink():
+            raise error_type(f"{label} must not traverse a symlink")

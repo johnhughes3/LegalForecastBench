@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -581,6 +581,151 @@ def test_target_cohort_commands_are_noncharging_and_bind_explicit_target(
     assert "--live-courtlistener" in commands[2].argv
     assert "firecrawl" not in " ".join(flattened).lower()
     assert "case.dev" not in " ".join(flattened).lower()
+
+
+def test_retarget_config_is_semantic_and_keeps_all_stages_in_destination(
+    tmp_path: Path,
+) -> None:
+    destination = tmp_path / "new-target-100"
+    source = tmp_path / "prior-target-preparation"
+    base = TargetCohortPreparationConfig(
+        output_root=destination,
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
+        candidate_pool_size=103,
+        target_case_count=100,
+        authenticated_screened_cases=tmp_path / "authenticated-screened.jsonl",
+        screened_cases_sha256="c" * 64,
+        live_public_download=True,
+        live_courtlistener=True,
+        request_ledger=tmp_path / "courtlistener-requests.sqlite3",
+    )
+    retarget = replace(base, retarget_source_preparation_root=source)
+
+    assert retarget != base
+    commands = build_target_cohort_stage_commands(retarget)
+    assert commands == build_target_cohort_stage_commands(base)
+    assert len(commands) == 7
+    destination_path_flags = {
+        "--candidate-selection",
+        "--case-relevance",
+        "--core-filter-results",
+        "--document-output-root",
+        "--download-manifest",
+        "--free-download-manifest",
+        "--output-root",
+        "--paid-gaps",
+        "--public-selection",
+        "--requests",
+    }
+    for command in commands:
+        for index, argument in enumerate(command.argv[:-1]):
+            if argument in destination_path_flags:
+                assert Path(command.argv[index + 1]).is_relative_to(destination)
+    flattened = tuple(argument for command in commands for argument in command.argv)
+    assert str(source) not in flattened
+    assert "--retarget-source-preparation-root" not in flattened
+
+
+@pytest.mark.parametrize("target_case_count", [1, 99, 101, 150])
+def test_retarget_config_requires_exactly_100_cases(
+    tmp_path: Path,
+    target_case_count: int,
+) -> None:
+    config = TargetCohortPreparationConfig(
+        output_root=tmp_path / "new-target",
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
+        candidate_pool_size=200,
+        target_case_count=target_case_count,
+        authenticated_screened_cases=tmp_path / "screened.jsonl",
+        screened_cases_sha256="c" * 64,
+        retarget_source_preparation_root=tmp_path / "source-target",
+        live_public_download=True,
+        live_courtlistener=True,
+        request_ledger=tmp_path / "courtlistener-requests.sqlite3",
+    )
+
+    with pytest.raises(
+        TargetCohortPreparationError,
+        match="retarget target case count must be exactly 100",
+    ):
+        build_target_cohort_stage_commands(config)
+
+
+@pytest.mark.parametrize("relationship", ["same", "source-parent", "output-parent"])
+def test_retarget_config_requires_disjoint_source_and_destination_roots(
+    tmp_path: Path,
+    relationship: str,
+) -> None:
+    shared = tmp_path / "preparation"
+    if relationship == "same":
+        source, destination = shared, shared
+    elif relationship == "source-parent":
+        source, destination = shared, shared / "new-target"
+    else:
+        source, destination = shared / "old-target", shared
+    config = TargetCohortPreparationConfig(
+        output_root=destination,
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
+        candidate_pool_size=103,
+        target_case_count=100,
+        authenticated_screened_cases=tmp_path / "screened.jsonl",
+        screened_cases_sha256="c" * 64,
+        retarget_source_preparation_root=source,
+        live_public_download=True,
+        live_courtlistener=True,
+        request_ledger=tmp_path / "courtlistener-requests.sqlite3",
+    )
+
+    with pytest.raises(
+        TargetCohortPreparationError,
+        match="source and destination preparation roots must be disjoint",
+    ):
+        build_target_cohort_stage_commands(config)
+
+
+@pytest.mark.parametrize("symlinked_root", ["source", "destination"])
+def test_retarget_config_rejects_symlink_traversal(
+    tmp_path: Path,
+    symlinked_root: str,
+) -> None:
+    real_parent = tmp_path / "real"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    source = (
+        linked_parent / "source" if symlinked_root == "source" else tmp_path / "source"
+    )
+    destination = (
+        linked_parent / "destination"
+        if symlinked_root == "destination"
+        else tmp_path / "destination"
+    )
+    config = TargetCohortPreparationConfig(
+        output_root=destination,
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        expected_snapshot_manifest_sha256="b" * 64,
+        candidate_pool_size=103,
+        target_case_count=100,
+        authenticated_screened_cases=tmp_path / "screened.jsonl",
+        screened_cases_sha256="c" * 64,
+        retarget_source_preparation_root=source,
+        live_public_download=True,
+        live_courtlistener=True,
+        request_ledger=tmp_path / "courtlistener-requests.sqlite3",
+    )
+
+    with pytest.raises(
+        TargetCohortPreparationError,
+        match=f"retarget {symlinked_root} preparation root must not traverse a symlink",
+    ):
+        build_target_cohort_stage_commands(config)
 
 
 def test_target_command_builders_reject_candidate_pool_below_target(
