@@ -263,11 +263,15 @@ def test_blank_unnumbered_auxiliary_cannot_be_an_actual_screened_decision() -> N
         )
 
 
-def test_blank_unnumbered_auxiliary_cannot_be_linked_as_a_disposition() -> None:
+@pytest.mark.parametrize(
+    "linkage_field",
+    ("motion_entry_ids", "disposition_entry_ids"),
+)
+def test_blank_unnumbered_auxiliary_cannot_be_linked(
+    linkage_field: str,
+) -> None:
     evidence = _evidence_with_blank_unnumbered_nonactual_anchor()
-    evidence["motion_linkage"]["links"][0]["disposition_entry_ids"].append(
-        "minute-entry-13"
-    )
+    evidence["motion_linkage"]["links"][0][linkage_field].append("minute-entry-13")
 
     with pytest.raises(
         StrictScreenEvidenceError,
