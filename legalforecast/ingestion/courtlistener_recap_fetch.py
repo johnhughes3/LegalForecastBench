@@ -127,35 +127,45 @@ class FixtureRecapFetchTransport:
 
     @classmethod
     def from_jsonl(cls, path: str | os.PathLike[str]) -> FixtureRecapFetchTransport:
+        with open(path, "rb") as handle:
+            return cls.from_jsonl_bytes(handle.read())
+
+    @classmethod
+    def from_jsonl_bytes(cls, payload: bytes) -> FixtureRecapFetchTransport:
+        """Build a fixture transport from one already-authenticated byte snapshot."""
+
         responses: list[RecordedRecapFetchResponse] = []
-        with open(path, encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                raw: object = json.loads(line)
-                if not isinstance(raw, Mapping):
-                    raise CourtListenerRecapFetchError("fixture row must be an object")
-                record = cast(Mapping[str, object], raw)
-                payload = record.get("payload")
-                form = record.get("form", {})
-                if not isinstance(payload, Mapping) or not isinstance(form, Mapping):
-                    raise CourtListenerRecapFetchError(
-                        "fixture payload and form must be objects"
-                    )
-                responses.append(
-                    RecordedRecapFetchResponse(
-                        method=str(record["method"]).upper(),
-                        path=str(record["path"]),
-                        form={
-                            str(key): str(value)
-                            for key, value in cast(
-                                Mapping[object, object], form
-                            ).items()
-                        },
-                        status_code=int(cast(str | int, record["status_code"])),
-                        payload=cast(Mapping[str, Any], payload),
-                    )
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CourtListenerRecapFetchError("fixture is not UTF-8") from exc
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            raw: object = json.loads(line)
+            if not isinstance(raw, Mapping):
+                raise CourtListenerRecapFetchError("fixture row must be an object")
+            record = cast(Mapping[str, object], raw)
+            response_payload = record.get("payload")
+            form = record.get("form", {})
+            if not isinstance(response_payload, Mapping) or not isinstance(
+                form, Mapping
+            ):
+                raise CourtListenerRecapFetchError(
+                    "fixture payload and form must be objects"
                 )
+            responses.append(
+                RecordedRecapFetchResponse(
+                    method=str(record["method"]).upper(),
+                    path=str(record["path"]),
+                    form={
+                        str(key): str(value)
+                        for key, value in cast(Mapping[object, object], form).items()
+                    },
+                    status_code=int(cast(str | int, record["status_code"])),
+                    payload=cast(Mapping[str, Any], response_payload),
+                )
+            )
         return cls(responses)
 
     def request(

@@ -341,6 +341,71 @@ def _validate_exact_clearance_projection(
             )
 
 
+def _bind_internal_verified_provenance_lineage(
+    lineage: AuthenticatedClearanceLineage,
+    *,
+    clearance_records: Sequence[Mapping[str, Any]],
+    clearance_artifact_bytes: bytes,
+    clearance_run_card: Mapping[str, Any],
+    clearance_run_card_bytes: bytes,
+    reviews_artifact_bytes: bytes,
+    review_receipt_bytes: bytes,
+    reviewer_policy_bytes: bytes,
+    cohort_policy_artifact_bytes: bytes,
+    restriction_records: Sequence[Mapping[str, Any]],
+    restriction_artifact_bytes: bytes,
+) -> AuthenticatedClearanceLineage:
+    """Bind verifier-owned lineage to the exact bytes consumed downstream."""
+
+    if _json_object_from_bytes(
+        clearance_run_card_bytes, "provenance clearance run card"
+    ) != dict(clearance_run_card):
+        raise ResolvedPostRecoveryError(
+            "verified provenance run-card bytes changed before downstream use"
+        )
+    if _jsonl_records_from_bytes(
+        clearance_artifact_bytes, "provenance disclosure clearance"
+    ) != [dict(record) for record in clearance_records]:
+        raise ResolvedPostRecoveryError(
+            "verified provenance clearance bytes changed before downstream use"
+        )
+    if _jsonl_records_from_bytes(
+        restriction_artifact_bytes, "provenance restriction evidence"
+    ) != [dict(record) for record in restriction_records]:
+        raise ResolvedPostRecoveryError(
+            "verified provenance restriction bytes changed before downstream use"
+        )
+    authority = _mapping(
+        clearance_run_card.get("clearance_authority"),
+        "provenance clearance authority",
+    )
+    observed = {
+        "clearance_run_card_sha256": _bytes_sha256(clearance_run_card_bytes),
+        "clearance_artifact_sha256": _bytes_sha256(clearance_artifact_bytes),
+        "reviews_artifact_sha256": _bytes_sha256(reviews_artifact_bytes),
+        "review_receipt_sha256": _bytes_sha256(review_receipt_bytes),
+        "cohort_policy_artifact_sha256": _bytes_sha256(cohort_policy_artifact_bytes),
+        "restriction_evidence_artifact_sha256": _bytes_sha256(
+            restriction_artifact_bytes
+        ),
+        "review_authority_sha256": _sha256(authority),
+    }
+    for field, actual in observed.items():
+        if getattr(lineage, field) != actual:
+            raise ResolvedPostRecoveryError(
+                f"verified provenance {field} changed before downstream use"
+            )
+    if lineage.authority.review_artifact_sha256 != _bytes_sha256(
+        reviews_artifact_bytes
+    ) or lineage.authority.reviewer_policy_sha256 != _bytes_sha256(
+        reviewer_policy_bytes
+    ):
+        raise ResolvedPostRecoveryError(
+            "verified provenance reviewer inputs changed before downstream use"
+        )
+    return lineage
+
+
 def build_resolved_post_recovery_documents(
     *,
     selection_records: Sequence[Mapping[str, Any]],
@@ -365,10 +430,14 @@ def build_resolved_post_recovery_documents(
     restriction_artifact_bytes: bytes,
     allow_test_service_identity: bool = False,
 ) -> tuple[dict[str, object], ...]:
-    """Build exact resolved records for every unknown-origin selected document."""
+    """Build resolved records from fully authenticated legacy review evidence."""
 
-    clearance_lineage = validate_authenticated_clearance_lineage(
+    return build_resolved_post_recovery_documents_with_authenticated_lineage(
+        selection_records=selection_records,
+        purchase_operation_records=purchase_operation_records,
+        download_records=download_records,
         clearance_records=clearance_records,
+        attempt_policy_artifact=attempt_policy_artifact,
         clearance_artifact_bytes=clearance_artifact_bytes,
         clearance_run_card=clearance_run_card,
         clearance_run_card_bytes=clearance_run_card_bytes,
@@ -386,6 +455,71 @@ def build_resolved_post_recovery_documents(
         restriction_artifact_bytes=restriction_artifact_bytes,
         allow_test_service_identity=allow_test_service_identity,
     )
+
+
+def build_resolved_post_recovery_documents_with_authenticated_lineage(
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    purchase_operation_records: Sequence[Mapping[str, Any]],
+    download_records: Sequence[Mapping[str, Any]],
+    clearance_records: Sequence[Mapping[str, Any]],
+    attempt_policy_artifact: Mapping[str, object],
+    clearance_artifact_bytes: bytes,
+    clearance_run_card: Mapping[str, Any],
+    clearance_run_card_bytes: bytes,
+    reviews_artifact_bytes: bytes,
+    review_receipt_artifact: Mapping[str, object],
+    review_receipt_bytes: bytes,
+    review_requests_artifact_bytes: bytes,
+    review_worksheet_artifact: Mapping[str, object],
+    review_worksheet_bytes: bytes,
+    reviewer_policy_bytes: bytes,
+    disclosure_authority: DisclosureReviewAuthority | None,
+    cohort_policy_artifact_bytes: bytes,
+    download_manifest_artifact_bytes: bytes,
+    restriction_records: Sequence[Mapping[str, Any]],
+    restriction_artifact_bytes: bytes,
+    allow_test_service_identity: bool = False,
+    verified_provenance_lineage: AuthenticatedClearanceLineage | None = None,
+) -> tuple[dict[str, object], ...]:
+    """Build exact resolved records for every unknown-origin selected document."""
+
+    if verified_provenance_lineage is not None:
+        clearance_lineage = _bind_internal_verified_provenance_lineage(
+            verified_provenance_lineage,
+            clearance_records=clearance_records,
+            clearance_artifact_bytes=clearance_artifact_bytes,
+            clearance_run_card=clearance_run_card,
+            clearance_run_card_bytes=clearance_run_card_bytes,
+            reviews_artifact_bytes=reviews_artifact_bytes,
+            review_receipt_bytes=review_receipt_bytes,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+            restriction_records=restriction_records,
+            restriction_artifact_bytes=restriction_artifact_bytes,
+        )
+    elif disclosure_authority is None:
+        raise ResolvedPostRecoveryError("legacy clearance authority is missing")
+    else:
+        clearance_lineage = validate_authenticated_clearance_lineage(
+            clearance_records=clearance_records,
+            clearance_artifact_bytes=clearance_artifact_bytes,
+            clearance_run_card=clearance_run_card,
+            clearance_run_card_bytes=clearance_run_card_bytes,
+            reviews_artifact_bytes=reviews_artifact_bytes,
+            review_receipt_artifact=review_receipt_artifact,
+            review_receipt_bytes=review_receipt_bytes,
+            review_requests_artifact_bytes=review_requests_artifact_bytes,
+            review_worksheet_artifact=review_worksheet_artifact,
+            review_worksheet_bytes=review_worksheet_bytes,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            disclosure_authority=disclosure_authority,
+            cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+            download_manifest_artifact_bytes=download_manifest_artifact_bytes,
+            restriction_records=restriction_records,
+            restriction_artifact_bytes=restriction_artifact_bytes,
+            allow_test_service_identity=allow_test_service_identity,
+        )
     policy_sha256, attempt_documents = _attempt_documents(attempt_policy_artifact)
     unknown_selection = _unknown_selection(selection_records)
     if set(attempt_documents) != set(unknown_selection):
@@ -514,10 +648,13 @@ def require_resolved_post_recovery_documents(
     restriction_artifact_bytes: bytes,
     allow_test_service_identity: bool = False,
 ) -> None:
-    """Require exact resolved coverage whenever selection originated unknown."""
+    """Require resolved records using authenticated legacy review evidence."""
 
-    lineage = validate_authenticated_clearance_lineage(
+    require_resolved_post_recovery_documents_with_authenticated_lineage(
+        selection_records=selection_records,
+        download_records=download_records,
         clearance_records=clearance_records,
+        resolved_records=resolved_records,
         clearance_artifact_bytes=clearance_artifact_bytes,
         clearance_run_card=clearance_run_card,
         clearance_run_card_bytes=clearance_run_card_bytes,
@@ -535,6 +672,70 @@ def require_resolved_post_recovery_documents(
         restriction_artifact_bytes=restriction_artifact_bytes,
         allow_test_service_identity=allow_test_service_identity,
     )
+
+
+def require_resolved_post_recovery_documents_with_authenticated_lineage(
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    download_records: Sequence[Mapping[str, Any]],
+    clearance_records: Sequence[Mapping[str, Any]],
+    resolved_records: Sequence[Mapping[str, Any]],
+    clearance_artifact_bytes: bytes,
+    clearance_run_card: Mapping[str, Any],
+    clearance_run_card_bytes: bytes,
+    reviews_artifact_bytes: bytes,
+    review_receipt_artifact: Mapping[str, object],
+    review_receipt_bytes: bytes,
+    review_requests_artifact_bytes: bytes,
+    review_worksheet_artifact: Mapping[str, object],
+    review_worksheet_bytes: bytes,
+    reviewer_policy_bytes: bytes,
+    disclosure_authority: DisclosureReviewAuthority | None,
+    cohort_policy_artifact_bytes: bytes,
+    download_manifest_artifact_bytes: bytes,
+    restriction_records: Sequence[Mapping[str, Any]],
+    restriction_artifact_bytes: bytes,
+    allow_test_service_identity: bool = False,
+    verified_provenance_lineage: AuthenticatedClearanceLineage | None = None,
+) -> None:
+    """Require exact resolved coverage whenever selection originated unknown."""
+
+    if verified_provenance_lineage is not None:
+        lineage = _bind_internal_verified_provenance_lineage(
+            verified_provenance_lineage,
+            clearance_records=clearance_records,
+            clearance_artifact_bytes=clearance_artifact_bytes,
+            clearance_run_card=clearance_run_card,
+            clearance_run_card_bytes=clearance_run_card_bytes,
+            reviews_artifact_bytes=reviews_artifact_bytes,
+            review_receipt_bytes=review_receipt_bytes,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+            restriction_records=restriction_records,
+            restriction_artifact_bytes=restriction_artifact_bytes,
+        )
+    elif disclosure_authority is None:
+        raise ResolvedPostRecoveryError("legacy clearance authority is missing")
+    else:
+        lineage = validate_authenticated_clearance_lineage(
+            clearance_records=clearance_records,
+            clearance_artifact_bytes=clearance_artifact_bytes,
+            clearance_run_card=clearance_run_card,
+            clearance_run_card_bytes=clearance_run_card_bytes,
+            reviews_artifact_bytes=reviews_artifact_bytes,
+            review_receipt_artifact=review_receipt_artifact,
+            review_receipt_bytes=review_receipt_bytes,
+            review_requests_artifact_bytes=review_requests_artifact_bytes,
+            review_worksheet_artifact=review_worksheet_artifact,
+            review_worksheet_bytes=review_worksheet_bytes,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            disclosure_authority=disclosure_authority,
+            cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+            download_manifest_artifact_bytes=download_manifest_artifact_bytes,
+            restriction_records=restriction_records,
+            restriction_artifact_bytes=restriction_artifact_bytes,
+            allow_test_service_identity=allow_test_service_identity,
+        )
     required = set(_unknown_selection(selection_records))
     download_unknown = {
         key

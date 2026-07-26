@@ -18,14 +18,14 @@ import tempfile
 import time
 import uuid
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from itertools import pairwise
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, overload
 
 from legalforecast import __version__
 from legalforecast.evals.accounting import (
@@ -48,6 +48,7 @@ from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     earliest_eligible_decision_date,
     load_model_registry,
+    load_model_registry_bytes,
     model_registry_entry_sha256,
     require_official_registry_entries,
 )
@@ -307,6 +308,7 @@ from legalforecast.ingestion.disclosure_clearance import (
     require_cleared_documents,
     require_cleared_parse_requests,
     require_cleared_parser_records,
+    safe_disclosure_document_path,
     validate_review_receipt,
     verify_parse_request_bytes,
 )
@@ -353,7 +355,7 @@ from legalforecast.ingestion.downstream_rehearsal import (
     DownstreamRehearsalError,
     apply_fixture_label_review,
     apply_fixture_unitization_review,
-    load_deterministic_response_fixture_bundle,
+    load_deterministic_response_fixture_bundle_bytes,
     rehearsal_provenance,
     run_fixture_stage_b,
     run_fixture_structural_review,
@@ -487,6 +489,16 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
+from legalforecast.ingestion.provenance_clearance import (
+    WORKSHEET_SCHEMA_VERSION as PROVENANCE_EXCEPTION_WORKSHEET_SCHEMA_VERSION,
+)
+from legalforecast.ingestion.provenance_clearance import (
+    ProvenanceClearanceError,
+    build_exception_inspection_map,
+    build_provenance_clearance_plan,
+    build_provenance_clearance_records,
+    exception_review_worksheet,
+)
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
 from legalforecast.ingestion.purchased_document_recovery import (
     PurchasedDocumentDownloadError,
@@ -552,9 +564,12 @@ from legalforecast.ingestion.recap_partial_checkpoint import (
     project_partial_recap_checkpoint,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
+    AuthenticatedClearanceLineage,
     ResolvedPostRecoveryError,
     build_resolved_post_recovery_documents,
+    build_resolved_post_recovery_documents_with_authenticated_lineage,
     require_resolved_post_recovery_documents,
+    require_resolved_post_recovery_documents_with_authenticated_lineage,
     require_resolved_post_recovery_operation_bindings,
     require_resolved_post_recovery_parse_requests,
     validate_authenticated_clearance_lineage,
@@ -686,6 +701,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderCycleCaps,
     ProviderJournalError,
     load_provider_cycle_caps,
+    load_provider_cycle_caps_bytes,
     verify_provider_journal_identity,
 )
 from legalforecast.multiharness.cli import add_multiharness_parser
@@ -1865,6 +1881,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_prepare_disclosure_review_arguments(acquisition_prepare_review)
+    acquisition_plan_provenance_clearance = acquisition_subparsers.add_parser(
+        "plan-disclosure-provenance",
+        help=(
+            "Route exact affirmative-public bytes automatically and all other "
+            "documents to hash-bound John review."
+        ),
+    )
+    _add_acquisition_plan_disclosure_provenance_arguments(
+        acquisition_plan_provenance_clearance
+    )
     acquisition_review_preflight = acquisition_subparsers.add_parser(
         "preflight-disclosure-review-signer",
         help="Verify the externally pinned hardware reviewer policy.",
@@ -1890,6 +1916,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Scan and record hash-bound disclosure clearance per document.",
     )
     _add_acquisition_disclosure_clearance_arguments(acquisition_clearance)
+    acquisition_provenance_clearance = acquisition_subparsers.add_parser(
+        "clear-provenance-disclosures",
+        help=(
+            "Recompute provenance routing and publish disclosure clearance after "
+            "complete hash-bound exception review."
+        ),
+    )
+    _add_acquisition_clear_provenance_disclosures_arguments(
+        acquisition_provenance_clearance
+    )
     acquisition_resolve_post_recovery = acquisition_subparsers.add_parser(
         "resolve-post-recovery-documents",
         help=(
@@ -2692,8 +2728,16 @@ def _add_acquisition_extend_target_cohort_arguments(
         help="Completed materialize-target-cohort-frontier run card.",
     )
     parser.add_argument("--clearance-run-card", type=Path, required=True)
-    parser.add_argument("--reviews", type=Path, required=True)
-    parser.add_argument("--review-receipt", type=Path, required=True)
+    parser.add_argument(
+        "--reviews",
+        type=Path,
+        help="Legacy signed-clearance reviews; omitted for provenance-first clearance.",
+    )
+    parser.add_argument(
+        "--review-receipt",
+        type=Path,
+        help="Legacy signed-clearance receipt; omitted for provenance-first clearance.",
+    )
     parser.add_argument(
         "--cohort-policy",
         type=Path,
@@ -5840,12 +5884,35 @@ def _add_acquisition_recover_recap_fetch_quarantine_arguments(
 ) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument(
+        "--case-relevance",
+        type=Path,
+        required=True,
+        help="Exact case-relevance JSONL emitted by project-target-cohort.",
+    )
+    parser.add_argument(
+        "--target-projection-run-card",
+        type=Path,
+        required=True,
+        help=(
+            "Completed project-target-cohort run card committing --selection "
+            "and --case-relevance."
+        ),
+    )
     parser.add_argument("--purchase-policy", type=Path, required=True)
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--budget-plan", type=Path, required=True)
     parser.add_argument("--purchase-ledger", type=Path, required=True)
     parser.add_argument("--attempt-policy", type=Path, required=True)
     parser.add_argument("--manifest-output", type=Path)
+    parser.add_argument(
+        "--case-relevance-output",
+        type=Path,
+        help=(
+            "Deterministic purchased-only relevance projection; defaults to "
+            "purchased-case-relevance.jsonl under --output-root."
+        ),
+    )
     parser.add_argument(
         "--restriction-evidence-output",
         type=Path,
@@ -6234,6 +6301,48 @@ def _add_acquisition_disclosure_clearance_arguments(
     parser.set_defaults(handler=_cmd_acquisition_disclosure_clearance)
 
 
+def _add_acquisition_plan_disclosure_provenance_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--review-requests", type=Path, required=True)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--case-relevance", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--restriction-evidence", type=Path, required=True)
+    parser.add_argument("--routing-plan-output", type=Path)
+    parser.add_argument("--exception-worksheet-output", type=Path)
+    parser.add_argument(
+        "--controlled-private-store-root",
+        type=Path,
+        required=True,
+        help=(
+            "Private root for the exception-only inspection map; it must remain "
+            "separate from normal acquisition outputs."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_plan_disclosure_provenance)
+
+
+def _add_acquisition_clear_provenance_disclosures_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--review-requests", type=Path, required=True)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--case-relevance", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--restriction-evidence", type=Path, required=True)
+    parser.add_argument("--routing-plan", type=Path, required=True)
+    parser.add_argument("--exception-worksheet", type=Path, required=True)
+    parser.add_argument("--exception-decisions", type=Path, required=True)
+    parser.add_argument("--exception-review-run-card", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--clearance-output", type=Path)
+    parser.add_argument("--quarantine-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_clear_provenance_disclosures)
+
+
 def _add_acquisition_prepare_disclosure_review_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -6280,7 +6389,10 @@ def _add_acquisition_record_disclosure_review_arguments(
     parser.add_argument(
         "--reviewer-id",
         required=True,
-        help="Intended hardware reviewer ID; build must match it to signed policy.",
+        help=(
+            "Intended human reviewer identity bound into every decision and the "
+            "interactive recorder run card; Cycle 1 requires John Hughes."
+        ),
     )
     parser.add_argument(
         "--controlled-private-store-root",
@@ -6367,8 +6479,16 @@ def _add_acquisition_resolve_post_recovery_arguments(
     parser.add_argument("--download-manifest", type=Path, required=True)
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--clearance-run-card", type=Path, required=True)
-    parser.add_argument("--reviews", type=Path, required=True)
-    parser.add_argument("--review-receipt", type=Path, required=True)
+    parser.add_argument(
+        "--reviews",
+        type=Path,
+        help="Legacy signed-clearance reviews; omitted for provenance-first clearance.",
+    )
+    parser.add_argument(
+        "--review-receipt",
+        type=Path,
+        help="Legacy signed-clearance receipt; omitted for provenance-first clearance.",
+    )
     parser.add_argument("--restriction-evidence", type=Path, required=True)
     parser.add_argument("--resolved-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_resolve_post_recovery)
@@ -7586,14 +7706,73 @@ def _disclosure_failure_context(
 ) -> tuple[str, tuple[Path, ...], tuple[Path, ...]] | None:
     disclosure_commands = {
         "prepare-disclosure-review",
+        "plan-disclosure-provenance",
         "record-disclosure-review-decisions",
         "build-disclosure-review-bundle",
         "seal-disclosure-review-bundle",
+        "clear-provenance-disclosures",
     }
     if command not in disclosure_commands:
         return None
     command_name = cast(str, command)
     output_root = _acquisition_output_root(args)
+    if command == "plan-disclosure-provenance":
+        return (
+            command_name,
+            tuple(
+                cast(Path, getattr(args, name))
+                for name in (
+                    "review_requests",
+                    "download_manifest",
+                    "case_relevance",
+                    "restriction_evidence",
+                    "document_root",
+                )
+            ),
+            (
+                _acquisition_path(
+                    args,
+                    "routing_plan_output",
+                    output_root / "disclosure-provenance-plan.json",
+                ),
+                _acquisition_path(
+                    args,
+                    "exception_worksheet_output",
+                    output_root / "disclosure-exception-worksheet.json",
+                ),
+            ),
+        )
+    if command == "clear-provenance-disclosures":
+        return (
+            "clear-disclosures",
+            tuple(
+                cast(Path, getattr(args, name))
+                for name in (
+                    "review_requests",
+                    "download_manifest",
+                    "case_relevance",
+                    "restriction_evidence",
+                    "document_root",
+                    "routing_plan",
+                    "exception_worksheet",
+                    "exception_decisions",
+                    "exception_review_run_card",
+                    "cohort_policy",
+                )
+            ),
+            (
+                _acquisition_path(
+                    args,
+                    "clearance_output",
+                    output_root / "disclosure-clearance.jsonl",
+                ),
+                _acquisition_path(
+                    args,
+                    "quarantine_output",
+                    output_root / "disclosure-quarantine.jsonl",
+                ),
+            ),
+        )
     if command == "prepare-disclosure-review":
         return (
             command_name,
@@ -10181,10 +10360,10 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
     }
     input_paths = tuple(source_paths.values())
     _validate_projection_output_scope(output_root, input_paths=input_paths)
-    try:
-        source_bytes = {name: path.read_bytes() for name, path in source_paths.items()}
-    except OSError as exc:
-        raise CommandError(str(exc)) from exc
+    source_bytes = {
+        name: _read_singly_linked_regular_input(path, label=name)
+        for name, path in source_paths.items()
+    }
     source_sha256 = {
         name: _bytes_sha256(payload) for name, payload in source_bytes.items()
     }
@@ -10222,11 +10401,21 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
             int, args.max_missing_core_documents_per_case
         ),
     )
+    clearance_snapshot = _capture_clearance_artifact_snapshot(
+        run_card=clearance_run_card,
+        run_card_path=source_paths["clearance_run_card"],
+        clearance_path=source_paths["disclosure_clearance"],
+        initial_artifact_bytes={
+            os.path.abspath(path): source_bytes[name]
+            for name, path in source_paths.items()
+        },
+    )
     _verify_authenticated_clearance_run_card(
         clearance_path=source_paths["disclosure_clearance"],
         clearance_run_card_path=source_paths["clearance_run_card"],
         expected_download_manifest_path=source_paths["download_manifest"],
         expected_restriction_path=source_paths["restriction_evidence"],
+        captured_artifact_bytes=clearance_snapshot,
     )
     try:
         projection = project_target_cohort(
@@ -10380,8 +10569,45 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
     frontier_path = cast(Path, args.full_candidate_frontier)
     frontier_run_card_path = cast(Path, args.frontier_run_card)
     clearance_run_card_path = cast(Path, args.clearance_run_card)
-    reviews_path = cast(Path, args.reviews)
-    review_receipt_path = cast(Path, args.review_receipt)
+    try:
+        clearance_run_card_bytes = _read_retained_extension_artifact(
+            clearance_run_card_path
+        )
+        clearance_run_card = _projection_json_object(
+            clearance_run_card_bytes, source=clearance_run_card_path
+        )
+        disclosure_clearance_path = _named_committed_path(
+            clearance_run_card,
+            commitment_group="output_commitments",
+            name="disclosure_clearance",
+        )
+        raw_clearance_authority = clearance_run_card.get("clearance_authority")
+        clearance_authority_kind = (
+            cast(Mapping[str, object], raw_clearance_authority).get("kind")
+            if isinstance(raw_clearance_authority, Mapping)
+            else None
+        )
+        if clearance_authority_kind == "provenance_first_with_john_exceptions":
+            reviews_path = _named_committed_path(
+                clearance_run_card,
+                commitment_group="source_commitments",
+                name="exception_decisions",
+            )
+            review_receipt_path = _named_committed_path(
+                clearance_run_card,
+                commitment_group="source_commitments",
+                name="exception_review_run_card",
+            )
+        else:
+            reviews_path = cast(Path | None, args.reviews)
+            review_receipt_path = cast(Path | None, args.review_receipt)
+            if reviews_path is None or review_receipt_path is None:
+                raise CommandError(
+                    "legacy retained-cohort clearance requires --reviews and "
+                    "--review-receipt"
+                )
+    except OSError as exc:
+        raise CommandError(str(exc)) from exc
     restriction_evidence_path = (
         preparation_root / "06-clearance-inputs/restriction-evidence.jsonl"
     )
@@ -10450,17 +10676,6 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         )
         return 0
     try:
-        clearance_run_card_bytes = _read_retained_extension_artifact(
-            clearance_run_card_path
-        )
-        clearance_run_card = _projection_json_object(
-            clearance_run_card_bytes, source=clearance_run_card_path
-        )
-        disclosure_clearance_path = _named_committed_path(
-            clearance_run_card,
-            commitment_group="output_commitments",
-            name="disclosure_clearance",
-        )
         full_paths["disclosure-clearance.jsonl"] = disclosure_clearance_path
         input_paths = (*input_paths, disclosure_clearance_path)
         _validate_retained_extension_output_scope(
@@ -10683,20 +10898,76 @@ def _authenticated_extension_lineage(
     clearance_sources = clearance_run_card.get("source_commitments")
     if not isinstance(clearance_sources, Mapping):
         raise CommandError("clear-disclosures run card lacks source commitments")
+    raw_clearance_authority = clearance_run_card.get("clearance_authority")
+    clearance_authority_kind = (
+        cast(Mapping[str, object], raw_clearance_authority).get("kind")
+        if isinstance(raw_clearance_authority, Mapping)
+        else None
+    )
+    clearance_snapshot: dict[str, bytes] = {}
+    if clearance_authority_kind == "provenance_first_with_john_exceptions":
+        clearance_snapshot = _capture_clearance_artifact_snapshot(
+            run_card=clearance_run_card,
+            run_card_path=clearance_run_card_path,
+            clearance_path=disclosure_clearance_path,
+            initial_artifact_bytes={
+                os.path.abspath(path): source_payloads[name]
+                for name, path in source_paths.items()
+            },
+        )
+        lineage_bytes = {
+            **lineage_bytes,
+            "clearance_run_card": clearance_snapshot[
+                os.path.abspath(clearance_run_card_path)
+            ],
+            "reviews": clearance_snapshot[os.path.abspath(reviews_path)],
+            "review_receipt": clearance_snapshot[os.path.abspath(review_receipt_path)],
+            "restriction_evidence": clearance_snapshot[
+                os.path.abspath(restriction_evidence_path)
+            ],
+        }
+        _verify_authenticated_clearance_run_card(
+            clearance_path=disclosure_clearance_path,
+            clearance_run_card_path=clearance_run_card_path,
+            expected_download_manifest_path=full_paths[
+                "document-downloads-merged.jsonl"
+            ],
+            expected_restriction_path=restriction_evidence_path,
+            captured_artifact_bytes=clearance_snapshot,
+        )
+        decisions_path = _named_committed_path(
+            clearance_run_card,
+            commitment_group="source_commitments",
+            name="exception_decisions",
+        )
+        recorder_path = _named_committed_path(
+            clearance_run_card,
+            commitment_group="source_commitments",
+            name="exception_review_run_card",
+        )
+        if decisions_path.resolve() != reviews_path.resolve():
+            raise CommandError("clearance committed different exception decisions")
+        if recorder_path.resolve() != review_receipt_path.resolve():
+            raise CommandError("clearance committed different exception recorder")
+        clearance_reviews_sha256 = _bytes_sha256(lineage_bytes["reviews"])
+        clearance_review_receipt_sha256 = _bytes_sha256(lineage_bytes["review_receipt"])
+    else:
+        clearance_reviews_sha256 = ""
+        clearance_review_receipt_sha256 = ""
     review_requests_path = _named_committed_path(
         clearance_run_card,
         commitment_group="source_commitments",
         name="review_requests",
     )
+    review_worksheet_name = (
+        "exception_worksheet"
+        if clearance_authority_kind == "provenance_first_with_john_exceptions"
+        else "review_worksheet"
+    )
     review_worksheet_path = _named_committed_path(
         clearance_run_card,
         commitment_group="source_commitments",
-        name="review_worksheet",
-    )
-    reviewer_policy_path = _named_committed_path(
-        clearance_run_card,
-        commitment_group="source_commitments",
-        name="reviewer_policy",
+        name=review_worksheet_name,
     )
     committed_cohort_policy_path = _named_committed_path(
         clearance_run_card,
@@ -10705,13 +10976,43 @@ def _authenticated_extension_lineage(
     )
     if committed_cohort_policy_path.resolve() != cohort_policy_path.resolve():
         raise CommandError("clearance committed a different cohort policy")
-    authority_record = clearance_run_card.get("review_authority")
-    if not isinstance(authority_record, Mapping):
+    if clearance_authority_kind == "provenance_first_with_john_exceptions":
+        reviewer_policy_path = _named_committed_path(
+            clearance_run_card,
+            commitment_group="source_commitments",
+            name="routing_plan",
+        )
+    else:
+        reviewer_policy_path = _named_committed_path(
+            clearance_run_card,
+            commitment_group="source_commitments",
+            name="reviewer_policy",
+        )
+    raw_review_authority = clearance_run_card.get("review_authority")
+    if (
+        clearance_authority_kind != "provenance_first_with_john_exceptions"
+        and not isinstance(raw_review_authority, Mapping)
+    ):
         raise CommandError("clear-disclosures run card lacks review authority")
+    if clearance_authority_kind == "provenance_first_with_john_exceptions":
+        authority_record = cast(Mapping[str, object], raw_clearance_authority)
+    else:
+        authority_record = cast(Mapping[str, object], raw_review_authority)
+    legacy_disclosure_authority: DisclosureReviewAuthority | None = None
+    legacy_review_authority: ReviewAuthority | None = None
+    review_commitment_names = (
+        ("exception_decisions", "exception_review_run_card")
+        if clearance_authority_kind == "provenance_first_with_john_exceptions"
+        else ("reviews", "review_receipt")
+    )
     for name, path, digest in (
-        ("reviews", reviews_path, _bytes_sha256(lineage_bytes["reviews"])),
         (
-            "review_receipt",
+            review_commitment_names[0],
+            reviews_path,
+            _bytes_sha256(lineage_bytes["reviews"]),
+        ),
+        (
+            review_commitment_names[1],
             review_receipt_path,
             _bytes_sha256(lineage_bytes["review_receipt"]),
         ),
@@ -10723,48 +11024,70 @@ def _authenticated_extension_lineage(
             expected_sha256=digest,
         )
     try:
-        review_requests_bytes = _read_retained_extension_artifact(review_requests_path)
-        worksheet_bytes = _read_retained_extension_artifact(review_worksheet_path)
-        reviewer_policy_bytes = _read_retained_extension_artifact(reviewer_policy_path)
-        cohort_policy_artifact_bytes = _read_retained_extension_artifact(
-            committed_cohort_policy_path
-        )
-        disclosure_authority = load_main_disclosure_review_authority(
-            _projection_json_object(
-                cohort_policy_artifact_bytes, source=committed_cohort_policy_path
-            ),
-            reviewer_policy_bytes=reviewer_policy_bytes,
-        )
-        clearance_lineage = validate_authenticated_clearance_lineage(
-            clearance_records=_projection_jsonl_records(
-                full_artifacts["disclosure-clearance.jsonl"],
-                source=disclosure_clearance_path,
-            ),
-            clearance_artifact_bytes=full_artifacts["disclosure-clearance.jsonl"],
-            clearance_run_card=clearance_run_card,
-            clearance_run_card_bytes=lineage_bytes["clearance_run_card"],
-            reviews_artifact_bytes=lineage_bytes["reviews"],
-            review_receipt_artifact=_projection_json_object(
-                lineage_bytes["review_receipt"], source=review_receipt_path
-            ),
-            review_receipt_bytes=lineage_bytes["review_receipt"],
-            review_requests_artifact_bytes=review_requests_bytes,
-            review_worksheet_artifact=_projection_json_object(
-                worksheet_bytes, source=review_worksheet_path
-            ),
-            review_worksheet_bytes=worksheet_bytes,
-            reviewer_policy_bytes=reviewer_policy_bytes,
-            disclosure_authority=disclosure_authority,
-            cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
-            download_manifest_artifact_bytes=full_artifacts[
-                "document-downloads-merged.jsonl"
-            ],
-            restriction_records=_projection_jsonl_records(
-                lineage_bytes["restriction_evidence"], source=restriction_evidence_path
-            ),
-            restriction_artifact_bytes=lineage_bytes["restriction_evidence"],
-        )
-        review_authority = clearance_lineage.authority
+        if clearance_authority_kind == "provenance_first_with_john_exceptions":
+            review_requests_bytes = clearance_snapshot[
+                os.path.abspath(review_requests_path)
+            ]
+            worksheet_bytes = clearance_snapshot[os.path.abspath(review_worksheet_path)]
+            reviewer_policy_bytes = clearance_snapshot[
+                os.path.abspath(reviewer_policy_path)
+            ]
+            cohort_policy_artifact_bytes = clearance_snapshot[
+                os.path.abspath(committed_cohort_policy_path)
+            ]
+        else:
+            review_requests_bytes = _read_retained_extension_artifact(
+                review_requests_path
+            )
+            worksheet_bytes = _read_retained_extension_artifact(review_worksheet_path)
+            reviewer_policy_bytes = _read_retained_extension_artifact(
+                reviewer_policy_path
+            )
+            cohort_policy_artifact_bytes = _read_retained_extension_artifact(
+                committed_cohort_policy_path
+            )
+        if clearance_authority_kind != "provenance_first_with_john_exceptions":
+            legacy_disclosure_authority = load_main_disclosure_review_authority(
+                _projection_json_object(
+                    cohort_policy_artifact_bytes, source=committed_cohort_policy_path
+                ),
+                reviewer_policy_bytes=reviewer_policy_bytes,
+            )
+            clearance_lineage = validate_authenticated_clearance_lineage(
+                clearance_records=_projection_jsonl_records(
+                    full_artifacts["disclosure-clearance.jsonl"],
+                    source=disclosure_clearance_path,
+                ),
+                clearance_artifact_bytes=full_artifacts["disclosure-clearance.jsonl"],
+                clearance_run_card=clearance_run_card,
+                clearance_run_card_bytes=lineage_bytes["clearance_run_card"],
+                reviews_artifact_bytes=lineage_bytes["reviews"],
+                review_receipt_artifact=_projection_json_object(
+                    lineage_bytes["review_receipt"], source=review_receipt_path
+                ),
+                review_receipt_bytes=lineage_bytes["review_receipt"],
+                review_requests_artifact_bytes=review_requests_bytes,
+                review_worksheet_artifact=_projection_json_object(
+                    worksheet_bytes, source=review_worksheet_path
+                ),
+                review_worksheet_bytes=worksheet_bytes,
+                reviewer_policy_bytes=reviewer_policy_bytes,
+                disclosure_authority=legacy_disclosure_authority,
+                cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+                download_manifest_artifact_bytes=full_artifacts[
+                    "document-downloads-merged.jsonl"
+                ],
+                restriction_records=_projection_jsonl_records(
+                    lineage_bytes["restriction_evidence"],
+                    source=restriction_evidence_path,
+                ),
+                restriction_artifact_bytes=lineage_bytes["restriction_evidence"],
+            )
+            legacy_review_authority = clearance_lineage.authority
+            clearance_reviews_sha256 = _bytes_sha256(lineage_bytes["reviews"])
+            clearance_review_receipt_sha256 = _bytes_sha256(
+                lineage_bytes["review_receipt"]
+            )
         frontier_rows = _verified_target_cohort_frontier_rows(frontier)
     except (
         DisclosureClearanceError,
@@ -10772,11 +11095,16 @@ def _authenticated_extension_lineage(
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
-    expected_authority = _clearance_review_authority_record(
-        review_authority, disclosure_authority
-    )
-    if dict(cast(Mapping[str, object], authority_record)) != expected_authority:
-        raise CommandError("clear-disclosures review authority differs from receipt")
+    if clearance_authority_kind != "provenance_first_with_john_exceptions":
+        if legacy_review_authority is None or legacy_disclosure_authority is None:
+            raise CommandError("legacy disclosure authority verification failed")
+        expected_authority = _clearance_review_authority_record(
+            legacy_review_authority, legacy_disclosure_authority
+        )
+        if dict(authority_record) != expected_authority:
+            raise CommandError(
+                "clear-disclosures review authority differs from receipt"
+            )
 
     policy = cast(Mapping[str, Any], frontier["policy"])
     commitments = cast(Mapping[str, object], policy["source_commitments"])
@@ -10881,8 +11209,8 @@ def _authenticated_extension_lineage(
         frontier_policy_sha256=cast(str, frontier["policy_sha256"]),
         frontier_run_card_sha256=_bytes_sha256(lineage_bytes["frontier_run_card"]),
         clearance_run_card_sha256=_bytes_sha256(lineage_bytes["clearance_run_card"]),
-        clearance_reviews_sha256=_bytes_sha256(lineage_bytes["reviews"]),
-        clearance_review_receipt_sha256=_bytes_sha256(lineage_bytes["review_receipt"]),
+        clearance_reviews_sha256=clearance_reviews_sha256,
+        clearance_review_receipt_sha256=clearance_review_receipt_sha256,
         restriction_evidence_sha256=_bytes_sha256(
             lineage_bytes["restriction_evidence"]
         ),
@@ -11041,7 +11369,10 @@ def _validate_retained_extension_successful_resume(
     cumulative_obligation_usd: str,
     remaining_headroom_usd: str,
 ) -> None:
-    run_card = _read_json_object(run_card_path)
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="target projection run card"
+    )
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
     expected = {
         "schema_version": "legalforecast.acquisition_run_card.v1",
         "stage": "extend-target-cohort",
@@ -11244,11 +11575,7 @@ def _validate_retained_extension_completed_resume(
 
 
 def _read_retained_extension_artifact(path: Path) -> bytes:
-    if path.is_symlink() or not path.is_file():
-        raise CommandError(
-            f"extend-target-cohort input must be a regular non-symlink file: {path}"
-        )
-    return path.read_bytes()
+    return _read_singly_linked_regular_input(path, label="extend-target-cohort input")
 
 
 def _validate_existing_purchase_ledger(
@@ -11600,6 +11927,48 @@ def _validate_clearance_run_card_commitments(
         expected_path=source_paths["disclosure_clearance"],
         expected_sha256=source_sha256["disclosure_clearance"],
     )
+    clearance_authority = run_card.get("clearance_authority")
+    provenance_kind = (
+        cast(Mapping[str, object], clearance_authority).get("kind")
+        if isinstance(clearance_authority, Mapping)
+        else None
+    )
+    if provenance_kind == "provenance_first_with_john_exceptions":
+        authority_record = cast(Mapping[str, object], clearance_authority)
+        if (
+            authority_record.get("authentication_claim")
+            != "interactive_hash_confirmation_only"
+            or not _valid_prefixed_sha256(authority_record.get("cohort_policy_sha256"))
+            or not _valid_prefixed_sha256(authority_record.get("routing_plan_sha256"))
+            or not _valid_prefixed_sha256(
+                authority_record.get("review_worksheet_sha256")
+            )
+            or not _valid_prefixed_sha256(
+                authority_record.get("exception_decisions_sha256")
+            )
+            or not _valid_prefixed_sha256(
+                authority_record.get("exception_review_run_card_sha256")
+            )
+            or authority_record.get("exception_reviewer_id") != "John Hughes"
+        ):
+            raise CommandError("clear-disclosures provenance authority is invalid")
+        for name in (
+            "review_requests",
+            "case_relevance",
+            "routing_plan",
+            "exception_worksheet",
+            "exception_decisions",
+            "exception_review_run_card",
+            "cohort_policy",
+            "document_root",
+        ):
+            if not isinstance(
+                cast(Mapping[str, object], source_commitments).get(name), Mapping
+            ):
+                raise CommandError(
+                    f"clear-disclosures run card lacks {name} commitment"
+                )
+        return
     for name in ("reviews", "review_receipt"):
         commitment = cast(Mapping[str, object], source_commitments).get(name)
         if not isinstance(commitment, Mapping) or not _valid_prefixed_sha256(
@@ -11975,6 +12344,48 @@ def _validate_disclosure_review_paths(
                 raise CommandError("disclosure review outputs share an inode")
 
 
+def _require_controlled_private_review_root(
+    private_root: Path,
+    *,
+    output_root: Path,
+    document_root: Path,
+    authenticated_inputs: Sequence[Path],
+) -> None:
+    """Keep private inspection material outside every acquisition source tree."""
+
+    if not private_root.is_absolute():
+        raise CommandError("controlled private review store must be an absolute path")
+    _reject_existing_parent_symlink(private_root, label="controlled private root")
+    resolved_private = private_root.resolve()
+    resolved_output = output_root.resolve()
+    resolved_document = document_root.resolve()
+    common_source = Path(
+        os.path.commonpath(
+            [
+                *(str(path.resolve().parent) for path in authenticated_inputs),
+                str(resolved_document),
+            ]
+        )
+    )
+    if common_source == Path(common_source.anchor):
+        raise CommandError(
+            "authenticated disclosure inputs lack a bounded common source tree"
+        )
+    for label, root in (
+        ("acquisition output", resolved_output),
+        ("document root", resolved_document),
+        ("authenticated preparation/source tree", common_source),
+    ):
+        if (
+            resolved_private == root
+            or resolved_private.is_relative_to(root)
+            or root.is_relative_to(resolved_private)
+        ):
+            raise CommandError(
+                f"controlled private review store must be separate from {label}"
+            )
+
+
 def _reject_existing_parent_symlink(
     path: Path, *, label: str = "disclosure review output"
 ) -> None:
@@ -12071,6 +12482,102 @@ def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
         raise CommandError(f"{label} could not be read safely: {path}: {exc}") from exc
     finally:
         os.close(descriptor)
+
+
+def _captured_or_stable_input(
+    path: Path,
+    *,
+    label: str,
+    captured_artifact_bytes: Mapping[str, bytes] | None,
+) -> bytes:
+    """Return caller-captured bytes or take one descriptor-stable snapshot."""
+
+    key = os.path.abspath(path)
+    if captured_artifact_bytes is not None:
+        if key not in captured_artifact_bytes:
+            raise CommandError(f"verified input snapshot lacks {label}: {path}")
+        return captured_artifact_bytes[key]
+    return _read_singly_linked_regular_input(path, label=label)
+
+
+def _clearance_snapshot_paths(
+    run_card: Mapping[str, Any],
+    *,
+    run_card_path: Path,
+    clearance_path: Path,
+) -> set[Path]:
+    paths = {run_card_path, clearance_path}
+    for group_name in ("source_commitments", "output_commitments"):
+        group = run_card.get(group_name)
+        if not isinstance(group, Mapping):
+            raise CommandError(f"clearance run card lacks {group_name}")
+        for raw in cast(Mapping[str, object], group).values():
+            if not isinstance(raw, Mapping):
+                continue
+            record = cast(Mapping[str, object], raw)
+            path_text = record.get("path")
+            if (
+                isinstance(path_text, str)
+                and path_text
+                and isinstance(record.get("sha256"), str)
+            ):
+                paths.add(Path(path_text))
+    return paths
+
+
+def _capture_clearance_artifact_snapshot(
+    *,
+    run_card: Mapping[str, Any],
+    run_card_path: Path,
+    clearance_path: Path,
+    initial_artifact_bytes: Mapping[str, bytes],
+) -> dict[str, bytes]:
+    """Finish one immutable snapshot before any clearance replay begins."""
+
+    snapshot = dict(initial_artifact_bytes)
+    for path in _clearance_snapshot_paths(
+        run_card, run_card_path=run_card_path, clearance_path=clearance_path
+    ):
+        key = os.path.abspath(path)
+        if key not in snapshot:
+            snapshot[key] = _read_singly_linked_regular_input(
+                path, label="committed clearance artifact"
+            )
+    return snapshot
+
+
+def _complete_clearance_artifact_snapshot(
+    *,
+    run_card: Mapping[str, Any],
+    run_card_path: Path,
+    run_card_bytes: bytes,
+    clearance_path: Path,
+    captured_artifact_bytes: Mapping[str, bytes] | None,
+) -> dict[str, bytes]:
+    """Require a supplied snapshot to be complete; otherwise capture it once."""
+
+    if captured_artifact_bytes is None:
+        return _capture_clearance_artifact_snapshot(
+            run_card=run_card,
+            run_card_path=run_card_path,
+            clearance_path=clearance_path,
+            initial_artifact_bytes={os.path.abspath(run_card_path): run_card_bytes},
+        )
+    snapshot = dict(captured_artifact_bytes)
+    required = {
+        os.path.abspath(path)
+        for path in _clearance_snapshot_paths(
+            run_card, run_card_path=run_card_path, clearance_path=clearance_path
+        )
+    }
+    missing = sorted(required - set(snapshot))
+    if missing:
+        raise CommandError(
+            "verified clearance snapshot lacks committed artifacts: " + repr(missing)
+        )
+    if snapshot[os.path.abspath(run_card_path)] != run_card_bytes:
+        raise CommandError("verified clearance snapshot run card changed")
+    return snapshot
 
 
 def _ensure_disclosure_review_artifact(
@@ -27451,12 +27958,40 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         output_root = prepare_non_symlink_directory(output_root)
     except CohortDocumentMaterializationError as exc:
         raise CommandError(str(exc)) from exc
+    materializer_direct_paths = (
+        preparation_summary_path,
+        preparation_config_path,
+        snapshot_manifest_path,
+        free_clearance_path,
+        purchased_clearance_path,
+        purchased_clearance_card_path,
+        purchase_policy_path,
+        cohort_policy_path,
+        ledger_path,
+        *((resolved_path,) if resolved_path is not None else ()),
+    )
+    materializer_direct_snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="materialization source artifact"
+        )
+        for path in materializer_direct_paths
+    }
+    captured_artifact_bytes: dict[str, bytes] = {
+        os.path.abspath(path): payload
+        for path, payload in materializer_direct_snapshots.items()
+    }
     try:
         verified_preparation = _verify_completed_preparation_for_frontier(
             preparation_root=preparation_root,
             preparation_summary_path=preparation_summary_path,
             preparation_config_path=preparation_config_path,
             snapshot_manifest_path=snapshot_manifest_path,
+        )
+        captured_artifact_bytes[
+            os.path.abspath(verified_preparation.success_run_card_path)
+        ] = _read_singly_linked_regular_input(
+            verified_preparation.success_run_card_path,
+            label="materialization preparation success run card",
         )
         projection = _verify_materializer_projection(
             target_root=target_root,
@@ -27466,6 +28001,11 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             snapshot_manifest_path=snapshot_manifest_path,
             expected_target_count=verified_preparation.target_case_count,
         )
+        _merge_verified_artifact_bytes(
+            captured_artifact_bytes,
+            cast(Mapping[str, bytes], projection["verified_artifact_bytes"]),
+            label="materialization projection",
+        )
         recovery = _verify_materializer_recovery(
             recovery_root=recovery_root,
             selection_path=projection["selection_path"],
@@ -27474,17 +28014,37 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
         )
+        raw_recovery_bytes = recovery.get("verified_artifact_bytes")
+        if isinstance(raw_recovery_bytes, Mapping):
+            _merge_verified_artifact_bytes(
+                captured_artifact_bytes,
+                cast(Mapping[str, bytes], raw_recovery_bytes),
+                label="materialization recovery",
+            )
         purchased_clearance_lineage = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
         )
+        raw_clearance_bytes = purchased_clearance_lineage.get("verified_artifact_bytes")
+        if isinstance(raw_clearance_bytes, Mapping):
+            _merge_verified_artifact_bytes(
+                captured_artifact_bytes,
+                cast(Mapping[str, bytes], raw_clearance_bytes),
+                label="materialization clearance",
+            )
         _verify_materializer_recovery_clearance_binding(
             recovery=recovery,
             clearance_lineage=purchased_clearance_lineage,
         )
-        purchase_policy_artifact = _read_json_object(purchase_policy_path)
-        cohort_policy_artifact = _read_json_object(cohort_policy_path)
+        purchase_policy_artifact = _projection_json_object(
+            materializer_direct_snapshots[purchase_policy_path],
+            source=purchase_policy_path,
+        )
+        cohort_policy_artifact = _projection_json_object(
+            materializer_direct_snapshots[cohort_policy_path],
+            source=cohort_policy_path,
+        )
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy, cohort_policy_artifact
@@ -27498,7 +28058,9 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         )
         operations = purchase_snapshot.operations
         purchase_state_sha256 = purchase_snapshot.purchase_state_sha256
-        selection_records = _read_records(cast(Path, projection["selection_path"]))
+        selection_records = cast(
+            Sequence[Mapping[str, Any]], projection["selection_records"]
+        )
         purchased_manifest = cast(
             Sequence[Mapping[str, Any]], recovery["manifest_records"]
         )
@@ -27514,10 +28076,14 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
                 "unknown-status purchased material is selected"
             )
         resolved_records = (
-            _read_records(resolved_path) if resolved_path is not None else []
+            _projection_jsonl_records(
+                materializer_direct_snapshots[resolved_path], source=resolved_path
+            )
+            if resolved_path is not None
+            else []
         )
         if needs_resolved_lineage:
-            require_resolved_post_recovery_documents(
+            _require_resolved_post_recovery_dispatch(
                 selection_records=selection_records,
                 download_records=purchased_manifest,
                 clearance_records=cast(
@@ -27627,48 +28193,52 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
     )
     restriction_bytes = _projection_jsonl_bytes(restriction_records)
     derivations_bytes = _projection_jsonl_bytes(derivations)
+
+    def captured_commitment(path: Path) -> dict[str, str]:
+        try:
+            payload = captured_artifact_bytes[os.path.abspath(path)]
+        except KeyError as exc:
+            raise CommandError(
+                f"materialization source snapshot lacks artifact: {path}"
+            ) from exc
+        return _file_commitment_from_bytes(path, payload)
+
     source_commitments = {
-        "preparation_summary": _materializer_file_commitment(preparation_summary_path),
-        "preparation_config": _materializer_file_commitment(preparation_config_path),
-        "preparation_success_run_card": _materializer_file_commitment(
+        "preparation_summary": captured_commitment(preparation_summary_path),
+        "preparation_config": captured_commitment(preparation_config_path),
+        "preparation_success_run_card": captured_commitment(
             verified_preparation.success_run_card_path
         ),
-        "snapshot_manifest": _materializer_file_commitment(snapshot_manifest_path),
-        "target_projection": _materializer_file_commitment(
+        "snapshot_manifest": captured_commitment(snapshot_manifest_path),
+        "target_projection": captured_commitment(
             cast(Path, projection["summary_path"])
         ),
-        "target_projection_run_card": _materializer_file_commitment(
+        "target_projection_run_card": captured_commitment(
             cast(Path, projection["run_card_path"])
         ),
-        "target_selection": _materializer_file_commitment(
+        "target_selection": captured_commitment(
             cast(Path, projection["selection_path"])
         ),
-        "free_download_manifest": _materializer_file_commitment(
+        "free_download_manifest": captured_commitment(
             cast(Path, projection["free_manifest_path"])
         ),
-        "free_disclosure_clearance": _materializer_file_commitment(free_clearance_path),
+        "free_disclosure_clearance": captured_commitment(free_clearance_path),
         **_materializer_recovery_source_commitments(recovery),
-        "purchased_disclosure_clearance": _materializer_file_commitment(
-            purchased_clearance_path
-        ),
-        "purchased_clearance_run_card": _materializer_file_commitment(
+        "purchased_disclosure_clearance": captured_commitment(purchased_clearance_path),
+        "purchased_clearance_run_card": captured_commitment(
             purchased_clearance_card_path
         ),
-        "free_restriction_evidence": _materializer_file_commitment(
+        "free_restriction_evidence": captured_commitment(
             cast(Path, projection["restriction_path"])
         ),
-        "purchased_restriction_evidence": _materializer_file_commitment(
+        "purchased_restriction_evidence": captured_commitment(
             cast(Path, purchased_clearance_lineage["restriction_path"])
         ),
-        "purchase_policy": _materializer_file_commitment(purchase_policy_path),
-        "cohort_policy": _materializer_file_commitment(cohort_policy_path),
+        "purchase_policy": captured_commitment(purchase_policy_path),
+        "cohort_policy": captured_commitment(cohort_policy_path),
         "purchase_state_sha256": purchase_state_sha256,
         **(
-            {
-                "resolved_post_recovery_documents": _materializer_file_commitment(
-                    resolved_path
-                )
-            }
+            {"resolved_post_recovery_documents": captured_commitment(resolved_path)}
             if resolved_path is not None
             else {}
         ),
@@ -27732,6 +28302,12 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         "document_tree": document_commitments,
     }
     dry_run = _acquisition_dry_run(args)
+    captured_source_snapshots = {
+        Path(path): payload for path, payload in captured_artifact_bytes.items()
+    }
+    _require_snapshot_unchanged(
+        captured_source_snapshots, label="materialization source artifact"
+    )
     if run_card_path.exists():
         if not cast(bool, args.resume):
             raise CommandError(
@@ -27759,6 +28335,8 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         return 0
     if not dry_run:
         publish_cohort_documents(materialization.documents)
+        if _materializer_tree_commitments(document_root) != document_commitments:
+            raise CommandError("published materialization document tree differs")
         _ensure_projection_artifact(
             manifest_path,
             manifest_bytes,
@@ -27797,6 +28375,9 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             )
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
+        _require_snapshot_unchanged(
+            captured_source_snapshots, label="materialization source artifact"
+        )
     _write_acquisition_completion(
         args,
         stage="materialize-cohort-documents",
@@ -27851,7 +28432,10 @@ def _verify_materializer_projection(
         raise CommandError(
             "--free-disclosure-clearance must be the exact target projection output"
         )
-    run_card = _read_json_object(run_card_path)
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="target projection run card"
+    )
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
     expected_outputs = tuple(paths.values())
     if (
         run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
@@ -27899,7 +28483,12 @@ def _verify_materializer_projection(
             raise CommandError(f"target projection {name} lineage differs")
     for name, path in source_paths.items():
         _require_materializer_artifact(path, label=f"target projection input {name}")
-    source_bytes = {name: path.read_bytes() for name, path in source_paths.items()}
+    source_bytes = {
+        name: _read_singly_linked_regular_input(
+            path, label=f"target projection {name.replace('_', ' ')}"
+        )
+        for name, path in source_paths.items()
+    }
     source_sha256 = {
         name: _bytes_sha256(payload) for name, payload in source_bytes.items()
     }
@@ -27915,10 +28504,20 @@ def _verify_materializer_projection(
     clearance_run_card = _projection_json_object(
         source_bytes["clearance_run_card"], source=source_paths["clearance_run_card"]
     )
+    clearance_snapshot = _capture_clearance_artifact_snapshot(
+        run_card=clearance_run_card,
+        run_card_path=source_paths["clearance_run_card"],
+        clearance_path=source_paths["disclosure_clearance"],
+        initial_artifact_bytes={
+            os.path.abspath(path): source_bytes[name]
+            for name, path in source_paths.items()
+        },
+    )
     _verify_materializer_clearance_lineage(
         manifest_path=source_paths["download_manifest"],
         clearance_path=source_paths["disclosure_clearance"],
         run_card_path=source_paths["clearance_run_card"],
+        captured_artifact_bytes=clearance_snapshot,
     )
     _validate_projection_source_commitments(
         preparation_summary=preparation_summary,
@@ -27948,6 +28547,12 @@ def _verify_materializer_projection(
         cast(Sequence[object], raw_outputs)
     ) != len(expected_outputs):
         raise CommandError("target projection run card output paths differ")
+    output_bytes = {
+        name: _read_singly_linked_regular_input(
+            path, label=f"target projection output {name}"
+        )
+        for name, path in paths.items()
+    }
     commitments = run_card.get("output_commitments")
     if not isinstance(commitments, Mapping):
         raise CommandError("target projection run card lacks output commitments")
@@ -27955,12 +28560,14 @@ def _verify_materializer_projection(
         _validate_path_keyed_output_commitment(
             run_card,
             path=path,
-            expected_sha256=_path_sha256(path),
+            expected_sha256=_bytes_sha256(output_bytes[path.name]),
             label="target projection",
         )
 
     summary_path = paths["target-cohort-projection.json"]
-    summary = _read_json_object(summary_path)
+    summary = _projection_json_object(
+        output_bytes["target-cohort-projection.json"], source=summary_path
+    )
     if (
         summary.get("schema_version") != "legalforecast.target_cohort_projection.v1"
         or summary.get("target_case_count") != expected_target_count
@@ -27968,11 +28575,10 @@ def _verify_materializer_projection(
         or summary.get("paid_activity_requested") is not False
         or summary.get("paid_activity_executed") is not False
         or summary.get("preparation_summary_sha256")
-        != _path_sha256(preparation_summary_path)
+        != source_sha256["preparation_summary"]
         or summary.get("preparation_config_sha256")
-        != _path_sha256(preparation_config_path)
-        or summary.get("snapshot_manifest_sha256")
-        != _path_sha256(snapshot_manifest_path)
+        != source_sha256["preparation_config"]
+        or summary.get("snapshot_manifest_sha256") != source_sha256["snapshot_manifest"]
     ):
         raise CommandError("target projection lineage or target commitment differs")
     summary_outputs = summary.get("output_commitments")
@@ -27982,8 +28588,8 @@ def _verify_materializer_projection(
     if set(cast(Mapping[object, object], summary_outputs)) != expected_summary_names:
         raise CommandError("target projection summary output commitments differ")
     for name in expected_summary_names:
-        if cast(Mapping[object, object], summary_outputs).get(name) != _path_sha256(
-            paths[name]
+        if cast(Mapping[object, object], summary_outputs).get(name) != _bytes_sha256(
+            output_bytes[name]
         ):
             raise CommandError(f"target projection output changed: {name}")
 
@@ -28049,12 +28655,15 @@ def _verify_materializer_projection(
         ),
     }
     for name, payload in reproduced_outputs.items():
-        if paths[name].read_bytes() != payload:
+        if output_bytes[name] != payload:
             raise CommandError(f"target projection does not reproduce: {name}")
     if summary.get("projection_sha256") != reproduced.summary.get("projection_sha256"):
         raise CommandError("target projection digest does not reproduce")
 
-    selection_records = _read_records(paths["target-cohort-selection.jsonl"])
+    selection_records = _projection_jsonl_records(
+        output_bytes["target-cohort-selection.jsonl"],
+        source=paths["target-cohort-selection.jsonl"],
+    )
     if len(selection_records) != expected_target_count:
         raise CommandError("target selection count differs from authenticated target")
     candidate_ids: set[str] = set()
@@ -28076,10 +28685,21 @@ def _verify_materializer_projection(
                 )
             selected_document_keys.add(key)
 
-    free_manifest = _read_records(paths["free-document-downloads.jsonl"])
-    free_clearance = _read_records(free_clearance_path)
-    merged_manifest = _read_records(paths["document-downloads-merged.jsonl"])
-    projected_purchased = _read_records(paths["purchased-document-downloads.jsonl"])
+    free_manifest = _projection_jsonl_records(
+        output_bytes["free-document-downloads.jsonl"],
+        source=paths["free-document-downloads.jsonl"],
+    )
+    free_clearance = _projection_jsonl_records(
+        output_bytes["disclosure-clearance.jsonl"], source=free_clearance_path
+    )
+    merged_manifest = _projection_jsonl_records(
+        output_bytes["document-downloads-merged.jsonl"],
+        source=paths["document-downloads-merged.jsonl"],
+    )
+    projected_purchased = _projection_jsonl_records(
+        output_bytes["purchased-document-downloads.jsonl"],
+        source=paths["purchased-document-downloads.jsonl"],
+    )
     _require_unique_materializer_keys(free_manifest, label="projected free manifest")
     _require_unique_materializer_keys(
         projected_purchased, label="projected purchased manifest"
@@ -28098,16 +28718,39 @@ def _verify_materializer_projection(
     for record in free_manifest:
         if _materializer_record_key(record) not in selected_document_keys:
             raise CommandError("projected free document is outside target selection")
+    _require_snapshot_unchanged(
+        {
+            run_card_path: run_card_bytes,
+            **{path: source_bytes[name] for name, path in source_paths.items()},
+            **{path: output_bytes[name] for name, path in paths.items()},
+        },
+        label="target projection artifact",
+    )
     return {
         "summary_path": summary_path,
         "run_card_path": run_card_path,
         "selection_path": paths["target-cohort-selection.jsonl"],
+        "selection_records": selection_records,
         "free_manifest_path": paths["free-document-downloads.jsonl"],
         "free_manifest": free_manifest,
         "free_clearance": free_clearance,
         "restriction_path": paths["restriction-evidence.jsonl"],
-        "restriction_records": _read_records(paths["restriction-evidence.jsonl"]),
+        "restriction_records": _projection_jsonl_records(
+            output_bytes["restriction-evidence.jsonl"],
+            source=paths["restriction-evidence.jsonl"],
+        ),
         "selected_document_keys": selected_document_keys,
+        "verified_artifact_bytes": {
+            os.path.abspath(run_card_path): run_card_bytes,
+            **{
+                os.path.abspath(path): source_bytes[name]
+                for name, path in source_paths.items()
+            },
+            **{
+                os.path.abspath(path): output_bytes[name]
+                for name, path in paths.items()
+            },
+        },
     }
 
 
@@ -28314,8 +28957,10 @@ def _verify_materializer_quarantine_recovery(
         selected_document_keys, set
     ):
         raise CommandError("internal target projection verification failed")
-    _require_materializer_artifact(run_card_path, label="quarantine recovery run card")
-    run_card = _read_json_object(run_card_path)
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="quarantine recovery run card"
+    )
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
     if (
         run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or run_card.get("stage") != "recover-recap-fetch-quarantine"
@@ -28332,17 +28977,19 @@ def _verify_materializer_quarantine_recovery(
     recovery_inputs = tuple(
         Path(str(path)) for path in cast(Sequence[object], raw_inputs)
     )
-    if len(recovery_inputs) not in {6, 8}:
+    if len(recovery_inputs) not in {8, 10}:
         raise CommandError("quarantine recovery run card input paths differ")
     expected_inputs = (
         selection_path,
+        recovery_inputs[1],
+        recovery_inputs[2],
         purchase_policy_path,
         cohort_policy_path,
-        recovery_inputs[3],
-        ledger_path,
         recovery_inputs[5],
+        ledger_path,
+        recovery_inputs[7],
     )
-    if tuple(path.resolve() for path in recovery_inputs[:6]) != tuple(
+    if tuple(path.resolve() for path in recovery_inputs[:8]) != tuple(
         path.resolve() for path in expected_inputs
     ):
         raise CommandError("quarantine recovery lineage differs from target inputs")
@@ -28353,31 +29000,56 @@ def _verify_materializer_quarantine_recovery(
     ):
         raise CommandError("quarantine recovery run card lacks exact commitments")
     typed_output_commitments = cast(Mapping[str, object], output_commitments)
-    source_paths = {
+    source_paths: dict[str, Path] = {
         "selection": selection_path,
+        "case_relevance": recovery_inputs[1],
+        "target_projection_run_card": recovery_inputs[2],
         "purchase_policy": purchase_policy_path,
         "cohort_policy": cohort_policy_path,
-        "budget_plan": recovery_inputs[3],
-        "attempt_policy": recovery_inputs[5],
+        "budget_plan": recovery_inputs[5],
+        "attempt_policy": recovery_inputs[7],
+    }
+    if len(recovery_inputs) == 10:
+        source_paths.update(
+            {
+                "courtlistener_fixture": recovery_inputs[8],
+                "fixture_documents": recovery_inputs[9],
+            }
+        )
+    source_snapshot = {
+        name: _read_singly_linked_regular_input(
+            path, label=f"quarantine recovery {name}"
+        )
+        for name, path in source_paths.items()
     }
     for name, path in source_paths.items():
         _validate_named_path_commitment(
             cast(Mapping[str, object], source_commitments),
             name=name,
             expected_path=path,
-            expected_sha256=_path_sha256(path),
+            expected_sha256=_bytes_sha256(source_snapshot[name]),
         )
-    manifest_path = _materializer_committed_path(
+    manifest_path, manifest_bytes = _snapshot_committed_file(
         typed_output_commitments,
         "quarantine_download_manifest",
+        label="quarantine recovery",
     )
-    restriction_path = _materializer_committed_path(
+    purchased_case_relevance_path, purchased_case_relevance_bytes = (
+        _snapshot_committed_file(
+            typed_output_commitments,
+            "purchased_case_relevance",
+            label="quarantine recovery",
+        )
+    )
+    restriction_path, restriction_bytes = _snapshot_committed_file(
         typed_output_commitments,
         "fresh_restriction_evidence",
+        label="quarantine recovery",
     )
-    review_requests_path = _materializer_committed_path(
+    review_requests_path, review_requests_bytes = _snapshot_committed_file(
         typed_output_commitments,
         "disclosure_review_requests",
+        label="quarantine recovery",
     )
     raw_outputs = run_card.get("output_paths")
     if not isinstance(raw_outputs, Sequence) or isinstance(raw_outputs, (str, bytes)):
@@ -28385,16 +29057,24 @@ def _verify_materializer_quarantine_recovery(
     output_paths = tuple(
         Path(str(path)) for path in cast(Sequence[object], raw_outputs)
     )
-    if len(output_paths) != 5:
+    if len(output_paths) != 6:
         raise CommandError("quarantine recovery run card output paths differ")
+    committed_file_outputs = {
+        manifest_path.resolve(),
+        purchased_case_relevance_path.resolve(),
+        restriction_path.resolve(),
+        review_requests_path.resolve(),
+        ledger_path.resolve(),
+    }
     document_roots = tuple(
-        path for path in output_paths if path.exists() and path.is_dir()
+        path for path in output_paths if path.resolve() not in committed_file_outputs
     )
     if len(document_roots) != 1:
         raise CommandError("quarantine recovery document root is missing or ambiguous")
     document_root = document_roots[0]
     expected_outputs = {
         manifest_path.resolve(),
+        purchased_case_relevance_path.resolve(),
         restriction_path.resolve(),
         review_requests_path.resolve(),
         document_root.resolve(),
@@ -28413,9 +29093,32 @@ def _verify_materializer_quarantine_recovery(
         or any(character not in "0123456789abcdef" for character in state_sha256)
     ):
         raise CommandError("quarantine recovery lacks purchase-state commitment")
-    manifest_records = _read_records(manifest_path)
-    restriction_records = _read_records(restriction_path)
-    review_requests = _read_records(review_requests_path)
+    manifest_records = _projection_jsonl_records(manifest_bytes, source=manifest_path)
+    normalized_source_snapshot = {
+        os.path.abspath(path): source_snapshot[name]
+        for name, path in source_paths.items()
+    }
+    selection_bytes, case_relevance_bytes = _authenticated_target_projection_inputs(
+        selection_path=selection_path,
+        case_relevance_path=recovery_inputs[1],
+        run_card_path=recovery_inputs[2],
+        captured_artifact_bytes=normalized_source_snapshot,
+    )
+    _projection_jsonl_records(selection_bytes, source=selection_path)
+    expected_purchased_relevance = _projection_jsonl_bytes(
+        _project_purchased_case_relevance(
+            _projection_jsonl_records(case_relevance_bytes, source=recovery_inputs[1]),
+            manifest_records,
+        )
+    )
+    if purchased_case_relevance_bytes != expected_purchased_relevance:
+        raise CommandError("purchased case relevance does not reproduce")
+    restriction_records = _projection_jsonl_records(
+        restriction_bytes, source=restriction_path
+    )
+    review_requests = _projection_jsonl_records(
+        review_requests_bytes, source=review_requests_path
+    )
     reproduced_requests = build_recap_fetch_disclosure_review_requests(
         manifest_records, restriction_records
     )
@@ -28439,6 +29142,17 @@ def _verify_materializer_quarantine_recovery(
             or "source_url" in record
         ):
             raise CommandError(f"invalid quarantine recovery record: {key}")
+    _require_snapshot_unchanged(
+        {
+            run_card_path: run_card_bytes,
+            **{path: source_snapshot[name] for name, path in source_paths.items()},
+            manifest_path: manifest_bytes,
+            purchased_case_relevance_path: purchased_case_relevance_bytes,
+            restriction_path: restriction_bytes,
+            review_requests_path: review_requests_bytes,
+        },
+        label="quarantine recovery artifact",
+    )
     return {
         "recovery_stage": "recover-recap-fetch-quarantine",
         "manifest_path": manifest_path,
@@ -28448,20 +29162,42 @@ def _verify_materializer_quarantine_recovery(
         "run_card_path": run_card_path,
         "restriction_path": restriction_path,
         "review_requests_path": review_requests_path,
-        "attempt_policy_path": recovery_inputs[5],
+        "case_relevance_path": purchased_case_relevance_path,
+        "target_case_relevance_path": recovery_inputs[1],
+        "target_projection_run_card_path": recovery_inputs[2],
+        "attempt_policy_path": recovery_inputs[7],
+        "verified_artifact_bytes": {
+            os.path.abspath(run_card_path): run_card_bytes,
+            **normalized_source_snapshot,
+            os.path.abspath(manifest_path): manifest_bytes,
+            os.path.abspath(purchased_case_relevance_path): (
+                purchased_case_relevance_bytes
+            ),
+            os.path.abspath(restriction_path): restriction_bytes,
+            os.path.abspath(review_requests_path): review_requests_bytes,
+        },
     }
 
 
 def _materializer_recovery_source_commitments(
     recovery: Mapping[str, object],
 ) -> dict[str, object]:
+    raw_verified_bytes = recovery.get("verified_artifact_bytes")
+    verified_bytes: Mapping[str, bytes]
+    if isinstance(raw_verified_bytes, Mapping):
+        verified_bytes = cast(Mapping[str, bytes], raw_verified_bytes)
+    else:
+        verified_bytes = {}
+
+    def committed(path: Path) -> dict[str, str]:
+        payload = verified_bytes.get(os.path.abspath(path))
+        if payload is None:
+            return _materializer_file_commitment(path)
+        return _file_commitment_from_bytes(path, payload)
+
     commitments: dict[str, object] = {
-        "purchased_recovery_run_card": _materializer_file_commitment(
-            cast(Path, recovery["run_card_path"])
-        ),
-        "purchased_download_manifest": _materializer_file_commitment(
-            cast(Path, recovery["manifest_path"])
-        ),
+        "purchased_recovery_run_card": committed(cast(Path, recovery["run_card_path"])),
+        "purchased_download_manifest": committed(cast(Path, recovery["manifest_path"])),
     }
     stage = recovery.get("recovery_stage")
     if stage == "recover-purchased":
@@ -28472,14 +29208,20 @@ def _materializer_recovery_source_commitments(
             cast(Path, recovery["purchase_result_path"])
         )
     elif stage == "recover-recap-fetch-quarantine":
-        commitments["purchased_recovery_restriction_evidence"] = (
-            _materializer_file_commitment(cast(Path, recovery["restriction_path"]))
+        commitments["purchased_recovery_restriction_evidence"] = committed(
+            cast(Path, recovery["restriction_path"])
         )
-        commitments["purchased_recovery_review_requests"] = (
-            _materializer_file_commitment(cast(Path, recovery["review_requests_path"]))
+        commitments["purchased_recovery_review_requests"] = committed(
+            cast(Path, recovery["review_requests_path"])
         )
-        commitments["purchased_recovery_attempt_policy"] = (
-            _materializer_file_commitment(cast(Path, recovery["attempt_policy_path"]))
+        commitments["purchased_recovery_case_relevance"] = committed(
+            cast(Path, recovery["case_relevance_path"])
+        )
+        commitments["target_projection_run_card"] = committed(
+            cast(Path, recovery["target_projection_run_card_path"])
+        )
+        commitments["purchased_recovery_attempt_policy"] = committed(
+            cast(Path, recovery["attempt_policy_path"])
         )
     else:
         raise CommandError("unsupported materializer recovery stage")
@@ -28501,6 +29243,8 @@ def _verify_materializer_recovery_clearance_binding(
     clearance_requests = clearance_lineage.get("requests_path")
     recovery_restrictions = recovery.get("restriction_path")
     clearance_restrictions = clearance_lineage.get("restriction_path")
+    recovery_relevance = recovery.get("case_relevance_path")
+    clearance_relevance = clearance_lineage.get("case_relevance_path")
     if not isinstance(recovery_requests, Path) or not isinstance(
         clearance_requests, Path
     ):
@@ -28515,6 +29259,12 @@ def _verify_materializer_recovery_clearance_binding(
         raise CommandError(
             "quarantine clearance committed different restriction evidence"
         )
+    if not isinstance(recovery_relevance, Path) or not isinstance(
+        clearance_relevance, Path
+    ):
+        raise CommandError("quarantine clearance lacks case-relevance lineage")
+    if recovery_relevance.resolve() != clearance_relevance.resolve():
+        raise CommandError("quarantine clearance committed different case relevance")
 
 
 def _verify_materializer_clearance_lineage(
@@ -28522,29 +29272,153 @@ def _verify_materializer_clearance_lineage(
     manifest_path: Path,
     clearance_path: Path,
     run_card_path: Path,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
 ) -> dict[str, object]:
     _require_materializer_artifact(clearance_path, label="purchased clearance")
     _require_materializer_artifact(run_card_path, label="purchased clearance run card")
-    run_card = _read_json_object(run_card_path)
+    run_card_bytes = _captured_or_stable_input(
+        run_card_path,
+        label="purchased clearance run card",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    verified_snapshot = _complete_clearance_artifact_snapshot(
+        run_card=run_card,
+        run_card_path=run_card_path,
+        run_card_bytes=run_card_bytes,
+        clearance_path=clearance_path,
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
     sources = run_card.get("source_commitments")
     if not isinstance(sources, Mapping):
         raise CommandError("purchased clearance run card lacks source commitments")
     source_records = cast(Mapping[str, object], sources)
     committed_manifest = _materializer_committed_path(
-        source_records, "download_manifest"
+        source_records,
+        "download_manifest",
+        captured_artifact_bytes=verified_snapshot,
     )
     if committed_manifest.resolve() != manifest_path.resolve():
         raise CommandError("purchased clearance committed a different manifest")
-    reviews_path = _materializer_committed_path(source_records, "reviews")
-    receipt_path = _materializer_committed_path(source_records, "review_receipt")
-    requests_path = _materializer_committed_path(source_records, "review_requests")
-    worksheet_path = _materializer_committed_path(source_records, "review_worksheet")
-    reviewer_policy_path = _materializer_committed_path(
-        source_records, "reviewer_policy"
+    clearance_authority = run_card.get("clearance_authority")
+    authority_kind = (
+        cast(Mapping[str, object], clearance_authority).get("kind")
+        if isinstance(clearance_authority, Mapping)
+        else None
     )
-    cohort_policy_path = _materializer_committed_path(source_records, "cohort_policy")
+    if authority_kind == "provenance_first_with_john_exceptions":
+        case_relevance_path = _materializer_committed_path(
+            source_records,
+            "case_relevance",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        restriction_path = _materializer_committed_path(
+            source_records,
+            "restriction_evidence",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        requests_path = _materializer_committed_path(
+            source_records,
+            "review_requests",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        worksheet_path = _materializer_committed_path(
+            source_records,
+            "exception_worksheet",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        cohort_policy_path = _materializer_committed_path(
+            source_records,
+            "cohort_policy",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        decisions_path = _materializer_committed_path(
+            source_records,
+            "exception_decisions",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        recorder_path = _materializer_committed_path(
+            source_records,
+            "exception_review_run_card",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        routing_plan_path = _materializer_committed_path(
+            source_records,
+            "routing_plan",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        for label, path in (
+            ("purchased review requests", requests_path),
+            ("purchased exception worksheet", worksheet_path),
+            ("purchased cohort policy", cohort_policy_path),
+            ("purchased restriction evidence", restriction_path),
+        ):
+            _require_materializer_artifact(path, label=label)
+        _verify_authenticated_clearance_run_card(
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=manifest_path,
+            expected_restriction_path=restriction_path,
+            captured_artifact_bytes=verified_snapshot,
+        )
+        return {
+            "lineage_kind": "provenance_first_with_john_exceptions",
+            "verified_artifact_bytes": verified_snapshot,
+            "authenticated_clearance_lineage": _provenance_resolved_lineage(
+                clearance_path=clearance_path,
+                clearance_run_card_path=run_card_path,
+                captured_artifact_bytes=verified_snapshot,
+            ),
+            "clearance_records": _projection_jsonl_records(
+                _captured_or_stable_input(
+                    clearance_path,
+                    label="purchased disclosure clearance",
+                    captured_artifact_bytes=verified_snapshot,
+                ),
+                source=clearance_path,
+            ),
+            "manifest_path": manifest_path,
+            "case_relevance_path": case_relevance_path,
+            "restriction_path": restriction_path,
+            "restriction_records": _projection_jsonl_records(
+                _captured_or_stable_input(
+                    restriction_path,
+                    label="purchased restriction evidence",
+                    captured_artifact_bytes=verified_snapshot,
+                ),
+                source=restriction_path,
+            ),
+            "requests_path": requests_path,
+            "worksheet_path": worksheet_path,
+            "cohort_policy_path": cohort_policy_path,
+            "decisions_path": decisions_path,
+            "recorder_path": recorder_path,
+            "routing_plan_path": routing_plan_path,
+        }
+    reviews_path = _materializer_committed_path(
+        source_records, "reviews", captured_artifact_bytes=verified_snapshot
+    )
+    receipt_path = _materializer_committed_path(
+        source_records, "review_receipt", captured_artifact_bytes=verified_snapshot
+    )
+    requests_path = _materializer_committed_path(
+        source_records, "review_requests", captured_artifact_bytes=verified_snapshot
+    )
+    worksheet_path = _materializer_committed_path(
+        source_records, "review_worksheet", captured_artifact_bytes=verified_snapshot
+    )
+    reviewer_policy_path = _materializer_committed_path(
+        source_records,
+        "reviewer_policy",
+        captured_artifact_bytes=verified_snapshot,
+    )
+    cohort_policy_path = _materializer_committed_path(
+        source_records, "cohort_policy", captured_artifact_bytes=verified_snapshot
+    )
     restriction_path = _materializer_committed_path(
-        source_records, "restriction_evidence"
+        source_records,
+        "restriction_evidence",
+        captured_artifact_bytes=verified_snapshot,
     )
     for label, path in (
         ("purchased review", reviews_path),
@@ -28556,15 +29430,24 @@ def _verify_materializer_clearance_lineage(
         ("purchased restriction evidence", restriction_path),
     ):
         _require_materializer_artifact(path, label=label)
-    clearance_records = _read_records(clearance_path)
-    restriction_records = _read_records(restriction_path)
+    clearance_bytes = verified_snapshot[os.path.abspath(clearance_path)]
+    restriction_bytes = verified_snapshot[os.path.abspath(restriction_path)]
+    clearance_records = _projection_jsonl_records(
+        clearance_bytes, source=clearance_path
+    )
+    restriction_records = _projection_jsonl_records(
+        restriction_bytes, source=restriction_path
+    )
     authority_record = run_card.get("review_authority")
     if not isinstance(authority_record, Mapping):
         raise CommandError("purchased clearance run card lacks review authority")
-    reviewer_policy_bytes = reviewer_policy_path.read_bytes()
+    reviewer_policy_bytes = verified_snapshot[os.path.abspath(reviewer_policy_path)]
     try:
         disclosure_authority = load_main_disclosure_review_authority(
-            _read_json_object(cohort_policy_path),
+            _projection_json_object(
+                verified_snapshot[os.path.abspath(cohort_policy_path)],
+                source=cohort_policy_path,
+            ),
             reviewer_policy_bytes=reviewer_policy_bytes,
         )
     except DisclosureReviewAuthorityError as exc:
@@ -28577,30 +29460,44 @@ def _verify_materializer_clearance_lineage(
             "disclosure_clearance": clearance_path,
         },
         source_sha256={
-            "download_manifest": _path_sha256(manifest_path),
-            "restriction_evidence": _path_sha256(restriction_path),
-            "disclosure_clearance": _path_sha256(clearance_path),
+            "download_manifest": _bytes_sha256(
+                verified_snapshot[os.path.abspath(manifest_path)]
+            ),
+            "restriction_evidence": _bytes_sha256(restriction_bytes),
+            "disclosure_clearance": _bytes_sha256(clearance_bytes),
         },
     )
     validate_authenticated_clearance_lineage(
         clearance_records=clearance_records,
-        clearance_artifact_bytes=clearance_path.read_bytes(),
+        clearance_artifact_bytes=clearance_bytes,
         clearance_run_card=run_card,
-        clearance_run_card_bytes=run_card_path.read_bytes(),
-        reviews_artifact_bytes=reviews_path.read_bytes(),
-        review_receipt_artifact=_read_json_object(receipt_path),
-        review_receipt_bytes=receipt_path.read_bytes(),
-        review_requests_artifact_bytes=requests_path.read_bytes(),
-        review_worksheet_artifact=_read_json_object(worksheet_path),
-        review_worksheet_bytes=worksheet_path.read_bytes(),
+        clearance_run_card_bytes=run_card_bytes,
+        reviews_artifact_bytes=verified_snapshot[os.path.abspath(reviews_path)],
+        review_receipt_artifact=_projection_json_object(
+            verified_snapshot[os.path.abspath(receipt_path)], source=receipt_path
+        ),
+        review_receipt_bytes=verified_snapshot[os.path.abspath(receipt_path)],
+        review_requests_artifact_bytes=verified_snapshot[
+            os.path.abspath(requests_path)
+        ],
+        review_worksheet_artifact=_projection_json_object(
+            verified_snapshot[os.path.abspath(worksheet_path)], source=worksheet_path
+        ),
+        review_worksheet_bytes=verified_snapshot[os.path.abspath(worksheet_path)],
         reviewer_policy_bytes=reviewer_policy_bytes,
         disclosure_authority=disclosure_authority,
-        cohort_policy_artifact_bytes=cohort_policy_path.read_bytes(),
-        download_manifest_artifact_bytes=manifest_path.read_bytes(),
+        cohort_policy_artifact_bytes=verified_snapshot[
+            os.path.abspath(cohort_policy_path)
+        ],
+        download_manifest_artifact_bytes=verified_snapshot[
+            os.path.abspath(manifest_path)
+        ],
         restriction_records=restriction_records,
-        restriction_artifact_bytes=restriction_path.read_bytes(),
+        restriction_artifact_bytes=restriction_bytes,
     )
     return {
+        "lineage_kind": "legacy_authenticated_review",
+        "verified_artifact_bytes": verified_snapshot,
         "clearance_records": clearance_records,
         "manifest_path": manifest_path,
         "restriction_path": restriction_path,
@@ -28621,6 +29518,57 @@ def _materializer_clearance_lineage_kwargs(
     run_card_path: Path,
     lineage: Mapping[str, object],
 ) -> dict[str, Any]:
+    if lineage.get("lineage_kind") == "provenance_first_with_john_exceptions":
+        requests_path = cast(Path, lineage["requests_path"])
+        worksheet_path = cast(Path, lineage["worksheet_path"])
+        restriction_path = cast(Path, lineage["restriction_path"])
+        decisions_path = cast(Path, lineage["decisions_path"])
+        recorder_path = cast(Path, lineage["recorder_path"])
+        routing_plan_path = cast(Path, lineage["routing_plan_path"])
+        cohort_policy_path = cast(Path, lineage["cohort_policy_path"])
+        verified_bytes = cast(Mapping[str, bytes], lineage["verified_artifact_bytes"])
+
+        def snapshot_bytes(path: Path) -> bytes:
+            try:
+                return verified_bytes[os.path.abspath(path)]
+            except KeyError as exc:
+                raise CommandError(
+                    f"verified provenance snapshot lacks downstream input: {path}"
+                ) from exc
+
+        return {
+            "clearance_artifact_bytes": snapshot_bytes(clearance_path),
+            "clearance_run_card": _projection_json_object(
+                snapshot_bytes(run_card_path), source=run_card_path
+            ),
+            "clearance_run_card_bytes": snapshot_bytes(run_card_path),
+            "reviews_artifact_bytes": snapshot_bytes(decisions_path),
+            "review_receipt_artifact": _projection_json_object(
+                snapshot_bytes(recorder_path), source=recorder_path
+            ),
+            "review_receipt_bytes": snapshot_bytes(recorder_path),
+            "review_requests_artifact_bytes": snapshot_bytes(requests_path),
+            "review_worksheet_artifact": _projection_json_object(
+                snapshot_bytes(worksheet_path), source=worksheet_path
+            ),
+            "review_worksheet_bytes": snapshot_bytes(worksheet_path),
+            "reviewer_policy_bytes": snapshot_bytes(routing_plan_path),
+            "disclosure_authority": None,
+            "cohort_policy_artifact_bytes": snapshot_bytes(cohort_policy_path),
+            "download_manifest_artifact_bytes": snapshot_bytes(
+                cast(Path, lineage["manifest_path"])
+            ),
+            "restriction_records": cast(
+                Sequence[Mapping[str, Any]], lineage["restriction_records"]
+            ),
+            "restriction_artifact_bytes": snapshot_bytes(restriction_path),
+            "_verified_provenance_lineage": cast(
+                AuthenticatedClearanceLineage,
+                lineage["authenticated_clearance_lineage"],
+            ),
+        }
+    if lineage.get("lineage_kind") != "legacy_authenticated_review":
+        raise CommandError("unsupported clearance lineage kind")
     reviews_path = cast(Path, lineage["reviews_path"])
     receipt_path = cast(Path, lineage["receipt_path"])
     requests_path = cast(Path, lineage["requests_path"])
@@ -28652,6 +29600,35 @@ def _materializer_clearance_lineage_kwargs(
         ),
         "restriction_artifact_bytes": restriction_path.read_bytes(),
     }
+
+
+def _build_resolved_post_recovery_dispatch(
+    **kwargs: Any,
+) -> tuple[dict[str, object], ...]:
+    """Use the private provenance path only after the CLI fully replayed it."""
+
+    values = dict(kwargs)
+    verified = values.pop("_verified_provenance_lineage", None)
+    if verified is None:
+        return build_resolved_post_recovery_documents(**values)
+    return build_resolved_post_recovery_documents_with_authenticated_lineage(
+        **values,
+        verified_provenance_lineage=cast(AuthenticatedClearanceLineage, verified),
+    )
+
+
+def _require_resolved_post_recovery_dispatch(**kwargs: Any) -> None:
+    """Replay resolved lineage through the verifier-owned provenance path."""
+
+    values = dict(kwargs)
+    verified = values.pop("_verified_provenance_lineage", None)
+    if verified is None:
+        require_resolved_post_recovery_documents(**values)
+        return
+    require_resolved_post_recovery_documents_with_authenticated_lineage(
+        **values,
+        verified_provenance_lineage=cast(AuthenticatedClearanceLineage, verified),
+    )
 
 
 def _verify_materializer_purchase_operations(
@@ -28827,7 +29804,10 @@ def _verify_materializer_resume(
     output_commitments: Mapping[str, object],
     dry_run: bool,
 ) -> None:
-    card = _read_json_object(run_card_path)
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="materialization resume run card"
+    )
+    card = _projection_json_object(run_card_bytes, source=run_card_path)
     expected = {
         "schema_version": "legalforecast.acquisition_run_card.v1",
         "stage": "materialize-cohort-documents",
@@ -28856,6 +29836,18 @@ def _verify_materializer_resume(
             raise CommandError(f"materialize-cohort-documents resume mismatch: {field}")
     if dry_run:
         return
+    output_snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="materialization resume output"
+        )
+        for path in (
+            manifest_path,
+            clearance_path,
+            restriction_path,
+            derivations_path,
+            summary_path,
+        )
+    }
     for path, payload in (
         (manifest_path, manifest_bytes),
         (clearance_path, clearance_bytes),
@@ -28863,7 +29855,7 @@ def _verify_materializer_resume(
         (derivations_path, derivations_bytes),
         (summary_path, summary_bytes),
     ):
-        if path.is_symlink() or not path.is_file() or path.read_bytes() != payload:
+        if output_snapshots[path] != payload:
             raise CommandError(
                 f"materialize-cohort-documents committed output changed: {path}"
             )
@@ -28875,6 +29867,36 @@ def _verify_materializer_resume(
         )
     except DisclosureClearanceError as exc:
         raise CommandError(str(exc)) from exc
+    _require_snapshot_unchanged(
+        {run_card_path: run_card_bytes, **output_snapshots},
+        label="materialization resume artifact",
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _VerifiedMaterializedDownstreamLineage:
+    paths: tuple[Path, ...]
+    artifact_bytes: Mapping[str, bytes]
+    manifest_records: tuple[Mapping[str, Any], ...]
+    clearance_records: tuple[Mapping[str, Any], ...]
+    selection_records: tuple[Mapping[str, Any], ...]
+    resolved_records: tuple[Mapping[str, Any], ...]
+    document_tree: Mapping[str, bytes]
+
+    def __len__(self) -> int:
+        return len(self.paths)
+
+    @overload
+    def __getitem__(self, index: int) -> Path: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> tuple[Path, ...]: ...
+
+    def __getitem__(self, index: int | slice) -> Path | tuple[Path, ...]:
+        return self.paths[index]
+
+    def __iter__(self) -> Iterator[Path]:
+        return iter(self.paths)
 
 
 def _verify_materialized_downstream_lineage(
@@ -28884,11 +29906,14 @@ def _verify_materialized_downstream_lineage(
     clearance_path: Path,
     document_root: Path,
     selection_path: Path | None = None,
-) -> tuple[Path, ...]:
+) -> _VerifiedMaterializedDownstreamLineage:
     _require_materializer_artifact(
         run_card_path, label="materialization lineage run card"
     )
-    card = _read_json_object(run_card_path)
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="materialization lineage run card"
+    )
+    card = _projection_json_object(run_card_bytes, source=run_card_path)
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or card.get("stage") != "materialize-cohort-documents"
@@ -28947,14 +29972,38 @@ def _verify_materialized_downstream_lineage(
         path.resolve() for path in expected_outputs
     ):
         raise CommandError("materialization lineage outputs differ from parser inputs")
-    for label, path in (
-        ("materialized manifest", manifest_path),
-        ("materialized clearance", clearance_path),
-        ("materialized restriction evidence", restriction_path),
-        ("materialized derivations", derivations_path),
-        ("materialization summary", summary_path),
-    ):
-        _require_materializer_artifact(path, label=label)
+    direct_input_paths = (
+        preparation_summary_path,
+        preparation_config_path,
+        snapshot_manifest_path,
+        free_clearance_path,
+        purchased_clearance_path,
+        purchased_clearance_card_path,
+        purchase_policy_path,
+        cohort_policy_path,
+        ledger_path,
+        *((resolved_path,) if resolved_path is not None else ()),
+        *((selection_path,) if selection_path is not None else ()),
+    )
+    direct_output_paths = (
+        manifest_path,
+        clearance_path,
+        restriction_path,
+        derivations_path,
+        summary_path,
+    )
+    direct_snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="materialization lineage artifact"
+        )
+        for path in (*direct_input_paths, *direct_output_paths)
+    }
+    captured_artifact_bytes: dict[str, bytes] = {
+        os.path.abspath(run_card_path): run_card_bytes,
+        **{
+            os.path.abspath(path): payload for path, payload in direct_snapshots.items()
+        },
+    }
     try:
         verified_preparation = _verify_completed_preparation_for_frontier(
             preparation_root=preparation_root,
@@ -28962,6 +30011,13 @@ def _verify_materialized_downstream_lineage(
             preparation_config_path=preparation_config_path,
             snapshot_manifest_path=snapshot_manifest_path,
         )
+        preparation_success_bytes = _read_singly_linked_regular_input(
+            verified_preparation.success_run_card_path,
+            label="materialization preparation success run card",
+        )
+        captured_artifact_bytes[
+            os.path.abspath(verified_preparation.success_run_card_path)
+        ] = preparation_success_bytes
         projection = _verify_materializer_projection(
             target_root=target_root,
             free_clearance_path=free_clearance_path,
@@ -28970,10 +30026,16 @@ def _verify_materialized_downstream_lineage(
             snapshot_manifest_path=snapshot_manifest_path,
             expected_target_count=verified_preparation.target_case_count,
         )
+        _merge_verified_artifact_bytes(
+            captured_artifact_bytes,
+            cast(Mapping[str, bytes], projection["verified_artifact_bytes"]),
+            label="downstream materialization projection",
+        )
         committed_selection_path = cast(Path, projection["selection_path"])
         if selection_path is not None and (
             selection_path.resolve() != committed_selection_path.resolve()
-            or selection_path.read_bytes() != committed_selection_path.read_bytes()
+            or direct_snapshots[selection_path]
+            != captured_artifact_bytes[os.path.abspath(committed_selection_path)]
         ):
             raise CommandError(
                 "downstream selection differs from materialized target cohort"
@@ -28986,25 +30048,46 @@ def _verify_materialized_downstream_lineage(
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
         )
+        raw_recovery_bytes = recovery.get("verified_artifact_bytes")
+        if isinstance(raw_recovery_bytes, Mapping):
+            _merge_verified_artifact_bytes(
+                captured_artifact_bytes,
+                cast(Mapping[str, bytes], raw_recovery_bytes),
+                label="downstream materialization recovery",
+            )
         purchased_lineage = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
         )
+        raw_clearance_bytes = purchased_lineage.get("verified_artifact_bytes")
+        if isinstance(raw_clearance_bytes, Mapping):
+            _merge_verified_artifact_bytes(
+                captured_artifact_bytes,
+                cast(Mapping[str, bytes], raw_clearance_bytes),
+                label="downstream materialization clearance",
+            )
         _verify_materializer_recovery_clearance_binding(
             recovery=recovery,
             clearance_lineage=purchased_lineage,
         )
         purchase_policy = verify_case_dev_purchase_policy(
-            _read_json_object(purchase_policy_path)
+            _projection_json_object(
+                direct_snapshots[purchase_policy_path], source=purchase_policy_path
+            )
         )
         verify_case_dev_purchase_policy_cohort_binding(
-            purchase_policy, _read_json_object(cohort_policy_path)
+            purchase_policy,
+            _projection_json_object(
+                direct_snapshots[cohort_policy_path], source=cohort_policy_path
+            ),
         )
         snapshot = read_case_dev_purchase_snapshot(
             ledger_path.resolve(), policy=purchase_policy
         )
-        selection_records = _read_records(cast(Path, projection["selection_path"]))
+        selection_records = cast(
+            Sequence[Mapping[str, Any]], projection["selection_records"]
+        )
         purchased_manifest = cast(
             Sequence[Mapping[str, Any]], recovery["manifest_records"]
         )
@@ -29019,10 +30102,14 @@ def _verify_materialized_downstream_lineage(
                 "materialization lineage resolved-document input coverage differs"
             )
         resolved_records = (
-            _read_records(resolved_path) if resolved_path is not None else []
+            _projection_jsonl_records(
+                direct_snapshots[resolved_path], source=resolved_path
+            )
+            if resolved_path is not None
+            else []
         )
         if needs_resolved_lineage:
-            require_resolved_post_recovery_documents(
+            _require_resolved_post_recovery_dispatch(
                 selection_records=selection_records,
                 download_records=purchased_manifest,
                 clearance_records=cast(
@@ -29086,9 +30173,9 @@ def _verify_materialized_downstream_lineage(
         raise CommandError(str(exc)) from exc
     expected_manifest = _projection_jsonl_bytes(materialization.manifest)
     expected_clearance = _projection_jsonl_bytes(materialization.clearance)
-    if manifest_path.read_bytes() != expected_manifest:
+    if direct_snapshots[manifest_path] != expected_manifest:
         raise CommandError("materialized manifest does not reproduce")
-    if clearance_path.read_bytes() != expected_clearance:
+    if direct_snapshots[clearance_path] != expected_clearance:
         raise CommandError("materialized clearance does not reproduce")
     free_keys = {
         _materializer_record_key(record)
@@ -29127,52 +30214,58 @@ def _verify_materialized_downstream_lineage(
         ),
         resolved_records=resolved_records,
     )
-    if restriction_path.read_bytes() != _projection_jsonl_bytes(expected_restrictions):
+    expected_restriction_bytes = _projection_jsonl_bytes(expected_restrictions)
+    expected_derivation_bytes = _projection_jsonl_bytes(expected_derivations)
+    if direct_snapshots[restriction_path] != expected_restriction_bytes:
         raise CommandError("materialized restriction evidence does not reproduce")
-    if derivations_path.read_bytes() != _projection_jsonl_bytes(expected_derivations):
+    if direct_snapshots[derivations_path] != expected_derivation_bytes:
         raise CommandError("materialization derivations do not reproduce")
+
+    def verified_commitment(path: Path) -> dict[str, str]:
+        try:
+            payload = captured_artifact_bytes[os.path.abspath(path)]
+        except KeyError as exc:
+            raise CommandError(
+                f"materialization verified snapshot lacks source: {path}"
+            ) from exc
+        return _file_commitment_from_bytes(path, payload)
+
     expected_sources: dict[str, object] = {
-        "preparation_summary": _materializer_file_commitment(preparation_summary_path),
-        "preparation_config": _materializer_file_commitment(preparation_config_path),
-        "preparation_success_run_card": _materializer_file_commitment(
+        "preparation_summary": verified_commitment(preparation_summary_path),
+        "preparation_config": verified_commitment(preparation_config_path),
+        "preparation_success_run_card": verified_commitment(
             verified_preparation.success_run_card_path
         ),
-        "snapshot_manifest": _materializer_file_commitment(snapshot_manifest_path),
-        "target_projection": _materializer_file_commitment(
+        "snapshot_manifest": verified_commitment(snapshot_manifest_path),
+        "target_projection": verified_commitment(
             cast(Path, projection["summary_path"])
         ),
-        "target_projection_run_card": _materializer_file_commitment(
+        "target_projection_run_card": verified_commitment(
             cast(Path, projection["run_card_path"])
         ),
-        "target_selection": _materializer_file_commitment(
+        "target_selection": verified_commitment(
             cast(Path, projection["selection_path"])
         ),
-        "free_download_manifest": _materializer_file_commitment(
+        "free_download_manifest": verified_commitment(
             cast(Path, projection["free_manifest_path"])
         ),
-        "free_disclosure_clearance": _materializer_file_commitment(free_clearance_path),
+        "free_disclosure_clearance": verified_commitment(free_clearance_path),
         **_materializer_recovery_source_commitments(recovery),
-        "purchased_disclosure_clearance": _materializer_file_commitment(
-            purchased_clearance_path
-        ),
-        "purchased_clearance_run_card": _materializer_file_commitment(
+        "purchased_disclosure_clearance": verified_commitment(purchased_clearance_path),
+        "purchased_clearance_run_card": verified_commitment(
             purchased_clearance_card_path
         ),
-        "free_restriction_evidence": _materializer_file_commitment(
+        "free_restriction_evidence": verified_commitment(
             cast(Path, projection["restriction_path"])
         ),
-        "purchased_restriction_evidence": _materializer_file_commitment(
+        "purchased_restriction_evidence": verified_commitment(
             cast(Path, purchased_lineage["restriction_path"])
         ),
-        "purchase_policy": _materializer_file_commitment(purchase_policy_path),
-        "cohort_policy": _materializer_file_commitment(cohort_policy_path),
+        "purchase_policy": verified_commitment(purchase_policy_path),
+        "cohort_policy": verified_commitment(cohort_policy_path),
         "purchase_state_sha256": snapshot.purchase_state_sha256,
         **(
-            {
-                "resolved_post_recovery_documents": _materializer_file_commitment(
-                    resolved_path
-                )
-            }
+            {"resolved_post_recovery_documents": verified_commitment(resolved_path)}
             if resolved_path is not None
             else {}
         ),
@@ -29185,7 +30278,12 @@ def _verify_materialized_downstream_lineage(
         )
         for document in materialization.documents
     }
-    if _materializer_tree_commitments(document_root) != document_commitments:
+    document_tree_snapshot = _materializer_tree_snapshot(document_root)
+    verified_document_commitments = {
+        relative_path: _bytes_sha256(payload)
+        for relative_path, payload in document_tree_snapshot.items()
+    }
+    if verified_document_commitments != document_commitments:
         raise CommandError("materialization document-tree commitment changed")
     expected_summary = {
         **materialization.summary,
@@ -29205,13 +30303,21 @@ def _verify_materialized_downstream_lineage(
         "next_stage": "plan-parse-documents",
     }
     expected_summary_bytes = _projection_json_bytes(expected_summary)
-    if summary_path.read_bytes() != expected_summary_bytes:
+    if direct_snapshots[summary_path] != expected_summary_bytes:
         raise CommandError("materialization summary does not reproduce")
     expected_output_commitments = {
-        "document_manifest": _materializer_file_commitment(manifest_path),
-        "disclosure_clearance": _materializer_file_commitment(clearance_path),
-        "restriction_evidence": _materializer_file_commitment(restriction_path),
-        "materialization_derivations": _materializer_file_commitment(derivations_path),
+        "document_manifest": _file_commitment_from_bytes(
+            manifest_path, direct_snapshots[manifest_path]
+        ),
+        "disclosure_clearance": _file_commitment_from_bytes(
+            clearance_path, direct_snapshots[clearance_path]
+        ),
+        "restriction_evidence": _file_commitment_from_bytes(
+            restriction_path, direct_snapshots[restriction_path]
+        ),
+        "materialization_derivations": _file_commitment_from_bytes(
+            derivations_path, direct_snapshots[derivations_path]
+        ),
         "materialization_summary": {
             "path": str(summary_path.resolve()),
             "sha256": _bytes_sha256(expected_summary_bytes),
@@ -29220,11 +30326,41 @@ def _verify_materialized_downstream_lineage(
     }
     if card.get("output_commitments") != expected_output_commitments:
         raise CommandError("materialization output commitments do not reproduce")
-    return (
-        run_card_path,
-        restriction_path,
-        derivations_path,
-        *((resolved_path,) if resolved_path is not None else ()),
+    _require_snapshot_unchanged(
+        {
+            run_card_path: run_card_bytes,
+            **direct_snapshots,
+            **{
+                Path(path): payload for path, payload in captured_artifact_bytes.items()
+            },
+            **{
+                document_root / relative_path: payload
+                for relative_path, payload in document_tree_snapshot.items()
+            },
+        },
+        label="materialization lineage artifact",
+    )
+    return _VerifiedMaterializedDownstreamLineage(
+        paths=(
+            run_card_path,
+            restriction_path,
+            derivations_path,
+            *((resolved_path,) if resolved_path is not None else ()),
+        ),
+        artifact_bytes=dict(captured_artifact_bytes),
+        manifest_records=tuple(
+            _projection_jsonl_records(
+                direct_snapshots[manifest_path], source=manifest_path
+            )
+        ),
+        clearance_records=tuple(
+            _projection_jsonl_records(
+                direct_snapshots[clearance_path], source=clearance_path
+            )
+        ),
+        selection_records=tuple(selection_records),
+        resolved_records=tuple(resolved_records),
+        document_tree=dict(document_tree_snapshot),
     )
 
 
@@ -29260,11 +30396,7 @@ def _verify_optional_finalize_materialization(
     download_manifest_path: Path | None,
     materialization_card_path: Path | None,
     document_root: Path | None,
-) -> tuple[Path, ...]:
-    clearance_records = _read_records(clearance_path)
-    has_marker = any(
-        "materialization_schema_version" in record for record in clearance_records
-    )
+) -> _VerifiedMaterializedDownstreamLineage | tuple[Path, ...]:
     options = (download_manifest_path, materialization_card_path, document_root)
     if any(path is not None for path in options) and not all(
         path is not None for path in options
@@ -29277,19 +30409,32 @@ def _verify_optional_finalize_materialization(
         manifest = cast(Path, download_manifest_path)
         card = cast(Path, materialization_card_path)
         root = cast(Path, document_root)
-        if not _require_consistent_materialization_markers(
-            _read_records(manifest), clearance_records
-        ):
-            raise CommandError(
-                "finalize materialization arguments require exact markers"
-            )
-        return _verify_materialized_downstream_lineage(
+        verified = _verify_materialized_downstream_lineage(
             run_card_path=card,
             manifest_path=manifest,
             clearance_path=clearance_path,
             document_root=root,
             selection_path=selection_path,
         )
+        if not _require_consistent_materialization_markers(
+            verified.manifest_records, verified.clearance_records
+        ):
+            raise CommandError(
+                "finalize materialization arguments require exact markers"
+            )
+        return verified
+    clearance_bytes = _read_singly_linked_regular_input(
+        clearance_path, label="finalize disclosure clearance"
+    )
+    clearance_records = _projection_jsonl_records(
+        clearance_bytes, source=clearance_path
+    )
+    has_marker = any(
+        "materialization_schema_version" in record for record in clearance_records
+    )
+    _require_snapshot_unchanged(
+        {clearance_path: clearance_bytes}, label="finalize disclosure clearance"
+    )
     if has_marker:
         raise CommandError(
             "materialized final corpus requires its manifest, run card, and root"
@@ -29298,9 +30443,17 @@ def _verify_optional_finalize_materialization(
 
 
 def _materializer_tree_commitments(root: Path) -> dict[str, str]:
+    return {
+        relative_path: _bytes_sha256(payload)
+        for relative_path, payload in _materializer_tree_snapshot(root).items()
+    }
+
+
+def _materializer_tree_snapshot(root: Path) -> dict[str, bytes]:
+    _reject_existing_parent_symlink(root, label="document tree")
     if root.is_symlink() or not root.is_dir():
         raise CommandError(f"document tree is missing or unsafe: {root}")
-    commitments: dict[str, str] = {}
+    snapshots: dict[str, bytes] = {}
     for path in sorted(root.rglob("*")):
         if path.is_symlink():
             raise CommandError(f"symlink in document tree: {path}")
@@ -29311,8 +30464,10 @@ def _materializer_tree_commitments(root: Path) -> dict[str, str]:
             raise CommandError(f"special node in document tree is forbidden: {path}")
         if metadata.st_nlink != 1:
             raise CommandError(f"hardlinked document-tree file is forbidden: {path}")
-        commitments[path.relative_to(root).as_posix()] = _path_sha256(path)
-    return commitments
+        snapshots[path.relative_to(root).as_posix()] = (
+            _read_singly_linked_regular_input(path, label="document tree file")
+        )
+    return snapshots
 
 
 def _materializer_file_commitment(path: Path) -> dict[str, str]:
@@ -29320,7 +30475,60 @@ def _materializer_file_commitment(path: Path) -> dict[str, str]:
     return {"path": str(path.resolve()), "sha256": _path_sha256(path)}
 
 
-def _materializer_committed_path(commitments: Mapping[str, object], name: str) -> Path:
+def _file_commitment_from_bytes(path: Path, payload: bytes) -> dict[str, str]:
+    """Commit one already-authenticated immutable input snapshot."""
+
+    return {"path": str(path.resolve()), "sha256": _bytes_sha256(payload)}
+
+
+def _require_snapshot_unchanged(snapshots: Mapping[Path, bytes], *, label: str) -> None:
+    """Fail closed when an immutable input changed after its first read."""
+
+    for path, expected in snapshots.items():
+        if _read_singly_linked_regular_input(path, label=label) != expected:
+            raise CommandError(f"{label} changed during execution: {path}")
+
+
+def _snapshot_regular_input_paths(
+    paths: Sequence[Path],
+    *,
+    label: str,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+) -> dict[Path, bytes]:
+    """Capture completion inputs once, reusing authenticated upstream bytes."""
+
+    snapshots: dict[Path, bytes] = {}
+    captured = captured_artifact_bytes or {}
+    for path in paths:
+        payload = captured.get(os.path.abspath(path))
+        if payload is None:
+            payload = _read_singly_linked_regular_input(path, label=label)
+        snapshots[path] = payload
+    return snapshots
+
+
+def _merge_verified_artifact_bytes(
+    target: dict[str, bytes],
+    incoming: Mapping[str, bytes],
+    *,
+    label: str,
+) -> None:
+    """Merge authenticated snapshots without permitting unequal overlap."""
+
+    for raw_path, payload in incoming.items():
+        path = os.path.abspath(raw_path)
+        existing = target.get(path)
+        if existing is not None and existing != payload:
+            raise CommandError(f"{label} snapshot collision: {path}")
+        target[path] = payload
+
+
+def _materializer_committed_path(
+    commitments: Mapping[str, object],
+    name: str,
+    *,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+) -> Path:
     commitment = commitments.get(name)
     if not isinstance(commitment, Mapping):
         raise CommandError(f"clearance run card lacks {name} commitment")
@@ -29330,10 +30538,42 @@ def _materializer_committed_path(commitments: Mapping[str, object], name: str) -
     if not isinstance(raw_path, str) or not _valid_prefixed_sha256(sha256):
         raise CommandError(f"clearance run card has invalid {name} commitment")
     path = Path(raw_path)
-    _require_materializer_artifact(path, label=f"clearance {name}")
-    if _path_sha256(path) != sha256:
+    payload = _captured_or_stable_input(
+        path,
+        label=f"clearance {name}",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    if _bytes_sha256(payload) != sha256:
         raise CommandError(f"clearance {name} commitment changed")
     return path
+
+
+def _snapshot_committed_file(
+    commitments: Mapping[str, object],
+    name: str,
+    *,
+    label: str,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+) -> tuple[Path, bytes]:
+    """Resolve and verify one committed file from a single byte snapshot."""
+
+    commitment = commitments.get(name)
+    if not isinstance(commitment, Mapping):
+        raise CommandError(f"{label} lacks {name} commitment")
+    record = cast(Mapping[str, object], commitment)
+    raw_path = record.get("path")
+    expected_sha256 = record.get("sha256")
+    if not isinstance(raw_path, str) or not _valid_prefixed_sha256(expected_sha256):
+        raise CommandError(f"{label} has invalid {name} commitment")
+    path = Path(raw_path)
+    payload = _captured_or_stable_input(
+        path,
+        label=f"{label} {name}",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    if _bytes_sha256(payload) != expected_sha256:
+        raise CommandError(f"{label} {name} commitment changed")
+    return path, payload
 
 
 def _require_materializer_artifact(path: Path, *, label: str) -> None:
@@ -30364,11 +31604,129 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
     return 0 if result.executed_purchase_count == result.intended_purchase_count else 2
 
 
+def _authenticated_target_projection_inputs(
+    *,
+    selection_path: Path,
+    case_relevance_path: Path,
+    run_card_path: Path,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+) -> tuple[bytes, bytes]:
+    """Authenticate exact target selection and relevance bytes as one snapshot."""
+
+    selection_bytes = _captured_or_stable_input(
+        selection_path,
+        label="target projection selection",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    relevance_bytes = _captured_or_stable_input(
+        case_relevance_path,
+        label="target projection case relevance",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    run_card_bytes = _captured_or_stable_input(
+        run_card_path,
+        label="target projection run card",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "project-target-cohort"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError("invalid completed project-target-cohort run card")
+    raw_outputs = run_card.get("output_paths")
+    raw_commitments = run_card.get("output_commitments")
+    if not isinstance(raw_outputs, list) or not isinstance(raw_commitments, Mapping):
+        raise CommandError("project-target-cohort run card lacks exact outputs")
+    output_paths = {
+        os.path.abspath(Path(str(value))) for value in cast(list[object], raw_outputs)
+    }
+    commitments = cast(Mapping[str, object], raw_commitments)
+    normalized_commitments = {
+        os.path.abspath(Path(str(raw_path))): digest
+        for raw_path, digest in commitments.items()
+    }
+    for path, payload, label in (
+        (selection_path, selection_bytes, "selection"),
+        (case_relevance_path, relevance_bytes, "case relevance"),
+    ):
+        absolute = os.path.abspath(path)
+        if absolute not in output_paths or normalized_commitments.get(
+            absolute
+        ) != _bytes_sha256(payload):
+            raise CommandError(
+                f"project-target-cohort does not commit exact {label} output"
+            )
+    return selection_bytes, relevance_bytes
+
+
+def _project_purchased_case_relevance(
+    case_relevance: Sequence[Mapping[str, Any]],
+    recovered_manifest: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, object], ...]:
+    """Filter authenticated target relevance to exactly recovered purchased keys."""
+
+    recovered_keys = {_materializer_record_key(record) for record in recovered_manifest}
+    if len(recovered_keys) != len(recovered_manifest):
+        raise CommandError("recovered quarantine manifest repeats a document")
+    if any(
+        record.get("free_or_purchased") != "purchased" for record in recovered_manifest
+    ):
+        raise CommandError("recovered quarantine manifest includes a non-purchased row")
+    seen_candidates: set[str] = set()
+    seen_documents: set[tuple[str, str]] = set()
+    projected: list[dict[str, object]] = []
+    for raw_case in case_relevance:
+        candidate_id = _required_str(raw_case, "candidate_id")
+        if candidate_id in seen_candidates:
+            raise CommandError("target case relevance repeats a candidate")
+        seen_candidates.add(candidate_id)
+        raw_documents = raw_case.get("documents")
+        if not isinstance(raw_documents, list):
+            raise CommandError("target case relevance lacks documents")
+        selected_documents: list[dict[str, object]] = []
+        for raw_document in cast(list[object], raw_documents):
+            if not isinstance(raw_document, Mapping):
+                raise CommandError("target case relevance has invalid document row")
+            document = dict(cast(Mapping[str, object], raw_document))
+            key = (candidate_id, _required_str(document, "source_document_id"))
+            if key in seen_documents:
+                raise CommandError("target case relevance repeats a document")
+            seen_documents.add(key)
+            if key in recovered_keys:
+                selected_documents.append(document)
+        if selected_documents:
+            projected_case = dict(raw_case)
+            projected_case["documents"] = selected_documents
+            projected.append(projected_case)
+    missing = recovered_keys - seen_documents
+    if missing:
+        raise CommandError(
+            "recovered quarantine document lacks target case relevance: "
+            f"{sorted(missing)}"
+        )
+    projected_keys = {
+        (str(case["candidate_id"]), str(document["source_document_id"]))
+        for case in projected
+        for document in cast(list[dict[str, object]], case["documents"])
+    }
+    if projected_keys != recovered_keys:
+        raise CommandError("purchased case-relevance projection coverage mismatch")
+    return tuple(projected)
+
+
 def _cmd_acquisition_recover_recap_fetch_quarantine(
     args: argparse.Namespace,
 ) -> int:
     output_root = _acquisition_output_root(args)
     selection_path = cast(Path, args.selection)
+    case_relevance_path = cast(Path, args.case_relevance)
+    target_projection_run_card_path = cast(Path, args.target_projection_run_card)
     purchase_policy_path = cast(Path, args.purchase_policy)
     cohort_policy_path = cast(Path, args.cohort_policy)
     budget_plan_path = cast(Path, args.budget_plan)
@@ -30378,6 +31736,11 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         args,
         "manifest_output",
         output_root / "recap-fetch-quarantine-downloads.jsonl",
+    )
+    purchased_case_relevance_path = _acquisition_path(
+        args,
+        "case_relevance_output",
+        output_root / "purchased-case-relevance.jsonl",
     )
     restriction_path = _acquisition_path(
         args,
@@ -30398,8 +31761,21 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
     document_fixture = cast(Path | None, args.fixture_documents)
     live = cast(bool, args.live_courtlistener_recovery)
     dry_run = _acquisition_dry_run(args)
+    immutable_input_paths: tuple[Path, ...] = (
+        selection_path,
+        case_relevance_path,
+        target_projection_run_card_path,
+        purchase_policy_path,
+        cohort_policy_path,
+        budget_plan_path,
+        attempt_policy_path,
+        *((courtlistener_fixture,) if courtlistener_fixture is not None else ()),
+        *((document_fixture,) if document_fixture is not None else ()),
+    )
     input_paths = (
         selection_path,
+        case_relevance_path,
+        target_projection_run_card_path,
         purchase_policy_path,
         cohort_policy_path,
         budget_plan_path,
@@ -30409,11 +31785,40 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         *((document_fixture,) if document_fixture is not None else ()),
     )
     try:
-        selection_records = _read_records(selection_path)
-        purchase_policy_artifact = _read_json_object(purchase_policy_path)
-        cohort_policy_artifact = _read_json_object(cohort_policy_path)
-        budget_plan_artifact = _read_json_object(budget_plan_path)
-        attempt_policy_artifact = _read_json_object(attempt_policy_path)
+        immutable_input_snapshot = {
+            path: _read_singly_linked_regular_input(
+                path, label="quarantine recovery input"
+            )
+            for path in immutable_input_paths
+        }
+        normalized_input_snapshot = {
+            os.path.abspath(path): payload
+            for path, payload in immutable_input_snapshot.items()
+        }
+        selection_bytes, case_relevance_bytes = _authenticated_target_projection_inputs(
+            selection_path=selection_path,
+            case_relevance_path=case_relevance_path,
+            run_card_path=target_projection_run_card_path,
+            captured_artifact_bytes=normalized_input_snapshot,
+        )
+        selection_records = _projection_jsonl_records(
+            selection_bytes, source=selection_path
+        )
+        case_relevance_records = _projection_jsonl_records(
+            case_relevance_bytes, source=case_relevance_path
+        )
+        purchase_policy_artifact = _projection_json_object(
+            immutable_input_snapshot[purchase_policy_path], source=purchase_policy_path
+        )
+        cohort_policy_artifact = _projection_json_object(
+            immutable_input_snapshot[cohort_policy_path], source=cohort_policy_path
+        )
+        budget_plan_artifact = _projection_json_object(
+            immutable_input_snapshot[budget_plan_path], source=budget_plan_path
+        )
+        attempt_policy_artifact = _projection_json_object(
+            immutable_input_snapshot[attempt_policy_path], source=attempt_policy_path
+        )
         policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
         verify_case_dev_purchase_policy_cohort_binding(policy, cohort_policy_artifact)
         if ledger_path != policy.canonical_ledger_path:
@@ -30441,6 +31846,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 },
             )
             _write_jsonl(manifest_path, records)
+            _write_jsonl(purchased_case_relevance_path, [])
             _write_jsonl(restriction_path, [])
             _write_jsonl(review_requests_path, [])
         else:
@@ -30477,8 +31883,12 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                         "--fixture-documents"
                     )
                 config = CourtListenerRecapFetchConfig(api_token="offline-fixture")
-                transport = FixtureRecapFetchTransport.from_jsonl(courtlistener_fixture)
-                source = _fixture_free_document_source(document_fixture)
+                transport = FixtureRecapFetchTransport.from_jsonl_bytes(
+                    immutable_input_snapshot[courtlistener_fixture]
+                )
+                source = _fixture_free_document_source_bytes(
+                    immutable_input_snapshot[document_fixture]
+                )
                 before_request = None
             with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
                 records, restriction_records = recover_recap_fetch_quarantine_documents(
@@ -30492,6 +31902,10 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                     before_request=before_request,
                 )
                 write_recap_fetch_quarantine_manifest(manifest_path, records)
+                purchased_case_relevance = _project_purchased_case_relevance(
+                    case_relevance_records, records
+                )
+                _write_jsonl(purchased_case_relevance_path, purchased_case_relevance)
                 write_recap_fetch_restriction_evidence(
                     restriction_path, restriction_records
                 )
@@ -30502,6 +31916,24 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                     review_requests_path, review_requests
                 )
                 purchase_state_sha256 = journal.purchase_state_sha256()
+        _require_snapshot_unchanged(
+            immutable_input_snapshot, label="quarantine recovery input"
+        )
+        output_snapshot = {
+            manifest_path: _read_singly_linked_regular_input(
+                manifest_path, label="quarantine recovery manifest"
+            ),
+            purchased_case_relevance_path: _read_singly_linked_regular_input(
+                purchased_case_relevance_path,
+                label="purchased case relevance",
+            ),
+            restriction_path: _read_singly_linked_regular_input(
+                restriction_path, label="quarantine restriction evidence"
+            ),
+            review_requests_path: _read_singly_linked_regular_input(
+                review_requests_path, label="quarantine review requests"
+            ),
+        }
     except (
         CaseDevPurchaseLedgerError,
         CaseDevPurchasePolicyError,
@@ -30521,6 +31953,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             input_paths=input_paths,
             output_paths=(
                 manifest_path,
+                purchased_case_relevance_path,
                 restriction_path,
                 review_requests_path,
                 document_root,
@@ -30537,6 +31970,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         input_paths=input_paths,
         output_paths=(
             manifest_path,
+            purchased_case_relevance_path,
             restriction_path,
             review_requests_path,
             document_root,
@@ -30551,14 +31985,45 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 {}
                 if dry_run
                 else {
-                    "selection": _materializer_file_commitment(selection_path),
-                    "purchase_policy": _materializer_file_commitment(
-                        purchase_policy_path
+                    "selection": _file_commitment_from_bytes(
+                        selection_path, immutable_input_snapshot[selection_path]
                     ),
-                    "cohort_policy": _materializer_file_commitment(cohort_policy_path),
-                    "budget_plan": _materializer_file_commitment(budget_plan_path),
-                    "attempt_policy": _materializer_file_commitment(
-                        attempt_policy_path
+                    "case_relevance": _file_commitment_from_bytes(
+                        case_relevance_path,
+                        immutable_input_snapshot[case_relevance_path],
+                    ),
+                    "target_projection_run_card": _file_commitment_from_bytes(
+                        target_projection_run_card_path,
+                        immutable_input_snapshot[target_projection_run_card_path],
+                    ),
+                    "purchase_policy": _file_commitment_from_bytes(
+                        purchase_policy_path,
+                        immutable_input_snapshot[purchase_policy_path],
+                    ),
+                    "cohort_policy": _file_commitment_from_bytes(
+                        cohort_policy_path, immutable_input_snapshot[cohort_policy_path]
+                    ),
+                    "budget_plan": _file_commitment_from_bytes(
+                        budget_plan_path, immutable_input_snapshot[budget_plan_path]
+                    ),
+                    "attempt_policy": _file_commitment_from_bytes(
+                        attempt_policy_path,
+                        immutable_input_snapshot[attempt_policy_path],
+                    ),
+                    **(
+                        {
+                            "courtlistener_fixture": _file_commitment_from_bytes(
+                                courtlistener_fixture,
+                                immutable_input_snapshot[courtlistener_fixture],
+                            ),
+                            "fixture_documents": _file_commitment_from_bytes(
+                                document_fixture,
+                                immutable_input_snapshot[document_fixture],
+                            ),
+                        }
+                        if courtlistener_fixture is not None
+                        and document_fixture is not None
+                        else {}
                     ),
                 }
             ),
@@ -30568,15 +32033,21 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 else {
                     "quarantine_download_manifest": {
                         "path": str(manifest_path.resolve()),
-                        "sha256": _path_sha256(manifest_path),
+                        "sha256": _bytes_sha256(output_snapshot[manifest_path]),
+                    },
+                    "purchased_case_relevance": {
+                        "path": str(purchased_case_relevance_path.resolve()),
+                        "sha256": _bytes_sha256(
+                            output_snapshot[purchased_case_relevance_path]
+                        ),
                     },
                     "fresh_restriction_evidence": {
                         "path": str(restriction_path.resolve()),
-                        "sha256": _path_sha256(restriction_path),
+                        "sha256": _bytes_sha256(output_snapshot[restriction_path]),
                     },
                     "disclosure_review_requests": {
                         "path": str(review_requests_path.resolve()),
-                        "sha256": _path_sha256(review_requests_path),
+                        "sha256": _bytes_sha256(output_snapshot[review_requests_path]),
                     },
                     "document_tree": _materializer_tree_commitments(document_root),
                     "purchase_state_sha256": purchase_state_sha256,
@@ -30910,6 +32381,567 @@ def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
     return 0
 
 
+def _capture_provenance_document_snapshot(
+    manifest_records: Sequence[Mapping[str, Any]], *, document_root: Path
+) -> dict[str, bytes]:
+    """Read every manifest document once through the strict disclosure path."""
+
+    snapshot: dict[str, bytes] = {}
+    for record in manifest_records:
+        relative = _required_str(record, "local_path")
+        if relative in snapshot:
+            raise CommandError("download manifest repeats a local document path")
+        try:
+            path = safe_disclosure_document_path(document_root, relative)
+            snapshot[relative] = read_unique_regular_file(path)
+        except (DisclosureClearanceError, ReviewBundleError) as exc:
+            raise CommandError(f"unsafe disclosure document: {relative}") from exc
+    return snapshot
+
+
+def _provenance_document_tree_from_snapshot(
+    snapshot: Mapping[str, bytes],
+) -> dict[str, str]:
+    return {
+        relative: _bytes_sha256(payload)
+        for relative, payload in sorted(snapshot.items())
+    }
+
+
+def _require_provenance_document_snapshot_unchanged(
+    snapshot: Mapping[str, bytes], *, document_root: Path
+) -> None:
+    current = {
+        relative: read_unique_regular_file(
+            safe_disclosure_document_path(document_root, relative)
+        )
+        for relative in snapshot
+    }
+    if current != dict(snapshot):
+        raise CommandError("disclosure document bytes changed during execution")
+
+
+def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int:
+    stage = "plan-disclosure-provenance"
+    output_root = _acquisition_output_root(args)
+    requests_path = cast(Path, args.review_requests)
+    manifest_path = cast(Path, args.download_manifest)
+    relevance_path = cast(Path, args.case_relevance)
+    restriction_path = cast(Path, args.restriction_evidence)
+    document_root = cast(Path, args.document_root)
+    plan_path = _acquisition_path(
+        args, "routing_plan_output", output_root / "disclosure-provenance-plan.json"
+    )
+    worksheet_path = _acquisition_path(
+        args,
+        "exception_worksheet_output",
+        output_root / "disclosure-exception-worksheet.json",
+    )
+    private_root = cast(Path, args.controlled_private_store_root)
+    inspection_path = private_root / "private-document-inspection-map.jsonl"
+    input_paths = (requests_path, manifest_path, relevance_path, restriction_path)
+    _require_controlled_private_review_root(
+        private_root,
+        output_root=output_root,
+        document_root=document_root,
+        authenticated_inputs=input_paths,
+    )
+    _validate_disclosure_review_paths(
+        input_paths=input_paths,
+        output_paths=(plan_path, worksheet_path, inspection_path),
+        protected_roots=(document_root,),
+    )
+    try:
+        _reject_existing_parent_symlink(document_root, label="document root")
+        if document_root.is_symlink() or not document_root.is_dir():
+            raise CommandError(f"document root is missing or unsafe: {document_root}")
+        source_bytes = {
+            "review_requests": _read_singly_linked_regular_input(
+                requests_path, label="review requests"
+            ),
+            "download_manifest": _read_singly_linked_regular_input(
+                manifest_path, label="download manifest"
+            ),
+            "case_relevance": _read_singly_linked_regular_input(
+                relevance_path, label="case relevance"
+            ),
+            "restriction_evidence": _read_singly_linked_regular_input(
+                restriction_path, label="restriction evidence"
+            ),
+        }
+        manifest_records = _projection_jsonl_records(
+            source_bytes["download_manifest"], source=manifest_path
+        )
+        document_snapshot = _capture_provenance_document_snapshot(
+            manifest_records, document_root=document_root
+        )
+        plan = build_provenance_clearance_plan(
+            _projection_jsonl_records(
+                source_bytes["review_requests"], source=requests_path
+            ),
+            manifest_records,
+            _projection_jsonl_records(
+                source_bytes["restriction_evidence"], source=restriction_path
+            ),
+            _projection_jsonl_records(
+                source_bytes["case_relevance"], source=relevance_path
+            ),
+            document_root=document_root,
+            review_requests_bytes=source_bytes["review_requests"],
+            download_manifest_bytes=source_bytes["download_manifest"],
+            restriction_evidence_bytes=source_bytes["restriction_evidence"],
+            case_relevance_bytes=source_bytes["case_relevance"],
+            document_bytes_by_relative_path=document_snapshot,
+        )
+        worksheet = exception_review_worksheet(plan)
+        inspection = build_exception_inspection_map(
+            plan,
+            document_root=document_root,
+            document_bytes_by_relative_path=document_snapshot,
+        )
+        _require_provenance_document_snapshot_unchanged(
+            document_snapshot, document_root=document_root
+        )
+    except (OSError, ProvenanceClearanceError) as exc:
+        raise CommandError(str(exc)) from exc
+    plan_bytes = canonical_json_bytes(plan)
+    worksheet_bytes = canonical_json_bytes(worksheet)
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
+        _ensure_disclosure_review_artifact(
+            plan_path, plan_bytes, resume=cast(bool, args.resume)
+        )
+        _ensure_disclosure_review_artifact(
+            worksheet_path, worksheet_bytes, resume=cast(bool, args.resume)
+        )
+        _ensure_disclosure_review_artifact(
+            inspection_path, inspection, resume=cast(bool, args.resume)
+        )
+    source_commitments: dict[str, dict[str, object]] = {
+        name: {
+            "path": str(path.resolve()),
+            "sha256": _bytes_sha256(source_bytes[name]),
+        }
+        for name, path in {
+            "review_requests": requests_path,
+            "download_manifest": manifest_path,
+            "case_relevance": relevance_path,
+            "restriction_evidence": restriction_path,
+        }.items()
+    }
+    document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
+    source_commitments["document_root"] = {
+        "path": str(document_root.resolve()),
+        "tree_sha256": _canonical_json_sha256(document_tree),
+        "document_count": len(document_tree),
+    }
+    output_commitments = (
+        {}
+        if dry_run
+        else {
+            "routing_plan": {
+                "path": str(plan_path.resolve()),
+                "sha256": _bytes_sha256(plan_bytes),
+            },
+            "exception_worksheet": {
+                "path": str(worksheet_path.resolve()),
+                "sha256": _bytes_sha256(worksheet_bytes),
+            },
+        }
+    )
+    completion_extra = {
+        "auto_clear_count": plan["auto_clear_count"],
+        "john_review_count": plan["john_review_count"],
+        "source_commitments": source_commitments,
+        "output_commitments": output_commitments,
+        "private_inspection_map_written": not dry_run,
+        "private_inspection_map_excluded_from_commitments": True,
+    }
+    if not dry_run and _completed_disclosure_review_resume(
+        args,
+        stage=stage,
+        input_paths=(*input_paths, document_root),
+        output_paths=(plan_path, worksheet_path),
+        record_count=cast(int, plan["document_count"]),
+        expected_extra=completion_extra,
+    ):
+        return 0
+    _write_acquisition_completion(
+        args,
+        stage=stage,
+        input_paths=(*input_paths, document_root),
+        output_paths=(plan_path, worksheet_path),
+        record_count=cast(int, plan["document_count"]),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=completion_extra,
+        resumable_terminal_metadata=True,
+    )
+    return 0
+
+
+def _cmd_acquisition_clear_provenance_disclosures(
+    args: argparse.Namespace,
+) -> int:
+    stage = "clear-disclosures"
+    output_root = _acquisition_output_root(args)
+    requests_path = cast(Path, args.review_requests)
+    manifest_path = cast(Path, args.download_manifest)
+    relevance_path = cast(Path, args.case_relevance)
+    document_root = cast(Path, args.document_root)
+    restriction_path = cast(Path, args.restriction_evidence)
+    plan_path = cast(Path, args.routing_plan)
+    worksheet_path = cast(Path, args.exception_worksheet)
+    decisions_path = cast(Path, args.exception_decisions)
+    recorder_card_path = cast(Path, args.exception_review_run_card)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    clearance_path = _acquisition_path(
+        args, "clearance_output", output_root / "disclosure-clearance.jsonl"
+    )
+    quarantine_path = _acquisition_path(
+        args, "quarantine_output", output_root / "disclosure-quarantine.jsonl"
+    )
+    source_paths = {
+        "review_requests": requests_path,
+        "download_manifest": manifest_path,
+        "case_relevance": relevance_path,
+        "restriction_evidence": restriction_path,
+        "routing_plan": plan_path,
+        "exception_worksheet": worksheet_path,
+        "exception_decisions": decisions_path,
+        "exception_review_run_card": recorder_card_path,
+        "cohort_policy": cohort_policy_path,
+    }
+    _validate_disclosure_review_paths(
+        input_paths=tuple(source_paths.values()),
+        output_paths=(clearance_path, quarantine_path),
+        protected_roots=(document_root,),
+    )
+    try:
+        _reject_existing_parent_symlink(document_root, label="document root")
+        if document_root.is_symlink() or not document_root.is_dir():
+            raise CommandError(f"document root is missing or unsafe: {document_root}")
+        source_bytes = {
+            name: _read_singly_linked_regular_input(path, label=name.replace("_", " "))
+            for name, path in source_paths.items()
+        }
+        manifest_records = _projection_jsonl_records(
+            source_bytes["download_manifest"], source=manifest_path
+        )
+        document_snapshot = _capture_provenance_document_snapshot(
+            manifest_records, document_root=document_root
+        )
+        recomputed_plan = build_provenance_clearance_plan(
+            _projection_jsonl_records(
+                source_bytes["review_requests"], source=requests_path
+            ),
+            manifest_records,
+            _projection_jsonl_records(
+                source_bytes["restriction_evidence"], source=restriction_path
+            ),
+            _projection_jsonl_records(
+                source_bytes["case_relevance"], source=relevance_path
+            ),
+            document_root=document_root,
+            review_requests_bytes=source_bytes["review_requests"],
+            download_manifest_bytes=source_bytes["download_manifest"],
+            restriction_evidence_bytes=source_bytes["restriction_evidence"],
+            case_relevance_bytes=source_bytes["case_relevance"],
+            document_bytes_by_relative_path=document_snapshot,
+        )
+        plan_bytes = canonical_json_bytes(recomputed_plan)
+        if plan_bytes != source_bytes["routing_plan"]:
+            raise ProvenanceClearanceError(
+                "routing plan differs from exact current inputs and document bytes"
+            )
+        worksheet = exception_review_worksheet(recomputed_plan)
+        worksheet_bytes = canonical_json_bytes(worksheet)
+        if worksheet_bytes != source_bytes["exception_worksheet"]:
+            raise ProvenanceClearanceError(
+                "exception worksheet differs from the immutable routing plan"
+            )
+        decisions = _projection_jsonl_records(
+            source_bytes["exception_decisions"], source=decisions_path
+        )
+        recorder_card = _projection_json_object(
+            source_bytes["exception_review_run_card"], source=recorder_card_path
+        )
+        _validate_provenance_exception_recorder(
+            recorder_card,
+            worksheet_path=worksheet_path,
+            worksheet_bytes=worksheet_bytes,
+            decisions_path=decisions_path,
+            decisions_bytes=source_bytes["exception_decisions"],
+            expected_count=cast(int, recomputed_plan["john_review_count"]),
+            routing_plan_sha256=hashlib.sha256(plan_bytes).hexdigest(),
+        )
+        cohort_policy_sha256 = verify_cohort_policy(
+            _projection_json_object(
+                source_bytes["cohort_policy"], source=cohort_policy_path
+            )
+        )
+        routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        records = build_provenance_clearance_records(
+            recomputed_plan,
+            decisions,
+            routing_plan_sha256=routing_plan_sha256,
+        )
+        _require_provenance_document_snapshot_unchanged(
+            document_snapshot, document_root=document_root
+        )
+    except (CohortPolicyError, OSError, ProvenanceClearanceError) as exc:
+        raise CommandError(str(exc)) from exc
+    rows = [record.to_record() for record in records]
+    quarantined = [row for row in rows if row["status"] != "cleared"]
+    clearance_bytes = b"".join(canonical_json_bytes(row) for row in rows)
+    quarantine_bytes = b"".join(canonical_json_bytes(row) for row in quarantined)
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
+        _ensure_disclosure_review_artifact(
+            clearance_path, clearance_bytes, resume=cast(bool, args.resume)
+        )
+        _ensure_disclosure_review_artifact(
+            quarantine_path, quarantine_bytes, resume=cast(bool, args.resume)
+        )
+    summary = cast(Mapping[str, object], recorder_card["human_batch_summary"])
+    clearance_authority = {
+        "kind": "provenance_first_with_john_exceptions",
+        "authentication_claim": "interactive_hash_confirmation_only",
+        "cohort_policy_sha256": "sha256:" + cohort_policy_sha256,
+        "routing_plan_sha256": _bytes_sha256(plan_bytes),
+        "review_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+        "exception_decisions_sha256": _bytes_sha256(
+            source_bytes["exception_decisions"]
+        ),
+        "exception_review_run_card_sha256": _bytes_sha256(
+            source_bytes["exception_review_run_card"]
+        ),
+        "exception_batch_confirmation_sha256": summary["confirmation_sha256"],
+        "exception_reviewer_id": summary["intended_reviewer_id"],
+        "auto_clear_count": recomputed_plan["auto_clear_count"],
+        "john_review_count": recomputed_plan["john_review_count"],
+    }
+    source_commitments: dict[str, dict[str, object]] = {
+        name: {"path": str(path.resolve()), "sha256": _bytes_sha256(source_bytes[name])}
+        for name, path in source_paths.items()
+    }
+    document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
+    source_commitments["document_root"] = {
+        "path": str(document_root.resolve()),
+        "tree_sha256": _canonical_json_sha256(document_tree),
+        "document_count": len(document_tree),
+    }
+    output_commitments = (
+        {}
+        if dry_run
+        else {
+            "disclosure_clearance": {
+                "path": str(clearance_path.resolve()),
+                "sha256": _bytes_sha256(clearance_bytes),
+            },
+            "disclosure_quarantine": {
+                "path": str(quarantine_path.resolve()),
+                "sha256": _bytes_sha256(quarantine_bytes),
+            },
+        }
+    )
+    completion_extra = {
+        "quarantined_document_count": len(quarantined),
+        "source_commitments": source_commitments,
+        "output_commitments": output_commitments,
+        "clearance_authority": clearance_authority,
+    }
+    if not dry_run and _completed_disclosure_review_resume(
+        args,
+        stage=stage,
+        input_paths=(*tuple(source_paths.values()), document_root),
+        output_paths=(clearance_path, quarantine_path),
+        record_count=len(records),
+        expected_extra=completion_extra,
+    ):
+        return 0
+    _write_acquisition_completion(
+        args,
+        stage=stage,
+        input_paths=(*tuple(source_paths.values()), document_root),
+        output_paths=(clearance_path, quarantine_path),
+        record_count=len(records),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=completion_extra,
+        resumable_terminal_metadata=True,
+    )
+    return 0
+
+
+def _validate_provenance_exception_recorder(
+    run_card: Mapping[str, object],
+    *,
+    worksheet_path: Path,
+    worksheet_bytes: bytes,
+    decisions_path: Path,
+    decisions_bytes: bytes,
+    expected_count: int,
+    routing_plan_sha256: str,
+) -> None:
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "record-disclosure-review-decisions"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+        or run_card.get("record_count") != expected_count
+        or run_card.get("authentication_claim") != "interactive_hash_confirmation_only"
+        or run_card.get("review_worksheet_sha256") != _bytes_sha256(worksheet_bytes)
+        or run_card.get("routing_plan_sha256") != routing_plan_sha256
+        or run_card.get("decisions_sha256") != _bytes_sha256(decisions_bytes)
+    ):
+        raise ProvenanceClearanceError(
+            "exception decisions lack the exact interactive recorder run card"
+        )
+    raw_input_paths = run_card.get("input_paths")
+    input_paths = (
+        cast(list[object], raw_input_paths) if isinstance(raw_input_paths, list) else []
+    )
+    if (
+        len(input_paths) != 2
+        or input_paths[0] != str(worksheet_path)
+        or not isinstance(input_paths[1], str)
+    ):
+        raise ProvenanceClearanceError("exception recorder worksheet path mismatch")
+    if run_card.get("output_paths") != [str(decisions_path)]:
+        raise ProvenanceClearanceError("exception recorder decision path mismatch")
+    summary = run_card.get("human_batch_summary")
+    if not isinstance(summary, Mapping) or (
+        cast(Mapping[str, object], summary).get("document_count") != expected_count
+        or cast(Mapping[str, object], summary).get("intended_reviewer_id")
+        != "John Hughes"
+    ):
+        raise ProvenanceClearanceError("exception recorder summary is invalid")
+    try:
+        _validate_provenance_recorder_checkpoints(
+            run_card,
+            worksheet_path=worksheet_path,
+            worksheet_bytes=worksheet_bytes,
+            inspection_path=Path(input_paths[1]),
+            decisions_bytes=decisions_bytes,
+        )
+    except (CommandError, OSError, ReviewBundleError) as exc:
+        raise ProvenanceClearanceError(str(exc)) from exc
+
+
+def _validate_provenance_recorder_checkpoints(
+    run_card: Mapping[str, object],
+    *,
+    worksheet_path: Path,
+    worksheet_bytes: bytes,
+    inspection_path: Path,
+    decisions_bytes: bytes,
+) -> None:
+    worksheet = _projection_json_object(worksheet_bytes, source=worksheet_path)
+    raw_documents = worksheet.get("documents")
+    if not isinstance(raw_documents, list):
+        raise CommandError("provenance exception worksheet is malformed")
+    documents: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for raw in cast(list[object], raw_documents):
+        if not isinstance(raw, Mapping):
+            raise CommandError("provenance exception worksheet is malformed")
+        row = cast(Mapping[str, Any], raw)
+        key = (
+            _required_str(row, "candidate_id"),
+            _required_str(row, "source_document_id"),
+        )
+        if key in documents:
+            raise CommandError("provenance exception worksheet repeats a document")
+        documents[key] = row
+    inspection_bytes = read_unique_regular_file(inspection_path)
+    inspection_rows = _projection_jsonl_records(
+        inspection_bytes, source=inspection_path
+    )
+    inspections: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for row in inspection_rows:
+        if set(row) != {
+            "candidate_id",
+            "source_document_id",
+            "inspection_path",
+            "sha256",
+            "byte_count",
+        }:
+            raise CommandError("provenance inspection map is malformed")
+        key = (
+            _required_str(row, "candidate_id"),
+            _required_str(row, "source_document_id"),
+        )
+        if key in inspections:
+            raise CommandError("provenance inspection map repeats a document")
+        inspections[key] = row
+    if set(inspections) != set(documents):
+        raise CommandError("provenance inspection map coverage mismatch")
+    raw_checkpoint = run_card.get("private_progress_checkpoint")
+    if not isinstance(raw_checkpoint, Mapping):
+        raise CommandError("provenance recorder lacks checkpoint commitment")
+    checkpoint = cast(Mapping[str, object], raw_checkpoint)
+    config_path_text = checkpoint.get("config_path")
+    progress_directory_text = checkpoint.get("progress_directory")
+    if not isinstance(config_path_text, str) or not isinstance(
+        progress_directory_text, str
+    ):
+        raise CommandError("provenance recorder checkpoint paths are invalid")
+    config_path = Path(config_path_text)
+    progress_directory = Path(progress_directory_text)
+    progress_config: dict[str, object] = {
+        "schema_version": "legalforecast.disclosure_review_progress_config.v1",
+        "review_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+        "private_inspection_map_sha256": _bytes_sha256(inspection_bytes),
+        "document_set_sha256": _required_str(worksheet, "document_set_sha256"),
+        "document_count": len(documents),
+        "intended_reviewer_id": "John Hughes",
+    }
+    config_bytes = read_unique_regular_file(config_path)
+    if (
+        config_bytes != canonical_json_bytes(progress_config)
+        or checkpoint.get("config_sha256") != _bytes_sha256(config_bytes)
+        or checkpoint.get("private_inspection_map_sha256")
+        != _bytes_sha256(inspection_bytes)
+        or checkpoint.get("completed_document_count") != len(documents)
+        or checkpoint.get("progress_tree_sha256")
+        != _disclosure_review_progress_tree_sha256(progress_directory)
+    ):
+        raise CommandError("provenance recorder checkpoint commitment mismatch")
+    progress = _load_disclosure_review_progress(
+        progress_directory,
+        documents=documents,
+        inspections=inspections,
+        worksheet_bytes=worksheet_bytes,
+        inspection_bytes=inspection_bytes,
+        intended_reviewer_id="John Hughes",
+    )
+    if set(progress) != set(documents):
+        raise CommandError("provenance recorder checkpoint coverage mismatch")
+    if progress:
+        expected_decisions, expected_summary = _decision_artifact_from_progress(
+            progress
+        )
+    else:
+        expected_decisions = b""
+        expected_summary = {
+            "document_count": 0,
+            "cleared_count": 0,
+            "quarantined_count": 0,
+            "confirmation_sha256": "sha256:" + hashlib.sha256(b"").hexdigest(),
+            "intended_reviewer_id": "John Hughes",
+        }
+    if (
+        decisions_bytes != expected_decisions
+        or run_card.get("human_batch_summary") != expected_summary
+    ):
+        raise CommandError("provenance decisions differ from committed checkpoints")
+
+
 def _cmd_acquisition_prepare_disclosure_review(args: argparse.Namespace) -> int:
     stage = "prepare-disclosure-review"
     output_root = _acquisition_output_root(args)
@@ -31077,9 +33109,31 @@ def _cmd_acquisition_review_signer_preflight(args: argparse.Namespace) -> int:
 def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
     stage = "record-disclosure-review-decisions"
     output_root = _acquisition_output_root(args)
-    private_root = cast(Path, args.controlled_private_store_root).resolve()
+    private_root_argument = cast(Path, args.controlled_private_store_root)
+    if not private_root_argument.is_absolute():
+        raise CommandError("controlled private review store must be an absolute path")
+    _reject_existing_parent_symlink(
+        private_root_argument, label="controlled private root"
+    )
+    private_root = private_root_argument.resolve()
     worksheet_path = cast(Path, args.review_worksheet)
     inspection_path = cast(Path, args.private_inspection_map)
+    lexical_inspection_path = Path(os.path.abspath(inspection_path))
+    if lexical_inspection_path.parent != private_root:
+        raise CommandError(
+            "private inspection map must be the direct child of the controlled "
+            "private root"
+        )
+    worksheet_parent = worksheet_path.resolve().parent
+    if (
+        private_root == worksheet_parent
+        or private_root.is_relative_to(worksheet_parent)
+        or worksheet_parent.is_relative_to(private_root)
+    ):
+        raise CommandError(
+            "controlled private review store must be separate from the review "
+            "worksheet tree"
+        )
     intended_reviewer_id = cast(str, args.reviewer_id).strip()
     if not intended_reviewer_id:
         raise CommandError("--reviewer-id must not be empty")
@@ -31119,14 +33173,23 @@ def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
             log_path,
         ),
     )
-    worksheet_bytes = worksheet_path.read_bytes()
+    worksheet_bytes = _read_singly_linked_regular_input(
+        worksheet_path, label="review worksheet"
+    )
     try:
         inspection_bytes = read_unique_regular_file(inspection_path)
     except ReviewBundleError as exc:
         raise CommandError("private inspection map is unsafe") from exc
-    worksheet = _read_json_object(worksheet_path)
+    worksheet = _projection_json_object(worksheet_bytes, source=worksheet_path)
+    provenance_exception_review = (
+        worksheet.get("schema_version") == PROVENANCE_EXCEPTION_WORKSHEET_SCHEMA_VERSION
+    )
+    if provenance_exception_review and intended_reviewer_id != "John Hughes":
+        raise CommandError("provenance exception review requires reviewer John Hughes")
     raw_documents = worksheet.get("documents")
-    if not isinstance(raw_documents, list) or not raw_documents:
+    if not isinstance(raw_documents, list) or (
+        not raw_documents and not provenance_exception_review
+    ):
         raise CommandError("review worksheet has no documents")
     typed_documents = cast(list[object], raw_documents)
     documents: dict[tuple[str, str], Mapping[str, Any]] = {}
@@ -31211,6 +33274,64 @@ def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
             paid_activity_executed=False,
         )
         return 0
+    if provenance_exception_review and not documents:
+        _reject_existing_parent_symlink(progress_directory)
+        progress_directory.mkdir(parents=True, exist_ok=True)
+        _ensure_disclosure_review_artifact(
+            progress_config_path,
+            progress_config_bytes,
+            resume=cast(bool, args.resume),
+        )
+        empty_sha256 = hashlib.sha256(b"").hexdigest()
+        decision_summary: dict[str, object] = {
+            "document_count": 0,
+            "cleared_count": 0,
+            "quarantined_count": 0,
+            "confirmation_sha256": "sha256:" + empty_sha256,
+            "intended_reviewer_id": "John Hughes",
+        }
+        completion_extra = {
+            "human_batch_summary": decision_summary,
+            "decisions_sha256": _bytes_sha256(b""),
+            "private_progress_checkpoint": {
+                "config_sha256": _bytes_sha256(progress_config_bytes),
+                "progress_tree_sha256": _disclosure_review_progress_tree_sha256(
+                    progress_directory
+                ),
+                "completed_document_count": 0,
+                "config_path": str(progress_config_path),
+                "progress_directory": str(progress_directory),
+                "private_inspection_map_sha256": _bytes_sha256(inspection_bytes),
+            },
+            "review_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+            "routing_plan_sha256": _required_str(worksheet, "routing_plan_sha256"),
+            "authentication_claim": "interactive_hash_confirmation_only",
+        }
+        _ensure_disclosure_review_artifact(
+            decisions_path, b"", resume=cast(bool, args.resume)
+        )
+        if _completed_disclosure_review_resume(
+            args,
+            stage=stage,
+            input_paths=(worksheet_path, inspection_path),
+            output_paths=(decisions_path,),
+            record_count=0,
+            expected_extra=completion_extra,
+        ):
+            return 0
+        _write_acquisition_completion(
+            args,
+            stage=stage,
+            input_paths=(worksheet_path, inspection_path),
+            output_paths=(decisions_path,),
+            record_count=0,
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=completion_extra,
+            resumable_terminal_metadata=True,
+        )
+        return 0
     if run_card_path.exists() and not decisions_path.exists():
         existing_card = _read_json_object(run_card_path)
         if existing_card.get("status") == "completed":
@@ -31259,6 +33380,26 @@ def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
                 "completed_document_count": len(decisions),
             },
         }
+        if provenance_exception_review:
+            completed_checkpoint = cast(
+                dict[str, object], completed_extra["private_progress_checkpoint"]
+            )
+            completed_checkpoint.update(
+                {
+                    "config_path": str(progress_config_path),
+                    "progress_directory": str(progress_directory),
+                    "private_inspection_map_sha256": _bytes_sha256(inspection_bytes),
+                }
+            )
+            completed_extra.update(
+                {
+                    "review_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+                    "routing_plan_sha256": _required_str(
+                        worksheet, "routing_plan_sha256"
+                    ),
+                    "authentication_claim": "interactive_hash_confirmation_only",
+                }
+            )
         if _completed_disclosure_review_resume(
             args,
             stage=stage,
@@ -31271,8 +33412,8 @@ def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
         raise CommandError("completed decision artifact lacks exact terminal metadata")
     if not sys.stdin.isatty():
         raise CommandError(
-            "interactive disclosure review UI requires a TTY; the later hardware "
-            "SSHSIG is the sole reviewer authentication authority"
+            "interactive disclosure review UI requires a TTY and cannot be "
+            "replaced by a hand-authored decision artifact"
         )
     _reject_existing_parent_symlink(progress_directory)
     if progress_directory.exists() and (
@@ -31319,9 +33460,16 @@ def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
         if decision not in {"cleared", "quarantined"}:
             raise CommandError(f"invalid disclosure decision: {key}")
         markers = document.get("automated_markers")
-        if decision == "cleared" and (
+        provenance_clearance_forbidden = (
+            provenance_exception_review
+            and document.get("human_clearance_permitted") is not True
+        )
+        legacy_clearance_forbidden = not provenance_exception_review and (
             markers != []
             or document.get("restriction_status") not in {"public", "redacted"}
+        )
+        if decision == "cleared" and (
+            provenance_clearance_forbidden or legacy_clearance_forbidden
         ):
             raise CommandError(f"flagged document cannot be cleared: {key}")
         # The human decision applies to the bytes just inspected. Re-open and
@@ -31413,6 +33561,24 @@ def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
             "completed_document_count": decision_count,
         },
     }
+    if provenance_exception_review:
+        completion_checkpoint = cast(
+            dict[str, object], completion_extra["private_progress_checkpoint"]
+        )
+        completion_checkpoint.update(
+            {
+                "config_path": str(progress_config_path),
+                "progress_directory": str(progress_directory),
+                "private_inspection_map_sha256": _bytes_sha256(inspection_bytes),
+            }
+        )
+        completion_extra.update(
+            {
+                "review_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+                "routing_plan_sha256": _required_str(worksheet, "routing_plan_sha256"),
+                "authentication_claim": "interactive_hash_confirmation_only",
+            }
+        )
     _ensure_disclosure_review_artifact(
         decisions_path, decision_bytes, resume=cast(bool, args.resume)
     )
@@ -32105,8 +34271,78 @@ def _authenticated_clearance_lineage_inputs(
     *,
     clearance_path: Path,
 ) -> tuple[dict[str, Any], tuple[Path, ...]]:
+    clearance_run_card_path = cast(Path | None, args.clearance_run_card)
+    restriction_path = cast(Path | None, args.restriction_evidence)
+    if clearance_run_card_path is not None:
+        run_card_bytes = _read_singly_linked_regular_input(
+            clearance_run_card_path, label="clearance run card"
+        )
+        run_card = _projection_json_object(
+            run_card_bytes, source=clearance_run_card_path
+        )
+        authority = run_card.get("clearance_authority")
+        authority_kind = (
+            cast(Mapping[str, object], authority).get("kind")
+            if isinstance(authority, Mapping)
+            else None
+        )
+        if authority_kind == "provenance_first_with_john_exceptions":
+            clearance_snapshot = _capture_clearance_artifact_snapshot(
+                run_card=run_card,
+                run_card_path=clearance_run_card_path,
+                clearance_path=clearance_path,
+                initial_artifact_bytes={
+                    os.path.abspath(clearance_run_card_path): run_card_bytes,
+                    os.path.abspath(clearance_path): _read_singly_linked_regular_input(
+                        clearance_path, label="disclosure clearance"
+                    ),
+                },
+            )
+            sources = run_card.get("source_commitments")
+            if not isinstance(sources, Mapping):
+                raise ResolvedPostRecoveryError(
+                    "provenance clearance lacks source commitments"
+                )
+            manifest_path = _materializer_committed_path(
+                cast(Mapping[str, object], sources), "download_manifest"
+            )
+            lineage = _verify_materializer_clearance_lineage(
+                manifest_path=manifest_path,
+                clearance_path=clearance_path,
+                run_card_path=clearance_run_card_path,
+                captured_artifact_bytes=clearance_snapshot,
+            )
+            if (
+                restriction_path is not None
+                and cast(Path, lineage["restriction_path"]).resolve()
+                != restriction_path.resolve()
+            ):
+                raise ResolvedPostRecoveryError(
+                    "clear-disclosures committed different restriction evidence"
+                )
+            paths = tuple(
+                cast(Path, lineage[name])
+                for name in (
+                    "manifest_path",
+                    "restriction_path",
+                    "requests_path",
+                    "worksheet_path",
+                    "decisions_path",
+                    "recorder_path",
+                    "routing_plan_path",
+                    "cohort_policy_path",
+                )
+            )
+            return (
+                _materializer_clearance_lineage_kwargs(
+                    clearance_path=clearance_path,
+                    run_card_path=clearance_run_card_path,
+                    lineage=lineage,
+                ),
+                (clearance_run_card_path, *paths),
+            )
     raw_paths = (
-        cast(Path | None, args.clearance_run_card),
+        clearance_run_card_path,
         cast(Path | None, args.reviews),
         cast(Path | None, args.review_receipt),
         cast(Path | None, args.restriction_evidence),
@@ -32136,10 +34372,16 @@ def _authenticated_clearance_lineage_from_run_card(
     expected_reviews_path: Path | None = None,
     expected_review_receipt_path: Path | None = None,
     expected_restriction_path: Path | None = None,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
 ) -> tuple[dict[str, Any], tuple[Path, ...]]:
     """Load every exact signed-clearance input from its committed run card."""
 
-    run_card = _read_json_object(clearance_run_card_path)
+    run_card_bytes = _captured_or_stable_input(
+        clearance_run_card_path,
+        label="clearance run card",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    run_card = _projection_json_object(run_card_bytes, source=clearance_run_card_path)
     committed_clearance_path = _named_committed_path(
         run_card,
         commitment_group="output_commitments",
@@ -32184,32 +34426,85 @@ def _authenticated_clearance_lineage_from_run_card(
             raise ResolvedPostRecoveryError(
                 f"clear-disclosures committed different {label} bytes"
             )
-    reviewer_policy_bytes = reviewer_policy_path.read_bytes()
-    cohort_policy_bytes = cohort_policy_path.read_bytes()
+    exact_bytes = {
+        "clearance": _captured_or_stable_input(
+            clearance_path,
+            label="disclosure clearance",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+        "reviews": _captured_or_stable_input(
+            reviews_path,
+            label="reviews",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+        "receipt": _captured_or_stable_input(
+            review_receipt_path,
+            label="review receipt",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+        "requests": _captured_or_stable_input(
+            review_requests_path,
+            label="review requests",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+        "worksheet": _captured_or_stable_input(
+            review_worksheet_path,
+            label="review worksheet",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+        "reviewer_policy": _captured_or_stable_input(
+            reviewer_policy_path,
+            label="reviewer policy",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+        "cohort_policy": _captured_or_stable_input(
+            cohort_policy_path,
+            label="cohort policy",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+        "manifest": _captured_or_stable_input(
+            download_manifest_path,
+            label="download manifest",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+        "restriction": _captured_or_stable_input(
+            restriction_path,
+            label="restriction evidence",
+            captured_artifact_bytes=captured_artifact_bytes,
+        ),
+    }
+    reviewer_policy_bytes = exact_bytes["reviewer_policy"]
+    cohort_policy_bytes = exact_bytes["cohort_policy"]
     try:
         disclosure_authority = load_main_disclosure_review_authority(
-            _read_json_object(cohort_policy_path),
+            _projection_json_object(cohort_policy_bytes, source=cohort_policy_path),
             reviewer_policy_bytes=reviewer_policy_bytes,
         )
     except DisclosureReviewAuthorityError as exc:
         raise ResolvedPostRecoveryError(str(exc)) from exc
     return (
         {
-            "clearance_artifact_bytes": clearance_path.read_bytes(),
+            "clearance_artifact_bytes": exact_bytes["clearance"],
             "clearance_run_card": run_card,
-            "clearance_run_card_bytes": clearance_run_card_path.read_bytes(),
-            "reviews_artifact_bytes": reviews_path.read_bytes(),
-            "review_receipt_artifact": _read_json_object(review_receipt_path),
-            "review_receipt_bytes": review_receipt_path.read_bytes(),
-            "review_requests_artifact_bytes": review_requests_path.read_bytes(),
-            "review_worksheet_artifact": _read_json_object(review_worksheet_path),
-            "review_worksheet_bytes": review_worksheet_path.read_bytes(),
+            "clearance_run_card_bytes": run_card_bytes,
+            "reviews_artifact_bytes": exact_bytes["reviews"],
+            "review_receipt_artifact": _projection_json_object(
+                exact_bytes["receipt"], source=review_receipt_path
+            ),
+            "review_receipt_bytes": exact_bytes["receipt"],
+            "review_requests_artifact_bytes": exact_bytes["requests"],
+            "review_worksheet_artifact": _projection_json_object(
+                exact_bytes["worksheet"], source=review_worksheet_path
+            ),
+            "review_worksheet_bytes": exact_bytes["worksheet"],
             "reviewer_policy_bytes": reviewer_policy_bytes,
             "disclosure_authority": disclosure_authority,
             "cohort_policy_artifact_bytes": cohort_policy_bytes,
-            "download_manifest_artifact_bytes": download_manifest_path.read_bytes(),
-            "restriction_records": _read_records(restriction_path),
-            "restriction_artifact_bytes": restriction_path.read_bytes(),
+            "download_manifest_artifact_bytes": exact_bytes["manifest"],
+            "restriction_records": _projection_jsonl_records(
+                exact_bytes["restriction"], source=restriction_path
+            ),
+            "restriction_artifact_bytes": exact_bytes["restriction"],
         },
         (
             clearance_run_card_path,
@@ -32231,23 +34526,336 @@ def _verify_authenticated_clearance_run_card(
     clearance_run_card_path: Path,
     expected_download_manifest_path: Path | None = None,
     expected_restriction_path: Path | None = None,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
 ) -> tuple[Path, ...]:
     """Independently replay signed clearance and return its immutable inputs."""
+
+    run_card_bytes = _captured_or_stable_input(
+        clearance_run_card_path,
+        label="clearance run card",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    run_card = _projection_json_object(run_card_bytes, source=clearance_run_card_path)
+    verified_snapshot = _complete_clearance_artifact_snapshot(
+        run_card=run_card,
+        run_card_path=clearance_run_card_path,
+        run_card_bytes=run_card_bytes,
+        clearance_path=clearance_path,
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    authority = run_card.get("clearance_authority")
+    authority_kind = (
+        cast(Mapping[str, object], authority).get("kind")
+        if isinstance(authority, Mapping)
+        else None
+    )
+    if authority_kind == "provenance_first_with_john_exceptions":
+        return _verify_provenance_clearance_run_card(
+            clearance_path=clearance_path,
+            clearance_run_card_path=clearance_run_card_path,
+            run_card=run_card,
+            expected_download_manifest_path=expected_download_manifest_path,
+            expected_restriction_path=expected_restriction_path,
+            captured_artifact_bytes=verified_snapshot,
+        )
 
     kwargs, paths = _authenticated_clearance_lineage_from_run_card(
         clearance_path=clearance_path,
         clearance_run_card_path=clearance_run_card_path,
         expected_download_manifest_path=expected_download_manifest_path,
         expected_restriction_path=expected_restriction_path,
+        captured_artifact_bytes=verified_snapshot,
     )
     try:
         validate_authenticated_clearance_lineage(
-            clearance_records=_read_records(clearance_path),
+            clearance_records=_projection_jsonl_records(
+                cast(bytes, kwargs["clearance_artifact_bytes"]),
+                source=clearance_path,
+            ),
             **kwargs,
         )
     except (OSError, ResolvedPostRecoveryError) as exc:
         raise CommandError(str(exc)) from exc
     return paths
+
+
+def _verify_provenance_clearance_run_card(
+    *,
+    clearance_path: Path,
+    clearance_run_card_path: Path,
+    run_card: Mapping[str, Any],
+    expected_download_manifest_path: Path | None,
+    expected_restriction_path: Path | None,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+) -> tuple[Path, ...]:
+    """Replay provenance routing, interactive exceptions, and final clearance."""
+
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "clear-disclosures"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError("invalid provenance clearance run card")
+    raw_sources = run_card.get("source_commitments")
+    raw_outputs = run_card.get("output_commitments")
+    raw_authority = run_card.get("clearance_authority")
+    if (
+        not isinstance(raw_sources, Mapping)
+        or not isinstance(raw_outputs, Mapping)
+        or not isinstance(raw_authority, Mapping)
+    ):
+        raise CommandError("provenance clearance run card lacks exact commitments")
+    sources = cast(Mapping[str, object], raw_sources)
+    outputs = cast(Mapping[str, object], raw_outputs)
+    authority = cast(Mapping[str, object], raw_authority)
+    source_names = (
+        "review_requests",
+        "download_manifest",
+        "case_relevance",
+        "restriction_evidence",
+        "routing_plan",
+        "exception_worksheet",
+        "exception_decisions",
+        "exception_review_run_card",
+        "cohort_policy",
+    )
+    paths = {name: _materializer_committed_path(sources, name) for name in source_names}
+    document_commitment = sources.get("document_root")
+    if not isinstance(document_commitment, Mapping):
+        raise CommandError("provenance clearance lacks document-root commitment")
+    document_root_text = cast(Mapping[str, object], document_commitment).get("path")
+    if not isinstance(document_root_text, str) or not document_root_text:
+        raise CommandError("provenance clearance document root is invalid")
+    document_root = Path(document_root_text)
+    _reject_existing_parent_symlink(document_root, label="document root")
+    if document_root.is_symlink() or not document_root.is_dir():
+        raise CommandError(f"document root is missing or unsafe: {document_root}")
+    if expected_download_manifest_path is not None and (
+        paths["download_manifest"].resolve()
+        != expected_download_manifest_path.resolve()
+    ):
+        raise CommandError("clear-disclosures committed different download manifest")
+    if expected_restriction_path is not None and (
+        paths["restriction_evidence"].resolve() != expected_restriction_path.resolve()
+    ):
+        raise CommandError("clear-disclosures committed different restriction evidence")
+    committed_clearance = _materializer_committed_path(outputs, "disclosure_clearance")
+    if committed_clearance.resolve() != clearance_path.resolve():
+        raise CommandError("clear-disclosures committed different clearance artifact")
+    try:
+        source_bytes = {
+            name: _captured_or_stable_input(
+                path,
+                label=name.replace("_", " "),
+                captured_artifact_bytes=captured_artifact_bytes,
+            )
+            for name, path in paths.items()
+        }
+        for name, path in paths.items():
+            _validate_named_path_commitment(
+                sources,
+                name=name,
+                expected_path=path,
+                expected_sha256=_bytes_sha256(source_bytes[name]),
+            )
+        clearance_bytes = _captured_or_stable_input(
+            clearance_path,
+            label="disclosure clearance",
+            captured_artifact_bytes=captured_artifact_bytes,
+        )
+        _validate_named_path_commitment(
+            outputs,
+            name="disclosure_clearance",
+            expected_path=clearance_path,
+            expected_sha256=_bytes_sha256(clearance_bytes),
+        )
+        manifest_records = _projection_jsonl_records(
+            source_bytes["download_manifest"], source=paths["download_manifest"]
+        )
+        document_snapshot = _capture_provenance_document_snapshot(
+            manifest_records, document_root=document_root
+        )
+        tree = _provenance_document_tree_from_snapshot(document_snapshot)
+        if cast(Mapping[str, object], document_commitment).get(
+            "tree_sha256"
+        ) != _canonical_json_sha256(tree) or cast(
+            Mapping[str, object], document_commitment
+        ).get("document_count") != len(tree):
+            raise ProvenanceClearanceError("document-root commitment changed")
+        plan = build_provenance_clearance_plan(
+            _projection_jsonl_records(
+                source_bytes["review_requests"], source=paths["review_requests"]
+            ),
+            manifest_records,
+            _projection_jsonl_records(
+                source_bytes["restriction_evidence"],
+                source=paths["restriction_evidence"],
+            ),
+            _projection_jsonl_records(
+                source_bytes["case_relevance"], source=paths["case_relevance"]
+            ),
+            document_root=document_root,
+            review_requests_bytes=source_bytes["review_requests"],
+            download_manifest_bytes=source_bytes["download_manifest"],
+            restriction_evidence_bytes=source_bytes["restriction_evidence"],
+            case_relevance_bytes=source_bytes["case_relevance"],
+            document_bytes_by_relative_path=document_snapshot,
+        )
+        plan_bytes = canonical_json_bytes(plan)
+        if plan_bytes != source_bytes["routing_plan"]:
+            raise ProvenanceClearanceError("routing plan replay mismatch")
+        worksheet = exception_review_worksheet(plan)
+        worksheet_bytes = canonical_json_bytes(worksheet)
+        if worksheet_bytes != source_bytes["exception_worksheet"]:
+            raise ProvenanceClearanceError("exception worksheet replay mismatch")
+        recorder = _projection_json_object(
+            source_bytes["exception_review_run_card"],
+            source=paths["exception_review_run_card"],
+        )
+        decisions = _projection_jsonl_records(
+            source_bytes["exception_decisions"],
+            source=paths["exception_decisions"],
+        )
+        routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        _validate_provenance_exception_recorder(
+            recorder,
+            worksheet_path=paths["exception_worksheet"],
+            worksheet_bytes=worksheet_bytes,
+            decisions_path=paths["exception_decisions"],
+            decisions_bytes=source_bytes["exception_decisions"],
+            expected_count=cast(int, plan["john_review_count"]),
+            routing_plan_sha256=routing_plan_sha256,
+        )
+        cohort_sha256 = verify_cohort_policy(
+            _projection_json_object(
+                source_bytes["cohort_policy"], source=paths["cohort_policy"]
+            )
+        )
+        records = build_provenance_clearance_records(
+            plan, decisions, routing_plan_sha256=routing_plan_sha256
+        )
+        expected_clearance = b"".join(
+            canonical_json_bytes(record.to_record()) for record in records
+        )
+        if clearance_bytes != expected_clearance:
+            raise ProvenanceClearanceError("clearance artifact replay mismatch")
+        summary = cast(Mapping[str, object], recorder["human_batch_summary"])
+        expected_authority = {
+            "kind": "provenance_first_with_john_exceptions",
+            "authentication_claim": "interactive_hash_confirmation_only",
+            "cohort_policy_sha256": "sha256:" + cohort_sha256,
+            "routing_plan_sha256": _bytes_sha256(plan_bytes),
+            "review_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+            "exception_decisions_sha256": _bytes_sha256(
+                source_bytes["exception_decisions"]
+            ),
+            "exception_review_run_card_sha256": _bytes_sha256(
+                source_bytes["exception_review_run_card"]
+            ),
+            "exception_batch_confirmation_sha256": summary["confirmation_sha256"],
+            "exception_reviewer_id": summary["intended_reviewer_id"],
+            "auto_clear_count": plan["auto_clear_count"],
+            "john_review_count": plan["john_review_count"],
+        }
+        if dict(authority) != expected_authority:
+            raise ProvenanceClearanceError("clearance authority replay mismatch")
+        _require_provenance_document_snapshot_unchanged(
+            document_snapshot, document_root=document_root
+        )
+    except (
+        CohortPolicyError,
+        OSError,
+        ProvenanceClearanceError,
+        TargetCohortProjectionError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return (
+        clearance_run_card_path,
+        *tuple(paths[name] for name in source_names),
+        document_root,
+    )
+
+
+def _provenance_resolved_lineage(
+    *,
+    clearance_path: Path,
+    clearance_run_card_path: Path,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+) -> AuthenticatedClearanceLineage:
+    run_card_bytes = _captured_or_stable_input(
+        clearance_run_card_path,
+        label="provenance clearance run card",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    run_card = _projection_json_object(run_card_bytes, source=clearance_run_card_path)
+    sources = run_card.get("source_commitments")
+    authority = run_card.get("clearance_authority")
+    if not isinstance(sources, Mapping) or not isinstance(authority, Mapping):
+        raise CommandError("provenance clearance lacks resolved lineage commitments")
+    source_records = cast(Mapping[str, object], sources)
+    authority_record = cast(Mapping[str, object], authority)
+    paths = {
+        name: _materializer_committed_path(source_records, name)
+        for name in (
+            "exception_decisions",
+            "exception_review_run_card",
+            "cohort_policy",
+            "restriction_evidence",
+            "routing_plan",
+        )
+    }
+    source_bytes = {
+        name: _captured_or_stable_input(
+            path,
+            label=name.replace("_", " "),
+            captured_artifact_bytes=captured_artifact_bytes,
+        )
+        for name, path in paths.items()
+    }
+    clearance_bytes = _captured_or_stable_input(
+        clearance_path,
+        label="disclosure clearance",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    decisions = _projection_jsonl_records(
+        source_bytes["exception_decisions"], source=paths["exception_decisions"]
+    )
+    reviewed_at = max(
+        (_required_str(row, "reviewed_at") for row in decisions),
+        default=_required_str(run_card, "generated_at"),
+    )
+    review_authority = ReviewAuthority(
+        reviewer_id="John Hughes",
+        controlled_store_uri="private-store://john/disclosure-exception-review",
+        authentication_method="interactive_hash_confirmation_only",
+        authenticated_at=reviewed_at,
+        review_artifact_sha256=hashlib.sha256(
+            source_bytes["exception_decisions"]
+        ).hexdigest(),
+        reviewer_policy_sha256=hashlib.sha256(source_bytes["routing_plan"]).hexdigest(),
+    )
+    return AuthenticatedClearanceLineage(
+        clearance_run_card_sha256=hashlib.sha256(run_card_bytes).hexdigest(),
+        clearance_artifact_sha256=hashlib.sha256(clearance_bytes).hexdigest(),
+        reviews_artifact_sha256=hashlib.sha256(
+            source_bytes["exception_decisions"]
+        ).hexdigest(),
+        review_receipt_sha256=hashlib.sha256(
+            source_bytes["exception_review_run_card"]
+        ).hexdigest(),
+        cohort_policy_artifact_sha256=hashlib.sha256(
+            source_bytes["cohort_policy"]
+        ).hexdigest(),
+        restriction_evidence_artifact_sha256=hashlib.sha256(
+            source_bytes["restriction_evidence"]
+        ).hexdigest(),
+        review_authority_sha256=_canonical_json_sha256(authority_record),
+        authority=review_authority,
+    )
 
 
 def _selection_requires_resolved_post_recovery(
@@ -32352,17 +34960,13 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
             budget_plan_artifact=budget_plan_artifact,
             selection_records=selection_records,
         )
-        validate_authenticated_clearance_lineage(
-            clearance_records=clearance_records,
-            **clearance_kwargs,
-        )
         dry_run = _acquisition_dry_run(args)
         with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
             before_state_sha256 = journal.purchase_state_sha256()
             operations = journal.operation_records()
             if resolved_path.exists():
                 resolved_records = _read_records(resolved_path)
-                require_resolved_post_recovery_documents(
+                _require_resolved_post_recovery_dispatch(
                     selection_records=selection_records,
                     download_records=download_records,
                     clearance_records=clearance_records,
@@ -32374,7 +34978,7 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
                     resolved_records=resolved_records,
                 )
             else:
-                resolved_records = build_resolved_post_recovery_documents(
+                resolved_records = _build_resolved_post_recovery_dispatch(
                     selection_records=selection_records,
                     purchase_operation_records=operations,
                     download_records=download_records,
@@ -32468,26 +35072,35 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
         output_root / "parse-document-requests.jsonl",
     )
     markdown_output_root = cast(Path, args.markdown_output_root)
-    records = _read_records(download_manifest_path)
-    selection_records = (
-        _read_records(selection_path) if selection_path is not None else []
-    )
-    clearance_records = _read_records(clearance_path)
     materialization_card_path = cast(Path | None, args.materialization_run_card)
-    is_materialized = _require_consistent_materialization_markers(
-        records, clearance_records
-    )
-    if is_materialized and materialization_card_path is None:
-        raise CommandError("materialized documents require --materialization-run-card")
-    materialization_paths: tuple[Path, ...] = ()
+    materialization_lineage: _VerifiedMaterializedDownstreamLineage | None = None
     if materialization_card_path is not None:
-        materialization_paths = _verify_materialized_downstream_lineage(
+        materialization_lineage = _verify_materialized_downstream_lineage(
             run_card_path=materialization_card_path,
             manifest_path=download_manifest_path,
             clearance_path=clearance_path,
             document_root=document_root,
             selection_path=selection_path,
         )
+        records = list(materialization_lineage.manifest_records)
+        clearance_records = list(materialization_lineage.clearance_records)
+        selection_records = list(materialization_lineage.selection_records)
+    else:
+        records = _read_records(download_manifest_path)
+        clearance_records = _read_records(clearance_path)
+        selection_records = (
+            _read_records(selection_path) if selection_path is not None else []
+        )
+    is_materialized = _require_consistent_materialization_markers(
+        records, clearance_records
+    )
+    if is_materialized and materialization_card_path is None:
+        raise CommandError("materialized documents require --materialization-run-card")
+    materialization_paths: Sequence[Path] = ()
+    if materialization_card_path is not None:
+        if materialization_lineage is None:
+            raise CommandError("materialization lineage verification was skipped")
+        materialization_paths = materialization_lineage.paths
         committed_resolved_path = (
             materialization_paths[3] if len(materialization_paths) == 4 else None
         )
@@ -32508,7 +35121,11 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
             "executed parse planning requires canonical materialized documents "
             "and --materialization-run-card"
         )
-    resolved_records = _read_records(resolved_path) if resolved_path is not None else []
+    resolved_records = (
+        list(materialization_lineage.resolved_records)
+        if materialization_lineage is not None
+        else (_read_records(resolved_path) if resolved_path is not None else [])
+    )
     needs_resolved_lineage = _selection_requires_resolved_post_recovery(
         selection_records
     ) or any(
@@ -32531,7 +35148,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
             clearance_records=clearance_records,
         )
         if needs_resolved_lineage and not is_materialized:
-            require_resolved_post_recovery_documents(
+            _require_resolved_post_recovery_dispatch(
                 selection_records=selection_records,
                 download_records=records,
                 clearance_records=clearance_records,
@@ -32587,35 +35204,47 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
         }
         for record in records
     )
+    completion_input_paths = (
+        *((selection_path,) if selection_path is not None else ()),
+        download_manifest_path,
+        clearance_path,
+        *materialization_paths,
+        *clearance_lineage_paths,
+        *(
+            (resolved_path,)
+            if resolved_path is not None and not is_materialized
+            else ()
+        ),
+        *purchase_lineage_paths,
+    )
+    completion_input_snapshots = _snapshot_regular_input_paths(
+        completion_input_paths,
+        label="plan-parse-documents input",
+        captured_artifact_bytes=(
+            materialization_lineage.artifact_bytes
+            if materialization_lineage is not None
+            else None
+        ),
+    )
     if dry_run:
-        _write_jsonl(
-            requests_path,
-            [
-                {
-                    "stage": "plan-parse-documents",
-                    "dry_run": True,
-                    "request_count": len(request_records),
-                }
-            ],
+        output_records: Sequence[Mapping[str, Any]] = (
+            {
+                "stage": "plan-parse-documents",
+                "dry_run": True,
+                "request_count": len(request_records),
+            },
         )
     else:
-        _write_jsonl(requests_path, request_records)
+        output_records = request_records
+    requests_bytes = _projection_jsonl_bytes(output_records)
+    _write_jsonl(requests_path, output_records)
+    _require_snapshot_unchanged(
+        completion_input_snapshots, label="plan-parse-documents input"
+    )
     _write_acquisition_completion(
         args,
         stage="plan-parse-documents",
-        input_paths=(
-            *((selection_path,) if selection_path is not None else ()),
-            download_manifest_path,
-            clearance_path,
-            *materialization_paths,
-            *clearance_lineage_paths,
-            *(
-                (resolved_path,)
-                if resolved_path is not None and not is_materialized
-                else ()
-            ),
-            *purchase_lineage_paths,
-        ),
+        input_paths=completion_input_paths,
         output_paths=(requests_path,),
         record_count=len(request_records),
         dry_run=dry_run,
@@ -32625,23 +35254,9 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
             "source_commitments": {
                 f"input_{index:02d}": {
                     "path": str(path.resolve()),
-                    "sha256": _path_sha256(path),
+                    "sha256": _bytes_sha256(completion_input_snapshots[path]),
                 }
-                for index, path in enumerate(
-                    (
-                        *((selection_path,) if selection_path is not None else ()),
-                        download_manifest_path,
-                        clearance_path,
-                        *materialization_paths,
-                        *clearance_lineage_paths,
-                        *(
-                            (resolved_path,)
-                            if resolved_path is not None and not is_materialized
-                            else ()
-                        ),
-                        *purchase_lineage_paths,
-                    )
-                )
+                for index, path in enumerate(completion_input_paths)
             },
             "output_commitments": (
                 {}
@@ -32649,7 +35264,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
                 else {
                     "parse_requests": {
                         "path": str(requests_path.resolve()),
-                        "sha256": _path_sha256(requests_path),
+                        "sha256": _bytes_sha256(requests_bytes),
                     }
                 }
             ),
@@ -32671,9 +35286,42 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         "manifest_output",
         output_root / "mistral-markdown-conversions.jsonl",
     )
-    request_records = _read_records(requests_path)
-    clearance_records = _read_records(clearance_path)
+    request_bytes = _read_singly_linked_regular_input(
+        requests_path, label="parse document requests"
+    )
+    request_records = _projection_jsonl_records(request_bytes, source=requests_path)
     materialization_card_path = cast(Path | None, args.materialization_run_card)
+    materialization_lineage: _VerifiedMaterializedDownstreamLineage | None = None
+    materialization_card_bytes: bytes | None = None
+    materialized_document_root: Path | None = None
+    if materialization_card_path is not None:
+        materialization_card_bytes = _read_singly_linked_regular_input(
+            materialization_card_path, label="parse materialization run card"
+        )
+        materialization_card = _projection_json_object(
+            materialization_card_bytes, source=materialization_card_path
+        )
+        materialization_outputs = materialization_card.get("output_paths")
+        if not isinstance(materialization_outputs, Sequence) or isinstance(
+            materialization_outputs, (str, bytes)
+        ):
+            raise CommandError("materialization run card lacks exact outputs")
+        materialization_output_paths = tuple(
+            Path(str(path)) for path in cast(Sequence[object], materialization_outputs)
+        )
+        if len(materialization_output_paths) != 6:
+            raise CommandError("materialization run card output paths differ")
+        materialized_document_root = materialization_output_paths[5]
+        materialization_lineage = _verify_materialized_downstream_lineage(
+            run_card_path=materialization_card_path,
+            manifest_path=materialization_output_paths[0],
+            clearance_path=clearance_path,
+            document_root=materialization_output_paths[5],
+            selection_path=selection_path,
+        )
+        clearance_records = list(materialization_lineage.clearance_records)
+    else:
+        clearance_records = _read_records(clearance_path)
     is_materialized = _require_consistent_materialization_markers(
         request_records, clearance_records
     )
@@ -32690,26 +35338,11 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
             "executed parsing requires canonical materialized documents and "
             "--materialization-run-card"
         )
-    materialization_paths: tuple[Path, ...] = ()
+    materialization_paths: Sequence[Path] = ()
     if materialization_card_path is not None:
-        materialization_card = _read_json_object(materialization_card_path)
-        materialization_outputs = materialization_card.get("output_paths")
-        if not isinstance(materialization_outputs, Sequence) or isinstance(
-            materialization_outputs, (str, bytes)
-        ):
-            raise CommandError("materialization run card lacks exact outputs")
-        materialization_output_paths = tuple(
-            Path(str(path)) for path in cast(Sequence[object], materialization_outputs)
-        )
-        if len(materialization_output_paths) != 6:
-            raise CommandError("materialization run card output paths differ")
-        materialization_paths = _verify_materialized_downstream_lineage(
-            run_card_path=materialization_card_path,
-            manifest_path=materialization_output_paths[0],
-            clearance_path=clearance_path,
-            document_root=materialization_output_paths[5],
-            selection_path=selection_path,
-        )
+        if materialization_lineage is None:
+            raise CommandError("materialization lineage verification was skipped")
+        materialization_paths = materialization_lineage.paths
         committed_resolved_path = (
             materialization_paths[3] if len(materialization_paths) == 4 else None
         )
@@ -32722,9 +35355,21 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
             )
         resolved_path = committed_resolved_path
     selection_records = (
-        _read_records(selection_path) if selection_path is not None else []
+        list(materialization_lineage.selection_records)
+        if materialization_lineage is not None
+        else (_read_records(selection_path) if selection_path is not None else [])
     )
-    resolved_records = _read_records(resolved_path) if resolved_path is not None else []
+    resolved_records = (
+        list(materialization_lineage.resolved_records)
+        if materialization_lineage is not None
+        else (_read_records(resolved_path) if resolved_path is not None else [])
+    )
+    stable_parse_inputs = {requests_path: request_bytes}
+    if materialization_card_path is not None and materialization_card_bytes is not None:
+        stable_parse_inputs[materialization_card_path] = materialization_card_bytes
+    _require_snapshot_unchanged(
+        stable_parse_inputs, label="parse materialization input"
+    )
     needs_resolved_lineage = (
         _selection_requires_resolved_post_recovery(selection_records)
         or any(
@@ -32737,21 +35382,15 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         raise CommandError(
             "unknown-origin material requires --selection for exact lineage"
         )
-    clearance_kwargs: dict[str, Any] = {}
     clearance_lineage_paths: tuple[Path, ...] = ()
     if needs_resolved_lineage and not is_materialized:
-        clearance_kwargs, clearance_lineage_paths = (
+        _clearance_kwargs, clearance_lineage_paths = (
             _authenticated_clearance_lineage_inputs(args, clearance_path=clearance_path)
         )
     if not dry_run:
         try:
             require_cleared_parse_requests(request_records, clearance_records)
             if needs_resolved_lineage:
-                if not is_materialized:
-                    validate_authenticated_clearance_lineage(
-                        clearance_records=clearance_records,
-                        **clearance_kwargs,
-                    )
                 require_resolved_post_recovery_parse_requests(
                     selection_records=selection_records,
                     request_records=request_records,
@@ -32771,23 +35410,77 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 resolved_records=resolved_records,
             )
         )
+    completion_input_paths = (
+        *((selection_path,) if selection_path is not None else ()),
+        requests_path,
+        clearance_path,
+        *materialization_paths,
+        *clearance_lineage_paths,
+        *(
+            (resolved_path,)
+            if resolved_path is not None and not is_materialized
+            else ()
+        ),
+        *purchase_lineage_paths,
+    )
+    completion_input_snapshots = _snapshot_regular_input_paths(
+        completion_input_paths,
+        label="parse-documents input",
+        captured_artifact_bytes=(
+            materialization_lineage.artifact_bytes
+            if materialization_lineage is not None
+            else None
+        ),
+    )
+    if completion_input_snapshots[requests_path] != request_bytes:
+        raise CommandError("parse document requests changed during execution")
+    if (
+        materialization_card_path is not None
+        and materialization_card_bytes is not None
+        and completion_input_snapshots[materialization_card_path]
+        != materialization_card_bytes
+    ):
+        raise CommandError("parse materialization run card changed during execution")
+    document_source_snapshots = (
+        dict(materialization_lineage.document_tree)
+        if materialization_lineage is not None
+        else {}
+    )
     requests = tuple(
-        _mistral_markdown_request(record, output_root=output_root)
+        _mistral_markdown_request(
+            record,
+            output_root=output_root,
+            captured_source_bytes=(
+                document_source_snapshots.get(
+                    Path(_required_str(record, "input_path"))
+                    .resolve()
+                    .relative_to(cast(Path, materialized_document_root).resolve())
+                    .as_posix()
+                )
+                if materialization_lineage is not None and document_source_snapshots
+                else None
+            ),
+        )
         for record in request_records
     )
+    if (
+        materialization_lineage is not None
+        and document_source_snapshots
+        and any(request.captured_source_bytes is None for request in requests)
+    ):
+        raise CommandError(
+            "parse source is missing from materialized document snapshot"
+        )
     fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
     parser_root = cast(Path | None, args.parser_root)
     if dry_run:
-        _write_jsonl(
-            manifest_path,
-            [
-                {
-                    "stage": "parse-documents",
-                    "dry_run": True,
-                    "request_count": len(requests),
-                    "parser_root": str(cast(Path | None, args.parser_root)),
-                }
-            ],
+        output_records: Sequence[Mapping[str, Any]] = (
+            {
+                "stage": "parse-documents",
+                "dry_run": True,
+                "request_count": len(requests),
+                "parser_root": str(cast(Path | None, args.parser_root)),
+            },
         )
     else:
         if fixture_markdown_dir is None:
@@ -32808,31 +35501,40 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 fixture_markdown_dir=fixture_markdown_dir,
                 generated_at=datetime.now(UTC),
             )
-        _write_jsonl(
-            manifest_path,
-            [
-                {
-                    **record.to_record(),
-                    "source_sha256": _required_str(request, "expected_sha256"),
-                    "source_byte_count": _required_int(request, "expected_byte_count"),
-                }
-                for record, request in zip(records, request_records, strict=True)
-            ],
+        output_records = tuple(
+            {
+                **record.to_record(),
+                "source_sha256": _required_str(request, "expected_sha256"),
+                "source_byte_count": _required_int(request, "expected_byte_count"),
+            }
+            for record, request in zip(records, request_records, strict=True)
         )
+    manifest_bytes = _projection_jsonl_bytes(output_records)
+    _write_jsonl(manifest_path, output_records)
+    _require_snapshot_unchanged(
+        completion_input_snapshots, label="parse-documents input"
+    )
+    if (
+        materialization_lineage is not None
+        and document_source_snapshots
+        and _materializer_tree_snapshot(cast(Path, materialized_document_root))
+        != document_source_snapshots
+    ):
+        raise CommandError("parse materialized document tree changed during execution")
     source_commitments = {
         "requests": {
             "path": str(requests_path.resolve()),
-            "sha256": _path_sha256(requests_path),
+            "sha256": _bytes_sha256(completion_input_snapshots[requests_path]),
         },
         "disclosure_clearance": {
             "path": str(clearance_path.resolve()),
-            "sha256": _path_sha256(clearance_path),
+            "sha256": _bytes_sha256(completion_input_snapshots[clearance_path]),
         },
         **(
             {
                 "selection": {
                     "path": str(selection_path.resolve()),
-                    "sha256": _path_sha256(selection_path),
+                    "sha256": _bytes_sha256(completion_input_snapshots[selection_path]),
                 }
             }
             if selection_path is not None
@@ -32841,7 +35543,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         **{
             f"clearance_lineage_{index:02d}": {
                 "path": str(path.resolve()),
-                "sha256": _path_sha256(path),
+                "sha256": _bytes_sha256(completion_input_snapshots[path]),
             }
             for index, path in enumerate(clearance_lineage_paths)
         },
@@ -32849,7 +35551,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
             {
                 "resolved_post_recovery_documents": {
                     "path": str(resolved_path.resolve()),
-                    "sha256": _path_sha256(resolved_path),
+                    "sha256": _bytes_sha256(completion_input_snapshots[resolved_path]),
                 }
             }
             if resolved_path is not None
@@ -32858,7 +35560,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         **{
             f"purchase_lineage_{index:02d}": {
                 "path": str(path.resolve()),
-                "sha256": _path_sha256(path),
+                "sha256": _bytes_sha256(completion_input_snapshots[path]),
             }
             for index, path in enumerate(purchase_lineage_paths)
         },
@@ -32869,7 +35571,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         else {
             "parser_manifest": {
                 "path": str(manifest_path.resolve()),
-                "sha256": _path_sha256(manifest_path),
+                "sha256": _bytes_sha256(manifest_bytes),
             }
         }
     )
@@ -32879,19 +35581,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="parse-documents",
-        input_paths=(
-            *((selection_path,) if selection_path is not None else ()),
-            requests_path,
-            clearance_path,
-            *materialization_paths,
-            *clearance_lineage_paths,
-            *(
-                (resolved_path,)
-                if resolved_path is not None and not is_materialized
-                else ()
-            ),
-            *purchase_lineage_paths,
-        ),
+        input_paths=completion_input_paths,
         output_paths=(manifest_path,),
         record_count=len(requests),
         dry_run=dry_run,
@@ -33257,8 +35947,42 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
     for path in input_paths:
         if path.is_symlink() or not path.exists():
             raise CommandError(f"rehearsal input is missing or a symlink: {path}")
+    rehearsal_file_snapshots = {
+        path: _read_singly_linked_regular_input(path, label="rehearsal input")
+        for path in input_paths
+        if path.is_file()
+    }
+
+    def require_rehearsal_inputs_unchanged() -> None:
+        _require_snapshot_unchanged(rehearsal_file_snapshots, label="rehearsal input")
+
+    try:
+        verified_materialization = _verify_materialized_downstream_lineage(
+            run_card_path=materialization_card_path,
+            manifest_path=manifest_path,
+            clearance_path=clearance_path,
+            document_root=document_root,
+            selection_path=selection_path,
+        )
+    except (CommandError, OSError) as exc:
+        raise CommandError(str(exc)) from exc
+    for path, payload in rehearsal_file_snapshots.items():
+        materialized_payload = verified_materialization.artifact_bytes.get(
+            os.path.abspath(path)
+        )
+        if materialized_payload is not None and materialized_payload != payload:
+            raise CommandError(f"rehearsal materialization input changed: {path}")
     input_commitments = {
-        str(path.resolve()): _fixture_rehearsal_input_commitment(path)
+        str(path.resolve()): (
+            {
+                "kind": "file",
+                "path": str(path.resolve()),
+                "sha256": _bytes_sha256(rehearsal_file_snapshots[path]),
+                "byte_count": len(rehearsal_file_snapshots[path]),
+            }
+            if path in rehearsal_file_snapshots
+            else _fixture_rehearsal_input_commitment(path)
+        )
         for path in input_paths
     }
     target_stage = cast(str, args.rehearsal_stage)
@@ -33281,7 +36005,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         ) from exc
     verified_stage_card_sha256: dict[str, str] = {}
 
-    selections = tuple(_read_records(selection_path))
+    selections = verified_materialization.selection_records
     candidate_ids = tuple(_required_str(row, "candidate_id") for row in selections)
     if len(candidate_ids) != target_count or len(set(candidate_ids)) != target_count:
         raise CommandError(
@@ -33295,7 +36019,9 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         for record in selections
     ):
         raise CommandError("rehearsal selection contains a pre-anchor decision")
-    selection_card = _read_json_object(selection_card_path)
+    selection_card = _projection_json_object(
+        rehearsal_file_snapshots[selection_card_path], source=selection_card_path
+    )
     selection_outputs = selection_card.get("output_commitments")
     selection_output_sha256 = (
         cast(Mapping[object, object], selection_outputs).get(
@@ -33310,36 +36036,47 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         or selection_card.get("execute") is not True
         or selection_card.get("record_count") != target_count
         or not isinstance(selection_outputs, Mapping)
-        or selection_output_sha256 != _path_sha256(selection_path)
+        or selection_output_sha256
+        != _bytes_sha256(
+            verified_materialization.artifact_bytes[os.path.abspath(selection_path)]
+        )
     ):
         raise CommandError("invalid exact target-cohort selection run card")
 
-    downloads = tuple(_read_records(manifest_path))
-    clearances = tuple(_read_records(clearance_path))
-    restrictions = tuple(_read_records(restriction_path))
-    parser_records = tuple(_read_records(parser_manifest_path))
-    parse_requests = tuple(_read_records(parse_requests_path))
-    try:
-        _verify_materialized_downstream_lineage(
-            run_card_path=materialization_card_path,
-            manifest_path=manifest_path,
-            clearance_path=clearance_path,
-            document_root=document_root,
-            selection_path=selection_path,
+    downloads = verified_materialization.manifest_records
+    clearances = verified_materialization.clearance_records
+    restrictions = tuple(
+        _projection_jsonl_records(
+            verified_materialization.artifact_bytes[os.path.abspath(restriction_path)],
+            source=restriction_path,
         )
-    except (CommandError, OSError) as exc:
-        raise CommandError(str(exc)) from exc
-    parse_plan_card = _read_json_object(parse_plan_card_path)
+    )
+    parser_records = tuple(
+        _projection_jsonl_records(
+            rehearsal_file_snapshots[parser_manifest_path], source=parser_manifest_path
+        )
+    )
+    parse_requests = tuple(
+        _projection_jsonl_records(
+            rehearsal_file_snapshots[parse_requests_path], source=parse_requests_path
+        )
+    )
+    parse_plan_card = _projection_json_object(
+        rehearsal_file_snapshots[parse_plan_card_path], source=parse_plan_card_path
+    )
     parse_plan_outputs = _required_record(parse_plan_card, "output_commitments")
     parse_request_commitment = _required_record(parse_plan_outputs, "parse_requests")
     if (
         parse_plan_card.get("stage") != "plan-parse-documents"
         or parse_plan_card.get("status") != "completed"
         or parse_plan_card.get("execute") is not True
-        or parse_request_commitment.get("sha256") != _path_sha256(parse_requests_path)
+        or parse_request_commitment.get("sha256")
+        != _bytes_sha256(rehearsal_file_snapshots[parse_requests_path])
     ):
         raise CommandError("invalid completed plan-parse-documents run card")
-    parser_card = _read_json_object(parser_card_path)
+    parser_card = _projection_json_object(
+        rehearsal_file_snapshots[parser_card_path], source=parser_card_path
+    )
     parser_execution = _required_record(parser_card, "parser_execution")
     if (
         parser_card.get("stage") != "parse-documents"
@@ -33354,11 +36091,11 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         )
     parser_sources = _required_record(parser_card, "source_commitments")
     parser_outputs = _required_record(parser_card, "output_commitments")
-    if _required_record(parser_sources, "requests").get("sha256") != _path_sha256(
-        parse_requests_path
+    if _required_record(parser_sources, "requests").get("sha256") != _bytes_sha256(
+        rehearsal_file_snapshots[parse_requests_path]
     ) or _required_record(parser_outputs, "parser_manifest").get(
         "sha256"
-    ) != _path_sha256(parser_manifest_path):
+    ) != _bytes_sha256(rehearsal_file_snapshots[parser_manifest_path]):
         raise CommandError("fixture parser card hash commitments changed")
     request_index = {
         (
@@ -33390,28 +36127,45 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             raise CommandError(f"fixture parser source commitment changed: {key}")
 
     commitments = {
-        "selection_sha256": _path_sha256(selection_path),
-        "selection_run_card_sha256": _path_sha256(selection_card_path),
-        "download_manifest_sha256": _path_sha256(manifest_path),
-        "disclosure_clearance_sha256": _path_sha256(clearance_path),
-        "clearance_run_card_sha256": _path_sha256(materialization_card_path),
-        "restriction_evidence_sha256": _path_sha256(restriction_path),
-        "parser_manifest_sha256": _path_sha256(parser_manifest_path),
-        "parser_run_card_sha256": _path_sha256(parser_card_path),
+        "selection_sha256": _bytes_sha256(rehearsal_file_snapshots[selection_path]),
+        "selection_run_card_sha256": _bytes_sha256(
+            rehearsal_file_snapshots[selection_card_path]
+        ),
+        "download_manifest_sha256": _bytes_sha256(
+            rehearsal_file_snapshots[manifest_path]
+        ),
+        "disclosure_clearance_sha256": _bytes_sha256(
+            rehearsal_file_snapshots[clearance_path]
+        ),
+        "clearance_run_card_sha256": _bytes_sha256(
+            rehearsal_file_snapshots[materialization_card_path]
+        ),
+        "restriction_evidence_sha256": _bytes_sha256(
+            rehearsal_file_snapshots[restriction_path]
+        ),
+        "parser_manifest_sha256": _bytes_sha256(
+            rehearsal_file_snapshots[parser_manifest_path]
+        ),
+        "parser_run_card_sha256": _bytes_sha256(
+            rehearsal_file_snapshots[parser_card_path]
+        ),
     }
     try:
-        fixture_bundle = load_deterministic_response_fixture_bundle(
-            response_fixture_path
+        fixture_bundle = load_deterministic_response_fixture_bundle_bytes(
+            rehearsal_file_snapshots[response_fixture_path],
+            source=response_fixture_path,
         )
         fixtures = fixture_bundle.fixtures
-        unitizer_entry, unitizer_sha = _registry_entry_for_key(
-            cast(Path, args.unitizer_model_registry),
-            cast(str, args.unitizer_model_key),
+        unitizer_entries, unitizer_sha = _registry_entries_for_keys_bytes(
+            rehearsal_file_snapshots[cast(Path, args.unitizer_model_registry)],
+            (cast(str, args.unitizer_model_key),),
         )
-        reviewer_entry, reviewer_sha = _registry_entry_for_key(
-            cast(Path, args.reviewer_model_registry),
-            cast(str, args.reviewer_model_key),
+        unitizer_entry = unitizer_entries[0]
+        reviewer_entries, reviewer_sha = _registry_entries_for_keys_bytes(
+            rehearsal_file_snapshots[cast(Path, args.reviewer_model_registry)],
+            (cast(str, args.reviewer_model_key),),
         )
+        reviewer_entry = reviewer_entries[0]
     except (DecisionTextArtifactError, DownstreamRehearsalError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
 
@@ -33525,6 +36279,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             prior_stage=None,
         )
     if target_stage == "decision-texts":
+        require_rehearsal_inputs_unchanged()
         return 0
 
     raw_units_path = output_root / "rehearsal-raw-prediction-units.jsonl"
@@ -33599,6 +36354,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_record_count=len(decision_records),
         )
     if target_stage == "stage-a-unitize":
+        require_rehearsal_inputs_unchanged()
         return 0
 
     structural_flags_path = output_root / "rehearsal-stage-a-structural-flags.jsonl"
@@ -33670,6 +36426,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_record_count=len(raw_prediction_units),
         )
     if target_stage == "stage-a-review":
+        require_rehearsal_inputs_unchanged()
         return 0
 
     finalized_units_path = output_root / "rehearsal-finalized-prediction-units.jsonl"
@@ -33717,6 +36474,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             ),
         )
     if target_stage == "stage-a-apply":
+        require_rehearsal_inputs_unchanged()
         return 0
 
     decision_artifact = VerifiedDecisionTextArtifact(
@@ -33734,16 +36492,35 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
 
     judge_keys = tuple(cast(list[str], args.judge_model_key))
     _require_explicit_unique_model_keys(judge_keys)
-    judge_entries, judge_sha = _registry_entries_for_keys(
-        cast(Path, args.judge_model_registry), judge_keys
+    judge_registry_path = cast(Path, args.judge_model_registry)
+    judge_entries, judge_sha = _registry_entries_for_keys_bytes(
+        rehearsal_file_snapshots[judge_registry_path], judge_keys
     )
-    _require_complete_registry_panel(
-        judge_entries, model_registry_path=cast(Path, args.judge_model_registry)
+    frozen_judge_keys = {
+        entry.registry_key
+        for entry in load_model_registry_bytes(
+            rehearsal_file_snapshots[judge_registry_path]
+        ).entries
+    }
+    if {entry.registry_key for entry in judge_entries} != frozen_judge_keys:
+        raise CommandError("rehearsal must select the complete frozen judge panel")
+    evaluated_entries = load_model_registry_bytes(
+        rehearsal_file_snapshots[cast(Path, args.evaluated_model_registry)]
+    ).entries
+    evaluated_identities = {
+        (entry.provider, entry.model_id, entry.model_version_or_snapshot)
+        for entry in evaluated_entries
+    }
+    overlaps = sorted(
+        entry.registry_key
+        for entry in judge_entries
+        if (entry.provider, entry.model_id, entry.model_version_or_snapshot)
+        in evaluated_identities
     )
-    _require_exact_model_disjoint_judges(
-        judge_entries,
-        evaluated_model_registry_path=cast(Path, args.evaluated_model_registry),
-    )
+    if overlaps:
+        raise CommandError(
+            "rehearsal judge panel overlaps evaluated registry: " + ", ".join(overlaps)
+        )
     labels_path = output_root / "rehearsal-labels.jsonl"
     label_audit_path = output_root / "rehearsal-llm-label-audit.jsonl"
     lawyer_queue_path = output_root / "rehearsal-lawyer-review-queue.jsonl"
@@ -33819,6 +36596,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_record_count=len(finalized_units),
         )
     if target_stage == "stage-b-label":
+        require_rehearsal_inputs_unchanged()
         return 0
 
     label_apply_path = output_root / "rehearsal-label-apply-audit.jsonl"
@@ -33870,6 +36648,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_record_count=len(label_records),
         )
     if target_stage == "stage-b-apply":
+        require_rehearsal_inputs_unchanged()
         return 0
 
     packet_input_path = output_root / "rehearsal-packet-build-input.jsonl"
@@ -33931,6 +36710,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_record_count=len(label_records),
         )
     if target_stage == "packet-plan":
+        require_rehearsal_inputs_unchanged()
         return 0
 
     packet_path = output_root / "rehearsal-packets.jsonl"
@@ -34085,6 +36865,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             "summary_sidecar_sha256": _path_sha256(summary_artifact[1]),
         },
     )
+    require_rehearsal_inputs_unchanged()
     return 0
 
 
@@ -34549,14 +37330,12 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         "decision_texts_manifest_output",
         output_root / "decision-texts-manifest.json",
     )
-    try:
-        source_bytes: dict[str, bytes] = {}
-        for name, path in source_paths.items():
-            if path.is_symlink() or not path.is_file():
-                raise OSError(f"decision text input is not a regular file: {path}")
-            source_bytes[name] = path.read_bytes()
-    except OSError as exc:
-        raise CommandError(str(exc)) from exc
+    source_bytes = {
+        name: _read_singly_linked_regular_input(
+            path, label=f"decision text {name.replace('_', ' ')}"
+        )
+        for name, path in source_paths.items()
+    }
     source_sha256 = {
         name: _bytes_sha256(payload) for name, payload in source_bytes.items()
     }
@@ -34581,9 +37360,11 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
             raise CommandError(
                 "materialized decision texts require only --materialization-run-card"
             )
-        materialization_outputs = _read_json_object(materialization_card_path).get(
-            "output_paths"
+        materialization_card = _projection_json_object(
+            source_bytes["materialization_run_card"],
+            source=materialization_card_path,
         )
+        materialization_outputs = materialization_card.get("output_paths")
         if not isinstance(materialization_outputs, Sequence) or isinstance(
             materialization_outputs, (str, bytes)
         ):
@@ -34613,11 +37394,32 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
             source_bytes["clearance_run_card"],
             source=source_paths["clearance_run_card"],
         )
-        _validate_clearance_run_card_commitments(
-            clearance_run_card,
-            source_paths=source_paths,
-            source_sha256=source_sha256,
+        clearance_snapshot = _capture_clearance_artifact_snapshot(
+            run_card=clearance_run_card,
+            run_card_path=source_paths["clearance_run_card"],
+            clearance_path=source_paths["disclosure_clearance"],
+            initial_artifact_bytes={
+                os.path.abspath(path): source_bytes[name]
+                for name, path in source_paths.items()
+            },
         )
+        _verify_authenticated_clearance_run_card(
+            clearance_path=source_paths["disclosure_clearance"],
+            clearance_run_card_path=source_paths["clearance_run_card"],
+            expected_download_manifest_path=source_paths["download_manifest"],
+            expected_restriction_path=source_paths["restriction_evidence"],
+            captured_artifact_bytes=clearance_snapshot,
+        )
+    for name, path in source_paths.items():
+        if (
+            _read_singly_linked_regular_input(
+                path, label=f"decision text {name.replace('_', ' ')}"
+            )
+            != source_bytes[name]
+        ):
+            raise CommandError(
+                f"decision text {name.replace('_', ' ')} changed during lineage replay"
+            )
     selection_run_card = _projection_json_object(
         source_bytes["selection_run_card"],
         source=source_paths["selection_run_card"],
@@ -34734,6 +37536,9 @@ class _StageAUnitizationLineage:
     input_paths: tuple[Path, ...]
     input_commitments: Mapping[str, object]
     markdown_tree: Mapping[str, object]
+    file_snapshots: Mapping[Path, bytes]
+    document_tree: Mapping[str, bytes]
+    markdown_bytes: Mapping[str, bytes]
 
 
 def _required_stage_a_lineage_path(
@@ -34797,6 +37602,12 @@ def _verify_stage_a_unitization_lineage(
     for path in regular_files:
         if path.is_symlink() or not path.is_file():
             raise CommandError(f"authenticated Stage A input is not a file: {path}")
+    stage_a_file_snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="authenticated Stage A input"
+        )
+        for path in regular_files
+    }
     if document_root.is_symlink() or not document_root.is_dir():
         raise CommandError(
             f"authenticated Stage A document root is invalid: {document_root}"
@@ -34812,21 +37623,46 @@ def _verify_stage_a_unitization_lineage(
             f"shared provider journal is not a regular file: {provider_journal_path}"
         )
 
-    selection_records = tuple(_read_records(selection_path))
-    parser_records = tuple(_read_records(parser_manifest_path))
-    selection_card = _read_json_object(selection_run_card_path)
-    _validate_selection_run_card_commitment(
-        selection_card,
-        selection_path=selection_path,
-        selection_sha256=_path_sha256(selection_path),
-        selection_record_count=len(selection_records),
+    parser_records = tuple(
+        _projection_jsonl_records(
+            stage_a_file_snapshots[parser_manifest_path], source=parser_manifest_path
+        )
     )
-    materialization_paths = _verify_materialized_downstream_lineage(
+    verified_materialization = _verify_materialized_downstream_lineage(
         run_card_path=materialization_card_path,
         manifest_path=manifest_path,
         clearance_path=clearance_path,
         document_root=document_root,
         selection_path=selection_path,
+    )
+    for path in (
+        selection_path,
+        manifest_path,
+        clearance_path,
+        materialization_card_path,
+    ):
+        if (
+            verified_materialization.artifact_bytes[os.path.abspath(path)]
+            != stage_a_file_snapshots[path]
+        ):
+            raise CommandError(f"authenticated Stage A input changed: {path}")
+    selection_records = verified_materialization.selection_records
+    selection_card_bytes = stage_a_file_snapshots[selection_run_card_path]
+    selection_card = _projection_json_object(
+        selection_card_bytes, source=selection_run_card_path
+    )
+    selection_bytes = verified_materialization.artifact_bytes[
+        os.path.abspath(selection_path)
+    ]
+    _validate_selection_run_card_commitment(
+        selection_card,
+        selection_path=selection_path,
+        selection_sha256=_bytes_sha256(selection_bytes),
+        selection_record_count=len(selection_records),
+    )
+    materialization_paths = verified_materialization.paths
+    markdown_tree, markdown_bytes = _stage_a_markdown_tree_snapshot(
+        parser_records, markdown_root=markdown_root
     )
     _verify_stage_a_parse_lineage(
         selection_path=selection_path,
@@ -34838,14 +37674,25 @@ def _verify_stage_a_unitization_lineage(
         parser_manifest_path=parser_manifest_path,
         parser_records=parser_records,
         parser_run_card_path=parser_run_card_path,
+        selection_bytes=stage_a_file_snapshots[selection_path],
+        requests_bytes=stage_a_file_snapshots[requests_path],
+        parser_manifest_bytes=stage_a_file_snapshots[parser_manifest_path],
+        parser_run_card_bytes=stage_a_file_snapshots[parser_run_card_path],
         markdown_root=markdown_root,
+        download_records=verified_materialization.manifest_records,
+        clearance_bytes=verified_materialization.artifact_bytes[
+            os.path.abspath(clearance_path)
+        ],
+        markdown_bytes=markdown_bytes,
     )
-    markdown_tree = _stage_a_markdown_tree_commitments(
-        parser_records, markdown_root=markdown_root
+    cohort_cycle_id = _materialization_cohort_cycle_id(
+        materialization_card_path,
+        captured_artifact_bytes=verified_materialization.artifact_bytes,
     )
-    cohort_cycle_id = _materialization_cohort_cycle_id(materialization_card_path)
     try:
-        provider_caps = load_provider_cycle_caps(caps_path)
+        provider_caps = load_provider_cycle_caps_bytes(
+            stage_a_file_snapshots[caps_path], source=caps_path
+        )
     except ProviderJournalError as exc:
         raise CommandError(str(exc)) from exc
     if provider_caps.cycle_id != cohort_cycle_id:
@@ -34853,9 +37700,10 @@ def _verify_stage_a_unitization_lineage(
             "provider cycle caps cycle_id differs from authenticated cohort: "
             f"{provider_caps.cycle_id!r} != {cohort_cycle_id!r}"
         )
-    registry_entry, registry_sha256 = _registry_entry_for_key(
-        registry_path, cast(str, args.model_key)
+    registry_entries, registry_sha256 = _registry_entries_for_keys_bytes(
+        stage_a_file_snapshots[registry_path], (cast(str, args.model_key),)
     )
+    registry_entry = registry_entries[0]
     provider_caps.cap_usd(registry_entry.provider)
     input_paths = (
         selection_path,
@@ -34874,7 +37722,7 @@ def _verify_stage_a_unitization_lineage(
         *materialization_paths[1:],
     )
     file_commitments = {
-        name: _stage_a_file_commitment(path)
+        name: _stage_a_file_commitment(path, payload=stage_a_file_snapshots[path])
         for name, path in (
             ("selection", selection_path),
             ("selection_run_card", selection_run_card_path),
@@ -34888,13 +37736,22 @@ def _verify_stage_a_unitization_lineage(
             ("provider_cycle_caps", caps_path),
         )
     }
+    _require_snapshot_unchanged(
+        stage_a_file_snapshots, label="authenticated Stage A input"
+    )
+    if _materializer_tree_snapshot(document_root) != dict(
+        verified_materialization.document_tree
+    ):
+        raise CommandError("authenticated Stage A document tree changed")
     return _StageAUnitizationLineage(
-        selection_records=selection_records,
+        selection_records=tuple(dict(record) for record in selection_records),
         parser_records=parser_records,
         registry_entry=registry_entry,
         registry_sha256=registry_sha256,
         provider_caps=provider_caps,
-        provider_caps_sha256=_path_sha256(caps_path),
+        provider_caps_sha256=hashlib.sha256(
+            stage_a_file_snapshots[caps_path]
+        ).hexdigest(),
         provider_journal_path=provider_journal_path,
         document_root=document_root,
         markdown_root=markdown_root,
@@ -34902,19 +37759,37 @@ def _verify_stage_a_unitization_lineage(
         input_paths=input_paths,
         input_commitments={
             **file_commitments,
-            "document_tree": _materializer_tree_commitments(document_root),
+            "document_tree": {
+                path: _bytes_sha256(payload)
+                for path, payload in verified_materialization.document_tree.items()
+            },
             "markdown_tree": dict(markdown_tree),
         },
         markdown_tree=markdown_tree,
+        file_snapshots=dict(stage_a_file_snapshots),
+        document_tree=dict(verified_materialization.document_tree),
+        markdown_bytes=markdown_bytes,
     )
 
 
-def _stage_a_file_commitment(path: Path) -> JsonRecord:
-    return {"path": str(path.resolve()), "sha256": _path_sha256(path)}
+def _stage_a_file_commitment(path: Path, *, payload: bytes | None = None) -> JsonRecord:
+    return {
+        "path": str(path.resolve()),
+        "sha256": _bytes_sha256(payload) if payload is not None else _path_sha256(path),
+    }
 
 
-def _materialization_cohort_cycle_id(run_card_path: Path) -> str:
-    card = _read_json_object(run_card_path)
+def _materialization_cohort_cycle_id(
+    run_card_path: Path,
+    *,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+) -> str:
+    card_bytes = _captured_or_stable_input(
+        run_card_path,
+        label="materialization run card",
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    card = _projection_json_object(card_bytes, source=run_card_path)
     inputs = card.get("input_paths")
     if not isinstance(inputs, Sequence) or isinstance(inputs, (str, bytes)):
         raise CommandError("materialization run card lacks cohort-policy input")
@@ -34923,7 +37798,12 @@ def _materialization_cohort_cycle_id(run_card_path: Path) -> str:
         raise CommandError("materialization run card input paths differ")
     cohort_policy_path = typed[10]
     try:
-        artifact = _read_json_object(cohort_policy_path)
+        policy_bytes = _captured_or_stable_input(
+            cohort_policy_path,
+            label="materialization cohort policy",
+            captured_artifact_bytes=captured_artifact_bytes,
+        )
+        artifact = _projection_json_object(policy_bytes, source=cohort_policy_path)
         verify_cohort_policy(artifact)
     except (CohortPolicyError, OSError, ValueError) as exc:
         raise CommandError(f"invalid materialization cohort policy: {exc}") from exc
@@ -34947,15 +37827,24 @@ def _verify_stage_a_parse_lineage(
     parser_manifest_path: Path,
     parser_records: Sequence[Mapping[str, Any]],
     parser_run_card_path: Path,
+    selection_bytes: bytes,
+    requests_bytes: bytes,
+    parser_manifest_bytes: bytes,
+    parser_run_card_bytes: bytes,
     markdown_root: Path,
+    download_records: Sequence[Mapping[str, Any]],
+    clearance_bytes: bytes,
+    markdown_bytes: Mapping[str, bytes],
 ) -> None:
-    parser_card = _read_json_object(parser_run_card_path)
+    parser_card = _projection_json_object(
+        parser_run_card_bytes, source=parser_run_card_path
+    )
     _validate_parser_run_card_commitments(
         parser_card,
         parser_manifest_path=parser_manifest_path,
-        parser_manifest_sha256=_path_sha256(parser_manifest_path),
+        parser_manifest_sha256=_bytes_sha256(parser_manifest_bytes),
         clearance_path=clearance_path,
-        clearance_sha256=_path_sha256(clearance_path),
+        clearance_sha256=_bytes_sha256(clearance_bytes),
         parser_record_count=len(parser_records),
     )
     expected_inputs = (
@@ -34992,15 +37881,22 @@ def _verify_stage_a_parse_lineage(
             cast(Mapping[str, object], commitments),
             name=name,
             expected_path=path,
-            expected_sha256=_path_sha256(path),
+            expected_sha256=(
+                _bytes_sha256(clearance_bytes)
+                if path == clearance_path
+                else _bytes_sha256(
+                    requests_bytes if path == requests_path else selection_bytes
+                )
+            ),
         )
     _verify_stage_a_parse_records(
-        download_records=_read_records(manifest_path),
-        request_records=_read_records(requests_path),
+        download_records=download_records,
+        request_records=_projection_jsonl_records(requests_bytes, source=requests_path),
         parser_records=parser_records,
         document_root=document_root,
         parser_output_root=parser_manifest_path.parent,
         markdown_root=markdown_root,
+        markdown_bytes=markdown_bytes,
     )
 
 
@@ -35012,6 +37908,7 @@ def _verify_stage_a_parse_records(
     document_root: Path,
     parser_output_root: Path,
     markdown_root: Path,
+    markdown_bytes: Mapping[str, bytes],
 ) -> None:
     def keyed(
         records: Sequence[Mapping[str, Any]], *, label: str
@@ -35072,9 +37969,14 @@ def _verify_stage_a_parse_records(
         if extracted_record.get("extraction_method") != "mistral_parser_markdown":
             raise CommandError(f"parser record is not live Mistral output: {key}")
         expected_text_sha = extracted_record.get("text_sha256")
-        actual_text_sha = hashlib.sha256(
-            parser_markdown.read_text(encoding="utf-8").encode("utf-8")
-        ).hexdigest()
+        relative_markdown = parser_markdown.relative_to(
+            markdown_root.resolve()
+        ).as_posix()
+        try:
+            markdown_payload = markdown_bytes[relative_markdown]
+        except KeyError as exc:
+            raise CommandError(f"parser Markdown snapshot is missing: {key}") from exc
+        actual_text_sha = hashlib.sha256(markdown_payload).hexdigest()
         if not isinstance(expected_text_sha, str) or (
             expected_text_sha.removeprefix("sha256:") != actual_text_sha
         ):
@@ -35092,9 +37994,9 @@ def _stage_a_markdown_path(record: Mapping[str, Any], *, markdown_root: Path) ->
     return path
 
 
-def _stage_a_markdown_tree_commitments(
+def _stage_a_markdown_tree_snapshot(
     parser_records: Sequence[Mapping[str, Any]], *, markdown_root: Path
-) -> dict[str, JsonRecord]:
+) -> tuple[dict[str, JsonRecord], dict[str, bytes]]:
     root = markdown_root.resolve()
     expected_paths = {
         _stage_a_markdown_path(record, markdown_root=markdown_root)
@@ -35108,14 +38010,37 @@ def _stage_a_markdown_tree_commitments(
             observed_paths.add(path.resolve())
     if observed_paths != expected_paths:
         raise CommandError("Markdown tree differs from exact parser manifest")
+    snapshots = {
+        path.relative_to(root).as_posix(): _read_singly_linked_regular_input(
+            path, label="Stage A Markdown"
+        )
+        for path in sorted(expected_paths)
+    }
     return {
         path.relative_to(root).as_posix(): {
             "path": str(path),
-            "sha256": _path_sha256(path),
-            "byte_count": path.stat().st_size,
+            "sha256": _bytes_sha256(snapshots[path.relative_to(root).as_posix()]),
+            "byte_count": len(snapshots[path.relative_to(root).as_posix()]),
         }
         for path in sorted(expected_paths)
+    }, snapshots
+
+
+def _require_stage_a_lineage_unchanged(
+    lineage: _StageAUnitizationLineage,
+) -> None:
+    _require_snapshot_unchanged(
+        lineage.file_snapshots, label="authenticated Stage A input"
+    )
+    if _materializer_tree_snapshot(lineage.document_root) != dict(
+        lineage.document_tree
+    ):
+        raise CommandError("authenticated Stage A document tree changed")
+    markdown_paths = {
+        lineage.markdown_root / relative_path: payload
+        for relative_path, payload in lineage.markdown_bytes.items()
     }
+    _require_snapshot_unchanged(markdown_paths, label="authenticated Stage A Markdown")
 
 
 _STAGE_A_PROVIDER_ATTEMPT_COLUMNS = (
@@ -35193,6 +38118,7 @@ def _verify_stage_a_provider_replay(
             selection_records=lineage.selection_records,
             parser_records=lineage.parser_records,
             markdown_root=lineage.markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
         )
     except (OSError, UnicodeError, ValueError) as exc:
         raise CommandError(f"cannot reconstruct Stage A prompts: {exc}") from exc
@@ -35380,6 +38306,7 @@ def _stage_a_unitization_run_card_extra(
         selection_records=lineage.selection_records,
         parser_records=lineage.parser_records,
         markdown_root=markdown_root,
+        markdown_bytes=lineage.markdown_bytes,
     )
     prompt_commitments, attempts_sha256 = _verify_stage_a_provider_replay(
         lineage=lineage,
@@ -36848,6 +39775,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             selection_records=lineage.selection_records,
             parser_records=lineage.parser_records,
             markdown_root=markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
             registry_entry=lineage.registry_entry,
             model_registry_sha256=lineage.registry_sha256,
             timeout_seconds=cast(float, args.timeout_seconds),
@@ -36863,6 +39791,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             provider_spend_authorities=provider_spend_authorities,
             provider_accounts=provider_accounts,
         )
+        _require_stage_a_lineage_unchanged(lineage)
         _write_jsonl(prediction_units_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
         _write_jsonl(
@@ -36881,6 +39810,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             audit_path=audit_path,
             review_queue_path=review_queue_path,
         )
+        _require_stage_a_lineage_unchanged(lineage)
     _write_acquisition_completion(
         args,
         stage="llm-unitize",
@@ -37972,11 +40902,47 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         "exclusion_ledger_output",
         output_root / "exclusion-ledger.jsonl",
     )
-    records = _read_records(selection_path)
-    download_records = _read_records(download_manifest_path)
-    parser_records = _read_records(parser_manifest_path)
-    clearance_records = _read_records(clearance_path)
+    direct_packet_input_paths = (
+        parser_manifest_path,
+        prediction_units_path,
+        model_registry_path,
+        *((raw_artifacts_manifest_path,) if raw_artifacts_manifest_path else ()),
+    )
+    direct_packet_input_snapshots = _snapshot_regular_input_paths(
+        direct_packet_input_paths, label="plan-packet-inputs direct input"
+    )
+    parser_records = _projection_jsonl_records(
+        direct_packet_input_snapshots[parser_manifest_path], source=parser_manifest_path
+    )
+    prediction_unit_records = _projection_jsonl_records(
+        direct_packet_input_snapshots[prediction_units_path],
+        source=prediction_units_path,
+    )
+    raw_artifact_records = (
+        _projection_jsonl_records(
+            direct_packet_input_snapshots[raw_artifacts_manifest_path],
+            source=raw_artifacts_manifest_path,
+        )
+        if raw_artifacts_manifest_path is not None
+        else None
+    )
     materialization_card_path = cast(Path | None, args.materialization_run_card)
+    materialization_lineage: _VerifiedMaterializedDownstreamLineage | None = None
+    if materialization_card_path is not None:
+        materialization_lineage = _verify_materialized_downstream_lineage(
+            run_card_path=materialization_card_path,
+            manifest_path=download_manifest_path,
+            clearance_path=clearance_path,
+            document_root=document_root,
+            selection_path=selection_path,
+        )
+        records = list(materialization_lineage.selection_records)
+        download_records = list(materialization_lineage.manifest_records)
+        clearance_records = list(materialization_lineage.clearance_records)
+    else:
+        records = _read_records(selection_path)
+        download_records = _read_records(download_manifest_path)
+        clearance_records = _read_records(clearance_path)
     is_materialized = _require_consistent_materialization_markers(
         download_records, clearance_records
     )
@@ -37995,13 +40961,9 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         )
     materialization_paths: tuple[Path, ...] = ()
     if materialization_card_path is not None:
-        materialization_paths = _verify_materialized_downstream_lineage(
-            run_card_path=materialization_card_path,
-            manifest_path=download_manifest_path,
-            clearance_path=clearance_path,
-            document_root=document_root,
-            selection_path=selection_path,
-        )
+        if materialization_lineage is None:
+            raise CommandError("materialization lineage verification was skipped")
+        materialization_paths = materialization_lineage.paths
         committed_resolved_path = (
             materialization_paths[3] if len(materialization_paths) == 4 else None
         )
@@ -38013,7 +40975,27 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 "--resolved-post-recovery-documents differs from materialization"
             )
         resolved_path = committed_resolved_path
-    resolved_records = _read_records(resolved_path) if resolved_path is not None else []
+        if raw_artifacts_manifest_path is not None:
+            materialization_card_bytes = materialization_lineage.artifact_bytes[
+                os.path.abspath(materialization_card_path)
+            ]
+            materialization_card = _projection_json_object(
+                materialization_card_bytes, source=materialization_card_path
+            )
+            _verify_packet_raw_artifacts_snapshot_binding(
+                raw_html_dir=raw_html_dir,
+                raw_artifacts_manifest_path=raw_artifacts_manifest_path,
+                screening_snapshot_manifest_path=(
+                    _authenticated_materialization_snapshot_manifest_path(
+                        materialization_card
+                    )
+                ),
+            )
+    resolved_records = (
+        list(materialization_lineage.resolved_records)
+        if materialization_lineage is not None
+        else (_read_records(resolved_path) if resolved_path is not None else [])
+    )
     needs_resolved_lineage = _selection_requires_resolved_post_recovery(records) or any(
         record.get("recovery_origin") == "unknown_status_attempt"
         for record in download_records
@@ -38034,8 +41016,42 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 resolved_records=resolved_records,
             )
         )
+    raw_html_snapshot = {} if dry_run else _materializer_tree_snapshot(raw_html_dir)
+    markdown_snapshot = {} if dry_run else _materializer_tree_snapshot(markdown_root)
+    completion_file_paths = (
+        selection_path,
+        download_manifest_path,
+        parser_manifest_path,
+        clearance_path,
+        *materialization_paths,
+        *clearance_lineage_paths,
+        *(
+            (resolved_path,)
+            if resolved_path is not None and not is_materialized
+            else ()
+        ),
+        *purchase_lineage_paths,
+        prediction_units_path,
+        model_registry_path,
+        *((raw_artifacts_manifest_path,) if raw_artifacts_manifest_path else ()),
+    )
+    completion_input_snapshots = _snapshot_regular_input_paths(
+        completion_file_paths,
+        label="plan-packet-inputs input",
+        captured_artifact_bytes=(
+            materialization_lineage.artifact_bytes
+            if materialization_lineage is not None
+            else None
+        ),
+    )
+    for path, payload in direct_packet_input_snapshots.items():
+        if completion_input_snapshots[path] != payload:
+            raise CommandError(
+                f"plan-packet-inputs input changed during execution: {path}"
+            )
     generated_at: datetime | None = None
     decision_filed_on_or_after: date | None = None
+    packet_output_bytes: dict[Path, bytes] = {}
     if dry_run:
         _write_jsonl(
             packet_build_input_path,
@@ -38051,7 +41067,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         try:
             require_cleared_parser_records(parser_records, clearance_records)
             if needs_resolved_lineage and not is_materialized:
-                require_resolved_post_recovery_documents(
+                _require_resolved_post_recovery_dispatch(
                     selection_records=records,
                     download_records=download_records,
                     clearance_records=clearance_records,
@@ -38065,33 +41081,41 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             if cast(str | None, args.generated_at)
             else datetime.now(UTC)
         )
-        registry = load_model_registry(model_registry_path)
+        registry = load_model_registry_bytes(
+            direct_packet_input_snapshots[model_registry_path]
+        )
         official_entries = require_official_registry_entries(registry.entries)
         decision_filed_on_or_after = earliest_eligible_decision_date(official_entries)
         plan = plan_packet_build_inputs(
             selection_records=records,
             download_records=download_records,
             parser_records=parser_records,
-            prediction_unit_records=_read_records(prediction_units_path),
+            prediction_unit_records=prediction_unit_records,
             raw_html_dir=raw_html_dir,
-            raw_artifact_records=(
-                _read_records(raw_artifacts_manifest_path)
-                if raw_artifacts_manifest_path is not None
-                else None
-            ),
+            raw_artifact_records=raw_artifact_records,
+            raw_artifact_bytes=raw_html_snapshot,
             document_root=document_root,
             markdown_root=markdown_root,
+            markdown_bytes=markdown_snapshot,
             source_dir=output_root,
             generated_at=generated_at,
             search_query=cast(str, args.search_query),
             search_window=cast(str, args.search_window),
             decision_filed_on_or_after=decision_filed_on_or_after,
         )
-        _write_jsonl(packet_build_input_path, plan.packet_build_records)
-        _write_jsonl(document_manifest_path, plan.document_manifest_records)
-        _write_jsonl(candidate_manifest_path, plan.candidate_manifest_records)
-        _write_jsonl(extracted_texts_path, plan.extracted_text_records)
-        _write_jsonl(exclusion_ledger_path, plan.exclusion_ledger_records)
+        packet_output_records = {
+            packet_build_input_path: plan.packet_build_records,
+            document_manifest_path: plan.document_manifest_records,
+            candidate_manifest_path: plan.candidate_manifest_records,
+            extracted_texts_path: plan.extracted_text_records,
+            exclusion_ledger_path: plan.exclusion_ledger_records,
+        }
+        packet_output_bytes = {
+            path: _projection_jsonl_bytes(output_records)
+            for path, output_records in packet_output_records.items()
+        }
+        for path, output_records in packet_output_records.items():
+            _write_jsonl(path, output_records)
     planner_parameters: dict[str, object] = {}
     planner_sources: dict[str, object] = {}
     if not dry_run:
@@ -38108,16 +41132,31 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             "markdown_root": str(markdown_root.resolve()),
         }
         planner_sources = {
-            "selection": _materializer_file_commitment(selection_path),
-            "download_manifest": _materializer_file_commitment(download_manifest_path),
-            "parser_manifest": _materializer_file_commitment(parser_manifest_path),
-            "disclosure_clearance": _materializer_file_commitment(clearance_path),
-            "prediction_units": _materializer_file_commitment(prediction_units_path),
-            "model_registry": _materializer_file_commitment(model_registry_path),
+            "selection": _file_commitment_from_bytes(
+                selection_path, completion_input_snapshots[selection_path]
+            ),
+            "download_manifest": _file_commitment_from_bytes(
+                download_manifest_path,
+                completion_input_snapshots[download_manifest_path],
+            ),
+            "parser_manifest": _file_commitment_from_bytes(
+                parser_manifest_path, completion_input_snapshots[parser_manifest_path]
+            ),
+            "disclosure_clearance": _file_commitment_from_bytes(
+                clearance_path, completion_input_snapshots[clearance_path]
+            ),
+            "prediction_units": _file_commitment_from_bytes(
+                prediction_units_path,
+                completion_input_snapshots[prediction_units_path],
+            ),
+            "model_registry": _file_commitment_from_bytes(
+                model_registry_path, completion_input_snapshots[model_registry_path]
+            ),
             **(
                 {
-                    "raw_artifacts_manifest": _materializer_file_commitment(
-                        raw_artifacts_manifest_path
+                    "raw_artifacts_manifest": _file_commitment_from_bytes(
+                        raw_artifacts_manifest_path,
+                        completion_input_snapshots[raw_artifacts_manifest_path],
                     )
                 }
                 if raw_artifacts_manifest_path is not None
@@ -38126,13 +41165,56 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             **(
                 {
                     "resolved_post_recovery_documents": (
-                        _materializer_file_commitment(resolved_path)
+                        _file_commitment_from_bytes(
+                            resolved_path, completion_input_snapshots[resolved_path]
+                        )
                     )
                 }
                 if resolved_path is not None
                 else {}
             ),
         }
+        _require_snapshot_unchanged(
+            completion_input_snapshots, label="plan-packet-inputs input"
+        )
+        if _materializer_tree_snapshot(raw_html_dir) != raw_html_snapshot:
+            raise CommandError(
+                "plan-packet-inputs raw HTML tree changed during execution"
+            )
+        if _materializer_tree_snapshot(markdown_root) != markdown_snapshot:
+            raise CommandError(
+                "plan-packet-inputs Markdown tree changed during execution"
+            )
+    authenticated_materialization_lineage = (
+        []
+        if dry_run
+        else _packet_materialization_lineage_commitments(
+            selection_path=selection_path,
+            download_manifest_path=download_manifest_path,
+            clearance_path=clearance_path,
+            document_root=document_root,
+            materialization_run_card_path=cast(Path, materialization_card_path),
+            captured_artifact_bytes={
+                os.path.abspath(path): payload
+                for path, payload in completion_input_snapshots.items()
+            },
+            document_tree_snapshot=cast(
+                _VerifiedMaterializedDownstreamLineage, materialization_lineage
+            ).document_tree,
+        )
+    )
+    if not dry_run:
+        _require_snapshot_unchanged(
+            completion_input_snapshots, label="plan-packet-inputs input"
+        )
+        if _materializer_tree_snapshot(raw_html_dir) != raw_html_snapshot:
+            raise CommandError(
+                "plan-packet-inputs raw HTML tree changed during execution"
+            )
+        if _materializer_tree_snapshot(markdown_root) != markdown_snapshot:
+            raise CommandError(
+                "plan-packet-inputs Markdown tree changed during execution"
+            )
     _write_acquisition_completion(
         args,
         stage="plan-packet-inputs",
@@ -38173,46 +41255,46 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             "deterministic_parameters": planner_parameters,
             "replay_source_commitments": planner_sources,
             "model_registry_path": str(model_registry_path.resolve()),
-            "model_registry_sha256": sha256_file(model_registry_path),
+            "model_registry_sha256": hashlib.sha256(
+                completion_input_snapshots[model_registry_path]
+            ).hexdigest(),
             **(
                 {
                     "raw_artifacts_manifest_path": str(
                         raw_artifacts_manifest_path.resolve()
                     ),
-                    "raw_artifacts_manifest_sha256": sha256_file(
-                        raw_artifacts_manifest_path
-                    ),
+                    "raw_artifacts_manifest_sha256": hashlib.sha256(
+                        completion_input_snapshots[raw_artifacts_manifest_path]
+                    ).hexdigest(),
                 }
                 if raw_artifacts_manifest_path is not None
                 else {}
             ),
             "disclosure_clearance_path": str(clearance_path.resolve()),
-            "disclosure_clearance_sha256": sha256_file(clearance_path),
+            "disclosure_clearance_sha256": hashlib.sha256(
+                completion_input_snapshots[clearance_path]
+            ).hexdigest(),
             "authenticated_clearance_lineage": {
                 f"input_{index:02d}": {
                     "path": str(path.resolve()),
-                    "sha256": sha256_file(path),
+                    "sha256": hashlib.sha256(
+                        completion_input_snapshots[path]
+                    ).hexdigest(),
                 }
                 for index, path in enumerate(clearance_lineage_paths)
             },
             "current_purchase_lineage": {
                 f"input_{index:02d}": {
                     "path": str(path.resolve()),
-                    "sha256": sha256_file(path),
+                    "sha256": hashlib.sha256(
+                        completion_input_snapshots[path]
+                    ).hexdigest(),
                 }
                 for index, path in enumerate(purchase_lineage_paths)
             },
             "purchase_state_sha256": purchase_state_sha256,
             "authenticated_materialization_lineage": (
-                []
-                if dry_run
-                else _packet_materialization_lineage_commitments(
-                    selection_path=selection_path,
-                    download_manifest_path=download_manifest_path,
-                    clearance_path=clearance_path,
-                    document_root=document_root,
-                    materialization_run_card_path=cast(Path, materialization_card_path),
-                )
+                authenticated_materialization_lineage
             ),
             "output_commitments": (
                 {}
@@ -38220,23 +41302,33 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 else {
                     "packet_build_input": {
                         "path": str(packet_build_input_path.resolve()),
-                        "sha256": _path_sha256(packet_build_input_path),
+                        "sha256": _bytes_sha256(
+                            packet_output_bytes[packet_build_input_path]
+                        ),
                     },
                     "document_manifest": {
                         "path": str(document_manifest_path.resolve()),
-                        "sha256": _path_sha256(document_manifest_path),
+                        "sha256": _bytes_sha256(
+                            packet_output_bytes[document_manifest_path]
+                        ),
                     },
                     "candidate_manifest": {
                         "path": str(candidate_manifest_path.resolve()),
-                        "sha256": _path_sha256(candidate_manifest_path),
+                        "sha256": _bytes_sha256(
+                            packet_output_bytes[candidate_manifest_path]
+                        ),
                     },
                     "extracted_texts": {
                         "path": str(extracted_texts_path.resolve()),
-                        "sha256": _path_sha256(extracted_texts_path),
+                        "sha256": _bytes_sha256(
+                            packet_output_bytes[extracted_texts_path]
+                        ),
                     },
                     "exclusion_ledger": {
                         "path": str(exclusion_ledger_path.resolve()),
-                        "sha256": _path_sha256(exclusion_ledger_path),
+                        "sha256": _bytes_sha256(
+                            packet_output_bytes[exclusion_ledger_path]
+                        ),
                     },
                 }
             ),
@@ -38245,9 +41337,9 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                     "resolved_post_recovery_documents_path": str(
                         resolved_path.resolve()
                     ),
-                    "resolved_post_recovery_documents_sha256": sha256_file(
-                        resolved_path
-                    ),
+                    "resolved_post_recovery_documents_sha256": hashlib.sha256(
+                        completion_input_snapshots[resolved_path]
+                    ).hexdigest(),
                 }
                 if resolved_path is not None
                 else {}
@@ -38393,26 +41485,20 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             typed_markdown_root,
             typed_materialization_card,
         ) = typed_paths
-        _require_materializer_artifact(
-            typed_materialization_card,
-            label="materialization lineage run card",
-        )
-        materialization_card_payload = typed_materialization_card.read_bytes()
-        materialization_card_snapshot = _projection_json_object(
-            materialization_card_payload,
-            source=typed_materialization_card,
-        )
-        verified_lineage_paths = _verify_materialized_downstream_lineage(
+        verified_materialization = _verify_materialized_downstream_lineage(
             run_card_path=typed_materialization_card,
             manifest_path=typed_manifest,
             clearance_path=typed_clearance,
             document_root=typed_document_root,
             selection_path=typed_selection,
         )
-        if typed_materialization_card.read_bytes() != materialization_card_payload:
-            raise CommandError(
-                "materialization lineage run card changed while being verified"
-            )
+        verified_lineage_paths = verified_materialization.paths
+        materialization_card_payload = verified_materialization.artifact_bytes[
+            os.path.abspath(typed_materialization_card)
+        ]
+        materialization_card_snapshot = _projection_json_object(
+            materialization_card_payload, source=typed_materialization_card
+        )
         _verify_packet_raw_artifacts_snapshot_binding(
             raw_html_dir=typed_raw_html_dir,
             raw_artifacts_manifest_path=typed_raw_artifacts_manifest,
@@ -38604,19 +41690,38 @@ def _packet_materialization_lineage_commitments(
     clearance_path: Path,
     document_root: Path,
     materialization_run_card_path: Path,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+    document_tree_snapshot: Mapping[str, bytes] | None = None,
 ) -> list[dict[str, object]]:
     """Commit the ordered authenticated inputs used to construct packet text."""
 
-    document_tree = _materializer_tree_commitments(document_root)
+    captured = captured_artifact_bytes or {}
+
+    def commitment(path: Path) -> dict[str, str]:
+        payload = captured.get(os.path.abspath(path))
+        if payload is not None:
+            return _file_commitment_from_bytes(path, payload)
+        if captured_artifact_bytes is not None:
+            raise CommandError(f"packet materialization snapshot is missing: {path}")
+        return _materializer_file_commitment(path)
+
+    tree_snapshot = (
+        dict(document_tree_snapshot)
+        if document_tree_snapshot is not None
+        else _materializer_tree_snapshot(document_root)
+    )
+    document_tree = {
+        relative: _bytes_sha256(payload) for relative, payload in tree_snapshot.items()
+    }
     return [
-        {"name": "selection", **_materializer_file_commitment(selection_path)},
+        {"name": "selection", **commitment(selection_path)},
         {
             "name": "download_manifest",
-            **_materializer_file_commitment(download_manifest_path),
+            **commitment(download_manifest_path),
         },
         {
             "name": "disclosure_clearance",
-            **_materializer_file_commitment(clearance_path),
+            **commitment(clearance_path),
         },
         {
             "name": "document_root",
@@ -38626,17 +41731,19 @@ def _packet_materialization_lineage_commitments(
         },
         {
             "name": "materialization_run_card",
-            **_materializer_file_commitment(materialization_run_card_path),
+            **commitment(materialization_run_card_path),
         },
     ]
 
 
-def _packet_card_committed_path(
+def _packet_card_committed_snapshot(
     commitments: Mapping[str, object],
     *,
     name: str,
     expected_path: Path | None = None,
-) -> Path:
+) -> tuple[Path, bytes]:
+    """Return the exact bytes whose run-card commitment was verified."""
+
     commitment = commitments.get(name)
     if not isinstance(commitment, Mapping):
         raise CommandError(f"packet run card lacks {name} commitment")
@@ -38648,30 +41755,9 @@ def _packet_card_committed_path(
     path = Path(raw_path)
     if expected_path is not None and path.resolve() != expected_path.resolve():
         raise CommandError(f"packet run card {name} path mismatch")
-    _require_materializer_artifact(path, label=f"packet run card {name}")
-    if _path_sha256(path) != expected_sha256:
-        raise CommandError(f"packet run card {name} commitment mismatch")
-    return path
-
-
-def _packet_card_committed_snapshot(
-    commitments: Mapping[str, object],
-    *,
-    name: str,
-    expected_path: Path | None = None,
-) -> tuple[Path, bytes]:
-    """Return the exact bytes whose run-card commitment was verified."""
-
-    path = _packet_card_committed_path(
-        commitments,
-        name=name,
-        expected_path=expected_path,
-    )
-    record = cast(Mapping[str, object], commitments[name])
-    expected_sha256 = cast(str, record["sha256"])
-    payload = path.read_bytes()
+    payload = _read_singly_linked_regular_input(path, label=f"packet run card {name}")
     if _bytes_sha256(payload) != expected_sha256:
-        raise CommandError(f"packet run card {name} changed while being verified")
+        raise CommandError(f"packet run card {name} commitment mismatch")
     return path, payload
 
 
@@ -38904,6 +41990,8 @@ def _replay_packet_planner_run_card(
         name="markdown_root",
         expected_path=markdown_root,
     )
+    raw_html_snapshot = _materializer_tree_snapshot(committed_raw_html_dir)
+    markdown_snapshot = _materializer_tree_snapshot(committed_markdown_root)
     committed_eligible_date = required_string("decision_filed_on_or_after")
     registry = _model_registry_from_payload(
         model_registry_payload, source=model_registry
@@ -38937,8 +42025,10 @@ def _replay_packet_planner_run_card(
         raw_artifact_records=_projection_jsonl_records(
             raw_artifacts_payload, source=raw_artifacts_manifest
         ),
+        raw_artifact_bytes=raw_html_snapshot,
         document_root=committed_document_root,
         markdown_root=committed_markdown_root,
+        markdown_bytes=markdown_snapshot,
         source_dir=committed_source_dir,
         generated_at=generated_at,
         search_query=required_string("search_query"),
@@ -38962,6 +42052,10 @@ def _replay_packet_planner_run_card(
         )
         if output_payload != expected_payload:
             raise CommandError(f"packet planner replay mismatch for {name}")
+    if _materializer_tree_snapshot(committed_raw_html_dir) != raw_html_snapshot:
+        raise CommandError("packet planner raw HTML tree changed during replay")
+    if _materializer_tree_snapshot(committed_markdown_root) != markdown_snapshot:
+        raise CommandError("packet planner Markdown tree changed during replay")
     packet_build_payload = expected_payloads["packet_build_input"]
     return _PacketPlannerReplay(
         packet_build_records=tuple(
@@ -40867,8 +43961,18 @@ def _registry_entries_for_keys(
     model_registry_path: Path,
     model_keys: Sequence[str],
 ) -> tuple[tuple[ModelRegistryEntry, ...], str]:
-    registry = load_model_registry(model_registry_path)
-    digest = sha256_file(model_registry_path)
+    payload = _read_singly_linked_regular_input(
+        model_registry_path, label="model registry"
+    )
+    return _registry_entries_for_keys_bytes(payload, model_keys)
+
+
+def _registry_entries_for_keys_bytes(
+    payload: bytes,
+    model_keys: Sequence[str],
+) -> tuple[tuple[ModelRegistryEntry, ...], str]:
+    registry = load_model_registry_bytes(payload)
+    digest = hashlib.sha256(payload).hexdigest()
     keys = tuple(key for key in model_keys if key.strip())
     if not keys:
         return registry.entries, digest
@@ -42497,11 +45601,18 @@ def _free_document_download_request(
 
 
 def _fixture_free_document_source(path: Path) -> FixtureFreeDocumentSource:
-    loaded = _loads_json(path.read_text(encoding="utf-8"))
+    return _fixture_free_document_source_bytes(path.read_bytes())
+
+
+def _fixture_free_document_source_bytes(payload: bytes) -> FixtureFreeDocumentSource:
+    try:
+        loaded = _loads_json(payload.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise ValueError("fixture documents must be UTF-8 JSON") from exc
     documents_by_url: dict[str, bytes] = {}
     if isinstance(loaded, Mapping):
-        payload = cast(Mapping[object, object], loaded)
-        documents_value = payload.get("documents")
+        fixture_mapping = cast(Mapping[object, object], loaded)
+        documents_value = fixture_mapping.get("documents")
         if isinstance(documents_value, Sequence) and not isinstance(
             documents_value,
             str,
@@ -42512,7 +45623,7 @@ def _fixture_free_document_source(path: Path) -> FixtureFreeDocumentSource:
                     _fixture_document_content(record)
                 )
         else:
-            for url, content in payload.items():
+            for url, content in fixture_mapping.items():
                 if not isinstance(url, str) or not url.strip():
                     raise ValueError("fixture document URLs must be non-empty strings")
                 documents_by_url[url] = _fixture_content_bytes(content)
@@ -42598,6 +45709,7 @@ def _mistral_markdown_request(
     record: Mapping[str, Any],
     *,
     output_root: Path,
+    captured_source_bytes: bytes | None = None,
 ) -> MistralMarkdownConversionRequest:
     candidate_id = _required_str(record, "candidate_id")
     source_document_id = _required_str(record, "source_document_id")
@@ -42622,6 +45734,7 @@ def _mistral_markdown_request(
         markdown_output_path=markdown_output_path,
         expected_sha256=_required_str(record, "expected_sha256"),
         expected_byte_count=_required_int(record, "expected_byte_count"),
+        captured_source_bytes=captured_source_bytes,
     )
 
 

@@ -132,6 +132,272 @@ def test_each_source_is_rehashed_immediately_before_its_spawn(tmp_path: Path) ->
         )
 
 
+def test_captured_source_bytes_feed_parser_and_leave_no_staging_residue(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    captured = b"%PDF captured A"
+    source.write_bytes(b"%PDF replaced B")
+
+    class CapturingRunner:
+        seen = b""
+
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            self.seen = staged.read_bytes()
+            staged.with_suffix(".md").write_text("captured markdown")
+            return ParserProcessResult(return_code=0)
+
+    runner = CapturingRunner()
+    [record] = convert_documents_to_markdown(
+        (
+            MistralMarkdownConversionRequest(
+                candidate_id="cand-1",
+                source_document_id="source",
+                input_path=source,
+                markdown_output_path=tmp_path / "markdown" / "source.md",
+                expected_sha256=hashlib.sha256(captured).hexdigest(),
+                expected_byte_count=len(captured),
+                captured_source_bytes=captured,
+            ),
+        ),
+        config=MistralParserConfig(parser_root=tmp_path / "parser"),
+        runner=runner,
+    )
+
+    assert record.status is MistralMarkdownConversionStatus.SUCCEEDED
+    assert runner.seen == captured
+    assert not (tmp_path / ".parser-source-snapshots").exists()
+
+
+def test_captured_source_rejects_symlinked_staging_parent(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / ".parser-source-snapshots").symlink_to(
+        outside, target_is_directory=True
+    )
+    request = MistralMarkdownConversionRequest(
+        candidate_id="cand-1",
+        source_document_id="source",
+        input_path=source,
+        markdown_output_path=tmp_path / "markdown" / "source.md",
+        expected_sha256=hashlib.sha256(b"source").hexdigest(),
+        expected_byte_count=len(b"source"),
+        captured_source_bytes=b"source",
+    )
+
+    with pytest.raises(OSError):
+        convert_documents_to_markdown(
+            (request,),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=_FixtureRunner({}),
+        )
+    assert list(outside.iterdir()) == []
+
+
+def test_captured_source_mutation_during_runner_fails_closed(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+
+    class MutatingStagedRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            staged.write_bytes(b"mutated")
+            return ParserProcessResult(return_code=1)
+
+    with pytest.raises(ValueError, match="staging bytes changed"):
+        convert_documents_to_markdown(
+            (
+                MistralMarkdownConversionRequest(
+                    candidate_id="cand-1",
+                    source_document_id="source",
+                    input_path=source,
+                    markdown_output_path=tmp_path / "markdown" / "source.md",
+                    expected_sha256=hashlib.sha256(b"source").hexdigest(),
+                    expected_byte_count=len(b"source"),
+                    captured_source_bytes=b"source",
+                ),
+            ),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=MutatingStagedRunner(),
+        )
+    assert not (tmp_path / ".parser-source-snapshots").exists()
+
+
+def test_captured_source_rejects_staging_directory_replacement(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+
+    class ReplacingDirectoryRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            original_directory = staged.parent
+            moved_directory = original_directory.with_name(
+                f"{original_directory.name}-moved"
+            )
+            original_directory.rename(moved_directory)
+            original_directory.mkdir()
+            staged.write_bytes(b"source")
+            staged.with_suffix(".md").write_text(
+                "attacker replacement markdown", encoding="utf-8"
+            )
+            return ParserProcessResult(return_code=0)
+
+    with pytest.raises(ValueError, match="staging directory changed"):
+        convert_documents_to_markdown(
+            (_captured_request(source, tmp_path / "markdown" / "source.md"),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=ReplacingDirectoryRunner(),
+        )
+    assert not (tmp_path / "markdown" / "source.md").exists()
+
+
+@pytest.mark.parametrize("generated_kind", ["symlink", "hardlink"])
+def test_parser_rejects_aliased_generated_markdown(
+    tmp_path: Path, generated_kind: str
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+    outside = tmp_path / "outside.md"
+    outside.write_text("outside", encoding="utf-8")
+
+    class AliasingRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            generated = Path(command[command.index("--file") + 1]).with_suffix(".md")
+            if generated_kind == "symlink":
+                generated.symlink_to(outside)
+            else:
+                generated.hardlink_to(outside)
+            return ParserProcessResult(return_code=0)
+
+    with pytest.raises(ValueError, match="Markdown output is unsafe"):
+        convert_documents_to_markdown(
+            (_captured_request(source, tmp_path / "markdown" / "source.md"),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=AliasingRunner(),
+        )
+    assert outside.read_text(encoding="utf-8") == "outside"
+    assert not (tmp_path / ".parser-source-snapshots").exists()
+
+
+@pytest.mark.parametrize("destination_kind", ["markdown", "metadata"])
+def test_parser_rejects_preexisting_destination_symlink(
+    tmp_path: Path, destination_kind: str
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+    markdown = tmp_path / "markdown" / "source.md"
+    markdown.parent.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside", encoding="utf-8")
+    destination = (
+        markdown
+        if destination_kind == "markdown"
+        else markdown.with_suffix(".metadata.json")
+    )
+    destination.symlink_to(outside)
+    action = (
+        _FixtureAction(markdown="generated")
+        if destination_kind == "markdown"
+        else _FixtureAction(return_code=1, stderr="failed")
+    )
+
+    with pytest.raises(OSError):
+        convert_documents_to_markdown(
+            (_request("source", source, markdown),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=_FixtureRunner({"source.pdf": action}),
+        )
+    assert outside.read_text(encoding="utf-8") == "outside"
+
+
+def test_parser_rejects_destination_parent_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+    markdown = tmp_path / "markdown" / "source.md"
+    original_replace = os.replace
+    replaced = False
+
+    def replace_and_swap_parent(
+        source_name: str,
+        destination_name: str,
+        *,
+        src_dir_fd: int | None = None,
+        dst_dir_fd: int | None = None,
+    ) -> None:
+        nonlocal replaced
+        original_replace(
+            source_name,
+            destination_name,
+            src_dir_fd=src_dir_fd,
+            dst_dir_fd=dst_dir_fd,
+        )
+        if not replaced:
+            replaced = True
+            moved = markdown.parent.with_name("markdown-moved")
+            markdown.parent.rename(moved)
+            markdown.parent.mkdir()
+            markdown.write_text("attacker replacement", encoding="utf-8")
+
+    monkeypatch.setattr(mistral_markdown_parser.os, "replace", replace_and_swap_parent)
+    with pytest.raises(ValueError, match="output parent changed"):
+        convert_documents_to_markdown(
+            (_captured_request(source, markdown),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=_FixtureRunner({"source.pdf": _FixtureAction(markdown="safe")}),
+        )
+    assert markdown.read_text(encoding="utf-8") == "attacker replacement"
+
+
+def _captured_request(
+    input_path: Path, output_path: Path
+) -> MistralMarkdownConversionRequest:
+    payload = input_path.read_bytes()
+    return MistralMarkdownConversionRequest(
+        candidate_id="cand-1",
+        source_document_id="source",
+        input_path=input_path,
+        markdown_output_path=output_path,
+        expected_sha256=hashlib.sha256(payload).hexdigest(),
+        expected_byte_count=len(payload),
+        captured_source_bytes=payload,
+    )
+
+
 def test_subprocess_runner_uses_allowlisted_env_without_invoking_op(
     tmp_path: Path,
 ) -> None:

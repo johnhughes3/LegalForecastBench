@@ -2030,6 +2030,7 @@ def _write_exact_cohort_fixture(
         clearance=paths["clearance"],
         document_root=document_root,
         selection=paths["selection"],
+        additional_artifacts=(paths["restrictions"],),
         name="exact-100-rehearsal",
     )
     _write_json(

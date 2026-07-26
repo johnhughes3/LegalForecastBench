@@ -252,17 +252,31 @@ def _stub_authenticated_stage_a_lineage(
         registry_path, "openai:gpt-test"
     )
     caps = cli.load_provider_cycle_caps(caps_path)
-    markdown_tree = {
-        path.relative_to(markdown_root).as_posix(): {
-            "path": str(path.resolve()),
-            "sha256": cli._path_sha256(path),
-            "byte_count": path.stat().st_size,
-        }
+    selection_records = tuple(_read_jsonl(selection_path))
+    parser_records = tuple(_read_jsonl(parser_path))
+    markdown_bytes = {
+        path.relative_to(markdown_root).as_posix(): path.read_bytes()
         for path in sorted(markdown_root.rglob("*.md"))
     }
+    markdown_tree = {
+        relative_path: {
+            "path": str(markdown_root / relative_path),
+            "sha256": cli._bytes_sha256(payload),
+            "byte_count": len(payload),
+        }
+        for relative_path, payload in markdown_bytes.items()
+    }
+    document_tree = cli._materializer_tree_snapshot(markdown_root)
+    captured_files = (
+        selection_path,
+        parser_path,
+        registry_path,
+        caps_path,
+        *fixture_lineage_paths.values(),
+    )
     lineage = cli._StageAUnitizationLineage(
-        selection_records=tuple(_read_jsonl(selection_path)),
-        parser_records=tuple(_read_jsonl(parser_path)),
+        selection_records=selection_records,
+        parser_records=parser_records,
         registry_entry=entry,
         registry_sha256=registry_sha256,
         provider_caps=caps,
@@ -288,10 +302,16 @@ def _stub_authenticated_stage_a_lineage(
             "parser_manifest": cli._stage_a_file_commitment(parser_path),
             "model_registry": cli._stage_a_file_commitment(registry_path),
             "provider_cycle_caps": cli._stage_a_file_commitment(caps_path),
-            "document_tree": {},
+            "document_tree": {
+                path: cli._bytes_sha256(payload)
+                for path, payload in document_tree.items()
+            },
             "markdown_tree": markdown_tree,
         },
         markdown_tree=markdown_tree,
+        file_snapshots={path: path.read_bytes() for path in captured_files},
+        document_tree=document_tree,
+        markdown_bytes=markdown_bytes,
     )
     monkeypatch.setattr(
         cli,
@@ -346,9 +366,15 @@ def _stub_authenticated_finalized_provider_chain(
     for path in (unit_card, structural_card, apply_card):
         _write_json(path, {})
     _write_jsonl(review_queue, [])
+    selection_records = tuple(_read_jsonl(selection_path))
+    parser_records = tuple(_read_jsonl(parser_path))
+    markdown_tree, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        parser_records,
+        markdown_root=markdown_root,
+    )
     lineage = cli._StageAUnitizationLineage(
-        selection_records=tuple(_read_jsonl(selection_path)),
-        parser_records=tuple(_read_jsonl(parser_path)),
+        selection_records=selection_records,
+        parser_records=parser_records,
         registry_entry=entry,
         registry_sha256=registry_sha,
         provider_caps=caps,
@@ -358,8 +384,22 @@ def _stub_authenticated_finalized_provider_chain(
         markdown_root=markdown_root,
         cohort_cycle_id=caps.cycle_id,
         input_paths=(),
-        input_commitments={},
-        markdown_tree={},
+        input_commitments={
+            "document_tree": {
+                path: cli._bytes_sha256(payload)
+                for path, payload in cli._materializer_tree_snapshot(
+                    markdown_root
+                ).items()
+            },
+            "markdown_tree": markdown_tree,
+        },
+        markdown_tree=markdown_tree,
+        file_snapshots={
+            path: path.read_bytes()
+            for path in (selection_path, parser_path, registry_path, caps_path)
+        },
+        document_tree=cli._materializer_tree_snapshot(markdown_root),
+        markdown_bytes=markdown_bytes,
     )
     monkeypatch.setattr(
         cli,

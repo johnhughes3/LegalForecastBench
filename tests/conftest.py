@@ -36,6 +36,7 @@ class AuthenticatedDownstreamFixture:
     def __init__(self, *, monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
         self._root = root
         self._bindings: list[_MaterializationBinding] = []
+        self._additional_artifacts: dict[Path, tuple[Path, ...]] = {}
         monkeypatch.setattr(
             cli,
             "_verify_materialized_downstream_lineage",
@@ -112,6 +113,7 @@ class AuthenticatedDownstreamFixture:
         document_root: Path,
         name: str,
         selection: Path | None = None,
+        additional_artifacts: tuple[Path, ...] = (),
     ) -> Path:
         """Mark exact fixture records and bind their downstream lineage paths."""
 
@@ -165,6 +167,9 @@ class AuthenticatedDownstreamFixture:
                 selection=selection.resolve() if selection is not None else None,
             )
         )
+        self._additional_artifacts[run_card.resolve()] = tuple(
+            path.resolve() for path in additional_artifacts
+        )
         return run_card
 
     def write_packet_planner_card(
@@ -214,7 +219,9 @@ class AuthenticatedDownstreamFixture:
             encoding="utf-8",
         )
 
-    def _verify_binding(self, **kwargs: Any) -> tuple[Path, ...]:
+    def _verify_binding(
+        self, **kwargs: Any
+    ) -> cli._VerifiedMaterializedDownstreamLineage:
         requested = _MaterializationBinding(
             run_card=Path(kwargs["run_card_path"]).resolve(),
             manifest=Path(kwargs["manifest_path"]).resolve(),
@@ -230,7 +237,28 @@ class AuthenticatedDownstreamFixture:
             raise AssertionError(
                 f"unbound materialization fixture request: {requested}"
             )
-        return (requested.run_card,)
+        artifact_paths = (
+            requested.run_card,
+            requested.manifest,
+            requested.clearance,
+            *((requested.selection,) if requested.selection is not None else ()),
+            *self._additional_artifacts.get(requested.run_card, ()),
+        )
+        return cli._VerifiedMaterializedDownstreamLineage(
+            paths=(requested.run_card,),
+            artifact_bytes={
+                os.path.abspath(path): path.read_bytes() for path in artifact_paths
+            },
+            manifest_records=tuple(_read_jsonl(requested.manifest)),
+            clearance_records=tuple(_read_jsonl(requested.clearance)),
+            selection_records=(
+                tuple(_read_jsonl(requested.selection))
+                if requested.selection is not None
+                else ()
+            ),
+            resolved_records=(),
+            document_tree=cli._materializer_tree_snapshot(requested.document_root),
+        )
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:

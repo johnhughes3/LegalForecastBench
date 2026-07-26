@@ -20,7 +20,10 @@ from legalforecast.ingestion.case_dev_purchase import (
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.cohort_policy import generate_cohort_policy
-from legalforecast.ingestion.disclosure_clearance import SCHEMA_VERSION
+from legalforecast.ingestion.disclosure_clearance import (
+    SCHEMA_VERSION,
+    ReviewAuthority,
+)
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthorityIdentity,
 )
@@ -34,6 +37,7 @@ from legalforecast.ingestion.recap_fetch_attempt_policy import (
     generate_recap_fetch_attempt_policy,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
+    AuthenticatedClearanceLineage,
     ResolvedPostRecoveryError,
     build_resolved_post_recovery_documents,
     require_resolved_post_recovery_documents,
@@ -75,6 +79,83 @@ def test_quarantine_review_requests_reject_empty_documents() -> None:
         cli.build_recap_fetch_disclosure_review_requests([manifest], [restriction])
 
 
+def test_purchased_case_relevance_projects_only_recovered_manifest_keys() -> None:
+    relevance = [
+        {
+            "candidate_id": "case-1",
+            "case_name": "Example",
+            "documents": [
+                {"source_document_id": "free", "availability_status": "available"},
+                {
+                    "source_document_id": "paid-a",
+                    "availability_status": "unavailable",
+                },
+                {
+                    "source_document_id": "paid-b",
+                    "availability_status": "unavailable",
+                },
+                {
+                    "source_document_id": "unrecovered",
+                    "availability_status": "unavailable",
+                },
+            ],
+        }
+    ]
+    manifest = [
+        {
+            "candidate_id": "case-1",
+            "source_document_id": document_id,
+            "free_or_purchased": "purchased",
+        }
+        for document_id in ("paid-a", "paid-b")
+    ]
+
+    projected = cli._project_purchased_case_relevance(relevance, manifest)
+
+    assert projected == (
+        {
+            "candidate_id": "case-1",
+            "case_name": "Example",
+            "documents": [
+                {
+                    "source_document_id": "paid-a",
+                    "availability_status": "unavailable",
+                },
+                {
+                    "source_document_id": "paid-b",
+                    "availability_status": "unavailable",
+                },
+            ],
+        },
+    )
+
+
+@pytest.mark.parametrize("mutation", ["duplicate", "missing", "free_phase"])
+def test_purchased_case_relevance_rejects_invalid_coverage(mutation: str) -> None:
+    relevance = [
+        {
+            "candidate_id": "case-1",
+            "documents": [{"source_document_id": "paid"}],
+        }
+    ]
+    manifest = [
+        {
+            "candidate_id": "case-1",
+            "source_document_id": "paid",
+            "free_or_purchased": "purchased",
+        }
+    ]
+    if mutation == "duplicate":
+        manifest.append(dict(manifest[0]))
+    elif mutation == "missing":
+        manifest[0]["source_document_id"] = "absent"
+    else:
+        manifest[0]["free_or_purchased"] = "free"
+
+    with pytest.raises(cli.CommandError):
+        cli._project_purchased_case_relevance(relevance, manifest)
+
+
 def test_quarantine_materializer_binds_clearance_to_recovery_sources(
     tmp_path: Path,
 ) -> None:
@@ -82,21 +163,27 @@ def test_quarantine_materializer_binds_clearance_to_recovery_sources(
     restriction_evidence = tmp_path / "recovery-restriction-evidence.jsonl"
     alternate_requests = tmp_path / "alternate-review-requests.jsonl"
     alternate_restrictions = tmp_path / "alternate-restriction-evidence.jsonl"
+    case_relevance = tmp_path / "purchased-case-relevance.jsonl"
+    alternate_relevance = tmp_path / "alternate-case-relevance.jsonl"
     for path in (
         review_requests,
         restriction_evidence,
         alternate_requests,
         alternate_restrictions,
+        case_relevance,
+        alternate_relevance,
     ):
         path.write_text("{}\n", encoding="utf-8")
     recovery = {
         "recovery_stage": "recover-recap-fetch-quarantine",
         "review_requests_path": review_requests,
         "restriction_path": restriction_evidence,
+        "case_relevance_path": case_relevance,
     }
     matching_clearance = {
         "requests_path": review_requests,
         "restriction_path": restriction_evidence,
+        "case_relevance_path": case_relevance,
     }
 
     cli._verify_materializer_recovery_clearance_binding(
@@ -119,6 +206,14 @@ def test_quarantine_materializer_binds_clearance_to_recovery_sources(
                 "restriction_path": alternate_restrictions,
             },
         )
+    with pytest.raises(cli.CommandError, match="different case relevance"):
+        cli._verify_materializer_recovery_clearance_binding(
+            recovery=recovery,
+            clearance_lineage={
+                **matching_clearance,
+                "case_relevance_path": alternate_relevance,
+            },
+        )
 
 
 def test_build_and_require_exact_unknown_origin_lineage() -> None:
@@ -136,6 +231,97 @@ def test_build_and_require_exact_unknown_origin_lineage() -> None:
         resolved_records=records,
         **_external_kwargs(inputs),
     )
+
+
+def test_public_api_rejects_caller_fabricated_provenance_lineage() -> None:
+    inputs = _inputs()
+    decisions = [
+        {
+            "candidate_id": "case-1",
+            "source_document_id": "123",
+            "status": "cleared",
+            "reviewer_id": "John Hughes",
+            "reviewed_at": "2026-07-15T00:00:00Z",
+        }
+    ]
+    decisions_bytes = _jsonl_bytes(decisions)
+    recorder_bytes = _object_bytes({"stage": "record-disclosure-review-decisions"})
+    routing_bytes = _object_bytes({"schema_version": "routing.v1"})
+    clearance_bytes = inputs["clearance_artifact_bytes"]
+    cohort_bytes = inputs["cohort_policy_artifact_bytes"]
+    restriction_bytes = inputs["restriction_artifact_bytes"]
+    authority = {
+        "kind": "provenance_first_with_john_exceptions",
+        "authentication_claim": "interactive_hash_confirmation_only",
+        "exception_reviewer_id": "John Hughes",
+        "exception_decisions_sha256": "sha256:"
+        + hashlib.sha256(decisions_bytes).hexdigest(),
+        "exception_review_run_card_sha256": "sha256:"
+        + hashlib.sha256(recorder_bytes).hexdigest(),
+        "routing_plan_sha256": "sha256:" + hashlib.sha256(routing_bytes).hexdigest(),
+    }
+    run_card = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "clear-disclosures",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "generated_at": "2026-07-15T00:00:00Z",
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "source_commitments": {
+            "exception_decisions": {
+                "sha256": hashlib.sha256(decisions_bytes).hexdigest()
+            },
+            "exception_review_run_card": {
+                "sha256": hashlib.sha256(recorder_bytes).hexdigest()
+            },
+            "routing_plan": {"sha256": hashlib.sha256(routing_bytes).hexdigest()},
+            "cohort_policy": {"sha256": hashlib.sha256(cohort_bytes).hexdigest()},
+            "restriction_evidence": {
+                "sha256": hashlib.sha256(restriction_bytes).hexdigest()
+            },
+        },
+        "output_commitments": {
+            "disclosure_clearance": {
+                "sha256": hashlib.sha256(clearance_bytes).hexdigest()
+            }
+        },
+        "clearance_authority": authority,
+    }
+    run_card_bytes = _object_bytes(run_card)
+    review_authority = ReviewAuthority(
+        reviewer_id="John Hughes",
+        controlled_store_uri="private-store://john/disclosure-exception-review",
+        authentication_method="interactive_hash_confirmation_only",
+        authenticated_at="2026-07-15T00:00:00Z",
+        review_artifact_sha256=hashlib.sha256(decisions_bytes).hexdigest(),
+        reviewer_policy_sha256=hashlib.sha256(routing_bytes).hexdigest(),
+    )
+    provenance_lineage = AuthenticatedClearanceLineage(
+        clearance_run_card_sha256=hashlib.sha256(run_card_bytes).hexdigest(),
+        clearance_artifact_sha256=hashlib.sha256(clearance_bytes).hexdigest(),
+        reviews_artifact_sha256=hashlib.sha256(decisions_bytes).hexdigest(),
+        review_receipt_sha256=hashlib.sha256(recorder_bytes).hexdigest(),
+        cohort_policy_artifact_sha256=hashlib.sha256(cohort_bytes).hexdigest(),
+        restriction_evidence_artifact_sha256=hashlib.sha256(
+            restriction_bytes
+        ).hexdigest(),
+        review_authority_sha256=resolved_module._sha256(authority),
+        authority=review_authority,
+    )
+    fabricated_inputs = {
+        **inputs,
+        "clearance_run_card": run_card,
+        "clearance_run_card_bytes": run_card_bytes,
+        "reviews_artifact_bytes": decisions_bytes,
+        "review_receipt_bytes": recorder_bytes,
+        "reviewer_policy_bytes": routing_bytes,
+        "disclosure_authority": None,
+        "preverified_clearance_lineage": provenance_lineage,
+    }
+    with pytest.raises(TypeError, match="preverified_clearance_lineage"):
+        build_resolved_post_recovery_documents(**fabricated_inputs)
 
 
 def test_omitted_or_tampered_resolved_lineage_fails_closed() -> None:
@@ -607,6 +793,8 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     )
     paths = {
         "selection": tmp_path / "selection.jsonl",
+        "case_relevance": tmp_path / "case-relevance.jsonl",
+        "target_projection_run_card": tmp_path / "target-projection-run-card.json",
         "purchase_policy": tmp_path / "purchase-policy.json",
         "cohort_policy": tmp_path / "cohort-policy.json",
         "budget_plan": tmp_path / "budget-plan.json",
@@ -622,6 +810,29 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "restriction_evidence": tmp_path / "restrictions.jsonl",
     }
     _write_records(paths["selection"], inputs["selection_records"])
+    _write_records(
+        paths["case_relevance"],
+        [
+            {
+                "candidate_id": "case-1",
+                "documents": [
+                    {
+                        "source_document_id": "123",
+                        "availability_status": "unavailable",
+                        "requires_paid_recovery": True,
+                        "is_available": False,
+                        "model_visible": True,
+                        "contains_target_outcome": False,
+                    }
+                ],
+            }
+        ],
+    )
+    _write_target_projection_authority(
+        paths["target_projection_run_card"],
+        selection=paths["selection"],
+        case_relevance=paths["case_relevance"],
+    )
     _write_object(paths["purchase_policy"], purchase_artifact)
     _write_object(paths["cohort_policy"], cohort_artifact)
     paths["reviewer_policy"].write_bytes(signer["reviewer_policy_bytes"])
@@ -741,6 +952,10 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "recover-recap-fetch-quarantine",
         "--selection",
         str(paths["selection"]),
+        "--case-relevance",
+        str(paths["case_relevance"]),
+        "--target-projection-run-card",
+        str(paths["target_projection_run_card"]),
         "--purchase-policy",
         str(paths["purchase_policy"]),
         "--cohort-policy",
@@ -1012,7 +1227,14 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         *[
             value
             for name, path in paths.items()
-            if name not in {"review_requests", "review_worksheet", "reviewer_policy"}
+            if name
+            not in {
+                "case_relevance",
+                "target_projection_run_card",
+                "review_requests",
+                "review_worksheet",
+                "reviewer_policy",
+            }
             for value in (f"--{name.replace('_', '-')}", str(path))
         ],
         "--purchase-ledger",
@@ -1069,7 +1291,9 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         },
     )
 
-    def verify_recovery_materialization(**kwargs: object) -> tuple[Path, ...]:
+    def verify_recovery_materialization(
+        **kwargs: object,
+    ) -> cli._VerifiedMaterializedDownstreamLineage:
         """Keep this recovery test focused on live purchase-state invalidation.
 
         Canonical materializer replay is covered by the target-100 end-to-end
@@ -1091,11 +1315,19 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             purchase_operation_records=snapshot.operations,
             resolved_records=_read_records(resolved_path),
         )
-        return (
-            materialization_card,
-            materialization_restrictions,
-            materialization_derivations,
-            resolved_path,
+        return cli._VerifiedMaterializedDownstreamLineage(
+            paths=(
+                materialization_card,
+                materialization_restrictions,
+                materialization_derivations,
+                resolved_path,
+            ),
+            artifact_bytes={},
+            manifest_records=tuple(_read_records(paths["download_manifest"])),
+            clearance_records=tuple(_read_records(paths["disclosure_clearance"])),
+            selection_records=tuple(_read_records(paths["selection"])),
+            resolved_records=tuple(_read_records(resolved_path)),
+            document_tree={},
         )
 
     monkeypatch.setattr(
@@ -1522,6 +1754,30 @@ def _read_records(path: Path) -> list[dict[str, Any]]:
 
 def _write_object(path: Path, value: object) -> None:
     path.write_bytes(_object_bytes(value))
+
+
+def _write_target_projection_authority(
+    path: Path, *, selection: Path, case_relevance: Path
+) -> None:
+    _write_object(
+        path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "project-target-cohort",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "output_paths": [str(selection), str(case_relevance)],
+            "output_commitments": {
+                str(selection): "sha256:"
+                + hashlib.sha256(selection.read_bytes()).hexdigest(),
+                str(case_relevance): "sha256:"
+                + hashlib.sha256(case_relevance.read_bytes()).hexdigest(),
+            },
+        },
+    )
 
 
 def _object_bytes(value: object) -> bytes:

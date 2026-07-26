@@ -106,6 +106,9 @@ def test_stage_a_parse_lineage_rejects_markdown_drift_and_extra_files(
         }
     ]
 
+    markdown_tree, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        parsed, markdown_root=markdown_root
+    )
     cli._verify_stage_a_parse_records(
         download_records=downloads,
         request_records=requests,
@@ -113,12 +116,14 @@ def test_stage_a_parse_lineage_rejects_markdown_drift_and_extra_files(
         document_root=document_root,
         parser_output_root=tmp_path / "parse",
         markdown_root=markdown_root,
+        markdown_bytes=markdown_bytes,
     )
-    assert set(
-        cli._stage_a_markdown_tree_commitments(parsed, markdown_root=markdown_root)
-    ) == {"cand-1/complaint.md"}
+    assert set(markdown_tree) == {"cand-1/complaint.md"}
 
     markdown.write_text("Substituted complaint text.", encoding="utf-8")
+    _, substituted_bytes = cli._stage_a_markdown_tree_snapshot(
+        parsed, markdown_root=markdown_root
+    )
     with pytest.raises(cli.CommandError, match="Markdown hash differs"):
         cli._verify_stage_a_parse_records(
             download_records=downloads,
@@ -127,11 +132,92 @@ def test_stage_a_parse_lineage_rejects_markdown_drift_and_extra_files(
             document_root=document_root,
             parser_output_root=tmp_path / "parse",
             markdown_root=markdown_root,
+            markdown_bytes=substituted_bytes,
         )
     markdown.write_text("Count I alleges breach of contract.", encoding="utf-8")
     (markdown_root / "uncommitted.md").write_text("extra", encoding="utf-8")
     with pytest.raises(cli.CommandError, match="exact parser manifest"):
-        cli._stage_a_markdown_tree_commitments(parsed, markdown_root=markdown_root)
+        cli._stage_a_markdown_tree_snapshot(parsed, markdown_root=markdown_root)
+
+
+def test_stage_a_provider_uses_captured_markdown_and_completion_detects_drift(
+    tmp_path: Path,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    markdown = markdown_root / "cand-1" / "complaint.md"
+    other_markdown = markdown_root / "cand-2" / "complaint.md"
+    markdown.parent.mkdir(parents=True)
+    other_markdown.parent.mkdir(parents=True)
+    markdown.write_text("captured A", encoding="utf-8")
+    other_markdown.write_text("captured B", encoding="utf-8")
+    document_root = tmp_path / "documents"
+    document = document_root / "cand-1" / "complaint.pdf"
+    document.parent.mkdir(parents=True)
+    document.write_bytes(b"document A")
+    selection_path = tmp_path / "selection.jsonl"
+    selection_path.write_text("{}\n", encoding="utf-8")
+    selection = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "case_name": "A v. B",
+        "court": "D. Example",
+        "docket_number": "1:26-cv-1",
+        "documents": [
+            {
+                "source_document_id": "complaint",
+                "document_role": "complaint",
+                "docket_entry_number": 1,
+                "description": "Complaint",
+                "contains_target_outcome": False,
+                "model_visible": True,
+            }
+        ],
+    }
+    parser = {
+        "candidate_id": "cand-1",
+        "source_document_id": "complaint",
+        "status": "succeeded",
+        "markdown_path": "cand-1/complaint.md",
+    }
+    captured_markdown = {
+        "cand-1/complaint.md": b"captured A",
+        "cand-2/complaint.md": b"captured B",
+    }
+    markdown.unlink()
+    markdown.symlink_to(other_markdown)
+
+    [prompt] = stage_a_unitization_prompt_records(
+        selection_records=[selection],
+        parser_records=[parser],
+        markdown_root=markdown_root,
+        markdown_bytes=captured_markdown,
+    )
+    assert "captured A" in prompt["prompt"]
+    assert "captured B" not in prompt["prompt"]
+    lineage = cast(
+        cli._StageAUnitizationLineage,
+        SimpleNamespace(
+            file_snapshots={selection_path: b"{}\n"},
+            document_root=document_root,
+            document_tree={"cand-1/complaint.pdf": b"document A"},
+            markdown_root=markdown_root,
+            markdown_bytes=captured_markdown,
+        ),
+    )
+    with pytest.raises(cli.CommandError, match="Stage A Markdown"):
+        cli._require_stage_a_lineage_unchanged(lineage)
+
+    markdown.unlink()
+    markdown.write_text("captured A", encoding="utf-8")
+    cli._require_stage_a_lineage_unchanged(lineage)
+    selection_path.write_text('{"changed":true}\n', encoding="utf-8")
+    with pytest.raises(cli.CommandError, match="Stage A input changed"):
+        cli._require_stage_a_lineage_unchanged(lineage)
+
+    selection_path.write_text("{}\n", encoding="utf-8")
+    document.write_bytes(b"document B")
+    with pytest.raises(cli.CommandError, match="document tree changed"):
+        cli._require_stage_a_lineage_unchanged(lineage)
 
 
 def test_provider_caps_wrong_cycle_fails_before_model_or_provider(
@@ -180,11 +266,31 @@ def test_provider_caps_wrong_cycle_fails_before_model_or_provider(
     monkeypatch.setattr(
         cli,
         "_verify_materialized_downstream_lineage",
-        lambda **kwargs: (paths["materialization-card"],),
+        lambda **kwargs: cli._VerifiedMaterializedDownstreamLineage(
+            paths=(paths["materialization-card"],),
+            artifact_bytes={
+                str(path.resolve()): path.read_bytes()
+                for path in (
+                    paths["selection"],
+                    paths["manifest"],
+                    paths["clearance"],
+                    paths["materialization-card"],
+                )
+            },
+            manifest_records=({"candidate_id": "c"},),
+            clearance_records=({"candidate_id": "c"},),
+            selection_records=({"candidate_id": "c"},),
+            resolved_records=(),
+            document_tree={},
+        ),
     )
     monkeypatch.setattr(cli, "_verify_stage_a_parse_lineage", lambda **kwargs: None)
-    monkeypatch.setattr(cli, "_stage_a_markdown_tree_commitments", lambda *a, **k: {})
-    monkeypatch.setattr(cli, "_materialization_cohort_cycle_id", lambda path: "cycle-a")
+    monkeypatch.setattr(
+        cli, "_stage_a_markdown_tree_snapshot", lambda *a, **k: ({}, {})
+    )
+    monkeypatch.setattr(
+        cli, "_materialization_cohort_cycle_id", lambda *args, **kwargs: "cycle-a"
+    )
     model_resolution_attempted = False
 
     def forbidden_model_resolution(*args: Any, **kwargs: Any) -> Any:
@@ -347,6 +453,9 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
         input_paths=(),
         input_commitments={},
         markdown_tree={},
+        file_snapshots={},
+        document_tree={},
+        markdown_bytes={"cand-1/complaint.md": markdown.read_bytes()},
     )
 
     commitments, digest = cli._verify_stage_a_provider_replay(
@@ -828,6 +937,9 @@ def test_structural_review_run_card_rejects_finalize_path_and_journal_substituti
             "provider_cycle_caps": cli._stage_a_file_commitment(caps_path),
         },
         markdown_tree={},
+        file_snapshots={},
+        document_tree={},
+        markdown_bytes={},
     )
     source_paths = {
         "selection": paths["selection"],

@@ -325,6 +325,15 @@ def load_deterministic_response_fixture_bundle(
         raise DownstreamRehearsalError(
             f"cannot read response fixture: {source}"
         ) from exc
+    return load_deterministic_response_fixture_bundle_bytes(payload, source=source)
+
+
+def load_deterministic_response_fixture_bundle_bytes(
+    payload: bytes, *, source: str | Path
+) -> LoadedDeterministicResponseFixtures:
+    """Load deterministic fixtures from one caller-captured immutable snapshot."""
+
+    source = Path(source)
     records: list[DeterministicModelResponseFixture] = []
     seen: set[tuple[str, str, str]] = set()
     for line_number, raw_line in enumerate(payload.splitlines(), start=1):
