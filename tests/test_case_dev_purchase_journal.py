@@ -32,6 +32,17 @@ from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
 )
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+
+
+pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 def test_policy_is_hashed_and_binds_the_canonical_ledger(tmp_path: Path) -> None:
@@ -794,25 +805,12 @@ def test_cli_generates_policy_and_records_provider_reconciliation(
     cohort = cli.generate_cohort_policy(cohort_decisions)
     cohort_path = tmp_path / "cohort-policy.json"
     cohort_path.write_text(json.dumps(cohort), encoding="utf-8")
-    decisions = tmp_path / "decisions.json"
     purchase_decisions = _policy_decisions(ledger)
     purchase_decisions["cohort_policy_sha256"] = cohort["policy_sha256"]
-    decisions.write_text(json.dumps(purchase_decisions), encoding="utf-8")
     policy_path = tmp_path / "purchase-policy.json"
-    assert (
-        main(
-            [
-                "acquisition",
-                "generate-purchase-policy",
-                "--decisions",
-                str(decisions),
-                "--cohort-policy",
-                str(cohort_path),
-                "--output",
-                str(policy_path),
-            ]
-        )
-        == 0
+    policy_path.write_text(
+        json.dumps(generate_case_dev_purchase_policy(purchase_decisions)),
+        encoding="utf-8",
     )
     policy = verify_case_dev_purchase_policy(
         json.loads(policy_path.read_text(encoding="utf-8"))

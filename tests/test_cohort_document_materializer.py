@@ -428,6 +428,11 @@ def test_materialized_parse_rejects_stripped_unknown_origin_binding(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.setattr(
+        cli,
+        "_preflight_materialization_purchase_runtime",
+        lambda _args: None,
+    )
     document = tmp_path / "motion.pdf"
     payload = b"%PDF-1.4\nunknown-origin\n%%EOF"
     document.write_bytes(payload)

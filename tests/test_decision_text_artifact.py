@@ -20,6 +20,12 @@ JsonRecord = dict[str, Any]
 def _isolate_materialized_decision_semantics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        cli_module,
+        "_preflight_materialization_purchase_runtime",
+        lambda _args: None,
+    )
+
     def verify_fixture_materialization(**keywords: Any) -> tuple[Path, ...]:
         run_card_path = Path(keywords["run_card_path"])
         clearance_path = Path(keywords["clearance_path"])

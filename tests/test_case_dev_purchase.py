@@ -27,6 +27,17 @@ from legalforecast.ingestion.case_dev_purchase import (
 from legalforecast.ingestion.missing_core_budget import (
     plan_missing_core_document_budget,
 )
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+
+
+pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 def test_purchase_client_blocks_without_live_flag_or_acknowledgment() -> None:

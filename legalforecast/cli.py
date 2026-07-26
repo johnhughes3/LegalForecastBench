@@ -148,9 +148,10 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
-    generate_case_dev_purchase_policy,
     initialize_case_dev_purchase_journal,
     read_case_dev_purchase_snapshot,
+    require_approved_case_dev_purchase_policy,
+    verify_approved_purchase_input_bytes,
     verify_case_dev_purchase_journal_initialization,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
@@ -500,6 +501,14 @@ from legalforecast.ingestion.provenance_clearance import (
     exception_review_worksheet,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
+from legalforecast.ingestion.purchase_approval import (
+    PurchaseApprovalError,
+    build_purchase_approval_request,
+    generate_approved_purchase_policy,
+    record_purchase_approval,
+    resume_purchase_approval_recording,
+    verify_purchase_approval,
+)
 from legalforecast.ingestion.purchased_document_recovery import (
     PurchasedDocumentDownloadError,
     PurchasedDocumentRecoveryError,
@@ -1490,11 +1499,33 @@ def build_parser() -> argparse.ArgumentParser:
     _add_verify_disclosure_review_authority_arguments(
         acquisition_verify_disclosure_authority
     )
+    acquisition_record_purchase_approval = acquisition_subparsers.add_parser(
+        "record-purchase-approval",
+        help=(
+            "Interactively record approve, reject, or free-only for one exact "
+            "completed post-clearance purchase projection without provider activity."
+        ),
+        description=(
+            "TTY-only provider-free recorder. The controlled private root receives "
+            "the sole checkpoint and run card; no public approval artifact, fee "
+            "acknowledgment, provider request, purchase, evaluation, freeze, or "
+            "dispatch occurs."
+        ),
+    )
+    _add_record_purchase_approval_arguments(acquisition_record_purchase_approval)
+    acquisition_verify_purchase_approval = acquisition_subparsers.add_parser(
+        "verify-purchase-approval",
+        help=(
+            "Replay an exact private approval, full target projection, cohort "
+            "policy, fee schedule, and fresh ledger boundary without providers."
+        ),
+    )
+    _add_verify_purchase_approval_arguments(acquisition_verify_purchase_approval)
     acquisition_generate_purchase_policy = acquisition_subparsers.add_parser(
         "generate-purchase-policy",
         help=(
-            "Generate an immutable Case.dev document-purchase cap and canonical "
-            "journal policy from approved decisions."
+            "Generate the immutable v2 purchase policy from a replay-verified "
+            "private exact-projection approval."
         ),
     )
     _add_generate_purchase_policy_arguments(acquisition_generate_purchase_policy)
@@ -2762,6 +2793,7 @@ def _add_acquisition_extend_target_cohort_arguments(
         required=True,
         help="Canonical SQLite purchase journal named by --purchase-policy.",
     )
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--combined-max-projected-budget-usd",
         required=True,
@@ -4457,23 +4489,68 @@ def _add_verify_disclosure_review_authority_arguments(
     parser.set_defaults(handler=_cmd_verify_disclosure_review_authority)
 
 
+def _add_purchase_approval_source_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--target-cohort-root",
+        type=Path,
+        required=True,
+        help="Completed exact project-target-cohort output root.",
+    )
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument(
+        "--fee-schedule",
+        type=Path,
+        required=True,
+        help=(
+            "Immutable v1-shaped fee-schedule evidence with its own source "
+            "citation and UTC verification time."
+        ),
+    )
+    parser.add_argument(
+        "--canonical-ledger-path",
+        type=Path,
+        required=True,
+        help=(
+            "Normalized absolute path for a fresh, currently absent canonical "
+            "purchase ledger namespace."
+        ),
+    )
+
+
+def _add_record_purchase_approval_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_acquisition_common_arguments(parser)
+    _add_purchase_approval_source_arguments(parser)
+    parser.add_argument(
+        "--controlled-private-root",
+        type=Path,
+        required=True,
+        help=(
+            "Absolute controlled private root. It must equal --output-root and is "
+            "never placed in packet or freeze artifacts."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_record_purchase_approval)
+
+
+def _add_verify_purchase_approval_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_purchase_approval_source_arguments(parser)
+    parser.add_argument("--controlled-private-root", type=Path, required=True)
+    parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--approval-run-card", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_verify_purchase_approval)
+
+
 def _add_generate_purchase_policy_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--decisions",
         type=Path,
-        required=True,
-        help=(
-            "JSON object containing the cycle ID, cohort-policy hash, canonical "
-            "absolute ledger path, hard caps, and verified fee schedule."
-        ),
+        help=argparse.SUPPRESS,
     )
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument(
-        "--cohort-policy",
-        type=Path,
-        required=True,
-        help="Frozen cohort policy whose purchase caps this artifact must consume.",
-    )
+    _add_purchase_approval_source_arguments(parser)
+    parser.add_argument("--controlled-private-root", type=Path, required=True)
+    parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--approval-run-card", type=Path, required=True)
     parser.set_defaults(handler=_cmd_generate_purchase_policy)
 
 
@@ -4499,6 +4576,11 @@ def _add_init_purchase_ledger_arguments(parser: argparse.ArgumentParser) -> None
             "Exact absolute canonical ledger path from the purchase policy. "
             "An unreceipted existing path is never initialized or repaired."
         ),
+    )
+    parser.add_argument(
+        "--controlled-private-root",
+        type=Path,
+        help="Trusted private purchase-approval root used for non-minting replay.",
     )
     parser.add_argument(
         "--initialization-receipt-output",
@@ -4658,6 +4740,7 @@ def _add_generate_recap_fetch_attempt_policy_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--controlled-private-root", type=Path)
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument(
         "--budget-plan",
@@ -4686,10 +4769,12 @@ def _add_generate_recap_fetch_broker_policy_arguments(
         type=Path,
         required=True,
         help=(
-            "Verified immutable legalforecast.case_dev_purchase_policy.v1 "
-            "artifact; its digest and every cap/opening field are copied exactly."
+            "Verified immutable legalforecast.case_dev_purchase_policy.v2 "
+            "approval authority; its digest and every cap/opening field are "
+            "copied exactly."
         ),
     )
+    parser.add_argument("--controlled-private-root", type=Path)
     parser.add_argument(
         "--cohort-policy",
         type=Path,
@@ -4755,6 +4840,7 @@ def _add_reconcile_purchase_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--purchase-policy", type=Path, required=True)
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--purchase-ledger", type=Path, required=True)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--evidence",
         type=Path,
@@ -5784,6 +5870,7 @@ def _add_acquisition_purchase_missing_arguments(
             "the canonical locator frozen in --purchase-policy."
         ),
     )
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument("--case-dev-fixture", type=Path)
     parser.add_argument(
         "--live-purchase",
@@ -5816,6 +5903,7 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
     parser.add_argument("--purchase-policy", type=Path, required=True)
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--purchase-ledger", type=Path, required=True)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--attempt-policy",
         type=Path,
@@ -5903,6 +5991,7 @@ def _add_acquisition_recover_recap_fetch_quarantine_arguments(
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--budget-plan", type=Path, required=True)
     parser.add_argument("--purchase-ledger", type=Path, required=True)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument("--attempt-policy", type=Path, required=True)
     parser.add_argument("--manifest-output", type=Path)
     parser.add_argument(
@@ -6205,6 +6294,7 @@ def _add_acquisition_materialize_cohort_documents_arguments(
         required=True,
         help="Canonical purchase ledger proving recovered purchase identities.",
     )
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--resolved-post-recovery-documents",
         type=Path,
@@ -6475,6 +6565,7 @@ def _add_acquisition_resolve_post_recovery_arguments(
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--budget-plan", type=Path, required=True)
     parser.add_argument("--purchase-ledger", type=Path, required=True)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument("--attempt-policy", type=Path, required=True)
     parser.add_argument("--download-manifest", type=Path, required=True)
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
@@ -6492,6 +6583,19 @@ def _add_acquisition_resolve_post_recovery_arguments(
     parser.add_argument("--restriction-evidence", type=Path, required=True)
     parser.add_argument("--resolved-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_resolve_post_recovery)
+
+
+def _add_approved_purchase_runtime_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--controlled-private-root",
+        type=Path,
+        help="Trusted private approval root for non-minting policy replay.",
+    )
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt",
+        type=Path,
+        help="Immutable receipt proving the existing ledger descends from policy.",
+    )
 
 
 def _add_authenticated_clearance_lineage_arguments(
@@ -6523,6 +6627,7 @@ def _add_current_purchase_lineage_arguments(parser: argparse.ArgumentParser) -> 
         type=Path,
         help="Current canonical purchase journal required for unknown-origin material.",
     )
+    _add_approved_purchase_runtime_arguments(parser)
 
 
 def _add_acquisition_plan_parse_documents_arguments(
@@ -6606,6 +6711,7 @@ def _add_acquisition_build_decision_texts_arguments(
         type=Path,
         help="Authenticated combined free+purchased materialization lineage card.",
     )
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument("--restriction-evidence", type=Path, required=True)
     parser.add_argument("--parser-manifest", type=Path, required=True)
     parser.add_argument(
@@ -6638,6 +6744,7 @@ def _add_acquisition_rehearse_downstream_arguments(
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--restriction-evidence", type=Path, required=True)
     parser.add_argument("--materialization-run-card", type=Path, required=True)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument("--parse-plan-run-card", type=Path, required=True)
     parser.add_argument("--parse-requests", type=Path, required=True)
     parser.add_argument("--parser-manifest", type=Path, required=True)
@@ -6683,6 +6790,7 @@ def _add_acquisition_finalize_rehearsal_arguments(
 
 def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--selection",
         type=Path,
@@ -6801,6 +6909,7 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
 
 def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--selection",
         type=Path,
@@ -7006,6 +7115,7 @@ def _add_acquisition_llm_review_stage_a_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--selection", type=Path, required=True, help="JSONL acquisition selection."
     )
@@ -7079,6 +7189,7 @@ def _add_acquisition_apply_unitization_review_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--prediction-units",
         type=Path,
@@ -7346,6 +7457,7 @@ def _add_acquisition_plan_packet_inputs_arguments(
 
 def _add_acquisition_build_packets_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--packet-input-run-card", type=Path)
     parser.add_argument("--selection", type=Path)
@@ -7391,6 +7503,7 @@ def _add_acquisition_finalize_corpus_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument("--selection", type=Path, required=True)
     parser.add_argument("--parser-manifest", type=Path, required=True)
     parser.add_argument("--parser-run-card", type=Path, required=True)
@@ -7715,7 +7828,7 @@ def _disclosure_failure_context(
     if command not in disclosure_commands:
         return None
     command_name = cast(str, command)
-    output_root = _acquisition_output_root(args)
+    output_root = cast(Path, args.output_root)
     if command == "plan-disclosure-provenance":
         return (
             command_name,
@@ -10346,7 +10459,7 @@ def _unique_frontier_document_keys(
 def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
     """Freeze exact post-clearance artifacts from the resolved candidate pool."""
 
-    output_root = _acquisition_output_root(args)
+    output_root = cast(Path, args.output_root)
     source_paths = {
         "selection": cast(Path, args.selection),
         "case_relevance": cast(Path, args.case_relevance),
@@ -10571,7 +10684,27 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
 def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
     """Retain target 100 and emit a provider-free exact target-150 extension."""
 
-    output_root = _acquisition_output_root(args)
+    try:
+        preflight_policy = _preflight_approved_purchase_runtime(args)
+        if preflight_policy is not None:
+            read_case_dev_purchase_snapshot(
+                cast(Path, args.purchase_ledger).resolve(),
+                policy=preflight_policy,
+                controlled_private_root=cast(Path | None, args.controlled_private_root),
+                initialization_receipt_path=cast(
+                    Path | None, args.purchase_ledger_initialization_receipt
+                ),
+            )
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        OSError,
+        sqlite3.Error,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    output_root = cast(Path, args.output_root)
     base_root = cast(Path, args.base_cohort_root)
     base_paths = {name: base_root / name for name in BASE_PROJECTION_ARTIFACT_NAMES}
     preparation_root = cast(Path, args.preparation_root)
@@ -10759,9 +10892,18 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
     )
     try:
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            purchase_policy,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+        )
         _validate_existing_purchase_ledger(purchase_ledger_path, purchase_policy)
         with CaseDevPurchaseJournal(
-            purchase_ledger_path, policy=purchase_policy
+            purchase_ledger_path,
+            policy=purchase_policy,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         ) as purchase_journal:
             obligations = purchase_obligation_snapshot(
                 policy=purchase_policy,
@@ -19221,18 +19363,153 @@ def _cmd_verify_disclosure_review_authority(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_record_purchase_approval(args: argparse.Namespace) -> int:
+    private_root = cast(Path, args.controlled_private_root)
+    output_root = cast(Path, args.output_root)
+    if private_root != output_root:
+        raise CommandError("--controlled-private-root must equal --output-root")
+    try:
+        request = build_purchase_approval_request(
+            target_cohort_root=cast(Path, args.target_cohort_root),
+            cohort_policy_path=cast(Path, args.cohort_policy),
+            fee_schedule_path=cast(Path, args.fee_schedule),
+            canonical_ledger_path=cast(Path, args.canonical_ledger_path),
+        )
+    except (OSError, PurchaseApprovalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(json.dumps({"approval_request": request.to_record()}, sort_keys=True))
+    if _acquisition_dry_run(args):
+        return 0
+    checkpoint_path = private_root / "purchase-approval-checkpoint.json"
+    if cast(bool, args.resume) and (
+        checkpoint_path.exists() or checkpoint_path.is_symlink()
+    ):
+        try:
+            resumed_checkpoint, resumed_run_card = resume_purchase_approval_recording(
+                request=request,
+                controlled_private_root=private_root,
+            )
+        except (OSError, PurchaseApprovalError, ValueError) as exc:
+            raise CommandError(str(exc)) from exc
+        print(
+            json.dumps(
+                {
+                    "resumed": True,
+                    "checkpoint_sha256": _path_sha256(resumed_checkpoint),
+                    "run_card_sha256": _path_sha256(resumed_run_card),
+                    "provider_activity_requested": False,
+                    "provider_activity_executed": False,
+                    "paid_activity_requested": False,
+                    "paid_activity_executed": False,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    if not sys.stdin.isatty():
+        raise CommandError("record-purchase-approval requires an interactive TTY")
+    decision = input("Decision [approve/reject/free_only]: ").strip()
+    try:
+        required = request.required_confirmation(decision)
+    except PurchaseApprovalError as exc:
+        raise CommandError(str(exc)) from exc
+    print(f"Type exactly: {required}")
+    confirmation = input("Exact confirmation: ")
+    try:
+        checkpoint_path, run_card_path = record_purchase_approval(
+            request=request,
+            controlled_private_root=private_root,
+            decision=decision,
+            typed_confirmation=confirmation,
+            reviewer_id="John Hughes",
+            recorded_at_utc=_iso_datetime(datetime.now(UTC)),
+            resume=cast(bool, args.resume),
+        )
+    except (OSError, PurchaseApprovalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "decision": decision,
+                "checkpoint_sha256": _path_sha256(checkpoint_path),
+                "run_card_sha256": _path_sha256(run_card_path),
+                "provider_activity_requested": False,
+                "provider_activity_executed": False,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _verified_purchase_approval_from_args(
+    args: argparse.Namespace,
+) -> Any:
+    return verify_purchase_approval(
+        controlled_private_root=cast(Path, args.controlled_private_root),
+        checkpoint_path=cast(Path, args.checkpoint),
+        run_card_path=cast(Path, args.approval_run_card),
+        target_cohort_root=cast(Path, args.target_cohort_root),
+        cohort_policy_path=cast(Path, args.cohort_policy),
+        fee_schedule_path=cast(Path, args.fee_schedule),
+        canonical_ledger_path=cast(Path, args.canonical_ledger_path),
+    )
+
+
+def _cmd_verify_purchase_approval(args: argparse.Namespace) -> int:
+    try:
+        approval = _verified_purchase_approval_from_args(args)
+        artifact = generate_approved_purchase_policy(approval)
+    except (OSError, PurchaseApprovalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "verified": True,
+                "purchase_policy_sha256": artifact["policy_sha256"],
+                "selected_case_count": approval.request.selected_case_count,
+                "purchase_document_count": approval.request.purchase_document_count,
+                "projected_cost_usd": approval.request.projected_cost_usd,
+                "remaining_headroom_usd": approval.request.remaining_headroom_usd,
+                "provider_activity_requested": False,
+                "provider_activity_executed": False,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def _cmd_generate_purchase_policy(args: argparse.Namespace) -> int:
     try:
-        artifact = generate_case_dev_purchase_policy(
-            _read_json_object(cast(Path, args.decisions))
-        )
+        if cast(Path | None, args.decisions) is not None:
+            raise PurchaseApprovalError(
+                "hand-authored --decisions is legacy v1 input and cannot mint new "
+                "purchase authority"
+            )
+        approval = _verified_purchase_approval_from_args(args)
+        artifact = generate_approved_purchase_policy(approval)
         policy = verify_case_dev_purchase_policy(artifact)
         verify_case_dev_purchase_policy_cohort_binding(
             policy,
             _read_json_object(cast(Path, args.cohort_policy)),
         )
-        write_case_dev_purchase_policy(cast(Path, args.output), artifact)
-    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+        write_case_dev_purchase_policy(
+            cast(Path, args.output),
+            artifact,
+            controlled_private_root=cast(Path, args.controlled_private_root),
+        )
+    except (
+        CaseDevPurchasePolicyError,
+        OSError,
+        PurchaseApprovalError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
     return 0
 
@@ -19240,6 +19517,7 @@ def _cmd_generate_purchase_policy(args: argparse.Namespace) -> int:
 def _cmd_init_purchase_ledger(args: argparse.Namespace) -> int:
     """Exclusively initialize or authenticate one pristine purchase ledger."""
 
+    _preflight_approved_purchase_runtime(args)
     output_root = cast(Path, args.output_root)
     purchase_policy_path = cast(Path, args.purchase_policy)
     cohort_policy_path = cast(Path, args.cohort_policy)
@@ -19286,6 +19564,10 @@ def _cmd_init_purchase_ledger(args: argparse.Namespace) -> int:
     try:
         purchase_policy = verify_case_dev_purchase_policy(
             _read_json_object(purchase_policy_path)
+        )
+        require_approved_case_dev_purchase_policy(
+            purchase_policy,
+            controlled_private_root=cast(Path, args.controlled_private_root),
         )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy,
@@ -19352,6 +19634,7 @@ def _cmd_init_purchase_ledger(args: argparse.Namespace) -> int:
                 receipt_path=receipt_path,
                 purchase_policy_file_sha256=_path_sha256(purchase_policy_path),
                 cohort_policy_file_sha256=_path_sha256(cohort_policy_path),
+                controlled_private_root=cast(Path, args.controlled_private_root),
             )
         else:
             receipt = initialize_case_dev_purchase_journal(
@@ -19361,6 +19644,7 @@ def _cmd_init_purchase_ledger(args: argparse.Namespace) -> int:
                 purchase_policy_file_sha256=_path_sha256(purchase_policy_path),
                 cohort_policy_file_sha256=_path_sha256(cohort_policy_path),
                 initialized_at=_iso_datetime(datetime.now(UTC)),
+                controlled_private_root=cast(Path, args.controlled_private_root),
             )
     except (
         CaseDevPurchaseLedgerError,
@@ -19599,6 +19883,12 @@ def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
     try:
         purchase_artifact = _read_json_object(cast(Path, args.purchase_policy))
         purchase_policy = verify_case_dev_purchase_policy(purchase_artifact)
+        if purchase_policy.has_verified_approval:
+            raise CaseDevPurchasePolicyError(
+                "the initial exact-selection approval does not authorize "
+                "replacement planning"
+            )
+        require_approved_case_dev_purchase_policy(purchase_policy)
         with CaseDevPurchaseJournal(
             cast(Path, args.purchase_ledger).resolve(), policy=purchase_policy
         ) as journal:
@@ -19649,9 +19939,14 @@ def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
 
 
 def _cmd_generate_recap_fetch_attempt_policy(args: argparse.Namespace) -> int:
+    _preflight_approved_purchase_runtime(args)
     output = cast(Path, args.output)
     try:
-        budget_plan_artifact = _read_json_object(cast(Path, args.budget_plan))
+        budget_path = cast(Path, args.budget_plan)
+        selection_path = cast(Path, args.selection)
+        budget_bytes = read_unique_regular_file(budget_path)
+        selection_bytes = read_unique_regular_file(selection_path)
+        budget_plan_artifact = _projection_json_object(budget_bytes, source=budget_path)
         artifact = generate_recap_fetch_attempt_policy(
             purchase_policy_artifact=_read_json_object(
                 cast(Path, args.purchase_policy)
@@ -19659,7 +19954,12 @@ def _cmd_generate_recap_fetch_attempt_policy(args: argparse.Namespace) -> int:
             cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
             budget_plan=_missing_core_budget_plan(budget_plan_artifact),
             budget_plan_artifact=budget_plan_artifact,
-            selection_records=_read_records(cast(Path, args.selection)),
+            selection_records=_projection_jsonl_records(
+                selection_bytes, source=selection_path
+            ),
+            budget_plan_bytes=budget_bytes,
+            selection_bytes=selection_bytes,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
         )
         write_recap_fetch_attempt_policy(output, artifact)
     except (
@@ -19679,9 +19979,14 @@ def _cmd_generate_recap_fetch_attempt_policy(args: argparse.Namespace) -> int:
 
 
 def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
+    _preflight_approved_purchase_runtime(args)
     output = cast(Path, args.output)
     try:
-        budget_plan_artifact = _read_json_object(cast(Path, args.budget_plan))
+        budget_path = cast(Path, args.budget_plan)
+        selection_path = cast(Path, args.selection)
+        budget_bytes = read_unique_regular_file(budget_path)
+        selection_bytes = read_unique_regular_file(selection_path)
+        budget_plan_artifact = _projection_json_object(budget_bytes, source=budget_path)
         policy = generate_recap_fetch_broker_policy(
             purchase_policy_artifact=_read_json_object(
                 cast(Path, args.purchase_policy)
@@ -19689,7 +19994,12 @@ def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
             cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
             budget_plan=_missing_core_budget_plan(budget_plan_artifact),
             budget_plan_artifact=budget_plan_artifact,
-            selection_records=_read_records(cast(Path, args.selection)),
+            selection_records=_projection_jsonl_records(
+                selection_bytes, source=selection_path
+            ),
+            budget_plan_bytes=budget_bytes,
+            selection_bytes=selection_bytes,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
             broad_frontier_allowlist=cast(bool, args.broad_frontier_allowlist),
             attempt_policy_artifact=(
                 _read_json_object(cast(Path, args.attempt_policy))
@@ -19719,16 +20029,29 @@ def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
 
 
 def _cmd_reconcile_purchase(args: argparse.Namespace) -> int:
+    _preflight_approved_purchase_runtime(args)
     ledger_path = cast(Path, args.purchase_ledger).resolve()
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
     try:
         policy = verify_case_dev_purchase_policy(
             _read_json_object(cast(Path, args.purchase_policy))
+        )
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=controlled_private_root
         )
         verify_case_dev_purchase_policy_cohort_binding(
             policy,
             _read_json_object(cast(Path, args.cohort_policy)),
         )
-        with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+        with CaseDevPurchaseJournal(
+            ledger_path,
+            policy=policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
+        ) as journal:
             journal.reconcile(_read_json_object(cast(Path, args.evidence)))
     except (
         CaseDevPurchaseLedgerError,
@@ -27922,9 +28245,143 @@ def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
     return 0
 
 
+def _preflight_approved_purchase_runtime(
+    args: argparse.Namespace,
+) -> CaseDevPurchasePolicy | None:
+    """Authenticate paid authority before an official command touches runtime state."""
+
+    policy_path = cast(Path | None, getattr(args, "purchase_policy", None))
+    if policy_path is None:
+        return None
+    controlled_private_root = cast(
+        Path | None, getattr(args, "controlled_private_root", None)
+    )
+    try:
+        policy = verify_case_dev_purchase_policy(_read_json_object(policy_path))
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=controlled_private_root
+        )
+    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    return policy
+
+
+def _preflight_materialization_purchase_runtime(
+    args: argparse.Namespace,
+) -> CaseDevPurchasePolicy | None:
+    """Replay authority from an explicit policy or materialization run card."""
+
+    policy = _preflight_approved_purchase_runtime(args)
+    if policy is not None:
+        return policy
+    run_card_path = cast(Path | None, getattr(args, "materialization_run_card", None))
+    if run_card_path is None:
+        return None
+    controlled_private_root = cast(
+        Path | None, getattr(args, "controlled_private_root", None)
+    )
+    try:
+        _require_materializer_artifact(
+            run_card_path, label="materialization authority run card"
+        )
+        card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                run_card_path, label="materialization authority run card"
+            ),
+            source=run_card_path,
+        )
+        if (
+            card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+            or card.get("stage") != "materialize-cohort-documents"
+            or card.get("status") != "completed"
+        ):
+            raise CommandError("invalid completed materialization authority run card")
+        raw_inputs = card.get("input_paths")
+        if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+            raise CommandError("materialization run card lacks exact input paths")
+        input_paths = tuple(
+            Path(str(path)) for path in cast(Sequence[object], raw_inputs)
+        )
+        if len(input_paths) not in {12, 13}:
+            raise CommandError("materialization run card input paths differ")
+        policy = verify_case_dev_purchase_policy(_read_json_object(input_paths[9]))
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=controlled_private_root
+        )
+    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    return policy
+
+
+def _preflight_current_purchase_snapshot(args: argparse.Namespace) -> None:
+    """Authenticate v2 approval, cohort binding, and current ledger receipt."""
+
+    policy = _preflight_approved_purchase_runtime(args)
+    if policy is None:
+        raise CommandError("current purchase authority requires --purchase-policy")
+    cohort_path = cast(Path | None, getattr(args, "cohort_policy", None))
+    ledger_path = cast(Path | None, getattr(args, "purchase_ledger", None))
+    if cohort_path is None or ledger_path is None:
+        raise CommandError(
+            "current purchase authority requires --cohort-policy and --purchase-ledger"
+        )
+    controlled_private_root = cast(
+        Path | None, getattr(args, "controlled_private_root", None)
+    )
+    initialization_receipt = cast(
+        Path | None, getattr(args, "purchase_ledger_initialization_receipt", None)
+    )
+    try:
+        verify_case_dev_purchase_policy_cohort_binding(
+            policy, _read_json_object(cohort_path)
+        )
+        resolved_ledger = ledger_path.resolve()
+        if resolved_ledger != policy.canonical_ledger_path:
+            raise CommandError(
+                "--purchase-ledger conflicts with the canonical policy locator"
+            )
+        read_case_dev_purchase_snapshot(
+            resolved_ledger,
+            policy=policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
+        )
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _preflight_approved_purchase_input_bytes(args: argparse.Namespace) -> None:
+    """Reject changed approved plan bytes before creating any command output."""
+
+    policy = _preflight_approved_purchase_runtime(args)
+    if policy is None:
+        return
+    budget_path = cast(Path, args.budget_plan)
+    selection_path = cast(Path, args.selection)
+    controlled_private_root = cast(
+        Path | None, getattr(args, "controlled_private_root", None)
+    )
+    try:
+        verify_approved_purchase_input_bytes(
+            policy,
+            controlled_private_root=cast(Path, controlled_private_root),
+            budget_plan_bytes=read_unique_regular_file(budget_path),
+            selection_bytes=read_unique_regular_file(selection_path),
+        )
+    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> int:
     """Publish one immutable, clearance-bound document root for parsing."""
 
+    _preflight_current_purchase_snapshot(args)
     output_root = cast(Path, args.output_root).absolute()
     preparation_root = cast(Path, args.preparation_root).absolute()
     preparation_summary_path = cast(Path, args.preparation_summary).absolute()
@@ -27942,6 +28399,10 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
     purchase_policy_path = cast(Path, args.purchase_policy).absolute()
     cohort_policy_path = cast(Path, args.cohort_policy).absolute()
     ledger_path = cast(Path, args.purchase_ledger).resolve()
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
     raw_resolved_path = cast(Path | None, args.resolved_post_recovery_documents)
     resolved_path = (
         raw_resolved_path.absolute() if raw_resolved_path is not None else None
@@ -27992,10 +28453,6 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         document_root=document_root,
         input_paths=input_paths,
     )
-    try:
-        output_root = prepare_non_symlink_directory(output_root)
-    except CohortDocumentMaterializationError as exc:
-        raise CommandError(str(exc)) from exc
     materializer_direct_paths = (
         preparation_summary_path,
         preparation_config_path,
@@ -28084,6 +28541,9 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             source=cohort_policy_path,
         )
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            purchase_policy, controlled_private_root=controlled_private_root
+        )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy, cohort_policy_artifact
         )
@@ -28092,7 +28552,10 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
                 "--purchase-ledger conflicts with the canonical policy locator"
             )
         purchase_snapshot = read_case_dev_purchase_snapshot(
-            ledger_path, policy=purchase_policy
+            ledger_path,
+            policy=purchase_policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
         )
         operations = purchase_snapshot.operations
         purchase_state_sha256 = purchase_snapshot.purchase_state_sha256
@@ -28313,6 +28776,10 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
     }
     try:
         cleanup_orphaned_cohort_document_temporaries(materialization.documents)
+    except CohortDocumentMaterializationError as exc:
+        raise CommandError(str(exc)) from exc
+    try:
+        output_root = prepare_non_symlink_directory(output_root)
     except CohortDocumentMaterializationError as exc:
         raise CommandError(str(exc)) from exc
     _reject_unexpected_materializer_outputs(output_root, expected_files=expected_files)
@@ -28790,6 +29257,45 @@ def _verify_materializer_projection(
             },
         },
     }
+
+
+def verify_completed_target_cohort_projection_for_purchase_approval(
+    target_root: Path,
+) -> dict[str, object]:
+    """Run the full authenticated projection verifier for purchase approval.
+
+    This deliberately reuses the materializer's fail-closed verifier so approval
+    cannot drift into a weaker parallel interpretation of preparation,
+    disclosure-clearance, snapshot, run-card, or output commitments.
+    """
+
+    run_card_path = target_root / "run-cards/project-target-cohort.json"
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="target projection run card"
+    )
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("target projection run card lacks exact inputs")
+    input_paths = tuple(
+        Path(str(value)) for value in cast(Sequence[object], raw_inputs)
+    )
+    if len(input_paths) != 9:
+        raise CommandError("target projection run card input paths differ")
+    config_path = input_paths[7]
+    config = _projection_json_object(
+        _read_singly_linked_regular_input(config_path, label="preparation config"),
+        source=config_path,
+    )
+    target_count = _required_int(config, "target_case_count")
+    return _verify_materializer_projection(
+        target_root=target_root,
+        free_clearance_path=target_root / "disclosure-clearance.jsonl",
+        preparation_summary_path=input_paths[6],
+        preparation_config_path=config_path,
+        snapshot_manifest_path=input_paths[8],
+        expected_target_count=target_count,
+    )
 
 
 def _verify_materializer_recovery(
@@ -29939,6 +30445,8 @@ def _verify_materialized_downstream_lineage(
     clearance_path: Path,
     document_root: Path,
     selection_path: Path | None = None,
+    controlled_private_root: Path | None = None,
+    initialization_receipt_path: Path | None = None,
 ) -> _VerifiedMaterializedDownstreamLineage:
     _require_materializer_artifact(
         run_card_path, label="materialization lineage run card"
@@ -30109,6 +30617,9 @@ def _verify_materialized_downstream_lineage(
                 direct_snapshots[purchase_policy_path], source=purchase_policy_path
             )
         )
+        require_approved_case_dev_purchase_policy(
+            purchase_policy, controlled_private_root=controlled_private_root
+        )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy,
             _projection_json_object(
@@ -30116,7 +30627,10 @@ def _verify_materialized_downstream_lineage(
             ),
         )
         snapshot = read_case_dev_purchase_snapshot(
-            ledger_path.resolve(), policy=purchase_policy
+            ledger_path.resolve(),
+            policy=purchase_policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
         )
         selection_records = cast(
             Sequence[Mapping[str, Any]], projection["selection_records"]
@@ -30429,6 +30943,8 @@ def _verify_optional_finalize_materialization(
     download_manifest_path: Path | None,
     materialization_card_path: Path | None,
     document_root: Path | None,
+    controlled_private_root: Path | None = None,
+    initialization_receipt_path: Path | None = None,
 ) -> _VerifiedMaterializedDownstreamLineage | tuple[Path, ...]:
     options = (download_manifest_path, materialization_card_path, document_root)
     if any(path is not None for path in options) and not all(
@@ -30448,6 +30964,8 @@ def _verify_optional_finalize_materialization(
             clearance_path=clearance_path,
             document_root=root,
             selection_path=selection_path,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
         )
         if not _require_consistent_materialization_markers(
             verified.manifest_records, verified.clearance_records
@@ -31260,6 +31778,15 @@ def _cmd_acquisition_download_free(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
+    purchase_policy = _preflight_approved_purchase_runtime(args)
+    if purchase_policy is None:
+        raise CommandError("purchase-missing requires --purchase-policy")
+    live_purchase = cast(bool, args.live_purchase)
+    if live_purchase and purchase_policy.has_verified_approval:
+        raise CommandError(
+            "legacy Case.dev purchase cannot authenticate the approved selection; "
+            "use purchase-missing-recap-fetch"
+        )
     output_root = _acquisition_output_root(args)
     plan_path = cast(Path, args.budget_plan)
     output_path = _acquisition_path(
@@ -31267,14 +31794,13 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
         "purchase_output",
         output_root / "case-dev-pacer-purchases.json",
     )
-    plan = _missing_core_budget_plan(_read_json_object(plan_path))
+    plan_bytes = read_unique_regular_file(plan_path)
+    plan_artifact = _projection_json_object(plan_bytes, source=plan_path)
+    plan = _missing_core_budget_plan(plan_artifact)
     policy_path = cast(Path, args.purchase_policy)
     cohort_policy_path = cast(Path, args.cohort_policy)
     ledger_path = cast(Path, args.purchase_ledger).resolve()
     try:
-        purchase_policy = verify_case_dev_purchase_policy(
-            _read_json_object(policy_path)
-        )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy,
             _read_json_object(cohort_policy_path),
@@ -31286,7 +31812,6 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
             "--purchase-ledger conflicts with the canonical policy locator"
         )
     dry_run = _acquisition_dry_run(args)
-    live_purchase = cast(bool, args.live_purchase)
     acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
     capability = CaseDevPacerCapability(cast(str, args.capability))
     if live_purchase and cast(Path | None, args.case_dev_fixture) is None:
@@ -31388,7 +31913,10 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    if not _acquisition_dry_run(args):
+        _preflight_current_purchase_snapshot(args)
+    _preflight_approved_purchase_input_bytes(args)
+    output_root = cast(Path, args.output_root)
     plan_path = cast(Path, args.budget_plan)
     selection_path = cast(Path, args.selection)
     policy_path = cast(Path, args.purchase_policy)
@@ -31405,6 +31933,10 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
     courtlistener_fixture = cast(Path | None, args.courtlistener_fixture)
     broker_fixture = cast(Path | None, args.purchase_broker_fixture)
     attempt_policy_path = cast(Path | None, args.attempt_policy)
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
     input_paths = (
         plan_path,
         selection_path,
@@ -31414,13 +31946,29 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
     )
     client: CourtListenerRecapFetchClient | None = None
     request_budget: CourtListenerRequestBudget | None = None
+    output_initialized = False
     try:
-        budget_plan_artifact = _read_json_object(plan_path)
+        budget_plan_bytes = read_unique_regular_file(plan_path)
+        selection_bytes = read_unique_regular_file(selection_path)
+        budget_plan_artifact = _projection_json_object(
+            budget_plan_bytes, source=plan_path
+        )
         plan = _missing_core_budget_plan(budget_plan_artifact)
         purchase_policy_artifact = _read_json_object(policy_path)
         cohort_policy_artifact = _read_json_object(cohort_policy_path)
-        selection_records = _read_records(selection_path)
+        selection_records = _projection_jsonl_records(
+            selection_bytes, source=selection_path
+        )
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            purchase_policy, controlled_private_root=controlled_private_root
+        )
+        verify_approved_purchase_input_bytes(
+            purchase_policy,
+            controlled_private_root=cast(Path, controlled_private_root),
+            budget_plan_bytes=budget_plan_bytes,
+            selection_bytes=selection_bytes,
+        )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy, cohort_policy_artifact
         )
@@ -31436,6 +31984,9 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                 budget_plan=plan,
                 budget_plan_artifact=budget_plan_artifact,
                 selection_records=selection_records,
+                budget_plan_bytes=budget_plan_bytes,
+                selection_bytes=selection_bytes,
+                controlled_private_root=cast(Path, controlled_private_root),
             )
             attempt_policy_sha256 = _required_str(
                 attempt_policy_artifact, "policy_sha256"
@@ -31444,7 +31995,19 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
             raise CommandError(
                 "--purchase-ledger conflicts with the canonical policy locator"
             )
+        if not dry_run:
+            # Authenticate the existing ledger and immutable initialization
+            # receipt before loading any environment, transport, broker, budget,
+            # client, or provider configuration.
+            read_case_dev_purchase_snapshot(
+                ledger_path,
+                policy=purchase_policy,
+                controlled_private_root=controlled_private_root,
+                initialization_receipt_path=initialization_receipt,
+            )
         if dry_run:
+            _acquisition_output_root(args)
+            output_initialized = True
             attempts = tuple(
                 CaseDevPacerPurchaseAttempt(
                     candidate_id=case_plan.candidate_id,
@@ -31505,8 +32068,13 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     limits=_COURTLISTENER_RATE_PROFILES[profile],
                     max_wait_seconds=max_wait,
                 )
+                _acquisition_output_root(args)
+                output_initialized = True
                 with CaseDevPurchaseJournal(
-                    ledger_path, policy=purchase_policy
+                    ledger_path,
+                    policy=purchase_policy,
+                    controlled_private_root=controlled_private_root,
+                    initialization_receipt_path=initialization_receipt,
                 ) as journal:
                     client = CourtListenerRecapFetchClient(
                         courtlistener_config,
@@ -31544,8 +32112,13 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     courtlistener_fixture
                 )
                 purchase_broker = FixtureRecapFetchPurchaseBroker(broker_responses)
+                _acquisition_output_root(args)
+                output_initialized = True
                 with CaseDevPurchaseJournal(
-                    ledger_path, policy=purchase_policy
+                    ledger_path,
+                    policy=purchase_policy,
+                    controlled_private_root=controlled_private_root,
+                    initialization_receipt_path=initialization_receipt,
                 ) as journal:
                     client = CourtListenerRecapFetchClient(
                         CourtListenerRecapFetchConfig(api_token="offline-fixture"),
@@ -31573,7 +32146,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         UnicodeError,
         ValueError,
     ) as exc:
-        if live_purchase:
+        if live_purchase and output_initialized:
             _write_acquisition_failure(
                 args,
                 stage="purchase-missing-recap-fetch",
@@ -31591,7 +32164,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     live=True,
                 ),
             )
-        elif not dry_run:
+        elif not dry_run and output_initialized:
             _write_acquisition_failure(
                 args,
                 stage="purchase-missing-recap-fetch",
@@ -31618,6 +32191,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         budget=request_budget,
         live=live_purchase,
     )
+    _acquisition_output_root(args)
     _write_json(output_path, result.to_record())
     _write_acquisition_completion(
         args,
@@ -31756,7 +32330,14 @@ def _project_purchased_case_relevance(
 def _cmd_acquisition_recover_recap_fetch_quarantine(
     args: argparse.Namespace,
 ) -> int:
-    output_root = _acquisition_output_root(args)
+    if not _acquisition_dry_run(args):
+        _preflight_current_purchase_snapshot(args)
+    _preflight_approved_purchase_runtime(args)
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
+    output_root = cast(Path, args.output_root)
     selection_path = cast(Path, args.selection)
     case_relevance_path = cast(Path, args.case_relevance)
     target_projection_run_card_path = cast(Path, args.target_projection_run_card)
@@ -31853,6 +32434,15 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             immutable_input_snapshot[attempt_policy_path], source=attempt_policy_path
         )
         policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=controlled_private_root
+        )
+        verify_approved_purchase_input_bytes(
+            policy,
+            controlled_private_root=cast(Path, controlled_private_root),
+            budget_plan_bytes=immutable_input_snapshot[budget_plan_path],
+            selection_bytes=selection_bytes,
+        )
         verify_case_dev_purchase_policy_cohort_binding(policy, cohort_policy_artifact)
         if ledger_path != policy.canonical_ledger_path:
             raise RecapFetchQuarantineRecoveryError(
@@ -31866,9 +32456,23 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             budget_plan=plan,
             budget_plan_artifact=budget_plan_artifact,
             selection_records=selection_records,
+            budget_plan_bytes=immutable_input_snapshot[budget_plan_path],
+            selection_bytes=selection_bytes,
+            controlled_private_root=cast(Path, controlled_private_root),
         )
         attempt_policy_sha256 = _required_str(attempt_policy_artifact, "policy_sha256")
         purchase_state_sha256: str | None = None
+        if not dry_run:
+            # Recovery must authenticate the same private approval, immutable
+            # initialization receipt, and current ledger before constructing
+            # either live or fixture runtime clients and transports.
+            read_case_dev_purchase_snapshot(
+                ledger_path,
+                policy=policy,
+                controlled_private_root=controlled_private_root,
+                initialization_receipt_path=initialization_receipt,
+            )
+        _acquisition_output_root(args)
         if dry_run:
             records: Sequence[Mapping[str, Any]] = (
                 {
@@ -31923,7 +32527,12 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                     immutable_input_snapshot[document_fixture]
                 )
                 before_request = None
-            with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+            with CaseDevPurchaseJournal(
+                ledger_path,
+                policy=policy,
+                controlled_private_root=controlled_private_root,
+                initialization_receipt_path=initialization_receipt,
+            ) as journal:
                 records, restriction_records = recover_recap_fetch_quarantine_documents(
                     journal=journal,
                     allowed_documents=allowed_documents,
@@ -31997,6 +32606,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             paid_activity_executed=False,
         )
         raise CommandError(str(exc)) from exc
+    _acquisition_output_root(args)
     _write_acquisition_completion(
         args,
         stage="recover-recap-fetch-quarantine",
@@ -32092,7 +32702,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
 
 
 def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    output_root = cast(Path, args.output_root)
     screening_paths = tuple(cast(list[Path], args.screening_candidates))
     fetch_paths = tuple(cast(list[Path], args.fetch_successes))
     ranking_paths = tuple(cast(list[Path], args.case_dev_ranking))
@@ -32178,6 +32788,13 @@ def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_execute_docket_live_fetches(args: argparse.Namespace) -> int:
+    fixture_path = cast(Path | None, args.case_dev_fixture)
+    live_case_dev = cast(bool, args.live_case_dev)
+    if live_case_dev:
+        raise CommandError(
+            "legacy fee-bearing Case.dev docket fetch is disabled; use the "
+            "CourtListener-first acquisition path"
+        )
     output_root = _acquisition_output_root(args)
     plan_path = cast(Path, args.docket_live_fetch_plan)
     journal_path = _acquisition_path(
@@ -32192,16 +32809,7 @@ def _cmd_acquisition_execute_docket_live_fetches(args: argparse.Namespace) -> in
     )
     plan = load_docket_live_fetch_plan(_read_json_object(plan_path))
     dry_run = _acquisition_dry_run(args)
-    fixture_path = cast(Path | None, args.case_dev_fixture)
-    live_case_dev = cast(bool, args.live_case_dev)
     acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
-    if live_case_dev and fixture_path is None:
-        raise CommandError(
-            "legacy fee-bearing Case.dev docket fetch is disabled; use the "
-            "CourtListener-first acquisition path"
-        )
-    if fixture_path is not None and live_case_dev:
-        raise CommandError("case-dev fixture and live access are mutually exclusive")
     if not dry_run and not acknowledge_fees:
         raise CommandError(
             "execute-docket-live-fetches requires --acknowledge-pacer-fees"
@@ -32267,6 +32875,13 @@ def _cmd_acquisition_execute_docket_live_fetches(args: argparse.Namespace) -> in
 
 
 def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
+    if cast(bool, args.live_case_dev_download) or cast(
+        bool, args.live_courtlistener_download
+    ):
+        raise CommandError(
+            "legacy recover-purchased live downloads are disabled; use the "
+            "authenticated RECAP Fetch quarantine recovery path"
+        )
     output_root = _acquisition_output_root(args)
     purchase_result_path = cast(Path, args.purchase_result)
     selection_path = cast(Path, args.selection)
@@ -34857,12 +35472,24 @@ def _require_current_purchase_lineage(
         )
     try:
         policy = verify_case_dev_purchase_policy(_read_json_object(policy_path))
+        controlled_private_root = cast(Path | None, args.controlled_private_root)
+        initialization_receipt = cast(
+            Path | None, args.purchase_ledger_initialization_receipt
+        )
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=controlled_private_root
+        )
         resolved_ledger = ledger_path.resolve()
         if resolved_ledger != policy.canonical_ledger_path:
             raise ResolvedPostRecoveryError(
                 "--purchase-ledger conflicts with the canonical policy locator"
             )
-        snapshot = read_case_dev_purchase_snapshot(resolved_ledger, policy=policy)
+        snapshot = read_case_dev_purchase_snapshot(
+            resolved_ledger,
+            policy=policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
+        )
         require_resolved_post_recovery_operation_bindings(
             purchase_operation_records=snapshot.operations,
             resolved_records=resolved_records,
@@ -34882,12 +35509,19 @@ def _require_current_purchase_lineage(
 
 
 def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    if not _acquisition_dry_run(args):
+        _preflight_current_purchase_snapshot(args)
+    _preflight_approved_purchase_runtime(args)
+    output_root = cast(Path, args.output_root)
     selection_path = cast(Path, args.selection)
     purchase_policy_path = cast(Path, args.purchase_policy)
     cohort_policy_path = cast(Path, args.cohort_policy)
     budget_plan_path = cast(Path, args.budget_plan)
     ledger_path = cast(Path, args.purchase_ledger).resolve()
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
     attempt_policy_path = cast(Path, args.attempt_policy)
     download_path = cast(Path, args.download_manifest)
     clearance_path = cast(Path, args.disclosure_clearance)
@@ -34896,18 +35530,33 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
         "resolved_output",
         output_root / "resolved-post-recovery-documents.jsonl",
     )
-    selection_records = _read_records(selection_path)
+    selection_bytes = read_unique_regular_file(selection_path)
+    budget_plan_bytes = read_unique_regular_file(budget_plan_path)
+    selection_records = _projection_jsonl_records(
+        selection_bytes, source=selection_path
+    )
     download_records = _read_records(download_path)
     clearance_records = _read_records(clearance_path)
     purchase_policy_artifact = _read_json_object(purchase_policy_path)
     cohort_policy_artifact = _read_json_object(cohort_policy_path)
-    budget_plan_artifact = _read_json_object(budget_plan_path)
+    budget_plan_artifact = _projection_json_object(
+        budget_plan_bytes, source=budget_plan_path
+    )
     attempt_policy_artifact = _read_json_object(attempt_policy_path)
     clearance_kwargs, clearance_paths = _authenticated_clearance_lineage_inputs(
         args, clearance_path=clearance_path
     )
     try:
         policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=controlled_private_root
+        )
+        verify_approved_purchase_input_bytes(
+            policy,
+            controlled_private_root=cast(Path, controlled_private_root),
+            budget_plan_bytes=budget_plan_bytes,
+            selection_bytes=selection_bytes,
+        )
         verify_case_dev_purchase_policy_cohort_binding(policy, cohort_policy_artifact)
         if ledger_path != policy.canonical_ledger_path:
             raise ResolvedPostRecoveryError(
@@ -34921,9 +35570,18 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
             budget_plan=plan,
             budget_plan_artifact=budget_plan_artifact,
             selection_records=selection_records,
+            budget_plan_bytes=budget_plan_bytes,
+            selection_bytes=selection_bytes,
+            controlled_private_root=cast(Path, controlled_private_root),
         )
         dry_run = _acquisition_dry_run(args)
-        with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+        _acquisition_output_root(args)
+        with CaseDevPurchaseJournal(
+            ledger_path,
+            policy=policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
+        ) as journal:
             before_state_sha256 = journal.purchase_state_sha256()
             operations = journal.operation_records()
             if resolved_path.exists():
@@ -35017,8 +35675,17 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    _preflight_materialization_purchase_runtime(args)
     dry_run = _acquisition_dry_run(args)
+    if (
+        not dry_run
+        and cast(Path | None, getattr(args, "materialization_run_card", None)) is None
+    ):
+        raise CommandError(
+            "executed parse planning requires canonical materialized documents "
+            "and --materialization-run-card"
+        )
+    prospective_output_root = cast(Path, args.output_root)
     selection_path = cast(Path | None, args.selection)
     download_manifest_path = cast(Path, args.download_manifest)
     clearance_path = cast(Path, args.disclosure_clearance)
@@ -35026,12 +35693,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
     document_root = _acquisition_path(
         args,
         "document_root",
-        output_root / "documents" / "free",
-    )
-    requests_path = _acquisition_path(
-        args,
-        "requests_output",
-        output_root / "parse-document-requests.jsonl",
+        prospective_output_root / "documents" / "free",
     )
     markdown_output_root = cast(Path, args.markdown_output_root)
     materialization_card_path = cast(Path | None, args.materialization_run_card)
@@ -35043,7 +35705,18 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
             clearance_path=clearance_path,
             document_root=document_root,
             selection_path=selection_path,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         )
+    output_root = _acquisition_output_root(args)
+    requests_path = _acquisition_path(
+        args,
+        "requests_output",
+        output_root / "parse-document-requests.jsonl",
+    )
+    if materialization_lineage is not None:
         records = list(materialization_lineage.manifest_records)
         clearance_records = list(materialization_lineage.clearance_records)
         selection_records = list(materialization_lineage.selection_records)
@@ -35237,21 +35910,17 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    _preflight_materialization_purchase_runtime(args)
     dry_run = _acquisition_dry_run(args)
+    if not dry_run and cast(Path | None, args.materialization_run_card) is None:
+        raise CommandError(
+            "executed parsing requires canonical materialized documents and "
+            "--materialization-run-card"
+        )
     selection_path = cast(Path | None, args.selection)
     requests_path = cast(Path, args.requests)
     clearance_path = cast(Path, args.disclosure_clearance)
     resolved_path = cast(Path | None, args.resolved_post_recovery_documents)
-    manifest_path = _acquisition_path(
-        args,
-        "manifest_output",
-        output_root / "mistral-markdown-conversions.jsonl",
-    )
-    request_bytes = _read_singly_linked_regular_input(
-        requests_path, label="parse document requests"
-    )
-    request_records = _projection_jsonl_records(request_bytes, source=requests_path)
     materialization_card_path = cast(Path | None, args.materialization_run_card)
     materialization_lineage: _VerifiedMaterializedDownstreamLineage | None = None
     materialization_card_bytes: bytes | None = None
@@ -35280,7 +35949,22 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
             clearance_path=clearance_path,
             document_root=materialization_output_paths[5],
             selection_path=selection_path,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         )
+    output_root = cast(Path, args.output_root)
+    manifest_path = _acquisition_path(
+        args,
+        "manifest_output",
+        output_root / "mistral-markdown-conversions.jsonl",
+    )
+    request_bytes = _read_singly_linked_regular_input(
+        requests_path, label="parse document requests"
+    )
+    request_records = _projection_jsonl_records(request_bytes, source=requests_path)
+    if materialization_lineage is not None:
         clearance_records = list(materialization_lineage.clearance_records)
     else:
         clearance_records = _read_records(clearance_path)
@@ -35435,6 +36119,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         )
     fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
     parser_root = cast(Path | None, args.parser_root)
+    _acquisition_output_root(args)
     if dry_run:
         output_records: Sequence[Mapping[str, Any]] = (
             {
@@ -35868,7 +36553,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         raise CommandError(
             "rehearse-downstream is already provider-free and requires --execute"
         )
-    output_root = _acquisition_output_root(args)
+    _preflight_materialization_purchase_runtime(args)
     selection_path = cast(Path, args.selection)
     selection_card_path = cast(Path, args.selection_run_card)
     manifest_path = cast(Path, args.download_manifest)
@@ -35886,6 +36571,20 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
     target_count = cast(int, args.target_case_count)
     if target_count <= 0:
         raise CommandError("--target-case-count must be positive")
+    try:
+        verified_materialization = _verify_materialized_downstream_lineage(
+            run_card_path=materialization_card_path,
+            manifest_path=manifest_path,
+            clearance_path=clearance_path,
+            document_root=document_root,
+            selection_path=selection_path,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
+        )
+    except (CommandError, OSError) as exc:
+        raise CommandError(str(exc)) from exc
     input_paths = (
         selection_path,
         selection_card_path,
@@ -35918,16 +36617,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
     def require_rehearsal_inputs_unchanged() -> None:
         _require_snapshot_unchanged(rehearsal_file_snapshots, label="rehearsal input")
 
-    try:
-        verified_materialization = _verify_materialized_downstream_lineage(
-            run_card_path=materialization_card_path,
-            manifest_path=manifest_path,
-            clearance_path=clearance_path,
-            document_root=document_root,
-            selection_path=selection_path,
-        )
-    except (CommandError, OSError) as exc:
-        raise CommandError(str(exc)) from exc
+    output_root = cast(Path, args.output_root)
     for path, payload in rehearsal_file_snapshots.items():
         materialized_payload = verified_materialization.artifact_bytes.get(
             os.path.abspath(path)
@@ -36128,8 +36818,42 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             (cast(str, args.reviewer_model_key),),
         )
         reviewer_entry = reviewer_entries[0]
+        judge_keys = tuple(cast(list[str], args.judge_model_key))
+        _require_explicit_unique_model_keys(judge_keys)
+        judge_registry_path = cast(Path, args.judge_model_registry)
+        judge_entries, judge_sha = _registry_entries_for_keys_bytes(
+            rehearsal_file_snapshots[judge_registry_path], judge_keys
+        )
+        frozen_judge_keys = {
+            entry.registry_key
+            for entry in load_model_registry_bytes(
+                rehearsal_file_snapshots[judge_registry_path]
+            ).entries
+        }
+        if {entry.registry_key for entry in judge_entries} != frozen_judge_keys:
+            raise CommandError("rehearsal must select the complete frozen judge panel")
+        evaluated_entries = load_model_registry_bytes(
+            rehearsal_file_snapshots[cast(Path, args.evaluated_model_registry)]
+        ).entries
+        evaluated_identities = {
+            (entry.provider, entry.model_id, entry.model_version_or_snapshot)
+            for entry in evaluated_entries
+        }
+        overlaps = sorted(
+            entry.registry_key
+            for entry in judge_entries
+            if (entry.provider, entry.model_id, entry.model_version_or_snapshot)
+            in evaluated_identities
+        )
+        if overlaps:
+            raise CommandError(
+                "rehearsal judge panel overlaps evaluated registry: "
+                + ", ".join(overlaps)
+            )
     except (DecisionTextArtifactError, DownstreamRehearsalError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
+
+    _acquisition_output_root(args)
 
     decision_stage = "rehearsal-build-decision-texts"
     decision_texts_path = output_root / "rehearsal-decision-texts.jsonl"
@@ -36452,37 +37176,6 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         input_commitments=commitments,
     )
 
-    judge_keys = tuple(cast(list[str], args.judge_model_key))
-    _require_explicit_unique_model_keys(judge_keys)
-    judge_registry_path = cast(Path, args.judge_model_registry)
-    judge_entries, judge_sha = _registry_entries_for_keys_bytes(
-        rehearsal_file_snapshots[judge_registry_path], judge_keys
-    )
-    frozen_judge_keys = {
-        entry.registry_key
-        for entry in load_model_registry_bytes(
-            rehearsal_file_snapshots[judge_registry_path]
-        ).entries
-    }
-    if {entry.registry_key for entry in judge_entries} != frozen_judge_keys:
-        raise CommandError("rehearsal must select the complete frozen judge panel")
-    evaluated_entries = load_model_registry_bytes(
-        rehearsal_file_snapshots[cast(Path, args.evaluated_model_registry)]
-    ).entries
-    evaluated_identities = {
-        (entry.provider, entry.model_id, entry.model_version_or_snapshot)
-        for entry in evaluated_entries
-    }
-    overlaps = sorted(
-        entry.registry_key
-        for entry in judge_entries
-        if (entry.provider, entry.model_id, entry.model_version_or_snapshot)
-        in evaluated_identities
-    )
-    if overlaps:
-        raise CommandError(
-            "rehearsal judge panel overlaps evaluated registry: " + ", ".join(overlaps)
-        )
     labels_path = output_root / "rehearsal-labels.jsonl"
     label_audit_path = output_root / "rehearsal-llm-label-audit.jsonl"
     lawyer_queue_path = output_root / "rehearsal-lawyer-review-queue.jsonl"
@@ -37258,10 +37951,49 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
 def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
     """Materialize authenticated, audit-only first-disposition text."""
 
-    output_root = _acquisition_output_root(args)
+    _preflight_materialization_purchase_runtime(args)
     dry_run = _acquisition_dry_run(args)
+    if (
+        not dry_run
+        and cast(Path | None, getattr(args, "materialization_run_card", None)) is None
+    ):
+        raise CommandError(
+            "executed decision-text construction requires canonical materialization"
+        )
     clearance_card_path = cast(Path | None, args.clearance_run_card)
     materialization_card_path = cast(Path | None, args.materialization_run_card)
+    verified_materialization: _VerifiedMaterializedDownstreamLineage | None = None
+    if materialization_card_path is not None:
+        early_materialization_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                materialization_card_path,
+                label="decision text materialization run card",
+            ),
+            source=materialization_card_path,
+        )
+        raw_materialization_outputs = early_materialization_card.get("output_paths")
+        if not isinstance(raw_materialization_outputs, Sequence) or isinstance(
+            raw_materialization_outputs, (str, bytes)
+        ):
+            raise CommandError("materialization run card lacks exact outputs")
+        early_materialization_outputs = tuple(
+            Path(str(path))
+            for path in cast(Sequence[object], raw_materialization_outputs)
+        )
+        if len(early_materialization_outputs) != 6:
+            raise CommandError("materialization run card output paths differ")
+        verified_materialization = _verify_materialized_downstream_lineage(
+            run_card_path=materialization_card_path,
+            manifest_path=cast(Path, args.download_manifest),
+            clearance_path=cast(Path, args.disclosure_clearance),
+            document_root=early_materialization_outputs[5],
+            selection_path=cast(Path, args.selection),
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
+        )
+    output_root = cast(Path, args.output_root)
     source_paths = {
         "selection": cast(Path, args.selection),
         "selection_run_card": cast(Path, args.selection_run_card),
@@ -37336,13 +38068,8 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         )
         if len(typed_outputs) != 6:
             raise CommandError("materialization run card output paths differ")
-        _verify_materialized_downstream_lineage(
-            run_card_path=materialization_card_path,
-            manifest_path=source_paths["download_manifest"],
-            clearance_path=source_paths["disclosure_clearance"],
-            document_root=typed_outputs[5],
-            selection_path=source_paths["selection"],
-        )
+        if verified_materialization is None:
+            raise CommandError("materialization lineage verification was skipped")
         if source_paths["restriction_evidence"].resolve() != typed_outputs[2].resolve():
             raise CommandError(
                 "decision restriction evidence differs from materialization"
@@ -37442,6 +38169,7 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         "paid_activity_executed": False,
     }
     manifest_payload = _projection_json_bytes(manifest)
+    _acquisition_output_root(args)
     if not dry_run:
         if not is_materialized:
             raise CommandError(
@@ -37596,6 +38324,13 @@ def _verify_stage_a_unitization_lineage(
         clearance_path=clearance_path,
         document_root=document_root,
         selection_path=selection_path,
+        controlled_private_root=cast(
+            Path | None, getattr(args, "controlled_private_root", None)
+        ),
+        initialization_receipt_path=cast(
+            Path | None,
+            getattr(args, "purchase_ledger_initialization_receipt", None),
+        ),
     )
     for path in (
         selection_path,
@@ -38381,6 +39116,8 @@ def _verify_stage_a_unitization_run_card(
     expected_prediction_units_path: Path,
     expected_review_queue_path: Path | None = None,
     expected_audit_path: Path | None = None,
+    controlled_private_root: Path | None = None,
+    initialization_receipt_path: Path | None = None,
 ) -> _StageAUnitizationLineage:
     if run_card_path.is_symlink() or not run_card_path.is_file():
         raise CommandError("authenticated llm-unitize run card is not a regular file")
@@ -38441,6 +39178,8 @@ def _verify_stage_a_unitization_run_card(
             input_records, "provider_cycle_caps"
         ),
         provider_journal=Path(cast(str, provider_journal)),
+        controlled_private_root=controlled_private_root,
+        purchase_ledger_initialization_receipt=initialization_receipt_path,
     )
     lineage = _verify_stage_a_unitization_lineage(
         replay_args,
@@ -38536,6 +39275,8 @@ def _verify_unitization_review_run_card(
     provider_cycle_caps_path: Path,
     provider_journal_path: Path,
     finalized_path: Path,
+    controlled_private_root: Path | None = None,
+    initialization_receipt_path: Path | None = None,
 ) -> None:
     if run_card_path.is_symlink() or not run_card_path.is_file():
         raise CommandError("apply-unitization-review run card is not a regular file")
@@ -38553,6 +39294,8 @@ def _verify_unitization_review_run_card(
         llm_unitization_run_card_path,
         expected_prediction_units_path=raw_prediction_units_path,
         expected_review_queue_path=original_review_queue_path,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt_path,
     )
     expected_inputs = (
         raw_prediction_units_path,
@@ -38649,6 +39392,13 @@ def _verified_shared_provider_chain(
         expected_prediction_units_path=raw_prediction_units_path,
         expected_review_queue_path=expected_review_queue_path,
         expected_audit_path=expected_audit_path,
+        controlled_private_root=cast(
+            Path | None, getattr(args, "controlled_private_root", None)
+        ),
+        initialization_receipt_path=cast(
+            Path | None,
+            getattr(args, "purchase_ledger_initialization_receipt", None),
+        ),
     )
     _verify_stage_a_source_authority(
         lineage,
@@ -38810,6 +39560,13 @@ def _verify_finalized_stage_a_provider_chain(
         provider_cycle_caps_path=caps_path,
         provider_journal_path=journal_path,
         finalized_path=finalized_prediction_units_path,
+        controlled_private_root=cast(
+            Path | None, getattr(args, "controlled_private_root", None)
+        ),
+        initialization_receipt_path=cast(
+            Path | None,
+            getattr(args, "purchase_ledger_initialization_receipt", None),
+        ),
     )
     return lineage, unit_card_path, review_queue
 
@@ -39676,16 +40433,26 @@ def _verify_llm_label_run_card(
 
 
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
     provider_journal_path = provider_journal_arg or (
-        output_root / "provider-attempts.sqlite3"
+        prospective_output_root / "provider-attempts.sqlite3"
     )
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
-    markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    markdown_root = cast(Path | None, args.markdown_root) or (
+        prospective_output_root / "markdown"
+    )
     model_registry_path = cast(Path, args.model_registry)
     provider_caps_path = cast(Path | None, args.provider_cycle_caps)
+    dry_run = _acquisition_dry_run(args)
+    lineage: _StageAUnitizationLineage | None = None
+    if not dry_run:
+        lineage = _verify_stage_a_unitization_lineage(
+            args,
+            markdown_root=markdown_root,
+        )
+    output_root = _acquisition_output_root(args)
     prediction_units_path = _acquisition_path(
         args,
         "prediction_units_output",
@@ -39702,8 +40469,6 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         output_root / "unitization-review-queue.jsonl",
     )
     selection_records = _read_records(selection_path)
-    dry_run = _acquisition_dry_run(args)
-    lineage: _StageAUnitizationLineage | None = None
     completion_extra: JsonRecord = {}
     if dry_run:
         _write_jsonl(
@@ -39720,10 +40485,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         )
         _write_jsonl(review_queue_path, [])
     else:
-        lineage = _verify_stage_a_unitization_lineage(
-            args,
-            markdown_root=markdown_root,
-        )
+        assert lineage is not None
         provider_spend_authorities, provider_accounts = (
             _remote_provider_spend_authorities(
                 args,
@@ -39807,10 +40569,10 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
     provider_journal_path = provider_journal_arg or (
-        output_root / "provider-attempts.sqlite3"
+        prospective_output_root / "provider-attempts.sqlite3"
     )
     unitization_card_path = cast(Path | None, args.llm_unitization_run_card)
     review_card_path = cast(Path | None, args.unitization_review_run_card)
@@ -39821,7 +40583,9 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     decision_texts_manifest_path = cast(Path, args.decision_texts_manifest)
     decision_texts_run_card_path = cast(Path, args.decision_texts_run_card)
     prediction_units_path = cast(Path, args.prediction_units)
-    markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    markdown_root = cast(Path | None, args.markdown_root) or (
+        prospective_output_root / "markdown"
+    )
     model_registry_path = cast(Path, args.model_registry)
     evaluated_registry_path = cast(Path, args.evaluated_model_registry)
     provider_caps_path = cast(Path | None, args.provider_cycle_caps)
@@ -39844,20 +40608,21 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             "together"
         )
     merge_provider_shards = bool(provider_shard_audit_paths)
+    dry_run = _acquisition_dry_run(args)
     labels_path = _acquisition_path(
         args,
         "labels_output",
-        output_root / "labels.jsonl",
+        prospective_output_root / "labels.jsonl",
     )
     audit_path = _acquisition_path(
         args,
         "audit_output",
-        output_root / "llm-label-audit.jsonl",
+        prospective_output_root / "llm-label-audit.jsonl",
     )
     lawyer_review_queue_path = _acquisition_path(
         args,
         "lawyer_review_queue_output",
-        output_root / "lawyer-review-queue.jsonl",
+        prospective_output_root / "lawyer-review-queue.jsonl",
     )
     selection_records = _read_records(selection_path)
     parser_records = _read_records(parser_manifest_path)
@@ -39880,7 +40645,28 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         raise CommandError(str(exc)) from exc
     model_keys = tuple(cast(list[str], args.model_key))
     _require_explicit_unique_model_keys(model_keys)
-    dry_run = _acquisition_dry_run(args)
+    verified_stage_a_chain: tuple[_StageAUnitizationLineage, Path, Path] | None = None
+    if not dry_run:
+        verified_stage_a_chain = _verify_finalized_stage_a_provider_chain(
+            args,
+            finalized_prediction_units_path=prediction_units_path,
+            expected_selection_path=selection_path,
+            expected_parser_manifest_path=parser_manifest_path,
+            expected_markdown_root=markdown_root,
+        )
+    registry_entries, registry_sha256 = _registry_entries_for_keys(
+        model_registry_path,
+        model_keys,
+    )
+    _require_complete_registry_panel(
+        registry_entries,
+        model_registry_path=model_registry_path,
+    )
+    _require_exact_model_disjoint_judges(
+        registry_entries,
+        evaluated_model_registry_path=evaluated_registry_path,
+    )
+    _acquisition_output_root(args)
     completion_extra: JsonRecord = {
         "decision_text_commitments": {
             "decision_texts_sha256": decision_text_artifact.decision_texts_sha256,
@@ -39908,14 +40694,9 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         )
         _write_jsonl(lawyer_review_queue_path, [])
     else:
+        assert verified_stage_a_chain is not None
         lineage, authenticated_unitization_card, adjudicated_review_queue = (
-            _verify_finalized_stage_a_provider_chain(
-                args,
-                finalized_prediction_units_path=prediction_units_path,
-                expected_selection_path=selection_path,
-                expected_parser_manifest_path=parser_manifest_path,
-                expected_markdown_root=markdown_root,
-            )
+            verified_stage_a_chain
         )
         authenticated_structural_card = _required_stage_a_lineage_path(
             args,
@@ -39927,18 +40708,6 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             lineage=lineage,
             llm_unitization_run_card_path=authenticated_unitization_card,
             expected_review_queue_path=adjudicated_review_queue,
-        )
-        registry_entries, registry_sha256 = _registry_entries_for_keys(
-            model_registry_path,
-            model_keys,
-        )
-        _require_complete_registry_panel(
-            registry_entries,
-            model_registry_path=model_registry_path,
-        )
-        _require_exact_model_disjoint_judges(
-            registry_entries,
-            evaluated_model_registry_path=evaluated_registry_path,
         )
         if merge_provider_shards:
             shard_audit_records: list[Mapping[str, Any]] = []
@@ -40268,10 +41037,10 @@ def _remote_provider_spend_authorities(
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
     provider_journal_path = provider_journal_arg or (
-        output_root / "provider-attempts.sqlite3"
+        prospective_output_root / "provider-attempts.sqlite3"
     )
     unitization_card_path = cast(Path | None, args.llm_unitization_run_card)
     selection_path = cast(Path, args.selection)
@@ -40280,7 +41049,26 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     existing_queue_path = cast(Path, args.unitization_review_queue)
     registry_path = cast(Path, args.model_registry)
     provider_caps_path = cast(Path | None, args.provider_cycle_caps)
-    markdown_root = cast(Path | None, args.markdown_root) or output_root / "markdown"
+    markdown_root = (
+        cast(Path | None, args.markdown_root) or prospective_output_root / "markdown"
+    )
+    dry_run = _acquisition_dry_run(args)
+    verified_provider_chain: tuple[_StageAUnitizationLineage, Path] | None = None
+    if not dry_run:
+        verified_provider_chain = _verified_shared_provider_chain(
+            args,
+            raw_prediction_units_path=units_path,
+            expected_review_queue_path=existing_queue_path,
+            expected_selection_path=selection_path,
+            expected_parser_manifest_path=parser_path,
+            expected_markdown_root=markdown_root,
+        )
+    verified_reviewer_registry: tuple[ModelRegistryEntry, str] | None = None
+    if not dry_run:
+        verified_reviewer_registry = _registry_entry_for_key(
+            registry_path, cast(str, args.model_key)
+        )
+    output_root = prospective_output_root
     flags_path = _acquisition_path(
         args, "structural_flags_output", output_root / "stage-a-structural-flags.jsonl"
     )
@@ -40293,8 +41081,8 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
         args, "audit_output", output_root / "stage-a-structural-review-audit.jsonl"
     )
     selections = _read_records(selection_path)
-    dry_run = _acquisition_dry_run(args)
     completion_extra: JsonRecord = {}
+    _acquisition_output_root(args)
     if dry_run:
         _write_jsonl(flags_path, [])
         _write_jsonl(queue_path, _read_records(existing_queue_path))
@@ -40309,17 +41097,10 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             ],
         )
     else:
-        lineage, authenticated_unitization_card = _verified_shared_provider_chain(
-            args,
-            raw_prediction_units_path=units_path,
-            expected_review_queue_path=existing_queue_path,
-            expected_selection_path=selection_path,
-            expected_parser_manifest_path=parser_path,
-            expected_markdown_root=markdown_root,
-        )
-        entry, registry_sha = _registry_entry_for_key(
-            registry_path, cast(str, args.model_key)
-        )
+        assert verified_provider_chain is not None
+        lineage, authenticated_unitization_card = verified_provider_chain
+        assert verified_reviewer_registry is not None
+        entry, registry_sha = verified_reviewer_registry
         provider_spend_authorities, provider_accounts = (
             _remote_provider_spend_authorities(
                 args,
@@ -40424,7 +41205,6 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
     prediction_units_path = cast(Path, args.prediction_units)
     unitization_run_card_path = cast(Path | None, args.llm_unitization_run_card)
     structural_review_card_path = cast(Path | None, args.llm_review_stage_a_run_card)
@@ -40432,15 +41212,23 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
     provider_journal_path = cast(Path | None, args.provider_journal)
     review_queue_path = cast(Path, args.unitization_review_queue)
     adjudications_path = cast(Path, args.adjudications)
+    dry_run = _acquisition_dry_run(args)
+    verified_provider_chain: tuple[_StageAUnitizationLineage, Path] | None = None
+    if not dry_run:
+        verified_provider_chain = _verified_shared_provider_chain(
+            args,
+            raw_prediction_units_path=prediction_units_path,
+        )
+    output_root = cast(Path, args.output_root)
     finalized_path = _acquisition_path(
         args,
         "finalized_prediction_units_output",
         output_root / "finalized-prediction-units.jsonl",
     )
-    dry_run = _acquisition_dry_run(args)
     completion_extra: JsonRecord = {}
     if dry_run:
         record_count = 0
+        _acquisition_output_root(args)
         _write_jsonl(finalized_path, [])
     else:
         if unitization_run_card_path is None:
@@ -40461,10 +41249,8 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
             raise CommandError(
                 "apply-unitization-review requires --provider-journal with --execute"
             )
-        lineage, authenticated_unitization_card = _verified_shared_provider_chain(
-            args,
-            raw_prediction_units_path=prediction_units_path,
-        )
+        assert verified_provider_chain is not None
+        lineage, authenticated_unitization_card = verified_provider_chain
         _verify_stage_a_review_run_card(
             structural_review_card_path,
             lineage=lineage,
@@ -40479,6 +41265,7 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
             )
         except UnitizationReviewError as exc:
             raise CommandError(str(exc)) from exc
+        _acquisition_output_root(args)
         _write_jsonl(finalized_path, finalized)
         record_count = len(finalized)
         completion_extra = {
@@ -40818,7 +41605,23 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    _preflight_materialization_purchase_runtime(args)
+    dry_run = _acquisition_dry_run(args)
+    if (
+        not dry_run
+        and cast(Path | None, getattr(args, "materialization_run_card", None)) is None
+    ):
+        raise CommandError(
+            "executed packet planning requires --materialization-run-card"
+        )
+    raw_artifacts_manifest_path = cast(Path | None, args.raw_artifacts_manifest)
+    if not dry_run and raw_artifacts_manifest_path is None:
+        raise CommandError(
+            "--raw-artifacts-manifest is required for executed packet planning; "
+            "the uncommitted <candidate_id>.html fixture layout is not an "
+            "official acquisition input"
+        )
+    prospective_output_root = cast(Path, args.output_root)
     selection_path = cast(Path, args.selection)
     download_manifest_path = cast(Path, args.download_manifest)
     parser_manifest_path = cast(Path, args.parser_manifest)
@@ -40827,17 +41630,24 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
     prediction_units_path = cast(Path, args.prediction_units)
     model_registry_path = cast(Path, args.model_registry)
     raw_html_dir = cast(Path, args.raw_html_dir)
-    raw_artifacts_manifest_path = cast(Path | None, args.raw_artifacts_manifest)
-    dry_run = _acquisition_dry_run(args)
-    if not dry_run and raw_artifacts_manifest_path is None:
-        raise CommandError(
-            "--raw-artifacts-manifest is required for executed packet planning; "
-            "the uncommitted <candidate_id>.html fixture layout is not an "
-            "official acquisition input"
-        )
-    document_root = cast(Path | None, args.document_root) or (
-        output_root / "documents" / "free"
+    materialization_card_path = cast(Path | None, args.materialization_run_card)
+    prospective_document_root = cast(Path | None, args.document_root) or (
+        prospective_output_root / "documents" / "free"
     )
+    if materialization_card_path is not None:
+        _verify_materialized_downstream_lineage(
+            run_card_path=materialization_card_path,
+            manifest_path=download_manifest_path,
+            clearance_path=clearance_path,
+            document_root=prospective_document_root,
+            selection_path=selection_path,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
+        )
+    output_root = prospective_output_root
+    document_root = prospective_document_root
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
     packet_build_input_path = _acquisition_path(
         args,
@@ -40897,6 +41707,10 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             clearance_path=clearance_path,
             document_root=document_root,
             selection_path=selection_path,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         )
         records = list(materialization_lineage.selection_records)
         download_records = list(materialization_lineage.manifest_records)
@@ -41015,6 +41829,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
     decision_filed_on_or_after: date | None = None
     packet_output_bytes: dict[Path, bytes] = {}
     if dry_run:
+        _acquisition_output_root(args)
         _write_jsonl(
             packet_build_input_path,
             [
@@ -41076,6 +41891,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             path: _projection_jsonl_bytes(output_records)
             for path, output_records in packet_output_records.items()
         }
+        _acquisition_output_root(args)
         for path, output_records in packet_output_records.items():
             _write_jsonl(path, output_records)
     planner_parameters: dict[str, object] = {}
@@ -41312,7 +42128,40 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    _preflight_materialization_purchase_runtime(args)
+    early_materialization_card = cast(Path | None, args.materialization_run_card)
+    if not _acquisition_dry_run(args) and early_materialization_card is None:
+        raise CommandError("executed packet build requires --materialization-run-card")
+    if early_materialization_card is not None:
+        early_manifest = cast(Path | None, args.download_manifest)
+        early_clearance = cast(Path | None, args.disclosure_clearance)
+        early_document_root = cast(Path | None, args.document_root)
+        early_selection = cast(Path | None, args.selection)
+        if any(
+            path is None
+            for path in (
+                early_manifest,
+                early_clearance,
+                early_document_root,
+                early_selection,
+            )
+        ):
+            raise CommandError(
+                "materialized packet build requires selection, manifest, clearance, "
+                "and document root"
+            )
+        _verify_materialized_downstream_lineage(
+            run_card_path=early_materialization_card,
+            manifest_path=cast(Path, early_manifest),
+            clearance_path=cast(Path, early_clearance),
+            document_root=cast(Path, early_document_root),
+            selection_path=cast(Path, early_selection),
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
+        )
+    output_root = cast(Path, args.output_root)
     input_path = cast(Path, args.input)
     packets_path = _acquisition_path(
         args,
@@ -41453,6 +42302,10 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             clearance_path=typed_clearance,
             document_root=typed_document_root,
             selection_path=typed_selection,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         )
         verified_lineage_paths = verified_materialization.paths
         materialization_card_payload = verified_materialization.artifact_bytes[
@@ -41537,8 +42390,13 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             finalized_prediction_units_path=typed_prediction_units,
             adjudications_path=typed_adjudications,
             apply_unitization_run_card_path=typed_apply_unitization_run_card,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         )
         records = [dict(record) for record in replay.packet_build_records]
+    _acquisition_output_root(args)
     if dry_run:
         _write_jsonl(
             packets_path,
@@ -42631,6 +43489,8 @@ def _verify_stage_a_packet_authority(
     finalized_prediction_units_path: Path,
     adjudications_path: Path,
     apply_unitization_run_card_path: Path,
+    controlled_private_root: Path | None,
+    initialization_receipt_path: Path | None,
 ) -> _StageAReplay:
     """Authenticate finalized Stage A units before packet bytes are emitted."""
 
@@ -42644,6 +43504,8 @@ def _verify_stage_a_packet_authority(
             expected_prediction_units_path=raw_prediction_units_path,
             expected_review_queue_path=original_review_path,
             expected_audit_path=unitization_audit_path,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
         )
         if tuple(lineage.selection_records) != tuple(selection_records):
             raise CommandError("llm-unitize selection differs from packet selection")
@@ -42683,6 +43545,8 @@ def _verify_stage_a_packet_authority(
             provider_cycle_caps_path=provider_caps_path,
             provider_journal_path=lineage.provider_journal_path,
             finalized_path=finalized_prediction_units_path,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
         )
         raw_records = tuple(_read_records(raw_prediction_units_path))
         audit_records = tuple(_read_records(unitization_audit_path))
@@ -43094,7 +43958,30 @@ def _validate_packet_build_run_card(
 
 
 def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
-    output_root = _acquisition_output_root(args)
+    _preflight_materialization_purchase_runtime(args)
+    early_materialization_card = cast(Path | None, args.materialization_run_card)
+    if not _acquisition_dry_run(args) and early_materialization_card is None:
+        raise CommandError("executed finalization requires --materialization-run-card")
+    if early_materialization_card is not None:
+        early_manifest = cast(Path | None, args.download_manifest)
+        early_document_root = cast(Path | None, args.document_root)
+        if early_manifest is None or early_document_root is None:
+            raise CommandError(
+                "materialized finalization requires --download-manifest and "
+                "--document-root"
+            )
+        _verify_materialized_downstream_lineage(
+            run_card_path=early_materialization_card,
+            manifest_path=early_manifest,
+            clearance_path=cast(Path, args.disclosure_clearance),
+            document_root=early_document_root,
+            selection_path=cast(Path, args.selection),
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
+        )
+    output_root = cast(Path, args.output_root)
     dry_run = _acquisition_dry_run(args)
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
@@ -43282,6 +44169,10 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         download_manifest_path=download_manifest_path,
         materialization_card_path=materialization_card_path,
         document_root=materialized_document_root,
+        controlled_private_root=cast(Path | None, args.controlled_private_root),
+        initialization_receipt_path=cast(
+            Path | None, args.purchase_ledger_initialization_receipt
+        ),
     )
     input_paths = (*input_paths, *materialization_paths[1:])
     packet_plan_replay: _PacketPlannerReplay | None = None
@@ -43355,6 +44246,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     discovery_reconciliation: SnapshotReconciliation | None = None
     verified_preparation: _VerifiedPreparationForFrontier | None = None
     if dry_run:
+        _acquisition_output_root(args)
         _write_jsonl(complete_ledger_path, [])
         _write_json(
             readiness_path,
@@ -43429,6 +44321,10 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             provider_cycle_caps_path=provider_caps_path,
             provider_journal_path=provider_journal_path,
             finalized_path=prediction_units_path,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         )
         _verify_llm_label_run_card(
             label_run_card_path,
@@ -43491,14 +44387,6 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 screening_snapshot_manifest_path=screening_snapshot_manifest_path,
             )
         except (CommandError, SnapshotReconciliationError, ValueError) as exc:
-            _write_acquisition_failure(
-                args,
-                stage="finalize-corpus",
-                input_paths=input_paths,
-                output_paths=(complete_ledger_path, readiness_path),
-                reason=str(exc),
-                paid_activity_requested=False,
-            )
             raise CommandError(str(exc)) from exc
         selection_records = [
             dict(record) for record in packet_plan_replay.selection_records
@@ -43535,6 +44423,10 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             finalized_prediction_units_path=prediction_units_path,
             adjudications_path=unitization_adjudications_path,
             apply_unitization_run_card_path=unitization_review_run_card_path,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         )
         unitization_audit_records = [
             dict(record) for record in stage_a_replay.unitization_audit_records
@@ -43564,7 +44456,6 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             lawyer_review_records,
         )
         complete_ledger_records = ledger.to_records()
-        _write_jsonl(complete_ledger_path, complete_ledger_records)
         try:
             _validate_acquisition_discovery_reconciliation(
                 screened_case_records=screened_case_records,
@@ -43573,15 +44464,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 selection_records=selection_records,
                 complete_ledger_records=complete_ledger_records,
             )
-        except CommandError as exc:
-            _write_acquisition_failure(
-                args,
-                stage="finalize-corpus",
-                input_paths=input_paths,
-                output_paths=(complete_ledger_path, readiness_path),
-                reason=str(exc),
-                paid_activity_requested=False,
-            )
+        except CommandError:
             raise
 
         official_entries = require_official_registry_entries(
@@ -43658,7 +44541,6 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 readiness_exclusion_records,
             )
             complete_ledger_records = ledger.to_records()
-            _write_jsonl(complete_ledger_path, complete_ledger_records)
             report = build_clean_corpus_readiness(
                 selection_records=selection_records,
                 parser_records=parser_records,
@@ -43679,6 +44561,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 ),
                 required_clean_count=target_clean_cases,
             )
+        _acquisition_output_root(args)
+        _write_jsonl(complete_ledger_path, complete_ledger_records)
         readiness_record = report.to_record()
         readiness_record["screening_snapshot_reconciliation"] = (
             discovery_reconciliation.to_record()
@@ -44031,7 +44915,7 @@ def _acquisition_path(
 
 
 def _acquisition_dry_run(args: argparse.Namespace) -> bool:
-    return not cast(bool, args.execute)
+    return not cast(bool, getattr(args, "execute", False))
 
 
 def _iso_date_argument(value: str, flag: str) -> date:

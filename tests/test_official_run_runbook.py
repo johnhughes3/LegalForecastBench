@@ -79,6 +79,16 @@ def test_runbook_documents_attempt_bound_seal_and_publication_commit() -> None:
     assert "`.publication-complete.json` as the final successful operation" in runbook
 
 
+def test_official_commands_reuse_exact_preparation_request_ledger() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    exact_pin = (
+        '--request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3"'
+    )
+
+    assert runbook.count(exact_pin) == 4
+    assert "courtlistener-requests.sqlite3" not in runbook
+
+
 def _documented_acquisition_commands(runbook: str) -> list[tuple[str, str]]:
     commands: list[tuple[str, str]] = []
     for fenced_block in re.findall(r"```[^\n]*\n(.*?)```", runbook, flags=re.DOTALL):
@@ -189,32 +199,56 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
             "--purchase-policy",
             "--cohort-policy",
             "--purchase-ledger",
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
         ),
         "plan-parse-documents": (
             "--materialization-run-card",
             "--document-root",
             "--requests-output",
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
         ),
         "parse-documents": (
             "--selection",
             "--materialization-run-card",
             "--purchase-policy",
             "--purchase-ledger",
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
         ),
         "llm-unitize": (
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
             "--provider-authority-table <provider-authority-table>",
             "--provider-authority-region <provider-authority-region>",
         ),
         "llm-review-stage-a": (
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
             "--provider-authority-table <provider-authority-table>",
             "--provider-authority-region <provider-authority-region>",
         ),
         "llm-label": (
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
             "--llm-unitization-run-card",
             "--llm-review-stage-a-run-card",
             "--unitization-review-run-card",
             "--provider-authority-table <provider-authority-table>",
             "--provider-authority-region <provider-authority-region>",
+        ),
+        "apply-unitization-review": (
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
+        ),
+        "build-decision-texts": (
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
+        ),
+        "rehearse-downstream": (
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
         ),
         "plan-packet-inputs": (
             "--materialization-run-card",
@@ -228,6 +262,8 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
             "--stage-a-review-provider-journal",
             "--apply-unitization-review-run-card",
             "--parse-plan-run-card",
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
         ),
         "finalize-corpus": (
             "--output-root",
@@ -235,6 +271,8 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
             "--download-manifest",
             "--materialization-run-card",
             "--document-root",
+            "--controlled-private-root",
+            "--purchase-ledger-initialization-receipt",
             "--llm-unitization-audit",
             "--llm-unitize-run-card",
             "--llm-unitize-provider-journal",
@@ -391,6 +429,10 @@ def test_runbook_documents_operator_runnable_staged_fixture_chain() -> None:
         ")\nrehearsal_stages=(", maxsplit=1
     )[0]
     common_options = set(re.findall(r"--[a-z0-9][a-z0-9-]*", common_args))
+    assert {
+        "--controlled-private-root",
+        "--purchase-ledger-initialization-receipt",
+    } <= common_options
     acquisition_parser = _subcommand_parser(build_parser(), "acquisition")
     for command in staged_commands:
         command_parser = _subcommand_parser(acquisition_parser, command)
@@ -743,6 +785,72 @@ def test_paid_recap_fetch_runbook_freezes_and_consumes_attempt_authority() -> No
     assert "--attempt-policy" in _documented_command_block(
         section, "purchase-missing-recap-fetch"
     )
+    for command in (
+        "generate-recap-fetch-attempt-policy",
+        "generate-recap-fetch-broker-policy",
+        "init-purchase-ledger",
+        "purchase-missing-recap-fetch",
+        "recover-recap-fetch-quarantine",
+        "resolve-post-recovery-documents",
+    ):
+        block = _documented_command_block(section, command)
+        assert "--controlled-private-root" in block, command
+    for command in (
+        "purchase-missing-recap-fetch",
+        "recover-recap-fetch-quarantine",
+        "resolve-post-recovery-documents",
+    ):
+        block = _documented_command_block(section, command)
+        assert "--purchase-ledger-initialization-receipt" in block, command
+    assert (
+        'purchase_ledger_initialization_receipt="$preparation_root/'
+        'purchase-ledger-initialization.json"'
+    ) in section
+    assert (
+        "checkpoint"
+        not in section.split("purchase_ledger_initialization_receipt=", maxsplit=1)[
+            1
+        ].splitlines()[0]
+    )
+
+
+def test_fixture_purchase_chain_threads_one_private_root_and_receipt() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    section = runbook.split(
+        "### Provider-free exact-cohort downstream rehearsal", maxsplit=1
+    )[1].split("Run the supported public downstream stages", maxsplit=1)[0]
+    assert "fixture_private_root=<absolute-private-fixture-approval-root>" in section
+    assert (
+        "fixture_ledger_receipt=<absolute-fixture-ledger-initialization-receipt>"
+        in section
+    )
+    for command in (
+        "record-purchase-approval",
+        "verify-purchase-approval",
+        "generate-purchase-policy",
+        "generate-recap-fetch-broker-policy",
+        "init-purchase-ledger",
+        "purchase-missing-recap-fetch",
+        "materialize-cohort-documents",
+        "plan-parse-documents",
+        "parse-documents",
+    ):
+        block = _documented_command_block(section, command)
+        assert '--controlled-private-root "$fixture_private_root"' in block, command
+    for command in (
+        "purchase-missing-recap-fetch",
+        "materialize-cohort-documents",
+        "plan-parse-documents",
+        "parse-documents",
+    ):
+        block = _documented_command_block(section, command)
+        assert (
+            '--purchase-ledger-initialization-receipt "$fixture_ledger_receipt"'
+            in block
+        ), command
+    init_block = _documented_command_block(section, "init-purchase-ledger")
+    assert '--initialization-receipt-output "$fixture_ledger_receipt"' in init_block
+    assert "--purchase-ledger-initialization-receipt" not in init_block
 
 
 def test_documented_aggregate_command_accepts_downloaded_workflow_tree(

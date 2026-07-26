@@ -36,15 +36,18 @@ from legalforecast.ingestion.missing_core_budget import (
 )
 
 CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION = "legalforecast.case_dev_purchase_policy.v1"
+CASE_DEV_PURCHASE_POLICY_V2_SCHEMA_VERSION = "legalforecast.case_dev_purchase_policy.v2"
 PURCHASE_LEDGER_INITIALIZATION_SCHEMA_VERSION = (
     "legalforecast.purchase_ledger_initialization.v1"
 )
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_INITIALIZATION_ID = re.compile(r"[0-9a-f]{32}")
 _CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
 
 _PURCHASE_LEDGER_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS purchase_ledger (
     singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+    initialization_id TEXT NOT NULL,
     cycle_id TEXT NOT NULL,
     cohort_policy_sha256 TEXT NOT NULL,
     purchase_policy_sha256 TEXT NOT NULL,
@@ -143,6 +146,17 @@ class CaseDevPurchasePolicy:
     per_document_reservation_usd: Decimal
     policy_sha256: str
     fee_schedule: Mapping[str, Any]
+    schema_version: str
+    approval: Mapping[str, Any] | None
+    artifact: Mapping[str, object]
+
+    @property
+    def has_verified_approval(self) -> bool:
+        """Whether this is the v2 exact-projection approval authority."""
+
+        return self.schema_version == CASE_DEV_PURCHASE_POLICY_V2_SCHEMA_VERSION and (
+            self.approval is not None
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +164,7 @@ class PurchaseLedgerInitialization:
     """Authenticated identity of one pristine, policy-bound purchase ledger."""
 
     canonical_ledger_path: Path
+    initialization_id: str
     ledger_file_sha256: str
     purchase_state_sha256: str
     ledger_byte_count: int
@@ -161,6 +176,7 @@ class PurchaseLedgerInitialization:
             "cohort_policy_sha256": policy.cohort_policy_sha256,
             "purchase_policy_sha256": policy.policy_sha256,
             "canonical_ledger_path": str(self.canonical_ledger_path),
+            "initialization_id": self.initialization_id,
             "ledger_file_sha256": self.ledger_file_sha256,
             "purchase_state_sha256": self.purchase_state_sha256,
             "ledger_byte_count": self.ledger_byte_count,
@@ -190,12 +206,27 @@ def verify_case_dev_purchase_policy(
         {"schema_version", "policy", "policy_sha256"},
         "purchase policy artifact",
     )
-    if artifact.get("schema_version") != CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION:
+    schema_version = artifact.get("schema_version")
+    if schema_version not in {
+        CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION,
+        CASE_DEV_PURCHASE_POLICY_V2_SCHEMA_VERSION,
+    }:
         raise CaseDevPurchasePolicyError("unsupported purchase policy schema")
     raw_policy = artifact.get("policy")
     if not isinstance(raw_policy, Mapping):
         raise CaseDevPurchasePolicyError("purchase policy must be an object")
-    policy = _validated_purchase_policy(cast(Mapping[str, object], raw_policy))
+    raw_typed = cast(Mapping[str, object], raw_policy)
+    approval: Mapping[str, Any] | None = None
+    if schema_version == CASE_DEV_PURCHASE_POLICY_V2_SCHEMA_VERSION:
+        raw_approval = raw_typed.get("approval")
+        legacy_fields = {
+            key: value for key, value in raw_typed.items() if key != "approval"
+        }
+        policy = _validated_purchase_policy(legacy_fields)
+        approval = _validated_public_purchase_approval(raw_approval, policy=policy)
+        policy = {**policy, "approval": dict(approval)}
+    else:
+        policy = _validated_purchase_policy(raw_typed)
     committed = _required_sha(artifact.get("policy_sha256"), "policy_sha256")
     if _hash(policy) != committed:
         raise CaseDevPurchasePolicyError("purchase policy hash does not match content")
@@ -222,20 +253,173 @@ def verify_case_dev_purchase_policy(
         ),
         policy_sha256=committed,
         fee_schedule=fee_schedule,
+        schema_version=cast(str, schema_version),
+        approval=approval,
+        artifact=MappingProxyType(dict(artifact)),
     )
+
+
+def require_approved_case_dev_purchase_policy(
+    policy: CaseDevPurchasePolicy,
+    *,
+    controlled_private_root: Path | None = None,
+) -> None:
+    """Replay the private approval before any new official paid authority gate."""
+
+    if not policy.has_verified_approval:
+        raise CaseDevPurchasePolicyError(
+            "official purchase authority requires an approved v2 purchase policy"
+        )
+    if controlled_private_root is None:
+        raise CaseDevPurchasePolicyError(
+            "approved v2 replay requires a trusted controlled private root"
+        )
+    approval = policy.approval
+    assert approval is not None
+    try:
+        from legalforecast.ingestion.purchase_approval import (
+            PurchaseApprovalError,
+            replay_approved_purchase_policy,
+        )
+    except ImportError as exc:
+        raise CaseDevPurchasePolicyError(
+            "approved v2 private authority replay is unavailable"
+        ) from exc
+    try:
+        replay_approved_purchase_policy(
+            purchase_policy_artifact=policy.artifact,
+            controlled_private_root=controlled_private_root,
+        )
+    except (OSError, PurchaseApprovalError, ValueError) as exc:
+        raise CaseDevPurchasePolicyError(
+            f"approved v2 private authority replay failed: {exc}"
+        ) from exc
+
+
+def verify_approved_purchase_input_bytes(
+    policy: CaseDevPurchasePolicy,
+    *,
+    controlled_private_root: Path,
+    budget_plan_bytes: bytes | None,
+    selection_bytes: bytes | None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Authenticate the exact initially approved plan before any side effect.
+
+    The private recorder approves one immutable projection, not merely any later
+    plan that happens to fit under the same dollar cap.  Official producers and
+    purchase commands must call this function on their captured file bytes
+    before constructing an output writer, journal, client, broker, or provider
+    configuration.
+    """
+
+    require_approved_case_dev_purchase_policy(
+        policy, controlled_private_root=controlled_private_root
+    )
+    if budget_plan_bytes is None or selection_bytes is None:
+        raise CaseDevPurchasePolicyError(
+            "exact approved budget-plan and selection bytes are required"
+        )
+    approval = policy.approval
+    if approval is None:  # Kept explicit for type narrowing and fail-closedness.
+        raise CaseDevPurchasePolicyError("approved purchase scope is missing")
+    if hashlib.sha256(budget_plan_bytes).hexdigest() != approval.get(
+        "budget_plan_sha256"
+    ):
+        raise CaseDevPurchasePolicyError(
+            "budget plan bytes differ from the exact approved projection"
+        )
+    if hashlib.sha256(selection_bytes).hexdigest() != approval.get("selection_sha256"):
+        raise CaseDevPurchasePolicyError(
+            "selection bytes differ from the exact approved projection"
+        )
+    try:
+        raw_budget = json.loads(budget_plan_bytes)
+        selection_rows = [
+            json.loads(line)
+            for line in selection_bytes.decode("utf-8").splitlines()
+            if line.strip()
+        ]
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise CaseDevPurchasePolicyError(
+            "approved purchase inputs are not valid JSON/JSONL"
+        ) from exc
+    if not isinstance(raw_budget, Mapping) or not all(
+        isinstance(row, Mapping) for row in selection_rows
+    ):
+        raise CaseDevPurchasePolicyError(
+            "approved purchase inputs have an invalid object schema"
+        )
+    budget = cast(Mapping[str, object], raw_budget)
+    rows = cast(list[Mapping[str, object]], selection_rows)
+    selected_ids = tuple(
+        _required_canonical_text(row.get("candidate_id"), "selection candidate ID")
+        for row in rows
+    )
+    if len(selected_ids) != len(set(selected_ids)):
+        raise CaseDevPurchasePolicyError("approved selection candidates repeat")
+    raw_case_plans = budget.get("case_plans")
+    if not isinstance(raw_case_plans, list) or not all(
+        isinstance(item, Mapping) for item in cast(list[object], raw_case_plans)
+    ):
+        raise CaseDevPurchasePolicyError("approved budget case plans are invalid")
+    case_plans = cast(list[Mapping[str, object]], raw_case_plans)
+    planned_ids = tuple(
+        _required_canonical_text(plan.get("candidate_id"), "budget candidate ID")
+        for plan in case_plans
+    )
+    if planned_ids != selected_ids:
+        raise CaseDevPurchasePolicyError(
+            "approved budget candidates differ from the approved selection"
+        )
+    purchase_ids: list[str] = []
+    for plan in case_plans:
+        raw_ids = plan.get("purchase_document_ids")
+        if not isinstance(raw_ids, list):
+            raise CaseDevPurchasePolicyError(
+                "approved purchase document IDs must be lists"
+            )
+        purchase_ids.extend(
+            _required_canonical_text(value, "purchase document ID")
+            for value in cast(list[object], raw_ids)
+        )
+    if len(purchase_ids) != len(set(purchase_ids)):
+        raise CaseDevPurchasePolicyError("approved purchase document IDs repeat")
+    if _hash(list(selected_ids)) != approval.get("selected_candidate_ids_sha256"):
+        raise CaseDevPurchasePolicyError(
+            "approved selection candidate commitment does not reproduce"
+        )
+    if _hash(purchase_ids) != approval.get("purchase_document_ids_sha256"):
+        raise CaseDevPurchasePolicyError(
+            "approved purchase document commitment does not reproduce"
+        )
+    return selected_ids, tuple(purchase_ids)
 
 
 def write_case_dev_purchase_policy(
     path: str | Path,
     artifact: Mapping[str, object],
+    *,
+    controlled_private_root: Path | None = None,
 ) -> Path:
     """Atomically publish an immutable verified purchase policy artifact."""
 
-    verify_case_dev_purchase_policy(artifact)
+    policy = verify_case_dev_purchase_policy(artifact)
+    if policy.has_verified_approval:
+        if controlled_private_root is None:
+            raise CaseDevPurchasePolicyError(
+                "approved v2 publication requires a trusted controlled private root"
+            )
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=controlled_private_root
+        )
     target = Path(path)
     payload = f"{json.dumps(artifact, indent=2, sort_keys=True)}\n".encode()
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
+        if artifact.get("schema_version") == CASE_DEV_PURCHASE_POLICY_V2_SCHEMA_VERSION:
+            raise CaseDevPurchasePolicyError(
+                "approved v2 purchase policy has already been published"
+            )
         if target.read_bytes() != payload:
             raise CaseDevPurchasePolicyError(
                 "refusing to overwrite a different purchase policy artifact"
@@ -259,6 +443,10 @@ def write_case_dev_purchase_policy(
         finally:
             os.close(directory_fd)
     except FileExistsError:
+        if artifact.get("schema_version") == CASE_DEV_PURCHASE_POLICY_V2_SCHEMA_VERSION:
+            raise CaseDevPurchasePolicyError(
+                "approved v2 purchase policy was concurrently published"
+            ) from None
         if target.read_bytes() != payload:
             raise CaseDevPurchasePolicyError(
                 "purchase policy was concurrently created with different content"
@@ -289,6 +477,10 @@ def verify_case_dev_purchase_policy_cohort_binding(
             "cohort purchase policy content must be an object"
         )
     typed_purchase = cast(Mapping[str, object], raw_purchase)
+    raw_reduced_n = typed_policy.get("reduced_n")
+    if not isinstance(raw_reduced_n, Mapping):
+        raise CaseDevPurchasePolicyError("cohort reduced_n content must be an object")
+    typed_reduced_n = cast(Mapping[str, object], raw_reduced_n)
     cohort_cap = _policy_money(
         typed_purchase.get("cycle_budget_usd"), "cohort cycle_budget_usd"
     )
@@ -303,6 +495,19 @@ def verify_case_dev_purchase_policy_cohort_binding(
         raise CaseDevPurchasePolicyError(
             "purchase per-case cap must equal the frozen cohort per-case cap"
         )
+    if policy.has_verified_approval:
+        approval = policy.approval
+        assert approval is not None
+        if approval.get("rule") != typed_purchase.get("rule"):
+            raise CaseDevPurchasePolicyError(
+                "approved purchase rule differs from the frozen cohort rule"
+            )
+        if approval.get("target_case_count") != typed_reduced_n.get(
+            "target_clean_cases"
+        ):
+            raise CaseDevPurchasePolicyError(
+                "approved target differs from the frozen cohort target"
+            )
 
 
 def initialize_case_dev_purchase_journal(
@@ -313,6 +518,7 @@ def initialize_case_dev_purchase_journal(
     purchase_policy_file_sha256: str,
     cohort_policy_file_sha256: str,
     initialized_at: str,
+    controlled_private_root: Path | None = None,
 ) -> dict[str, object]:
     """Exclusively create one pristine ledger under its canonical lock.
 
@@ -321,7 +527,11 @@ def initialize_case_dev_purchase_journal(
     completed; an operator must preserve and investigate the partial artifact.
     """
 
+    require_approved_case_dev_purchase_policy(
+        policy, controlled_private_root=controlled_private_root
+    )
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
+    _require_fresh_purchase_ledger_namespace(ledger_path)
     receipt = _validated_purchase_ledger_receipt_path(
         ledger_path,
         receipt_path,
@@ -355,7 +565,12 @@ def initialize_case_dev_purchase_journal(
             connection.execute("PRAGMA journal_mode=DELETE")
             connection.execute("PRAGMA synchronous=FULL")
             _create_purchase_ledger_schema(connection)
-            _bind_purchase_ledger_policy(connection, policy, insert=True)
+            _bind_purchase_ledger_policy(
+                connection,
+                policy,
+                insert=True,
+                initialization_id=uuid.uuid4().hex,
+            )
             _require_pristine_purchase_ledger(connection)
             integrity = connection.execute("PRAGMA integrity_check").fetchone()
             if integrity is None or str(integrity[0]) != "ok":
@@ -415,9 +630,13 @@ def verify_case_dev_purchase_journal_initialization(
     receipt_path: str | Path,
     purchase_policy_file_sha256: str,
     cohort_policy_file_sha256: str,
+    controlled_private_root: Path | None = None,
 ) -> dict[str, object]:
     """Read-only verify a previously initialized, still-pristine ledger."""
 
+    require_approved_case_dev_purchase_policy(
+        policy, controlled_private_root=controlled_private_root
+    )
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
     receipt = _validated_purchase_ledger_receipt_path(
         ledger_path,
@@ -483,6 +702,17 @@ def _purchase_ledger_reserved_paths(path: Path) -> tuple[Path, ...]:
         Path(f"{path}-shm"),
         Path(f"{path}-journal"),
     )
+
+
+def _require_fresh_purchase_ledger_namespace(path: Path) -> None:
+    for candidate in _purchase_ledger_reserved_paths(path):
+        try:
+            candidate.lstat()
+        except FileNotFoundError:
+            continue
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger fresh namespace is not absent: {candidate}"
+        )
 
 
 def _validate_purchase_ledger_receipt_namespace(
@@ -750,7 +980,13 @@ def _purchase_ledger_initialization_identity(
             raise CaseDevPurchaseLedgerError(
                 "purchase ledger failed SQLite integrity verification"
             )
-        _bind_purchase_ledger_policy(connection, policy, insert=False)
+        initialization_id = _bind_purchase_ledger_policy(
+            connection, policy, insert=False
+        )
+        if initialization_id is None:
+            raise CaseDevPurchaseLedgerError(
+                "initialized purchase ledger is missing its initialization identity"
+            )
         if require_pristine:
             _require_pristine_purchase_ledger(connection)
     except sqlite3.Error as exc:
@@ -762,6 +998,7 @@ def _purchase_ledger_initialization_identity(
     file_sha256, byte_count = _hash_regular_single_link_file(path)
     return PurchaseLedgerInitialization(
         canonical_ledger_path=path,
+        initialization_id=initialization_id,
         ledger_file_sha256=file_sha256,
         purchase_state_sha256=_initial_purchase_state_sha256(policy),
         ledger_byte_count=byte_count,
@@ -924,6 +1161,101 @@ def _verify_purchase_ledger_initialization_receipt(
         )
 
 
+def _verify_runtime_purchase_ledger_initialization_lineage(
+    receipt_path: Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+) -> str:
+    """Authenticate immutable initialization lineage before opening SQLite."""
+
+    receipt = _read_purchase_ledger_initialization_receipt(receipt_path)
+    expected_keys = {
+        "schema_version",
+        "cycle_id",
+        "cohort_policy_sha256",
+        "purchase_policy_sha256",
+        "canonical_ledger_path",
+        "initialization_id",
+        "ledger_file_sha256",
+        "purchase_state_sha256",
+        "ledger_byte_count",
+        "purchase_policy_file_sha256",
+        "cohort_policy_file_sha256",
+        "initialized_at",
+        "dry_run",
+        "initialized_or_verified",
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "pacer_paid_activity_requested",
+        "pacer_paid_activity_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+    }
+    if set(receipt) != expected_keys:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt fields differ"
+        )
+    if (
+        receipt.get("schema_version") != PURCHASE_LEDGER_INITIALIZATION_SCHEMA_VERSION
+        or receipt.get("cycle_id") != policy.cycle_id
+        or receipt.get("cohort_policy_sha256") != policy.cohort_policy_sha256
+        or receipt.get("purchase_policy_sha256") != policy.policy_sha256
+        or receipt.get("canonical_ledger_path") != str(policy.canonical_ledger_path)
+        or receipt.get("purchase_state_sha256")
+        != _initial_purchase_state_sha256(policy)
+        or receipt.get("dry_run") is not False
+        or receipt.get("initialized_or_verified") is not True
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt is not descended from policy"
+        )
+    ledger_digest = receipt.get("ledger_file_sha256")
+    if not isinstance(ledger_digest, str) or _SHA256.fullmatch(ledger_digest) is None:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt ledger hash is invalid"
+        )
+    initialization_id = receipt.get("initialization_id")
+    if (
+        not isinstance(initialization_id, str)
+        or _INITIALIZATION_ID.fullmatch(initialization_id) is None
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt identity is invalid"
+        )
+    for field in ("purchase_policy_file_sha256", "cohort_policy_file_sha256"):
+        value = receipt.get(field)
+        if not isinstance(value, str):
+            raise CaseDevPurchaseLedgerError(
+                f"purchase ledger initialization receipt {field} is invalid"
+            )
+        _required_sha256_commitment(value, field)
+    if not isinstance(receipt.get("ledger_byte_count"), int) or isinstance(
+        receipt.get("ledger_byte_count"), bool
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt byte count is invalid"
+        )
+    if not isinstance(receipt.get("initialized_at"), str) or not receipt.get(
+        "initialized_at"
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt timestamp is invalid"
+        )
+    for field in (
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "pacer_paid_activity_requested",
+        "pacer_paid_activity_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+    ):
+        if receipt.get(field) is not False:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt activity flags are invalid"
+            )
+    return initialization_id
+
+
 def _require_pristine_purchase_ledger(connection: sqlite3.Connection) -> None:
     operations = connection.execute(
         "SELECT COUNT(*) FROM purchase_operations"
@@ -1015,6 +1347,7 @@ def _verify_existing_purchase_ledger_under_lock(
     path: Path,
     *,
     policy: CaseDevPurchasePolicy,
+    initialization_id: str | None = None,
 ) -> None:
     _require_existing_purchase_ledger_file(path)
     uri = f"file:{quote(path.as_posix(), safe='/')}?mode=ro"
@@ -1027,7 +1360,16 @@ def _verify_existing_purchase_ledger_under_lock(
                 raise CaseDevPurchaseLedgerError(
                     "purchase ledger failed SQLite quick_check"
                 )
-            _bind_purchase_ledger_policy(connection, policy, insert=False)
+            ledger_initialization_id = _bind_purchase_ledger_policy(
+                connection, policy, insert=False
+            )
+            if (
+                initialization_id is not None
+                and ledger_initialization_id != initialization_id
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "purchase ledger initialization identity does not match receipt"
+                )
             required_tables = {
                 "purchase_ledger",
                 "purchase_operations",
@@ -1099,24 +1441,52 @@ def _bind_purchase_ledger_policy(
     policy: CaseDevPurchasePolicy,
     *,
     insert: bool,
-) -> None:
+    initialization_id: str | None = None,
+) -> str | None:
     expected = _purchase_ledger_policy_identity(policy)
     if insert:
-        with connection:
-            connection.execute(
-                """INSERT OR IGNORE INTO purchase_ledger(
-                singleton, cycle_id, cohort_policy_sha256, purchase_policy_sha256,
-                canonical_ledger_path, hard_cap_usd, opening_committed_spend_usd,
-                max_per_case_usd, per_document_reservation_usd)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                expected,
-            )
+        existing = connection.execute(
+            "SELECT initialization_id FROM purchase_ledger WHERE singleton=1"
+        ).fetchone()
+        if existing is None:
+            if (
+                initialization_id is None
+                or _INITIALIZATION_ID.fullmatch(initialization_id) is None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "new purchase journal requires a valid initialization identity"
+                )
+            with connection:
+                connection.execute(
+                    """INSERT INTO purchase_ledger(
+                    singleton, initialization_id, cycle_id, cohort_policy_sha256,
+                    purchase_policy_sha256, canonical_ledger_path, hard_cap_usd,
+                    opening_committed_spend_usd, max_per_case_usd,
+                    per_document_reservation_usd)
+                    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (initialization_id, *expected),
+                )
     row = connection.execute(
         "SELECT * FROM purchase_ledger WHERE singleton=1"
     ).fetchone()
     if row is None:
         raise CaseDevPurchaseLedgerError(
             "purchase journal is missing its immutable policy identity"
+        )
+    if "initialization_id" not in row.keys():
+        if policy.has_verified_approval:
+            raise CaseDevPurchaseLedgerError(
+                "approved purchase journal is missing its initialization identity"
+            )
+        ledger_initialization_id = None
+    else:
+        ledger_initialization_id = str(row["initialization_id"])
+    if (
+        ledger_initialization_id is not None
+        and _INITIALIZATION_ID.fullmatch(ledger_initialization_id) is None
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase journal has an invalid initialization identity"
         )
     actual = tuple(
         str(row[field])
@@ -1135,6 +1505,7 @@ def _bind_purchase_ledger_policy(
         raise CaseDevPurchasePolicyError(
             "purchase journal identity conflicts with immutable cycle policy"
         )
+    return ledger_initialization_id
 
 
 class CaseDevPurchaseJournal:
@@ -1146,7 +1517,27 @@ class CaseDevPurchaseJournal:
         *,
         policy: CaseDevPurchasePolicy,
         allow_create: bool = False,
+        controlled_private_root: Path | None = None,
+        initialization_receipt_path: Path | None = None,
     ) -> None:
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=controlled_private_root
+        )
+        if policy.has_verified_approval:
+            if allow_create:
+                raise CaseDevPurchaseLedgerError(
+                    "approved v2 ledgers must be created by init-purchase-ledger"
+                )
+            if initialization_receipt_path is None:
+                raise CaseDevPurchaseLedgerError(
+                    "approved v2 runtime requires an initialization receipt"
+                )
+            initialization_id = _verify_runtime_purchase_ledger_initialization_lineage(
+                initialization_receipt_path,
+                policy=policy,
+            )
+        else:
+            initialization_id = None
         self.path = Path(path).resolve()
         if self.path != policy.canonical_ledger_path:
             raise CaseDevPurchasePolicyError(
@@ -1172,6 +1563,7 @@ class CaseDevPurchaseJournal:
                 _verify_existing_purchase_ledger_under_lock(
                     self.path,
                     policy=policy,
+                    initialization_id=initialization_id,
                 )
             self._connection: sqlite3.Connection = sqlite3.connect(
                 self.path, isolation_level=None
@@ -1181,7 +1573,7 @@ class CaseDevPurchaseJournal:
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA synchronous=FULL")
             self._create_schema()
-            self._bind_policy()
+            self._bind_policy(insert=allow_create)
         except BaseException:
             connection = getattr(self, "_connection", None)
             if connection is not None:
@@ -2735,8 +3127,13 @@ class CaseDevPurchaseJournal:
             """
         )
 
-    def _bind_policy(self) -> None:
-        _bind_purchase_ledger_policy(self._connection, self.policy, insert=True)
+    def _bind_policy(self, *, insert: bool) -> None:
+        _bind_purchase_ledger_policy(
+            self._connection,
+            self.policy,
+            insert=insert,
+            initialization_id=uuid.uuid4().hex if insert else None,
+        )
 
 
 def _validate_purchase_material_state_rows(connection: sqlite3.Connection) -> None:
@@ -2867,9 +3264,24 @@ def read_case_dev_purchase_snapshot(
     path: str | Path,
     *,
     policy: CaseDevPurchasePolicy,
+    controlled_private_root: Path | None = None,
+    initialization_receipt_path: Path | None = None,
 ) -> CaseDevPurchaseSnapshot:
     """Read authenticated purchase state without changing ledger filesystem state."""
 
+    require_approved_case_dev_purchase_policy(
+        policy, controlled_private_root=controlled_private_root
+    )
+    if policy.has_verified_approval:
+        if initialization_receipt_path is None:
+            raise CaseDevPurchaseLedgerError(
+                "approved v2 snapshot requires an initialization receipt"
+            )
+        initialization_id = _verify_runtime_purchase_ledger_initialization_lineage(
+            initialization_receipt_path, policy=policy
+        )
+    else:
+        initialization_id = None
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
     _require_existing_purchase_ledger_file(ledger_path)
     sidecars = tuple(
@@ -2899,7 +3311,16 @@ def read_case_dev_purchase_snapshot(
                 raise CaseDevPurchaseLedgerError(
                     "purchase ledger failed read-only SQLite quick_check"
                 )
-            _bind_purchase_ledger_policy(connection, policy, insert=False)
+            ledger_initialization_id = _bind_purchase_ledger_policy(
+                connection, policy, insert=False
+            )
+            if (
+                initialization_id is not None
+                and ledger_initialization_id != initialization_id
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "purchase ledger initialization identity does not match receipt"
+                )
             _verify_purchase_snapshot_schema(connection)
             operations = _read_purchase_operation_records(connection)
             committed = _read_committed_amount(connection, policy=policy)
@@ -3782,6 +4203,166 @@ def _validated_purchase_policy(
     }
 
 
+def _validated_public_purchase_approval(
+    value: object,
+    *,
+    policy: Mapping[str, object],
+) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise CaseDevPurchasePolicyError("v2 purchase approval must be an object")
+    approval = cast(Mapping[str, object], value)
+    request_fields = {
+        "cycle_id",
+        "cohort_policy_sha256",
+        "cohort_policy_file_sha256",
+        "fee_schedule_file_sha256",
+        "fee_schedule",
+        "canonical_ledger_path",
+        "ledger_initial_state",
+        "target_cohort_root",
+        "target_cohort_run_card_sha256",
+        "projection_sha256",
+        "selection_sha256",
+        "budget_plan_sha256",
+        "target_case_count",
+        "selected_case_count",
+        "purchase_document_count",
+        "projected_cost_usd",
+        "hard_cap_usd",
+        "max_per_case_usd",
+        "per_document_reservation_usd",
+        "opening_committed_spend_usd",
+        "opening_case_committed_spend_usd",
+        "remaining_headroom_usd",
+        "rule",
+        "session_scope",
+        "fallback",
+        "selected_candidate_ids_sha256",
+        "purchase_document_ids_sha256",
+        "output_commitments",
+    }
+    _exact_keys(
+        approval,
+        request_fields
+        | {
+            "schema_version",
+            "decision",
+            "reviewer_id",
+            "recorded_at_utc",
+            "typed_confirmation_sha256",
+            "private_checkpoint_sha256",
+            "private_run_card_sha256",
+        },
+        "v2 purchase approval",
+    )
+    if approval.get("schema_version") != "legalforecast.purchase_approval.v1":
+        raise CaseDevPurchasePolicyError("unsupported purchase approval schema")
+    if approval.get("decision") != "approve":
+        raise CaseDevPurchasePolicyError("purchase approval decision is not approve")
+    if approval.get("reviewer_id") != "John Hughes":
+        raise CaseDevPurchasePolicyError(
+            "official purchase reviewer must be John Hughes"
+        )
+    recorded = _required_text(approval.get("recorded_at_utc"), "recorded_at_utc")
+    try:
+        recorded_time = datetime.fromisoformat(recorded.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise CaseDevPurchasePolicyError("recorded_at_utc must be ISO-8601") from exc
+    recorded_offset = recorded_time.utcoffset()
+    if recorded_offset is None or recorded_offset.total_seconds() != 0:
+        raise CaseDevPurchasePolicyError("recorded_at_utc must be UTC")
+    for field in (
+        "cohort_policy_file_sha256",
+        "fee_schedule_file_sha256",
+        "target_cohort_run_card_sha256",
+        "projection_sha256",
+        "selection_sha256",
+        "budget_plan_sha256",
+        "selected_candidate_ids_sha256",
+        "purchase_document_ids_sha256",
+        "typed_confirmation_sha256",
+        "private_checkpoint_sha256",
+        "private_run_card_sha256",
+    ):
+        _required_sha(approval.get(field), field)
+    if approval.get("cycle_id") != policy.get("cycle_id") or approval.get(
+        "cohort_policy_sha256"
+    ) != policy.get("cohort_policy_sha256"):
+        raise CaseDevPurchasePolicyError("approval policy identity differs")
+    if approval.get("canonical_ledger_path") != policy.get(
+        "canonical_ledger_path"
+    ) or approval.get("ledger_initial_state") != (
+        "absent_fresh_initialization_required"
+    ):
+        raise CaseDevPurchasePolicyError("approval ledger identity differs")
+    if approval.get("fee_schedule") != policy.get("fee_schedule"):
+        raise CaseDevPurchasePolicyError("approval fee schedule differs")
+    for field in (
+        "hard_cap_usd",
+        "max_per_case_usd",
+        "per_document_reservation_usd",
+        "opening_committed_spend_usd",
+        "opening_case_committed_spend_usd",
+    ):
+        if approval.get(field) != policy.get(field):
+            raise CaseDevPurchasePolicyError(f"approval {field} differs from policy")
+    if (
+        approval.get("opening_committed_spend_usd") != "0.00"
+        or approval.get("opening_case_committed_spend_usd") != {}
+    ):
+        raise CaseDevPurchasePolicyError("fresh-ledger approval must start at zero")
+    target_count = approval.get("target_case_count")
+    selected_count = approval.get("selected_case_count")
+    purchase_count = approval.get("purchase_document_count")
+    if (
+        not isinstance(target_count, int)
+        or isinstance(target_count, bool)
+        or target_count < 1
+        or selected_count != target_count
+        or not isinstance(purchase_count, int)
+        or isinstance(purchase_count, bool)
+        or purchase_count < 0
+    ):
+        raise CaseDevPurchasePolicyError("approval counts are invalid")
+    hard_cap = _policy_money(approval.get("hard_cap_usd"), "approval hard cap")
+    projected = _policy_money(
+        approval.get("projected_cost_usd"), "approval projected cost"
+    )
+    remaining = _policy_money(
+        approval.get("remaining_headroom_usd"), "approval remaining headroom"
+    )
+    reservation = _policy_money(
+        approval.get("per_document_reservation_usd"), "approval reservation"
+    )
+    if (
+        projected != reservation * purchase_count
+        or projected > hard_cap
+        or (remaining != hard_cap - projected)
+    ):
+        raise CaseDevPurchasePolicyError("approval cost accounting does not reproduce")
+    if approval.get("session_scope") != "exact_initial_selection_one_global_session":
+        raise CaseDevPurchasePolicyError("approval session scope is unsupported")
+    if approval.get("fallback") != "free_only":
+        raise CaseDevPurchasePolicyError("approval fallback is unsupported")
+    _required_text(approval.get("rule"), "approval rule")
+    _required_text(approval.get("target_cohort_root"), "target_cohort_root")
+    output_commitments = approval.get("output_commitments")
+    if not isinstance(output_commitments, Mapping) or not output_commitments:
+        raise CaseDevPurchasePolicyError("approval output commitments are missing")
+    for name, commitment in cast(Mapping[object, object], output_commitments).items():
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(commitment, str)
+            or (
+                not commitment.startswith("sha256:")
+                or _SHA256.fullmatch(commitment[7:]) is None
+            )
+        ):
+            raise CaseDevPurchasePolicyError("approval output commitment is invalid")
+    return MappingProxyType(dict(approval))
+
+
 def _exact_keys(
     value: Mapping[str, object],
     expected: set[str],
@@ -3800,6 +4381,14 @@ def _required_text(value: object, label: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise CaseDevPurchasePolicyError(f"{label} must be a non-empty string")
     return value.strip()
+
+
+def _required_canonical_text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value or value.strip() != value:
+        raise CaseDevPurchasePolicyError(
+            f"{label} must be a non-empty canonical string"
+        )
+    return value
 
 
 def _required_sha(value: object, label: str) -> str:

@@ -11,15 +11,44 @@ import legalforecast.cli as cli
 import legalforecast.ingestion.cycle_acquisition_assembler as assembler
 import pytest
 from legalforecast.cli import main
-from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
+from legalforecast.ingestion.case_dev_purchase import (
+    CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION,
+    generate_case_dev_purchase_policy,
+)
 from legalforecast.ingestion.cycle_acquisition_assembler import (
     COMPONENT_PROVENANCE_FILENAME,
     write_component_provenance,
 )
 
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    original = cli.require_approved_case_dev_purchase_policy
+
+    def allow_v1(
+        policy: object, *, controlled_private_root: object | None = None
+    ) -> None:
+        if (
+            getattr(policy, "schema_version", None)
+            == CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION
+        ):
+            return
+        original(
+            policy,  # type: ignore[arg-type]
+            controlled_private_root=controlled_private_root,  # type: ignore[arg-type]
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "require_approved_case_dev_purchase_policy",
+        allow_v1,
+    )
+
+
 _TEST_CYCLE_HASH = "a" * 64
 
 
+@pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 def test_assemble_cycle_acquisition_rebases_and_reconciles_two_batches(
     tmp_path: Path,
     authenticated_downstream_fixture: Any,

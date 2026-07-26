@@ -263,10 +263,20 @@ def test_provider_caps_wrong_cycle_fails_before_model_or_provider(
     monkeypatch.setattr(
         cli, "_validate_selection_run_card_commitment", lambda *a, **k: None
     )
-    monkeypatch.setattr(
-        cli,
-        "_verify_materialized_downstream_lineage",
-        lambda **kwargs: cli._VerifiedMaterializedDownstreamLineage(
+    private_root = (tmp_path / "private-approval").resolve()
+    initialization_receipt = (tmp_path / "purchase-ledger-init.json").resolve()
+    observed_purchase_authority: list[tuple[object, object]] = []
+
+    def verified_materialization(
+        **kwargs: object,
+    ) -> cli._VerifiedMaterializedDownstreamLineage:
+        observed_purchase_authority.append(
+            (
+                kwargs.get("controlled_private_root"),
+                kwargs.get("initialization_receipt_path"),
+            )
+        )
+        return cli._VerifiedMaterializedDownstreamLineage(
             paths=(paths["materialization-card"],),
             artifact_bytes={
                 str(path.resolve()): path.read_bytes()
@@ -282,7 +292,12 @@ def test_provider_caps_wrong_cycle_fails_before_model_or_provider(
             selection_records=({"candidate_id": "c"},),
             resolved_records=(),
             document_tree={},
-        ),
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_materialized_downstream_lineage",
+        verified_materialization,
     )
     monkeypatch.setattr(cli, "_verify_stage_a_parse_lineage", lambda **kwargs: None)
     monkeypatch.setattr(
@@ -313,10 +328,13 @@ def test_provider_caps_wrong_cycle_fails_before_model_or_provider(
         model_key="openai:gpt-test",
         provider_cycle_caps=caps_path,
         provider_journal=tmp_path / "shared.sqlite3",
+        controlled_private_root=private_root,
+        purchase_ledger_initialization_receipt=initialization_receipt,
     )
     with pytest.raises(cli.CommandError, match="cycle_id differs"):
         cli._verify_stage_a_unitization_lineage(args, markdown_root=markdown_root)
     assert model_resolution_attempted is False
+    assert observed_purchase_authority == [(private_root, initialization_receipt)]
     assert not args.provider_journal.exists()
 
 

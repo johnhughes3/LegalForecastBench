@@ -42,6 +42,25 @@ class AuthenticatedDownstreamFixture:
             "_verify_materialized_downstream_lineage",
             self._verify_binding,
         )
+        original_preflight = cli._preflight_materialization_purchase_runtime
+
+        def preflight_bound_fixture(args: Any) -> Any:
+            run_card = getattr(args, "materialization_run_card", None)
+            if run_card is not None and any(
+                binding.run_card == Path(run_card).resolve()
+                for binding in self._bindings
+            ):
+                return None
+            return original_preflight(args)
+
+        # This unit fixture replaces the complete materialization replay with
+        # exact path binding. Isolate the paired early preflight only for cards
+        # created and bound by this fixture; real and adversarial cards delegate.
+        monkeypatch.setattr(
+            cli,
+            "_preflight_materialization_purchase_runtime",
+            preflight_bound_fixture,
+        )
         monkeypatch.setattr(
             cli,
             "_validate_packet_input_run_card",
