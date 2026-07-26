@@ -1451,6 +1451,12 @@ def validate_incomplete_opinion_source_binding(
             "opinion transfer candidate set does not match its canonical commitment"
         )
 
+    # Resolver commitments describe the original opinion-search source, not the
+    # later resolved-transfer batch in ``config``.  Their exact bytes are
+    # already bound above through the persisted payload equality, representative
+    # source-payload digest, and saturated candidate-set commitment; comparing
+    # them directly with the transfer batch's distinct lineage would conflate
+    # two authenticated layers.
     commitments = resolution_evidence.get("commitments")
     if not isinstance(commitments, Mapping):
         raise OpinionBackedDispositionError(

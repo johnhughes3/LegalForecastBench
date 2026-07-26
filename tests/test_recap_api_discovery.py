@@ -1825,6 +1825,23 @@ def test_observe_retains_source_bound_opinion_with_empty_docket_as_paid_gap(
             resolution_evidence=forged_resolution,
         )
 
+    forged_payload = copy.deepcopy(payload)
+    forged_resolution = forged_payload["opinion_resolution_evidence"]
+    assert isinstance(forged_resolution, dict)
+    forged_commitments = forged_resolution["commitments"]
+    assert isinstance(forged_commitments, dict)
+    cast(dict[str, object], forged_commitments)["source_batch_digest"] = "8" * 64
+    with pytest.raises(
+        ValueError,
+        match="not the frozen discovery hit",
+    ):
+        validate_incomplete_opinion_source_binding(
+            store,
+            batch_id="batch-002",
+            payload=forged_payload,
+            resolution_evidence=forged_resolution,
+        )
+
     partial_store = CycleAcquisitionStore(tmp_path / "partial-cycle.sqlite3")
     partial_store.ensure_cycle({"schema_version": "test"})
     partial_config = dict(config)

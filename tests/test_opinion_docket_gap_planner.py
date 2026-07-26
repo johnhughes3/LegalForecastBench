@@ -133,6 +133,7 @@ def test_plan_item_commits_only_public_decision_and_docket_refresh_identity() ->
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=True,
+            allow_nan=False,
         ).encode()
     ).hexdigest()
 
