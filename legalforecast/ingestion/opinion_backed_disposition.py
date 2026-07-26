@@ -71,6 +71,39 @@ class FetchedOpinionBackedDisposition:
     evidence: Mapping[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class ValidatedPublicOpinionEvidence:
+    """Source-bound public opinion evidence independent of docket history."""
+
+    source_opinion_docket_id: str
+    cluster_id: str
+    opinion_id: str
+    opinion_date: date
+    plain_text: str
+    local_path: str
+    public_pdf_url: str
+    plain_text_sha256: str
+    disposition_excerpt: str
+    cluster_response_sha256: str
+    opinion_response_sha256: str
+
+    def to_evidence_record(self) -> dict[str, object]:
+        """Return acquisition-only evidence without inventing a docket row."""
+
+        return {
+            "schema_version": "legalforecast.validated_public_opinion.v1",
+            "source_opinion_docket_id": self.source_opinion_docket_id,
+            "cluster_id": self.cluster_id,
+            "opinion_id": self.opinion_id,
+            "opinion_date": self.opinion_date.isoformat(),
+            "public_pdf_url": self.public_pdf_url,
+            "plain_text_sha256": self.plain_text_sha256,
+            "disposition_excerpt": self.disposition_excerpt,
+            "cluster_response_sha256": self.cluster_response_sha256,
+            "opinion_response_sha256": self.opinion_response_sha256,
+        }
+
+
 def select_opinion_resolution_for_page(
     page: CourtListenerWebDocketPage,
     resolution_evidence: Mapping[str, Any],
@@ -201,6 +234,43 @@ def fetch_and_bind_public_opinion(
             "reconstructed page does not match resolved RECAP docket"
         )
 
+    validated = fetch_and_validate_public_opinion(
+        client,
+        resolution_evidence=resolution_evidence,
+    )
+
+    disposition = bind_public_opinion_to_docket(
+        page,
+        opinion_id=validated.opinion_id,
+        opinion_date=validated.opinion_date,
+        plain_text=validated.plain_text,
+        local_path=validated.local_path,
+    )
+    return FetchedOpinionBackedDisposition(
+        disposition=disposition,
+        evidence={
+            **disposition.to_evidence_record(),
+            "source_opinion_docket_id": validated.source_opinion_docket_id,
+            "cluster_id": validated.cluster_id,
+            "opinion_id": validated.opinion_id,
+            "cluster_response_sha256": validated.cluster_response_sha256,
+            "opinion_response_sha256": validated.opinion_response_sha256,
+        },
+    )
+
+
+def fetch_and_validate_public_opinion(
+    client: CourtListenerClient,
+    *,
+    resolution_evidence: Mapping[str, Any],
+) -> ValidatedPublicOpinionEvidence:
+    """Validate a frozen public opinion lead without requiring docket entries."""
+
+    schema = resolution_evidence.get("schema_version")
+    if schema != "legalforecast.opinion_recap_resolution.v1":
+        raise OpinionBackedDispositionError(
+            "opinion resolution evidence has an unsupported schema_version"
+        )
     source = _required_mapping(resolution_evidence, "source_opinion")
     source_docket_id = _required_positive_id(source, "candidate_id")
     cluster_id = _required_positive_id(source, "cluster_id")
@@ -220,8 +290,10 @@ def fetch_and_bind_public_opinion(
         raise OpinionBackedDispositionError(
             "CourtListener cluster date does not match frozen opinion lead"
         )
-    if cluster.blocked is True:
-        raise OpinionBackedDispositionError("CourtListener opinion cluster is blocked")
+    if cluster.blocked is not False:
+        raise OpinionBackedDispositionError(
+            "CourtListener opinion cluster is not affirmatively unblocked"
+        )
 
     declared_sub_opinions = _declared_sub_opinions(source)
     declared_ids = tuple(item["opinion_id"] for item in declared_sub_opinions)
@@ -253,24 +325,31 @@ def fetch_and_bind_public_opinion(
         raise OpinionBackedDispositionError(
             "CourtListener sub-opinion lacks public text or PDF path"
         )
-
-    disposition = bind_public_opinion_to_docket(
-        page,
+    normalized_text = opinion.plain_text.strip()
+    if not normalized_text:
+        raise OpinionBackedDispositionError("opinion plain_text is required")
+    disposition_excerpt = verbatim_mtd_disposition_excerpt(normalized_text)
+    if disposition_excerpt is None:
+        raise OpinionBackedDispositionError(
+            "public opinion text does not prove an actual MTD disposition"
+        )
+    public_pdf_url = public_opinion_pdf_url(opinion.local_path)
+    if public_pdf_url is None:
+        raise OpinionBackedDispositionError(
+            "opinion does not expose a safe public CourtListener PDF path"
+        )
+    return ValidatedPublicOpinionEvidence(
+        source_opinion_docket_id=source_docket_id,
+        cluster_id=cluster.cluster_id,
         opinion_id=opinion.opinion_id,
         opinion_date=cluster_date,
-        plain_text=opinion.plain_text,
+        plain_text=normalized_text,
         local_path=opinion.local_path,
-    )
-    return FetchedOpinionBackedDisposition(
-        disposition=disposition,
-        evidence={
-            **disposition.to_evidence_record(),
-            "source_opinion_docket_id": source_docket_id,
-            "cluster_id": cluster.cluster_id,
-            "opinion_id": opinion.opinion_id,
-            "cluster_response_sha256": _record_sha256(cluster.raw),
-            "opinion_response_sha256": _record_sha256(opinion.raw),
-        },
+        public_pdf_url=public_pdf_url,
+        plain_text_sha256=hashlib.sha256(normalized_text.encode()).hexdigest(),
+        disposition_excerpt=disposition_excerpt,
+        cluster_response_sha256=_record_sha256(cluster.raw),
+        opinion_response_sha256=_record_sha256(opinion.raw),
     )
 
 

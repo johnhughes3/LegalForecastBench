@@ -48,6 +48,7 @@ class Fixture:
     target_seed_summary_sha256: str
     receipt: Path
     spec: Exact310SourceSpec
+    source_schema_version: str | None
 
 
 def _policy(marker: str, *, anchor: str = "2026-06-30") -> dict[str, object]:
@@ -251,7 +252,12 @@ def _transfer_payloads(
     return candidate_set_sha256, partial_payloads
 
 
-def _fixture(tmp_path: Path) -> Fixture:
+def _fixture(
+    tmp_path: Path,
+    *,
+    source_schema_version: str | None = None,
+    legacy_source_schema_omission: bool = False,
+) -> Fixture:
     candidates = tuple(f"courtlistener-docket-{number}" for number in (1, 2, 3, 4))
     source_batch = "exact-rest-source"
     target_batch = "current-rebind-target"
@@ -273,18 +279,21 @@ def _fixture(tmp_path: Path) -> Fixture:
         }
         for number in (1, 2, 3, 4)
     }
+    source_lineage_config: dict[str, object] = {
+        "provider": "courtlistener",
+        "query_terms": [source_term],
+        "search_window_start": "2026-07-11",
+        "search_window_end": "2026-07-15",
+    }
+    if source_schema_version is not None:
+        source_lineage_config["schema_version"] = source_schema_version
     with CycleAcquisitionStore(source_path) as source:
         source_cycle = source.ensure_cycle(_policy("a"))
         _batch(
             source,
             source_lineage_id,
             tuple(source_lineage_payloads),
-            config={
-                "provider": "courtlistener",
-                "query_terms": [source_term],
-                "search_window_start": "2026-07-11",
-                "search_window_end": "2026-07-15",
-            },
+            config=source_lineage_config,
             payloads=source_lineage_payloads,
             term=source_term,
         )
@@ -315,8 +324,11 @@ def _fixture(tmp_path: Path) -> Fixture:
         "source_batch_id": source_lineage_id,
         "source_candidate_count": 4,
         "source_candidate_set_sha256": candidate_set_sha256,
+        "source_schema_version": source_schema_version,
         "top_k_per_term": 4,
     }
+    if legacy_source_schema_omission:
+        source_config.pop("source_schema_version")
     with CycleAcquisitionStore(source_path) as source:
         assert source.ensure_cycle(_policy("a")) == source_cycle
         _batch(
@@ -398,6 +410,8 @@ def _fixture(tmp_path: Path) -> Fixture:
     assert target_summary["source_candidate_set_sha256"] != candidate_set_sha256
     with CycleAcquisitionStore(target_path) as target:
         target_cycle = target.cycle_hash
+        target_config = target.batch_config(target_batch)
+        assert target_config["source_schema_version"] == source_schema_version
         assert target.batch_config(target_batch)["source_search_type"] is None
         _batch(target, "prior", (candidates[0],))
         _record(
@@ -408,6 +422,26 @@ def _fixture(tmp_path: Path) -> Fixture:
             "decision_before_release_anchor",
             {"decision_date": "2026-06-29"},
         )
+    if legacy_source_schema_omission:
+        with sqlite3.connect(target_path) as connection:
+            [row] = connection.execute(
+                "SELECT config_json FROM batches WHERE batch_id = ?",
+                (target_batch,),
+            ).fetchall()
+            target_config = json.loads(str(row[0]))
+            target_config.pop("source_schema_version")
+            encoded = json.dumps(target_config, sort_keys=True, separators=(",", ":"))
+            connection.execute(
+                "UPDATE batches SET config_json = ?, config_digest = ? "
+                "WHERE batch_id = ?",
+                (
+                    encoded,
+                    hashlib.sha256(encoded.encode()).hexdigest(),
+                    target_batch,
+                ),
+            )
+            connection.commit()
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     receipt = tmp_path / "receipt.json"
     receipt.write_text(
         json.dumps(
@@ -443,6 +477,7 @@ def _fixture(tmp_path: Path) -> Fixture:
             candidate_set_sha256=candidate_set_sha256,
             transfer_receipt_sha256=_sha(receipt),
         ),
+        source_schema_version=source_schema_version,
     )
 
 
@@ -467,6 +502,9 @@ def test_exact310_rebind_preserves_reproves_and_fails_closed(tmp_path: Path) -> 
     source_stat = fixture.source_store.stat()
     source_sha = _sha(fixture.source_store)
     plan = _plan(tmp_path, fixture)
+    contract = json.loads(plan.contract_path.read_text(encoding="utf-8"))
+    assert contract["source_batch_config"]["source_schema_version"] is None
+    assert contract["target_batch_config"]["source_schema_version"] is None
     assert (plan.preserve_current_count, plan.reproved_current_count) == (1, 1)
     assert plan.reproved_exclusion_count == 1
     assert plan.fail_closed_count == 1
@@ -539,6 +577,17 @@ def test_exact310_rebind_preserves_reproves_and_fails_closed(tmp_path: Path) -> 
     assert resumed.snapshot_manifest_sha256 == result.snapshot_manifest_sha256
     assert fixture.source_store.stat().st_mtime_ns == source_stat.st_mtime_ns
     assert _sha(fixture.source_store) == source_sha
+
+
+def test_exact310_plan_accepts_authenticated_legacy_source_schema_omission(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, legacy_source_schema_omission=True)
+
+    plan = _plan(tmp_path, fixture)
+    contract = json.loads(plan.contract_path.read_text(encoding="utf-8"))
+    assert "source_schema_version" not in contract["source_batch_config"]
+    assert "source_schema_version" not in contract["target_batch_config"]
 
 
 def test_exact310_rebind_rejects_contract_tamper(tmp_path: Path) -> None:
@@ -617,6 +666,53 @@ def test_exact310_plan_rejects_arbitrary_target_batch_config(tmp_path: Path) -> 
             contract_output_path=tmp_path / "refused-config.json",
             source_spec=fixture.spec,
         )
+
+
+def test_exact310_plan_rejects_target_source_schema_version_tamper(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    with sqlite3.connect(fixture.target_store) as connection:
+        [row] = connection.execute(
+            "SELECT config_json FROM batches WHERE batch_id = ?",
+            (fixture.target_batch_id,),
+        ).fetchall()
+        config = json.loads(str(row[0]))
+        assert config["source_schema_version"] is None
+        config["source_schema_version"] = "attacker.substituted_source.v1"
+        encoded = json.dumps(config, sort_keys=True, separators=(",", ":"))
+        connection.execute(
+            "UPDATE batches SET config_json = ?, config_digest = ? WHERE batch_id = ?",
+            (
+                encoded,
+                hashlib.sha256(encoded.encode()).hexdigest(),
+                fixture.target_batch_id,
+            ),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    with pytest.raises(
+        Exact310RestRebindError,
+        match="target batch config does not match pinned setup authority",
+    ):
+        _plan(tmp_path, fixture)
+
+
+def test_exact310_plan_binds_nonnull_source_schema_version(tmp_path: Path) -> None:
+    fixture = _fixture(
+        tmp_path,
+        source_schema_version="fixture.courtlistener_direct_search_source.v1",
+    )
+
+    plan = _plan(tmp_path, fixture)
+    contract = json.loads(plan.contract_path.read_text(encoding="utf-8"))
+    assert contract["source_batch_config"]["source_schema_version"] == (
+        fixture.source_schema_version
+    )
+    assert contract["target_batch_config"]["source_schema_version"] == (
+        fixture.source_schema_version
+    )
 
 
 def test_exact310_plan_rejects_cross_cycle_legacy_seed_summary(
@@ -833,6 +929,7 @@ def test_exact310_plan_accepts_same_cycle_legacy_seed_commitment_shape(
         "source_batch_id": receipt["source_batch_id"],
         "source_candidate_count": fixture.spec.candidate_count,
         "source_candidate_set_sha256": fixture.spec.candidate_set_sha256,
+        "source_schema_version": fixture.source_schema_version,
         "source_search_type": "rd",
         "top_k_per_term": fixture.spec.candidate_count,
     }

@@ -74,6 +74,11 @@ _REASON_POLICIES: dict[str, tuple[frozenset[str], str, int]] = {
         for reason in _IMMUTABLE_REASON_CODES
     },
     "strict_clean_screen_failed": (frozenset({"excluded"}), "refreshable", 10),
+    "opinion_backed_docket_history_incomplete": (
+        frozenset({"excluded"}),
+        "refreshable",
+        10,
+    ),
     "bankruptcy_posture": (frozenset({"excluded"}), "refreshable", 10),
     "criminal_posture": (frozenset({"excluded"}), "refreshable", 10),
     "habeas_or_immigration_detention_posture": (

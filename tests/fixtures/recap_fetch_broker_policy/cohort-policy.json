@@ -70,6 +70,7 @@
         "bankruptcy_posture",
         "criminal_posture",
         "habeas_or_immigration_detention_posture",
+        "opinion_backed_docket_history_incomplete",
         "oversized_docket_soft_skip",
         "policy_rebind_evidence_insufficient",
         "strict_clean_screen_failed"
@@ -107,6 +108,6 @@
       "refresh_before_purchase": true
     }
   },
-  "policy_sha256": "b0ae60815c272a191886a848dc00a462270e04366ef221ddd655266f2b1f36bd",
+  "policy_sha256": "a5be87fa03ac55ac0ae4cd881b96ccf9d96e8c9dd0b8dd73ca203191b71be315",
   "schema_version": "legalforecast.cohort_policy.v1"
 }

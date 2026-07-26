@@ -2440,6 +2440,7 @@ def test_seed_direct_search_freezes_lineage_canonicalizes_and_prescreens(
         assert config["discovery_mode"] == DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA
         assert config["source_batch_id"] == "direct-search"
         assert config["source_batch_digest"] == source.source_batch_digest
+        assert config["source_schema_version"] == source.source_schema_version
         assert (
             config["source_candidate_set_sha256"] == source.source_candidate_set_sha256
         )

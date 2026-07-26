@@ -36,7 +36,7 @@ _CURRENT_DECISIONS_PATH = Path(
     "docs/cohort-policy-cycle-1-target-100-2026-07-25-decisions.json"
 )
 _CURRENT_POLICY_SHA256 = (
-    "0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed"
+    "76c98406536e38fede7a1a72b60af731088fae04888b9662b1d3ed37538a7207"
 )
 _CURRENT_CYCLE_HASH = "35f70123bfc966512d61119746ba09716332a181c074f131d553b56b610641cb"
 
@@ -351,6 +351,10 @@ def test_current_exact100_policy_is_generated_and_registry_bound() -> None:
         "reservation_headroom_required": True,
         "rule": "buy_cheapest_complete",
     }
+    assert (
+        "opinion_backed_docket_history_incomplete"
+        in (artifact["policy"]["refresh_policy"]["refreshable_reason_codes"])
+    )
     identity = disclosure_authority_identity_from_cohort_policy(artifact)
     assert identity == CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY
     assert tuple(MAIN_DISCLOSURE_REVIEW_AUTHORITY_REGISTRY) == (identity,)

@@ -2248,6 +2248,7 @@ def _seed_direct_search_leads(
             "discovery_mode": provenance_schema,
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,
+            "source_schema_version": source.source_schema_version,
             "source_search_type": source.source_search_type,
             "source_candidate_count": len(source.leads),
             "source_candidate_set_sha256": source.source_candidate_set_sha256,

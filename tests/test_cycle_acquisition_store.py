@@ -903,6 +903,37 @@ def test_procedural_or_standing_order_is_immutable(tmp_path: Path) -> None:
         assert store.current_observation("candidate-1") == immutable
 
 
+def test_opinion_docket_history_gap_is_refreshable_but_not_accepted(
+    tmp_path: Path,
+) -> None:
+    taxonomy = cohort_reason_policy_taxonomy()
+    assert (
+        "opinion_backed_docket_history_incomplete"
+        in taxonomy["refreshable_reason_codes"]
+    )
+
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        gap = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="opinion_backed_docket_history_incomplete",
+            evidence={"packet_eligible": False, "paid_gap_candidate": True},
+        )
+
+        assert gap.state == "excluded"
+        assert store.current_observation("candidate-1") == gap
+        with pytest.raises(ValueError, match="does not permit state 'accepted'"):
+            store.record_observation(
+                "candidate-1",
+                batch_id="batch-001",
+                state="accepted",
+                reason_code="opinion_backed_docket_history_incomplete",
+                evidence={"packet_eligible": False, "paid_gap_candidate": True},
+            )
+
+
 def test_oversized_docket_soft_skip_is_refreshable_at_rank_ten(
     tmp_path: Path,
 ) -> None:

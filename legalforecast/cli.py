@@ -451,6 +451,10 @@ from legalforecast.ingestion.model_packet_assembly import (
     assemble_model_packet,
     parsed_markdown_documents_from_conversion_records,
 )
+from legalforecast.ingestion.opinion_docket_gap_planner import (
+    OpinionDocketGapPlanningError,
+    plan_opinion_docket_gaps,
+)
 from legalforecast.ingestion.opinion_recap_firecrawl import (
     BudgetedOpinionRecapFirecrawlResolver,
     OpinionRecapFirecrawlPageSource,
@@ -1743,6 +1747,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Plan free public CourtListener/RECAP packet-document downloads.",
     )
     _add_acquisition_plan_public_downloads_arguments(acquisition_public_downloads)
+    acquisition_opinion_docket_gaps = acquisition_subparsers.add_parser(
+        "plan-opinion-docket-gaps",
+        help="Budget docket-history refreshes for verified opinion-backed gaps.",
+        description=(
+            "Verify a complete saturated screening snapshot and project only "
+            "docket-history refresh reservations for source-bound public-opinion "
+            "exclusions. This provider-free command cannot select documents, "
+            "acknowledge fees, purchase anything, or make a case packet-eligible."
+        ),
+    )
+    _add_acquisition_plan_opinion_docket_gaps_arguments(acquisition_opinion_docket_gaps)
     acquisition_download = acquisition_subparsers.add_parser(
         "download-free",
         help="Download free public docket documents.",
@@ -5030,6 +5045,40 @@ def _add_acquisition_plan_public_downloads_arguments(
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_plan_public_downloads)
+
+
+def _add_acquisition_plan_opinion_docket_gaps_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--snapshot",
+        type=Path,
+        required=True,
+        help="Complete saturated screening snapshot containing the exclusions.",
+    )
+    parser.add_argument(
+        "--expected-cycle-hash",
+        required=True,
+        help="Externally frozen cycle-policy SHA-256.",
+    )
+    parser.add_argument(
+        "--expected-snapshot-manifest-sha256",
+        required=True,
+        help="Externally frozen SHA-256 of SNAPSHOT/manifest.json.",
+    )
+    parser.add_argument(
+        "--cost-per-docket-usd",
+        type=_decimal_argument,
+        required=True,
+        help=(
+            "Explicit projected reservation for one docket-history refresh. "
+            "This value is budgeting evidence only and authorizes no spend."
+        ),
+    )
+    parser.add_argument("--plan-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_plan_opinion_docket_gaps)
 
 
 def _add_acquisition_fetch_firecrawl_arguments(
@@ -21454,6 +21503,178 @@ def _canonical_raw_retrieved_at(value: str, *, candidate_id: str) -> datetime:
             f"raw artifact retrieved_at must be UTC for {candidate_id}"
         )
     return parsed.astimezone(UTC)
+
+
+def _cmd_acquisition_plan_opinion_docket_gaps(args: argparse.Namespace) -> int:
+    # Validate every writable path before creating even the output root so a
+    # hostile --output-root cannot mutate the authenticated snapshot tree.
+    output_root = cast(Path, args.output_root)
+    snapshot_path = cast(Path, args.snapshot)
+    plan_path = _acquisition_path(
+        args,
+        "plan_output",
+        output_root / "opinion-docket-gap-plan.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "opinion-docket-gap-plan-summary.json",
+    )
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards" / "plan-opinion-docket-gaps.json",
+    )
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / "plan-opinion-docket-gaps.jsonl",
+    )
+    _validate_opinion_docket_gap_paths(
+        snapshot_path=snapshot_path,
+        writable_paths=(plan_path, summary_path, run_card_path, log_path),
+    )
+    input_paths = (snapshot_path, snapshot_path / "manifest.json")
+    output_paths = (plan_path, summary_path)
+    try:
+        expected_manifest_sha256 = cast(str, args.expected_snapshot_manifest_sha256)
+        _validate_external_snapshot_manifest_pin(
+            snapshot_path,
+            expected_manifest_sha256,
+        )
+        verified = load_verified_screening_snapshot(
+            snapshot_path,
+            expected_manifest_sha256=expected_manifest_sha256,
+            expected_cycle_hash=cast(str, args.expected_cycle_hash),
+        )
+        manifest = verified.manifest
+        files = _mapping(manifest.get("files"), "snapshot files")
+        exclusions_commitment = _mapping(
+            files.get("exclusions.jsonl"),
+            "snapshot exclusions commitment",
+        )
+        plan = plan_opinion_docket_gaps(
+            verified.exclusions,
+            source_manifest_sha256=verified.manifest_sha256,
+            source_cycle_hash=_required_str(manifest, "cycle_hash"),
+            source_batch_id=_required_str(manifest, "batch_id"),
+            source_batch_digest=_required_str(manifest, "batch_digest"),
+            source_exclusions_sha256=_required_str(
+                exclusions_commitment,
+                "sha256",
+            ),
+            cost_per_docket_usd=cast(Decimal, args.cost_per_docket_usd),
+        )
+    except (
+        CommandError,
+        FirecrawlScreeningIdentityError,
+        OpinionDocketGapPlanningError,
+        SnapshotVerificationError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="plan-opinion-docket-gaps",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+
+    summary = plan.to_record()
+    item_records = cast(list[Mapping[str, object]], summary.pop("items"))
+    if cast(bool, args.execute):
+        _ensure_projection_artifact(
+            plan_path,
+            _jsonl_bytes(item_records),
+            resume=cast(bool, args.resume),
+            stage="plan-opinion-docket-gaps",
+        )
+        _ensure_projection_artifact(
+            summary_path,
+            _json_bytes(summary),
+            resume=cast(bool, args.resume),
+            stage="plan-opinion-docket-gaps",
+        )
+    print(json.dumps(summary, sort_keys=True))
+    _write_acquisition_completion(
+        args,
+        stage="plan-opinion-docket-gaps",
+        input_paths=input_paths,
+        output_paths=output_paths if cast(bool, args.execute) else (),
+        record_count=plan.candidate_count,
+        dry_run=not cast(bool, args.execute),
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=summary,
+    )
+    return 0
+
+
+def _validate_opinion_docket_gap_paths(
+    *,
+    snapshot_path: Path,
+    writable_paths: Sequence[Path],
+) -> None:
+    """Protect the authenticated snapshot and keep all planner outputs distinct."""
+
+    snapshot_root = snapshot_path.resolve()
+    resolved_outputs: list[tuple[Path, Path]] = []
+    for path in writable_paths:
+        resolved = path.resolve()
+        if resolved == snapshot_root or resolved.is_relative_to(snapshot_root):
+            raise CommandError(
+                "plan-opinion-docket-gaps output must be outside the immutable "
+                f"snapshot: {path}"
+            )
+        resolved_outputs.append((path, resolved))
+    for index, (path, resolved) in enumerate(resolved_outputs):
+        for other_path, other_resolved in resolved_outputs[index + 1 :]:
+            if resolved == other_resolved:
+                raise CommandError(
+                    "plan-opinion-docket-gaps outputs must be distinct: "
+                    f"{path} and {other_path}"
+                )
+            try:
+                aliases = (
+                    path.exists() and other_path.exists() and path.samefile(other_path)
+                )
+            except OSError as exc:
+                raise CommandError(
+                    f"cannot inspect plan-opinion-docket-gaps output aliases: {exc}"
+                ) from exc
+            if aliases:
+                raise CommandError(
+                    "plan-opinion-docket-gaps outputs hard-link the same file: "
+                    f"{path} and {other_path}"
+                )
+    existing_outputs = tuple(
+        output for output, _resolved in resolved_outputs if output.exists()
+    )
+    if not existing_outputs:
+        return
+    try:
+        source_files = tuple(
+            path for path in snapshot_path.rglob("*") if path.is_file()
+        )
+    except OSError as exc:
+        raise CommandError(
+            f"cannot inspect immutable screening snapshot paths: {exc}"
+        ) from exc
+    for output in existing_outputs:
+        for source in source_files:
+            try:
+                aliases = output.samefile(source)
+            except OSError as exc:
+                raise CommandError(
+                    f"cannot inspect plan-opinion-docket-gaps source aliases: {exc}"
+                ) from exc
+            if aliases:
+                raise CommandError(
+                    "plan-opinion-docket-gaps output aliases immutable snapshot "
+                    f"evidence: {output}"
+                )
 
 
 def _cmd_acquisition_plan_public_downloads(
@@ -40307,6 +40528,13 @@ def _case_mix_share_argument(value: str) -> Decimal:
             "must be a finite decimal greater than 0 and at most 1"
         )
     return share
+
+
+def _decimal_argument(value: str) -> Decimal:
+    try:
+        return Decimal(value)
+    except (InvalidOperation, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a decimal") from exc
 
 
 def _cycle_acquisition_policy(*, anchor: date) -> JsonRecord:
