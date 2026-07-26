@@ -22,7 +22,7 @@ Each output item contains only the RECAP docket identity, public decision identi
 
 The plan and summary set `paid_activity_requested=false` and `paid_activity_executed=false`; the command cannot acknowledge fees, purchase a docket or document, or supply packet inputs.
 
-After a separately authorized docket-history refresh, the candidate must be observed again through the ordinary canonical REST screen and must independently prove the unique target motion, earliest written disposition on or after 2026-06-30, required pre-decision materials, privacy and restriction clearance, leakage screening, and all downstream packet gates.
+After a separately authorized docket-history refresh, the candidate must be observed again through the ordinary canonical REST screen and must independently prove the unique target motion, earliest written disposition on or after the source snapshot's authenticated eligibility anchor, required pre-decision materials, privacy and restriction clearance, leakage screening, and all downstream packet gates.
 
 ## Example
 
