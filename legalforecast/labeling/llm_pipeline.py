@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -33,6 +34,10 @@ from legalforecast.ingestion.decision_text_artifact import (
 )
 from legalforecast.ingestion.decision_text_artifact import (
     VerifiedDecisionTextArtifact,
+)
+from legalforecast.ingestion.disclosure_review_bundle import (
+    ReviewBundleError,
+    read_unique_regular_file,
 )
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.labeling.ensemble import (
@@ -206,6 +211,7 @@ def llm_unitize_cases(
     selection_records: Iterable[Mapping[str, Any]],
     parser_records: Iterable[Mapping[str, Any]],
     markdown_root: str | Path,
+    markdown_bytes: Mapping[str, bytes] | None = None,
     registry_entry: ModelRegistryEntry,
     model_registry_sha256: str | None = None,
     transport: LiveModelTransport | None = None,
@@ -234,6 +240,7 @@ def llm_unitize_cases(
                 selection,
                 parser_by_key=parser_by_key,
                 markdown_root=Path(markdown_root),
+                markdown_bytes=markdown_bytes,
             )
             prompt = _unitization_prompt(selection, documents)
             prompt_sha256 = (
@@ -368,6 +375,7 @@ def stage_a_unitization_prompt_records(
     selection_records: Iterable[Mapping[str, Any]],
     parser_records: Iterable[Mapping[str, Any]],
     markdown_root: str | Path,
+    markdown_bytes: Mapping[str, bytes] | None = None,
 ) -> tuple[JsonRecord, ...]:
     """Reconstruct exact Stage A prompts from authenticated parser inputs."""
 
@@ -381,6 +389,7 @@ def stage_a_unitization_prompt_records(
                 selection,
                 parser_by_key=parser_by_key,
                 markdown_root=Path(markdown_root),
+                markdown_bytes=markdown_bytes,
             ),
         )
         prompts.append(
@@ -1900,6 +1909,7 @@ def _predecision_documents(
     *,
     parser_by_key: Mapping[tuple[str, str], Mapping[str, Any]],
     markdown_root: Path,
+    markdown_bytes: Mapping[str, bytes] | None = None,
 ) -> tuple[_LlmDocument, ...]:
     candidate_id = _required_str(selection, "candidate_id")
     documents: list[_LlmDocument] = []
@@ -1924,7 +1934,11 @@ def _predecision_documents(
                 document_role=role,
                 docket_entry_number=_optional_int(document, "docket_entry_number"),
                 description=_optional_str(document, "description") or role.value,
-                markdown=_markdown_text(parser_record, markdown_root=markdown_root),
+                markdown=_markdown_text(
+                    parser_record,
+                    markdown_root=markdown_root,
+                    markdown_bytes=markdown_bytes,
+                ),
             )
         )
     if not documents:
@@ -2044,16 +2058,47 @@ def _required_parser_record(
         ) from exc
 
 
-def _markdown_text(record: Mapping[str, Any], *, markdown_root: Path) -> str:
+def _markdown_text(
+    record: Mapping[str, Any],
+    *,
+    markdown_root: Path,
+    markdown_bytes: Mapping[str, bytes] | None = None,
+) -> str:
     markdown_path = Path(_required_str(record, "markdown_path"))
-    resolved = (
+    if ".." in markdown_path.parts:
+        raise LlmPipelineError(
+            f"markdown snapshot path may not traverse parents: {markdown_path}"
+        )
+    lexical_path = (
         markdown_path if markdown_path.is_absolute() else markdown_root / markdown_path
     )
-    if not resolved.is_file():
-        raise LlmPipelineError(f"markdown file missing: {resolved}")
-    text = resolved.read_text(encoding="utf-8")
+    root = Path(os.path.abspath(markdown_root))
+    try:
+        relative_path = Path(os.path.abspath(lexical_path)).relative_to(root).as_posix()
+    except ValueError as exc:
+        raise LlmPipelineError(
+            f"markdown path is outside markdown_root: {lexical_path}"
+        ) from exc
+    if markdown_bytes is None:
+        try:
+            payload = read_unique_regular_file(lexical_path)
+        except ReviewBundleError as exc:
+            raise LlmPipelineError(
+                f"markdown file cannot be safely read: {lexical_path}"
+            ) from exc
+    else:
+        try:
+            payload = markdown_bytes[relative_path]
+        except KeyError as exc:
+            raise LlmPipelineError(
+                f"markdown snapshot missing or outside root: {lexical_path}"
+            ) from exc
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise LlmPipelineError(f"markdown file is not UTF-8: {lexical_path}") from exc
     if not text.strip():
-        raise LlmPipelineError(f"markdown file is empty: {resolved}")
+        raise LlmPipelineError(f"markdown file is empty: {lexical_path}")
     return text
 
 

@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.disclosure_review_authority import (
     disclosure_authority_identity_from_cohort_policy,
+)
+from legalforecast.ingestion.provenance_clearance import (
+    build_provenance_clearance_plan as build_provenance_plan,
 )
 from legalforecast.ingestion.target_cohort_projection import (
     TargetCohortProjectionError,
@@ -120,6 +124,118 @@ def test_projection_selects_exact_cheapest_post_clearance_cohort() -> None:
     assert projection.summary["resolved_pool_case_count"] == 4
     assert projection.summary["selected_case_count"] == 2
     assert projection.summary["selected_candidate_ids_sha256"].startswith("sha256:")
+
+
+def test_projection_accepts_only_well_formed_provenance_clearance() -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "affirmative_public_provenance",
+            "routing_plan_sha256": "b" * 64,
+            "reviewer_id": None,
+            "controlled_store_provenance": (
+                "https://storage.courtlistener.com/recap/case-a/complaint.pdf"
+            ),
+            "reviewed_at": None,
+        }
+    )
+    projection = project_target_cohort(
+        selections=[_selection(candidate_id)],
+        case_relevance=[_relevance(candidate_id, missing_count=1)],
+        download_manifest=[_download(candidate_id, document_id)],
+        clearance_records=[clearance],
+        target_case_count=1,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="10.00",
+        max_missing_core_documents_per_case=24,
+    )
+    assert projection.selected_candidate_ids == (candidate_id,)
+
+    clearance["routing_plan_sha256"] = "invalid"
+    with pytest.raises(TargetCohortProjectionError, match="lacks routing plan hash"):
+        project_target_cohort(
+            selections=[_selection(candidate_id)],
+            case_relevance=[_relevance(candidate_id, missing_count=1)],
+            download_manifest=[_download(candidate_id, document_id)],
+            clearance_records=[clearance],
+            target_case_count=1,
+            cost_per_document_usd="3.05",
+            max_projected_budget_usd="10.00",
+            max_missing_core_documents_per_case=24,
+        )
+
+
+@pytest.mark.parametrize("mutation", ["query_url", "purchased", "prefixed_hash"])
+def test_projection_rejects_weaker_automatic_clearance_variants(
+    mutation: str,
+) -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    manifest = _download(candidate_id, document_id)
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "affirmative_public_provenance",
+            "routing_plan_sha256": "b" * 64,
+            "reviewer_id": None,
+            "controlled_store_provenance": (
+                "https://storage.courtlistener.com/recap/case-a/complaint.pdf"
+            ),
+            "reviewed_at": None,
+        }
+    )
+    if mutation == "query_url":
+        clearance["controlled_store_provenance"] += "?download=1"
+    elif mutation == "purchased":
+        manifest["free_or_purchased"] = "purchased"
+        clearance["free_or_purchased"] = "purchased"
+    else:
+        clearance["routing_plan_sha256"] = "sha256:" + "b" * 64
+
+    with pytest.raises(TargetCohortProjectionError, match="clearance policy"):
+        project_target_cohort(
+            selections=[_selection(candidate_id)],
+            case_relevance=[_relevance(candidate_id, missing_count=1)],
+            download_manifest=[manifest],
+            clearance_records=[clearance],
+            target_case_count=1,
+            cost_per_document_usd="3.05",
+            max_projected_budget_usd="10.00",
+            max_missing_core_documents_per_case=24,
+        )
+
+
+def test_projection_accepts_john_cleared_unknown_empty_restriction_evidence() -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "john_exception_review",
+            "routing_plan_sha256": "b" * 64,
+            "restriction_status": "unknown",
+            "restriction_evidence": [],
+            "reviewer_id": "John Hughes",
+            "controlled_store_provenance": (
+                "private-store://john/disclosure-exception-review"
+            ),
+        }
+    )
+
+    projection = project_target_cohort(
+        selections=[_selection(candidate_id)],
+        case_relevance=[_relevance(candidate_id, missing_count=1)],
+        download_manifest=[_download(candidate_id, document_id)],
+        clearance_records=[clearance],
+        target_case_count=1,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="10.00",
+        max_missing_core_documents_per_case=24,
+    )
+
+    assert projection.selected_candidate_ids == (candidate_id,)
 
 
 def test_projection_fails_closed_when_manifest_clearance_is_missing() -> None:
@@ -572,6 +688,49 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
     assert {row["candidate_id"] for row in parse_requests} == canonical_case_ids
 
 
+def test_provenance_clearance_projects_and_materializes_two_cases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_marker_plan(
+        review_requests: Sequence[Mapping[str, object]],
+        download_manifest: Sequence[Mapping[str, object]],
+        restriction_evidence: Sequence[Mapping[str, object]],
+        case_relevance: Sequence[Mapping[str, object]],
+        **kwargs: object,
+    ) -> dict[str, object]:
+        return build_provenance_plan(
+            review_requests,
+            download_manifest,
+            restriction_evidence,
+            case_relevance,
+            document_root=cast(Path, kwargs["document_root"]),
+            review_requests_bytes=cast(bytes, kwargs["review_requests_bytes"]),
+            download_manifest_bytes=cast(bytes, kwargs["download_manifest_bytes"]),
+            restriction_evidence_bytes=cast(
+                bytes, kwargs["restriction_evidence_bytes"]
+            ),
+            case_relevance_bytes=cast(bytes, kwargs["case_relevance_bytes"]),
+            document_bytes_by_relative_path=cast(
+                Mapping[str, bytes] | None,
+                kwargs.get("document_bytes_by_relative_path"),
+            ),
+            marker_scanner=lambda _payload: (),
+        )
+
+    monkeypatch.setattr(cli_module, "build_provenance_clearance_plan", no_marker_plan)
+    canonical = _materialized_two_case_cohort(
+        tmp_path / "provenance-canonical",
+        provenance_first=True,
+        monkeypatch=monkeypatch,
+    )
+    assert len(_read_jsonl(canonical["selection"])) == 2
+    manifest = _read_jsonl(canonical["manifest"])
+    clearance = _read_jsonl(canonical["clearance"])
+    assert len(manifest) == len(clearance)
+    assert {row["clearance_basis"] for row in clearance} == {"john_exception_review"}
+    assert all(row["status"] == "cleared" for row in clearance)
+
+
 def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     path.write_text(
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
@@ -587,7 +746,125 @@ def _path_digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _materialized_two_case_cohort(tmp_path: Path) -> dict[str, Path]:
+def _write_provenance_clearance(
+    root: Path,
+    *,
+    manifest_path: Path,
+    review_requests_path: Path,
+    case_relevance_path: Path,
+    restriction_evidence_path: Path,
+    document_root: Path,
+    cohort_policy_path: Path,
+    clearance_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan_root = root / "plan"
+    private_root = root.parent.parent / f"{root.parent.name}-{root.name}-private"
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-disclosure-provenance",
+                "--review-requests",
+                str(review_requests_path),
+                "--download-manifest",
+                str(manifest_path),
+                "--case-relevance",
+                str(case_relevance_path),
+                "--restriction-evidence",
+                str(restriction_evidence_path),
+                "--document-root",
+                str(document_root),
+                "--controlled-private-store-root",
+                str(private_root),
+                "--output-root",
+                str(plan_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    worksheet_path = plan_root / "disclosure-exception-worksheet.json"
+    worksheet = json.loads(worksheet_path.read_text())
+    digests = iter(str(row["sha256"]) for row in worksheet["documents"])
+
+    class _TTY:
+        @staticmethod
+        def isatty() -> bool:
+            return True
+
+    def clear_every_exception(prompt: str) -> str:
+        if prompt.startswith("Type the full inspected"):
+            return next(digests)
+        if prompt.startswith("Decision"):
+            return "cleared"
+        return prompt.removeprefix("Type exactly '").removesuffix("': ")
+
+    monkeypatch.setattr(cli_module.sys, "stdin", _TTY())
+    monkeypatch.setattr("builtins.input", clear_every_exception)
+    assert (
+        main(
+            [
+                "acquisition",
+                "record-disclosure-review-decisions",
+                "--review-worksheet",
+                str(worksheet_path),
+                "--private-inspection-map",
+                str(private_root / "private-document-inspection-map.jsonl"),
+                "--reviewer-id",
+                "John Hughes",
+                "--controlled-private-store-root",
+                str(private_root),
+                "--output-root",
+                str(private_root / "metadata"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "clear-provenance-disclosures",
+                "--review-requests",
+                str(review_requests_path),
+                "--download-manifest",
+                str(manifest_path),
+                "--case-relevance",
+                str(case_relevance_path),
+                "--restriction-evidence",
+                str(restriction_evidence_path),
+                "--document-root",
+                str(document_root),
+                "--routing-plan",
+                str(plan_root / "disclosure-provenance-plan.json"),
+                "--exception-worksheet",
+                str(worksheet_path),
+                "--exception-decisions",
+                str(private_root / "disclosure-review-decisions.jsonl"),
+                "--exception-review-run-card",
+                str(
+                    private_root
+                    / "metadata/run-cards/record-disclosure-review-decisions.json"
+                ),
+                "--cohort-policy",
+                str(cohort_policy_path),
+                "--output-root",
+                str(clearance_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+
+def _materialized_two_case_cohort(
+    tmp_path: Path,
+    *,
+    provenance_first: bool = False,
+    monkeypatch: pytest.MonkeyPatch | None = None,
+) -> dict[str, Path]:
     """Build a real two-case signed projection and canonical materialization."""
 
     tmp_path.mkdir(parents=True)
@@ -633,36 +910,50 @@ def _materialized_two_case_cohort(tmp_path: Path) -> dict[str, Path]:
         store_uri="private-store://fixture/projection-free",
     )
     free_clearance_root = tmp_path / "free-clearance"
-    assert (
-        main(
-            [
-                "acquisition",
-                "clear-disclosures",
-                "--download-manifest",
-                str(free_manifest),
-                "--review-requests",
-                str(free_review.requests),
-                "--document-root",
-                str(preparation / "documents/free"),
-                "--review-worksheet",
-                str(free_review.worksheet),
-                "--reviews",
-                str(free_review.reviews),
-                "--review-receipt",
-                str(free_review.receipt),
-                "--reviewer-policy",
-                str(free_review.policy),
-                "--cohort-policy",
-                str(free_review.cohort_policy),
-                "--restriction-evidence",
-                str(free_restrictions),
-                "--output-root",
-                str(free_clearance_root),
-                "--execute",
-            ]
+    if provenance_first:
+        assert monkeypatch is not None
+        _write_provenance_clearance(
+            tmp_path / "free-provenance",
+            manifest_path=free_manifest,
+            review_requests_path=free_review.requests,
+            case_relevance_path=preparation / "03-gap-bridge/case-relevance.jsonl",
+            restriction_evidence_path=free_restrictions,
+            document_root=preparation / "documents/free",
+            cohort_policy_path=free_review.cohort_policy,
+            clearance_root=free_clearance_root,
+            monkeypatch=monkeypatch,
         )
-        == 0
-    )
+    else:
+        assert (
+            main(
+                [
+                    "acquisition",
+                    "clear-disclosures",
+                    "--download-manifest",
+                    str(free_manifest),
+                    "--review-requests",
+                    str(free_review.requests),
+                    "--document-root",
+                    str(preparation / "documents/free"),
+                    "--review-worksheet",
+                    str(free_review.worksheet),
+                    "--reviews",
+                    str(free_review.reviews),
+                    "--review-receipt",
+                    str(free_review.receipt),
+                    "--reviewer-policy",
+                    str(free_review.policy),
+                    "--cohort-policy",
+                    str(free_review.cohort_policy),
+                    "--restriction-evidence",
+                    str(free_restrictions),
+                    "--output-root",
+                    str(free_clearance_root),
+                    "--execute",
+                ]
+            )
+            == 0
+        )
     projection = tmp_path / "projection"
     assert (
         main(
@@ -828,36 +1119,94 @@ def _materialized_two_case_cohort(tmp_path: Path) -> dict[str, Path]:
         store_uri="private-store://fixture/projection-purchased",
     )
     purchased_clearance_root = tmp_path / "purchased-clearance"
-    assert (
-        main(
+    if provenance_first:
+        assert monkeypatch is not None
+        purchased_relevance = tmp_path / "purchased-case-relevance.jsonl"
+        documents_by_candidate: dict[str, list[dict[str, object]]] = {}
+        for row in purchased_rows:
+            documents_by_candidate.setdefault(str(row["candidate_id"]), []).append(
+                {
+                    "source_document_id": row["source_document_id"],
+                    "source_url_or_reference": row["source_url"],
+                    "model_visible": True,
+                    "contains_target_outcome": False,
+                }
+            )
+        _write_jsonl(
+            purchased_relevance,
             [
-                "acquisition",
-                "clear-disclosures",
-                "--download-manifest",
-                str(purchased_manifest),
-                "--review-requests",
-                str(purchased_review.requests),
-                "--document-root",
-                str(recovery / "documents/purchased"),
-                "--review-worksheet",
-                str(purchased_review.worksheet),
-                "--reviews",
-                str(purchased_review.reviews),
-                "--review-receipt",
-                str(purchased_review.receipt),
-                "--reviewer-policy",
-                str(purchased_review.policy),
-                "--cohort-policy",
-                str(purchased_review.cohort_policy),
-                "--restriction-evidence",
-                str(purchased_restrictions),
-                "--output-root",
-                str(purchased_clearance_root),
-                "--execute",
-            ]
+                {"candidate_id": candidate_id, "documents": documents}
+                for candidate_id, documents in sorted(documents_by_candidate.items())
+            ],
         )
-        == 0
-    )
+        purchased_provenance_requests = tmp_path / "purchased-review-requests.jsonl"
+        restrictions_by_key = {
+            (str(row["candidate_id"]), str(row["source_document_id"])): row
+            for row in _read_jsonl(purchased_restrictions)
+        }
+        _write_jsonl(
+            purchased_provenance_requests,
+            [
+                {
+                    "schema_version": "legalforecast.disclosure_review_request.v1",
+                    "candidate_id": row["candidate_id"],
+                    "source_document_id": row["source_document_id"],
+                    "sha256": row["sha256"],
+                    "byte_count": row["byte_count"],
+                    "free_or_purchased": row["free_or_purchased"],
+                    "restriction_status": restrictions_by_key[
+                        (str(row["candidate_id"]), str(row["source_document_id"]))
+                    ]["restriction_status"],
+                    "restriction_evidence": restrictions_by_key[
+                        (str(row["candidate_id"]), str(row["source_document_id"]))
+                    ]["restriction_evidence"],
+                    "required_human_decision": "cleared_or_quarantined",
+                }
+                for row in purchased_rows
+            ],
+        )
+        _write_provenance_clearance(
+            tmp_path / "purchased-provenance",
+            manifest_path=purchased_manifest,
+            review_requests_path=purchased_provenance_requests,
+            case_relevance_path=purchased_relevance,
+            restriction_evidence_path=purchased_restrictions,
+            document_root=recovery / "documents/purchased",
+            cohort_policy_path=purchased_review.cohort_policy,
+            clearance_root=purchased_clearance_root,
+            monkeypatch=monkeypatch,
+        )
+    else:
+        assert (
+            main(
+                [
+                    "acquisition",
+                    "clear-disclosures",
+                    "--download-manifest",
+                    str(purchased_manifest),
+                    "--review-requests",
+                    str(purchased_review.requests),
+                    "--document-root",
+                    str(recovery / "documents/purchased"),
+                    "--review-worksheet",
+                    str(purchased_review.worksheet),
+                    "--reviews",
+                    str(purchased_review.reviews),
+                    "--review-receipt",
+                    str(purchased_review.receipt),
+                    "--reviewer-policy",
+                    str(purchased_review.policy),
+                    "--cohort-policy",
+                    str(purchased_review.cohort_policy),
+                    "--restriction-evidence",
+                    str(purchased_restrictions),
+                    "--output-root",
+                    str(purchased_clearance_root),
+                    "--execute",
+                ]
+            )
+            == 0
+        )
     materialized = tmp_path / "materialized"
     assert (
         main(

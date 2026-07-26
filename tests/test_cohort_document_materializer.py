@@ -510,7 +510,15 @@ def test_materialized_parse_rejects_stripped_unknown_origin_binding(
     monkeypatch.setattr(
         cli,
         "_verify_materialized_downstream_lineage",
-        lambda **_kwargs: (card, restriction, derivations, resolved),
+        lambda **_kwargs: cli._VerifiedMaterializedDownstreamLineage(
+            paths=(card, restriction, derivations, resolved),
+            artifact_bytes={},
+            manifest_records=(),
+            clearance_records=tuple(cli._read_records(clearance)),
+            selection_records=tuple(cli._read_records(selection)),
+            resolved_records=tuple(cli._read_records(resolved)),
+            document_tree={},
+        ),
     )
 
     assert (
@@ -536,3 +544,20 @@ def test_materialized_parse_rejects_stripped_unknown_origin_binding(
         == 2
     )
     assert "resolved post-recovery parse coverage mismatch" in capsys.readouterr().err
+
+
+def test_verified_artifact_snapshot_merge_rejects_unequal_overlap() -> None:
+    target = {"/tmp/source.json": b"A"}
+    cli._merge_verified_artifact_bytes(
+        target,
+        {"/tmp/source.json": b"A"},
+        label="fixture",
+    )
+    assert target == {"/tmp/source.json": b"A"}
+
+    with pytest.raises(cli.CommandError, match="snapshot collision"):
+        cli._merge_verified_artifact_bytes(
+            target,
+            {"/tmp/source.json": b"B"},
+            label="fixture",
+        )

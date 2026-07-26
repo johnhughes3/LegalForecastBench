@@ -309,7 +309,9 @@ def test_runbook_documents_operator_runnable_staged_fixture_chain() -> None:
         "init-purchase-ledger",
         "purchase-missing-recap-fetch",
         "recover-purchased",
-        "clear-disclosures",
+        "plan-disclosure-provenance",
+        "record-disclosure-review-decisions",
+        "clear-provenance-disclosures",
         "materialize-cohort-documents",
         "plan-parse-documents",
         "parse-documents",
@@ -346,7 +348,7 @@ def test_runbook_documents_operator_runnable_staged_fixture_chain() -> None:
         "paid_activity_requested=false",
         "paid_activity_executed=false",
         "no request ledger, provider request, or fee is created",
-        "without substituting a fixture review",
+        "Do not substitute fixture review decisions",
         "is never evidence of a Mistral call",
         (
             "No production parser, model provider, purchase broker, "
@@ -415,13 +417,14 @@ def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> No
     purchased_prepare = next(
         block
         for command, block in commands
-        if command == "prepare-disclosure-review"
+        if command == "plan-disclosure-provenance"
         and "$purchased_review_requests" in block
     )
     for option in (
         "--review-requests",
         "--download-manifest",
         "--document-root",
+        "--case-relevance",
         "--restriction-evidence",
         "--controlled-private-store-root",
     ):
@@ -430,15 +433,20 @@ def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> No
     purchased_clearance = next(
         block
         for command, block in commands
-        if command == "clear-disclosures" and "$purchased_review_requests" in block
+        if command == "clear-provenance-disclosures"
+        and "$purchased_review_requests" in block
     )
     for option in (
-        "--review-receipt",
-        "--reviewer-policy",
         "--cohort-policy",
         "--restriction-evidence",
+        "--routing-plan",
+        "--exception-worksheet",
+        "--exception-decisions",
+        "--exception-review-run-card",
     ):
         assert option in purchased_clearance
+    assert "--review-receipt" not in purchased_clearance
+    assert "--reviewer-policy" not in purchased_clearance
 
     resolution = _documented_command_block(runbook, "resolve-post-recovery-documents")
     for option in (
@@ -446,17 +454,23 @@ def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> No
         "--download-manifest",
         "--disclosure-clearance",
         "--clearance-run-card",
-        "--reviews",
-        "--review-receipt",
         "--restriction-evidence",
         "--resolved-output",
     ):
         assert option in resolution
+    assert "--reviews" not in resolution
+    assert "--review-receipt" not in resolution
 
     materializer = _documented_command_block(runbook, "materialize-cohort-documents")
     assert "<recover-recap-fetch-quarantine-root>" in materializer
     assert "$quarantine_recovery_root" in runbook
     assert "$resolved_post_recovery" in runbook
+    purchased_section = runbook.split(
+        "Run the same provenance-first disclosure procedure", maxsplit=1
+    )[1].split("### Expected Volumes", maxsplit=1)[0]
+    assert "hardware" not in purchased_section.casefold()
+    assert "build-disclosure-review-bundle" not in purchased_section
+    assert "seal-disclosure-review-bundle" not in purchased_section
 
 
 def test_release_dates_match_frozen_two_judge_stage_b_registry() -> None:
@@ -542,7 +556,7 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "legalforecast acquisition acquire-ranked-firecrawl-dockets",
         "legalforecast acquisition screen-firecrawl-dockets",
         "legalforecast acquisition prepare-target-100",
-        "legalforecast acquisition clear-disclosures",
+        "legalforecast acquisition clear-provenance-disclosures",
         "legalforecast acquisition project-target-cohort",
         "legalforecast acquisition generate-recap-fetch-broker-policy",
         "legalforecast acquisition init-purchase-ledger",
@@ -561,6 +575,11 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
     for disabled_command in ("legalforecast batch-002 discover \\",):
         assert disabled_command not in batch_002_section
     assert "--max-projected-budget-usd 567.30" in batch_002_section
+    assert "at least 100" in batch_002_section
+    assert "150 is not a prerequisite" in batch_002_section
+    assert "--target-case-count 100" in batch_002_section
+    assert "--target-case-count 150" not in batch_002_section
+    assert "Do not rewrite the preparation objective as 100" not in batch_002_section
     for hierarchy_contract in (
         "CourtListener remains the source",
         "Case.dev is used only for equivalent free lookup and prioritization",
@@ -586,7 +605,7 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         assert deprecated not in combined
 
 
-def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None:
+def test_disclosure_review_runbook_uses_provenance_first_contract() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     provenance = (
         ROOT / "docs" / "cohort-policy-cycle-1-target-100-2026-07-25-provenance.md"
@@ -622,7 +641,14 @@ def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None
         "1b2934646dffa68660a84fd2309b62852bdf6d36c26fdbc083ae792de3ea0a8b"
         not in provenance
     )
-    assert "LegalForecastBench-5qd6.39.7.1" in section
+    assert "Provenance clearance v1" in section
+    assert "plan-disclosure-provenance" in section
+    assert "clear-provenance-disclosures" in section
+    assert "preflight-disclosure-review-signer" not in section
+    assert "build-disclosure-review-bundle" not in section
+    assert "seal-disclosure-review-bundle" not in section
+    assert "hardware" not in section.casefold()
+    assert "--reviewer-policy" not in section
     assert 'launch_root="$preparation_root/09-launch-100"' in section
     snapshot_manifest = (
         "artifacts/cycle-1/official-acquisition-main-e0d7177-20260716/"
@@ -656,20 +682,19 @@ def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None
     assert "--expected-reviewer-policy-sha256" not in section
 
     required_options = {
-        "prepare-disclosure-review": ("--reviewer-policy", "--cohort-policy"),
-        "preflight-disclosure-review-signer": (
-            "--reviewer-policy",
+        "plan-disclosure-provenance": (
+            "--case-relevance",
+            "--restriction-evidence",
+        ),
+        "record-disclosure-review-decisions": (
+            "--review-worksheet",
+            "--reviewer-id",
+        ),
+        "clear-provenance-disclosures": (
+            "--case-relevance",
+            "--exception-review-run-card",
             "--cohort-policy",
         ),
-        "build-disclosure-review-bundle": (
-            "--reviewer-policy",
-            "--cohort-policy",
-        ),
-        "seal-disclosure-review-bundle": (
-            "--reviewer-policy",
-            "--cohort-policy",
-        ),
-        "clear-disclosures": ("--reviewer-policy", "--cohort-policy"),
     }
     for command, options in required_options.items():
         marker = f"uv run legalforecast acquisition {command}"

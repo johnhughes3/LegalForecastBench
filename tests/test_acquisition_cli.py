@@ -60,10 +60,34 @@ def _materialized_cli_unit_fixture(
         "_require_consistent_materialization_markers",
         lambda *args: True,
     )
+
+    def verified_materialized_lineage(
+        **kwargs: object,
+    ) -> cli._VerifiedMaterializedDownstreamLineage:
+        manifest_path = cast(Path, kwargs["manifest_path"])
+        clearance_path = cast(Path, kwargs["clearance_path"])
+        selection_path = cast(Path | None, kwargs.get("selection_path"))
+        artifact_paths = [run_card, manifest_path, clearance_path]
+        if selection_path is not None:
+            artifact_paths.append(selection_path)
+        return cli._VerifiedMaterializedDownstreamLineage(
+            paths=(run_card,),
+            artifact_bytes={
+                str(path.resolve()): path.read_bytes() for path in artifact_paths
+            },
+            manifest_records=tuple(_read_jsonl(manifest_path)),
+            clearance_records=tuple(_read_jsonl(clearance_path)),
+            selection_records=(
+                tuple(_read_jsonl(selection_path)) if selection_path is not None else ()
+            ),
+            resolved_records=(),
+            document_tree={},
+        )
+
     monkeypatch.setattr(
         cli,
         "_verify_materialized_downstream_lineage",
-        lambda **kwargs: (Path(kwargs["run_card_path"]),),
+        verified_materialized_lineage,
     )
     monkeypatch.setattr(
         cli,
@@ -2185,9 +2209,12 @@ def test_parse_and_build_packet_acquisition_fixture_flow(
     )
 
 
+@pytest.mark.parametrize("producer_mutation", [None, "raw", "markdown"])
 def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    producer_mutation: str | None,
 ) -> None:
     candidate_id = "70649963"
     output_root = tmp_path / "acquisition"
@@ -2262,45 +2289,64 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     document_root, materialization_card = _materialized_cli_unit_fixture(
         monkeypatch, tmp_path
     )
+    command = [
+        "acquisition",
+        "plan-packet-inputs",
+        "--selection",
+        str(selection_path),
+        "--download-manifest",
+        str(downloads_path),
+        "--parser-manifest",
+        str(parser_path),
+        "--disclosure-clearance",
+        str(clearance_path),
+        "--prediction-units",
+        str(units_path),
+        "--model-registry",
+        str(registry_path),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--raw-artifacts-manifest",
+        str(raw_artifacts_path),
+        "--document-root",
+        str(document_root),
+        "--markdown-root",
+        str(markdown_root),
+        "--materialization-run-card",
+        str(materialization_card),
+        "--output-root",
+        str(output_root),
+        "--generated-at",
+        _GENERATED_AT,
+        "--search-window",
+        "2026-04-24..2026-05-18",
+        "--execute",
+    ]
+    if producer_mutation is not None:
+        original_planner = cli.plan_packet_build_inputs
 
-    assert (
-        main(
-            [
-                "acquisition",
-                "plan-packet-inputs",
-                "--selection",
-                str(selection_path),
-                "--download-manifest",
-                str(downloads_path),
-                "--parser-manifest",
-                str(parser_path),
-                "--disclosure-clearance",
-                str(clearance_path),
-                "--prediction-units",
-                str(units_path),
-                "--model-registry",
-                str(registry_path),
-                "--raw-html-dir",
-                str(raw_html_dir),
-                "--raw-artifacts-manifest",
-                str(raw_artifacts_path),
-                "--document-root",
-                str(document_root),
-                "--markdown-root",
-                str(markdown_root),
-                "--materialization-run-card",
-                str(materialization_card),
-                "--output-root",
-                str(output_root),
-                "--generated-at",
-                _GENERATED_AT,
-                "--search-window",
-                "2026-04-24..2026-05-18",
-                "--execute",
-            ]
+        def mutate_after_planning(**kwargs: Any) -> Any:
+            plan = original_planner(**kwargs)
+            target = (
+                raw_html_path
+                if producer_mutation == "raw"
+                else markdown_root / candidate_id / "complaint.md"
+            )
+            target.write_bytes(b"mutated after captured-byte planning")
+            return plan
+
+        monkeypatch.setattr(cli, "plan_packet_build_inputs", mutate_after_planning)
+        expected = (
+            "raw HTML tree changed"
+            if producer_mutation == "raw"
+            else "Markdown tree changed"
         )
-        == 0
-    )
+        assert main(command) == 2
+        assert expected in capsys.readouterr().err
+        assert not (output_root / "run-cards" / "plan-packet-inputs.json").exists()
+        return
+
+    assert main(command) == 0
 
     packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
     assert packet_input["decision_date"] == "2026-05-18"
@@ -2349,6 +2395,45 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
 
     packet_input_path = output_root / "packet-build-input.jsonl"
     planner_card_path = output_root / "run-cards/plan-packet-inputs.json"
+    replay_kwargs = {
+        "packet_build_input_path": packet_input_path,
+        "selection_path": selection_path,
+        "download_manifest_path": downloads_path,
+        "parser_manifest_path": parser_path,
+        "clearance_path": clearance_path,
+        "prediction_units_path": units_path,
+        "model_registry_path": registry_path,
+        "raw_html_dir": raw_html_dir,
+        "raw_artifacts_manifest_path": raw_artifacts_path,
+        "document_root": document_root,
+        "markdown_root": markdown_root,
+        "materialization_run_card_path": materialization_card,
+        "resolved_post_recovery_documents_path": None,
+    }
+    original_planner = cli.plan_packet_build_inputs
+    for replay_mutation, target, expected in (
+        ("raw", raw_html_path, "raw HTML tree changed during replay"),
+        (
+            "markdown",
+            markdown_root / candidate_id / "complaint.md",
+            "Markdown tree changed during replay",
+        ),
+    ):
+        original_target = target.read_bytes()
+
+        def mutate_during_replay(
+            *, _target: Path = target, _kind: str = replay_mutation, **kwargs: Any
+        ) -> Any:
+            plan = original_planner(**kwargs)
+            _target.write_bytes(f"mutated replay {_kind}".encode())
+            return plan
+
+        monkeypatch.setattr(cli, "plan_packet_build_inputs", mutate_during_replay)
+        with pytest.raises(cli.CommandError, match=expected):
+            cli._validate_packet_input_run_card(planner_card_path, **replay_kwargs)
+        target.write_bytes(original_target)
+    monkeypatch.setattr(cli, "plan_packet_build_inputs", original_planner)
+
     original_packet_input = packet_input_path.read_bytes()
     original_planner_card = planner_card_path.read_bytes()
     cross_candidate_input = _read_jsonl(packet_input_path)
@@ -3426,8 +3511,8 @@ def test_packet_replay_rejects_parent_symlinks_and_hardlinked_files(
             "sha256": cli._path_sha256(source),
         }
     }
-    with pytest.raises(cli.CommandError, match="symlink in trusted root path"):
-        cli._packet_card_committed_path(alias_commitments, name="source")
+    with pytest.raises(cli.CommandError, match="parent is a symlink"):
+        cli._packet_card_committed_snapshot(alias_commitments, name="source")
 
     hardlink = tmp_path / "hardlinked.jsonl"
     hardlink.hardlink_to(source)
@@ -3437,8 +3522,8 @@ def test_packet_replay_rejects_parent_symlinks_and_hardlinked_files(
             "sha256": cli._path_sha256(hardlink),
         }
     }
-    with pytest.raises(cli.CommandError, match="must not be hardlinked"):
-        cli._packet_card_committed_path(hardlink_commitments, name="source")
+    with pytest.raises(cli.CommandError, match="singly linked regular"):
+        cli._packet_card_committed_snapshot(hardlink_commitments, name="source")
     with pytest.raises(cli.CommandError, match="must not be hardlinked"):
         cli._verify_parser_packet_authority(
             parse_plan_run_card_path=hardlink,
@@ -3457,6 +3542,30 @@ def test_packet_replay_rejects_parent_symlinks_and_hardlinked_files(
             materialization_run_card_path=source,
             document_root=real_root,
             markdown_root=real_root,
+        )
+
+
+def test_packet_materialization_commitments_require_complete_snapshot(
+    tmp_path: Path,
+) -> None:
+    selection = tmp_path / "selection.jsonl"
+    manifest = tmp_path / "manifest.jsonl"
+    clearance = tmp_path / "clearance.jsonl"
+    card = tmp_path / "card.json"
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    for path in (selection, manifest, clearance, card):
+        path.write_text("{}\n", encoding="utf-8")
+
+    with pytest.raises(cli.CommandError, match="snapshot is missing"):
+        cli._packet_materialization_lineage_commitments(
+            selection_path=selection,
+            download_manifest_path=manifest,
+            clearance_path=clearance,
+            document_root=document_root,
+            materialization_run_card_path=card,
+            captured_artifact_bytes={str(selection.resolve()): selection.read_bytes()},
+            document_tree_snapshot={},
         )
 
 

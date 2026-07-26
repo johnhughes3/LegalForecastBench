@@ -634,6 +634,75 @@ def test_cli_rejects_changed_authenticated_review_receipt(tmp_path: Path) -> Non
     assert main(argv) == 2
 
 
+def test_cli_accepts_provenance_first_clearance_without_legacy_review_flags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    argv, _, _, _ = _cli_fixture(tmp_path)
+    clearance_card_path = Path(argv[argv.index("--clearance-run-card") + 1])
+    reviews_path = Path(argv[argv.index("--reviews") + 1])
+    receipt_path = Path(argv[argv.index("--review-receipt") + 1])
+    case_relevance_path = (
+        Path(argv[argv.index("--preparation-root") + 1])
+        / "03-gap-bridge/case-relevance.jsonl"
+    )
+    card = json.loads(clearance_card_path.read_text())
+    sources = card["source_commitments"]
+    sources["exception_decisions"] = sources.pop("reviews")
+    sources["exception_review_run_card"] = sources.pop("review_receipt")
+    sources["exception_worksheet"] = sources.pop("review_worksheet")
+    sources["routing_plan"] = sources.pop("reviewer_policy")
+    sources["case_relevance"] = _path_commitment(case_relevance_path)
+    sources["document_root"] = {
+        "path": str(tmp_path / "documents"),
+        "tree_sha256": "sha256:" + "1" * 64,
+        "document_count": 151,
+    }
+    card["clearance_authority"] = {
+        "kind": "provenance_first_with_john_exceptions",
+        "authentication_claim": "interactive_hash_confirmation_only",
+        "cohort_policy_sha256": "sha256:" + "2" * 64,
+        "routing_plan_sha256": sources["routing_plan"]["sha256"],
+        "review_worksheet_sha256": sources["exception_worksheet"]["sha256"],
+        "exception_decisions_sha256": sources["exception_decisions"]["sha256"],
+        "exception_review_run_card_sha256": sources["exception_review_run_card"][
+            "sha256"
+        ],
+        "exception_batch_confirmation_sha256": "sha256:" + "3" * 64,
+        "exception_reviewer_id": "John Hughes",
+        "auto_clear_count": 0,
+        "john_review_count": 151,
+    }
+    clearance_card_path.write_text(
+        json.dumps(card, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    base_root = Path(argv[argv.index("--base-cohort-root") + 1])
+    base_summary_path = base_root / "target-cohort-projection.json"
+    base_summary = json.loads(base_summary_path.read_text())
+    clearance_digest = _sha(clearance_card_path.read_bytes())
+    base_summary["clearance_run_card_sha256"] = clearance_digest
+    base_summary["input_commitments"][str(clearance_card_path.resolve())] = (
+        clearance_digest
+    )
+    base_summary_path.write_text(
+        json.dumps(base_summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    monkeypatch.setattr(
+        "legalforecast.cli._verify_authenticated_clearance_run_card",
+        lambda **_kwargs: (),
+    )
+    provenance_argv = list(argv)
+    for option, value in (
+        ("--reviews", str(reviews_path)),
+        ("--review-receipt", str(receipt_path)),
+    ):
+        index = provenance_argv.index(option)
+        assert provenance_argv[index + 1] == value
+        del provenance_argv[index : index + 2]
+
+    assert main(provenance_argv) == 0
+
+
 def _cli_fixture(
     tmp_path: Path,
     *,

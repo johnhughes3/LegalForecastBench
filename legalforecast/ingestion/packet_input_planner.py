@@ -100,6 +100,7 @@ def load_verified_raw_artifacts(
     records: Iterable[Mapping[str, Any]],
     *,
     raw_html_dir: str | Path,
+    raw_artifact_bytes: Mapping[str, bytes] | None = None,
 ) -> Mapping[str, VerifiedRawArtifact]:
     """Verify and bind canonical raw-artifact rows by namespaced candidate ID."""
 
@@ -221,12 +222,19 @@ def load_verified_raw_artifacts(
                     "raw-artifact candidate/path ownership mismatch on line "
                     f"{line_number}: {candidate_id} does not own {relative_path}"
                 )
-        try:
-            payload = lexical_path.read_bytes()
-        except OSError as exc:
-            raise PacketInputPlanningError(
-                f"raw-artifact path is unreadable: {lexical_path}"
-            ) from exc
+        if raw_artifact_bytes is None:
+            try:
+                payload = lexical_path.read_bytes()
+            except OSError as exc:
+                raise PacketInputPlanningError(
+                    f"raw-artifact path is unreadable: {lexical_path}"
+                ) from exc
+        else:
+            payload = raw_artifact_bytes.get(relative_path.as_posix())
+            if payload is None:
+                raise PacketInputPlanningError(
+                    f"raw-artifact snapshot is missing: {relative_path.as_posix()}"
+                )
         if len(payload) != expected_byte_count:
             raise PacketInputPlanningError(
                 f"raw-artifact byte_count mismatch: {lexical_path}"
@@ -363,8 +371,10 @@ def plan_packet_build_inputs(
     prediction_unit_records: Iterable[Mapping[str, Any]],
     raw_html_dir: str | Path,
     raw_artifact_records: Iterable[Mapping[str, Any]] | None = None,
+    raw_artifact_bytes: Mapping[str, bytes] | None = None,
     document_root: str | Path,
     markdown_root: str | Path,
+    markdown_bytes: Mapping[str, bytes] | None = None,
     source_dir: str | Path,
     generated_at: datetime | None = None,
     search_query: str = "refined MTD decision terms",
@@ -383,6 +393,7 @@ def plan_packet_build_inputs(
         load_verified_raw_artifacts(
             raw_artifact_records,
             raw_html_dir=raw_html_root,
+            raw_artifact_bytes=raw_artifact_bytes,
         )
         if raw_artifact_records is not None
         else None
@@ -458,6 +469,7 @@ def plan_packet_build_inputs(
             ),
             document_root=document_root_path,
             markdown_root=markdown_root_path,
+            markdown_bytes=markdown_bytes,
             source_root=source_root,
             generated_at=timestamp,
             search_query=search_query,
@@ -505,6 +517,7 @@ def _plan_candidate(
     raw_artifact_binding: VerifiedRawArtifactBinding | None,
     document_root: Path,
     markdown_root: Path,
+    markdown_bytes: Mapping[str, bytes] | None,
     source_root: Path,
     generated_at: datetime,
     search_query: str,
@@ -618,6 +631,7 @@ def _plan_candidate(
             verified_markdown_path, markdown_text = _verified_parser_markdown(
                 parser_record,
                 markdown_root=markdown_root,
+                markdown_bytes=markdown_bytes,
             )
             if _required_bool(source_record, "is_mounted_for_model"):
                 document_leakage = _document_leakage_result(
@@ -1308,6 +1322,7 @@ def _verified_parser_markdown(
     parser_record: Mapping[str, Any],
     *,
     markdown_root: Path,
+    markdown_bytes: Mapping[str, bytes] | None = None,
 ) -> tuple[Path, str]:
     """Read one parser artifact through an owned, non-aliased containment path."""
 
@@ -1361,7 +1376,16 @@ def _verified_parser_markdown(
             f"parser markdown path escapes markdown root: {lexical_path}"
         )
     try:
-        text = lexical_path.read_text(encoding="utf-8")
+        payload = (
+            lexical_path.read_bytes()
+            if markdown_bytes is None
+            else markdown_bytes[relative_path.as_posix()]
+        )
+        text = payload.decode("utf-8")
+    except KeyError as exc:
+        raise PacketInputPlanningError(
+            f"parser Markdown snapshot is missing: {relative_path.as_posix()}"
+        ) from exc
     except (OSError, UnicodeError) as exc:
         raise PacketInputPlanningError(
             f"parser markdown is unreadable UTF-8: {lexical_path}"

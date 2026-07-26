@@ -246,27 +246,41 @@ def load_provider_cycle_caps(path: str | Path) -> ProviderCycleCaps:
 
     source = Path(path)
     try:
-        loaded: object = json.loads(source.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        payload = source.read_bytes()
+    except OSError as exc:
+        raise ProviderJournalError(
+            f"cannot load provider cycle caps artifact {source}: {exc}"
+        ) from exc
+    return load_provider_cycle_caps_bytes(payload, source=source)
+
+
+def load_provider_cycle_caps_bytes(
+    payload: bytes, *, source: str | Path
+) -> ProviderCycleCaps:
+    """Validate provider caps from one caller-captured immutable byte snapshot."""
+
+    try:
+        loaded: object = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ProviderJournalError(
             f"cannot load provider cycle caps artifact {source}: {exc}"
         ) from exc
     if not isinstance(loaded, dict):
         raise ProviderJournalError("provider cycle caps artifact must be a JSON object")
-    payload = cast(Mapping[str, object], loaded)
+    record = cast(Mapping[str, object], loaded)
     _exact_schema_keys(
-        payload,
+        record,
         required={"schema_version", "cycle_id", "providers"},
         optional={"spend_authority"},
         label="artifact",
     )
-    if payload.get("schema_version") != PROVIDER_CYCLE_CAPS_SCHEMA_VERSION:
+    if record.get("schema_version") != PROVIDER_CYCLE_CAPS_SCHEMA_VERSION:
         raise ProviderJournalError(
             "provider cycle caps artifact has unsupported schema_version"
         )
-    cycle_id = _required_nonempty_string(payload, "cycle_id")
-    spend_authority = _load_spend_authority(payload.get("spend_authority"))
-    raw_providers = payload.get("providers")
+    cycle_id = _required_nonempty_string(record, "cycle_id")
+    spend_authority = _load_spend_authority(record.get("spend_authority"))
+    raw_providers = record.get("providers")
     if not isinstance(raw_providers, list) or not raw_providers:
         raise ProviderJournalError(
             "provider cycle caps artifact providers must be a non-empty array"

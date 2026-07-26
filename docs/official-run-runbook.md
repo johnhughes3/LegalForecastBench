@@ -123,7 +123,7 @@ Every live-shaped fixture artifact has a mandatory adjacent `legalforecast.fixtu
 Removing, replacing, symlinking, or changing either the artifact or sidecar breaks finalization.
 Do not rewrite fixture parser fields to claim Mistral execution and do not copy rehearsal outputs into the official artifact names.
 
-The supported end-to-end fixture rehearsal starts only after the ordinary preparation root and free-document disclosure review have completed through the authenticated hardware-review procedure below.
+The supported end-to-end fixture rehearsal starts only after the ordinary preparation root and free-document disclosure review have completed through the provenance-first procedure below.
 The inputs named `<authenticated-free-...>` are real, immutable outputs of that procedure, not hand-authored fixtures.
 Project the exact cohort from those authenticated inputs first:
 
@@ -206,23 +206,45 @@ uv run legalforecast acquisition recover-purchased \
   --execute --no-resume
 ```
 
-The recovered purchased bytes still require the same authenticated hardware-review worksheet, recorder, bundle, signature, and sealed receipt used for real free documents.
-After that procedure has produced the exact purchased review artifacts, publish its clearance without substituting a fixture review:
+The recovered purchased bytes still require the same provenance-first plan, exception recorder, and replayed finalizer used for real free documents.
+Do not substitute fixture review decisions.
+Plan against the complete fixture-purchased case-relevance artifact, record any routed exceptions under the controlled private root, and finalize from those exact bytes:
 
 ```bash
-uv run legalforecast acquisition clear-disclosures \
+uv run legalforecast acquisition plan-disclosure-provenance \
+  --output-root <authenticated-purchased-review-root> \
+  --review-requests <authenticated-purchased-review-requests.jsonl> \
+  --download-manifest <offline-fixture-recovery-root/purchased-document-downloads.jsonl> \
+  --case-relevance <complete-fixture-purchased-case-relevance.jsonl> \
+  --document-root <offline-fixture-recovery-root/documents/purchased> \
+  --restriction-evidence <authenticated-purchased-restriction-evidence.jsonl> \
+  --controlled-private-store-root <absolute-private-purchased-review-root> \
+  --execute --no-resume
+```
+
+```bash
+uv run legalforecast acquisition record-disclosure-review-decisions \
+  --output-root <absolute-private-purchased-review-root/recorder-metadata> \
+  --review-worksheet <authenticated-purchased-review-root/disclosure-exception-worksheet.json> \
+  --private-inspection-map <absolute-private-purchased-review-root/private-document-inspection-map.jsonl> \
+  --reviewer-id "John Hughes" \
+  --controlled-private-store-root <absolute-private-purchased-review-root> \
+  --execute --no-resume
+```
+
+```bash
+uv run legalforecast acquisition clear-provenance-disclosures \
   --output-root <authenticated-purchased-clearance-root> \
   --review-requests <authenticated-purchased-review-requests.jsonl> \
   --download-manifest <offline-fixture-recovery-root/purchased-document-downloads.jsonl> \
+  --case-relevance <complete-fixture-purchased-case-relevance.jsonl> \
   --document-root <offline-fixture-recovery-root/documents/purchased> \
-  --review-worksheet <authenticated-purchased-review-worksheet.json> \
-  --reviews <authenticated-purchased-disclosure-reviews.jsonl> \
-  --review-receipt <authenticated-purchased-disclosure-review-receipt.json> \
-  --reviewer-policy <authenticated-hardware-reviewer-policy.json> \
-  --cohort-policy <authenticated-frozen-cohort-policy.json> \
   --restriction-evidence <authenticated-purchased-restriction-evidence.jsonl> \
-  --clearance-output <authenticated-purchased-clearance-root/disclosure-clearance.jsonl> \
-  --quarantine-output <authenticated-purchased-clearance-root/disclosure-quarantine.jsonl> \
+  --routing-plan <authenticated-purchased-review-root/disclosure-provenance-plan.json> \
+  --exception-worksheet <authenticated-purchased-review-root/disclosure-exception-worksheet.json> \
+  --exception-decisions <absolute-private-purchased-review-root/disclosure-review-decisions.jsonl> \
+  --exception-review-run-card <absolute-private-purchased-review-root/recorder-metadata/run-cards/record-disclosure-review-decisions.json> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json> \
   --execute --no-resume
 ```
 
@@ -840,7 +862,7 @@ A recovery is complete only when every expected matrix cell is present exactly o
 
 ## Cycle 1 Batch-002 CourtListener-First Acquisition
 
-The preferred hierarchy is saturated CourtListener search → `batch-002 seed-direct-search` → authenticated `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-cohort --target-case-count 150`. CourtListener remains the source for decision results, docket reconstruction, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap, as a compatibility fallback when authenticated REST cannot supply the required surface; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
+The preferred hierarchy is saturated CourtListener search → `batch-002 seed-direct-search` → authenticated `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-cohort --target-case-count 100`. CourtListener remains the source for decision results, docket reconstruction, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap, as a compatibility fallback when authenticated REST cannot supply the required surface; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
 
 ### Credential Prerequisites
 
@@ -1325,13 +1347,13 @@ Do not rank or prepare from partial outputs. Require the screening summary and s
 
 If the same cycle gains reviewed candidates after a completed PACER-gap bridge, first publish a complete saturated `union-screening-snapshots` output. Reuse old terminal checkpoints only through `rebase-pacer-gap-checkpoints` with both externally pinned manifest hashes and one `--expected-added-candidate-id` per exact addition. A pure append requires the old snapshot in the union ancestry. If a complete current-policy replay invalidates a prior acceptance, also pass one `--expected-invalidated-candidate-id` per exact invalidation; that explicitly pinned path may replace the ancestry requirement but must prove every other prior terminal evidence record and raw commitment unchanged. Both paths require exact screened projections, unchanged retained route semantics, and a terminal checkpoint for every prior paid gap. The receipt's `replay_required_candidate_ids` must equal the new paid-gap additions plus only invalidated candidates that remain currently routed; invalidated candidates removed from current routes must be recorded separately and not replayed. Otherwise stop. The rebase is provider-free and preserves byte-identical prior checkpoints when their index, input hash, and payload did not change.
 
-The acquisition objective and launch minimum are separate. Plan and preserve the full frontier against **150** clean cases. A supported initial launch may later project the cheapest cleared **100** cases from that same authenticated full pool. Do not rewrite the preparation objective as 100 merely because the supported launch projection is 100, and never raise or relax the frozen budget cap to make either count fit.
+The Cycle 1 launch requirement is **at least 100** clean cases. Plan and preserve the full untruncated frontier so acquisition can continue toward **150** as a nonblocking stretch/reserve target, but 150 is not a prerequisite for the first official run. Project the cheapest cleared 100 cases from the authenticated full pool, and never raise or relax the frozen budget cap or any eligibility, provenance, disclosure, leakage, or labeling gate to make either count fit.
 
-`legalforecast acquisition prepare-target-100` remains a compatibility wrapper for previously frozen exact-100 artifacts; do not use it to replace the 150-case preparation objective for this cycle.
+`legalforecast acquisition prepare-target-100` remains a compatibility wrapper for previously frozen exact-100 artifacts. The canonical path is still `prepare-target-cohort --target-case-count 100`, which preserves the complete frontier rather than truncating discovery to the launch denominator.
 
 ### Step 4: Prepare The Resolved Pool And Provisional Budget
 
-Run the public-first preparation chain from that immutable snapshot. This command plans public downloads against the 150-case objective, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits disclosure-review requests plus the full untruncated frontier. It never purchases a document.
+Run the public-first preparation chain from that immutable snapshot. This command plans public downloads against the 100-case launch requirement, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits disclosure-review requests plus the full untruncated frontier. It never purchases a document.
 
 ```bash
 SNAPSHOT=artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete
@@ -1341,7 +1363,7 @@ SNAPSHOT_MANIFEST_SHA256='REPLACE_WITH_EXTERNALLY_RECORDED_MANIFEST_SHA256'
 test "$(sha256sum "$SNAPSHOT/manifest.json" | cut -d' ' -f1)" = "$SNAPSHOT_MANIFEST_SHA256"
 
 uv run legalforecast acquisition prepare-target-cohort \
-  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier \
+  --output-root artifacts/cycle-1/official-acquisition/target-100-frontier \
   --snapshot "$SNAPSHOT" \
   --expected-snapshot-manifest-sha256 "$SNAPSHOT_MANIFEST_SHA256" \
   --expected-cycle-hash <snapshot-cycle-hash> \
@@ -1352,25 +1374,24 @@ uv run legalforecast acquisition prepare-target-cohort \
   --cost-per-document-usd 3.05 \
   --max-projected-budget-usd 567.30 \
   --max-missing-core-documents-per-case 24 \
-  --target-case-count 150 \
+  --target-case-count 100 \
   --execute --resume
 ```
 
-The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, 150-case objective, and full cost frontier. Cycle 1 freezes the provisional cap at `$567.30`; every later projection must repeat that exact value rather than falling back to the CLI default. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
+The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, 100-case launch requirement, and full cost frontier. Cycle 1 freezes the provisional cap at `$567.30`; every later projection must repeat that exact value rather than falling back to the CLI default. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
 
 An `is_sealed: null` provider field is unknown metadata, not affirmative evidence that a filing is sealed. The pipeline may continue trying public routes and later classify the document as a recoverable missing/paid gap. It must not mark the document free unless public availability is affirmatively proven, and packet admission still fails closed until disclosure clearance is complete.
 
 ### Step 5: Clear Every Free Document And Freeze The Exact Cohort
 
-Complete the supported authenticated disclosure-review flow over the full free manifest before projecting the exact cohort.
-The contract and artifact schemas are documented in [Disclosure review bundle v1](schemas/disclosure-review-bundle-v1.md).
+Complete the provenance-first disclosure flow over the full free manifest before projecting the exact cohort.
+The contract and artifact schemas are documented in [Provenance clearance v1](schemas/provenance-clearance-v1.md).
 Do not hand-edit a preparation, review, signature, receipt, clearance, or run-card artifact.
 
 This sequence is local, provider-free, and noncharging.
 Do not run a purchase, parser or labeling-model call, model evaluation, official freeze, or dispatch as part of this gate.
 
 Set paths for the exact completed preparation outputs, a normal acquisition review root, and a separate controlled private store.
-The frozen cohort policy selects the reviewer authority from the immutable main-pinned registry; callers cannot supply or replace the expected reviewer-policy digest.
 
 ```zsh
 preparation_root=artifacts/cycle-1/official-acquisition-main-e0d7177-20260716/target-150-plus-five-current-policy-v1/15-final-provider-free-union-main-4d3ba85-v1/33-10k-continuation-main-5781216-v1/21-target100-retarget-main-182bd3d-v1
@@ -1384,58 +1405,45 @@ launch_root="$preparation_root/09-launch-100"
 snapshot_manifest="artifacts/cycle-1/official-acquisition-main-e0d7177-20260716/target-150-plus-five-current-policy-v1/15-final-provider-free-union-main-4d3ba85-v1/33-10k-continuation-main-5781216-v1/15-final153-union-main-911371f-v1/snapshots/cycle1-final153-current-policy-union-main-911371f-v1/manifest.json"
 snapshot_manifest_sha256="487bec5f70289e212554a9af59fc195c9d6244060550d346612cb589405b138c"
 private_review_root=<absolute-controlled-private-review-root>
-reviewer_policy=<externally-reviewed-human-hardware-reviewer-policy.json>
 cohort_policy=docs/cohort-policy-cycle-1-target-100-2026-07-25.json
-controlled_store_uri=private-store://<authority>/<cycle-1-review-location>
 ```
 
 The current generated policy binds cycle hash `35f70123bfc966512d61119746ba09716332a181c074f131d553b56b610641cb`, the `2026-06-30` eligibility anchor, the saturated source window through `2026-07-23`, exactly 100 launch cases, and the unchanged `$567.30` cap.
 Its internal policy identity is `76c98406536e38fede7a1a72b60af731088fae04888b9662b1d3ed37538a7207`.
 The value-by-value human-authority and source derivation record is [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md).
-The main registry intentionally marks this identity unprovisioned until `LegalForecastBench-5qd6.39.7.1` supplies the reviewed human hardware signer; stop at preflight rather than substituting the superseded July 14 policy or an ordinary software key.
-
-First prepare the value-redacted worksheet and the private exact-byte inspection map.
+First derive the exact provenance routing plan, exception-only worksheet, and private exact-byte inspection map.
+Only exact marker-free bytes with affirmative public CourtListener provenance and a consistent visibility contract auto-clear; every other document routes to John, while positive sealed/private/restricted evidence and visibility contradictions remain impossible to clear.
 The private root must not equal, contain, or be contained by the acquisition output root.
 The command writes `private-document-inspection-map.jsonl` only under that private root and deliberately excludes its path and bytes from downstream run-card commitments.
+This no-FIDO flow trusts the integrity of that controlled private root and its owning host UID; reviewer names and timestamps are audit assertions, not cryptographic identity or trusted-time proof, and a suspected same-UID compromise requires discarding and repeating the clearance on a trusted host.
 
 ```zsh
-uv run legalforecast acquisition prepare-disclosure-review \
+uv run legalforecast acquisition plan-disclosure-provenance \
   --output-root "$review_root" \
   --review-requests "$review_requests" \
   --download-manifest "$download_manifest" \
+  --case-relevance "$preparation_root/03-gap-bridge/case-relevance.jsonl" \
   --document-root "$document_root" \
   --restriction-evidence "$restriction_evidence" \
-  --reviewer-policy "$reviewer_policy" \
-  --cohort-policy "$cohort_policy" \
-  --worksheet-output "$review_root/disclosure-review-worksheet.json" \
+  --routing-plan-output "$review_root/disclosure-provenance-plan.json" \
+  --exception-worksheet-output "$review_root/disclosure-exception-worksheet.json" \
   --controlled-private-store-root "$private_review_root" \
   --execute --resume
 ```
 
-Preflight the exact reviewer-policy bytes against the authority selected by the frozen cohort before recording an authenticated bundle:
-
-```zsh
-uv run legalforecast acquisition preflight-disclosure-review-signer \
-  --reviewer-policy "$reviewer_policy" \
-  --cohort-policy "$cohort_policy"
-```
-
-Production requires `identity_kind: "human_hardware"` and an `sk-ssh-ed25519@openssh.com` or `sk-ecdsa-sha2-nistp256@openssh.com` public key.
-The CLI has no production override for a software-key service/test identity.
-A hardware-backed signer must be configured before production review; if it is unavailable or preflight fails, stop and record the blocker rather than substituting an ordinary local SSH or Git key.
-
-Next, use the private interactive recorder; do not hand-author the decision JSONL.
+Next, use the private interactive recorder for the exception worksheet only; do not hand-author the decision JSONL.
 For every document it displays the exact private inspection path, SHA-256, restriction status, and marker categories, then requires the human to type the full inspected hash and an explicit decision.
-It finishes with an exact batch summary and typed batch confirmation; flagged or non-public documents cannot be cleared.
+It finishes with an exact batch summary and typed batch confirmation.
+Marker-only exceptions may be cleared by John; positive restrictions and visibility contradictions cannot.
 
 ```zsh
 decisions="$private_review_root/disclosure-review-decisions.jsonl"
 
 uv run legalforecast acquisition record-disclosure-review-decisions \
   --output-root "$private_review_root/recorder-metadata" \
-  --review-worksheet "$review_root/disclosure-review-worksheet.json" \
+  --review-worksheet "$review_root/disclosure-exception-worksheet.json" \
   --private-inspection-map "$private_review_root/private-document-inspection-map.jsonl" \
-  --reviewer-id reviewer:john \
+  --reviewer-id "John Hughes" \
   --controlled-private-store-root "$private_review_root" \
   --decisions-output "$decisions" \
   --execute --resume
@@ -1443,81 +1451,24 @@ uv run legalforecast acquisition record-disclosure-review-decisions \
 
 The recorder checkpoints each document before continuing and derives the final decisions only from the reloaded checkpoint bytes.
 If the process is interrupted or reports a failed stage, correct the underlying input or filesystem problem and rerun the identical command with `--resume`; do not edit the checkpoint, decision, run-card, or log artifacts.
-A valid failure-history prefix and a partially published terminal run-card/log pair are recovered automatically, while mismatched metadata or decision bytes fail closed.
-
-Set `authenticated_at` to an RFC 3339 time at or after every recorded `reviewed_at`, then build the canonical reviews and signing statement:
-
-```zsh
-authenticated_at=<RFC-3339-authentication-time>
-
-uv run legalforecast acquisition build-disclosure-review-bundle \
-  --output-root "$review_root" \
-  --review-worksheet "$review_root/disclosure-review-worksheet.json" \
-  --decisions "$decisions" \
-  --reviewer-policy "$reviewer_policy" \
-  --cohort-policy "$cohort_policy" \
-  --controlled-store-uri "$controlled_store_uri" \
-  --authenticated-at "$authenticated_at" \
-  --reviews-output "$review_root/disclosure-reviews.jsonl" \
-  --signing-statement-output "$review_root/disclosure-review-signing-statement.json" \
-  --execute --resume
-```
-
-Sign the exact statement outside LegalForecastBench with the precommitted human hardware-backed key and fixed SSHSIG namespace.
-Immediately before the hardware touch, display and inspect the exact per-document decision summary embedded in the statement:
-
-```zsh
-uv run legalforecast acquisition preflight-disclosure-review-signer \
-  --reviewer-policy "$reviewer_policy" \
-  --cohort-policy "$cohort_policy" \
-  --signing-statement "$review_root/disclosure-review-signing-statement.json"
-```
-
-The displayed candidate/document/status rows and cleared/quarantined counts are part of the signed bytes; stop if any row or count is wrong.
-OpenSSH writes the detached signature as `disclosure-review-signing-statement.json.sig`:
-
-```zsh
-/usr/bin/ssh-keygen -Y sign \
-  -f <hardware-backed-signing-key-or-key-reference> \
-  -n legalforecast-disclosure-review-v1 \
-  "$review_root/disclosure-review-signing-statement.json"
-```
-
-Do not reserialize or edit the statement after signing.
-Seal verifies the signature and the exact request, manifest, restriction, worksheet, review, policy, document-set, identity, provenance, and timestamp commitments before publishing the receipt:
-
-```zsh
-uv run legalforecast acquisition seal-disclosure-review-bundle \
-  --output-root "$review_root" \
-  --review-requests "$review_requests" \
-  --download-manifest "$download_manifest" \
-  --restriction-evidence "$restriction_evidence" \
-  --review-worksheet "$review_root/disclosure-review-worksheet.json" \
-  --reviews "$review_root/disclosure-reviews.jsonl" \
-  --decisions "$decisions" \
-  --signing-statement "$review_root/disclosure-review-signing-statement.json" \
-  --signature "$review_root/disclosure-review-signing-statement.json.sig" \
-  --reviewer-policy "$reviewer_policy" \
-  --cohort-policy "$cohort_policy" \
-  --review-receipt-output "$review_root/disclosure-review-receipt.json" \
-  --execute --resume
-```
+A valid failure-history prefix and a partially published terminal run-card/log pair are recovered automatically, while mismatched metadata, checkpoint trees, reviewer identity, timestamps, inspection-map bytes, or decision bytes fail closed.
 
 Finally, run clearance over the same exact inputs and current document bytes.
-The command recomputes the worksheet, requires byte-for-byte equality with the signed worksheet, verifies the receipt again, and fails closed on any drift or incomplete coverage:
+The command recomputes the plan and worksheet, reconstructs decisions from the recorder's committed checkpoints, verifies the frozen cohort policy, and fails closed on any drift or incomplete coverage:
 
 ```zsh
-uv run legalforecast acquisition clear-disclosures \
+uv run legalforecast acquisition clear-provenance-disclosures \
   --output-root "$clearance_root" \
   --review-requests "$review_requests" \
   --download-manifest "$download_manifest" \
+  --case-relevance "$preparation_root/03-gap-bridge/case-relevance.jsonl" \
   --document-root "$document_root" \
-  --review-worksheet "$review_root/disclosure-review-worksheet.json" \
-  --reviews "$review_root/disclosure-reviews.jsonl" \
-  --review-receipt "$review_root/disclosure-review-receipt.json" \
-  --reviewer-policy "$reviewer_policy" \
-  --cohort-policy "$cohort_policy" \
   --restriction-evidence "$restriction_evidence" \
+  --routing-plan "$review_root/disclosure-provenance-plan.json" \
+  --exception-worksheet "$review_root/disclosure-exception-worksheet.json" \
+  --exception-decisions "$decisions" \
+  --exception-review-run-card "$private_review_root/recorder-metadata/run-cards/record-disclosure-review-decisions.json" \
+  --cohort-policy "$cohort_policy" \
   --execute --resume
 ```
 
@@ -1526,7 +1477,7 @@ An identical retry must reuse matching bytes; changed inputs or outputs fail clo
 Use `--no-resume` only when an exclusive first publication is intended, never to replace an already frozen artifact.
 
 Clearance success is necessary but does not by itself authorize a downstream command.
-Before projection, recovery, parse, extension, packet planning, or finalization, require that command's current verifier to consume the completed clearance run card and carry its exact signed-review source commitments and reviewer-policy pin.
+Before projection, recovery, parse, extension, packet planning, or finalization, require that command's current verifier to consume the completed clearance run card and independently replay the provenance plan, checkpoint-derived exceptions, cohort-policy pin, exact document tree, and clearance projection.
 If the live downstream contract omits that lineage, stop here and fix the gate; do not pass loose clearance files as a substitute.
 
 Only after clearance succeeds may the supported 100-case launch cohort be projected from the 150-case preparation. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases. The first run has an exact-100 target; continued acquisition toward 150 is a nonblocking reserve and does not change that frozen denominator.
@@ -1634,12 +1585,15 @@ quarantine_recovery_root="$preparation_root/purchased-quarantine-recovery"
 uv run legalforecast acquisition recover-recap-fetch-quarantine \
   --output-root "$quarantine_recovery_root" \
   --selection "$launch_root/target-cohort-selection.jsonl" \
+  --case-relevance "$launch_root/case-relevance.jsonl" \
+  --target-projection-run-card "$launch_root/run-cards/project-target-cohort.json" \
   --purchase-policy "$purchase_policy" \
   --cohort-policy "$cohort_policy" \
   --budget-plan "$launch_root/missing-core-budget-plan.json" \
   --purchase-ledger "$purchase_ledger" \
   --attempt-policy "$attempt_policy" \
   --manifest-output "$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl" \
+  --case-relevance-output "$quarantine_recovery_root/purchased-case-relevance.jsonl" \
   --restriction-evidence-output "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
   --review-requests-output "$quarantine_recovery_root/disclosure-review-requests.jsonl" \
   --document-output-root "$quarantine_recovery_root/documents/recap-fetch-quarantine" \
@@ -1648,7 +1602,10 @@ uv run legalforecast acquisition recover-recap-fetch-quarantine \
   --execute --resume
 ```
 
-Run the same authenticated human-hardware disclosure procedure specified in Step 5 over these generated purchased-document inputs. The reviewer policy, cohort policy, controlled private store, interactive recorder, signed bundle, and sealed receipt requirements are unchanged. Start that procedure from the exact recovery outputs:
+Run the same provenance-first disclosure procedure specified in Step 5 over these generated purchased-document inputs.
+Purchased bytes do not auto-clear merely because a purchase succeeded: the planner reopens and hashes every recovered document, commits the complete purchased case-relevance view and fresh restriction evidence, and routes every non-affirmative or marked row to John.
+There is no signing-key, bundle, or sealed-receipt readiness dependency.
+Start from the exact recovery outputs and a complete case-relevance artifact for the purchased documents:
 
 ```zsh
 purchased_review_requests="$quarantine_recovery_root/disclosure-review-requests.jsonl"
@@ -1658,38 +1615,53 @@ purchased_restriction_evidence="$quarantine_recovery_root/post-recovery-restrict
 purchased_review_root="$preparation_root/purchased-disclosure-review"
 purchased_clearance_root="$preparation_root/purchased-clearance"
 purchased_private_review_root=<absolute-controlled-private-review-root-for-purchased-documents>
+purchased_case_relevance="$quarantine_recovery_root/purchased-case-relevance.jsonl"
 
-uv run legalforecast acquisition prepare-disclosure-review \
+uv run legalforecast acquisition plan-disclosure-provenance \
   --output-root "$purchased_review_root" \
   --review-requests "$purchased_review_requests" \
   --download-manifest "$purchased_download_manifest" \
+  --case-relevance "$purchased_case_relevance" \
   --document-root "$purchased_document_root" \
   --restriction-evidence "$purchased_restriction_evidence" \
-  --reviewer-policy "$reviewer_policy" \
-  --cohort-policy "$cohort_policy" \
-  --worksheet-output "$purchased_review_root/disclosure-review-worksheet.json" \
+  --routing-plan-output "$purchased_review_root/disclosure-provenance-plan.json" \
+  --exception-worksheet-output "$purchased_review_root/disclosure-exception-worksheet.json" \
   --controlled-private-store-root "$purchased_private_review_root" \
   --execute --resume
 ```
 
-After the Step 5 recorder, bundle, hardware signature, and seal commands have produced `disclosure-reviews.jsonl` and `disclosure-review-receipt.json` under `$purchased_review_root`, publish clearance from those same bytes:
+Record only the routed exceptions through the same checkpointed interactive recorder, then finalize clearance by replaying the exact purchased inputs and checkpoints:
 
 ```zsh
-uv run legalforecast acquisition clear-disclosures \
-  --output-root "$purchased_clearance_root" \
-  --review-requests "$purchased_review_requests" \
-  --download-manifest "$purchased_download_manifest" \
-  --document-root "$purchased_document_root" \
-  --review-worksheet "$purchased_review_root/disclosure-review-worksheet.json" \
-  --reviews "$purchased_review_root/disclosure-reviews.jsonl" \
-  --review-receipt "$purchased_review_root/disclosure-review-receipt.json" \
-  --reviewer-policy "$reviewer_policy" \
-  --cohort-policy "$cohort_policy" \
-  --restriction-evidence "$purchased_restriction_evidence" \
+uv run legalforecast acquisition record-disclosure-review-decisions \
+  --output-root "$purchased_private_review_root/recorder-metadata" \
+  --review-worksheet "$purchased_review_root/disclosure-exception-worksheet.json" \
+  --private-inspection-map "$purchased_private_review_root/private-document-inspection-map.jsonl" \
+  --reviewer-id "John Hughes" \
+  --controlled-private-store-root "$purchased_private_review_root" \
+  --decisions-output "$purchased_private_review_root/disclosure-review-decisions.jsonl" \
   --execute --resume
 ```
 
-Clearance alone does not rewrite the canonical purchase state. Bind the signed review, fresh restriction evidence, recovered bytes, attempt authority, and purchase operation into the immutable post-recovery resolution artifact:
+```zsh
+uv run legalforecast acquisition clear-provenance-disclosures \
+  --output-root "$purchased_clearance_root" \
+  --review-requests "$purchased_review_requests" \
+  --download-manifest "$purchased_download_manifest" \
+  --case-relevance "$purchased_case_relevance" \
+  --document-root "$purchased_document_root" \
+  --restriction-evidence "$purchased_restriction_evidence" \
+  --routing-plan "$purchased_review_root/disclosure-provenance-plan.json" \
+  --exception-worksheet "$purchased_review_root/disclosure-exception-worksheet.json" \
+  --exception-decisions "$purchased_private_review_root/disclosure-review-decisions.jsonl" \
+  --exception-review-run-card "$purchased_private_review_root/recorder-metadata/run-cards/record-disclosure-review-decisions.json" \
+  --cohort-policy "$cohort_policy" \
+  --execute --resume
+```
+
+Clearance alone does not rewrite the canonical purchase state.
+Bind the replayed provenance authority, fresh restriction evidence, recovered bytes, attempt authority, and purchase operation into the immutable post-recovery resolution artifact.
+For schema continuity the v1 resolved record's legacy-named review hash fields carry the exception-decisions and exception-recorder run-card hashes; the authority kind determines their semantics.
 
 ```bash
 resolved_post_recovery="$preparation_root/resolved-post-recovery/resolved-post-recovery-documents.jsonl"
@@ -1705,8 +1677,6 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --download-manifest "$purchased_download_manifest" \
   --disclosure-clearance "$purchased_clearance_root/disclosure-clearance.jsonl" \
   --clearance-run-card "$purchased_clearance_root/run-cards/clear-disclosures.json" \
-  --reviews "$purchased_review_root/disclosure-reviews.jsonl" \
-  --review-receipt "$purchased_review_root/disclosure-review-receipt.json" \
   --restriction-evidence "$purchased_restriction_evidence" \
   --resolved-output "$resolved_post_recovery" \
   --execute --resume

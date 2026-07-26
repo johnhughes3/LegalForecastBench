@@ -9,6 +9,7 @@ from legalforecast.ingestion.disclosure_clearance import (
     ReviewAuthority,
     build_clearance_records,
     ranked_replacement,
+    require_cleared_artifact_keys,
     require_cleared_documents,
     require_cleared_parse_requests,
     require_cleared_parser_records,
@@ -299,6 +300,163 @@ def test_ranked_replacement_uses_next_cheapest_under_same_cap() -> None:
     )
     assert selected.replacement_candidate_id == "c"
     assert selected.write_off_cost_usd == "3.05"
+
+
+def test_mixed_provenance_clearance_reaches_every_downstream_gate(
+    tmp_path: Path,
+) -> None:
+    documents: list[dict[str, object]] = []
+    clearances: list[dict[str, object]] = []
+    routing_sha256 = "a" * 64
+    cases = (
+        (
+            "public-auto",
+            "public",
+            ["courtlistener_public_download_record_checked"],
+            "affirmative_public_provenance",
+        ),
+        (
+            "rest-auto",
+            "unknown",
+            [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_true",
+                "courtlistener_rest_recap_document_is_sealed_unknown",
+                "courtlistener_rest_public_download_url_allowlisted",
+            ],
+            "affirmative_public_provenance",
+        ),
+        (
+            "john-exception",
+            "unknown",
+            [],
+            "john_exception_review",
+        ),
+    )
+    for candidate_id, restriction_status, evidence, basis in cases:
+        content = _text_pdf(candidate_id.encode())
+        relative_path = f"{candidate_id}/doc.pdf"
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True)
+        path.write_bytes(content)
+        digest = hashlib.sha256(content).hexdigest()
+        documents.append(
+            {
+                "candidate_id": candidate_id,
+                "source_document_id": "doc",
+                "local_path": relative_path,
+                "sha256": digest,
+                "byte_count": len(content),
+                "free_or_purchased": "free",
+            }
+        )
+        automatic = basis == "affirmative_public_provenance"
+        clearances.append(
+            {
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "candidate_id": candidate_id,
+                "source_document_id": "doc",
+                "local_path": relative_path,
+                "sha256": digest,
+                "byte_count": len(content),
+                "status": "cleared",
+                "automated_markers": [],
+                "restriction_status": restriction_status,
+                "restriction_evidence": evidence,
+                "reviewer_id": None if automatic else "John Hughes",
+                "controlled_store_provenance": (
+                    "https://storage.courtlistener.com/recap/example.pdf"
+                    if automatic
+                    else "private-store://john/disclosure-exception-review"
+                ),
+                "reviewed_at": None if automatic else "2026-07-25T00:00:00Z",
+                "free_or_purchased": "free",
+                "clearance_basis": basis,
+                "routing_plan_sha256": routing_sha256,
+            }
+        )
+
+    require_cleared_documents(
+        documents, document_root=tmp_path, clearance_records=clearances
+    )
+    parse_requests = [
+        {
+            "candidate_id": row["candidate_id"],
+            "source_document_id": "doc",
+            "expected_sha256": row["sha256"],
+            "expected_byte_count": row["byte_count"],
+        }
+        for row in documents
+    ]
+    require_cleared_parse_requests(parse_requests, clearances)
+    parser_records = [
+        {
+            "candidate_id": row["candidate_id"],
+            "source_document_id": "doc",
+            "source_sha256": row["sha256"],
+            "source_byte_count": row["byte_count"],
+        }
+        for row in documents
+    ]
+    require_cleared_parser_records(parser_records, clearances)
+    require_cleared_artifact_keys(
+        [(str(row["candidate_id"]), "doc") for row in documents], clearances
+    )
+
+    forged = dict(clearances[0])
+    forged["controlled_store_provenance"] = "https://example.com/recap.pdf"
+    with pytest.raises(DisclosureClearanceError, match="allowlisted public"):
+        require_cleared_documents(
+            documents,
+            document_root=tmp_path,
+            clearance_records=[forged, *clearances[1:]],
+        )
+
+    for field, value in (
+        ("restriction_status", "sealed"),
+        ("restriction_status", "under seal"),
+        ("restriction_evidence", ["courtlistener_is_sealed_true"]),
+        ("restriction_evidence", ["courtlistener is sealed true"]),
+    ):
+        forged_exception = dict(clearances[2])
+        forged_exception[field] = value
+        with pytest.raises(
+            DisclosureClearanceError, match="positive restriction evidence"
+        ):
+            require_cleared_documents(
+                documents,
+                document_root=tmp_path,
+                clearance_records=[*clearances[:2], forged_exception],
+            )
+        with pytest.raises(
+            DisclosureClearanceError, match="positive restriction evidence"
+        ):
+            require_cleared_parser_records(
+                parser_records, [*clearances[:2], forged_exception]
+            )
+
+
+def test_clearance_rejects_symlinked_document_root(tmp_path: Path) -> None:
+    real_root = tmp_path / "real"
+    real_root.mkdir()
+    document = _document(real_root, _text_pdf(b"Motion memorandum"))
+    [clearance] = build_clearance_records(
+        [document],
+        document_root=real_root,
+        reviews=[_review(document)],
+        review_authority=_authority(),
+        restriction_records=[_public_evidence()],
+    )
+    linked_root = tmp_path / "linked"
+    linked_root.symlink_to(real_root, target_is_directory=True)
+    with pytest.raises(DisclosureClearanceError, match=r"document_root.*symlink"):
+        require_cleared_documents(
+            [document],
+            document_root=linked_root,
+            clearance_records=[clearance.to_record()],
+        )
 
 
 def _text_pdf(text: bytes) -> bytes:

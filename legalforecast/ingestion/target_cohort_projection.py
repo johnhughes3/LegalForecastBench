@@ -12,6 +12,10 @@ from legalforecast.ingestion.core_document_filter import (
     CoreDocumentFilterResult,
     filter_core_documents,
 )
+from legalforecast.ingestion.disclosure_clearance import (
+    DisclosureClearanceError,
+    require_clearance_policy,
+)
 from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
     plan_missing_core_document_budget,
@@ -337,29 +341,12 @@ def _validate_clearance_binding(
         raise TargetCohortProjectionError(f"invalid clearance status: {key}")
     if status != "cleared":
         return
-    if clearance.get("restriction_status") not in _PUBLIC_RESTRICTION_STATUSES:
+    try:
+        require_clearance_policy(clearance, key=key, label="projected document")
+    except DisclosureClearanceError as exc:
         raise TargetCohortProjectionError(
-            f"cleared document lacks public restriction status: {key}"
-        )
-    for field in (
-        "reviewer_id",
-        "controlled_store_provenance",
-        "reviewed_at",
-    ):
-        _required_str(clearance, field)
-    evidence = clearance.get("restriction_evidence")
-    if (
-        not isinstance(evidence, Sequence)
-        or isinstance(evidence, (str, bytes))
-        or not evidence
-        or not all(
-            isinstance(item, str) and bool(item.strip())
-            for item in cast(Sequence[object], evidence)
-        )
-    ):
-        raise TargetCohortProjectionError(
-            f"cleared document lacks restriction evidence: {key}"
-        )
+            f"invalid clearance policy for {key}: {exc}"
+        ) from exc
 
 
 def restriction_evidence_from_case_relevance(

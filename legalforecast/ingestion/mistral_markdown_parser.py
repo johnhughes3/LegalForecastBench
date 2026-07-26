@@ -5,9 +5,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
+import stat
 import subprocess
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -55,6 +58,7 @@ class MistralMarkdownConversionRequest:
     markdown_output_path: Path
     expected_sha256: str | None = None
     expected_byte_count: int | None = None
+    captured_source_bytes: bytes | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,7 +171,7 @@ def convert_documents_to_markdown(
     runner: ParserProcessRunner | None = None,
     extracted_at: datetime | None = None,
 ) -> tuple[MistralMarkdownConversionRecord, ...]:
-    """Convert documents independently so one parser failure cannot poison a run."""
+    """Isolate ordinary failures; abort on staging or output safety violations."""
 
     if not requests:
         return ()
@@ -208,7 +212,7 @@ def _convert_one(
     extracted_at: datetime,
 ) -> MistralMarkdownConversionRecord:
     input_path = request.input_path.expanduser().resolve()
-    markdown_path = request.markdown_output_path.expanduser().resolve()
+    markdown_path = Path(os.path.abspath(request.markdown_output_path.expanduser()))
     metadata_path = markdown_path.with_suffix(".metadata.json")
     artifact_root = markdown_path.parent.parent
     parser_config = _parser_config_record(
@@ -233,12 +237,70 @@ def _convert_one(
         _write_metadata(metadata_path, record)
         return record
 
-    _verify_source_commitments(request, input_path)
+    if request.captured_source_bytes is None:
+        _verify_source_commitments(request, input_path)
+    with _parser_input_snapshot(
+        request, input_path=input_path, artifact_root=artifact_root
+    ) as (parser_input_path, parser_input_directory_fd):
+        record, markdown_payload = _run_verified_conversion(
+            request,
+            input_path=input_path,
+            parser_input_path=parser_input_path,
+            parser_input_directory_fd=parser_input_directory_fd,
+            markdown_path=markdown_path,
+            metadata_path=metadata_path,
+            artifact_root=artifact_root,
+            parser_config=parser_config,
+            config=config,
+            parser_root=parser_root,
+            runner=runner,
+            extracted_at=extracted_at,
+        )
+    if markdown_payload is not None:
+        _write_unique_regular_file(markdown_path, markdown_payload)
+    _write_metadata(metadata_path, record)
+    return record
 
-    command = _parser_command(input_path, config)
+
+def _run_verified_conversion(
+    request: MistralMarkdownConversionRequest,
+    *,
+    input_path: Path,
+    parser_input_path: Path,
+    parser_input_directory_fd: int | None,
+    markdown_path: Path,
+    metadata_path: Path,
+    artifact_root: Path,
+    parser_config: dict[str, Any],
+    config: MistralParserConfig,
+    parser_root: Path,
+    runner: ParserProcessRunner,
+    extracted_at: datetime,
+) -> tuple[MistralMarkdownConversionRecord, bytes | None]:
+    generated_markdown_path = parser_input_path.with_suffix(".md")
+    if parser_input_directory_fd is not None and _entry_exists_at(
+        parser_input_directory_fd, generated_markdown_path.name
+    ):
+        _safe_unlink_staging_entry(
+            parser_input_directory_fd, generated_markdown_path.name
+        )
+    elif parser_input_path != input_path and generated_markdown_path.exists():
+        _safe_unlink_staging_file(generated_markdown_path, artifact_root=artifact_root)
+    command = _parser_command(parser_input_path, config)
     result = runner.run(
         command, cwd=parser_root, timeout_seconds=config.timeout_seconds
     )
+    if request.captured_source_bytes is not None:
+        if parser_input_directory_fd is None:
+            raise AssertionError("captured parser source lacks pinned directory")
+        _require_stage_directory_unchanged(
+            parser_input_path.parent, parser_input_directory_fd
+        )
+        _require_staged_source_unchanged_at(
+            parser_input_directory_fd,
+            parser_input_path.name,
+            bytes(request.captured_source_bytes),
+        )
     parser_config = {**parser_config, "command": list(command)}
     if result.timed_out:
         record = _failure_record(
@@ -254,8 +316,7 @@ def _convert_one(
             stdout=result.stdout,
             stderr=result.stderr,
         )
-        _write_metadata(metadata_path, record)
-        return record
+        return record, None
     if result.return_code != 0:
         error_message = (
             result.stderr.strip() or result.stdout.strip() or "parser failed"
@@ -273,13 +334,27 @@ def _convert_one(
             stdout=result.stdout,
             stderr=result.stderr,
         )
-        _write_metadata(metadata_path, record)
-        return record
+        return record, None
 
-    generated_markdown_path = input_path.with_suffix(".md")
-    if not generated_markdown_path.exists() and markdown_path.exists():
-        generated_markdown_path = markdown_path
-    if not generated_markdown_path.exists():
+    generated_markdown: bytes | None = None
+    try:
+        if parser_input_directory_fd is not None:
+            if _entry_exists_at(
+                parser_input_directory_fd, generated_markdown_path.name
+            ):
+                generated_markdown = _read_unique_regular_file_at(
+                    parser_input_directory_fd, generated_markdown_path.name
+                )
+        else:
+            if not generated_markdown_path.exists() and markdown_path.exists():
+                generated_markdown_path = markdown_path
+            if generated_markdown_path.exists():
+                generated_markdown = _read_unique_regular_file(generated_markdown_path)
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            f"parser Markdown output is unsafe: {generated_markdown_path}"
+        ) from exc
+    if generated_markdown is None:
         record = _failure_record(
             request,
             input_path=input_path,
@@ -293,13 +368,14 @@ def _convert_one(
             stdout=result.stdout,
             stderr=result.stderr,
         )
-        _write_metadata(metadata_path, record)
-        return record
+        return record, None
 
-    markdown = generated_markdown_path.read_text(encoding="utf-8")
-    markdown_path.parent.mkdir(parents=True, exist_ok=True)
-    if generated_markdown_path != markdown_path:
-        markdown_path.write_text(markdown, encoding="utf-8")
+    try:
+        markdown = generated_markdown.decode("utf-8")
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        raise ValueError(
+            f"parser Markdown output is unsafe: {generated_markdown_path}"
+        ) from exc
     quality_flags = () if markdown.strip() else ("empty_markdown",)
     extracted_text = ExtractedTextArtifact(
         source_document_id=request.source_document_id,
@@ -323,8 +399,7 @@ def _convert_one(
         stdout=result.stdout,
         stderr=result.stderr,
     )
-    _write_metadata(metadata_path, record)
-    return record
+    return record, generated_markdown
 
 
 def _verify_source_commitments(
@@ -346,6 +421,184 @@ def _verify_source_commitments(
             "parser source byte count changed before spawn: "
             f"{request.source_document_id}"
         )
+
+
+def _verify_captured_source_commitments(
+    request: MistralMarkdownConversionRequest, payload: bytes
+) -> None:
+    if request.expected_sha256 is None or request.expected_byte_count is None:
+        raise ValueError("captured parser source requires hash and byte count")
+    if hashlib.sha256(payload).hexdigest() != request.expected_sha256:
+        raise ValueError(
+            f"captured parser source hash mismatch: {request.source_document_id}"
+        )
+    if len(payload) != request.expected_byte_count:
+        raise ValueError(
+            f"captured parser source byte count mismatch: {request.source_document_id}"
+        )
+
+
+@contextmanager
+def _parser_input_snapshot(
+    request: MistralMarkdownConversionRequest,
+    *,
+    input_path: Path,
+    artifact_root: Path,
+) -> Generator[tuple[Path, int | None]]:
+    if request.captured_source_bytes is None:
+        yield input_path, None
+        return
+    payload = bytes(request.captured_source_bytes)
+    _verify_captured_source_commitments(request, payload)
+    stage_path, directory_fd = _stage_captured_source(
+        request,
+        payload=payload,
+        artifact_root=artifact_root,
+        suffix=input_path.suffix,
+    )
+    try:
+        yield stage_path, directory_fd
+    except BaseException:
+        try:
+            _cleanup_parser_input_snapshot(stage_path, directory_fd)
+        except BaseException:
+            # Teardown must not replace the parser or verification failure that
+            # caused this context to unwind.
+            pass
+        raise
+    else:
+        _cleanup_parser_input_snapshot(stage_path, directory_fd)
+
+
+def _cleanup_parser_input_snapshot(stage_path: Path, directory_fd: int) -> None:
+    cleanup_error: Exception | None = None
+    directory_is_current = False
+    try:
+        for name in (stage_path.with_suffix(".md").name, stage_path.name):
+            try:
+                if _entry_exists_at(directory_fd, name):
+                    _safe_unlink_staging_entry(directory_fd, name)
+            except Exception as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        try:
+            _drain_unique_regular_staging_entries(directory_fd)
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+        directory_is_current = _stage_directory_is_current(
+            stage_path.parent, directory_fd
+        )
+    finally:
+        os.close(directory_fd)
+
+    if directory_is_current:
+        digest_dir = stage_path.parent
+        stage_root = digest_dir.parent
+        try:
+            digest_dir.rmdir()
+        except OSError as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+        else:
+            try:
+                stage_root.rmdir()
+            except OSError:
+                pass
+    if cleanup_error is not None:
+        raise cleanup_error
+
+
+def _drain_unique_regular_staging_entries(directory_fd: int) -> None:
+    cleanup_error: Exception | None = None
+    for name in sorted(os.listdir(directory_fd)):
+        try:
+            metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise ValueError(
+                    f"parser staging cleanup found an unsafe alias: {name}"
+                )
+            os.unlink(name, dir_fd=directory_fd)
+            raise ValueError(f"unexpected parser staging residue: {name}")
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+    if cleanup_error is not None:
+        raise cleanup_error
+
+
+def _stage_captured_source(
+    request: MistralMarkdownConversionRequest,
+    *,
+    payload: bytes,
+    artifact_root: Path,
+    suffix: str,
+) -> tuple[Path, int]:
+    digest = hashlib.sha256(payload).hexdigest()
+    stage_root = artifact_root / ".parser-source-snapshots"
+    stage_dir = stage_root / f"{digest}-{secrets.token_hex(8)}"
+    directory_fd = _open_or_create_directory_fd(stage_dir)
+    stage_path = stage_dir / f"source{suffix or '.bin'}"
+    try:
+        _write_unique_regular_file_at(directory_fd, stage_path.name, payload)
+        _require_staged_source_unchanged_at(directory_fd, stage_path.name, payload)
+    except BaseException:
+        os.close(directory_fd)
+        raise
+    return stage_path, directory_fd
+
+
+def _safe_unlink_staging_file(path: Path, *, artifact_root: Path) -> None:
+    if not Path(os.path.abspath(path)).is_relative_to(
+        Path(os.path.abspath(artifact_root))
+    ):
+        raise ValueError(f"parser staging cleanup escapes artifact root: {path}")
+    metadata = path.lstat()
+    if stat.S_ISDIR(metadata.st_mode):
+        raise ValueError(f"parser staging cleanup found a directory: {path}")
+    if stat.S_ISREG(metadata.st_mode):
+        path.chmod(0o600, follow_symlinks=False)
+    path.unlink()
+
+
+def _entry_exists_at(directory_fd: int, name: str) -> bool:
+    try:
+        os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def _safe_unlink_staging_entry(directory_fd: int, name: str) -> None:
+    metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    if stat.S_ISDIR(metadata.st_mode):
+        raise ValueError(f"parser staging cleanup found a directory: {name}")
+    os.unlink(name, dir_fd=directory_fd)
+
+
+def _stage_directory_is_current(path: Path, directory_fd: int) -> bool:
+    try:
+        current = path.stat(follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    pinned = os.fstat(directory_fd)
+    return (
+        stat.S_ISDIR(current.st_mode)
+        and current.st_dev == pinned.st_dev
+        and current.st_ino == pinned.st_ino
+    )
+
+
+def _require_stage_directory_unchanged(path: Path, directory_fd: int) -> None:
+    if not _stage_directory_is_current(path, directory_fd):
+        raise ValueError(f"parser source staging directory changed: {path}")
+
+
+def _require_staged_source_unchanged_at(
+    directory_fd: int, name: str, payload: bytes
+) -> None:
+    if _read_unique_regular_file_at(directory_fd, name) != payload:
+        raise ValueError(f"parser source staging bytes changed: {name}")
 
 
 def _parser_command(input_path: Path, config: MistralParserConfig) -> tuple[str, ...]:
@@ -397,11 +650,162 @@ def _write_metadata(
     metadata_path: Path,
     record: MistralMarkdownConversionRecord,
 ) -> None:
-    metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    metadata_path.write_text(
-        json.dumps(record.to_record(), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    _write_unique_regular_file(
+        metadata_path,
+        (json.dumps(record.to_record(), indent=2, sort_keys=True) + "\n").encode(
+            "utf-8"
+        ),
     )
+
+
+def _write_unique_regular_file(path: Path, payload: bytes) -> None:
+    """Atomically publish bytes without following links or writing hardlinks."""
+
+    directory_fd = _open_or_create_directory_fd(path.parent)
+    temporary_name = f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
+    try:
+        try:
+            existing_fd = os.open(
+                path.name,
+                os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+                dir_fd=directory_fd,
+            )
+        except FileNotFoundError:
+            existing_fd = None
+        if existing_fd is not None:
+            try:
+                metadata = os.fstat(existing_fd)
+                if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                    raise ValueError(f"parser output path is unsafe: {path}")
+            finally:
+                os.close(existing_fd)
+        temporary_fd = os.open(
+            temporary_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600,
+            dir_fd=directory_fd,
+        )
+        try:
+            view = memoryview(payload)
+            while view:
+                written = os.write(temporary_fd, view)
+                view = view[written:]
+            os.fsync(temporary_fd)
+        finally:
+            os.close(temporary_fd)
+        os.replace(
+            temporary_name,
+            path.name,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+        )
+        os.fsync(directory_fd)
+        if not _stage_directory_is_current(path.parent, directory_fd):
+            raise ValueError(
+                f"parser output parent changed during publish: {path.parent}"
+            )
+    finally:
+        try:
+            os.unlink(temporary_name, dir_fd=directory_fd)
+        except FileNotFoundError:
+            pass
+        os.close(directory_fd)
+
+
+def _write_unique_regular_file_at(directory_fd: int, name: str, payload: bytes) -> None:
+    file_fd = os.open(
+        name,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o600,
+        dir_fd=directory_fd,
+    )
+    try:
+        view = memoryview(payload)
+        while view:
+            written = os.write(file_fd, view)
+            view = view[written:]
+        os.fsync(file_fd)
+    finally:
+        os.close(file_fd)
+    os.fsync(directory_fd)
+
+
+def _open_or_create_directory_fd(path: Path) -> int:
+    absolute = Path(os.path.abspath(path))
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    directory_fd = os.open(absolute.anchor, flags)
+    try:
+        for component in absolute.parts[1:]:
+            try:
+                next_fd = os.open(component, flags, dir_fd=directory_fd)
+            except FileNotFoundError:
+                os.mkdir(component, mode=0o700, dir_fd=directory_fd)
+                next_fd = os.open(component, flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+    except BaseException:
+        os.close(directory_fd)
+        raise
+    return directory_fd
+
+
+def _read_unique_regular_file(path: Path) -> bytes:
+    absolute = Path(os.path.abspath(path))
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    file_flags = os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC
+    directory_fd = os.open(absolute.anchor, directory_flags)
+    file_fd: int | None = None
+    try:
+        for component in absolute.parts[1:-1]:
+            next_fd = os.open(component, directory_flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+        file_fd = os.open(absolute.name, file_flags, dir_fd=directory_fd)
+        before = os.fstat(file_fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise ValueError(f"parser artifact is not a unique regular file: {path}")
+        chunks: list[bytes] = []
+        while chunk := os.read(file_fd, 1024 * 1024):
+            chunks.append(chunk)
+        after = os.fstat(file_fd)
+        if (
+            after.st_dev != before.st_dev
+            or after.st_ino != before.st_ino
+            or after.st_size != before.st_size
+            or after.st_nlink != 1
+        ):
+            raise ValueError(f"parser artifact changed during read: {path}")
+        return b"".join(chunks)
+    finally:
+        if file_fd is not None:
+            os.close(file_fd)
+        os.close(directory_fd)
+
+
+def _read_unique_regular_file_at(directory_fd: int, name: str) -> bytes:
+    file_fd = os.open(
+        name,
+        os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+        dir_fd=directory_fd,
+    )
+    try:
+        before = os.fstat(file_fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise ValueError(f"parser artifact is not a unique regular file: {name}")
+        chunks: list[bytes] = []
+        while chunk := os.read(file_fd, 1024 * 1024):
+            chunks.append(chunk)
+        after = os.fstat(file_fd)
+        if (
+            after.st_dev != before.st_dev
+            or after.st_ino != before.st_ino
+            or after.st_size != before.st_size
+            or after.st_nlink != 1
+        ):
+            raise ValueError(f"parser artifact changed during read: {name}")
+        return b"".join(chunks)
+    finally:
+        os.close(file_fd)
 
 
 def _parser_config_record(

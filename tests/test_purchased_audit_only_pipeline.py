@@ -454,9 +454,13 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     for path in (unit_card, structural_card, apply_card):
         path.write_text("{}\n", encoding="utf-8")
     _write_jsonl(review_queue, [])
+    parser_records = tuple(_read_jsonl(parser_manifest))
+    markdown_tree, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        parser_records, markdown_root=output_root / "markdown"
+    )
     lineage = cli._StageAUnitizationLineage(
         selection_records=(selection,),
-        parser_records=tuple(_read_jsonl(parser_manifest)),
+        parser_records=parser_records,
         registry_entry=entry,
         registry_sha256=registry_sha,
         provider_caps=caps,
@@ -467,7 +471,10 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
         cohort_cycle_id=caps.cycle_id,
         input_paths=(),
         input_commitments={},
-        markdown_tree={},
+        markdown_tree=markdown_tree,
+        file_snapshots={},
+        document_tree=cli._materializer_tree_snapshot(document_root),
+        markdown_bytes=markdown_bytes,
     )
     monkeypatch.setattr(
         cli,

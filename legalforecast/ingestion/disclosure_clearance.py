@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import stat
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlsplit
 
 from legalforecast.extraction.pdf_text import (
     PDFExtractionError,
@@ -25,6 +28,22 @@ _CLEAR = "cleared"
 _QUARANTINED = "quarantined"
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
 _PUBLIC_STATUSES = frozenset({"public", "redacted"})
+_PROVENANCE_PUBLIC_EVIDENCE = frozenset(
+    {"courtlistener_public_download_record_checked"}
+)
+_PROVENANCE_REST_PUBLIC_EVIDENCE = frozenset(
+    {
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_available_true",
+        "courtlistener_rest_recap_document_is_sealed_unknown",
+        "courtlistener_rest_public_download_url_allowlisted",
+    }
+)
+_POSITIVE_RESTRICTION_EVIDENCE = re.compile(
+    r"(?:^|_)(?:sealed|private|restricted|under_seal)(?:_true|$)"
+)
 _SSN = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
 _DOB = re.compile(
     r"\b(?:date\s+of\s+birth|d\.o\.b\.|dob)\s*[:\-]?\s*"
@@ -62,11 +81,13 @@ class ClearanceRecord:
     controlled_store_provenance: str | None
     reviewed_at: str | None
     free_or_purchased: str
+    clearance_basis: str = "legacy_authenticated_review"
+    routing_plan_sha256: str | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return the stable artifact row without sensitive matched values."""
 
-        return {
+        record: dict[str, object] = {
             "schema_version": SCHEMA_VERSION,
             "candidate_id": self.candidate_id,
             "source_document_id": self.source_document_id,
@@ -82,6 +103,10 @@ class ClearanceRecord:
             "reviewed_at": self.reviewed_at,
             "free_or_purchased": self.free_or_purchased,
         }
+        if self.clearance_basis != "legacy_authenticated_review":
+            record["clearance_basis"] = self.clearance_basis
+            record["routing_plan_sha256"] = self.routing_plan_sha256
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,7 +305,7 @@ def require_cleared_documents(
             raise DisclosureClearanceError(f"unsupported clearance schema: {key}")
         if clearance.get("status") != _CLEAR:
             raise DisclosureClearanceError(f"document lacks clearance: {key}")
-        _require_public_restriction(clearance, key=key, label="document")
+        require_clearance_policy(clearance, key=key, label="document")
         path = _safe_document_path(document_root, _required_str(document, "local_path"))
         data = _read_document(path, key)
         digest = hashlib.sha256(data).hexdigest()
@@ -293,7 +318,6 @@ def require_cleared_documents(
             raise DisclosureClearanceError(
                 f"cleared document byte count changed: {key}"
             )
-        _require_review_provenance(clearance, key=key)
 
 
 def verify_parse_request_bytes(request: Mapping[str, object]) -> None:
@@ -392,9 +416,17 @@ def _validated_clearance_index(
             )
         _digest(row, "sha256")
         _positive_int(row, "byte_count")
-        _require_public_restriction(row, key=key, label="parser document")
-        _require_review_provenance(row, key=key)
+        require_clearance_policy(row, key=key, label="parser document")
     return index
+
+
+def require_clearance_policy(
+    row: Mapping[str, object], *, key: tuple[str, str], label: str
+) -> None:
+    """Validate one clearance row under the canonical downstream policy."""
+
+    _require_clearance_restriction(row, key=key, label=label)
+    _require_clearance_provenance(row, key=key)
 
 
 def _require_public_restriction(
@@ -416,9 +448,83 @@ def _require_public_restriction(
         raise DisclosureClearanceError(f"{label} lacks restriction evidence: {key}")
 
 
-def _require_review_provenance(
+def _require_clearance_restriction(
+    row: Mapping[str, object], *, key: tuple[str, str], label: str
+) -> None:
+    basis = row.get("clearance_basis")
+    if basis == "john_exception_review":
+        status = _required_str(row, "restriction_status")
+        evidence_value = row.get("restriction_evidence")
+        if not isinstance(evidence_value, (list, tuple)) or not all(
+            isinstance(item, str) and bool(item.strip())
+            for item in cast(Sequence[object], evidence_value)
+        ):
+            raise DisclosureClearanceError(
+                f"John-reviewed {label} has malformed restriction evidence: {key}"
+            )
+        if normalize_restriction_token(status) in _RESTRICTED_STATUSES or any(
+            _POSITIVE_RESTRICTION_EVIDENCE.search(normalize_restriction_token(item))
+            for item in cast(Sequence[str], evidence_value)
+        ):
+            raise DisclosureClearanceError(
+                f"John-reviewed {label} has positive restriction evidence: {key}"
+            )
+        return
+    if basis != "affirmative_public_provenance":
+        _require_public_restriction(row, key=key, label=label)
+        return
+    evidence_value = row.get("restriction_evidence")
+    if not isinstance(evidence_value, (list, tuple)) or not all(
+        isinstance(item, str) and bool(item.strip())
+        for item in cast(Sequence[object], evidence_value)
+    ):
+        raise DisclosureClearanceError(f"{label} lacks restriction evidence: {key}")
+    evidence = frozenset(cast(Sequence[str], evidence_value))
+    status = row.get("restriction_status")
+    if not (
+        (status == "public" and evidence == _PROVENANCE_PUBLIC_EVIDENCE)
+        or (status == "unknown" and evidence == _PROVENANCE_REST_PUBLIC_EVIDENCE)
+    ):
+        raise DisclosureClearanceError(
+            f"automatic {label} lacks exact public provenance evidence: {key}"
+        )
+
+
+def _require_clearance_provenance(
     row: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
+    basis = row.get("clearance_basis")
+    if basis == "affirmative_public_provenance":
+        if row.get("reviewed_at") is not None or row.get("reviewer_id") is not None:
+            raise DisclosureClearanceError(
+                f"automatic clearance unexpectedly has a reviewer: {key}"
+            )
+        provenance = _optional_str(row, "controlled_store_provenance")
+        if provenance is None:
+            raise DisclosureClearanceError(
+                f"automatic clearance lacks public source provenance: {key}"
+            )
+        parsed = urlsplit(provenance)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "storage.courtlistener.com"
+            or not parsed.path.startswith("/recap/")
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or row.get("free_or_purchased") != "free"
+        ):
+            raise DisclosureClearanceError(
+                f"automatic clearance provenance is not an allowlisted public "
+                f"CourtListener source: {key}"
+            )
+        _require_routing_plan_hash(row, key=key)
+        return
+    if basis == "john_exception_review":
+        _require_routing_plan_hash(row, key=key)
+    elif basis is not None:
+        raise DisclosureClearanceError(f"unsupported clearance basis: {key}")
     reviewed_at = _optional_str(row, "reviewed_at")
     reviewer_id = _optional_str(row, "reviewer_id")
     provenance = _optional_str(row, "controlled_store_provenance")
@@ -427,6 +533,16 @@ def _require_review_provenance(
     if not provenance.startswith("private-store://"):
         raise DisclosureClearanceError(
             f"clearance provenance is not from the controlled private store: {key}"
+        )
+
+
+def _require_routing_plan_hash(
+    row: Mapping[str, object], *, key: tuple[str, str]
+) -> None:
+    value = row.get("routing_plan_sha256")
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        raise DisclosureClearanceError(
+            f"provenance clearance lacks routing plan hash: {key}"
         )
 
 
@@ -522,6 +638,12 @@ def _scan_pdf(data: bytes) -> tuple[str, ...]:
     return tuple(sorted(markers))
 
 
+def scan_disclosure_markers(data: bytes) -> tuple[str, ...]:
+    """Return privacy, restriction, and extraction markers for exact PDF bytes."""
+
+    return _scan_pdf(data)
+
+
 def _restriction_classification(
     records: Sequence[Mapping[str, object]],
 ) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
@@ -534,7 +656,7 @@ def _restriction_classification(
         for field in ("redaction_or_seal_status", "restriction_status"):
             value = _optional_str(record, field)
             if value is not None:
-                statuses.add(re.sub(r"[\s-]+", "_", value.casefold()))
+                statuses.add(normalize_restriction_token(value))
         item = record.get("restriction_evidence")
         if isinstance(item, str) and item.strip():
             evidence.add(item.strip())
@@ -550,10 +672,29 @@ def _restriction_classification(
     return "unknown", tuple(sorted(evidence)), ()
 
 
+def normalize_restriction_token(value: str) -> str:
+    """Canonicalize restriction text for exact denylist comparisons."""
+
+    return re.sub(r"[\s-]+", "_", value.strip().casefold())
+
+
 def _safe_document_path(root: Path, local_path: str) -> Path:
     path = Path(local_path)
-    if path.is_absolute():
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
         raise DisclosureClearanceError("local_path must be relative to document_root")
+    current = Path(root.anchor) if root.is_absolute() else Path.cwd()
+    parts = root.parts[1:] if root.is_absolute() else root.parts
+    for part in parts:
+        if part == ".":
+            continue
+        if part == "..":
+            current = current.parent
+            continue
+        current /= part
+        if current.is_symlink():
+            raise DisclosureClearanceError("document_root traverses a symlink")
+    if not current.is_dir():
+        raise DisclosureClearanceError("document_root is not a directory")
     root_resolved = root.resolve()
     candidate = (root_resolved / path).resolve()
     if candidate == root_resolved or root_resolved not in candidate.parents:
@@ -564,6 +705,12 @@ def _safe_document_path(root: Path, local_path: str) -> Path:
         if current.is_symlink():
             raise DisclosureClearanceError("local_path traverses a symlink")
     return candidate
+
+
+def safe_disclosure_document_path(root: Path, local_path: str) -> Path:
+    """Resolve one contained document path while rejecting every symlink hop."""
+
+    return _safe_document_path(root, local_path)
 
 
 def _verify_manifest_commitments(
@@ -587,10 +734,32 @@ def _verify_review_hash(
 
 
 def _read_document(path: Path, key: tuple[str, str]) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        return path.read_bytes()
+        descriptor = os.open(path, flags)
     except OSError as exc:
         raise DisclosureClearanceError(f"document cannot be read: {key}") from exc
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise DisclosureClearanceError(
+                f"document is not a singly linked regular file: {key}"
+            )
+        with os.fdopen(descriptor, "rb", closefd=False) as handle:
+            payload = handle.read()
+        after = os.fstat(descriptor)
+        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mtime_ns,
+        ) or after.st_nlink != 1:
+            raise DisclosureClearanceError(f"document changed while being read: {key}")
+        return payload
+    except OSError as exc:
+        raise DisclosureClearanceError(f"document cannot be read: {key}") from exc
+    finally:
+        os.close(descriptor)
 
 
 def _unique_index(

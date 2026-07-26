@@ -3461,46 +3461,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
             flag,
             value,
         )
-    assert main(attacker_plan_command) == 0
-    assert (
-        main(
-            [
-                "acquisition",
-                "build-packets",
-                "--input",
-                str(attacker_packet_root / "packet-build-input.jsonl"),
-                "--packet-input-run-card",
-                str(attacker_packet_root / "run-cards/plan-packet-inputs.json"),
-                "--selection",
-                str(selection),
-                "--download-manifest",
-                str(materialized / "document-downloads-merged.jsonl"),
-                "--parser-manifest",
-                str(parse_root / "mistral-markdown-conversions.jsonl"),
-                "--disclosure-clearance",
-                str(materialized / "disclosure-clearance.jsonl"),
-                "--prediction-units",
-                str(prediction_units),
-                "--model-registry",
-                str(packet_registry),
-                "--raw-html-dir",
-                str(attacker_raw_root),
-                "--raw-artifacts-manifest",
-                str(attacker_raw_manifest),
-                "--document-root",
-                str(materialized / "documents"),
-                "--markdown-root",
-                str(parse_root / "markdown"),
-                "--materialization-run-card",
-                str(run_card),
-                *packet_build_authority_args,
-                "--output-root",
-                str(attacker_packet_root),
-                "--execute",
-            ]
-        )
-        == 2
-    )
+    assert main(attacker_plan_command) == 2
     assert (
         "packet raw-artifact manifest differs from authenticated snapshot"
         in capsys.readouterr().err

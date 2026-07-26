@@ -254,8 +254,13 @@ def require_official_registry_entries(
 
 
 def load_model_registry(path: str | Path) -> ModelRegistry:
-    with Path(path).open("r", encoding="utf-8") as handle:
-        raw_records: object = json.load(handle)
+    return load_model_registry_bytes(Path(path).read_bytes())
+
+
+def load_model_registry_bytes(payload: bytes) -> ModelRegistry:
+    """Load a registry from one caller-captured immutable byte snapshot."""
+
+    raw_records: object = json.loads(payload.decode("utf-8"))
     if not isinstance(raw_records, list):
         raise ValueError("model registry file must contain a JSON array")
     return ModelRegistry.from_records(_mapping_records(cast(list[object], raw_records)))
