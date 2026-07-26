@@ -7,6 +7,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import legalforecast.ingestion.clearance_replacement as clearance_replacement_module
+import legalforecast.ingestion.recap_fetch_broker_policy as recap_broker_policy_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
@@ -25,6 +27,54 @@ from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
 )
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+    original = clearance_replacement_module.require_approved_case_dev_purchase_policy
+
+    def allow_exact_v1(policy: object, **kwargs: object) -> None:
+        if (
+            getattr(policy, "schema_version", None)
+            == "legalforecast.case_dev_purchase_policy.v1"
+        ):
+            return
+        original(policy, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        clearance_replacement_module,
+        "require_approved_case_dev_purchase_policy",
+        allow_exact_v1,
+    )
+    monkeypatch.setattr(
+        recap_broker_policy_module,
+        "require_approved_case_dev_purchase_policy",
+        allow_exact_v1,
+    )
+    original_verify_inputs = (
+        recap_broker_policy_module.verify_approved_purchase_input_bytes
+    )
+
+    def allow_exact_v1_inputs(policy: object, **kwargs: object) -> None:
+        if (
+            getattr(policy, "schema_version", None)
+            == "legalforecast.case_dev_purchase_policy.v1"
+        ):
+            return
+        original_verify_inputs(policy, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        recap_broker_policy_module,
+        "verify_approved_purchase_input_bytes",
+        allow_exact_v1_inputs,
+    )
+
+
+pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 def test_quarantined_purchase_is_replaced_once_and_writeoff_stays_committed(
@@ -510,8 +560,10 @@ def test_cli_separates_broad_allowlist_from_narrow_iteration(tmp_path: Path) -> 
     assert all(row["dry_run"] is True for row in broad["case_plans"])
     assert broad == upfront_broad
 
-    broker_selection_path = _write_json(
-        tmp_path / "broker-selection.json", _broker_selection()
+    broker_selection_path = tmp_path / "broker-selection.jsonl"
+    broker_selection_path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in _broker_selection()),
+        encoding="utf-8",
     )
     broker_policy_path = tmp_path / "broker-policy.json"
     assert (

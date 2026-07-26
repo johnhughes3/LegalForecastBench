@@ -17,6 +17,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicyError,
+    require_approved_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
 )
@@ -100,6 +101,12 @@ def build_replacement_frontier(
     try:
         cohort_sha256 = verify_cohort_policy(cohort_policy_artifact)
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        if purchase_policy.has_verified_approval:
+            raise CaseDevPurchasePolicyError(
+                "the initial exact-selection approval does not authorize a "
+                "replacement frontier"
+            )
+        require_approved_case_dev_purchase_policy(purchase_policy)
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy, cohort_policy_artifact
         )
@@ -276,6 +283,12 @@ def verify_replacement_frontier(
     if purchase_policy_artifact is not None:
         try:
             purchase = verify_case_dev_purchase_policy(purchase_policy_artifact)
+            if purchase.has_verified_approval:
+                raise CaseDevPurchasePolicyError(
+                    "the initial exact-selection approval does not authorize "
+                    "replacement verification"
+                )
+            require_approved_case_dev_purchase_policy(purchase)
             if cohort_policy_artifact is not None:
                 verify_case_dev_purchase_policy_cohort_binding(
                     purchase, cohort_policy_artifact
@@ -347,6 +360,12 @@ def build_broad_broker_allowlist_plan(
     )
     try:
         purchase = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        if purchase.has_verified_approval:
+            raise CaseDevPurchasePolicyError(
+                "the initial exact-selection approval does not authorize a "
+                "broad allowlist"
+            )
+        require_approved_case_dev_purchase_policy(purchase)
     except CaseDevPurchasePolicyError as exc:
         raise ClearanceReplacementError(str(exc)) from exc
     policy = cast(Mapping[str, Any], frontier["policy"])
@@ -372,6 +391,12 @@ def plan_clearance_replacements(
             purchase_policy_artifact=purchase_policy_artifact,
         )
         purchase = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        if purchase.has_verified_approval:
+            raise CaseDevPurchasePolicyError(
+                "the initial exact-selection approval does not authorize "
+                "replacement planning"
+            )
+        require_approved_case_dev_purchase_policy(purchase)
         purchase_journal.require_reconciled()
     except (CaseDevPurchasePolicyError, CaseDevPurchaseLedgerError) as exc:
         message = str(exc)

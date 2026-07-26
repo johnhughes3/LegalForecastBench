@@ -32,6 +32,7 @@ from tests.disclosure_review_fixtures import (
     service_review_signer,
     signed_service_review_lineage,
 )
+from tests.purchase_approval_fixtures import build_approved_purchase_fixture
 from tests.test_acquisition_cli import (
     _finalized_prediction_unit_record,
     _write_model_registry,
@@ -2350,7 +2351,13 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     )
     budget_plan = projected / "missing-core-budget-plan.json"
     selection = projected / "target-cohort-selection.jsonl"
-    purchase_policy, cohort_policy, purchase_ledger = _purchase_policies(tmp_path)
+    approval = build_approved_purchase_fixture(
+        tmp_path / "purchase-v2-authority",
+        target_cohort_root=projected,
+    )
+    purchase_policy = approval.policy
+    cohort_policy = approval.cohort_policy
+    purchase_ledger = approval.ledger
     broker_policy = tmp_path / "recap-fetch-broker-policy.json"
     assert (
         main(
@@ -2365,6 +2372,8 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
                 str(budget_plan),
                 "--selection",
                 str(selection),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
                 "--output",
                 str(broker_policy),
             ]
@@ -2393,6 +2402,10 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--initialization-receipt-output",
+                str(approval.initialization_receipt),
                 "--output-root",
                 str(tmp_path / "purchase-ledger-initialization"),
                 "--execute",
@@ -2417,6 +2430,10 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(approval.initialization_receipt),
                 "--courtlistener-fixture",
                 str(purchase_cl_fixture),
                 "--purchase-broker-fixture",
@@ -2549,7 +2566,13 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
     )
     selection = projection / "target-cohort-selection.jsonl"
     budget_plan = projection / "missing-core-budget-plan.json"
-    purchase_policy, cohort_policy, purchase_ledger = _purchase_policies(tmp_path)
+    approval = build_approved_purchase_fixture(
+        tmp_path / "purchase-v2-authority",
+        target_cohort_root=projection,
+    )
+    purchase_policy = approval.policy
+    cohort_policy = approval.cohort_policy
+    purchase_ledger = approval.ledger
     broker_policy = tmp_path / "broker-policy.json"
     assert (
         main(
@@ -2564,6 +2587,8 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(budget_plan),
                 "--selection",
                 str(selection),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
                 "--output",
                 str(broker_policy),
             ]
@@ -2585,6 +2610,10 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--initialization-receipt-output",
+                str(approval.initialization_receipt),
                 "--output-root",
                 str(tmp_path / "ledger-init"),
                 "--execute",
@@ -2610,6 +2639,10 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(approval.initialization_receipt),
                 "--courtlistener-fixture",
                 str(purchase_cl_fixture),
                 "--purchase-broker-fixture",
@@ -2715,6 +2748,22 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
     ledger_before = {
         path: (path.read_bytes(), path.stat().st_mtime_ns) for path in ledger_paths
     }
+    purchase_runtime_args = [
+        "--purchase-policy",
+        str(purchase_policy),
+        "--purchase-ledger",
+        str(purchase_ledger),
+        "--controlled-private-root",
+        str(approval.controlled_private_root),
+        "--purchase-ledger-initialization-receipt",
+        str(approval.initialization_receipt),
+    ]
+    private_purchase_runtime_args = [
+        "--controlled-private-root",
+        str(approval.controlled_private_root),
+        "--purchase-ledger-initialization-receipt",
+        str(approval.initialization_receipt),
+    ]
     materialized = tmp_path / "materialized"
     command = [
         "acquisition",
@@ -2745,6 +2794,10 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
         str(cohort_policy),
         "--purchase-ledger",
         str(purchase_ledger),
+        "--controlled-private-root",
+        str(approval.controlled_private_root),
+        "--purchase-ledger-initialization-receipt",
+        str(approval.initialization_receipt),
         "--execute",
     ]
     symlink_target = tmp_path / "external-materializer-target"
@@ -2824,6 +2877,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(materialized / "documents"),
                 "--materialization-run-card",
                 str(run_card),
+                *purchase_runtime_args,
                 "--output-root",
                 str(tmp_path / "substituted-selection-attack"),
                 "--execute",
@@ -2845,6 +2899,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
         str(materialized / "documents"),
         "--materialization-run-card",
         str(run_card),
+        *purchase_runtime_args,
         "--output-root",
         str(parse_root),
         "--execute",
@@ -2894,6 +2949,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(materialized / "documents"),
                 "--materialization-run-card",
                 str(run_card),
+                *purchase_runtime_args,
                 "--output-root",
                 str(tmp_path / "fifo-attack"),
                 "--execute",
@@ -2923,6 +2979,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(materialized / "disclosure-clearance.jsonl"),
                 "--materialization-run-card",
                 str(run_card),
+                *purchase_runtime_args,
                 "--fixture-markdown-dir",
                 str(markdown_fixtures),
                 "--output-root",
@@ -2961,7 +3018,11 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
         )
         == 2
     )
-    assert "materialized decision texts require" in capsys.readouterr().err
+    assert (
+        "executed decision-text construction requires canonical materialization"
+        in capsys.readouterr().err
+    )
+    assert not (tmp_path / "decision-texts-missing-card").exists()
     decision_text_root = tmp_path / "decision-texts"
     monkeypatch.setattr(
         cli,
@@ -3003,6 +3064,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(parse_root / "markdown"),
                 "--materialization-run-card",
                 str(run_card),
+                *private_purchase_runtime_args,
                 "--output-root",
                 str(decision_text_root),
                 "--execute",
@@ -3078,6 +3140,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 *packet_command,
                 "--materialization-run-card",
                 str(run_card),
+                *private_purchase_runtime_args,
             ]
         )
         == 0
@@ -3167,6 +3230,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(parse_root / "markdown"),
                 "--materialization-run-card",
                 str(run_card),
+                *private_purchase_runtime_args,
                 *packet_build_authority_args,
                 "--output-root",
                 str(packet_root),
@@ -3355,6 +3419,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(run_card),
                 "--document-root",
                 str(materialized / "documents"),
+                *private_purchase_runtime_args,
                 "--execute",
             ]
         )
@@ -3413,6 +3478,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
                 str(run_card),
                 "--document-root",
                 str(materialized / "documents"),
+                *private_purchase_runtime_args,
                 "--execute",
             ]
         )
@@ -3450,6 +3516,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
         *packet_command,
         "--materialization-run-card",
         str(run_card),
+        *private_purchase_runtime_args,
     ]
     for flag, value in (
         ("--raw-html-dir", attacker_raw_root),

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli
+import legalforecast.ingestion.recap_fetch_attempt_policy as attempt_policy_module
 import legalforecast.ingestion.resolved_post_recovery as resolved_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
@@ -52,6 +53,58 @@ from tests.disclosure_review_fixtures import (
     service_review_signer,
     signed_service_review_lineage,
 )
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+    original_require = attempt_policy_module.require_approved_case_dev_purchase_policy
+    original_verify = attempt_policy_module.verify_approved_purchase_input_bytes
+    original_cli_verify = cli.verify_approved_purchase_input_bytes
+
+    def allow_exact_v1(policy: object, **kwargs: object) -> None:
+        if (
+            getattr(policy, "schema_version", None)
+            == "legalforecast.case_dev_purchase_policy.v1"
+        ):
+            return
+        original_require(policy, **kwargs)  # type: ignore[arg-type]
+
+    def allow_exact_v1_inputs(policy: object, **kwargs: object) -> None:
+        if (
+            getattr(policy, "schema_version", None)
+            == "legalforecast.case_dev_purchase_policy.v1"
+        ):
+            return
+        original_verify(policy, **kwargs)  # type: ignore[arg-type]
+
+    def allow_exact_v1_cli_inputs(policy: object, **kwargs: object) -> None:
+        if (
+            getattr(policy, "schema_version", None)
+            == "legalforecast.case_dev_purchase_policy.v1"
+        ):
+            return
+        original_cli_verify(policy, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        attempt_policy_module,
+        "require_approved_case_dev_purchase_policy",
+        allow_exact_v1,
+    )
+    monkeypatch.setattr(
+        attempt_policy_module,
+        "verify_approved_purchase_input_bytes",
+        allow_exact_v1_inputs,
+    )
+    monkeypatch.setattr(
+        cli, "verify_approved_purchase_input_bytes", allow_exact_v1_cli_inputs
+    )
+
+
+pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 def test_quarantine_review_requests_reject_empty_documents() -> None:

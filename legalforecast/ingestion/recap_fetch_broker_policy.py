@@ -9,12 +9,14 @@ import re
 import stat
 import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
-    CaseDevPurchasePolicyError,
+    require_approved_case_dev_purchase_policy,
+    verify_approved_purchase_input_bytes,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
 )
@@ -47,6 +49,14 @@ class RecapFetchBrokerPolicyError(ValueError):
     """Raised when broker-policy inputs cannot prove a safe allowlist."""
 
 
+@dataclass(frozen=True, slots=True)
+class ReplayedRecapFetchBrokerPolicy:
+    """Verified existing broker authority that cannot mint a new artifact."""
+
+    policy_sha256: str
+    allowed_documents: tuple[tuple[str, str], ...]
+
+
 def generate_recap_fetch_broker_policy(
     *,
     purchase_policy_artifact: Mapping[str, object],
@@ -54,8 +64,11 @@ def generate_recap_fetch_broker_policy(
     budget_plan: MissingCoreBudgetPlan,
     budget_plan_artifact: Mapping[str, object],
     selection_records: Sequence[Mapping[str, Any]],
+    budget_plan_bytes: bytes | None = None,
+    selection_bytes: bytes | None = None,
     broad_frontier_allowlist: bool = False,
     attempt_policy_artifact: Mapping[str, object] | None = None,
+    controlled_private_root: Path | None = None,
 ) -> dict[str, object]:
     """Build the exact broker policy accepted by secure-gate.
 
@@ -66,14 +79,75 @@ def generate_recap_fetch_broker_policy(
     every request. Selection metadata can only prove those documents public.
     """
 
+    return _build_recap_fetch_broker_policy(
+        purchase_policy_artifact=purchase_policy_artifact,
+        cohort_policy_artifact=cohort_policy_artifact,
+        budget_plan=budget_plan,
+        budget_plan_artifact=budget_plan_artifact,
+        selection_records=selection_records,
+        budget_plan_bytes=budget_plan_bytes,
+        selection_bytes=selection_bytes,
+        broad_frontier_allowlist=broad_frontier_allowlist,
+        attempt_policy_artifact=attempt_policy_artifact,
+        controlled_private_root=controlled_private_root,
+        require_fresh_ledger_namespace=True,
+    )
+
+
+def _build_recap_fetch_broker_policy(
+    *,
+    purchase_policy_artifact: Mapping[str, object],
+    cohort_policy_artifact: Mapping[str, Any],
+    budget_plan: MissingCoreBudgetPlan,
+    budget_plan_artifact: Mapping[str, object],
+    selection_records: Sequence[Mapping[str, Any]],
+    budget_plan_bytes: bytes | None,
+    selection_bytes: bytes | None,
+    broad_frontier_allowlist: bool,
+    attempt_policy_artifact: Mapping[str, object] | None,
+    controlled_private_root: Path | None,
+    require_fresh_ledger_namespace: bool,
+) -> dict[str, object]:
+    """Build minting or replay evidence under an explicit private mode."""
+
     try:
+        # Lazy to avoid the ingestion package's disclosure/projection import cycle.
+        from legalforecast.ingestion.purchase_approval import (
+            require_fresh_purchase_ledger_namespace,
+        )
+
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            purchase_policy, controlled_private_root=controlled_private_root
+        )
+        if purchase_policy.has_verified_approval and require_fresh_ledger_namespace:
+            require_fresh_purchase_ledger_namespace(
+                purchase_policy.canonical_ledger_path
+            )
+        verify_approved_purchase_input_bytes(
+            purchase_policy,
+            controlled_private_root=cast(Path, controlled_private_root),
+            budget_plan_bytes=budget_plan_bytes,
+            selection_bytes=selection_bytes,
+        )
+        if purchase_policy.has_verified_approval:
+            _require_structured_inputs_match_authenticated_bytes(
+                budget_plan_artifact=budget_plan_artifact,
+                selection_records=selection_records,
+                budget_plan_bytes=cast(bytes, budget_plan_bytes),
+                selection_bytes=cast(bytes, selection_bytes),
+            )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy,
             cohort_policy_artifact,
         )
-    except CaseDevPurchasePolicyError as exc:
+    except (OSError, ValueError) as exc:
         raise RecapFetchBrokerPolicyError(str(exc)) from exc
+
+    if broad_frontier_allowlist and purchase_policy.has_verified_approval:
+        raise RecapFetchBrokerPolicyError(
+            "the initial exact-selection approval cannot authorize a broad frontier"
+        )
 
     if budget_plan.dry_run and not broad_frontier_allowlist:
         raise RecapFetchBrokerPolicyError(
@@ -132,6 +206,9 @@ def generate_recap_fetch_broker_policy(
                 budget_plan=budget_plan,
                 budget_plan_artifact=budget_plan_artifact,
                 selection_records=selection_records,
+                budget_plan_bytes=cast(bytes, budget_plan_bytes),
+                selection_bytes=cast(bytes, selection_bytes),
+                controlled_private_root=cast(Path, controlled_private_root),
             )
             attempt_policy_sha256 = attempt_policy_artifact.get("policy_sha256")
             if (
@@ -245,6 +322,49 @@ def generate_recap_fetch_broker_policy(
         "opening_case_committed_spend_usd": opening_commitments,
         "allowed_documents": allowed_documents,
     }
+
+
+def verify_recap_fetch_broker_policy(
+    artifact: Mapping[str, object],
+    *,
+    purchase_policy_artifact: Mapping[str, object],
+    cohort_policy_artifact: Mapping[str, Any],
+    budget_plan: MissingCoreBudgetPlan,
+    budget_plan_artifact: Mapping[str, object],
+    selection_records: Sequence[Mapping[str, Any]],
+    budget_plan_bytes: bytes,
+    selection_bytes: bytes,
+    controlled_private_root: Path,
+    attempt_policy_artifact: Mapping[str, object] | None = None,
+) -> ReplayedRecapFetchBrokerPolicy:
+    """Replay an existing exact broker policy without minting after init."""
+
+    expected = _build_recap_fetch_broker_policy(
+        purchase_policy_artifact=purchase_policy_artifact,
+        cohort_policy_artifact=cohort_policy_artifact,
+        budget_plan=budget_plan,
+        budget_plan_artifact=budget_plan_artifact,
+        selection_records=selection_records,
+        budget_plan_bytes=budget_plan_bytes,
+        selection_bytes=selection_bytes,
+        broad_frontier_allowlist=False,
+        attempt_policy_artifact=attempt_policy_artifact,
+        controlled_private_root=controlled_private_root,
+        require_fresh_ledger_namespace=False,
+    )
+    if dict(artifact) != expected:
+        raise RecapFetchBrokerPolicyError(
+            "broker policy does not match its immutable source inputs"
+        )
+    raw_documents = expected.get("allowed_documents")
+    assert isinstance(raw_documents, Sequence)
+    documents = cast(Sequence[Mapping[str, str]], raw_documents)
+    return ReplayedRecapFetchBrokerPolicy(
+        policy_sha256=broker_policy_sha256(expected),
+        allowed_documents=tuple(
+            (document["case_id"], document["recap_document"]) for document in documents
+        ),
+    )
 
 
 def broker_policy_sha256(policy: Mapping[str, object]) -> str:
@@ -673,6 +793,39 @@ def validate_recap_fetch_budget_plan_artifact(
     ):
         raise RecapFetchBrokerPolicyError(
             "budget plan reservations exceed the verified purchase-policy envelope"
+        )
+
+
+def _require_structured_inputs_match_authenticated_bytes(
+    *,
+    budget_plan_artifact: Mapping[str, object],
+    selection_records: Sequence[Mapping[str, Any]],
+    budget_plan_bytes: bytes,
+    selection_bytes: bytes,
+) -> None:
+    """Prevent callers from detaching structured authority from approved bytes."""
+
+    try:
+        parsed_budget = json.loads(budget_plan_bytes)
+        parsed_selection = [
+            json.loads(line) for line in selection_bytes.splitlines() if line.strip()
+        ]
+    except (UnicodeError, ValueError) as exc:
+        raise RecapFetchBrokerPolicyError(
+            "authenticated purchase inputs are not canonical JSON"
+        ) from exc
+    if not isinstance(parsed_budget, Mapping):
+        raise RecapFetchBrokerPolicyError(
+            "budget plan structure differs from authenticated bytes"
+        )
+    typed_budget = cast(Mapping[str, object], parsed_budget)
+    if dict(typed_budget) != dict(budget_plan_artifact):
+        raise RecapFetchBrokerPolicyError(
+            "budget plan structure differs from authenticated bytes"
+        )
+    if parsed_selection != [dict(record) for record in selection_records]:
+        raise RecapFetchBrokerPolicyError(
+            "selection structure differs from authenticated bytes"
         )
 
 

@@ -4,6 +4,57 @@ This is the operator checklist for `.github/workflows/run-benchmark.yaml` and th
 
 ## Acquisition Downstream Preflight
 
+### Exact post-clearance purchase approval
+
+After `project-target-cohort` has completed, record John Hughes's decision against those exact replayed bytes before initializing a purchase ledger or activating a broker policy.
+The controlled approval root is private operational state outside packets and freeze artifacts; the purchase-policy v2 `approval` subtree is the sole public derived authority.
+The canonical purchase ledger is a new exact path under the cycle's `10-purchase-authority` root and must not exist yet.
+The CourtListener request-budget ledger is different existing preparation evidence: every official purchase and recovery command must reuse the exact absolute `$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3` committed under `33-10k-continuation`; never create a generic replacement request ledger.
+
+```bash
+uv run legalforecast acquisition record-purchase-approval \
+  --output-root <absolute-controlled-private-approval-root> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --target-cohort-root <completed-project-target-cohort-root> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --fee-schedule <immutable-fee-schedule.json> \
+  --canonical-ledger-path <absolute-10-purchase-authority-ledger.sqlite3> \
+  --execute --no-resume
+```
+
+The recorder is TTY-only, fixes the reviewer to `John Hughes`, derives every count and dollar amount from the fully authenticated projection and frozen cohort policy, and records `approve`, `reject`, or `free_only` plus the exact one-global-session and free-only-fallback confirmation.
+The typed confirmation must include the displayed purchase rule and exact target count as `RULE <rule> TARGET <count>`; a dollar-cap-only or generic approval is not authority.
+It contacts no provider and does not acknowledge PACER fees.
+If it is interrupted after the checkpoint is durable, rerun the identical command with `--resume`; resume repairs only the missing exact run card and does not prompt again or change the recorded time.
+
+```bash
+uv run legalforecast acquisition verify-purchase-approval \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --checkpoint <absolute-controlled-private-approval-root/purchase-approval-checkpoint.json> \
+  --approval-run-card <absolute-controlled-private-approval-root/run-cards/record-purchase-approval.json> \
+  --target-cohort-root <completed-project-target-cohort-root> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --fee-schedule <immutable-fee-schedule.json> \
+  --canonical-ledger-path <absolute-10-purchase-authority-ledger.sqlite3>
+```
+
+```bash
+uv run legalforecast acquisition generate-purchase-policy \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --checkpoint <absolute-controlled-private-approval-root/purchase-approval-checkpoint.json> \
+  --approval-run-card <absolute-controlled-private-approval-root/run-cards/record-purchase-approval.json> \
+  --target-cohort-root <completed-project-target-cohort-root> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --fee-schedule <immutable-fee-schedule.json> \
+  --canonical-ledger-path <absolute-10-purchase-authority-ledger.sqlite3> \
+  --output <purchase-policy-v2.json>
+```
+
+Stop on `reject` or `free_only`.
+The order is mandatory: record the private decision, verify that exact checkpoint and run card while the canonical ledger namespace is still absent, and only then generate the public v2 policy; generation cannot be moved before verification or repeated after ledger initialization.
+Never hand-edit the private checkpoint, run card, or public v2 policy, and never reuse v1 policy input for a new official purchase.
+See [Case.dev purchase policy v2](schemas/case-dev-purchase-policy-v2.md) for the complete replay and containment contract.
+
 ### Bounded Firecrawl terminal-target recovery (compatibility fallback only)
 
 The official happy path is the CourtListener REST workflow documented under [Cycle 1 Batch-002 CourtListener-First Acquisition](#cycle-1-batch-002-courtlistener-first-acquisition). Use Firecrawl only as a compatibility fallback when a required search is not exposed by a supported CourtListener API. Case.dev may supply an optional free upstream or bulk lookup only when its response is equivalent to the CourtListener data needed at that step; it is never the final authority for paid gaps and must not perform a fee-bearing fetch.
@@ -68,6 +119,8 @@ uv run legalforecast acquisition materialize-cohort-documents \
   --purchase-policy <purchase-policy.json> \
   --cohort-policy <cohort-policy.json> \
   --purchase-ledger <canonical-purchase-ledger.sqlite3> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --resolved-post-recovery-documents <resolved-post-recovery-documents.jsonl> \
   --execute --no-resume
 ```
@@ -84,6 +137,8 @@ uv run legalforecast acquisition plan-parse-documents \
   --materialization-run-card <materialize-cohort-documents-run-card.json> \
   --purchase-policy <purchase-policy.json> \
   --purchase-ledger <canonical-purchase-ledger.sqlite3> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --document-root <materialized-document-root> \
   --requests-output <parse-document-requests.jsonl> \
   --markdown-output-root <parsed-markdown-root> \
@@ -104,6 +159,8 @@ infisical-agent-sandbox run \
   --materialization-run-card <materialize-cohort-documents-run-card.json> \
   --purchase-policy <purchase-policy.json> \
   --purchase-ledger <canonical-purchase-ledger.sqlite3> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --parser-root <pinned-parser-checkout> \
   --execute --resume
 ```
@@ -144,11 +201,41 @@ uv run legalforecast acquisition project-target-cohort \
 ```
 
 Reuse the exact frozen cohort policy that authenticated the free clearance; generating a different cohort authority after review would invalidate that lineage.
-Generate a fixture-scoped purchase policy from explicit approved decisions whose canonical absolute ledger path is under the isolated rehearsal root, then derive its exact broker allowlist from the projected selection and budget:
+Even the fixture rehearsal uses the supported private recorder and v2 generator; its canonical absolute ledger path is under the isolated rehearsal root and must be absent at approval time:
+
+```zsh
+fixture_private_root=<absolute-private-fixture-approval-root>
+fixture_ledger_receipt=<absolute-fixture-ledger-initialization-receipt>
+
+uv run legalforecast acquisition record-purchase-approval \
+  --output-root "$fixture_private_root" \
+  --controlled-private-root "$fixture_private_root" \
+  --target-cohort-root <fixture-target-cohort-root> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json> \
+  --fee-schedule <immutable-fixture-fee-schedule.json> \
+  --canonical-ledger-path <absolute-fixture-purchase-ledger-path> \
+  --execute --no-resume
+```
+
+```bash
+uv run legalforecast acquisition verify-purchase-approval \
+  --controlled-private-root "$fixture_private_root" \
+  --checkpoint "$fixture_private_root/purchase-approval-checkpoint.json" \
+  --approval-run-card "$fixture_private_root/run-cards/record-purchase-approval.json" \
+  --target-cohort-root <fixture-target-cohort-root> \
+  --cohort-policy <authenticated-frozen-cohort-policy.json> \
+  --fee-schedule <immutable-fixture-fee-schedule.json> \
+  --canonical-ledger-path <absolute-fixture-purchase-ledger-path>
+```
 
 ```bash
 uv run legalforecast acquisition generate-purchase-policy \
-  --decisions <approved-fixture-purchase-decisions.json> \
+  --controlled-private-root "$fixture_private_root" \
+  --checkpoint "$fixture_private_root/purchase-approval-checkpoint.json" \
+  --approval-run-card "$fixture_private_root/run-cards/record-purchase-approval.json" \
+  --target-cohort-root <fixture-target-cohort-root> \
+  --fee-schedule <immutable-fixture-fee-schedule.json> \
+  --canonical-ledger-path <absolute-fixture-purchase-ledger-path> \
   --output <fixture-purchase-policy.json> \
   --cohort-policy <authenticated-frozen-cohort-policy.json>
 ```
@@ -159,6 +246,7 @@ uv run legalforecast acquisition generate-recap-fetch-broker-policy \
   --cohort-policy <authenticated-frozen-cohort-policy.json> \
   --budget-plan <fixture-target-cohort-root/missing-core-budget-plan.json> \
   --selection <fixture-target-cohort-root/target-cohort-selection.jsonl> \
+  --controlled-private-root "$fixture_private_root" \
   --output <fixture-recap-fetch-broker-policy.json>
 ```
 
@@ -170,7 +258,8 @@ uv run legalforecast acquisition init-purchase-ledger \
   --purchase-policy <fixture-purchase-policy.json> \
   --cohort-policy <authenticated-frozen-cohort-policy.json> \
   --purchase-ledger <absolute-fixture-purchase-ledger-path> \
-  --initialization-receipt-output <fixture-ledger-initialization-receipt.json> \
+  --controlled-private-root "$fixture_private_root" \
+  --initialization-receipt-output "$fixture_ledger_receipt" \
   --execute --no-resume
 ```
 
@@ -182,6 +271,8 @@ uv run legalforecast acquisition purchase-missing-recap-fetch \
   --purchase-policy <fixture-purchase-policy.json> \
   --cohort-policy <authenticated-frozen-cohort-policy.json> \
   --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --controlled-private-root "$fixture_private_root" \
+  --purchase-ledger-initialization-receipt "$fixture_ledger_receipt" \
   --courtlistener-fixture <offline-courtlistener-responses.jsonl> \
   --purchase-broker-fixture <offline-broker-receipts.json> \
   --acknowledge-pacer-fees \
@@ -265,6 +356,8 @@ uv run legalforecast acquisition materialize-cohort-documents \
   --purchase-policy <fixture-purchase-policy.json> \
   --cohort-policy <authenticated-frozen-cohort-policy.json> \
   --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --controlled-private-root "$fixture_private_root" \
+  --purchase-ledger-initialization-receipt "$fixture_ledger_receipt" \
   --execute --no-resume
 ```
 
@@ -277,6 +370,8 @@ uv run legalforecast acquisition plan-parse-documents \
   --materialization-run-card <fixture-materialized-root/run-cards/materialize-cohort-documents.json> \
   --purchase-policy <fixture-purchase-policy.json> \
   --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --controlled-private-root "$fixture_private_root" \
+  --purchase-ledger-initialization-receipt "$fixture_ledger_receipt" \
   --document-root <fixture-materialized-root/documents> \
   --requests-output <fixture-parse-root/parse-document-requests.jsonl> \
   --markdown-output-root <fixture-parse-root/markdown> \
@@ -292,6 +387,8 @@ uv run legalforecast acquisition parse-documents \
   --materialization-run-card <fixture-materialized-root/run-cards/materialize-cohort-documents.json> \
   --purchase-policy <fixture-purchase-policy.json> \
   --purchase-ledger <absolute-fixture-purchase-ledger-path> \
+  --controlled-private-root "$fixture_private_root" \
+  --purchase-ledger-initialization-receipt "$fixture_ledger_receipt" \
   --manifest-output <fixture-parse-root/fixture-parser-manifest.jsonl> \
   --fixture-markdown-dir <operator-supplied-fixture-markdown-root> \
   --execute --no-resume
@@ -313,6 +410,8 @@ rehearsal_args=(
   --disclosure-clearance <fixture-materialized-root/disclosure-clearance.jsonl>
   --restriction-evidence <fixture-materialized-root/restriction-evidence.jsonl>
   --materialization-run-card <fixture-materialized-root/run-cards/materialize-cohort-documents.json>
+  --controlled-private-root "$fixture_private_root"
+  --purchase-ledger-initialization-receipt "$fixture_ledger_receipt"
   --parse-plan-run-card <fixture-parse-root/run-cards/plan-parse-documents.json>
   --parse-requests <fixture-parse-root/parse-document-requests.jsonl>
   --parser-manifest <fixture-parse-root/fixture-parser-manifest.jsonl>
@@ -361,6 +460,8 @@ uv run legalforecast acquisition rehearse-downstream \
   --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
   --restriction-evidence <materialized-restriction-evidence.jsonl> \
   --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --parse-plan-run-card <plan-parse-documents-run-card.json> \
   --parse-requests <parse-document-requests.jsonl> \
   --parser-manifest <fixture-parser-manifest.jsonl> \
@@ -418,6 +519,8 @@ Unitize Stage A only from that exact authenticated materialization and pinned li
 ```bash
 uv run legalforecast acquisition llm-unitize \
   --output-root <assembled-cycle-root> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --selection <selection.jsonl> \
   --selection-run-card <project-or-extend-target-cohort-run-card.json> \
   --download-manifest <materialized-download-manifest.jsonl> \
@@ -444,6 +547,8 @@ Run the structural Stage A review against the same unitizer card, caps artifact,
 ```bash
 uv run legalforecast acquisition llm-review-stage-a \
   --output-root <structural-review-root> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --selection <selection.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
   --markdown-root <parsed-markdown-root> \
@@ -466,6 +571,8 @@ After structural review, apply adjudications only through the authenticated unit
 ```bash
 uv run legalforecast acquisition apply-unitization-review \
   --output-root <assembled-cycle-root> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --prediction-units <prediction-units.jsonl> \
   --llm-unitization-run-card <llm-unitize-run-card.json> \
   --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
@@ -483,6 +590,8 @@ Build the Stage B disposition-text artifact only from the exact selected cohort,
 ```bash
 uv run legalforecast acquisition build-decision-texts \
   --output-root <assembled-cycle-root> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --selection <selection.jsonl> \
   --selection-run-card <project-or-extend-target-cohort-run-card.json> \
   --download-manifest <materialized-download-manifest.jsonl> \
@@ -504,6 +613,8 @@ Pass that exact artifact, its immutable manifest, and the completed builder run 
 ```bash
 uv run legalforecast acquisition llm-label \
   --output-root <assembled-cycle-root> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --selection <selection.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
   --markdown-root <parsed-markdown-root> \
@@ -577,6 +688,8 @@ uv run legalforecast acquisition plan-packet-inputs \
   --materialization-run-card <materialize-cohort-documents-run-card.json> \
   --purchase-policy <purchase-policy.json> \
   --purchase-ledger <canonical-purchase-ledger.sqlite3> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
   --prediction-units <finalized-prediction-units.jsonl> \
   --model-registry model_registries/cycle-1-2026-06-30.json \
   --raw-html-dir <union-output-root>/union-raw-artifacts \
@@ -623,6 +736,8 @@ uv run legalforecast acquisition build-packets \
   --document-root <materialized-document-root> \
   --markdown-root <parsed-markdown-root> \
   --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --controlled-private-root <purchase-approval-private-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization-receipt.json> \
   --execute --no-resume
 ```
 
@@ -641,6 +756,8 @@ uv run legalforecast acquisition finalize-corpus \
   --download-manifest <materialized-download-manifest.jsonl> \
   --materialization-run-card <materialize-cohort-documents-run-card.json> \
   --document-root <materialized-document-root> \
+  --controlled-private-root <purchase-approval-private-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization-receipt.json> \
   --raw-prediction-units <raw-prediction-units.jsonl> \
   --llm-unitization-run-card <llm-unitize-run-card.json> \
   --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
@@ -999,7 +1116,7 @@ uv run legalforecast batch-002 observe \
   --batch-id <new-rest-screen-batch-id> \
   --eligibility-anchor 2026-06-30 \
   --live \
-  --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3" \
   --courtlistener-rate-profile base \
   --summary-output artifacts/cycle-1/official-acquisition/rest-screen-summary.json
 ```
@@ -1376,7 +1493,7 @@ uv run legalforecast acquisition prepare-target-cohort \
   --use-embedded-entries \
   --live-public-download \
   --live-courtlistener \
-  --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3" \
   --cost-per-document-usd 3.05 \
   --max-projected-budget-usd 567.30 \
   --max-missing-core-documents-per-case 24 \
@@ -1527,6 +1644,8 @@ Paid acquisition remains a separate, operator-visible stage. First freeze the co
 ```bash
 purchase_policy=<verified-purchase-policy.json>
 purchase_ledger=<absolute-canonical-purchase-ledger-path>
+controlled_private_root=<absolute-controlled-private-approval-root>
+purchase_ledger_initialization_receipt="$preparation_root/purchase-ledger-initialization.json"
 attempt_policy="$preparation_root/recap-fetch-attempt-policy-v1.json"
 broker_policy="$preparation_root/courtlistener-recap-fetch-policy-v1.json"
 
@@ -1535,6 +1654,7 @@ uv run legalforecast acquisition generate-recap-fetch-attempt-policy \
   --cohort-policy "$cohort_policy" \
   --budget-plan "$launch_root/missing-core-budget-plan.json" \
   --selection "$launch_root/target-cohort-selection.jsonl" \
+  --controlled-private-root "$controlled_private_root" \
   --output "$attempt_policy"
 ```
 
@@ -1547,6 +1667,7 @@ uv run legalforecast acquisition generate-recap-fetch-broker-policy \
   --budget-plan "$launch_root/missing-core-budget-plan.json" \
   --selection "$launch_root/target-cohort-selection.jsonl" \
   --attempt-policy "$attempt_policy" \
+  --controlled-private-root "$controlled_private_root" \
   --output "$broker_policy"
 ```
 
@@ -1560,7 +1681,8 @@ uv run legalforecast acquisition init-purchase-ledger \
   --purchase-policy "$purchase_policy" \
   --cohort-policy "$cohort_policy" \
   --purchase-ledger "$purchase_ledger" \
-  --initialization-receipt-output "$preparation_root/purchase-ledger-initialization.json" \
+  --controlled-private-root "$controlled_private_root" \
+  --initialization-receipt-output "$purchase_ledger_initialization_receipt" \
   --execute --resume
 ```
 
@@ -1575,8 +1697,10 @@ uv run legalforecast acquisition purchase-missing-recap-fetch \
   --purchase-policy "$purchase_policy" \
   --cohort-policy "$cohort_policy" \
   --purchase-ledger "$purchase_ledger" \
+  --controlled-private-root "$controlled_private_root" \
+  --purchase-ledger-initialization-receipt "$purchase_ledger_initialization_receipt" \
   --attempt-policy "$attempt_policy" \
-  --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3" \
   --live-purchase --acknowledge-pacer-fees \
   --execute --resume
 ```
@@ -1597,13 +1721,15 @@ uv run legalforecast acquisition recover-recap-fetch-quarantine \
   --cohort-policy "$cohort_policy" \
   --budget-plan "$launch_root/missing-core-budget-plan.json" \
   --purchase-ledger "$purchase_ledger" \
+  --controlled-private-root "$controlled_private_root" \
+  --purchase-ledger-initialization-receipt "$purchase_ledger_initialization_receipt" \
   --attempt-policy "$attempt_policy" \
   --manifest-output "$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl" \
   --case-relevance-output "$quarantine_recovery_root/purchased-case-relevance.jsonl" \
   --restriction-evidence-output "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
   --review-requests-output "$quarantine_recovery_root/disclosure-review-requests.jsonl" \
   --document-output-root "$quarantine_recovery_root/documents/recap-fetch-quarantine" \
-  --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3" \
   --live-courtlistener-recovery \
   --execute --resume
 ```
@@ -1679,6 +1805,8 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --cohort-policy "$cohort_policy" \
   --budget-plan "$launch_root/missing-core-budget-plan.json" \
   --purchase-ledger "$purchase_ledger" \
+  --controlled-private-root "$controlled_private_root" \
+  --purchase-ledger-initialization-receipt "$purchase_ledger_initialization_receipt" \
   --attempt-policy "$attempt_policy" \
   --download-manifest "$purchased_download_manifest" \
   --disclosure-clearance "$purchased_clearance_root/disclosure-clearance.jsonl" \

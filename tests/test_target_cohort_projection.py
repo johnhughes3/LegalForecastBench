@@ -22,10 +22,10 @@ from legalforecast.ingestion.target_cohort_projection import (
 from tests.disclosure_review_fixtures import (
     service_disclosure_authority_from_policy_bytes,
 )
+from tests.purchase_approval_fixtures import build_approved_purchase_fixture
 from tests.test_target_100_acquisition import (
     _fixture_pdf_text,
     _purchase_fixtures,
-    _purchase_policies,
     _target_100_fixture,
     _write_authenticated_reviews,
 )
@@ -744,6 +744,14 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
                 str(canonical["document_root"]),
                 "--materialization-run-card",
                 str(canonical["run_card"]),
+                "--purchase-policy",
+                str(canonical["purchase_policy"]),
+                "--purchase-ledger",
+                str(canonical["purchase_ledger"]),
+                "--controlled-private-root",
+                str(canonical["controlled_private_root"]),
+                "--purchase-ledger-initialization-receipt",
+                str(canonical["purchase_ledger_initialization_receipt"]),
                 "--output-root",
                 str(parse_root),
                 "--execute",
@@ -926,13 +934,13 @@ def _write_provenance_clearance(
     )
 
 
-def _materialized_two_case_cohort(
+def _completed_two_case_projection(
     tmp_path: Path,
     *,
     provenance_first: bool = False,
     monkeypatch: pytest.MonkeyPatch | None = None,
 ) -> dict[str, Path]:
-    """Build a real two-case signed projection and canonical materialization."""
+    """Build a real provider-free projection with authenticated clearance."""
 
     tmp_path.mkdir(parents=True)
     preparation = tmp_path / "preparation"
@@ -1057,9 +1065,38 @@ def _materialized_two_case_cohort(
         )
         == 0
     )
+    return {
+        "projection": projection,
+        "preparation": preparation,
+        "snapshot": snapshot,
+    }
+
+
+def _materialized_two_case_cohort(
+    tmp_path: Path,
+    *,
+    provenance_first: bool = False,
+    monkeypatch: pytest.MonkeyPatch | None = None,
+) -> dict[str, Path]:
+    """Build a real two-case signed projection and canonical materialization."""
+
+    completed = _completed_two_case_projection(
+        tmp_path,
+        provenance_first=provenance_first,
+        monkeypatch=monkeypatch,
+    )
+    projection = completed["projection"]
+    preparation = completed["preparation"]
+    snapshot = completed["snapshot"]
     selection = projection / "target-cohort-selection.jsonl"
     budget_plan = projection / "missing-core-budget-plan.json"
-    purchase_policy, cohort_policy, purchase_ledger = _purchase_policies(tmp_path)
+    approval = build_approved_purchase_fixture(
+        tmp_path / "purchase-v2-authority",
+        target_cohort_root=projection,
+    )
+    purchase_policy = approval.policy
+    cohort_policy = approval.cohort_policy
+    purchase_ledger = approval.ledger
     broker_policy = tmp_path / "broker-policy.json"
     assert (
         main(
@@ -1074,6 +1111,8 @@ def _materialized_two_case_cohort(
                 str(budget_plan),
                 "--selection",
                 str(selection),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
                 "--output",
                 str(broker_policy),
             ]
@@ -1096,6 +1135,10 @@ def _materialized_two_case_cohort(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--initialization-receipt-output",
+                str(approval.initialization_receipt),
                 "--output-root",
                 str(tmp_path / "ledger-init"),
                 "--execute",
@@ -1121,6 +1164,10 @@ def _materialized_two_case_cohort(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(approval.initialization_receipt),
                 "--courtlistener-fixture",
                 str(purchase_cl_fixture),
                 "--purchase-broker-fixture",
@@ -1306,6 +1353,10 @@ def _materialized_two_case_cohort(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(approval.initialization_receipt),
                 "--execute",
             ]
         )
@@ -1317,6 +1368,10 @@ def _materialized_two_case_cohort(
         "clearance": materialized / "disclosure-clearance.jsonl",
         "document_root": materialized / "documents",
         "run_card": materialized / "run-cards/materialize-cohort-documents.json",
+        "purchase_policy": purchase_policy,
+        "purchase_ledger": purchase_ledger,
+        "controlled_private_root": approval.controlled_private_root,
+        "purchase_ledger_initialization_receipt": approval.initialization_receipt,
     }
 
 

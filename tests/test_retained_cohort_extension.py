@@ -40,6 +40,17 @@ from tests.disclosure_review_fixtures import (
     service_review_signer,
     signed_service_review_lineage,
 )
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+
+
+pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 @pytest.fixture(autouse=True)

@@ -746,6 +746,27 @@ def _finalize_lineage_args(
         "_verify_optional_finalize_materialization",
         lambda **kwargs: (Path(kwargs["materialization_card_path"]),),
     )
+    # This synthetic fixture intentionally replaces the full materialization
+    # verifier so readiness invariants can be tested in isolation. Dedicated
+    # parser-produced v1 tests exercise the early purchase-authority boundary.
+    monkeypatch.setattr(
+        cli,
+        "_preflight_materialization_purchase_runtime",
+        lambda _args: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_materialized_downstream_lineage",
+        lambda **_kwargs: cli._VerifiedMaterializedDownstreamLineage(
+            paths=(materialization_card,),
+            artifact_bytes={},
+            manifest_records=(),
+            clearance_records=(),
+            selection_records=(),
+            resolved_records=(),
+            document_tree={},
+        ),
+    )
     monkeypatch.setattr(
         cli,
         "_validate_packet_input_run_card",

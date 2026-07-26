@@ -37,6 +37,7 @@ from legalforecast.labeling.llm_pipeline import (
     stage_b_labeling_prompt_records,
 )
 from legalforecast.unitization.review import canonical_sha256
+from tests.purchase_approval_fixtures import build_approved_purchase_fixture
 
 JsonRecord = dict[str, Any]
 ROOT = Path(__file__).resolve().parents[1]
@@ -1247,6 +1248,16 @@ def _rehearsal_command(fixture: dict[str, Path], *, target_count: int) -> list[s
         str(fixture["restrictions"]),
         "--materialization-run-card",
         str(fixture["materialization_card"]),
+        *(
+            [
+                "--controlled-private-root",
+                str(fixture["controlled_private_root"]),
+                "--purchase-ledger-initialization-receipt",
+                str(fixture["purchase_ledger_initialization_receipt"]),
+            ]
+            if "controlled_private_root" in fixture
+            else []
+        ),
         "--parse-plan-run-card",
         str(fixture["parse_plan_card"]),
         "--parse-requests",
@@ -1520,48 +1531,13 @@ def _write_canonical_exact_100_chain(
     selection = projection / "target-cohort-selection.jsonl"
     budget_plan = projection / "missing-core-budget-plan.json"
     purchase_policy_root = tmp_path / "canonical-purchase-policy"
-    purchase_policy_root.mkdir()
-    _, cohort_policy, purchase_ledger = helpers._purchase_policies(purchase_policy_root)
-    cohort = json.loads(cohort_policy.read_text(encoding="utf-8"))
-    purchase_decisions = purchase_policy_root / "purchase-policy-decisions.json"
-    _write_json(
-        purchase_decisions,
-        {
-            "cycle_id": "cycle-1",
-            "cohort_policy_sha256": cohort["policy_sha256"],
-            "canonical_ledger_path": str(purchase_ledger.resolve()),
-            "hard_cap_usd": "2250.00",
-            "opening_committed_spend_usd": "0.00",
-            "opening_case_committed_spend_usd": {},
-            "max_per_case_usd": "73.20",
-            "per_document_reservation_usd": "3.05",
-            "fee_schedule": {
-                "source_citation": (
-                    "https://www.courtlistener.com/help/coverage/recap/"
-                ),
-                "verified_at_utc": "2026-07-14T00:00:00Z",
-                "includes_pacer_fees": True,
-                "includes_service_fees": True,
-                "includes_rounding": True,
-            },
-        },
+    approval = build_approved_purchase_fixture(
+        purchase_policy_root / "v2-authority",
+        target_cohort_root=projection,
     )
-    purchase_policy = purchase_policy_root / "purchase-policy-cli.json"
-    assert (
-        cli_module.main(
-            [
-                "acquisition",
-                "generate-purchase-policy",
-                "--decisions",
-                str(purchase_decisions),
-                "--output",
-                str(purchase_policy),
-                "--cohort-policy",
-                str(cohort_policy),
-            ]
-        )
-        == 0
-    )
+    purchase_policy = approval.policy
+    cohort_policy = approval.cohort_policy
+    purchase_ledger = approval.ledger
     broker_policy = tmp_path / "canonical-recap-fetch-broker-policy.json"
     assert (
         cli_module.main(
@@ -1576,6 +1552,8 @@ def _write_canonical_exact_100_chain(
                 str(budget_plan),
                 "--selection",
                 str(selection),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
                 "--output",
                 str(broker_policy),
             ]
@@ -1603,6 +1581,10 @@ def _write_canonical_exact_100_chain(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--initialization-receipt-output",
+                str(approval.initialization_receipt),
                 "--output-root",
                 str(ledger_root),
                 "--execute",
@@ -1637,6 +1619,10 @@ def _write_canonical_exact_100_chain(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(approval.initialization_receipt),
                 "--courtlistener-fixture",
                 str(courtlistener_purchase_fixture),
                 "--purchase-broker-fixture",
@@ -1766,6 +1752,10 @@ def _write_canonical_exact_100_chain(
                 str(cohort_policy),
                 "--purchase-ledger",
                 str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(approval.initialization_receipt),
                 "--execute",
             ]
         )
@@ -1788,6 +1778,14 @@ def _write_canonical_exact_100_chain(
                 str(materialized / "disclosure-clearance.jsonl"),
                 "--materialization-run-card",
                 str(materialization_card),
+                "--purchase-policy",
+                str(purchase_policy),
+                "--purchase-ledger",
+                str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(approval.initialization_receipt),
                 "--document-root",
                 str(materialized / "documents"),
                 "--execute",
@@ -1825,6 +1823,14 @@ def _write_canonical_exact_100_chain(
                 str(materialized / "disclosure-clearance.jsonl"),
                 "--materialization-run-card",
                 str(materialization_card),
+                "--purchase-policy",
+                str(purchase_policy),
+                "--purchase-ledger",
+                str(purchase_ledger),
+                "--controlled-private-root",
+                str(approval.controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(approval.initialization_receipt),
                 "--fixture-markdown-dir",
                 str(fixture_markdown),
                 "--execute",
@@ -1863,6 +1869,8 @@ def _write_canonical_exact_100_chain(
         "ledger_card": ledger_root / "run-cards/init-purchase-ledger.json",
         "purchase_card": purchase_root / "run-cards/purchase-missing-recap-fetch.json",
         "recovery_card": recovery / "run-cards/recover-purchased.json",
+        "controlled_private_root": approval.controlled_private_root,
+        "purchase_ledger_initialization_receipt": approval.initialization_receipt,
         "purchased_clearance_card": (
             purchased_clearance_root / "run-cards/clear-disclosures.json"
         ),

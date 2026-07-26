@@ -18,14 +18,14 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
-    CaseDevPurchasePolicyError,
+    require_approved_case_dev_purchase_policy,
+    verify_approved_purchase_input_bytes,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
 )
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
-    RecapFetchBrokerPolicyError,
     validate_recap_fetch_budget_plan_artifact,
 )
 
@@ -54,11 +54,66 @@ def generate_recap_fetch_attempt_policy(
     budget_plan: MissingCoreBudgetPlan,
     budget_plan_artifact: Mapping[str, object],
     selection_records: Sequence[Mapping[str, Any]],
+    budget_plan_bytes: bytes | None = None,
+    selection_bytes: bytes | None = None,
+    controlled_private_root: Path | None = None,
 ) -> dict[str, object]:
     """Bind the unknown subset of one executable plan to exact source rows."""
 
+    return _build_recap_fetch_attempt_policy(
+        purchase_policy_artifact=purchase_policy_artifact,
+        cohort_policy_artifact=cohort_policy_artifact,
+        budget_plan=budget_plan,
+        budget_plan_artifact=budget_plan_artifact,
+        selection_records=selection_records,
+        budget_plan_bytes=budget_plan_bytes,
+        selection_bytes=selection_bytes,
+        controlled_private_root=controlled_private_root,
+        require_fresh_ledger_namespace=True,
+    )
+
+
+def _build_recap_fetch_attempt_policy(
+    *,
+    purchase_policy_artifact: Mapping[str, object],
+    cohort_policy_artifact: Mapping[str, Any],
+    budget_plan: MissingCoreBudgetPlan,
+    budget_plan_artifact: Mapping[str, object],
+    selection_records: Sequence[Mapping[str, Any]],
+    budget_plan_bytes: bytes | None,
+    selection_bytes: bytes | None,
+    controlled_private_root: Path | None,
+    require_fresh_ledger_namespace: bool,
+) -> dict[str, object]:
+    """Build minting or replay evidence under an explicit private mode."""
+
     try:
+        # Lazy to avoid the ingestion package's disclosure/projection import cycle.
+        from legalforecast.ingestion.purchase_approval import (
+            require_fresh_purchase_ledger_namespace,
+        )
+
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            purchase_policy, controlled_private_root=controlled_private_root
+        )
+        if purchase_policy.has_verified_approval and require_fresh_ledger_namespace:
+            require_fresh_purchase_ledger_namespace(
+                purchase_policy.canonical_ledger_path
+            )
+        verify_approved_purchase_input_bytes(
+            purchase_policy,
+            controlled_private_root=cast(Path, controlled_private_root),
+            budget_plan_bytes=budget_plan_bytes,
+            selection_bytes=selection_bytes,
+        )
+        if purchase_policy.has_verified_approval:
+            _require_structured_inputs_match_authenticated_bytes(
+                budget_plan_artifact=budget_plan_artifact,
+                selection_records=selection_records,
+                budget_plan_bytes=cast(bytes, budget_plan_bytes),
+                selection_bytes=cast(bytes, selection_bytes),
+            )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy, cohort_policy_artifact
         )
@@ -74,7 +129,7 @@ def generate_recap_fetch_attempt_policy(
             per_case_cap_usd=purchase_policy.max_per_case_usd,
             broad_frontier_allowlist=False,
         )
-    except (CaseDevPurchasePolicyError, RecapFetchBrokerPolicyError) as exc:
+    except (OSError, ValueError) as exc:
         raise RecapFetchAttemptPolicyError(str(exc)) from exc
     if budget_plan.dry_run:
         raise RecapFetchAttemptPolicyError(
@@ -149,15 +204,22 @@ def verify_recap_fetch_attempt_policy(
     budget_plan: MissingCoreBudgetPlan,
     budget_plan_artifact: Mapping[str, object],
     selection_records: Sequence[Mapping[str, Any]],
+    budget_plan_bytes: bytes,
+    selection_bytes: bytes,
+    controlled_private_root: Path,
 ) -> dict[str, dict[str, str]]:
-    """Recompute an attempt policy and return document-to-case authority."""
+    """Replay existing attempt authority without minting after initialization."""
 
-    expected = generate_recap_fetch_attempt_policy(
+    expected = _build_recap_fetch_attempt_policy(
         purchase_policy_artifact=purchase_policy_artifact,
         cohort_policy_artifact=cohort_policy_artifact,
         budget_plan=budget_plan,
         budget_plan_artifact=budget_plan_artifact,
         selection_records=selection_records,
+        budget_plan_bytes=budget_plan_bytes,
+        selection_bytes=selection_bytes,
+        controlled_private_root=controlled_private_root,
+        require_fresh_ledger_namespace=False,
     )
     if dict(artifact) != expected:
         raise RecapFetchAttemptPolicyError(
@@ -302,6 +364,39 @@ def _verify_shape(artifact: Mapping[str, object]) -> None:
 
 def _canonical_records(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return [dict(record) for record in records]
+
+
+def _require_structured_inputs_match_authenticated_bytes(
+    *,
+    budget_plan_artifact: Mapping[str, object],
+    selection_records: Sequence[Mapping[str, Any]],
+    budget_plan_bytes: bytes,
+    selection_bytes: bytes,
+) -> None:
+    """Prevent callers from detaching structured authority from approved bytes."""
+
+    try:
+        parsed_budget = json.loads(budget_plan_bytes)
+        parsed_selection = [
+            json.loads(line) for line in selection_bytes.splitlines() if line.strip()
+        ]
+    except (UnicodeError, ValueError) as exc:
+        raise RecapFetchAttemptPolicyError(
+            "authenticated purchase inputs are not canonical JSON"
+        ) from exc
+    if not isinstance(parsed_budget, Mapping):
+        raise RecapFetchAttemptPolicyError(
+            "budget plan structure differs from authenticated bytes"
+        )
+    typed_budget = cast(Mapping[str, object], parsed_budget)
+    if dict(typed_budget) != dict(budget_plan_artifact):
+        raise RecapFetchAttemptPolicyError(
+            "budget plan structure differs from authenticated bytes"
+        )
+    if parsed_selection != _canonical_records(selection_records):
+        raise RecapFetchAttemptPolicyError(
+            "selection structure differs from authenticated bytes"
+        )
 
 
 def _canonical_document_id(value: object) -> str:

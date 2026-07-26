@@ -6,6 +6,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.ingestion.recap_fetch_attempt_policy as attempt_policy_module
+import legalforecast.ingestion.recap_fetch_broker_policy as broker_policy_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
@@ -26,6 +28,44 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
     write_recap_fetch_broker_policy,
 )
 from pytest import CaptureFixture
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+    original_require = broker_policy_module.require_approved_case_dev_purchase_policy
+    original_verify = broker_policy_module.verify_approved_purchase_input_bytes
+
+    def allow_exact_v1(policy: object, **kwargs: object) -> None:
+        if (
+            getattr(policy, "schema_version", None)
+            == "legalforecast.case_dev_purchase_policy.v1"
+        ):
+            return
+        original_require(policy, **kwargs)  # type: ignore[arg-type]
+
+    def allow_exact_v1_inputs(policy: object, **kwargs: object) -> None:
+        if (
+            getattr(policy, "schema_version", None)
+            == "legalforecast.case_dev_purchase_policy.v1"
+        ):
+            return
+        original_verify(policy, **kwargs)  # type: ignore[arg-type]
+
+    for module in (attempt_policy_module, broker_policy_module):
+        monkeypatch.setattr(
+            module, "require_approved_case_dev_purchase_policy", allow_exact_v1
+        )
+        monkeypatch.setattr(
+            module, "verify_approved_purchase_input_bytes", allow_exact_v1_inputs
+        )
+
+
+pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
+
 
 _GOLDEN_ROOT = Path("tests/fixtures/recap_fetch_broker_policy")
 
@@ -738,6 +778,8 @@ def test_cli_help_names_every_authoritative_input(
     assert "non-dry-run" in help_text
     assert "Case.dev" in help_text
     assert "purchase authority" in help_text
+    assert "legalforecast.case_dev_purchase_policy.v2" in help_text
+    assert "legalforecast.case_dev_purchase_policy.v1" not in help_text
     for restriction in ("sealed", "private", "restricted"):
         assert restriction in help_text
     assert "different-byte" in help_text

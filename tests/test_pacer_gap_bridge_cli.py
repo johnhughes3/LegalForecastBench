@@ -22,6 +22,15 @@ from legalforecast.ingestion.public_packet_planner import plan_public_packet_dow
 from legalforecast.ingestion.screening_snapshot_union import (
     LONGITUDINAL_CORRECTION_POLICY_V2,
 )
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+
 
 _ROOT20_V4_TEXT_MISSING_CANDIDATE_IDS = [
     "69241167",
@@ -2407,6 +2416,7 @@ def test_public_first_bridge_rejects_orphan_checkpoint_before_candidate_attempt(
     assert checkpoint_path.read_bytes() == checkpoint_before
 
 
+@pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(
     tmp_path: Path,
     authenticated_downstream_fixture: Any,

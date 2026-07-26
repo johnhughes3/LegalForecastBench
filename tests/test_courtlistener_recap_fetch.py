@@ -33,6 +33,17 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.recap_fetch_broker import BrokerDefiniteRejection
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+
+
+pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 @pytest.mark.parametrize(

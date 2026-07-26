@@ -13,10 +13,22 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerBusyError,
     CaseDevPurchaseLedgerError,
+    generate_case_dev_purchase_policy,
     initialize_case_dev_purchase_journal,
     verify_case_dev_purchase_journal_initialization,
     verify_case_dev_purchase_policy,
 )
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+
+
+@pytest.fixture
+def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+
+
+pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 def test_init_purchase_ledger_help_describes_nonprovider_command(
@@ -709,7 +721,7 @@ def _inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "verified_at_utc": "2026-07-14T00:00:00Z",
         },
     }
-    policy = cli.generate_case_dev_purchase_policy(decisions)
+    policy = generate_case_dev_purchase_policy(decisions)
     policy_path = tmp_path / "purchase-policy.json"
     policy_path.write_text(json.dumps(policy), encoding="utf-8")
     return output_root, policy_path, cohort_path, ledger_path
@@ -732,6 +744,8 @@ def _args(
         str(cohort_path),
         "--purchase-ledger",
         str(ledger_path),
+        "--controlled-private-root",
+        str((output_root.parent / "private-authority").resolve()),
         "--execute",
     ]
 
