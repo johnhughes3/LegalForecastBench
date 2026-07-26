@@ -588,6 +588,15 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
 
 def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    provenance = (
+        ROOT / "docs" / "cohort-policy-cycle-1-target-100-2026-07-25-provenance.md"
+    ).read_text(encoding="utf-8")
+    policy_bytes = (
+        ROOT / "docs" / "cohort-policy-cycle-1-target-100-2026-07-25.json"
+    ).read_bytes()
+    policy = json.loads(policy_bytes)
+    policy_identity = cast(str, policy["policy_sha256"])
+    policy_file_sha256 = hashlib.sha256(policy_bytes).hexdigest()
     section = runbook.split(
         "### Step 5: Clear Every Free Document And Freeze The Exact Cohort",
         maxsplit=1,
@@ -598,9 +607,41 @@ def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None
     )
     assert "21-target100-retarget-main-182bd3d-v1" in section
     assert "cohort-policy-cycle-1-target-100-2026-07-25-provenance.md" in section
-    assert "0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed" in section
+    assert policy_identity in section
+    assert policy_identity in provenance
+    assert policy_file_sha256 in provenance
+    assert (
+        "0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed"
+        not in section
+    )
+    assert (
+        "0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed"
+        not in provenance
+    )
+    assert (
+        "1b2934646dffa68660a84fd2309b62852bdf6d36c26fdbc083ae792de3ea0a8b"
+        not in provenance
+    )
     assert "LegalForecastBench-5qd6.39.7.1" in section
     assert 'launch_root="$preparation_root/09-launch-100"' in section
+    snapshot_manifest = (
+        "artifacts/cycle-1/official-acquisition-main-e0d7177-20260716/"
+        "target-150-plus-five-current-policy-v1/"
+        "15-final-provider-free-union-main-4d3ba85-v1/"
+        "33-10k-continuation-main-5781216-v1/"
+        "15-final153-union-main-911371f-v1/snapshots/"
+        "cycle1-final153-current-policy-union-main-911371f-v1/manifest.json"
+    )
+    snapshot_manifest_sha256 = (
+        "487bec5f70289e212554a9af59fc195c9d6244060550d346612cb589405b138c"
+    )
+    assert f'snapshot_manifest="{snapshot_manifest}"' in section
+    assert f'snapshot_manifest_sha256="{snapshot_manifest_sha256}"' in section
+    assert '--snapshot-manifest "$snapshot_manifest"' in section
+    assert (
+        "artifacts/cycle-1/official-acquisition/snapshots/"
+        "batch-002-ranked-dockets-complete/manifest.json" not in section
+    )
     assert (
         '--disclosure-clearance "$clearance_root/disclosure-clearance.jsonl"' in section
     )
