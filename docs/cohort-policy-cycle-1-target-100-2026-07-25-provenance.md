@@ -19,5 +19,5 @@ It is not a policy artifact and is never consumed as runtime authority.
 - Current reason-code lists are supplied by `generate-cohort-policy` from the cycle-store taxonomy rather than copied from a stale artifact.
 
 The decisions input has SHA-256 `c5e39a3a31f49327ec3cc83222ed6dd2e5960070cc16dd48ab930dbef508ec29`.
-The generated policy has internal identity `0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed` and complete-file SHA-256 `1b2934646dffa68660a84fd2309b62852bdf6d36c26fdbc083ae792de3ea0a8b`.
+The generated policy has internal identity `76c98406536e38fede7a1a72b60af731088fae04888b9662b1d3ed37538a7207` and complete-file SHA-256 `5afa4d2368eca39719892bfd816c25a191f65c935ada3ca81e33e9af9861c6c8`.
 The main disclosure registry intentionally leaves that identity unprovisioned until John supplies the hardware-backed reviewer policy tracked by `LegalForecastBench-5qd6.39.7.1`.

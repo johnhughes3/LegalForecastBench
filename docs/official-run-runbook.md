@@ -1381,6 +1381,8 @@ restriction_evidence="$preparation_root/06-clearance-inputs/restriction-evidence
 review_root="$preparation_root/07-free-disclosure-review"
 clearance_root="$preparation_root/08-free-clearance"
 launch_root="$preparation_root/09-launch-100"
+snapshot_manifest="artifacts/cycle-1/official-acquisition-main-e0d7177-20260716/target-150-plus-five-current-policy-v1/15-final-provider-free-union-main-4d3ba85-v1/33-10k-continuation-main-5781216-v1/15-final153-union-main-911371f-v1/snapshots/cycle1-final153-current-policy-union-main-911371f-v1/manifest.json"
+snapshot_manifest_sha256="487bec5f70289e212554a9af59fc195c9d6244060550d346612cb589405b138c"
 private_review_root=<absolute-controlled-private-review-root>
 reviewer_policy=<externally-reviewed-human-hardware-reviewer-policy.json>
 cohort_policy=docs/cohort-policy-cycle-1-target-100-2026-07-25.json
@@ -1388,7 +1390,7 @@ controlled_store_uri=private-store://<authority>/<cycle-1-review-location>
 ```
 
 The current generated policy binds cycle hash `35f70123bfc966512d61119746ba09716332a181c074f131d553b56b610641cb`, the `2026-06-30` eligibility anchor, the saturated source window through `2026-07-23`, exactly 100 launch cases, and the unchanged `$567.30` cap.
-Its internal policy identity is `0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed`.
+Its internal policy identity is `76c98406536e38fede7a1a72b60af731088fae04888b9662b1d3ed37538a7207`.
 The value-by-value human-authority and source derivation record is [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md).
 The main registry intentionally marks this identity unprovisioned until `LegalForecastBench-5qd6.39.7.1` supplies the reviewed human hardware signer; stop at preflight rather than substituting the superseded July 14 policy or an ordinary software key.
 
@@ -1530,6 +1532,10 @@ If the live downstream contract omits that lineage, stop here and fix the gate; 
 Only after clearance succeeds may the supported 100-case launch cohort be projected from the 150-case preparation. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases. The first run has an exact-100 target; continued acquisition toward 150 is a nonblocking reserve and does not change that frozen denominator.
 
 ```bash
+test "$(jq -er '.snapshot + "/manifest.json"' "$preparation_root/target-cohort-config.json")" = "$(realpath "$snapshot_manifest")"
+test "$(jq -er '.snapshot_manifest_sha256 | sub("^sha256:"; "")' "$preparation_root/target-cohort-config.json")" = "$snapshot_manifest_sha256"
+test "$(sha256sum "$snapshot_manifest" | cut -d' ' -f1)" = "$snapshot_manifest_sha256"
+
 uv run legalforecast acquisition project-target-cohort \
   --output-root "$launch_root" \
   --selection "$preparation_root/03-gap-bridge/public-packet-selection-reconciled.jsonl" \
@@ -1540,7 +1546,7 @@ uv run legalforecast acquisition project-target-cohort \
   --restriction-evidence "$restriction_evidence" \
   --preparation-summary "$preparation_root/target-cohort-preparation-summary.json" \
   --preparation-config "$preparation_root/target-cohort-config.json" \
-  --snapshot-manifest artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete/manifest.json \
+  --snapshot-manifest "$snapshot_manifest" \
   --target-case-count 100 \
   --cost-per-document-usd 3.05 \
   --max-projected-budget-usd 567.30 \
