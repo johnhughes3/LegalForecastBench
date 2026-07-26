@@ -202,19 +202,19 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
             "--purchase-ledger",
         ),
         "llm-unitize": (
-            "--provider-authority-table",
-            "--provider-authority-region",
+            "--provider-authority-table <provider-authority-table>",
+            "--provider-authority-region <provider-authority-region>",
         ),
         "llm-review-stage-a": (
-            "--provider-authority-table",
-            "--provider-authority-region",
+            "--provider-authority-table <provider-authority-table>",
+            "--provider-authority-region <provider-authority-region>",
         ),
         "llm-label": (
             "--llm-unitization-run-card",
             "--llm-review-stage-a-run-card",
             "--unitization-review-run-card",
-            "--provider-authority-table",
-            "--provider-authority-region",
+            "--provider-authority-table <provider-authority-table>",
+            "--provider-authority-region <provider-authority-region>",
         ),
         "plan-packet-inputs": (
             "--materialization-run-card",
