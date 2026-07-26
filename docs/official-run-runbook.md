@@ -431,6 +431,8 @@ uv run legalforecast acquisition llm-unitize \
   --model-registry <frozen-stage-a-registry.json> \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-authority-table <provider-authority-table> \
+  --provider-authority-region <provider-authority-region> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --execute --no-resume
 ```
@@ -451,6 +453,8 @@ uv run legalforecast acquisition llm-review-stage-a \
   --model-registry <frozen-stage-a-reviewer-registry.json> \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-authority-table <provider-authority-table> \
+  --provider-authority-region <provider-authority-region> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --execute --no-resume
 ```
@@ -514,6 +518,8 @@ uv run legalforecast acquisition llm-label \
   --evaluated-model-registry <frozen-evaluated-model-registry.json> \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-authority-table <provider-authority-table> \
+  --provider-authority-region <provider-authority-region> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --execute --no-resume
 ```
