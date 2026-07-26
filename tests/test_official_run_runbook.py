@@ -637,6 +637,9 @@ def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None
     )
     assert f'snapshot_manifest="{snapshot_manifest}"' in section
     assert f'snapshot_manifest_sha256="{snapshot_manifest_sha256}"' in section
+    assert 'config_snapshot_manifest="$(' in section
+    assert '"$snapshot_manifest"|*/"$snapshot_manifest")' in section
+    assert 'realpath "$snapshot_manifest"' not in section
     assert '--snapshot-manifest "$snapshot_manifest"' in section
     assert (
         "artifacts/cycle-1/official-acquisition/snapshots/"
