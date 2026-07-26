@@ -1017,10 +1017,7 @@ def _validate_source_batch_config(
     receipt: Mapping[str, object],
     spec: Exact310SourceSpec,
 ) -> str | None:
-    if "source_schema_version" not in config:
-        raise Exact310RestRebindError(
-            "source batch config lacks source schema version commitment"
-        )
+    source_schema_version_present = "source_schema_version" in config
     raw_source_schema_version = config.get("source_schema_version")
     if raw_source_schema_version is not None and (
         not isinstance(raw_source_schema_version, str)
@@ -1031,7 +1028,7 @@ def _validate_source_batch_config(
             "source batch config has invalid source schema version commitment"
         )
     source_schema_version = raw_source_schema_version
-    expected = {
+    expected: dict[str, object] = {
         "auth_mode": "authenticated",
         "decision_window_end": "2026-07-15",
         "decision_window_start": "2026-07-11",
@@ -1048,9 +1045,14 @@ def _validate_source_batch_config(
         "source_batch_id": _text(receipt, "source_batch_id"),
         "source_candidate_count": spec.candidate_count,
         "source_candidate_set_sha256": spec.candidate_set_sha256,
-        "source_schema_version": source_schema_version,
         "top_k_per_term": spec.candidate_count,
     }
+    # The immutable official exact-310 source predates this optional lineage
+    # key. Its authenticated batch digest and snapshot manifest bind the
+    # omission; newly seeded target batches still commit an explicit null or
+    # source schema value through their separate setup authority.
+    if source_schema_version_present:
+        expected["source_schema_version"] = source_schema_version
     if dict(config) != expected:
         raise Exact310RestRebindError(
             "source batch config does not match pinned transfer authority"

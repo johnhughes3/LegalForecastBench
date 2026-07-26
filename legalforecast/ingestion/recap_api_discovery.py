@@ -1332,7 +1332,7 @@ def validate_incomplete_opinion_source_binding(
                 )
             )
             or hit.provider_hit_id
-            != f"{transfer_term}:{config['source_batch_digest']}:{docket_id}"
+            != f"{transfer_term}:{config.get('source_batch_digest')}:{docket_id}"
         ):
             raise OpinionBackedDispositionError(
                 "opinion transfer candidate provenance does not match the frozen batch"

@@ -256,6 +256,7 @@ def _fixture(
     tmp_path: Path,
     *,
     source_schema_version: str | None = None,
+    legacy_source_schema_omission: bool = False,
 ) -> Fixture:
     candidates = tuple(f"courtlistener-docket-{number}" for number in (1, 2, 3, 4))
     source_batch = "exact-rest-source"
@@ -326,6 +327,8 @@ def _fixture(
         "source_schema_version": source_schema_version,
         "top_k_per_term": 4,
     }
+    if legacy_source_schema_omission:
+        source_config.pop("source_schema_version")
     with CycleAcquisitionStore(source_path) as source:
         assert source.ensure_cycle(_policy("a")) == source_cycle
         _batch(
@@ -556,6 +559,17 @@ def test_exact310_rebind_preserves_reproves_and_fails_closed(tmp_path: Path) -> 
     assert resumed.snapshot_manifest_sha256 == result.snapshot_manifest_sha256
     assert fixture.source_store.stat().st_mtime_ns == source_stat.st_mtime_ns
     assert _sha(fixture.source_store) == source_sha
+
+
+def test_exact310_plan_accepts_authenticated_legacy_source_schema_omission(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, legacy_source_schema_omission=True)
+
+    plan = _plan(tmp_path, fixture)
+    contract = json.loads(plan.contract_path.read_text(encoding="utf-8"))
+    assert "source_schema_version" not in contract["source_batch_config"]
+    assert contract["target_batch_config"]["source_schema_version"] is None
 
 
 def test_exact310_rebind_rejects_contract_tamper(tmp_path: Path) -> None:
