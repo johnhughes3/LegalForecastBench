@@ -8,7 +8,7 @@ import os
 import re
 import stat
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -67,6 +67,150 @@ class AuthenticatedClearanceLineage:
     restriction_evidence_artifact_sha256: str
     review_authority_sha256: str
     authority: ReviewAuthority
+
+
+def _verified_lineage_capability_boundary() -> tuple[
+    Callable[..., object],
+    Callable[[object | None], AuthenticatedClearanceLineage],
+]:
+    """Keep authenticated capability state and its sealer closure-local."""
+
+    authenticated_lineages: dict[object, AuthenticatedClearanceLineage] = {}
+
+    def seal(lineage: AuthenticatedClearanceLineage) -> object:
+        capability = object()
+        authenticated_lineages[capability] = lineage
+        return capability
+
+    def issue(
+        *,
+        clearance_path: Path,
+        clearance_run_card_path: Path,
+        expected_download_manifest_path: Path,
+        expected_restriction_path: Path,
+        captured_artifact_bytes: Mapping[str, bytes],
+    ) -> object:
+        lineage = _authenticate_verified_lineage_from_raw_evidence(
+            clearance_path=clearance_path,
+            clearance_run_card_path=clearance_run_card_path,
+            expected_download_manifest_path=expected_download_manifest_path,
+            expected_restriction_path=expected_restriction_path,
+            captured_artifact_bytes=captured_artifact_bytes,
+        )
+        return seal(lineage)
+
+    def consume(capability: object | None) -> AuthenticatedClearanceLineage:
+        try:
+            return authenticated_lineages[capability]
+        except (KeyError, TypeError):
+            raise ResolvedPostRecoveryError(
+                "verified provenance lineage requires an authenticated capability"
+            ) from None
+
+    return issue, consume
+
+
+(
+    _issue_verified_lineage_capability,
+    _consume_verified_lineage_capability,
+) = _verified_lineage_capability_boundary()
+
+
+def _authenticate_verified_lineage_from_raw_evidence(
+    *,
+    clearance_path: Path,
+    clearance_run_card_path: Path,
+    expected_download_manifest_path: Path,
+    expected_restriction_path: Path,
+    captured_artifact_bytes: Mapping[str, bytes],
+) -> AuthenticatedClearanceLineage:
+    """Replay raw provenance evidence and derive authenticated lineage."""
+
+    # Import lazily because the CLI owns the full interactive checkpoint replay while
+    # this module owns capability issuance and downstream lineage binding.
+    from legalforecast import cli as cli_module
+
+    verify = cast(
+        Any,
+        cli_module._verify_authenticated_clearance_run_card,  # pyright: ignore[reportPrivateUsage]
+    )
+    verify(
+        clearance_path=clearance_path,
+        clearance_run_card_path=clearance_run_card_path,
+        expected_download_manifest_path=expected_download_manifest_path,
+        expected_restriction_path=expected_restriction_path,
+        captured_artifact_bytes=captured_artifact_bytes,
+    )
+    try:
+        run_card_bytes = captured_artifact_bytes[
+            os.path.abspath(clearance_run_card_path)
+        ]
+        clearance_bytes = captured_artifact_bytes[os.path.abspath(clearance_path)]
+    except KeyError as exc:
+        raise ResolvedPostRecoveryError(
+            "authenticated provenance snapshot lacks clearance artifacts"
+        ) from exc
+    run_card = _json_object_from_bytes(
+        run_card_bytes, "authenticated provenance clearance run card"
+    )
+    sources = _mapping(
+        run_card.get("source_commitments"), "provenance source commitments"
+    )
+    authority = _mapping(
+        run_card.get("clearance_authority"), "provenance clearance authority"
+    )
+    if authority.get("kind") != "provenance_first_with_john_exceptions":
+        raise ResolvedPostRecoveryError(
+            "verified lineage capability requires provenance-first clearance"
+        )
+
+    def committed_bytes(name: str) -> bytes:
+        commitment = _mapping(sources.get(name), f"{name} commitment")
+        path = Path(_required_text(commitment.get("path"), f"{name} path"))
+        try:
+            data = captured_artifact_bytes[os.path.abspath(path)]
+        except KeyError as exc:
+            raise ResolvedPostRecoveryError(
+                f"authenticated provenance snapshot lacks {name}"
+            ) from exc
+        if _commitment_sha256(commitment.get("sha256"), name) != _bytes_sha256(data):
+            raise ResolvedPostRecoveryError(
+                f"authenticated provenance {name} commitment changed"
+            )
+        return data
+
+    decisions_bytes = committed_bytes("exception_decisions")
+    recorder_bytes = committed_bytes("exception_review_run_card")
+    cohort_policy_bytes = committed_bytes("cohort_policy")
+    restriction_bytes = committed_bytes("restriction_evidence")
+    routing_plan_bytes = committed_bytes("routing_plan")
+    decisions = _jsonl_records_from_bytes(
+        decisions_bytes, "authenticated provenance exception decisions"
+    )
+    reviewed_at = max(
+        (_required_text(row.get("reviewed_at"), "reviewed_at") for row in decisions),
+        default=_required_text(run_card.get("generated_at"), "generated_at"),
+    )
+    return AuthenticatedClearanceLineage(
+        clearance_run_card_sha256=_bytes_sha256(run_card_bytes),
+        clearance_artifact_sha256=_bytes_sha256(clearance_bytes),
+        reviews_artifact_sha256=_bytes_sha256(decisions_bytes),
+        review_receipt_sha256=_bytes_sha256(recorder_bytes),
+        cohort_policy_artifact_sha256=_bytes_sha256(cohort_policy_bytes),
+        restriction_evidence_artifact_sha256=_bytes_sha256(restriction_bytes),
+        review_authority_sha256=_sha256(authority),
+        authority=ReviewAuthority(
+            reviewer_id="John Hughes",
+            controlled_store_uri="private-store://john/disclosure-exception-review",
+            authentication_method="interactive_hash_confirmation_only",
+            authenticated_at=reviewed_at,
+            review_artifact_sha256=_bytes_sha256(decisions_bytes),
+            reviewer_policy_sha256=_bytes_sha256(routing_plan_bytes),
+        ),
+    )
+
+
+del _verified_lineage_capability_boundary
 
 
 def validate_authenticated_clearance_lineage(
@@ -457,7 +601,7 @@ def build_resolved_post_recovery_documents(
     )
 
 
-def build_resolved_post_recovery_documents_with_authenticated_lineage(
+def _build_resolved_post_recovery_documents_core(
     *,
     selection_records: Sequence[Mapping[str, Any]],
     purchase_operation_records: Sequence[Mapping[str, Any]],
@@ -480,13 +624,13 @@ def build_resolved_post_recovery_documents_with_authenticated_lineage(
     restriction_records: Sequence[Mapping[str, Any]],
     restriction_artifact_bytes: bytes,
     allow_test_service_identity: bool = False,
-    verified_provenance_lineage: AuthenticatedClearanceLineage | None = None,
+    verified_lineage_capability: object | None = None,
 ) -> tuple[dict[str, object], ...]:
     """Build exact resolved records for every unknown-origin selected document."""
 
-    if verified_provenance_lineage is not None:
+    if verified_lineage_capability is not None:
         clearance_lineage = _bind_internal_verified_provenance_lineage(
-            verified_provenance_lineage,
+            _consume_verified_lineage_capability(verified_lineage_capability),
             clearance_records=clearance_records,
             clearance_artifact_bytes=clearance_artifact_bytes,
             clearance_run_card=clearance_run_card,
@@ -625,6 +769,32 @@ def build_resolved_post_recovery_documents_with_authenticated_lineage(
     return tuple(output)
 
 
+def _build_resolved_post_recovery_documents_with_authenticated_lineage(  # pyright: ignore[reportUnusedFunction]
+    *, verified_lineage_capability: object | None = None, **kwargs: Any
+) -> tuple[dict[str, object], ...]:
+    """Build through the private capability-bearing provenance path."""
+
+    _consume_verified_lineage_capability(verified_lineage_capability)
+    return _build_resolved_post_recovery_documents_core(
+        **kwargs,
+        verified_lineage_capability=verified_lineage_capability,
+    )
+
+
+def build_resolved_post_recovery_documents_with_authenticated_lineage(
+    **kwargs: Any,
+) -> tuple[dict[str, object], ...]:
+    """Reject caller-supplied lineage; retained for fail-closed compatibility."""
+
+    if kwargs.pop("verified_provenance_lineage", None) is not None or (
+        "verified_lineage_capability" in kwargs
+    ):
+        raise ResolvedPostRecoveryError(
+            "caller-supplied authenticated clearance lineage is forbidden"
+        )
+    return _build_resolved_post_recovery_documents_core(**kwargs)
+
+
 def require_resolved_post_recovery_documents(
     *,
     selection_records: Sequence[Mapping[str, Any]],
@@ -674,7 +844,7 @@ def require_resolved_post_recovery_documents(
     )
 
 
-def require_resolved_post_recovery_documents_with_authenticated_lineage(
+def _require_resolved_post_recovery_documents_core(
     *,
     selection_records: Sequence[Mapping[str, Any]],
     download_records: Sequence[Mapping[str, Any]],
@@ -696,13 +866,13 @@ def require_resolved_post_recovery_documents_with_authenticated_lineage(
     restriction_records: Sequence[Mapping[str, Any]],
     restriction_artifact_bytes: bytes,
     allow_test_service_identity: bool = False,
-    verified_provenance_lineage: AuthenticatedClearanceLineage | None = None,
+    verified_lineage_capability: object | None = None,
 ) -> None:
     """Require exact resolved coverage whenever selection originated unknown."""
 
-    if verified_provenance_lineage is not None:
+    if verified_lineage_capability is not None:
         lineage = _bind_internal_verified_provenance_lineage(
-            verified_provenance_lineage,
+            _consume_verified_lineage_capability(verified_lineage_capability),
             clearance_records=clearance_records,
             clearance_artifact_bytes=clearance_artifact_bytes,
             clearance_run_card=clearance_run_card,
@@ -799,6 +969,32 @@ def require_resolved_post_recovery_documents_with_authenticated_lineage(
             raise ResolvedPostRecoveryError(
                 f"resolved fresh-detail public proof changed: {key}"
             )
+
+
+def _require_resolved_post_recovery_documents_with_authenticated_lineage(  # pyright: ignore[reportUnusedFunction]
+    *, verified_lineage_capability: object | None = None, **kwargs: Any
+) -> None:
+    """Require lineage through the private capability-bearing provenance path."""
+
+    _consume_verified_lineage_capability(verified_lineage_capability)
+    _require_resolved_post_recovery_documents_core(
+        **kwargs,
+        verified_lineage_capability=verified_lineage_capability,
+    )
+
+
+def require_resolved_post_recovery_documents_with_authenticated_lineage(
+    **kwargs: Any,
+) -> None:
+    """Reject caller-supplied lineage; retained for fail-closed compatibility."""
+
+    if kwargs.pop("verified_provenance_lineage", None) is not None or (
+        "verified_lineage_capability" in kwargs
+    ):
+        raise ResolvedPostRecoveryError(
+            "caller-supplied authenticated clearance lineage is forbidden"
+        )
+    _require_resolved_post_recovery_documents_core(**kwargs)
 
 
 def require_resolved_post_recovery_parse_requests(

@@ -167,6 +167,77 @@ def test_projection_accepts_only_well_formed_provenance_clearance() -> None:
         )
 
 
+@pytest.mark.parametrize("mutation", ["query_url", "purchased", "prefixed_hash"])
+def test_projection_rejects_weaker_automatic_clearance_variants(
+    mutation: str,
+) -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    manifest = _download(candidate_id, document_id)
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "affirmative_public_provenance",
+            "routing_plan_sha256": "b" * 64,
+            "reviewer_id": None,
+            "controlled_store_provenance": (
+                "https://storage.courtlistener.com/recap/case-a/complaint.pdf"
+            ),
+            "reviewed_at": None,
+        }
+    )
+    if mutation == "query_url":
+        clearance["controlled_store_provenance"] += "?download=1"
+    elif mutation == "purchased":
+        manifest["free_or_purchased"] = "purchased"
+        clearance["free_or_purchased"] = "purchased"
+    else:
+        clearance["routing_plan_sha256"] = "sha256:" + "b" * 64
+
+    with pytest.raises(TargetCohortProjectionError, match="clearance policy"):
+        project_target_cohort(
+            selections=[_selection(candidate_id)],
+            case_relevance=[_relevance(candidate_id, missing_count=1)],
+            download_manifest=[manifest],
+            clearance_records=[clearance],
+            target_case_count=1,
+            cost_per_document_usd="3.05",
+            max_projected_budget_usd="10.00",
+            max_missing_core_documents_per_case=24,
+        )
+
+
+def test_projection_accepts_john_cleared_unknown_empty_restriction_evidence() -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "john_exception_review",
+            "routing_plan_sha256": "b" * 64,
+            "restriction_status": "unknown",
+            "restriction_evidence": [],
+            "reviewer_id": "John Hughes",
+            "controlled_store_provenance": (
+                "private-store://john/disclosure-exception-review"
+            ),
+        }
+    )
+
+    projection = project_target_cohort(
+        selections=[_selection(candidate_id)],
+        case_relevance=[_relevance(candidate_id, missing_count=1)],
+        download_manifest=[_download(candidate_id, document_id)],
+        clearance_records=[clearance],
+        target_case_count=1,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="10.00",
+        max_missing_core_documents_per_case=24,
+    )
+
+    assert projection.selected_candidate_ids == (candidate_id,)
+
+
 def test_projection_fails_closed_when_manifest_clearance_is_missing() -> None:
     with pytest.raises(
         TargetCohortProjectionError,
@@ -639,6 +710,10 @@ def test_provenance_clearance_projects_and_materializes_two_cases(
                 bytes, kwargs["restriction_evidence_bytes"]
             ),
             case_relevance_bytes=cast(bytes, kwargs["case_relevance_bytes"]),
+            document_bytes_by_relative_path=cast(
+                Mapping[str, bytes] | None,
+                kwargs.get("document_bytes_by_relative_path"),
+            ),
             marker_scanner=lambda _payload: (),
         )
 

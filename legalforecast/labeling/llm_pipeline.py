@@ -35,6 +35,10 @@ from legalforecast.ingestion.decision_text_artifact import (
 from legalforecast.ingestion.decision_text_artifact import (
     VerifiedDecisionTextArtifact,
 )
+from legalforecast.ingestion.disclosure_review_bundle import (
+    ReviewBundleError,
+    read_unique_regular_file,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.labeling.ensemble import (
     DEFAULT_HIGH_CONFIDENCE_THRESHOLD,
@@ -2068,18 +2072,24 @@ def _markdown_text(
     lexical_path = (
         markdown_path if markdown_path.is_absolute() else markdown_root / markdown_path
     )
+    root = Path(os.path.abspath(markdown_root))
+    try:
+        relative_path = Path(os.path.abspath(lexical_path)).relative_to(root).as_posix()
+    except ValueError as exc:
+        raise LlmPipelineError(
+            f"markdown path is outside markdown_root: {lexical_path}"
+        ) from exc
     if markdown_bytes is None:
-        if not lexical_path.is_file():
-            raise LlmPipelineError(f"markdown file missing: {lexical_path}")
-        payload = lexical_path.read_bytes()
+        try:
+            payload = read_unique_regular_file(lexical_path)
+        except ReviewBundleError as exc:
+            raise LlmPipelineError(
+                f"markdown file cannot be safely read: {lexical_path}"
+            ) from exc
     else:
         try:
-            root = Path(os.path.abspath(markdown_root))
-            relative_path = (
-                Path(os.path.abspath(lexical_path)).relative_to(root).as_posix()
-            )
             payload = markdown_bytes[relative_path]
-        except (KeyError, ValueError) as exc:
+        except KeyError as exc:
             raise LlmPipelineError(
                 f"markdown snapshot missing or outside root: {lexical_path}"
             ) from exc

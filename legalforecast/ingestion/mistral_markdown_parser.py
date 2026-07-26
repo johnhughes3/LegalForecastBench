@@ -171,7 +171,7 @@ def convert_documents_to_markdown(
     runner: ParserProcessRunner | None = None,
     extracted_at: datetime | None = None,
 ) -> tuple[MistralMarkdownConversionRecord, ...]:
-    """Convert documents independently so one parser failure cannot poison a run."""
+    """Isolate ordinary failures; abort on staging or output safety violations."""
 
     if not requests:
         return ()
@@ -242,7 +242,7 @@ def _convert_one(
     with _parser_input_snapshot(
         request, input_path=input_path, artifact_root=artifact_root
     ) as (parser_input_path, parser_input_directory_fd):
-        return _run_verified_conversion(
+        record, markdown_payload = _run_verified_conversion(
             request,
             input_path=input_path,
             parser_input_path=parser_input_path,
@@ -256,6 +256,10 @@ def _convert_one(
             runner=runner,
             extracted_at=extracted_at,
         )
+    if markdown_payload is not None:
+        _write_unique_regular_file(markdown_path, markdown_payload)
+    _write_metadata(metadata_path, record)
+    return record
 
 
 def _run_verified_conversion(
@@ -272,7 +276,7 @@ def _run_verified_conversion(
     parser_root: Path,
     runner: ParserProcessRunner,
     extracted_at: datetime,
-) -> MistralMarkdownConversionRecord:
+) -> tuple[MistralMarkdownConversionRecord, bytes | None]:
     generated_markdown_path = parser_input_path.with_suffix(".md")
     if parser_input_directory_fd is not None and _entry_exists_at(
         parser_input_directory_fd, generated_markdown_path.name
@@ -312,8 +316,7 @@ def _run_verified_conversion(
             stdout=result.stdout,
             stderr=result.stderr,
         )
-        _write_metadata(metadata_path, record)
-        return record
+        return record, None
     if result.return_code != 0:
         error_message = (
             result.stderr.strip() or result.stdout.strip() or "parser failed"
@@ -331,8 +334,7 @@ def _run_verified_conversion(
             stdout=result.stdout,
             stderr=result.stderr,
         )
-        _write_metadata(metadata_path, record)
-        return record
+        return record, None
 
     generated_markdown: bytes | None = None
     try:
@@ -366,8 +368,7 @@ def _run_verified_conversion(
             stdout=result.stdout,
             stderr=result.stderr,
         )
-        _write_metadata(metadata_path, record)
-        return record
+        return record, None
 
     try:
         markdown = generated_markdown.decode("utf-8")
@@ -375,8 +376,6 @@ def _run_verified_conversion(
         raise ValueError(
             f"parser Markdown output is unsafe: {generated_markdown_path}"
         ) from exc
-    if generated_markdown_path != markdown_path:
-        _write_unique_regular_file(markdown_path, markdown.encode("utf-8"))
     quality_flags = () if markdown.strip() else ("empty_markdown",)
     extracted_text = ExtractedTextArtifact(
         source_document_id=request.source_document_id,
@@ -400,8 +399,7 @@ def _run_verified_conversion(
         stdout=result.stdout,
         stderr=result.stderr,
     )
-    _write_metadata(metadata_path, record)
-    return record
+    return record, generated_markdown
 
 
 def _verify_source_commitments(
@@ -460,27 +458,73 @@ def _parser_input_snapshot(
     )
     try:
         yield stage_path, directory_fd
-    finally:
-        directory_is_current = False
+    except BaseException:
         try:
-            generated_name = stage_path.with_suffix(".md").name
-            if _entry_exists_at(directory_fd, generated_name):
-                _safe_unlink_staging_entry(directory_fd, generated_name)
-            if _entry_exists_at(directory_fd, stage_path.name):
-                _safe_unlink_staging_entry(directory_fd, stage_path.name)
-            directory_is_current = _stage_directory_is_current(
-                stage_path.parent, directory_fd
-            )
-        finally:
-            os.close(directory_fd)
-        if directory_is_current:
-            digest_dir = stage_path.parent
-            stage_root = digest_dir.parent
+            _cleanup_parser_input_snapshot(stage_path, directory_fd)
+        except BaseException:
+            # Teardown must not replace the parser or verification failure that
+            # caused this context to unwind.
+            pass
+        raise
+    else:
+        _cleanup_parser_input_snapshot(stage_path, directory_fd)
+
+
+def _cleanup_parser_input_snapshot(stage_path: Path, directory_fd: int) -> None:
+    cleanup_error: Exception | None = None
+    directory_is_current = False
+    try:
+        for name in (stage_path.with_suffix(".md").name, stage_path.name):
+            try:
+                if _entry_exists_at(directory_fd, name):
+                    _safe_unlink_staging_entry(directory_fd, name)
+            except Exception as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        try:
+            _drain_unique_regular_staging_entries(directory_fd)
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+        directory_is_current = _stage_directory_is_current(
+            stage_path.parent, directory_fd
+        )
+    finally:
+        os.close(directory_fd)
+
+    if directory_is_current:
+        digest_dir = stage_path.parent
+        stage_root = digest_dir.parent
+        try:
             digest_dir.rmdir()
+        except OSError as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+        else:
             try:
                 stage_root.rmdir()
             except OSError:
                 pass
+    if cleanup_error is not None:
+        raise cleanup_error
+
+
+def _drain_unique_regular_staging_entries(directory_fd: int) -> None:
+    cleanup_error: Exception | None = None
+    for name in sorted(os.listdir(directory_fd)):
+        try:
+            metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise ValueError(
+                    f"parser staging cleanup found an unsafe alias: {name}"
+                )
+            os.unlink(name, dir_fd=directory_fd)
+            raise ValueError(f"unexpected parser staging residue: {name}")
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+    if cleanup_error is not None:
+        raise cleanup_error
 
 
 def _stage_captured_source(

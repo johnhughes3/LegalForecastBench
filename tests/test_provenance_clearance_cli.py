@@ -9,6 +9,7 @@ from typing import cast
 import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.disclosure_clearance import DisclosureClearanceError
 from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan as build_plan,
 )
@@ -495,3 +496,20 @@ def test_provenance_planner_rejects_symlinked_source_and_document_root(
     real_documents.symlink_to(moved_documents, target_is_directory=True)
     assert main(_plan_command(paths)) == 2
     assert not (paths["output"] / "disclosure-provenance-plan.json").exists()
+
+
+def test_provenance_snapshot_reread_translates_unsafe_path_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unsafe_path(_root: Path, _relative: str) -> Path:
+        raise DisclosureClearanceError("document became symlinked")
+
+    monkeypatch.setattr(cli_module, "safe_disclosure_document_path", unsafe_path)
+
+    with pytest.raises(
+        cli_module.CommandError,
+        match="disclosure document became unsafe during execution",
+    ):
+        cli_module._require_provenance_document_snapshot_unchanged(
+            {"case/document.pdf": b"captured"}, document_root=tmp_path
+        )

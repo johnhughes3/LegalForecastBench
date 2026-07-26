@@ -12,6 +12,10 @@ from legalforecast.ingestion.core_document_filter import (
     CoreDocumentFilterResult,
     filter_core_documents,
 )
+from legalforecast.ingestion.disclosure_clearance import (
+    DisclosureClearanceError,
+    require_clearance_policy,
+)
 from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
     plan_missing_core_document_budget,
@@ -337,68 +341,12 @@ def _validate_clearance_binding(
         raise TargetCohortProjectionError(f"invalid clearance status: {key}")
     if status != "cleared":
         return
-    basis = clearance.get("clearance_basis")
-    if basis == "affirmative_public_provenance":
-        if (
-            clearance.get("reviewer_id") is not None
-            or clearance.get("reviewed_at") is not None
-        ):
-            raise TargetCohortProjectionError(
-                f"automatic clearance unexpectedly has a reviewer: {key}"
-            )
-        provenance = clearance.get("controlled_store_provenance")
-        if not isinstance(provenance, str) or not provenance.startswith(
-            "https://storage.courtlistener.com/recap/"
-        ):
-            raise TargetCohortProjectionError(
-                f"automatic clearance lacks public source provenance: {key}"
-            )
-        _required_clearance_routing_hash(clearance, key=key)
-    elif basis == "john_exception_review":
-        for field in (
-            "reviewer_id",
-            "controlled_store_provenance",
-            "reviewed_at",
-        ):
-            _required_str(clearance, field)
-        _required_clearance_routing_hash(clearance, key=key)
-    elif basis is None:
-        if clearance.get("restriction_status") not in _PUBLIC_RESTRICTION_STATUSES:
-            raise TargetCohortProjectionError(
-                f"cleared document lacks public restriction status: {key}"
-            )
-        for field in (
-            "reviewer_id",
-            "controlled_store_provenance",
-            "reviewed_at",
-        ):
-            _required_str(clearance, field)
-    else:
-        raise TargetCohortProjectionError(f"unsupported clearance basis: {key}")
-    evidence = clearance.get("restriction_evidence")
-    if (
-        not isinstance(evidence, Sequence)
-        or isinstance(evidence, (str, bytes))
-        or not evidence
-        or not all(
-            isinstance(item, str) and bool(item.strip())
-            for item in cast(Sequence[object], evidence)
-        )
-    ):
+    try:
+        require_clearance_policy(clearance, key=key, label="projected document")
+    except DisclosureClearanceError as exc:
         raise TargetCohortProjectionError(
-            f"cleared document lacks restriction evidence: {key}"
-        )
-
-
-def _required_clearance_routing_hash(
-    clearance: Mapping[str, Any], *, key: tuple[str, str]
-) -> str:
-    value = clearance.get("routing_plan_sha256")
-    if not isinstance(value, str) or not _valid_sha256(value):
-        raise TargetCohortProjectionError(
-            f"provenance clearance lacks routing plan hash: {key}"
-        )
-    return value
+            f"invalid clearance policy for {key}: {exc}"
+        ) from exc
 
 
 def restriction_evidence_from_case_relevance(

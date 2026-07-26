@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import inspect
 import json
 from copy import deepcopy
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli
 import legalforecast.ingestion.resolved_post_recovery as resolved_module
@@ -40,7 +41,9 @@ from legalforecast.ingestion.resolved_post_recovery import (
     AuthenticatedClearanceLineage,
     ResolvedPostRecoveryError,
     build_resolved_post_recovery_documents,
+    build_resolved_post_recovery_documents_with_authenticated_lineage,
     require_resolved_post_recovery_documents,
+    require_resolved_post_recovery_documents_with_authenticated_lineage,
     require_resolved_post_recovery_operation_bindings,
     require_resolved_post_recovery_parse_requests,
     write_resolved_post_recovery_documents,
@@ -233,7 +236,9 @@ def test_build_and_require_exact_unknown_origin_lineage() -> None:
     )
 
 
-def test_public_api_rejects_caller_fabricated_provenance_lineage() -> None:
+def test_public_api_rejects_caller_fabricated_provenance_lineage(
+    tmp_path: Path,
+) -> None:
     inputs = _inputs()
     decisions = [
         {
@@ -318,10 +323,89 @@ def test_public_api_rejects_caller_fabricated_provenance_lineage() -> None:
         "review_receipt_bytes": recorder_bytes,
         "reviewer_policy_bytes": routing_bytes,
         "disclosure_authority": None,
-        "preverified_clearance_lineage": provenance_lineage,
+        "verified_provenance_lineage": provenance_lineage,
     }
-    with pytest.raises(TypeError, match="preverified_clearance_lineage"):
-        build_resolved_post_recovery_documents(**fabricated_inputs)
+    with pytest.raises(
+        ResolvedPostRecoveryError, match="caller-supplied authenticated"
+    ):
+        cast(Any, build_resolved_post_recovery_documents_with_authenticated_lineage)(
+            **fabricated_inputs
+        )
+    require_inputs = {
+        name: value
+        for name, value in fabricated_inputs.items()
+        if name not in {"attempt_policy_artifact", "purchase_operation_records"}
+    }
+    with pytest.raises(
+        ResolvedPostRecoveryError, match="caller-supplied authenticated"
+    ):
+        cast(Any, require_resolved_post_recovery_documents_with_authenticated_lineage)(
+            **require_inputs,
+            resolved_records=[],
+        )
+
+    private_build_inputs = {
+        name: value
+        for name, value in fabricated_inputs.items()
+        if name != "verified_provenance_lineage"
+    }
+    private_require_inputs = {
+        name: value
+        for name, value in require_inputs.items()
+        if name != "verified_provenance_lineage"
+    }
+    for capability_kwargs in ({}, {"verified_lineage_capability": object()}):
+        with pytest.raises(ResolvedPostRecoveryError, match="authenticated capability"):
+            cast(
+                Any,
+                resolved_module._build_resolved_post_recovery_documents_with_authenticated_lineage,
+            )(**private_build_inputs, **capability_kwargs)
+        with pytest.raises(ResolvedPostRecoveryError, match="authenticated capability"):
+            cast(
+                Any,
+                resolved_module._require_resolved_post_recovery_documents_with_authenticated_lineage,
+            )(
+                **private_require_inputs,
+                **capability_kwargs,
+                resolved_records=[],
+            )
+
+    issue_capability = cast(Any, resolved_module._issue_verified_lineage_capability)
+    issuer_signature = inspect.signature(issue_capability)
+    assert tuple(issuer_signature.parameters) == (
+        "clearance_path",
+        "clearance_run_card_path",
+        "expected_download_manifest_path",
+        "expected_restriction_path",
+        "captured_artifact_bytes",
+    )
+    assert all(
+        parameter.default is inspect.Parameter.empty
+        for parameter in issuer_signature.parameters.values()
+    )
+    assert issue_capability.__kwdefaults__ is None
+    with pytest.raises(TypeError, match="provenance_lineage"):
+        issue_capability(provenance_lineage=provenance_lineage)
+
+    fabricated_clearance_path = tmp_path / "fabricated-clearance.jsonl"
+    fabricated_run_card_path = tmp_path / "fabricated-clearance-run-card.json"
+    fabricated_clearance_path.write_bytes(clearance_bytes)
+    fabricated_run_card_path.write_bytes(run_card_bytes)
+    fabricated_snapshot = {
+        str(fabricated_clearance_path.resolve()): clearance_bytes,
+        str(fabricated_run_card_path.resolve()): run_card_bytes,
+    }
+    with pytest.raises(
+        (ResolvedPostRecoveryError, cli.CommandError),
+        match=r"commitment|artifact|path|snapshot",
+    ):
+        issue_capability(
+            clearance_path=fabricated_clearance_path,
+            clearance_run_card_path=fabricated_run_card_path,
+            expected_download_manifest_path=tmp_path / "fabricated-manifest.jsonl",
+            expected_restriction_path=tmp_path / "fabricated-restriction.jsonl",
+            captured_artifact_bytes=fabricated_snapshot,
+        )
 
 
 def test_omitted_or_tampered_resolved_lineage_fails_closed() -> None:

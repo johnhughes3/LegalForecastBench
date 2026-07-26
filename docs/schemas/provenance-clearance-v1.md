@@ -7,7 +7,7 @@ Legacy signed-review artifacts remain verifiable for historical runs but are not
 ## Routing plan
 
 `plan-disclosure-provenance` consumes the exact frozen disclosure requests, complete download manifest, full case-relevance artifact, restriction evidence, and acquired document tree.
-It rejects symlinks, hard links, special files, changed bytes, incomplete key coverage, unexplained relevance-only rows, and noncanonical source bytes.
+It rejects symlinks, hard links, special files, changed bytes, malformed or semantically mismatched source bytes, incomplete key coverage, and unexplained relevance-only rows.
 Every relevance-only document must be an explicit unavailable paid-recovery gap.
 
 The output schema is `legalforecast.disclosure_provenance_routing_plan.v1`.

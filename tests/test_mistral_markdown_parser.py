@@ -177,6 +177,142 @@ def test_captured_source_bytes_feed_parser_and_leave_no_staging_residue(
     assert not (tmp_path / ".parser-source-snapshots").exists()
 
 
+def test_captured_source_cleanup_rejects_unexpected_regular_sidecars(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+
+    class SidecarRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            staged.with_suffix(".md").write_text("captured markdown")
+            (staged.parent / "parser-sidecar.json").write_text("sidecar")
+            return ParserProcessResult(return_code=0)
+
+    with pytest.raises(ValueError, match="unexpected parser staging residue"):
+        convert_documents_to_markdown(
+            (_captured_request(source, tmp_path / "markdown" / "source.md"),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=SidecarRunner(),
+        )
+
+    assert not (tmp_path / "markdown" / "source.md").exists()
+    assert not (tmp_path / "markdown" / "source.metadata.json").exists()
+    assert not (tmp_path / ".parser-source-snapshots").exists()
+
+
+@pytest.mark.parametrize("residue_kind", ["symlink", "hardlink", "directory"])
+def test_captured_source_cleanup_rejects_unsafe_unexpected_residue(
+    tmp_path: Path,
+    residue_kind: str,
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside", encoding="utf-8")
+
+    class UnsafeResidueRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            staged.with_suffix(".md").write_text("captured markdown")
+            residue = staged.parent / "unexpected-residue"
+            if residue_kind == "symlink":
+                residue.symlink_to(outside)
+            elif residue_kind == "hardlink":
+                residue.hardlink_to(outside)
+            else:
+                residue.mkdir()
+            return ParserProcessResult(return_code=0)
+
+    with pytest.raises(ValueError, match="unsafe alias"):
+        convert_documents_to_markdown(
+            (_captured_request(source, tmp_path / "markdown" / "source.md"),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=UnsafeResidueRunner(),
+        )
+
+    assert outside.read_text(encoding="utf-8") == "outside"
+    assert not (tmp_path / "markdown" / "source.md").exists()
+    assert not (tmp_path / "markdown" / "source.metadata.json").exists()
+
+
+def test_captured_source_cleanup_does_not_mask_primary_parser_exception(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+
+    class FailingSidecarRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            (staged.parent / "parser-sidecar.json").write_text("sidecar")
+            raise RuntimeError("primary parser failure")
+
+    with pytest.raises(RuntimeError, match="primary parser failure"):
+        convert_documents_to_markdown(
+            (_captured_request(source, tmp_path / "markdown" / "source.md"),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=FailingSidecarRunner(),
+        )
+
+    assert not (tmp_path / ".parser-source-snapshots").exists()
+
+
+def test_captured_source_cleanup_preserves_primary_exception_with_unsafe_residue(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside", encoding="utf-8")
+
+    class FailingAliasRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            (staged.parent / "unexpected-residue").symlink_to(outside)
+            raise RuntimeError("primary parser failure")
+
+    with pytest.raises(RuntimeError, match="primary parser failure"):
+        convert_documents_to_markdown(
+            (_captured_request(source, tmp_path / "markdown" / "source.md"),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=FailingAliasRunner(),
+        )
+
+    assert outside.read_text(encoding="utf-8") == "outside"
+    assert not (tmp_path / "markdown" / "source.md").exists()
+    assert not (tmp_path / "markdown" / "source.metadata.json").exists()
+
+
 def test_captured_source_rejects_symlinked_staging_parent(tmp_path: Path) -> None:
     source = tmp_path / "source.pdf"
     source.write_bytes(b"source")

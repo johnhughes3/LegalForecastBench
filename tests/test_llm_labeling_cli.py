@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sqlite3
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -32,6 +33,64 @@ from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
+
+
+def test_markdown_text_filesystem_rejects_absolute_path_outside_root(
+    tmp_path: Path,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    outside = tmp_path / "outside.md"
+    outside.write_text("Count I", encoding="utf-8")
+
+    with raises(llm_pipeline.LlmPipelineError, match="outside markdown_root"):
+        llm_pipeline._markdown_text(
+            {"markdown_path": str(outside)}, markdown_root=markdown_root
+        )
+
+
+def test_markdown_text_filesystem_rejects_symlink(tmp_path: Path) -> None:
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    target = markdown_root / "target.md"
+    target.write_text("Count I", encoding="utf-8")
+    link = markdown_root / "link.md"
+    link.symlink_to(target.name)
+
+    with raises(llm_pipeline.LlmPipelineError, match="cannot be safely read"):
+        llm_pipeline._markdown_text(
+            {"markdown_path": link.name}, markdown_root=markdown_root
+        )
+
+
+def test_markdown_text_filesystem_rejects_symlinked_parent_to_outside(
+    tmp_path: Path,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "decision.md").write_text("Count I", encoding="utf-8")
+    (markdown_root / "redirect").symlink_to(outside, target_is_directory=True)
+
+    with raises(llm_pipeline.LlmPipelineError, match="cannot be safely read"):
+        llm_pipeline._markdown_text(
+            {"markdown_path": "redirect/decision.md"}, markdown_root=markdown_root
+        )
+
+
+def test_markdown_text_filesystem_rejects_hardlink(tmp_path: Path) -> None:
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    target = markdown_root / "target.md"
+    target.write_text("Count I", encoding="utf-8")
+    link = markdown_root / "link.md"
+    os.link(target, link)
+
+    with raises(llm_pipeline.LlmPipelineError, match="cannot be safely read"):
+        llm_pipeline._markdown_text(
+            {"markdown_path": link.name}, markdown_root=markdown_root
+        )
 
 
 class _FakeSpendAuthority:

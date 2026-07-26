@@ -305,7 +305,7 @@ def require_cleared_documents(
             raise DisclosureClearanceError(f"unsupported clearance schema: {key}")
         if clearance.get("status") != _CLEAR:
             raise DisclosureClearanceError(f"document lacks clearance: {key}")
-        _require_clearance_restriction(clearance, key=key, label="document")
+        require_clearance_policy(clearance, key=key, label="document")
         path = _safe_document_path(document_root, _required_str(document, "local_path"))
         data = _read_document(path, key)
         digest = hashlib.sha256(data).hexdigest()
@@ -318,7 +318,6 @@ def require_cleared_documents(
             raise DisclosureClearanceError(
                 f"cleared document byte count changed: {key}"
             )
-        _require_clearance_provenance(clearance, key=key)
 
 
 def verify_parse_request_bytes(request: Mapping[str, object]) -> None:
@@ -417,9 +416,17 @@ def _validated_clearance_index(
             )
         _digest(row, "sha256")
         _positive_int(row, "byte_count")
-        _require_clearance_restriction(row, key=key, label="parser document")
-        _require_clearance_provenance(row, key=key)
+        require_clearance_policy(row, key=key, label="parser document")
     return index
+
+
+def require_clearance_policy(
+    row: Mapping[str, object], *, key: tuple[str, str], label: str
+) -> None:
+    """Validate one clearance row under the canonical downstream policy."""
+
+    _require_clearance_restriction(row, key=key, label=label)
+    _require_clearance_provenance(row, key=key)
 
 
 def _require_public_restriction(

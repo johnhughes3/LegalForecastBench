@@ -564,12 +564,12 @@ from legalforecast.ingestion.recap_partial_checkpoint import (
     project_partial_recap_checkpoint,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
-    AuthenticatedClearanceLineage,
     ResolvedPostRecoveryError,
+    _build_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
+    _issue_verified_lineage_capability,  # pyright: ignore[reportPrivateUsage]
+    _require_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
     build_resolved_post_recovery_documents,
-    build_resolved_post_recovery_documents_with_authenticated_lineage,
     require_resolved_post_recovery_documents,
-    require_resolved_post_recovery_documents_with_authenticated_lineage,
     require_resolved_post_recovery_operation_bindings,
     require_resolved_post_recovery_parse_requests,
     validate_authenticated_clearance_lineage,
@@ -29354,7 +29354,7 @@ def _verify_materializer_clearance_lineage(
             ("purchased restriction evidence", restriction_path),
         ):
             _require_materializer_artifact(path, label=label)
-        _verify_authenticated_clearance_run_card(
+        authenticated_clearance_capability = _issue_verified_lineage_capability(
             clearance_path=clearance_path,
             clearance_run_card_path=run_card_path,
             expected_download_manifest_path=manifest_path,
@@ -29364,11 +29364,7 @@ def _verify_materializer_clearance_lineage(
         return {
             "lineage_kind": "provenance_first_with_john_exceptions",
             "verified_artifact_bytes": verified_snapshot,
-            "authenticated_clearance_lineage": _provenance_resolved_lineage(
-                clearance_path=clearance_path,
-                clearance_run_card_path=run_card_path,
-                captured_artifact_bytes=verified_snapshot,
-            ),
+            "authenticated_clearance_capability": (authenticated_clearance_capability),
             "clearance_records": _projection_jsonl_records(
                 _captured_or_stable_input(
                     clearance_path,
@@ -29562,10 +29558,9 @@ def _materializer_clearance_lineage_kwargs(
                 Sequence[Mapping[str, Any]], lineage["restriction_records"]
             ),
             "restriction_artifact_bytes": snapshot_bytes(restriction_path),
-            "_verified_provenance_lineage": cast(
-                AuthenticatedClearanceLineage,
-                lineage["authenticated_clearance_lineage"],
-            ),
+            "_verified_provenance_capability": lineage[
+                "authenticated_clearance_capability"
+            ],
         }
     if lineage.get("lineage_kind") != "legacy_authenticated_review":
         raise CommandError("unsupported clearance lineage kind")
@@ -29608,12 +29603,12 @@ def _build_resolved_post_recovery_dispatch(
     """Use the private provenance path only after the CLI fully replayed it."""
 
     values = dict(kwargs)
-    verified = values.pop("_verified_provenance_lineage", None)
+    verified = values.pop("_verified_provenance_capability", None)
     if verified is None:
         return build_resolved_post_recovery_documents(**values)
-    return build_resolved_post_recovery_documents_with_authenticated_lineage(
+    return _build_resolved_post_recovery_documents_with_authenticated_lineage(
         **values,
-        verified_provenance_lineage=cast(AuthenticatedClearanceLineage, verified),
+        verified_lineage_capability=verified,
     )
 
 
@@ -29621,13 +29616,13 @@ def _require_resolved_post_recovery_dispatch(**kwargs: Any) -> None:
     """Replay resolved lineage through the verifier-owned provenance path."""
 
     values = dict(kwargs)
-    verified = values.pop("_verified_provenance_lineage", None)
+    verified = values.pop("_verified_provenance_capability", None)
     if verified is None:
         require_resolved_post_recovery_documents(**values)
         return
-    require_resolved_post_recovery_documents_with_authenticated_lineage(
+    _require_resolved_post_recovery_documents_with_authenticated_lineage(
         **values,
-        verified_provenance_lineage=cast(AuthenticatedClearanceLineage, verified),
+        verified_lineage_capability=verified,
     )
 
 
@@ -32411,12 +32406,17 @@ def _provenance_document_tree_from_snapshot(
 def _require_provenance_document_snapshot_unchanged(
     snapshot: Mapping[str, bytes], *, document_root: Path
 ) -> None:
-    current = {
-        relative: read_unique_regular_file(
-            safe_disclosure_document_path(document_root, relative)
-        )
-        for relative in snapshot
-    }
+    try:
+        current = {
+            relative: read_unique_regular_file(
+                safe_disclosure_document_path(document_root, relative)
+            )
+            for relative in snapshot
+        }
+    except (DisclosureClearanceError, ReviewBundleError) as exc:
+        raise CommandError(
+            "disclosure document became unsafe during execution"
+        ) from exc
     if current != dict(snapshot):
         raise CommandError("disclosure document bytes changed during execution")
 
@@ -34304,7 +34304,9 @@ def _authenticated_clearance_lineage_inputs(
                     "provenance clearance lacks source commitments"
                 )
             manifest_path = _materializer_committed_path(
-                cast(Mapping[str, object], sources), "download_manifest"
+                cast(Mapping[str, object], sources),
+                "download_manifest",
+                captured_artifact_bytes=clearance_snapshot,
             )
             lineage = _verify_materializer_clearance_lineage(
                 manifest_path=manifest_path,
@@ -34777,84 +34779,6 @@ def _verify_provenance_clearance_run_card(
         clearance_run_card_path,
         *tuple(paths[name] for name in source_names),
         document_root,
-    )
-
-
-def _provenance_resolved_lineage(
-    *,
-    clearance_path: Path,
-    clearance_run_card_path: Path,
-    captured_artifact_bytes: Mapping[str, bytes] | None = None,
-) -> AuthenticatedClearanceLineage:
-    run_card_bytes = _captured_or_stable_input(
-        clearance_run_card_path,
-        label="provenance clearance run card",
-        captured_artifact_bytes=captured_artifact_bytes,
-    )
-    run_card = _projection_json_object(run_card_bytes, source=clearance_run_card_path)
-    sources = run_card.get("source_commitments")
-    authority = run_card.get("clearance_authority")
-    if not isinstance(sources, Mapping) or not isinstance(authority, Mapping):
-        raise CommandError("provenance clearance lacks resolved lineage commitments")
-    source_records = cast(Mapping[str, object], sources)
-    authority_record = cast(Mapping[str, object], authority)
-    paths = {
-        name: _materializer_committed_path(source_records, name)
-        for name in (
-            "exception_decisions",
-            "exception_review_run_card",
-            "cohort_policy",
-            "restriction_evidence",
-            "routing_plan",
-        )
-    }
-    source_bytes = {
-        name: _captured_or_stable_input(
-            path,
-            label=name.replace("_", " "),
-            captured_artifact_bytes=captured_artifact_bytes,
-        )
-        for name, path in paths.items()
-    }
-    clearance_bytes = _captured_or_stable_input(
-        clearance_path,
-        label="disclosure clearance",
-        captured_artifact_bytes=captured_artifact_bytes,
-    )
-    decisions = _projection_jsonl_records(
-        source_bytes["exception_decisions"], source=paths["exception_decisions"]
-    )
-    reviewed_at = max(
-        (_required_str(row, "reviewed_at") for row in decisions),
-        default=_required_str(run_card, "generated_at"),
-    )
-    review_authority = ReviewAuthority(
-        reviewer_id="John Hughes",
-        controlled_store_uri="private-store://john/disclosure-exception-review",
-        authentication_method="interactive_hash_confirmation_only",
-        authenticated_at=reviewed_at,
-        review_artifact_sha256=hashlib.sha256(
-            source_bytes["exception_decisions"]
-        ).hexdigest(),
-        reviewer_policy_sha256=hashlib.sha256(source_bytes["routing_plan"]).hexdigest(),
-    )
-    return AuthenticatedClearanceLineage(
-        clearance_run_card_sha256=hashlib.sha256(run_card_bytes).hexdigest(),
-        clearance_artifact_sha256=hashlib.sha256(clearance_bytes).hexdigest(),
-        reviews_artifact_sha256=hashlib.sha256(
-            source_bytes["exception_decisions"]
-        ).hexdigest(),
-        review_receipt_sha256=hashlib.sha256(
-            source_bytes["exception_review_run_card"]
-        ).hexdigest(),
-        cohort_policy_artifact_sha256=hashlib.sha256(
-            source_bytes["cohort_policy"]
-        ).hexdigest(),
-        restriction_evidence_artifact_sha256=hashlib.sha256(
-            source_bytes["restriction_evidence"]
-        ).hexdigest(),
-        review_authority_sha256=_canonical_json_sha256(authority_record),
-        authority=review_authority,
     )
 
 
