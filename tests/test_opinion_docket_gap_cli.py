@@ -8,7 +8,6 @@ from types import SimpleNamespace
 
 import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import main
 from pytest import CaptureFixture, MonkeyPatch
 
 
@@ -55,7 +54,7 @@ def test_plan_opinion_docket_gaps_help_is_explicitly_nonexecuting(
     capsys: CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as exit_info:
-        main(["acquisition", "plan-opinion-docket-gaps", "--help"])
+        cli.main(["acquisition", "plan-opinion-docket-gaps", "--help"])
     assert exit_info.value.code == 0
 
     output = capsys.readouterr().out
@@ -94,7 +93,7 @@ def test_plan_opinion_docket_gaps_writes_verified_projection(
     output_root = tmp_path / "out"
 
     assert (
-        main(
+        cli.main(
             [
                 "acquisition",
                 "plan-opinion-docket-gaps",
@@ -164,12 +163,14 @@ def test_plan_opinion_docket_gaps_rejects_output_aliases_and_snapshot_writes(
     ]
 
     assert (
-        main([*common, "--plan-output", str(shared), "--summary-output", str(shared)])
+        cli.main(
+            [*common, "--plan-output", str(shared), "--summary-output", str(shared)]
+        )
         == 2
     )
     assert "outputs must be distinct" in capsys.readouterr().err
 
-    assert main([*common, "--plan-output", str(manifest)]) == 2
+    assert cli.main([*common, "--plan-output", str(manifest)]) == 2
     assert "outside the immutable snapshot" in capsys.readouterr().err
     assert manifest.read_text(encoding="utf-8") == "{}\n"
 
@@ -184,7 +185,7 @@ def test_plan_opinion_docket_gaps_records_invalid_manifest_pin_failure(
     output_root = tmp_path / "out"
 
     assert (
-        main(
+        cli.main(
             [
                 "acquisition",
                 "plan-opinion-docket-gaps",
