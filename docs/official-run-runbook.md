@@ -1686,6 +1686,8 @@ uv run legalforecast acquisition init-purchase-ledger \
   --execute --resume
 ```
 
+The receipt and immutable ledger singleton share a random initialization identity, so runtime opening rejects a replaced or independently re-initialized ledger even when its policy is identical. This identity survives legitimate ledger mutations. It does not detect restoration of a stale post-initialization snapshot from the same ledger lineage; operators must therefore preserve and restore the canonical ledger and its SQLite state as one controlled artifact and reconcile external purchase records before resuming after a restore.
+
 The allowlist accepts explicit-public proof or the exact current CourtListener REST paid-gap evidence contract.
 Case.dev may support noncharging search and docket enrichment, but its legacy paid-unknown evidence is never purchase authority.
 

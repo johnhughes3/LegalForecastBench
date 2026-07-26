@@ -65,6 +65,7 @@ def test_init_purchase_ledger_creates_and_authenticates_pristine_ledger(
     )
     assert receipt["canonical_ledger_path"] == str(ledger_path)
     assert receipt["ledger_byte_count"] == ledger_path.stat().st_size
+    assert len(str(receipt["initialization_id"])) == 32
     assert len(str(receipt["ledger_file_sha256"])) == 64
     assert len(str(receipt["purchase_state_sha256"])) == 64
     assert receipt["paid_activity_requested"] is False

@@ -6,6 +6,7 @@ import os
 import sys
 from collections.abc import Callable
 from copy import deepcopy
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,8 @@ import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
+    CaseDevPurchaseLedgerError,
+    CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
     generate_case_dev_purchase_policy,
     initialize_case_dev_purchase_journal,
@@ -38,6 +41,10 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 )
 from legalforecast.ingestion.disclosure_review_authority import (
     disclosure_authority_identity_from_cohort_policy,
+)
+from legalforecast.ingestion.missing_core_budget import (
+    CaseMissingCorePurchasePlan,
+    MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.purchase_approval import (
     PurchaseApprovalError,
@@ -1159,6 +1166,86 @@ def test_v2_private_replay_remains_valid_after_ledger_initialization(
     )
 
 
+def test_v2_runtime_rejects_reinitialized_ledger_with_original_receipt(
+    tmp_path: Path,
+) -> None:
+    policy, ledger, original_receipt, private_root = _initialized_v2_ledger(tmp_path)
+    ledger.replace(tmp_path / "original-ledger.sqlite3")
+    Path(f"{ledger}.lock").unlink()
+    replacement_receipt = tmp_path / "replacement-initialization.json"
+    initialize_case_dev_purchase_journal(
+        ledger,
+        policy=policy,
+        receipt_path=replacement_receipt,
+        purchase_policy_file_sha256="sha256:" + "a" * 64,
+        cohort_policy_file_sha256="sha256:" + "b" * 64,
+        initialized_at="2026-07-26T16:01:00Z",
+        controlled_private_root=private_root,
+    )
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="identity does not match"):
+        CaseDevPurchaseJournal(
+            ledger,
+            policy=policy,
+            controlled_private_root=private_root,
+            initialization_receipt_path=original_receipt,
+        )
+
+
+def test_v2_runtime_rejects_receipt_with_different_initialization_identity(
+    tmp_path: Path,
+) -> None:
+    policy, ledger, receipt, private_root = _initialized_v2_ledger(tmp_path)
+    record = json.loads(receipt.read_text(encoding="utf-8"))
+    record["initialization_id"] = "0" * 32
+    receipt.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="identity does not match"):
+        CaseDevPurchaseJournal(
+            ledger,
+            policy=policy,
+            controlled_private_root=private_root,
+            initialization_receipt_path=receipt,
+        )
+
+
+def test_v2_runtime_accepts_legitimately_mutated_ledger_with_matching_identity(
+    tmp_path: Path,
+) -> None:
+    policy, ledger, receipt, private_root = _initialized_v2_ledger(tmp_path)
+    plan = MissingCoreBudgetPlan(
+        case_plans=(
+            CaseMissingCorePurchasePlan(
+                candidate_id="case-a",
+                purchase_document_ids=("document-a",),
+                missing_core_document_count=1,
+                estimated_cost=Decimal("3.05"),
+                audit_only_document_count=0,
+                dry_run=False,
+            ),
+        ),
+        cost_per_document=Decimal("3.05"),
+        max_projected_budget=Decimal("3.05"),
+        max_missing_core_documents_per_case=24,
+        dry_run=False,
+    )
+    with CaseDevPurchaseJournal(
+        ledger,
+        policy=policy,
+        controlled_private_root=private_root,
+        initialization_receipt_path=receipt,
+    ) as journal:
+        journal.plan(plan)
+
+    with CaseDevPurchaseJournal(
+        ledger,
+        policy=policy,
+        controlled_private_root=private_root,
+        initialization_receipt_path=receipt,
+    ) as reopened:
+        assert reopened.statuses() == {"document-a": "planned"}
+
+
 def test_attempt_policy_generation_is_fresh_only_but_replay_survives_initialization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2095,6 +2182,31 @@ def _record_approved_policy(
             canonical_ledger_path=(tmp_path / "approved-ledger.sqlite3").resolve(),
         )
     )
+
+
+def _initialized_v2_ledger(
+    tmp_path: Path,
+) -> tuple[CaseDevPurchasePolicy, Path, Path, Path]:
+    target_root, cohort_policy, fee_schedule = _projection_fixture(tmp_path)
+    artifact = _record_approved_policy(
+        tmp_path,
+        target_root=target_root,
+        cohort_policy=cohort_policy,
+        fee_schedule=fee_schedule,
+    )
+    policy = verify_case_dev_purchase_policy(artifact)
+    private_root = (tmp_path / "private-authority").resolve()
+    receipt = tmp_path / "purchase-ledger-initialization.json"
+    initialize_case_dev_purchase_journal(
+        policy.canonical_ledger_path,
+        policy=policy,
+        receipt_path=receipt,
+        purchase_policy_file_sha256="sha256:" + "a" * 64,
+        cohort_policy_file_sha256="sha256:" + "b" * 64,
+        initialized_at="2026-07-26T16:00:00Z",
+        controlled_private_root=private_root,
+    )
+    return policy, policy.canonical_ledger_path, receipt, private_root
 
 
 def _exact_100_cohort_policy() -> dict[str, object]:

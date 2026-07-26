@@ -1437,8 +1437,12 @@ def _money(value: Decimal) -> str:
 
 def _canonical_bytes(value: object) -> bytes:
     return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).encode()
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
 
 
 def _canonical_sha256(value: object) -> str:

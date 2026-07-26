@@ -41,11 +41,13 @@ PURCHASE_LEDGER_INITIALIZATION_SCHEMA_VERSION = (
     "legalforecast.purchase_ledger_initialization.v1"
 )
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_INITIALIZATION_ID = re.compile(r"[0-9a-f]{32}")
 _CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
 
 _PURCHASE_LEDGER_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS purchase_ledger (
     singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+    initialization_id TEXT NOT NULL,
     cycle_id TEXT NOT NULL,
     cohort_policy_sha256 TEXT NOT NULL,
     purchase_policy_sha256 TEXT NOT NULL,
@@ -162,6 +164,7 @@ class PurchaseLedgerInitialization:
     """Authenticated identity of one pristine, policy-bound purchase ledger."""
 
     canonical_ledger_path: Path
+    initialization_id: str
     ledger_file_sha256: str
     purchase_state_sha256: str
     ledger_byte_count: int
@@ -173,6 +176,7 @@ class PurchaseLedgerInitialization:
             "cohort_policy_sha256": policy.cohort_policy_sha256,
             "purchase_policy_sha256": policy.policy_sha256,
             "canonical_ledger_path": str(self.canonical_ledger_path),
+            "initialization_id": self.initialization_id,
             "ledger_file_sha256": self.ledger_file_sha256,
             "purchase_state_sha256": self.purchase_state_sha256,
             "ledger_byte_count": self.ledger_byte_count,
@@ -561,7 +565,12 @@ def initialize_case_dev_purchase_journal(
             connection.execute("PRAGMA journal_mode=DELETE")
             connection.execute("PRAGMA synchronous=FULL")
             _create_purchase_ledger_schema(connection)
-            _bind_purchase_ledger_policy(connection, policy, insert=True)
+            _bind_purchase_ledger_policy(
+                connection,
+                policy,
+                insert=True,
+                initialization_id=uuid.uuid4().hex,
+            )
             _require_pristine_purchase_ledger(connection)
             integrity = connection.execute("PRAGMA integrity_check").fetchone()
             if integrity is None or str(integrity[0]) != "ok":
@@ -971,7 +980,13 @@ def _purchase_ledger_initialization_identity(
             raise CaseDevPurchaseLedgerError(
                 "purchase ledger failed SQLite integrity verification"
             )
-        _bind_purchase_ledger_policy(connection, policy, insert=False)
+        initialization_id = _bind_purchase_ledger_policy(
+            connection, policy, insert=False
+        )
+        if initialization_id is None:
+            raise CaseDevPurchaseLedgerError(
+                "initialized purchase ledger is missing its initialization identity"
+            )
         if require_pristine:
             _require_pristine_purchase_ledger(connection)
     except sqlite3.Error as exc:
@@ -983,6 +998,7 @@ def _purchase_ledger_initialization_identity(
     file_sha256, byte_count = _hash_regular_single_link_file(path)
     return PurchaseLedgerInitialization(
         canonical_ledger_path=path,
+        initialization_id=initialization_id,
         ledger_file_sha256=file_sha256,
         purchase_state_sha256=_initial_purchase_state_sha256(policy),
         ledger_byte_count=byte_count,
@@ -1149,7 +1165,7 @@ def _verify_runtime_purchase_ledger_initialization_lineage(
     receipt_path: Path,
     *,
     policy: CaseDevPurchasePolicy,
-) -> None:
+) -> str:
     """Authenticate immutable initialization lineage before opening SQLite."""
 
     receipt = _read_purchase_ledger_initialization_receipt(receipt_path)
@@ -1159,6 +1175,7 @@ def _verify_runtime_purchase_ledger_initialization_lineage(
         "cohort_policy_sha256",
         "purchase_policy_sha256",
         "canonical_ledger_path",
+        "initialization_id",
         "ledger_file_sha256",
         "purchase_state_sha256",
         "ledger_byte_count",
@@ -1197,6 +1214,14 @@ def _verify_runtime_purchase_ledger_initialization_lineage(
         raise CaseDevPurchaseLedgerError(
             "purchase ledger initialization receipt ledger hash is invalid"
         )
+    initialization_id = receipt.get("initialization_id")
+    if (
+        not isinstance(initialization_id, str)
+        or _INITIALIZATION_ID.fullmatch(initialization_id) is None
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt identity is invalid"
+        )
     for field in ("purchase_policy_file_sha256", "cohort_policy_file_sha256"):
         value = receipt.get(field)
         if not isinstance(value, str):
@@ -1228,6 +1253,7 @@ def _verify_runtime_purchase_ledger_initialization_lineage(
             raise CaseDevPurchaseLedgerError(
                 "purchase ledger initialization receipt activity flags are invalid"
             )
+    return initialization_id
 
 
 def _require_pristine_purchase_ledger(connection: sqlite3.Connection) -> None:
@@ -1321,6 +1347,7 @@ def _verify_existing_purchase_ledger_under_lock(
     path: Path,
     *,
     policy: CaseDevPurchasePolicy,
+    initialization_id: str | None = None,
 ) -> None:
     _require_existing_purchase_ledger_file(path)
     uri = f"file:{quote(path.as_posix(), safe='/')}?mode=ro"
@@ -1333,7 +1360,16 @@ def _verify_existing_purchase_ledger_under_lock(
                 raise CaseDevPurchaseLedgerError(
                     "purchase ledger failed SQLite quick_check"
                 )
-            _bind_purchase_ledger_policy(connection, policy, insert=False)
+            ledger_initialization_id = _bind_purchase_ledger_policy(
+                connection, policy, insert=False
+            )
+            if (
+                initialization_id is not None
+                and ledger_initialization_id != initialization_id
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "purchase ledger initialization identity does not match receipt"
+                )
             required_tables = {
                 "purchase_ledger",
                 "purchase_operations",
@@ -1405,24 +1441,52 @@ def _bind_purchase_ledger_policy(
     policy: CaseDevPurchasePolicy,
     *,
     insert: bool,
-) -> None:
+    initialization_id: str | None = None,
+) -> str | None:
     expected = _purchase_ledger_policy_identity(policy)
     if insert:
-        with connection:
-            connection.execute(
-                """INSERT OR IGNORE INTO purchase_ledger(
-                singleton, cycle_id, cohort_policy_sha256, purchase_policy_sha256,
-                canonical_ledger_path, hard_cap_usd, opening_committed_spend_usd,
-                max_per_case_usd, per_document_reservation_usd)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                expected,
-            )
+        existing = connection.execute(
+            "SELECT initialization_id FROM purchase_ledger WHERE singleton=1"
+        ).fetchone()
+        if existing is None:
+            if (
+                initialization_id is None
+                or _INITIALIZATION_ID.fullmatch(initialization_id) is None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "new purchase journal requires a valid initialization identity"
+                )
+            with connection:
+                connection.execute(
+                    """INSERT INTO purchase_ledger(
+                    singleton, initialization_id, cycle_id, cohort_policy_sha256,
+                    purchase_policy_sha256, canonical_ledger_path, hard_cap_usd,
+                    opening_committed_spend_usd, max_per_case_usd,
+                    per_document_reservation_usd)
+                    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (initialization_id, *expected),
+                )
     row = connection.execute(
         "SELECT * FROM purchase_ledger WHERE singleton=1"
     ).fetchone()
     if row is None:
         raise CaseDevPurchaseLedgerError(
             "purchase journal is missing its immutable policy identity"
+        )
+    if "initialization_id" not in row.keys():
+        if policy.has_verified_approval:
+            raise CaseDevPurchaseLedgerError(
+                "approved purchase journal is missing its initialization identity"
+            )
+        ledger_initialization_id = None
+    else:
+        ledger_initialization_id = str(row["initialization_id"])
+    if (
+        ledger_initialization_id is not None
+        and _INITIALIZATION_ID.fullmatch(ledger_initialization_id) is None
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase journal has an invalid initialization identity"
         )
     actual = tuple(
         str(row[field])
@@ -1441,6 +1505,7 @@ def _bind_purchase_ledger_policy(
         raise CaseDevPurchasePolicyError(
             "purchase journal identity conflicts with immutable cycle policy"
         )
+    return ledger_initialization_id
 
 
 class CaseDevPurchaseJournal:
@@ -1467,10 +1532,12 @@ class CaseDevPurchaseJournal:
                 raise CaseDevPurchaseLedgerError(
                     "approved v2 runtime requires an initialization receipt"
                 )
-            _verify_runtime_purchase_ledger_initialization_lineage(
+            initialization_id = _verify_runtime_purchase_ledger_initialization_lineage(
                 initialization_receipt_path,
                 policy=policy,
             )
+        else:
+            initialization_id = None
         self.path = Path(path).resolve()
         if self.path != policy.canonical_ledger_path:
             raise CaseDevPurchasePolicyError(
@@ -1496,6 +1563,7 @@ class CaseDevPurchaseJournal:
                 _verify_existing_purchase_ledger_under_lock(
                     self.path,
                     policy=policy,
+                    initialization_id=initialization_id,
                 )
             self._connection: sqlite3.Connection = sqlite3.connect(
                 self.path, isolation_level=None
@@ -1505,7 +1573,7 @@ class CaseDevPurchaseJournal:
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA synchronous=FULL")
             self._create_schema()
-            self._bind_policy()
+            self._bind_policy(insert=allow_create)
         except BaseException:
             connection = getattr(self, "_connection", None)
             if connection is not None:
@@ -3059,8 +3127,13 @@ class CaseDevPurchaseJournal:
             """
         )
 
-    def _bind_policy(self) -> None:
-        _bind_purchase_ledger_policy(self._connection, self.policy, insert=True)
+    def _bind_policy(self, *, insert: bool) -> None:
+        _bind_purchase_ledger_policy(
+            self._connection,
+            self.policy,
+            insert=insert,
+            initialization_id=uuid.uuid4().hex if insert else None,
+        )
 
 
 def _validate_purchase_material_state_rows(connection: sqlite3.Connection) -> None:
@@ -3204,9 +3277,11 @@ def read_case_dev_purchase_snapshot(
             raise CaseDevPurchaseLedgerError(
                 "approved v2 snapshot requires an initialization receipt"
             )
-        _verify_runtime_purchase_ledger_initialization_lineage(
+        initialization_id = _verify_runtime_purchase_ledger_initialization_lineage(
             initialization_receipt_path, policy=policy
         )
+    else:
+        initialization_id = None
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
     _require_existing_purchase_ledger_file(ledger_path)
     sidecars = tuple(
@@ -3236,7 +3311,16 @@ def read_case_dev_purchase_snapshot(
                 raise CaseDevPurchaseLedgerError(
                     "purchase ledger failed read-only SQLite quick_check"
                 )
-            _bind_purchase_ledger_policy(connection, policy, insert=False)
+            ledger_initialization_id = _bind_purchase_ledger_policy(
+                connection, policy, insert=False
+            )
+            if (
+                initialization_id is not None
+                and ledger_initialization_id != initialization_id
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "purchase ledger initialization identity does not match receipt"
+                )
             _verify_purchase_snapshot_schema(connection)
             operations = _read_purchase_operation_records(connection)
             committed = _read_committed_amount(connection, policy=policy)
