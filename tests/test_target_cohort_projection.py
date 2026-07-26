@@ -624,8 +624,36 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
         "2",
         "--max-projected-budget-usd",
         "100.00",
-        "--execute",
     ]
+    assert main(projection_command) == 0
+    run_card_path = output_root / "run-cards/project-target-cohort.json"
+    log_path = output_root / "logs/project-target-cohort.jsonl"
+    planning_card_bytes = run_card_path.read_bytes()
+    planning_card = json.loads(planning_card_bytes)
+    assert planning_card["dry_run"] is True
+    assert planning_card["execute"] is False
+
+    incompatible_card = {
+        **planning_card,
+        "dry_run": False,
+        "execute": True,
+        "projection_sha256": "sha256:incompatible",
+    }
+    run_card_path.write_text(
+        json.dumps(incompatible_card, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    incompatible_metadata = {
+        run_card_path: run_card_path.read_bytes(),
+        log_path: log_path.read_bytes(),
+    }
+    assert main([*projection_command, "--execute"]) == 2
+    assert {path: path.read_bytes() for path in incompatible_metadata} == (
+        incompatible_metadata
+    )
+    assert not (output_root / "target-cohort-projection.json").exists()
+    run_card_path.write_bytes(planning_card_bytes)
+
+    projection_command.append("--execute")
     assert main(projection_command) == 0
     projected_selection = _read_jsonl(output_root / "target-cohort-selection.jsonl")
     assert [row["candidate_id"] for row in projected_selection] == [
@@ -637,10 +665,22 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
     assert summary["next_stage"] == "generate-recap-fetch-broker-policy"
     assert summary["input_commitments"]
     assert summary["output_commitments"]
+    executed_card = json.loads(
+        (output_root / "run-cards/project-target-cohort.json").read_text()
+    )
+    assert executed_card["dry_run"] is False
+    assert executed_card["execute"] is True
 
     terminal_paths = (
         output_root / "target-cohort-projection.json",
         output_root / "target-cohort-selection.jsonl",
+        output_root / "case-relevance.jsonl",
+        output_root / "free-document-downloads.jsonl",
+        output_root / "purchased-document-downloads.jsonl",
+        output_root / "document-downloads-merged.jsonl",
+        output_root / "disclosure-clearance.jsonl",
+        output_root / "restriction-evidence.jsonl",
+        output_root / "core-filter-results.jsonl",
         output_root / "target-cohort-exclusions.jsonl",
         output_root / "missing-core-budget-plan.json",
         output_root / "run-cards/project-target-cohort.json",
