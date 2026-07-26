@@ -174,6 +174,51 @@ def test_plan_routes_only_exact_affirmative_marker_free_public_bytes(
     }
 
 
+@pytest.mark.parametrize(
+    ("restriction_status", "restriction_evidence"),
+    [
+        ("under seal", []),
+        ("unknown", ["courtlistener is sealed true"]),
+    ],
+)
+def test_plan_forbids_human_clearance_for_spaced_positive_restrictions(
+    tmp_path: Path,
+    restriction_status: str,
+    restriction_evidence: list[str],
+) -> None:
+    values = _inputs(tmp_path)
+    restriction = next(
+        row for row in values.restrictions if row["source_document_id"] == "marker"
+    )
+    request = next(
+        row for row in values.requests if row["source_document_id"] == "marker"
+    )
+    restriction["restriction_status"] = restriction_status
+    restriction["restriction_evidence"] = restriction_evidence
+    request["restriction_status"] = restriction_status
+    request["restriction_evidence"] = restriction_evidence
+
+    plan = build_provenance_clearance_plan(
+        values.requests,
+        values.manifest,
+        values.restrictions,
+        values.relevance,
+        document_root=values.document_root,
+        review_requests_bytes=_jsonl(values.requests),
+        download_manifest_bytes=_jsonl(values.manifest),
+        restriction_evidence_bytes=_jsonl(values.restrictions),
+        case_relevance_bytes=_jsonl(values.relevance),
+        marker_scanner=lambda _payload: (),
+    )
+
+    marker = next(
+        row for row in _documents(plan) if row["source_document_id"] == "marker"
+    )
+    assert marker["route"] == "john_exception_review"
+    assert marker["human_clearance_permitted"] is False
+    assert "positive_restriction_evidence" in marker["route_reasons"]
+
+
 def test_plan_rejects_changed_bytes(tmp_path: Path) -> None:
     values = _inputs(tmp_path)
     document_root = values.document_root

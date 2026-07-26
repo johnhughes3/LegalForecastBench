@@ -330,8 +330,8 @@ def test_mixed_provenance_clearance_reaches_every_downstream_gate(
         ),
         (
             "john-exception",
-            "public",
-            ["courtlistener-public-docket"],
+            "unknown",
+            [],
             "john_exception_review",
         ),
     )
@@ -413,6 +413,29 @@ def test_mixed_provenance_clearance_reaches_every_downstream_gate(
             document_root=tmp_path,
             clearance_records=[forged, *clearances[1:]],
         )
+
+    for field, value in (
+        ("restriction_status", "sealed"),
+        ("restriction_status", "under seal"),
+        ("restriction_evidence", ["courtlistener_is_sealed_true"]),
+        ("restriction_evidence", ["courtlistener is sealed true"]),
+    ):
+        forged_exception = dict(clearances[2])
+        forged_exception[field] = value
+        with pytest.raises(
+            DisclosureClearanceError, match="positive restriction evidence"
+        ):
+            require_cleared_documents(
+                documents,
+                document_root=tmp_path,
+                clearance_records=[*clearances[:2], forged_exception],
+            )
+        with pytest.raises(
+            DisclosureClearanceError, match="positive restriction evidence"
+        ):
+            require_cleared_parser_records(
+                parser_records, [*clearances[:2], forged_exception]
+            )
 
 
 def test_clearance_rejects_symlinked_document_root(tmp_path: Path) -> None:

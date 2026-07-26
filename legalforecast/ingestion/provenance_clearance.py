@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from legalforecast.ingestion.disclosure_clearance import (
     ClearanceRecord,
     DisclosureClearanceError,
+    normalize_restriction_token,
     safe_disclosure_document_path,
     scan_disclosure_markers,
 )
@@ -471,12 +472,12 @@ def _positive_restriction(record: Mapping[str, object]) -> bool:
     return (
         (
             isinstance(status, str)
-            and status.casefold().replace("-", "_") in _RESTRICTED_STATUSES
+            and normalize_restriction_token(status) in _RESTRICTED_STATUSES
         )
         or record.get("is_sealed") is True
         or record.get("is_private") is True
         or any(
-            _POSITIVE_RESTRICTION_EVIDENCE.search(item.casefold().replace("-", "_"))
+            _POSITIVE_RESTRICTION_EVIDENCE.search(normalize_restriction_token(item))
             for item in _text_list(record, "restriction_evidence")
         )
     )

@@ -41,6 +41,9 @@ _PROVENANCE_REST_PUBLIC_EVIDENCE = frozenset(
         "courtlistener_rest_public_download_url_allowlisted",
     }
 )
+_POSITIVE_RESTRICTION_EVIDENCE = re.compile(
+    r"(?:^|_)(?:sealed|private|restricted|under_seal)(?:_true|$)"
+)
 _SSN = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
 _DOB = re.compile(
     r"\b(?:date\s+of\s+birth|d\.o\.b\.|dob)\s*[:\-]?\s*"
@@ -441,7 +444,26 @@ def _require_public_restriction(
 def _require_clearance_restriction(
     row: Mapping[str, object], *, key: tuple[str, str], label: str
 ) -> None:
-    if row.get("clearance_basis") != "affirmative_public_provenance":
+    basis = row.get("clearance_basis")
+    if basis == "john_exception_review":
+        status = _required_str(row, "restriction_status")
+        evidence_value = row.get("restriction_evidence")
+        if not isinstance(evidence_value, (list, tuple)) or not all(
+            isinstance(item, str) and bool(item.strip())
+            for item in cast(Sequence[object], evidence_value)
+        ):
+            raise DisclosureClearanceError(
+                f"John-reviewed {label} has malformed restriction evidence: {key}"
+            )
+        if normalize_restriction_token(status) in _RESTRICTED_STATUSES or any(
+            _POSITIVE_RESTRICTION_EVIDENCE.search(normalize_restriction_token(item))
+            for item in cast(Sequence[str], evidence_value)
+        ):
+            raise DisclosureClearanceError(
+                f"John-reviewed {label} has positive restriction evidence: {key}"
+            )
+        return
+    if basis != "affirmative_public_provenance":
         _require_public_restriction(row, key=key, label=label)
         return
     evidence_value = row.get("restriction_evidence")
@@ -627,7 +649,7 @@ def _restriction_classification(
         for field in ("redaction_or_seal_status", "restriction_status"):
             value = _optional_str(record, field)
             if value is not None:
-                statuses.add(re.sub(r"[\s-]+", "_", value.casefold()))
+                statuses.add(normalize_restriction_token(value))
         item = record.get("restriction_evidence")
         if isinstance(item, str) and item.strip():
             evidence.add(item.strip())
@@ -641,6 +663,12 @@ def _restriction_classification(
     if len(public) == 1 and evidence:
         return next(iter(public)), tuple(sorted(evidence)), ()
     return "unknown", tuple(sorted(evidence)), ()
+
+
+def normalize_restriction_token(value: str) -> str:
+    """Canonicalize restriction text for exact denylist comparisons."""
+
+    return re.sub(r"[\s-]+", "_", value.strip().casefold())
 
 
 def _safe_document_path(root: Path, local_path: str) -> Path:
