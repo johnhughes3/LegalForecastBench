@@ -119,6 +119,7 @@ class _TargetSetupAuthority:
     source_batch_id: str
     source_batch_digest: str
     source_candidate_set_sha256: str
+    source_schema_version: str | None
     source_cycle_hash: str | None
     target_cycle_hash: str | None
 
@@ -321,7 +322,11 @@ def _build_contract(
         raise Exact310RestRebindError(
             "exact310 compatibility source unexpectedly contains raw artifacts"
         )
-    _validate_source_batch_config(source.batch_config, receipt, source_spec)
+    source_schema_version = _validate_source_batch_config(
+        source.batch_config,
+        receipt,
+        source_spec,
+    )
     (
         recomputed_candidate_set_sha256,
         current_projection_candidate_set_sha256,
@@ -344,6 +349,7 @@ def _build_contract(
         expected_current_projection_candidate_set_sha256=(
             current_projection_candidate_set_sha256
         ),
+        source_schema_version=source_schema_version,
     )
     target = _target(
         target_store_path,
@@ -691,6 +697,7 @@ def _validate_target_seed_summary(
     receipt: Mapping[str, object],
     expected_target_cycle_hash: str,
     expected_current_projection_candidate_set_sha256: str,
+    source_schema_version: str | None,
 ) -> _TargetSetupAuthority:
     """Authenticate one exact provider-free target-setup summary."""
 
@@ -705,6 +712,7 @@ def _validate_target_seed_summary(
             expected_current_projection_candidate_set_sha256=(
                 expected_current_projection_candidate_set_sha256
             ),
+            source_schema_version=source_schema_version,
         )
     if schema != "legalforecast.direct_search_seed_result.v1":
         raise Exact310RestRebindError("target setup summary schema mismatch")
@@ -770,6 +778,7 @@ def _validate_target_seed_summary(
             "source_batch_id": source_batch_id,
             "source_candidate_count": source_spec.candidate_count,
             "source_candidate_set_sha256": source_candidate_set_sha256,
+            "source_schema_version": source_schema_version,
             "source_search_type": "rd",
             "top_k_per_term": source_spec.candidate_count,
         }
@@ -781,6 +790,7 @@ def _validate_target_seed_summary(
         source_batch_id=source_batch_id,
         source_batch_digest=source_batch_digest,
         source_candidate_set_sha256=source_candidate_set_sha256,
+        source_schema_version=source_schema_version,
         source_cycle_hash=None,
         target_cycle_hash=None,
     )
@@ -794,6 +804,7 @@ def _validate_target_cycle_rebind_summary(
     receipt: Mapping[str, object],
     expected_target_cycle_hash: str,
     expected_current_projection_candidate_set_sha256: str,
+    source_schema_version: str | None,
 ) -> _TargetSetupAuthority:
     required = {
         "schema_version",
@@ -873,6 +884,7 @@ def _validate_target_cycle_rebind_summary(
             "source_batch_id": source_batch_id,
             "source_candidate_count": source_spec.candidate_count,
             "source_candidate_set_sha256": source_candidate_set_sha256,
+            "source_schema_version": source_schema_version,
             "source_cycle_hash": source_cycle_hash,
             # The canonical broad-hybrid source omitted search_type. The old
             # REST target's own search_type="rd" is not upstream source metadata.
@@ -888,6 +900,7 @@ def _validate_target_cycle_rebind_summary(
         source_batch_id=source_batch_id,
         source_batch_digest=source_batch_digest,
         source_candidate_set_sha256=source_candidate_set_sha256,
+        source_schema_version=source_schema_version,
         source_cycle_hash=source_cycle_hash,
         target_cycle_hash=target_cycle_hash,
     )
@@ -1003,7 +1016,21 @@ def _validate_source_batch_config(
     config: Mapping[str, object],
     receipt: Mapping[str, object],
     spec: Exact310SourceSpec,
-) -> None:
+) -> str | None:
+    if "source_schema_version" not in config:
+        raise Exact310RestRebindError(
+            "source batch config lacks source schema version commitment"
+        )
+    raw_source_schema_version = config.get("source_schema_version")
+    if raw_source_schema_version is not None and (
+        not isinstance(raw_source_schema_version, str)
+        or not raw_source_schema_version
+        or raw_source_schema_version != raw_source_schema_version.strip()
+    ):
+        raise Exact310RestRebindError(
+            "source batch config has invalid source schema version commitment"
+        )
+    source_schema_version = raw_source_schema_version
     expected = {
         "auth_mode": "authenticated",
         "decision_window_end": "2026-07-15",
@@ -1021,12 +1048,14 @@ def _validate_source_batch_config(
         "source_batch_id": _text(receipt, "source_batch_id"),
         "source_candidate_count": spec.candidate_count,
         "source_candidate_set_sha256": spec.candidate_set_sha256,
+        "source_schema_version": source_schema_version,
         "top_k_per_term": spec.candidate_count,
     }
     if dict(config) != expected:
         raise Exact310RestRebindError(
             "source batch config does not match pinned transfer authority"
         )
+    return source_schema_version
 
 
 def _recompute_source_candidate_set_sha256(

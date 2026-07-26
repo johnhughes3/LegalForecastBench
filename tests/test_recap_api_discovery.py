@@ -8,7 +8,7 @@ import json
 from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast.ingestion.courtlistener_client import (
@@ -52,6 +52,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     public_recap_download_url,
     reconstruct_docket_page,
     resolve_auth_mode,
+    validate_incomplete_opinion_source_binding,
 )
 
 
@@ -1154,7 +1155,7 @@ def _seeded_ranked_subset_bankruptcy_store(
         config.update(config_update)
     store.ensure_batch("batch-002", config)
     store.ensure_terms("batch-002", (term,))
-    provenance = {
+    provenance: dict[str, object] = {
         "schema_version": schema,
         "rank": 1,
         "ranking_key": [0, 0, 0, 0, "555"],
@@ -1655,6 +1656,259 @@ def test_observe_accepts_public_opinion_backed_terse_mtd_order(
             }
         ]
         assert recon_client.request_count == 4
+
+
+def test_observe_retains_source_bound_opinion_with_empty_docket_as_paid_gap(
+    tmp_path: Path,
+) -> None:
+    resolution = {
+        "schema_version": "legalforecast.opinion_recap_resolution.v1",
+        "source_opinion": {
+            "candidate_id": "73614335",
+            "cluster_id": "10927691",
+            "date_filed": "2026-07-14",
+            "absolute_url": "/opinion/10927691/bullock/",
+            "sub_opinions": [
+                {
+                    "opinion_id": "11395231",
+                    "absolute_url": "/opinion/10927691/bullock/",
+                    "download_url": "https://ecf.example/show_public_doc",
+                    "local_path": "pdf/2026/07/14/bullock.pdf",
+                }
+            ],
+            "provider_hit_id": "opinion-hit-73614335",
+            "query_term": "motion to dismiss",
+            "payload_sha256": "1" * 64,
+            "source_hits": [],
+        },
+        "resolved_recap": {
+            "docket_id": "555",
+            "court_id": "nysd",
+            "docket_number": "1:26-cv-00001",
+            "case_name": "Acme Corp v. Roe",
+        },
+        "resolver": {
+            "provider": "courtlistener",
+            "query": "Acme Corp v. Roe",
+            "match_method": "exact_docket_number",
+        },
+        "ambiguity_proof": {"matching_candidate_count": 1},
+        "commitments": {
+            "source_batch_id": "opinion-search",
+            "source_batch_digest": "2" * 64,
+            "source_candidate_set_sha256": "3" * 64,
+            "resolver_policy_sha256": "4" * 64,
+            "provider_response_sha256": "5" * 64,
+            "provider_result_sha256": "6" * 64,
+        },
+    }
+    source_payload = {
+        "docket_id": "555",
+        "court_id": "nysd",
+        "docket_number": "1:26-cv-00001",
+        "case_name": "Acme Corp v. Roe",
+        "provider": "courtlistener",
+        "opinion_resolution_evidence": resolution,
+    }
+    source_payload_sha256 = hashlib.sha256(
+        json.dumps(source_payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    source_batch_digest = "7" * 64
+    source_hits = [
+        {
+            "provider_hit_id": "opinion-recap-resolution-v1:73614335:555",
+            "query_term": "opinion-recap-resolution-v1",
+            "payload_sha256": source_payload_sha256,
+        }
+    ]
+    source_candidate_set_sha256 = hashlib.sha256(
+        json.dumps(
+            [
+                {
+                    "docket_id": "555",
+                    "court_id": "nysd",
+                    "docket_number": "1:26-cv-00001",
+                    "case_name": "Acme Corp v. Roe",
+                    "decision_entry_evidence": None,
+                    "opinion_resolution_evidence": resolution,
+                    "source_hits": source_hits,
+                }
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    payload = {
+        "candidate_id": "courtlistener-docket-555",
+        **source_payload,
+        "provider": RECAP_API_PROVIDER,
+        "prescreen_exclusion_reason": None,
+        "query_term": "courtlistener-direct-search-transfer-v1",
+        "direct_search_provenance": {
+            "schema_version": ("legalforecast.courtlistener_direct_search_transfer.v1"),
+            "source_batch_id": "opinion-resolved",
+            "source_batch_digest": source_batch_digest,
+            "source_candidate_set_sha256": source_candidate_set_sha256,
+            "source_provider_hit_id": "opinion-recap-resolution-v1:73614335:555",
+            "source_query_term": "opinion-recap-resolution-v1",
+            "source_payload_sha256": source_payload_sha256,
+            "source_hits": source_hits,
+        },
+    }
+    store = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
+    store.ensure_cycle({"schema_version": "test"})
+    term = "courtlistener-direct-search-transfer-v1"
+    config = build_recap_api_batch_config(
+        decision_window_start=date(2026, 6, 30),
+        decision_window_end=date(2026, 7, 15),
+        auth_mode="authenticated",
+        query_terms=(term,),
+    )
+    config.update(
+        {
+            "discovery_mode": ("legalforecast.courtlistener_direct_search_transfer.v1"),
+            "source_batch_id": "opinion-resolved",
+            "source_batch_digest": source_batch_digest,
+            "source_schema_version": ("legalforecast.opinion_recap_resolved_source.v1"),
+            "source_candidate_count": 1,
+            "source_candidate_set_sha256": source_candidate_set_sha256,
+        }
+    )
+    store.ensure_batch("batch-002", config)
+    store.ensure_terms("batch-002", (term,))
+    store.commit_search_page(
+        "batch-002",
+        term,
+        None,
+        (
+            DiscoveryHit(
+                provider_hit_id=(f"{term}:{source_batch_digest}:555"),
+                candidate_id="courtlistener-docket-555",
+                payload=payload,
+            ),
+        ),
+        next_cursor=None,
+        terminal_status=TermTerminalStatus.EXHAUSTED,
+    )
+
+    forged_payload = copy.deepcopy(payload)
+    forged_resolution = forged_payload["opinion_resolution_evidence"]
+    assert isinstance(forged_resolution, dict)
+    forged_source = forged_resolution["source_opinion"]
+    assert isinstance(forged_source, dict)
+    cast(dict[str, object], forged_source)["cluster_id"] = "10927692"
+    with pytest.raises(
+        ValueError,
+        match="not the frozen discovery hit",
+    ):
+        validate_incomplete_opinion_source_binding(
+            store,
+            batch_id="batch-002",
+            payload=forged_payload,
+            resolution_evidence=forged_resolution,
+        )
+
+    partial_store = CycleAcquisitionStore(tmp_path / "partial-cycle.sqlite3")
+    partial_store.ensure_cycle({"schema_version": "test"})
+    partial_config = dict(config)
+    partial_config["source_candidate_count"] = 2
+    partial_store.ensure_batch("batch-002", partial_config)
+    partial_store.ensure_terms("batch-002", (term,))
+    partial_store.commit_search_page(
+        "batch-002",
+        term,
+        None,
+        (
+            DiscoveryHit(
+                provider_hit_id=(f"{term}:{source_batch_digest}:555"),
+                candidate_id="courtlistener-docket-555",
+                payload=payload,
+            ),
+        ),
+        next_cursor=None,
+        terminal_status=TermTerminalStatus.EXHAUSTED,
+    )
+    with (
+        partial_store,
+        pytest.raises(
+            ValueError,
+            match="candidate count",
+        ),
+    ):
+        validate_incomplete_opinion_source_binding(
+            partial_store,
+            batch_id="batch-002",
+            payload=payload,
+            resolution_evidence=resolution,
+        )
+
+    with store:
+        client = _client(
+            (
+                _docket_response(555),
+                _entries_response(cursor=None, results=[], next_cursor=None),
+                _response(
+                    path="/clusters/10927691/",
+                    payload={
+                        "id": 10927691,
+                        "docket": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "dockets/73614335/"
+                        ),
+                        "date_filed": "2026-07-14",
+                        "blocked": False,
+                        "absolute_url": "/opinion/10927691/bullock/",
+                        "sub_opinions": [
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "opinions/11395231/"
+                        ],
+                    },
+                ),
+                _response(
+                    path="/opinions/11395231/",
+                    payload={
+                        "id": 11395231,
+                        "cluster": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "clusters/10927691/"
+                        ),
+                        "plain_text": (
+                            "Defendant moved under Rule 12(b)(6). The motion "
+                            "to dismiss is denied."
+                        ),
+                        "local_path": "pdf/2026/07/14/bullock.pdf",
+                        "download_url": "https://ecf.example/show_public_doc",
+                        "absolute_url": "/opinion/10927691/bullock/",
+                    },
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=client,
+            eligibility_anchor=date(2026, 6, 30),
+            decision_window_end=date(2026, 7, 15),
+        )
+
+    assert observation.state == "excluded"
+    assert observation.reason_code == "opinion_backed_docket_history_incomplete"
+    assert observation.evidence["paid_gap_candidate"] is True
+    assert observation.evidence["packet_eligible"] is False
+    assert observation.evidence["planning_status"] == (
+        "docket_history_recovery_required"
+    )
+    assert observation.evidence["earliest_written_disposition_proven"] is False
+    assert observation.evidence["reconstruction_proof"]["entry_count"] == 0
+    assert (
+        observation.evidence["opinion_disposition_evidence"]["disposition_excerpt"]
+        == "The motion to dismiss is denied."
+    )
+    assert "canonical_rest_screen_complete" not in observation.evidence
+    assert "selected_entries" not in observation.evidence
+    assert "ai" not in observation.evidence
+    assert client.request_count == 4
 
 
 def test_observe_links_explicitly_referenced_terse_rest_mtd_label(

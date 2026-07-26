@@ -20,6 +20,7 @@ from legalforecast.ingestion.opinion_backed_disposition import (
     OpinionBackedDispositionError,
     bind_public_opinion_to_docket,
     fetch_and_bind_public_opinion,
+    fetch_and_validate_public_opinion,
     public_opinion_pdf_url,
     select_opinion_resolution_for_page,
     verbatim_mtd_disposition_excerpt,
@@ -287,6 +288,150 @@ def test_fetch_and_bind_public_opinion_validates_frozen_resolution_evidence() ->
     assert len(str(result.evidence["cluster_response_sha256"])) == 64
     assert len(str(result.evidence["opinion_response_sha256"])) == 64
     assert client.request_count == 2
+
+
+def test_fetch_and_validate_public_opinion_does_not_require_docket_entries() -> None:
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(
+            (
+                RecordedCourtListenerResponse(
+                    method="GET",
+                    path="/clusters/10927691/",
+                    params={},
+                    status_code=200,
+                    payload={
+                        "id": 10927691,
+                        "docket": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "dockets/73614335/"
+                        ),
+                        "date_filed": "2026-07-14",
+                        "blocked": False,
+                        "absolute_url": "/opinion/10927691/example/",
+                        "sub_opinions": [
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "opinions/11395231/"
+                        ],
+                    },
+                ),
+                RecordedCourtListenerResponse(
+                    method="GET",
+                    path="/opinions/11395231/",
+                    params={},
+                    status_code=200,
+                    payload={
+                        "id": 11395231,
+                        "cluster": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "clusters/10927691/"
+                        ),
+                        "plain_text": (
+                            "The defendant moved under Rule 12(b)(6). The motion "
+                            "to dismiss is denied."
+                        ),
+                        "local_path": "pdf/2026/07/14/example.pdf",
+                        "download_url": "https://ecf.example/show_public_doc",
+                        "absolute_url": "/opinion/10927691/example/",
+                    },
+                ),
+            )
+        ),
+    )
+    resolution = {
+        "schema_version": "legalforecast.opinion_recap_resolution.v1",
+        "source_opinion": {
+            "candidate_id": "73614335",
+            "cluster_id": "10927691",
+            "date_filed": "2026-07-14",
+            "absolute_url": "/opinion/10927691/example/",
+            "sub_opinions": [
+                {
+                    "opinion_id": "11395231",
+                    "absolute_url": "/opinion/10927691/example/",
+                    "download_url": "https://ecf.example/show_public_doc",
+                    "local_path": "pdf/2026/07/14/example.pdf",
+                }
+            ],
+        },
+        "resolved_recap": {
+            "docket_id": "71878956",
+            "court_id": "dcd",
+            "docket_number": "1:25-cv-03820",
+            "case_name": "EXAMPLE v. EXAMPLE",
+        },
+    }
+
+    result = fetch_and_validate_public_opinion(
+        client,
+        resolution_evidence=resolution,
+    )
+
+    assert result.source_opinion_docket_id == "73614335"
+    assert result.cluster_id == "10927691"
+    assert result.opinion_id == "11395231"
+    assert result.opinion_date == date(2026, 7, 14)
+    assert result.public_pdf_url.endswith("example.pdf")
+    assert result.disposition_excerpt == "The motion to dismiss is denied."
+    assert len(result.plain_text_sha256) == 64
+    assert len(result.cluster_response_sha256) == 64
+    assert len(result.opinion_response_sha256) == 64
+    assert client.request_count == 2
+
+
+@pytest.mark.parametrize("blocked", (None, "missing"))
+def test_fetch_and_validate_public_opinion_requires_affirmative_unblocked_status(
+    blocked: bool | str | None,
+) -> None:
+    cluster_payload: dict[str, object] = {
+        "id": 10927691,
+        "docket": ("https://www.courtlistener.com/api/rest/v4/dockets/73614335/"),
+        "date_filed": "2026-07-14",
+        "absolute_url": "/opinion/10927691/example/",
+        "sub_opinions": [
+            "https://www.courtlistener.com/api/rest/v4/opinions/11395231/"
+        ],
+    }
+    if blocked != "missing":
+        cluster_payload["blocked"] = blocked
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(
+            (
+                RecordedCourtListenerResponse(
+                    method="GET",
+                    path="/clusters/10927691/",
+                    params={},
+                    status_code=200,
+                    payload=cluster_payload,
+                ),
+            )
+        ),
+    )
+    resolution = {
+        "schema_version": "legalforecast.opinion_recap_resolution.v1",
+        "source_opinion": {
+            "candidate_id": "73614335",
+            "cluster_id": "10927691",
+            "date_filed": "2026-07-14",
+            "sub_opinions": [
+                {
+                    "opinion_id": "11395231",
+                    "absolute_url": "/opinion/10927691/example/",
+                    "download_url": "https://ecf.example/show_public_doc",
+                    "local_path": "pdf/2026/07/14/example.pdf",
+                }
+            ],
+        },
+    }
+
+    with pytest.raises(OpinionBackedDispositionError, match="unblocked"):
+        fetch_and_validate_public_opinion(
+            client,
+            resolution_evidence=resolution,
+        )
+
+    assert client.request_count == 1
 
 
 def test_fetch_and_bind_public_opinion_rejects_resolved_docket_mismatch() -> None:

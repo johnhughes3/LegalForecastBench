@@ -143,7 +143,7 @@ class DisclosureReviewAuthorityRegistryEntry:
 CYCLE_1_DISCLOSURE_AUTHORITY_IDENTITY = DisclosureReviewAuthorityIdentity(
     cycle_id="cycle-1-target-100-2026-07-25",
     cohort_policy_sha256=(
-        "0f115ac1a2fe1eb2ef3f4c92113fdfa2d5773ba534e9951b9ba8e67134faebed"
+        "76c98406536e38fede7a1a72b60af731088fae04888b9662b1d3ed37538a7207"
     ),
     eligibility_anchor=date(2026, 6, 30),
 )

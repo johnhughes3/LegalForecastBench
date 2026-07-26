@@ -76,6 +76,7 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
 from legalforecast.ingestion.opinion_backed_disposition import (
     OpinionBackedDispositionError,
     fetch_and_bind_public_opinion,
+    fetch_and_validate_public_opinion,
     select_opinion_resolution_for_page,
     validate_resolved_recap_identity,
 )
@@ -104,6 +105,14 @@ _CANDIDATE_PREFIX = "courtlistener-docket-"
 _CRIMINAL_DOCKET_TOKEN = re.compile(r"-cr-", re.IGNORECASE)
 _CRIMINAL_SLUG_PREFIXES = ("usa-v-", "united-states-v-")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_OPINION_RECAP_RESOLVED_SOURCE_SCHEMA = "legalforecast.opinion_recap_resolved_source.v1"
+_DIRECT_SEARCH_OPINION_TRANSFER_SCHEMAS = frozenset(
+    {
+        "legalforecast.courtlistener_direct_search_transfer.v1",
+        "legalforecast.courtlistener_direct_search_cycle_rebind.v1",
+        "legalforecast.courtlistener_novel_direct_search_transfer.v1",
+    }
+)
 _ADVERSARY_CASE_NUMBER = re.compile(
     r"\badversary\s+case(?:\s+(?:no\.?|number))?\s*(?:[:#]\s*)?"
     r"(?P<number>[0-9A-Za-z]+(?:[-:.][0-9A-Za-z]+)+)\b",
@@ -1215,6 +1224,251 @@ def _canonical_record_sha256(records: Sequence[Mapping[str, object]]) -> str:
     ).hexdigest()
 
 
+def validate_incomplete_opinion_source_binding(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    payload: Mapping[str, Any],
+    resolution_evidence: Mapping[str, Any],
+) -> None:
+    """Require a saturated resolved-opinion transfer before gap retention."""
+
+    config = store.batch_config(batch_id)
+    provenance = payload.get("direct_search_provenance")
+    if config.get(
+        "source_schema_version"
+    ) != _OPINION_RECAP_RESOLVED_SOURCE_SCHEMA or not isinstance(provenance, Mapping):
+        raise OpinionBackedDispositionError(
+            "opinion docket-history recovery lacks a resolved source binding"
+        )
+    typed_provenance = cast(Mapping[str, object], provenance)
+    provenance_schema = typed_provenance.get("schema_version")
+    if (
+        provenance_schema not in _DIRECT_SEARCH_OPINION_TRANSFER_SCHEMAS
+        or config.get("discovery_mode") != provenance_schema
+    ):
+        raise OpinionBackedDispositionError(
+            "opinion docket-history recovery has unsupported transfer provenance"
+        )
+    for field_name in (
+        "source_batch_id",
+        "source_batch_digest",
+        "source_candidate_set_sha256",
+    ):
+        if typed_provenance.get(field_name) != config.get(field_name):
+            raise OpinionBackedDispositionError(
+                f"opinion transfer {field_name} does not match the frozen batch"
+            )
+    for field_name in ("source_batch_digest", "source_candidate_set_sha256"):
+        value = typed_provenance.get(field_name)
+        if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+            raise OpinionBackedDispositionError(
+                f"opinion transfer {field_name} is not a SHA-256 commitment"
+            )
+
+    candidate_id = payload.get("candidate_id")
+    if not isinstance(candidate_id, str) or not candidate_id:
+        raise OpinionBackedDispositionError(
+            "opinion gap payload is not the frozen discovery hit"
+        )
+    raw_query_terms = config.get("query_terms")
+    source_candidate_count = config.get("source_candidate_count")
+    if (
+        not isinstance(raw_query_terms, list)
+        or len(cast(list[object], raw_query_terms)) != 1
+        or not isinstance(cast(list[object], raw_query_terms)[0], str)
+        or type(source_candidate_count) is not int
+        or source_candidate_count <= 0
+    ):
+        raise OpinionBackedDispositionError(
+            "opinion transfer source candidate count is invalid"
+        )
+    transfer_term = cast(str, cast(list[object], raw_query_terms)[0])
+    progress = store.term_progress(batch_id, transfer_term)
+    persisted_hits = store.batch_discovery_hits(batch_id)
+    if (
+        progress.terminal_status is not TermTerminalStatus.EXHAUSTED
+        or progress.hit_count != source_candidate_count
+        or len(persisted_hits) != source_candidate_count
+    ):
+        raise OpinionBackedDispositionError(
+            "opinion transfer source candidate count is incomplete"
+        )
+
+    candidate_commitments: list[dict[str, object]] = []
+    seen_candidate_ids: set[str] = set()
+    seen_docket_ids: set[str] = set()
+    persisted_payload: Mapping[str, object] | None = None
+    for hit in persisted_hits:
+        hit_payload = hit.payload
+        hit_candidate_id = hit.candidate_id
+        docket_id = hit_payload.get("docket_id")
+        hit_provenance = hit_payload.get("direct_search_provenance")
+        if (
+            hit.term != transfer_term
+            or not isinstance(docket_id, str)
+            or not docket_id.isdecimal()
+            or docket_id.startswith("0")
+            or hit_candidate_id != f"{_CANDIDATE_PREFIX}{docket_id}"
+            or hit_payload.get("candidate_id") != hit_candidate_id
+            or hit_payload.get("query_term") != transfer_term
+            or hit_payload.get("provider") != RECAP_API_PROVIDER
+            or not isinstance(hit_provenance, Mapping)
+            or hit_candidate_id in seen_candidate_ids
+            or docket_id in seen_docket_ids
+        ):
+            raise OpinionBackedDispositionError(
+                "opinion transfer contains an invalid or duplicate candidate"
+            )
+        typed_hit_provenance = cast(Mapping[str, object], hit_provenance)
+        if (
+            typed_hit_provenance.get("schema_version") != provenance_schema
+            or any(
+                typed_hit_provenance.get(field_name) != config.get(field_name)
+                for field_name in (
+                    "source_batch_id",
+                    "source_batch_digest",
+                    "source_candidate_set_sha256",
+                )
+            )
+            or hit.provider_hit_id
+            != f"{transfer_term}:{config['source_batch_digest']}:{docket_id}"
+        ):
+            raise OpinionBackedDispositionError(
+                "opinion transfer candidate provenance does not match the frozen batch"
+            )
+        raw_source_hits = typed_hit_provenance.get("source_hits")
+        if not isinstance(raw_source_hits, list) or not raw_source_hits:
+            raise OpinionBackedDispositionError(
+                "opinion transfer lacks committed source hits"
+            )
+        normalized_source_hits: list[dict[str, str]] = []
+        seen_source_hits: set[tuple[str, str, str]] = set()
+        for raw_source_hit in cast(list[object], raw_source_hits):
+            if not isinstance(raw_source_hit, Mapping):
+                raise OpinionBackedDispositionError(
+                    "opinion transfer source hits must be objects"
+                )
+            typed_source_hit = cast(Mapping[str, object], raw_source_hit)
+            provider_hit_id = typed_source_hit.get("provider_hit_id")
+            query_term = typed_source_hit.get("query_term")
+            payload_sha256 = typed_source_hit.get("payload_sha256")
+            if (
+                set(typed_source_hit)
+                != {"provider_hit_id", "query_term", "payload_sha256"}
+                or not isinstance(provider_hit_id, str)
+                or not provider_hit_id
+                or not isinstance(query_term, str)
+                or not query_term
+                or not isinstance(payload_sha256, str)
+                or _SHA256.fullmatch(payload_sha256) is None
+            ):
+                raise OpinionBackedDispositionError(
+                    "opinion transfer source-hit commitment is invalid"
+                )
+            source_hit_identity = (provider_hit_id, query_term, payload_sha256)
+            if source_hit_identity in seen_source_hits:
+                raise OpinionBackedDispositionError(
+                    "opinion transfer contains duplicate source hits"
+                )
+            seen_source_hits.add(source_hit_identity)
+            normalized_source_hits.append(
+                {
+                    "provider_hit_id": provider_hit_id,
+                    "query_term": query_term,
+                    "payload_sha256": payload_sha256,
+                }
+            )
+        expected_source_payload = {
+            "docket_id": docket_id,
+            "court_id": hit_payload.get("court_id"),
+            "docket_number": hit_payload.get("docket_number"),
+            "case_name": hit_payload.get("case_name"),
+            "provider": "courtlistener",
+            "opinion_resolution_evidence": hit_payload.get(
+                "opinion_resolution_evidence"
+            ),
+        }
+        expected_source_payload_sha256 = hashlib.sha256(
+            json.dumps(
+                expected_source_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+        representative = (
+            typed_hit_provenance.get("source_provider_hit_id"),
+            typed_hit_provenance.get("source_query_term"),
+            typed_hit_provenance.get("source_payload_sha256"),
+        )
+        if (
+            representative
+            not in {
+                (
+                    source_hit["provider_hit_id"],
+                    source_hit["query_term"],
+                    source_hit["payload_sha256"],
+                )
+                for source_hit in normalized_source_hits
+            }
+            or representative[2] != expected_source_payload_sha256
+        ):
+            raise OpinionBackedDispositionError(
+                "opinion transfer source-hit commitment does not reconcile"
+            )
+        commitment: dict[str, object] = {
+            "docket_id": docket_id,
+            "court_id": hit_payload.get("court_id"),
+            "docket_number": hit_payload.get("docket_number"),
+            "case_name": hit_payload.get("case_name"),
+            "decision_entry_evidence": hit_payload.get("decision_entry_evidence"),
+            "opinion_resolution_evidence": hit_payload.get(
+                "opinion_resolution_evidence"
+            ),
+            "source_hits": normalized_source_hits,
+        }
+        if "priority_decision_evidence" in hit_payload:
+            commitment["priority_decision_evidence"] = hit_payload[
+                "priority_decision_evidence"
+            ]
+        candidate_commitments.append(commitment)
+        seen_candidate_ids.add(hit_candidate_id)
+        seen_docket_ids.add(docket_id)
+        if hit_candidate_id == candidate_id:
+            persisted_payload = hit_payload
+
+    candidate_commitments.sort(key=lambda record: int(cast(str, record["docket_id"])))
+    if persisted_payload is None or dict(persisted_payload) != dict(payload):
+        raise OpinionBackedDispositionError(
+            "opinion gap payload is not the frozen discovery hit"
+        )
+    if _canonical_record_sha256(candidate_commitments) != config.get(
+        "source_candidate_set_sha256"
+    ):
+        raise OpinionBackedDispositionError(
+            "opinion transfer candidate set does not match its canonical commitment"
+        )
+
+    commitments = resolution_evidence.get("commitments")
+    if not isinstance(commitments, Mapping):
+        raise OpinionBackedDispositionError(
+            "opinion resolution lacks resolver commitments"
+        )
+    typed_commitments = cast(Mapping[str, object], commitments)
+    for field_name in (
+        "source_batch_digest",
+        "source_candidate_set_sha256",
+        "resolver_policy_sha256",
+        "provider_response_sha256",
+        "provider_result_sha256",
+    ):
+        value = typed_commitments.get(field_name)
+        if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+            raise OpinionBackedDispositionError(
+                f"opinion resolution {field_name} is not a SHA-256 commitment"
+            )
+
+
 def _matches_deferred_adversary_entry(
     page: CourtListenerWebDocketPage,
     evidence: Mapping[str, object],
@@ -1257,8 +1511,10 @@ def observe_recap_api_candidate(
     outcome (and whether the *first* MTD disposition predates the anchor) is
     mapped onto the store's reason-code taxonomy. Rate-limit and server errors
     are deliberately *not* caught so the surrounding pass fails closed; only a
-    genuinely absent docket or an unparseable/incomplete reconstruction is
-    recorded as a transient observation.
+    genuinely absent docket or an unparseable reconstruction is recorded as a
+    transient observation. A source-bound public opinion with cursor-complete
+    but insufficient RECAP history is retained as a refreshable exclusion for
+    docket-history budgeting; it is never a strict-screen acceptance.
 
     ``decision_window_end`` enforces the frozen batch decision window's upper
     bound at observation time: a docket whose only in-anchor MTD disposition
@@ -1486,17 +1742,87 @@ def observe_recap_api_candidate(
     if raw_opinion_resolution is not None:
         assert isinstance(raw_opinion_resolution, Mapping)
         try:
-            selected_opinion_resolution = select_opinion_resolution_for_page(
-                reconstructed.page,
-                cast(Mapping[str, Any], raw_opinion_resolution),
-            )
+            typed_opinion_resolution = cast(Mapping[str, Any], raw_opinion_resolution)
             validate_resolved_recap_identity(
-                selected_opinion_resolution,
+                typed_opinion_resolution,
                 docket_id=docket.docket_id,
                 court_id=docket.court_id,
                 docket_number=docket.docket_number,
                 case_name=docket.case_name,
             )
+            try:
+                selected_opinion_resolution = select_opinion_resolution_for_page(
+                    reconstructed.page,
+                    typed_opinion_resolution,
+                )
+            except OpinionBackedDispositionError as selection_error:
+                additional = typed_opinion_resolution.get("additional_resolutions", [])
+                if additional not in ([], ()):
+                    raise
+                validate_incomplete_opinion_source_binding(
+                    store,
+                    batch_id=batch_id,
+                    payload=payload,
+                    resolution_evidence=typed_opinion_resolution,
+                )
+                validated_opinion = fetch_and_validate_public_opinion(
+                    client,
+                    resolution_evidence=typed_opinion_resolution,
+                )
+                if validated_opinion.opinion_date < eligibility_anchor:
+                    return store.record_observation(
+                        candidate_id,
+                        batch_id=batch_id,
+                        state="excluded",
+                        reason_code="decision_before_release_anchor",
+                        evidence={
+                            **base_evidence,
+                            "reconstruction_proof": reconstructed.proof.to_record(),
+                            "opinion_disposition_evidence": (
+                                validated_opinion.to_evidence_record()
+                            ),
+                            "first_mtd_decision_date": (
+                                validated_opinion.opinion_date.isoformat()
+                            ),
+                            "eligibility_anchor": eligibility_anchor.isoformat(),
+                            "packet_eligible": False,
+                        },
+                    )
+                if (
+                    decision_window_end is not None
+                    and validated_opinion.opinion_date > decision_window_end
+                ):
+                    raise OpinionBackedDispositionError(
+                        "public opinion disposition falls after the frozen "
+                        "decision window"
+                    ) from selection_error
+                return store.record_observation(
+                    candidate_id,
+                    batch_id=batch_id,
+                    state="excluded",
+                    reason_code="opinion_backed_docket_history_incomplete",
+                    evidence={
+                        **base_evidence,
+                        "reconstruction_proof": reconstructed.proof.to_record(),
+                        "opinion_disposition_evidence": (
+                            validated_opinion.to_evidence_record()
+                        ),
+                        "opinion_source_binding_verified": True,
+                        "source_batch_complete_saturated": True,
+                        "reason_code": ("opinion_backed_docket_history_incomplete"),
+                        "paid_gap_candidate": True,
+                        "packet_eligible": False,
+                        "planning_status": "docket_history_recovery_required",
+                        "earliest_written_disposition_proven": False,
+                        "target_motion_linkage_proven": False,
+                        "eligibility_anchor": eligibility_anchor.isoformat(),
+                        "decision_window_end": (
+                            decision_window_end.isoformat()
+                            if decision_window_end is not None
+                            else None
+                        ),
+                    },
+                )
             opinion_backed = fetch_and_bind_public_opinion(
                 client,
                 page=reconstructed.page,

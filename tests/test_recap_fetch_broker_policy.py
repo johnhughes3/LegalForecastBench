@@ -58,7 +58,7 @@ def test_golden_policy_is_hash_bound_and_excludes_unplanned_selection_docs() -> 
         ],
     }
     assert broker_policy_sha256(policy) == (
-        "b5db71c6530f5bf75d433c076cbba35766a446b597789f2c18a887c01c04c69e"
+        "221463f924411b7809e7f43c7bd0eb8e9a89f0206a87cbbe4c19c538e6837302"
     )
 
 
