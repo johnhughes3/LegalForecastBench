@@ -77,8 +77,8 @@ def test_planner_selects_only_exact_gap_records_deterministically() -> None:
     )
 
     assert [item.candidate_id for item in plan.items] == [
-        "courtlistener-docket-10",
         "courtlistener-docket-9",
+        "courtlistener-docket-10",
     ]
     assert plan.candidate_count == 2
     assert plan.total_projected_cost_usd == "6.10"
@@ -267,6 +267,16 @@ def test_planner_rejects_noncanonical_candidate_identity() -> None:
     record["candidate_id"] = " courtlistener-docket-71878956 "
 
     with pytest.raises(OpinionDocketGapPlanningError, match="candidate_id"):
+        plan_opinion_docket_gaps((record,), cost_per_docket_usd="3.05", **_LINEAGE)
+
+
+def test_planner_rejects_noncanonical_numeric_identity() -> None:
+    record = _gap()
+    proof = record["reconstruction_proof"]
+    assert isinstance(proof, dict)
+    proof["docket_id"] = " 71878956 "
+
+    with pytest.raises(OpinionDocketGapPlanningError, match="docket_id"):
         plan_opinion_docket_gaps((record,), cost_per_docket_usd="3.05", **_LINEAGE)
 
 

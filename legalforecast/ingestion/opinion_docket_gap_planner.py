@@ -160,7 +160,7 @@ def plan_opinion_docket_gaps(
         items.append(item)
     items.sort(
         key=lambda item: (
-            item.candidate_id.casefold(),
+            int(item.docket_id),
             item.candidate_id,
         )
     )
@@ -350,7 +350,9 @@ def _required_text(record: Mapping[str, Any], field_name: str) -> str:
 def _positive_identifier(value: object, field_name: str) -> str:
     if isinstance(value, bool):
         raise OpinionDocketGapPlanningError(f"{field_name} must be a positive integer")
-    normalized = str(value).strip()
+    if isinstance(value, str) and value != value.strip():
+        raise OpinionDocketGapPlanningError(f"{field_name} must be a positive integer")
+    normalized = str(value)
     if not normalized.isdecimal() or normalized.startswith("0") or int(normalized) <= 0:
         raise OpinionDocketGapPlanningError(f"{field_name} must be a positive integer")
     return normalized
