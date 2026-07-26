@@ -208,6 +208,24 @@ def test_plan_opinion_docket_gaps_rejects_output_aliases_and_snapshot_writes(
     assert "aliases immutable snapshot evidence" in capsys.readouterr().err
 
 
+def test_opinion_docket_gap_path_validation_skips_snapshot_walk_for_new_outputs(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+
+    def fail_if_walked(_path: Path, _pattern: str) -> object:
+        raise AssertionError("new planner outputs do not require a snapshot walk")
+
+    monkeypatch.setattr(Path, "rglob", fail_if_walked)
+
+    cli._validate_opinion_docket_gap_paths(
+        snapshot_path=snapshot,
+        writable_paths=(tmp_path / "plan.jsonl", tmp_path / "summary.json"),
+    )
+
+
 def test_plan_opinion_docket_gaps_records_invalid_manifest_pin_failure(
     tmp_path: Path,
     capsys: CaptureFixture[str],

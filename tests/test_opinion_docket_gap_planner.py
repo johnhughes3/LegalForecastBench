@@ -6,10 +6,10 @@ import hashlib
 import json
 from decimal import Decimal
 
-import legalforecast.ingestion.opinion_docket_gap_planner as planner
 import pytest
 from legalforecast.ingestion.opinion_docket_gap_planner import (
     OpinionDocketGapPlanningError,
+    _record_sha256,
     plan_opinion_docket_gaps,
 )
 
@@ -259,7 +259,15 @@ def test_planner_rejects_duplicate_candidate_and_invalid_cost() -> None:
 
 def test_plan_commitment_rejects_nonfinite_numbers() -> None:
     with pytest.raises(ValueError, match="Out of range float values"):
-        planner._record_sha256({"unexpected": float("nan")})
+        _record_sha256({"unexpected": float("nan")})
+
+
+def test_planner_rejects_noncanonical_candidate_identity() -> None:
+    record = _gap()
+    record["candidate_id"] = " courtlistener-docket-71878956 "
+
+    with pytest.raises(OpinionDocketGapPlanningError, match="candidate_id"):
+        plan_opinion_docket_gaps((record,), cost_per_docket_usd="3.05", **_LINEAGE)
 
 
 @pytest.mark.parametrize(

@@ -1394,6 +1394,8 @@ def validate_incomplete_opinion_source_binding(
                 expected_source_payload,
                 sort_keys=True,
                 separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
             ).encode()
         ).hexdigest()
         representative = (

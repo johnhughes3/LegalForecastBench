@@ -1661,6 +1661,7 @@ def test_observe_accepts_public_opinion_backed_terse_mtd_order(
 def test_observe_retains_source_bound_opinion_with_empty_docket_as_paid_gap(
     tmp_path: Path,
 ) -> None:
+    case_name = "Acme Corp \N{EN DASH} v. Roe"
     resolution = {
         "schema_version": "legalforecast.opinion_recap_resolution.v1",
         "source_opinion": {
@@ -1685,11 +1686,11 @@ def test_observe_retains_source_bound_opinion_with_empty_docket_as_paid_gap(
             "docket_id": "555",
             "court_id": "nysd",
             "docket_number": "1:26-cv-00001",
-            "case_name": "Acme Corp v. Roe",
+            "case_name": case_name,
         },
         "resolver": {
             "provider": "courtlistener",
-            "query": "Acme Corp v. Roe",
+            "query": case_name,
             "match_method": "exact_docket_number",
         },
         "ambiguity_proof": {"matching_candidate_count": 1},
@@ -1706,13 +1707,29 @@ def test_observe_retains_source_bound_opinion_with_empty_docket_as_paid_gap(
         "docket_id": "555",
         "court_id": "nysd",
         "docket_number": "1:26-cv-00001",
-        "case_name": "Acme Corp v. Roe",
+        "case_name": case_name,
         "provider": "courtlistener",
         "opinion_resolution_evidence": resolution,
     }
     source_payload_sha256 = hashlib.sha256(
-        json.dumps(source_payload, sort_keys=True, separators=(",", ":")).encode()
+        json.dumps(
+            source_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode()
     ).hexdigest()
+    legacy_ascii_payload_sha256 = hashlib.sha256(
+        json.dumps(
+            source_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+    assert source_payload_sha256 != legacy_ascii_payload_sha256
     source_batch_digest = "7" * 64
     source_hits = [
         {
@@ -1728,7 +1745,7 @@ def test_observe_retains_source_bound_opinion_with_empty_docket_as_paid_gap(
                     "docket_id": "555",
                     "court_id": "nysd",
                     "docket_number": "1:26-cv-00001",
-                    "case_name": "Acme Corp v. Roe",
+                    "case_name": case_name,
                     "decision_entry_evidence": None,
                     "opinion_resolution_evidence": resolution,
                     "source_hits": source_hits,

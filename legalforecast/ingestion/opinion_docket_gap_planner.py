@@ -340,9 +340,11 @@ def _required_mapping(record: Mapping[str, Any], field_name: str) -> Mapping[str
 
 def _required_text(record: Mapping[str, Any], field_name: str) -> str:
     value = record.get(field_name)
-    if not isinstance(value, str) or not value.strip():
-        raise OpinionDocketGapPlanningError(f"{field_name} must be a non-empty string")
-    return value.strip()
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise OpinionDocketGapPlanningError(
+            f"{field_name} must be a non-empty canonical string"
+        )
+    return value
 
 
 def _positive_identifier(value: object, field_name: str) -> str:

@@ -21649,6 +21649,11 @@ def _validate_opinion_docket_gap_paths(
                     "plan-opinion-docket-gaps outputs hard-link the same file: "
                     f"{path} and {other_path}"
                 )
+    existing_outputs = tuple(
+        output for output, _resolved in resolved_outputs if output.exists()
+    )
+    if not existing_outputs:
+        return
     try:
         source_files = tuple(
             path for path in snapshot_path.rglob("*") if path.is_file()
@@ -21657,9 +21662,7 @@ def _validate_opinion_docket_gap_paths(
         raise CommandError(
             f"cannot inspect immutable screening snapshot paths: {exc}"
         ) from exc
-    for output, _resolved in resolved_outputs:
-        if not output.exists():
-            continue
+    for output in existing_outputs:
         for source in source_files:
             try:
                 aliases = output.samefile(source)
