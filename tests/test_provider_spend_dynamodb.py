@@ -35,6 +35,15 @@ AttributeValue = dict[str, str]
 AttributeMap = dict[str, AttributeValue]
 
 
+@pytest.mark.parametrize("invalid_cap", [0.5, Decimal("1")])
+def test_dynamodb_authority_rejects_non_integer_cap(invalid_cap: object) -> None:
+    with pytest.raises(ValueError, match="cap_microusd must be a positive integer"):
+        _authority(
+            InMemoryDynamoRunner(),
+            cap_microusd=cast(int, invalid_cap),
+        )
+
+
 class InMemoryDynamoRunner:
     """Transactional contract double for the authority's DynamoDB expression subset."""
 

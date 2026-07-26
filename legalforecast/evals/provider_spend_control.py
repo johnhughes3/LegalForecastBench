@@ -827,8 +827,8 @@ def _identity(value: str, field_name: str) -> str:
     return normalized
 
 
-def _positive_int(value: int, field_name: str) -> int:
-    if isinstance(value, bool) or value <= 0:
+def _positive_int(value: object, field_name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError(f"{field_name} must be a positive integer")
     return value
 

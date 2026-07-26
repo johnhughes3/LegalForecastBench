@@ -35937,6 +35937,7 @@ def _verified_provider_stage_attempts(
 ) -> JsonRecord:
     nonsettled_statuses = dict(expected_nonsettled_statuses or {})
     rows = _provider_stage_attempt_rows(journal_path, stage=stage)
+    matched_rows: list[Mapping[str, Any]] = []
     rows_by_call: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
     for row in rows:
         key = (_required_str(row, "candidate_id"), _required_str(row, "model_key"))
@@ -35961,6 +35962,7 @@ def _verified_provider_stage_attempts(
             != expected_prompt_sha
         ):
             raise CommandError(f"{stage} provider replay identity differs: {key}")
+        matched_rows.append(row)
         rows_by_call[key].append(row)
     if set(rows_by_call) != set(expected_prompts):
         raise CommandError(f"{stage} provider journal call coverage differs")
@@ -35985,8 +35987,8 @@ def _verified_provider_stage_attempts(
     return {
         "stage": stage,
         "call_count": len(expected_prompts),
-        "attempt_count": len(rows),
-        "attempts_sha256": _canonical_json_sha256(rows),
+        "attempt_count": len(matched_rows),
+        "attempts_sha256": _canonical_json_sha256(matched_rows),
     }
 
 

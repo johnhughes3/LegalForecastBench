@@ -245,6 +245,9 @@ def llm_unitize_cases(
                 candidate_id=candidate_id,
                 prompt=prompt,
                 registry_entry=registry_entry,
+                account=(provider_accounts or {}).get(
+                    registry_entry.provider.lower(), "default"
+                ),
                 model_registry_sha256=model_registry_sha256,
                 cycle_cap_usd=_provider_cycle_cap(
                     registry_entry.provider,
@@ -446,6 +449,9 @@ def llm_review_stage_a_units(
             candidate_id=candidate_id,
             prompt=prompt,
             registry_entry=registry_entry,
+            account=(provider_accounts or {}).get(
+                registry_entry.provider.lower(), "default"
+            ),
             model_registry_sha256=model_registry_sha256,
             cycle_cap_usd=_provider_cycle_cap(
                 registry_entry.provider,
@@ -1499,6 +1505,9 @@ def _llm_label_one_model(
         candidate_id=_required_str(selection, "candidate_id"),
         prompt=prompt,
         registry_entry=registry_entry,
+        account=(provider_accounts or {}).get(
+            registry_entry.provider.lower(), "default"
+        ),
         model_registry_sha256=model_registry_sha256,
         cycle_cap_usd=provider_cycle_cap_usd,
         cycle_id=provider_cycle_id,
@@ -1660,6 +1669,7 @@ def _provider_attempt_journal(
     candidate_id: str,
     prompt: str,
     registry_entry: ModelRegistryEntry,
+    account: str = "default",
     model_registry_sha256: str | None,
     cycle_cap_usd: float,
     cycle_id: str | None,
@@ -1679,6 +1689,7 @@ def _provider_attempt_journal(
             model_key=registry_entry.registry_key,
             prompt=prompt,
             model_registry_sha256=model_registry_sha256 or "unrecorded",
+            account=account,
         ),
         provider=registry_entry.provider,
         reservation_usd=maximum_call_cost_usd(

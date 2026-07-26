@@ -5,7 +5,9 @@ import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.evals.provider_spend_control import (
@@ -21,6 +23,18 @@ from legalforecast.evals.provider_spend_control import (
     SettlementError,
     SqliteProviderSpendAuthority,
 )
+
+
+@pytest.mark.parametrize("invalid_cap", [0.5, Decimal("1")])
+def test_sqlite_authority_rejects_non_integer_cap(
+    tmp_path: Path,
+    invalid_cap: object,
+) -> None:
+    with pytest.raises(ValueError, match="cap_microusd must be a positive integer"):
+        _authority(
+            tmp_path / "spend-control.sqlite3",
+            cap_microusd=cast(int, invalid_cap),
+        )
 
 
 def test_concurrent_workers_never_reserve_above_provider_account_cap(

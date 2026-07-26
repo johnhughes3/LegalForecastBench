@@ -714,6 +714,19 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         == 0
     )
     assert provider_calls == 3
+    with sqlite3.connect(provider_journal) as connection:
+        journal_accounts = connection.execute(
+            "SELECT stage, account FROM provider_attempts ORDER BY stage"
+        ).fetchall()
+        ledger_accounts = connection.execute(
+            "SELECT provider, account FROM provider_ledgers"
+        ).fetchall()
+    assert journal_accounts == [
+        ("llm-label", "primary"),
+        ("llm-review-stage-a", "primary"),
+        ("llm-unitize", "primary"),
+    ]
+    assert ledger_accounts == [("openai", "primary")]
 
     provider_calls_before_bad_label_chain = provider_calls
     bad_label_chain_args = list(provider_chain_args)
