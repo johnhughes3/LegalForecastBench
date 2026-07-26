@@ -203,6 +203,38 @@ def test_runbook_derives_provider_caps_from_complete_raw_smoke_evidence() -> Non
     assert "hand-edit the authority identity" not in runbook
 
 
+def test_paid_labeling_runbook_names_exact_authority_and_external_smoke_gate() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    for value in (
+        ".github/workflows/official-paid-labeling.yaml",
+        ".github/workflows/official-paid-labeling-authority-smoke.yaml",
+        "infra/official-labeling",
+        "LFB_GITHUB_LABELING_ROLE_ARN",
+        "LFB_PROVIDER_AUTHORITY_TABLE",
+        "LFB_PROVIDER_ACCOUNT_ALIAS",
+        "legalforecastbench-official-labeling-authority-smoke",
+        "legalforecastbench-official-labeling-anthropic-unitize",
+        "legalforecastbench-official-labeling-google-review",
+        "legalforecastbench-official-labeling-openai-label",
+        "legalforecastbench-official-labeling-google-label",
+        "--execution-provider",
+        "--provider-shard-audit",
+        "--provider-shard-run-card",
+        "provider-free live smoke",
+        "require a human reviewer",
+        "deployment branch policy that admits only `main`",
+        "not a confidentiality boundary",
+        "`ConditionCheckItem`",
+        "sequential baton",
+        "do not launch the Google and OpenAI Stage B shards in parallel",
+        "divergent SQLite copies are intentionally not mergeable",
+    ):
+        assert value in runbook
+    assert "keep the official live-smoke, freeze, and dispatch gates blocked" in runbook
+    assert "Do not place OpenAI and Google credentials in one job." in runbook
+
+
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
 
@@ -237,14 +269,14 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
         "llm-unitize": (
             "--controlled-private-root",
             "--purchase-ledger-initialization-receipt",
-            "--provider-authority-table <provider-authority-table>",
-            "--provider-authority-region <provider-authority-region>",
+            "--provider-authority-table <exact-shared-authority-table-name>",
+            "--provider-authority-region <aws-region>",
         ),
         "llm-review-stage-a": (
             "--controlled-private-root",
             "--purchase-ledger-initialization-receipt",
-            "--provider-authority-table <provider-authority-table>",
-            "--provider-authority-region <provider-authority-region>",
+            "--provider-authority-table <exact-shared-authority-table-name>",
+            "--provider-authority-region <aws-region>",
         ),
         "llm-label": (
             "--controlled-private-root",
@@ -252,8 +284,8 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
             "--llm-unitization-run-card",
             "--llm-review-stage-a-run-card",
             "--unitization-review-run-card",
-            "--provider-authority-table <provider-authority-table>",
-            "--provider-authority-region <provider-authority-region>",
+            "--provider-authority-table <exact-shared-authority-table-name>",
+            "--provider-authority-region <aws-region>",
         ),
         "apply-unitization-review": (
             "--controlled-private-root",

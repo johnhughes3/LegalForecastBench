@@ -38,6 +38,7 @@ class FrozenArtifactName(StrEnum):
     MODEL_REGISTRY = "model_registry"
     BASELINES = "baselines"
     EXCLUSION_LEDGER = "exclusion_ledger"
+    PROVIDER_CYCLE_CAPS = "provider_cycle_caps"
     EXECUTION_POLICY = "execution_policy"
     LABELING_POLICY = "labeling_policy"
     COHORT_POLICY = "cohort_policy"
@@ -53,6 +54,7 @@ REQUIRED_FREEZE_ARTIFACTS: tuple[FrozenArtifactName, ...] = (
     FrozenArtifactName.MODEL_REGISTRY,
     FrozenArtifactName.BASELINES,
     FrozenArtifactName.EXCLUSION_LEDGER,
+    FrozenArtifactName.PROVIDER_CYCLE_CAPS,
     FrozenArtifactName.EXECUTION_POLICY,
     FrozenArtifactName.LABELING_POLICY,
     FrozenArtifactName.COHORT_POLICY,
@@ -65,6 +67,7 @@ _FREEZE_HASH_FIELDS: Mapping[FrozenArtifactName, str] = {
     FrozenArtifactName.SCORER: "scorer_sha256",
     FrozenArtifactName.HARNESS: "harness_sha256",
     FrozenArtifactName.EXCLUSION_LEDGER: "exclusion_ledger_sha256",
+    FrozenArtifactName.PROVIDER_CYCLE_CAPS: "provider_cycle_caps_sha256",
     FrozenArtifactName.EXECUTION_POLICY: "execution_policy_sha256",
     FrozenArtifactName.LABELING_POLICY: "labeling_policy_sha256",
     FrozenArtifactName.COHORT_POLICY: "cohort_policy_sha256",
@@ -533,6 +536,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-registry", required=True)
     parser.add_argument("--baselines", required=True)
     parser.add_argument("--exclusion-ledger", required=True)
+    parser.add_argument("--provider-cycle-caps", required=True)
     parser.add_argument("--execution-policy", required=True)
     parser.add_argument("--labeling-policy", required=True)
     parser.add_argument("--cohort-policy", required=True)
@@ -617,6 +621,14 @@ def build_generate_execution_policy_arg_parser() -> argparse.ArgumentParser:
         description="Generate a canonical at-freeze execution policy.",
     )
     parser.add_argument("--decisions", required=True)
+    parser.add_argument(
+        "--provider-cycle-caps",
+        required=True,
+        help=(
+            "Pre-labeling provider-cycle-caps artifact whose byte hash and "
+            "spend_authority fields must exactly match attempt_policy."
+        ),
+    )
     parser.add_argument("--output", required=True)
     return parser
 
@@ -654,29 +666,42 @@ def cli_freeze(argv: Sequence[str]) -> int:
         else Path("manifests") / f"{cycle_id}.freeze.json"
     )
 
-    bundle = freeze_cycle(
-        cycle_id,
-        {
-            FrozenArtifactName.MANIFEST: Path(cast(str, args.manifest)),
-            FrozenArtifactName.UNITS: Path(cast(str, args.units)),
-            FrozenArtifactName.LABELS: Path(cast(str, args.labels)),
-            FrozenArtifactName.PROMPT: Path(cast(str, args.prompt)),
-            FrozenArtifactName.SCORER: Path(cast(str, args.scorer)),
-            FrozenArtifactName.HARNESS: Path(cast(str, args.harness)),
-            FrozenArtifactName.MODEL_REGISTRY: Path(cast(str, args.model_registry)),
-            FrozenArtifactName.BASELINES: Path(cast(str, args.baselines)),
-            FrozenArtifactName.EXCLUSION_LEDGER: Path(cast(str, args.exclusion_ledger)),
-            FrozenArtifactName.EXECUTION_POLICY: Path(cast(str, args.execution_policy)),
-            FrozenArtifactName.LABELING_POLICY: Path(cast(str, args.labeling_policy)),
-            FrozenArtifactName.COHORT_POLICY: Path(cast(str, args.cohort_policy)),
-        },
-        freeze_timestamp=(
-            _parse_timestamp(cast(str, args.timestamp))
-            if args.timestamp is not None
-            else None
-        ),
-        bundle_output_path=bundle_output,
-    )
+    try:
+        bundle = freeze_cycle(
+            cycle_id,
+            {
+                FrozenArtifactName.MANIFEST: Path(cast(str, args.manifest)),
+                FrozenArtifactName.UNITS: Path(cast(str, args.units)),
+                FrozenArtifactName.LABELS: Path(cast(str, args.labels)),
+                FrozenArtifactName.PROMPT: Path(cast(str, args.prompt)),
+                FrozenArtifactName.SCORER: Path(cast(str, args.scorer)),
+                FrozenArtifactName.HARNESS: Path(cast(str, args.harness)),
+                FrozenArtifactName.MODEL_REGISTRY: Path(cast(str, args.model_registry)),
+                FrozenArtifactName.BASELINES: Path(cast(str, args.baselines)),
+                FrozenArtifactName.EXCLUSION_LEDGER: Path(
+                    cast(str, args.exclusion_ledger)
+                ),
+                FrozenArtifactName.PROVIDER_CYCLE_CAPS: Path(
+                    cast(str, args.provider_cycle_caps)
+                ),
+                FrozenArtifactName.EXECUTION_POLICY: Path(
+                    cast(str, args.execution_policy)
+                ),
+                FrozenArtifactName.LABELING_POLICY: Path(
+                    cast(str, args.labeling_policy)
+                ),
+                FrozenArtifactName.COHORT_POLICY: Path(cast(str, args.cohort_policy)),
+            },
+            freeze_timestamp=(
+                _parse_timestamp(cast(str, args.timestamp))
+                if args.timestamp is not None
+                else None
+            ),
+            bundle_output_path=bundle_output,
+        )
+    except (FreezeProtocolError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     print(json.dumps(bundle.to_record(root_path=Path.cwd()), sort_keys=True))
     return 0
 
@@ -726,7 +751,12 @@ def _cli_verify_labeling_policy(argv: Sequence[str]) -> int:
 
 
 def _cli_generate_execution_policy(argv: Sequence[str]) -> int:
+    from legalforecast.labeling.provider_journal import (
+        ProviderJournalError,
+        load_provider_cycle_caps,
+    )
     from legalforecast.protocol.policy_artifacts import (
+        execution_policy_content,
         generate_execution_policy,
         load_json_object,
         write_execution_policy,
@@ -738,8 +768,21 @@ def _cli_generate_execution_policy(argv: Sequence[str]) -> int:
         artifact = generate_execution_policy(
             load_json_object(cast(str, args.decisions), "execution policy decisions")
         )
+        caps_path = Path(cast(str, args.provider_cycle_caps))
+        caps = load_provider_cycle_caps(caps_path)
+        caps_sha256 = hashlib.sha256(caps_path.read_bytes()).hexdigest()
+        policy = execution_policy_content(artifact)
+        if policy.get("cycle_id") != caps.cycle_id:
+            raise ValueError(
+                "execution policy cycle_id differs from provider cycle caps"
+            )
+        if policy.get("attempt_policy") != caps.execution_attempt_policy(caps_sha256):
+            raise ValueError(
+                "execution attempt_policy differs from the pre-labeling "
+                "provider cycle caps authority"
+            )
         write_execution_policy(cast(str, args.output), artifact)
-    except ValueError as exc:
+    except (ProviderJournalError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
     print(json.dumps(artifact, sort_keys=True))
@@ -857,6 +900,7 @@ def _verify_policy_artifact_links(
 
     by_name = {artifact.name: artifact for artifact in artifacts}
     required = {
+        FrozenArtifactName.PROVIDER_CYCLE_CAPS,
         FrozenArtifactName.EXECUTION_POLICY,
         FrozenArtifactName.LABELING_POLICY,
         FrozenArtifactName.COHORT_POLICY,
@@ -870,6 +914,10 @@ def _verify_policy_artifact_links(
     from legalforecast.ingestion.cohort_policy import (
         CohortPolicyError,
         verify_cohort_policy,
+    )
+    from legalforecast.labeling.provider_journal import (
+        ProviderJournalError,
+        load_provider_cycle_caps,
     )
     from legalforecast.protocol.policy_artifacts import (
         PolicyArtifactError,
@@ -893,7 +941,10 @@ def _verify_policy_artifact_links(
         verify_execution_policy(execution_artifact, expected_cycle_id=cycle_id)
         verify_labeling_policy(labeling_artifact, expected_cycle_id=cycle_id)
         verify_cohort_policy(cohort_artifact)
-    except (PolicyArtifactError, CohortPolicyError) as exc:
+        provider_cycle_caps = load_provider_cycle_caps(
+            by_name[FrozenArtifactName.PROVIDER_CYCLE_CAPS].path
+        )
+    except (PolicyArtifactError, CohortPolicyError, ProviderJournalError) as exc:
         raise FreezeProtocolError(f"invalid policy artifact: {exc}") from exc
 
     execution = execution_policy_content(execution_artifact)
@@ -901,6 +952,21 @@ def _verify_policy_artifact_links(
     cohort = cast(Mapping[str, Any], cohort_artifact["policy"])
     if cohort.get("cycle_id") != cycle_id:
         raise FreezeProtocolError("cohort policy cycle_id does not match freeze cycle")
+    if provider_cycle_caps.cycle_id != cycle_id:
+        raise FreezeProtocolError(
+            "provider cycle caps cycle_id does not match freeze cycle"
+        )
+    try:
+        expected_attempt_policy = provider_cycle_caps.execution_attempt_policy(
+            by_name[FrozenArtifactName.PROVIDER_CYCLE_CAPS].sha256
+        )
+    except ProviderJournalError as exc:
+        raise FreezeProtocolError(f"invalid policy artifact: {exc}") from exc
+    if execution.get("attempt_policy") != expected_attempt_policy:
+        raise FreezeProtocolError(
+            "execution policy attempt_policy does not exactly match the frozen "
+            "provider cycle caps artifact"
+        )
     links = {
         "labeling_policy_sha256": FrozenArtifactName.LABELING_POLICY,
         "cohort_policy_sha256": FrozenArtifactName.COHORT_POLICY,

@@ -150,6 +150,16 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
         ) : BUILD_MATRIX_JOB.index("- name: Build matrix JSON")
     ]
     assert "SHARD_ONLY: ${{ inputs.shard_only }}" in BUILD_MATRIX_JOB
+    shard_input = WORKFLOW.split("      shard_only:", maxsplit=1)[1].split(
+        "      model_registry_uri:", maxsplit=1
+    )[0]
+    assert "default: true" in shard_input
+    assert "SHARD_ONLY_INPUT: ${{ inputs.shard_only }}" in BUILD_MATRIX_JOB
+    assert (
+        "Non-dry-run official evaluation requires shard_only=true; "
+        "canonical aggregation occurs only through immutable shard receipts "
+        "and provider-free fan-in." in BUILD_MATRIX_JOB
+    )
     assert "ABLATIONS: ${{ inputs.ablations }}" in BUILD_MATRIX_JOB
     assert 'ablation_args+=(--requested-ablation "${ablation}")' in BUILD_MATRIX_JOB
     assert (
@@ -231,7 +241,21 @@ def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
     assert '--concurrency-group "${CONCURRENCY_GROUP}"' in BUILD_MATRIX_JOB
     assert (
         "- name: Upload dispatch provenance\n"
-        "        uses: actions/upload-artifact@v7" in BUILD_MATRIX_JOB
+        "        uses: actions/upload-artifact@"
+        "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in BUILD_MATRIX_JOB
+    )
+
+
+def test_official_eval_actions_use_immutable_commit_pins() -> None:
+    action_references = re.findall(
+        r"^\s*uses:\s+([^@\s]+)@([^\s#]+)",
+        WORKFLOW,
+        flags=re.MULTILINE,
+    )
+
+    assert action_references
+    assert all(
+        re.fullmatch(r"[0-9a-f]{40}", revision) for _, revision in action_references
     )
 
 
@@ -469,9 +493,32 @@ def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None
         "projected_model_cost += row_repeat_count * projected_cost_for_row" in WORKFLOW
     )
     assert "projected model cost $" in WORKFLOW
+    assert "required for live runs" in WORKFLOW
+    assert "early-warning dispatch ceiling" in WORKFLOW
+    assert "not a provider or account cap" in WORKFLOW
+    assert (
+        "Non-dry-run official evaluation requires "
+        "max_projected_model_cost_usd" in WORKFLOW
+    )
+    assert "recommended_dispatch_ceiling = projected_model_cost * 2" in WORKFLOW
+    assert "budget > recommended_dispatch_ceiling" in WORKFLOW
+    assert "exceeds the 2x projected early-warning ceiling" in WORKFLOW
     assert (
         'output.write(f"projected_model_cost_usd={projected_model_cost:.6f}' in WORKFLOW
     )
+    assert '"recommended_max_projected_model_cost_usd="' in WORKFLOW
+    assert 'f"{recommended_dispatch_ceiling:.6f}\\n"' in WORKFLOW
+
+
+def test_official_eval_matrix_workflow_flags_long_context_surcharge_packets() -> None:
+    assert "LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS = 272_000" in WORKFLOW
+    assert "long_context_surcharge_packets = []" in WORKFLOW
+    assert "input_tokens > LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS" in WORKFLOW
+    assert '"estimated_input_tokens": input_tokens' in WORKFLOW
+    assert "Long-context surcharge packet warning" in WORKFLOW
+    assert "GITHUB_STEP_SUMMARY" in WORKFLOW
+    assert "long_context_surcharge_packet_count" in WORKFLOW
+    assert "long_context_surcharge_packets_json" in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_marks_repeat_sampling_subset() -> None:
@@ -500,6 +547,8 @@ def test_official_eval_matrix_workflow_preflights_live_provider_credentials() ->
     assert 'missing_provider_values+=("GEMINI_API_KEY")' in WORKFLOW
     assert 'missing_provider_values+=("ANTHROPIC_API_KEY")' in WORKFLOW
     assert 'missing_provider_values+=("LFB_ANTHROPIC_BEDROCK_MODEL_ID")' in WORKFLOW
+    assert 'missing_provider_values+=("LFB_PROVIDER_AUTHORITY_TABLE")' in WORKFLOW
+    assert 'missing_provider_values+=("LFB_PROVIDER_ACCOUNT_ALIAS")' in WORKFLOW
     assert (
         "Non-dry-run official evaluation is missing provider credentials/settings:"
         in WORKFLOW
@@ -534,16 +583,20 @@ def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> Non
 
 def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() -> None:
     assert "uv run legalforecast eval run-case" in WORKFLOW
-    assert 'run_input_manifest_for_cli="${RUN_INPUT_MANIFEST_URI}"' in WORKFLOW
-    assert 'model_registry_for_cli="${MODEL_REGISTRY_URI}"' in WORKFLOW
     assert (
-        'run_input_manifest_for_cli="s3://${LFB_RESULTS_BUCKET}/${RUN_INPUT_MANIFEST_URI}"'
-        in WORKFLOW
+        'run_input_manifest_for_cli="/tmp/lfb-run-case-inputs/'
+        'lfb-run-inputs-frozen.json"' in RUN_CASE_JOB
     )
     assert (
-        'model_registry_for_cli="s3://${LFB_RESULTS_BUCKET}/${MODEL_REGISTRY_URI}"'
-        in WORKFLOW
+        'model_registry_for_cli="/tmp/lfb-run-case-inputs/'
+        'lfb-model-registry.json"' in RUN_CASE_JOB
     )
+    assert 'run_input_manifest_for_cli="${RUN_INPUT_MANIFEST_URI}"' not in RUN_CASE_JOB
+    assert 'model_registry_for_cli="${MODEL_REGISTRY_URI}"' not in RUN_CASE_JOB
+    assert "RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}" not in (
+        RUN_CASE_JOB
+    )
+    assert "MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}" not in RUN_CASE_JOB
     assert '--manifest "${run_input_manifest_for_cli}"' in WORKFLOW
     assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in WORKFLOW
     assert (
@@ -557,6 +610,9 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert '--model-key "${MODEL_KEY}"' in WORKFLOW
     assert '--expected-packet-object-key "${EXPECTED_PACKET_OBJECT_KEY}"' in WORKFLOW
     assert '--expected-packet-sha256 "${EXPECTED_PACKET_SHA256}"' in WORKFLOW
+    assert '--provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}"' in WORKFLOW
+    assert '--provider-account "${LFB_PROVIDER_ACCOUNT_ALIAS}"' in WORKFLOW
+    assert '--provider-authority-region "${AWS_REGION}"' in WORKFLOW
     assert "RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}" in WORKFLOW
     assert "resume_args+=(--resume-existing)" in WORKFLOW
     assert '"${resume_args[@]}"' in WORKFLOW
@@ -567,10 +623,12 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "EXPECTED_PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}" in RUN_CASE_JOB
     assert "EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}" in RUN_CASE_JOB
     assert (
-        "required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI "
-        "MODEL_REGISTRY_URI MODEL_KEY EXPECTED_PACKET_OBJECT_KEY "
-        "EXPECTED_PACKET_SHA256)" in RUN_CASE_JOB
+        "required_env=(AWS_REGION LFB_PACKET_BUCKET LFB_RESULTS_BUCKET "
+        "LFB_PROVIDER_ACCOUNT_ALIAS LFB_PROVIDER_AUTHORITY_TABLE "
+        "MODEL_KEY EXPECTED_PACKET_OBJECT_KEY EXPECTED_PACKET_SHA256)" in RUN_CASE_JOB
     )
+    assert "LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars." in RUN_CASE_JOB
+    assert "LFB_PROVIDER_ACCOUNT_ALIAS: ${{ vars." in RUN_CASE_JOB
     assert (
         "OPENAI_API_KEY: ${{ startsWith(matrix.model_key, 'openai:') "
         "&& secrets.OPENAI_API_KEY || '' }}" in WORKFLOW
@@ -600,7 +658,9 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
 def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None:
     assert "aggregate-results:" in WORKFLOW
     assert "needs.run-case.result == 'success'" in WORKFLOW
-    assert "actions/download-artifact@v8.0.1" in WORKFLOW
+    assert (
+        "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" in WORKFLOW
+    )
     assert "uv run python -m legalforecast.publication.official_aggregate" in WORKFLOW
     assert "--per-case-dir /tmp/lfb-per-case-artifacts" in WORKFLOW
     assert "/tmp/lfb-run-inputs-requested-ablations.json" in WORKFLOW
@@ -651,7 +711,9 @@ def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> N
     assert "Dry run: would evaluate" in WORKFLOW
     assert "if: ${{ inputs.dry_run }}" in WORKFLOW
     assert "if: ${{ !inputs.dry_run }}" in WORKFLOW
-    assert "actions/upload-artifact@v7" in WORKFLOW
+    assert (
+        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in WORKFLOW
+    )
     assert "overwrite: true" not in WORKFLOW
     assert (
         "retention-days: ${{ "

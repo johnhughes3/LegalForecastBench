@@ -690,6 +690,86 @@ def test_solver_does_not_retry_nonrecoverable_credit_failures() -> None:
     assert len(transport.requests) == 1
 
 
+def test_solver_creates_attempt_handler_per_harness_request_and_settles() -> None:
+    handler = _RecordingAttemptHandler()
+    request = _request("prompt")
+    observed_requests: list[object] = []
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=_FixtureTransport(
+            {
+                "model": "gpt-test-2026-05-14",
+                "output_text": '{"predictions":[]}',
+                "usage": {"input_tokens": 1000, "output_tokens": 250},
+            }
+        ),
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        attempt_handler_factory=lambda item: observed_requests.append(item) or handler,
+    )
+
+    solver.solve(request)
+
+    assert observed_requests == [request]
+    assert handler.events[0] == ("run", 1)
+    assert handler.events[1][:4] == ("settle", 41, 1000, 250)
+
+
+def test_malformed_response_marks_authorized_attempt_ambiguous() -> None:
+    handler = _RecordingAttemptHandler()
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=_FixtureTransport(
+            {
+                "model": "gpt-test-2026-05-14",
+                "usage": {"input_tokens": 1000, "output_tokens": 250},
+            }
+        ),
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        attempt_handler_factory=lambda _request: handler,
+    )
+
+    with pytest.raises(LiveModelResponseError):
+        solver.solve(_request("prompt"))
+
+    assert handler.events == [
+        ("run", 1),
+        ("post_response_failure", 41, "LiveModelResponseError"),
+    ]
+
+
+@pytest.mark.parametrize("interruption_type", [KeyboardInterrupt, SystemExit])
+def test_post_response_interrupt_marks_authorized_attempt_ambiguous_before_reraise(
+    monkeypatch: pytest.MonkeyPatch,
+    interruption_type: type[BaseException],
+) -> None:
+    handler = _RecordingAttemptHandler()
+
+    def interrupt_after_response(_payload: live_model_solver.JsonRecord) -> str:
+        raise interruption_type
+
+    monkeypatch.setattr(live_model_solver, "_openai_output", interrupt_after_response)
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=_FixtureTransport(
+            {
+                "model": "gpt-test-2026-05-14",
+                "output_text": '{"predictions":[]}',
+                "usage": {"input_tokens": 1000, "output_tokens": 250},
+            }
+        ),
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        attempt_handler_factory=lambda _request: handler,
+    )
+
+    with pytest.raises(interruption_type):
+        solver.solve(_request("prompt"))
+
+    assert handler.events == [
+        ("run", 1),
+        ("post_response_failure", 41, interruption_type.__name__),
+    ]
+
+
 @dataclass(slots=True)
 class _FixtureTransport:
     payload: dict[str, Any]
@@ -725,6 +805,52 @@ class _RetryTransport:
         if isinstance(outcome, BaseException):
             raise outcome
         return outcome
+
+
+@dataclass(slots=True)
+class _RecordingAttemptHandler:
+    events: list[tuple[object, ...]] = field(default_factory=list[tuple[object, ...]])
+
+    def run_attempt(
+        self,
+        attempt_ordinal: int,
+        call: Any,
+    ) -> Mapping[str, object]:
+        self.events.append(("run", attempt_ordinal))
+        return cast(Mapping[str, object], call())
+
+    def settle_attempt(
+        self,
+        attempt_ordinal: int,
+        *,
+        input_tokens: int,
+        output_tokens: int,
+        actual_cost_usd: float,
+        raw_output: str,
+    ) -> None:
+        self.events.append(
+            (
+                "settle",
+                attempt_ordinal,
+                input_tokens,
+                output_tokens,
+                actual_cost_usd,
+                raw_output,
+            )
+        )
+
+    def durable_attempt_ordinal(self, local_ordinal: int) -> int:
+        return local_ordinal + 40
+
+    def record_post_response_failure(
+        self,
+        durable_attempt_ordinal: int,
+        *,
+        failure_type: str,
+    ) -> None:
+        self.events.append(
+            ("post_response_failure", durable_attempt_ordinal, failure_type)
+        )
 
 
 @dataclass(slots=True)

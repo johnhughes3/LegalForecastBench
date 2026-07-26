@@ -159,6 +159,7 @@ def test_fixture_e2e_cli_writes_benchmark_artifacts(tmp_path: Path) -> None:
     for artifact in (
         "candidate-manifest.jsonl",
         "case-mix-diagnostics.json",
+        "provider-cycle-caps.json",
         "manifests/cycle_fixture_e2e.freeze.json",
         "artifact-index.json",
     ):
@@ -200,6 +201,7 @@ def test_fixture_e2e_cli_writes_benchmark_artifacts(tmp_path: Path) -> None:
         "manifest",
         "model_registry",
         "prompt",
+        "provider_cycle_caps",
         "scorer",
         "units",
     }
@@ -828,6 +830,7 @@ def _fixture_output_paths(output_dir: Path) -> list[str]:
         str(output_dir / "baselines.json"),
         str(output_dir / "labeling-policy.json"),
         str(output_dir / "cohort-policy.json"),
+        str(output_dir / "provider-cycle-caps.json"),
         str(output_dir / "execution-policy.json"),
         str(output_dir / "manifests" / "cycle_fixture_e2e.freeze.json"),
         str(output_dir / "report" / "leaderboard.json"),

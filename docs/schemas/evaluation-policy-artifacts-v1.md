@@ -51,7 +51,7 @@ The execution policy is generated at freeze. Its `policy` object contains exactl
 - `shard_schedule`: the fixed shard layout.
 - `concurrency_policy`: the chosen shard-concurrency strategy.
 - `receipt_policy`: immutable receipt rules.
-- `attempt_policy`: the reservation-ledger commitment and billable-attempt limit.
+- `attempt_policy`: the remote reservation-ledger authority, per-account caps, billable-attempt limit, and shared breaker.
 - `repeat_policy`: the preselected repeat cases.
 - `cadence_counts`: the authoritative derived-count rules.
 
@@ -69,7 +69,9 @@ The receipt keeps two distinct manifest commitments. `frozen_manifest_sha256` is
 
 When reruns produce multiple immutable receipts for a shard, selection is governed by the standalone [accepted-attempt map](accepted-attempt-map-v1.md). That artifact is linked to, but does not mutate, the parent freeze.
 
-`attempt_policy` contains exactly `reservation_ledger_sha256` (the lowercase SHA-256 commitment) and `max_billable_attempts` (a positive integer).
+`attempt_policy` contains exactly `authority_backend` (fixed to `dynamodb` for the multi-runner official workflow), `authority_resource_identity_sha256` (the lowercase SHA-256 of the exact DynamoDB table ARN, so the public artifact need not disclose an AWS account ID), `ledger_scope_fields` (fixed to `cycle_id`, `provider`, and `account`, deliberately excluding stage so labeling and evaluation share one cap), `provider_account_caps` (a non-empty, unique list of public provider/account aliases and positive integer `cap_microusd` ceilings), `reservation_ledger_sha256` (the lowercase SHA-256 commitment), `max_billable_attempts` (a positive integer), `failure_threshold` (a positive integer), and `failure_window_seconds` (a positive integer). Provider names are normalized to lowercase and cap records are sorted canonically. The runtime must verify the table ARN hash and composite `authority_key`/`record_key` key schema before using the authority; mutable workflow inputs may not replace any frozen cap, breaker, or attempt limit.
+
+Before inspecting durable outputs for a paid-run resume, the per-case runner reads and verifies the exact execution-policy bytes. Every paid metrics artifact includes `execution_policy_binding` with the raw execution-policy SHA-256, reservation-ledger SHA-256, authority backend and resource identity, ledger scope, provider/account/cap identity, attempt limit, and breaker settings. Resume requires exact equality with the freshly verified binding; legacy metrics without the binding and metrics created under even a byte-different execution policy are rejected rather than reused.
 
 `repeat_policy` contains exactly `case_ids` (unique non-empty identifiers, sorted canonically) and `count` (the independent positive number of provider calls for each selected case). The number of selected cases and the per-case repeat count are intentionally independent: N selected cases at count M represent N x M calls, while every unselected case runs once. Before fan-out, every frozen repeat case must have a packet in every requested ablation; a missing case-ablation pair fails closed instead of silently reducing the precommitted repeat sample.
 
@@ -78,8 +80,8 @@ When reruns produce multiple immutable receipts for a shard, selection is govern
 Generate and verify it with:
 
 ```text
-legalforecast freeze generate-execution-policy --decisions PATH --output PATH
+legalforecast freeze generate-execution-policy --decisions PATH --provider-cycle-caps PATH --output PATH
 legalforecast freeze verify-execution-policy --artifact PATH --cycle-id CYCLE_ID
 ```
 
-The final freeze requires `--execution-policy`, `--labeling-policy`, and `--cohort-policy` in addition to the pre-existing artifacts. It verifies each internal commitment, checks raw-file hash links from execution policy to both precommitments, checks lifecycle ordering, and includes all three raw-file hashes in the bundle. It never creates or modifies an official artifact implicitly.
+Execution-policy generation also verifies that `attempt_policy` exactly reproduces the pre-labeling provider-cycle caps authority, provider/account caps, attempt and breaker limits, and raw artifact SHA-256. The final freeze requires `--provider-cycle-caps`, `--execution-policy`, `--labeling-policy`, and `--cohort-policy` in addition to the pre-existing artifacts. It independently reloads and validates the provider-cycle caps file, recomputes its raw SHA-256, requires its cycle identity and rendered attempt policy to match the execution policy exactly, checks raw-file hash links from execution policy to both precommitments, checks lifecycle ordering, and includes all four raw-file hashes in the bundle. Missing, tampered, or cross-bound caps artifacts fail closed. The freeze never creates or modifies an official artifact implicitly.

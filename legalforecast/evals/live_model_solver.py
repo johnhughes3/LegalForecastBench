@@ -109,6 +109,16 @@ class ProviderAttemptHandler(Protocol):
 
     def durable_attempt_ordinal(self, local_ordinal: int) -> int: ...
 
+    def record_post_response_failure(
+        self,
+        durable_attempt_ordinal: int,
+        *,
+        failure_type: str,
+    ) -> None: ...
+
+
+ProviderAttemptHandlerFactory = Callable[[HarnessRequest], ProviderAttemptHandler]
+
 
 @dataclass(frozen=True, slots=True)
 class LiveModelSolver:
@@ -121,6 +131,7 @@ class LiveModelSolver:
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     max_attempts: int = DEFAULT_MAX_ATTEMPTS
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS
+    attempt_handler_factory: ProviderAttemptHandlerFactory | None = None
 
     def __post_init__(self) -> None:
         if not self.registry_entry.network_disabled:
@@ -152,6 +163,11 @@ class LiveModelSolver:
             request,
             tool_policy=self.registry_entry.tool_policy,
         )
+        attempt_handler = (
+            self.attempt_handler_factory(request)
+            if self.attempt_handler_factory is not None
+            else None
+        )
         return complete_live_prompt(
             self.registry_entry,
             prompt,
@@ -161,6 +177,7 @@ class LiveModelSolver:
             timeout_seconds=self.timeout_seconds,
             max_attempts=self.max_attempts,
             retry_backoff_seconds=self.retry_backoff_seconds,
+            attempt_handler=attempt_handler,
         )
 
     def _transport(
@@ -230,19 +247,27 @@ def complete_live_prompt(
         attempt_handler=attempt_handler,
     )
     latency_ms = (time.perf_counter() - started) * 1000
-    raw_output = provider.extract_output(payload)
-    input_tokens, output_tokens = provider.extract_usage(payload)
-    served_model_version = provider.extract_served_version(payload)
-    _validate_served_model_version(registry_entry, served_model_version)
-    response_verification = verify_provider_response(
-        payload,
-        provider=registry_entry.provider,
-    )
-    estimated_cost = _estimated_cost(
-        registry_entry,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-    )
+    try:
+        raw_output = provider.extract_output(payload)
+        input_tokens, output_tokens = provider.extract_usage(payload)
+        served_model_version = provider.extract_served_version(payload)
+        _validate_served_model_version(registry_entry, served_model_version)
+        response_verification = verify_provider_response(
+            payload,
+            provider=registry_entry.provider,
+        )
+        estimated_cost = _estimated_cost(
+            registry_entry,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+    except BaseException as exc:
+        _record_post_response_failure(
+            attempt_handler,
+            durable_attempt_ordinal,
+            exc,
+        )
+        raise
     if attempt_handler is not None:
         attempt_handler.settle_attempt(
             durable_attempt_ordinal,
@@ -309,19 +334,27 @@ def _complete_bedrock_anthropic_prompt(
         attempt_handler=attempt_handler,
     )
     latency_ms = (time.perf_counter() - started) * 1000
-    raw_output = _anthropic_output(payload)
-    input_tokens, output_tokens = _anthropic_usage(payload)
-    served_model_version = _optional_str_field(payload, "model") or bedrock_model_id
-    _validate_served_model_version(registry_entry, served_model_version)
-    response_verification = verify_provider_response(
-        payload,
-        provider=registry_entry.provider,
-    )
-    estimated_cost = _estimated_cost(
-        registry_entry,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-    )
+    try:
+        raw_output = _anthropic_output(payload)
+        input_tokens, output_tokens = _anthropic_usage(payload)
+        served_model_version = _optional_str_field(payload, "model") or bedrock_model_id
+        _validate_served_model_version(registry_entry, served_model_version)
+        response_verification = verify_provider_response(
+            payload,
+            provider=registry_entry.provider,
+        )
+        estimated_cost = _estimated_cost(
+            registry_entry,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+    except BaseException as exc:
+        _record_post_response_failure(
+            attempt_handler,
+            durable_attempt_ordinal,
+            exc,
+        )
+        raise
     if attempt_handler is not None:
         attempt_handler.settle_attempt(
             durable_attempt_ordinal,
@@ -753,6 +786,19 @@ def _call_with_provider_retries(
             if retry_backoff_seconds:
                 time.sleep(retry_backoff_seconds * (2 ** (attempt - 1)))
     raise LiveModelProviderError("provider request retry loop exhausted")
+
+
+def _record_post_response_failure(
+    attempt_handler: ProviderAttemptHandler | None,
+    durable_attempt_ordinal: int,
+    exc: BaseException,
+) -> None:
+    if attempt_handler is None:
+        return
+    attempt_handler.record_post_response_failure(
+        durable_attempt_ordinal,
+        failure_type=type(exc).__name__,
+    )
 
 
 def _is_retryable_provider_error(exc: LiveModelProviderError) -> bool:

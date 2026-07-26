@@ -10,6 +10,33 @@ resource "aws_iam_role_policy" "cell_storage" {
   policy = local.cell_storage_policy_json
 }
 
+resource "aws_iam_role_policy" "cell_provider_authority" {
+  name   = "official-eval-cell-exact-provider-authority"
+  role   = aws_iam_role.cell.id
+  policy = local.cell_provider_authority_policy_json
+
+  lifecycle {
+    precondition {
+      condition = (
+        local.computed_provider_authority_resource_identity_sha256 ==
+        var.provider_authority_resource_identity_sha256
+      )
+      error_message = "provider authority table ARN differs from the frozen resource identity."
+    }
+
+    precondition {
+      condition = (
+        split(":", var.provider_authority_table_arn)[1] ==
+        split(":", var.github_oidc_provider_arn)[1] &&
+        split(":", var.provider_authority_table_arn)[3] == var.aws_region &&
+        split(":", var.provider_authority_table_arn)[4] ==
+        split(":", var.github_oidc_provider_arn)[4]
+      )
+      error_message = "provider authority table must use the configured AWS partition, region, and account."
+    }
+  }
+}
+
 resource "aws_iam_role_policy" "cell_bedrock" {
   count = var.enable_bedrock_runtime ? 1 : 0
 
@@ -31,7 +58,10 @@ resource "aws_iam_role_policy" "cell_bedrock" {
 resource "aws_iam_role_policies_exclusive" "cell" {
   role_name = aws_iam_role.cell.name
   policy_names = concat(
-    [aws_iam_role_policy.cell_storage.name],
+    [
+      aws_iam_role_policy.cell_storage.name,
+      aws_iam_role_policy.cell_provider_authority.name,
+    ],
     var.enable_bedrock_runtime ? [aws_iam_role_policy.cell_bedrock[0].name] : [],
   )
 }

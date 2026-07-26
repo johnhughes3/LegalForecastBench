@@ -2199,7 +2199,10 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--execution-policy",
-        help="Frozen execution-policy artifact path, file:// URI, or s3:// URI.",
+        help=(
+            "Frozen execution-policy artifact path, file:// URI, or s3:// URI; "
+            "required for live spend authorization."
+        ),
     )
     parser.add_argument(
         "--expected-execution-policy-sha256",
@@ -2207,6 +2210,22 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--workflow-run-id")
     parser.add_argument("--workflow-run-attempt", type=int)
+    parser.add_argument(
+        "--provider-authority-table",
+        help="Exact DynamoDB spend-authority table name; required for live runs.",
+    )
+    parser.add_argument(
+        "--provider-account",
+        help=(
+            "Public provider-account alias matching one frozen account cap; "
+            "required for live runs."
+        ),
+    )
+    parser.add_argument(
+        "--provider-authority-region",
+        default="us-east-1",
+        help="AWS region containing the frozen DynamoDB spend authority.",
+    )
     mock_output_group = parser.add_mutually_exclusive_group()
     mock_output_group.add_argument(
         "--mock-output",
@@ -8433,6 +8452,12 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             ),
             timeout_seconds=cast(float, args.timeout_seconds),
             resume_existing=cast(bool, args.resume_existing),
+            provider_authority_table=cast(
+                str | None,
+                args.provider_authority_table,
+            ),
+            provider_account=cast(str | None, args.provider_account),
+            provider_authority_region=cast(str, args.provider_authority_region),
         )
     )
     _log_event(
@@ -47460,6 +47485,7 @@ def _run_fixture_e2e(output_dir: Path) -> None:
     baselines_path = output_dir / "baselines.json"
     labeling_policy_path = output_dir / "labeling-policy.json"
     cohort_policy_path = output_dir / "cohort-policy.json"
+    provider_caps_path = output_dir / "provider-cycle-caps.json"
     execution_policy_path = output_dir / "execution-policy.json"
     bundle_path = output_dir / "manifests" / "cycle_fixture_e2e.freeze.json"
     _write_text(prompt_path, _fixture_prompt_text())
@@ -47479,6 +47505,33 @@ def _run_fixture_e2e(output_dir: Path) -> None:
     _write_json(labeling_policy_path, labeling_policy)
     cohort_policy = generate_cohort_policy(_fixture_cohort_policy_decisions())
     _write_json(cohort_policy_path, cohort_policy)
+    _write_json(
+        provider_caps_path,
+        {
+            "schema_version": "legalforecast.provider_cycle_caps.v1",
+            "cycle_id": "cycle_fixture_e2e",
+            "spend_authority": {
+                "backend": "dynamodb",
+                "resource_identity_sha256": "e" * 64,
+                "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                "max_billable_attempts": 2,
+                "failure_threshold": 3,
+                "failure_window_seconds": 300,
+            },
+            "providers": [
+                {
+                    "provider": "openai",
+                    "account": "primary",
+                    "cycle_reservation_cap_usd": "1000.00",
+                    "external_spend_limit_usd": "1000.00",
+                    "external_limit_scope": "fixture",
+                    "external_limit_source": "fixture protocol decision",
+                    "verified_at": "2026-05-12T12:00:00Z",
+                }
+            ],
+        },
+    )
+    provider_caps = load_provider_cycle_caps(provider_caps_path)
     execution_policy = generate_execution_policy(
         {
             "cycle_id": "cycle_fixture_e2e",
@@ -47511,10 +47564,9 @@ def _run_fixture_e2e(output_dir: Path) -> None:
                 "identity_fields": ["workflow_run_id", "workflow_run_attempt"],
                 "result_commitment_required": True,
             },
-            "attempt_policy": {
-                "reservation_ledger_sha256": "d" * 64,
-                "max_billable_attempts": 2,
-            },
+            "attempt_policy": provider_caps.execution_attempt_policy(
+                sha256_file(provider_caps_path)
+            ),
             "repeat_policy": {"case_ids": ["case-1"], "count": 1},
             "cadence_counts": {
                 "clean_motion_count_source": "frozen_manifest",
@@ -47536,6 +47588,7 @@ def _run_fixture_e2e(output_dir: Path) -> None:
             FrozenArtifactName.MODEL_REGISTRY: model_registry_path,
             FrozenArtifactName.BASELINES: baselines_path,
             FrozenArtifactName.EXCLUSION_LEDGER: output_dir / "exclusion-ledger.jsonl",
+            FrozenArtifactName.PROVIDER_CYCLE_CAPS: provider_caps_path,
             FrozenArtifactName.EXECUTION_POLICY: execution_policy_path,
             FrozenArtifactName.LABELING_POLICY: labeling_policy_path,
             FrozenArtifactName.COHORT_POLICY: cohort_policy_path,
@@ -48728,6 +48781,7 @@ def _fixture_artifact_paths(output_dir: Path) -> tuple[Path, ...]:
         output_dir / "baselines.json",
         output_dir / "labeling-policy.json",
         output_dir / "cohort-policy.json",
+        output_dir / "provider-cycle-caps.json",
         output_dir / "execution-policy.json",
         output_dir / "manifests" / "cycle_fixture_e2e.freeze.json",
         output_dir / "report" / "leaderboard.json",

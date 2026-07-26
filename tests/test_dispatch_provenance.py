@@ -622,8 +622,20 @@ def _write_sharded_bundle(tmp_path: Path) -> tuple[Path, str]:
                 "result_commitment_required": True,
             },
             "attempt_policy": {
+                "authority_backend": "dynamodb",
+                "authority_resource_identity_sha256": "e" * 64,
+                "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                "provider_account_caps": [
+                    {
+                        "provider": "openai",
+                        "account": "primary",
+                        "cap_microusd": 1_000_000_000,
+                    }
+                ],
                 "reservation_ledger_sha256": "d" * 64,
                 "max_billable_attempts": 2,
+                "failure_threshold": 3,
+                "failure_window_seconds": 300,
             },
             "repeat_policy": {"case_ids": ["case-1", "case-2"], "count": 2},
             "cadence_counts": {
