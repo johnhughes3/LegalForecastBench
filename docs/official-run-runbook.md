@@ -1532,7 +1532,14 @@ If the live downstream contract omits that lineage, stop here and fix the gate; 
 Only after clearance succeeds may the supported 100-case launch cohort be projected from the 150-case preparation. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases. The first run has an exact-100 target; continued acquisition toward 150 is a nonblocking reserve and does not change that frozen denominator.
 
 ```bash
-test "$(jq -er '.snapshot + "/manifest.json"' "$preparation_root/target-cohort-config.json")" = "$(realpath "$snapshot_manifest")"
+config_snapshot_manifest="$(
+  jq -er '.snapshot + "/manifest.json"' \
+    "$preparation_root/target-cohort-config.json"
+)"
+case "$config_snapshot_manifest" in
+  "$snapshot_manifest"|*/"$snapshot_manifest") ;;
+  *) echo "preparation config does not pin the expected snapshot manifest" >&2; exit 1 ;;
+esac
 test "$(jq -er '.snapshot_manifest_sha256 | sub("^sha256:"; "")' "$preparation_root/target-cohort-config.json")" = "$snapshot_manifest_sha256"
 test "$(sha256sum "$snapshot_manifest" | cut -d' ' -f1)" = "$snapshot_manifest_sha256"
 
