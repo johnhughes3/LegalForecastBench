@@ -425,5 +425,6 @@ def _record_sha256(record: Mapping[str, object]) -> str:
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
+        allow_nan=False,
     ).encode()
     return hashlib.sha256(payload).hexdigest()

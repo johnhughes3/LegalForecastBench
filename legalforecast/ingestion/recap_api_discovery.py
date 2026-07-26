@@ -1809,7 +1809,6 @@ def observe_recap_api_candidate(
                         ),
                         "opinion_source_binding_verified": True,
                         "source_batch_complete_saturated": True,
-                        "reason_code": ("opinion_backed_docket_history_incomplete"),
                         "paid_gap_candidate": True,
                         "packet_eligible": False,
                         "planning_status": "docket_history_recovery_required",

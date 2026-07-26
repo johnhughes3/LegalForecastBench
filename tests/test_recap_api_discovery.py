@@ -1894,6 +1894,7 @@ def test_observe_retains_source_bound_opinion_with_empty_docket_as_paid_gap(
 
     assert observation.state == "excluded"
     assert observation.reason_code == "opinion_backed_docket_history_incomplete"
+    assert "reason_code" not in observation.evidence
     assert observation.evidence["paid_gap_candidate"] is True
     assert observation.evidence["packet_eligible"] is False
     assert observation.evidence["planning_status"] == (
