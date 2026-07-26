@@ -400,6 +400,7 @@ def _public_pdf_url(value: object) -> str:
     if (
         parsed.scheme != "https"
         or parsed.hostname != "storage.courtlistener.com"
+        or "\\" in value
         or parsed.username is not None
         or parsed.password is not None
         or port is not None

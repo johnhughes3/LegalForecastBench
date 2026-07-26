@@ -63,6 +63,30 @@ def test_plan_opinion_docket_gaps_help_is_explicitly_nonexecuting(
     assert "--cost-per-docket-usd" in output
 
 
+def test_plan_opinion_docket_gaps_rejects_invalid_decimal_argument(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(
+            [
+                "acquisition",
+                "plan-opinion-docket-gaps",
+                "--output-root",
+                "unused",
+                "--snapshot",
+                "unused-snapshot",
+                "--expected-cycle-hash",
+                "d" * 64,
+                "--expected-snapshot-manifest-sha256",
+                "e" * 64,
+                "--cost-per-docket-usd",
+                "not-a-decimal",
+            ]
+        )
+    assert exit_info.value.code == 2
+    assert "must be a decimal" in capsys.readouterr().err
+
+
 def test_plan_opinion_docket_gaps_writes_verified_projection(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -173,6 +197,15 @@ def test_plan_opinion_docket_gaps_rejects_output_aliases_and_snapshot_writes(
     assert cli.main([*common, "--plan-output", str(manifest)]) == 2
     assert "outside the immutable snapshot" in capsys.readouterr().err
     assert manifest.read_text(encoding="utf-8") == "{}\n"
+
+    nested = snapshot / "raw" / "evidence.json"
+    nested.parent.mkdir()
+    nested.write_text("{}\n", encoding="utf-8")
+    alias = output_root / "nested-source-alias.json"
+    alias.parent.mkdir(parents=True, exist_ok=True)
+    alias.hardlink_to(nested)
+    assert cli.main([*common, "--plan-output", str(alias)]) == 2
+    assert "aliases immutable snapshot evidence" in capsys.readouterr().err
 
 
 def test_plan_opinion_docket_gaps_records_invalid_manifest_pin_failure(

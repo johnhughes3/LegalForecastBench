@@ -187,6 +187,11 @@ def test_matching_gap_fails_closed_when_boundary_flags_drift(
     (
         ("schema_version", "unsupported", "schema_version"),
         ("source_opinion_docket_id", "0", "source_opinion_docket_id"),
+        (
+            "public_pdf_url",
+            "https://storage.courtlistener.com/pdf\\..\\decision.pdf",
+            "public_pdf_url",
+        ),
     ),
 )
 def test_matching_gap_requires_validated_public_opinion_evidence(

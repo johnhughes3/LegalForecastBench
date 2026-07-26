@@ -5069,7 +5069,7 @@ def _add_acquisition_plan_opinion_docket_gaps_arguments(
     )
     parser.add_argument(
         "--cost-per-docket-usd",
-        type=Decimal,
+        type=_decimal_argument,
         required=True,
         help=(
             "Explicit projected reservation for one docket-history refresh. "
@@ -21650,7 +21650,9 @@ def _validate_opinion_docket_gap_paths(
                     f"{path} and {other_path}"
                 )
     try:
-        source_files = tuple(path for path in snapshot_path.iterdir() if path.is_file())
+        source_files = tuple(
+            path for path in snapshot_path.rglob("*") if path.is_file()
+        )
     except OSError as exc:
         raise CommandError(
             f"cannot inspect immutable screening snapshot paths: {exc}"
@@ -40523,6 +40525,13 @@ def _case_mix_share_argument(value: str) -> Decimal:
             "must be a finite decimal greater than 0 and at most 1"
         )
     return share
+
+
+def _decimal_argument(value: str) -> Decimal:
+    try:
+        return Decimal(value)
+    except (InvalidOperation, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a decimal") from exc
 
 
 def _cycle_acquisition_policy(*, anchor: date) -> JsonRecord:
