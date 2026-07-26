@@ -410,10 +410,8 @@ def _fixture(
     assert target_summary["source_candidate_set_sha256"] != candidate_set_sha256
     with CycleAcquisitionStore(target_path) as target:
         target_cycle = target.cycle_hash
-        assert (
-            target.batch_config(target_batch)["source_schema_version"]
-            == source_schema_version
-        )
+        target_config = target.batch_config(target_batch)
+        assert target_config["source_schema_version"] == source_schema_version
         assert target.batch_config(target_batch)["source_search_type"] is None
         _batch(target, "prior", (candidates[0],))
         _record(
@@ -424,6 +422,26 @@ def _fixture(
             "decision_before_release_anchor",
             {"decision_date": "2026-06-29"},
         )
+    if legacy_source_schema_omission:
+        with sqlite3.connect(target_path) as connection:
+            [row] = connection.execute(
+                "SELECT config_json FROM batches WHERE batch_id = ?",
+                (target_batch,),
+            ).fetchall()
+            target_config = json.loads(str(row[0]))
+            target_config.pop("source_schema_version")
+            encoded = json.dumps(target_config, sort_keys=True, separators=(",", ":"))
+            connection.execute(
+                "UPDATE batches SET config_json = ?, config_digest = ? "
+                "WHERE batch_id = ?",
+                (
+                    encoded,
+                    hashlib.sha256(encoded.encode()).hexdigest(),
+                    target_batch,
+                ),
+            )
+            connection.commit()
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     receipt = tmp_path / "receipt.json"
     receipt.write_text(
         json.dumps(
@@ -569,7 +587,7 @@ def test_exact310_plan_accepts_authenticated_legacy_source_schema_omission(
     plan = _plan(tmp_path, fixture)
     contract = json.loads(plan.contract_path.read_text(encoding="utf-8"))
     assert "source_schema_version" not in contract["source_batch_config"]
-    assert contract["target_batch_config"]["source_schema_version"] is None
+    assert "source_schema_version" not in contract["target_batch_config"]
 
 
 def test_exact310_rebind_rejects_contract_tamper(tmp_path: Path) -> None:
