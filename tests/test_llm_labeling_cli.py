@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import sqlite3
@@ -19,6 +20,8 @@ from legalforecast.cli import (
 )
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
+from legalforecast.evals.provider_spend_dynamodb import DynamoDbAuthorityError
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
@@ -29,6 +32,56 @@ from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
+
+
+class _FakeSpendAuthority:
+    """Minimal remote authority used by paid-labeling CLI fixtures."""
+
+    def __init__(self, **kwargs: object) -> None:
+        self.kwargs = kwargs
+        identity = kwargs.get("authority_identity_sha256", "a" * 64)
+        assert isinstance(identity, str)
+        self.authority_identity_sha256 = identity
+        self.leases: dict[str, AttemptLease] = {}
+
+    def authorize_attempt(
+        self,
+        key: ProviderSpendKey,
+        *,
+        reservation_microusd: int,
+    ) -> AttemptLease:
+        lease = AttemptLease(
+            attempt_id=hashlib.sha256(
+                f"fixture\0{key.logical_call_key}".encode()
+            ).hexdigest(),
+            authority_identity_sha256=self.authority_identity_sha256,
+            logical_call_key=key.logical_call_key,
+            attempt_ordinal=1,
+            reservation_microusd=reservation_microusd,
+        )
+        self.leases[key.logical_call_key] = lease
+        return lease
+
+    def adopt_attempt(
+        self,
+        key: ProviderSpendKey,
+        *,
+        attempt_ordinal: int | None = None,
+    ) -> AttemptLease:
+        del attempt_ordinal
+        return self.leases[key.logical_call_key]
+
+    def record_response(self, lease: AttemptLease, **kwargs: object) -> None:
+        del lease, kwargs
+
+    def record_failure(self, lease: AttemptLease, **kwargs: object) -> None:
+        del lease, kwargs
+
+    def reconcile_ambiguous(self, lease: AttemptLease, **kwargs: object) -> None:
+        del lease, kwargs
+
+    def snapshot(self) -> object:
+        raise AssertionError("snapshot is not used by labeling CLI fixtures")
 
 
 def _journaled_fixture_completion(
@@ -107,9 +160,18 @@ def _provider_caps_path(root: Path) -> Path:
             {
                 "schema_version": "legalforecast.provider_cycle_caps.v1",
                 "cycle_id": "test-cycle",
+                "spend_authority": {
+                    "backend": "dynamodb",
+                    "resource_identity_sha256": "a" * 64,
+                    "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                    "max_billable_attempts": 3,
+                    "failure_threshold": 3,
+                    "failure_window_seconds": 300,
+                },
                 "providers": [
                     {
                         "provider": "openai",
+                        "account": "primary",
                         "cycle_reservation_cap_usd": "10.00",
                         "external_spend_limit_usd": "20.00",
                         "external_limit_scope": "test account",
@@ -132,6 +194,36 @@ def _evaluated_registry_path(root: Path) -> Path:
     return path
 
 
+def test_remote_authority_initialization_error_is_a_controlled_cli_error(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    class _FailingAuthority:
+        def __init__(self, **kwargs: object) -> None:
+            del kwargs
+            raise DynamoDbAuthorityError(
+                "remote authority unavailable; provider details were suppressed"
+            )
+
+    caps_path = _provider_caps_path(tmp_path)
+    caps = cli.load_provider_cycle_caps(caps_path)
+    monkeypatch.setattr(cli, "DynamoDbProviderSpendAuthority", _FailingAuthority)
+    args = argparse.Namespace(
+        provider_authority_table="fixture-authority",
+        provider_authority_region="us-east-1",
+    )
+
+    with pytest.raises(CommandError, match="provider details were suppressed"):
+        cli._remote_provider_spend_authorities(
+            args,
+            provider_caps=caps,
+            provider_caps_sha256="sha256:"
+            + hashlib.sha256(caps_path.read_bytes()).hexdigest(),
+            cycle_id="test-cycle",
+            providers=("openai",),
+        )
+
+
 def _stub_authenticated_stage_a_lineage(
     monkeypatch: MonkeyPatch,
     *,
@@ -142,6 +234,7 @@ def _stub_authenticated_stage_a_lineage(
     caps_path: Path,
     provider_journal_path: Path,
 ) -> list[str]:
+    monkeypatch.setattr(cli, "DynamoDbProviderSpendAuthority", _FakeSpendAuthority)
     fixture_lineage_paths = {
         name: selection_path.parent / f"fixture-{name.replace('_', '-')}.json"
         for name in (
@@ -205,7 +298,12 @@ def _stub_authenticated_stage_a_lineage(
         "_verify_stage_a_unitization_lineage",
         lambda *args, **kwargs: lineage,
     )
-    return ["--provider-journal", str(provider_journal_path)]
+    return [
+        "--provider-journal",
+        str(provider_journal_path),
+        "--provider-authority-table",
+        "fixture-provider-authority",
+    ]
 
 
 def _stub_authenticated_finalized_provider_chain(
@@ -219,6 +317,7 @@ def _stub_authenticated_finalized_provider_chain(
     provider_journal_path: Path,
     finalized_units_path: Path,
 ) -> list[str]:
+    monkeypatch.setattr(cli, "DynamoDbProviderSpendAuthority", _FakeSpendAuthority)
     entry = load_model_registry(registry_path).entries[0]
     caps = cli.load_provider_cycle_caps(caps_path)
     registry_sha = cli._path_sha256(registry_path).removeprefix("sha256:")
@@ -277,6 +376,8 @@ def _stub_authenticated_finalized_provider_chain(
         str(apply_card),
         "--provider-journal",
         str(provider_journal_path),
+        "--provider-authority-table",
+        "fixture-provider-authority",
     ]
 
 
@@ -481,6 +582,8 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         str(caps_path),
         "--provider-journal",
         str(provider_journal),
+        "--provider-authority-table",
+        "fixture-provider-authority",
         "--output-root",
         str(review_root),
         "--execute",
@@ -578,6 +681,8 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         str(apply_root / "run-cards" / "apply-unitization-review.json"),
         "--provider-journal",
         str(provider_journal),
+        "--provider-authority-table",
+        "fixture-provider-authority",
     ]
 
     assert (
@@ -686,7 +791,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         (label_run_card, "llm-label"),
     ):
         assert card["provider_chain"] == {
-            "schema_version": "legalforecast.provider_attempt_journal.v2",
+            "schema_version": "legalforecast.provider_attempt_journal.v3",
             "cycle_id": "test-cycle",
             "provider_cycle_caps_sha256": _sha256_path(caps_path),
             "provider_journal": str(provider_journal.resolve()),
