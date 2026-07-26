@@ -638,23 +638,30 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
     assert summary["input_commitments"]
     assert summary["output_commitments"]
 
+    terminal_paths = (
+        output_root / "target-cohort-projection.json",
+        output_root / "target-cohort-selection.jsonl",
+        output_root / "target-cohort-exclusions.jsonl",
+        output_root / "missing-core-budget-plan.json",
+        output_root / "run-cards/project-target-cohort.json",
+        output_root / "logs/project-target-cohort.jsonl",
+    )
+    terminal_bytes = {path: path.read_bytes() for path in terminal_paths}
+    assert main([*projection_command, "--resume"]) == 0
+    assert {path: path.read_bytes() for path in terminal_paths} == terminal_bytes
+
     original_selection = selection_path.read_bytes()
     selection_path.write_bytes(original_selection + b"\n")
-    mutated_command = [
-        argument.replace(str(output_root), str(tmp_path / "mutated-projection"))
-        for argument in projection_command
-    ]
-    assert main(mutated_command) == 2
+    assert main([*projection_command, "--resume"]) == 2
+    assert {path: path.read_bytes() for path in terminal_paths} == terminal_bytes
     selection_path.write_bytes(original_selection)
 
     cap_drift_command = [
         "101.00" if argument == "100.00" else argument
         for argument in projection_command
     ]
-    cap_drift_command[cap_drift_command.index(str(output_root))] = str(
-        tmp_path / "cap-drift-projection"
-    )
-    assert main(cap_drift_command) == 2
+    assert main([*cap_drift_command, "--resume"]) == 2
+    assert {path: path.read_bytes() for path in terminal_paths} == terminal_bytes
 
     canonical = _materialized_two_case_cohort(tmp_path / "canonical")
     canonical_case_ids = {

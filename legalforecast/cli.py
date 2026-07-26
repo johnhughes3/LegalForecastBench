@@ -10525,6 +10525,16 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
     output_records[summary_path] = _projection_json_bytes(summary)
 
     dry_run = _acquisition_dry_run(args)
+    completion_extra = {
+        "selected_case_count": len(projection.selected_candidate_ids),
+        "excluded_case_count": len(projection.exclusions),
+        "projection_sha256": projection.summary["projection_sha256"],
+        "total_estimated_cost_usd": (projection.budget_plan.total_estimated_cost_usd),
+        "output_commitments": {
+            str(path): _bytes_sha256(payload)
+            for path, payload in output_records.items()
+        },
+    }
     if not dry_run:
         for path, payload in output_records.items():
             _ensure_projection_artifact(
@@ -10532,6 +10542,15 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
                 payload,
                 resume=cast(bool, args.resume),
             )
+        if _completed_disclosure_review_resume(
+            args,
+            stage="project-target-cohort",
+            input_paths=input_paths,
+            output_paths=tuple(output_records),
+            record_count=len(projection.selected_candidate_ids),
+            expected_extra=completion_extra,
+        ):
+            return 0
     _write_acquisition_completion(
         args,
         stage="project-target-cohort",
@@ -10541,18 +10560,8 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
-        extra={
-            "selected_case_count": len(projection.selected_candidate_ids),
-            "excluded_case_count": len(projection.exclusions),
-            "projection_sha256": projection.summary["projection_sha256"],
-            "total_estimated_cost_usd": (
-                projection.budget_plan.total_estimated_cost_usd
-            ),
-            "output_commitments": {
-                str(path): _bytes_sha256(payload)
-                for path, payload in output_records.items()
-            },
-        },
+        extra=completion_extra,
+        resumable_terminal_metadata=True,
     )
     return 0
 
