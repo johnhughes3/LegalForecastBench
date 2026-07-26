@@ -10525,7 +10525,28 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
     output_records[summary_path] = _projection_json_bytes(summary)
 
     dry_run = _acquisition_dry_run(args)
+    completion_extra = {
+        "selected_case_count": len(projection.selected_candidate_ids),
+        "excluded_case_count": len(projection.exclusions),
+        "projection_sha256": projection.summary["projection_sha256"],
+        "total_estimated_cost_usd": (projection.budget_plan.total_estimated_cost_usd),
+        "output_commitments": {
+            str(path): _bytes_sha256(payload)
+            for path, payload in output_records.items()
+        },
+    }
     if not dry_run:
+        if _completed_disclosure_review_resume(
+            args,
+            stage="project-target-cohort",
+            input_paths=input_paths,
+            output_paths=tuple(output_records),
+            record_count=len(projection.selected_candidate_ids),
+            expected_extra=completion_extra,
+        ):
+            for path, payload in output_records.items():
+                _ensure_projection_artifact(path, payload, resume=True)
+            return 0
         for path, payload in output_records.items():
             _ensure_projection_artifact(
                 path,
@@ -10541,18 +10562,8 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
-        extra={
-            "selected_case_count": len(projection.selected_candidate_ids),
-            "excluded_case_count": len(projection.exclusions),
-            "projection_sha256": projection.summary["projection_sha256"],
-            "total_estimated_cost_usd": (
-                projection.budget_plan.total_estimated_cost_usd
-            ),
-            "output_commitments": {
-                str(path): _bytes_sha256(payload)
-                for path, payload in output_records.items()
-            },
-        },
+        extra=completion_extra,
+        resumable_terminal_metadata=True,
     )
     return 0
 
@@ -12790,8 +12801,26 @@ def _completed_disclosure_review_resume(
         run_card = _read_json_object(run_card_path)
         status = run_card.get("status")
         if status == "completed":
-            if set(run_card) != {*expected, "resume", "generated_at"} or any(
-                run_card.get(name) != value for name, value in expected.items()
+            planning_card = (
+                run_card.get("dry_run") is True and run_card.get("execute") is False
+            )
+            if set(run_card) != {*expected, "resume", "generated_at"}:
+                raise CommandError(f"{stage} completed resume metadata mismatch")
+            card_expectation = (
+                {
+                    "schema_version": "legalforecast.acquisition_run_card.v1",
+                    "stage": stage,
+                    "status": "completed",
+                    "dry_run": True,
+                    "execute": False,
+                    "paid_activity_requested": False,
+                    "paid_activity_executed": False,
+                }
+                if planning_card
+                else expected
+            )
+            if any(
+                run_card.get(name) != value for name, value in card_expectation.items()
             ):
                 raise CommandError(f"{stage} completed resume metadata mismatch")
             if not isinstance(run_card.get("resume"), bool):
@@ -12805,7 +12834,7 @@ def _completed_disclosure_review_resume(
                 raise CommandError(
                     f"{stage} completed resume timestamp is invalid"
                 ) from exc
-            card_completed = True
+            card_completed = not planning_card
         elif status == "failed":
             expected_failure: dict[str, object] = {
                 **{
@@ -12855,26 +12884,35 @@ def _completed_disclosure_review_resume(
         status = record.get("status")
         if status not in {"failed", "completed"}:
             raise CommandError(f"{stage} completed resume log mismatch")
-        if status == "completed":
+        planning_record = record.get("dry_run") is True
+        if status == "completed" and not planning_record:
             if log_completed or index != len(log_records) - 1:
                 raise CommandError(f"{stage} completed resume log mismatch")
             log_completed = True
         event = "stage_completed" if status == "completed" else "stage_failed"
         count = record_count if status == "completed" else 0
+        common_log_expectation = {
+            "schema_version": "legalforecast.acquisition_stage_log.v1",
+            "stage": stage,
+            "status": status,
+            "event": event,
+            "run_card_path": str(run_card_path),
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+        }
         if set(record) != log_fields or any(
-            record.get(name) != value
-            for name, value in {
-                "schema_version": "legalforecast.acquisition_stage_log.v1",
-                "stage": stage,
-                "status": status,
-                "event": event,
-                "dry_run": False,
-                "run_card_path": str(run_card_path),
-                "record_count": count,
-                "paid_activity_requested": False,
-                "paid_activity_executed": False,
-            }.items()
+            record.get(name) != value for name, value in common_log_expectation.items()
         ):
+            raise CommandError(f"{stage} completed resume log mismatch")
+        if planning_record:
+            if (
+                type(record.get("record_count")) is not int
+                or cast(int, record.get("record_count")) < 0
+                or (status == "failed" and record.get("record_count") != 0)
+            ):
+                raise CommandError(f"{stage} completed resume log mismatch")
+            continue
+        if record.get("dry_run") is not False or record.get("record_count") != count:
             raise CommandError(f"{stage} completed resume log mismatch")
     if card_completed and log_completed:
         return True
