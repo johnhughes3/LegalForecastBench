@@ -10544,6 +10544,8 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
             record_count=len(projection.selected_candidate_ids),
             expected_extra=completion_extra,
         ):
+            for path, payload in output_records.items():
+                _ensure_projection_artifact(path, payload, resume=True)
             return 0
         for path, payload in output_records.items():
             _ensure_projection_artifact(

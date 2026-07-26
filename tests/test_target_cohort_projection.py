@@ -687,6 +687,26 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
         output_root / "logs/project-target-cohort.jsonl",
     )
     terminal_bytes = {path: path.read_bytes() for path in terminal_paths}
+
+    projected_selection_path = output_root / "target-cohort-selection.jsonl"
+    projected_selection_path.unlink()
+    assert main([*projection_command, "--resume"]) == 0
+    assert (
+        projected_selection_path.read_bytes()
+        == terminal_bytes[projected_selection_path]
+    )
+
+    projected_selection_path.write_bytes(b"corrupted projection evidence\n")
+    corrupted_bytes = projected_selection_path.read_bytes()
+    metadata_bytes = {
+        run_card_path: run_card_path.read_bytes(),
+        log_path: log_path.read_bytes(),
+    }
+    assert main([*projection_command, "--resume"]) == 2
+    assert projected_selection_path.read_bytes() == corrupted_bytes
+    assert {path: path.read_bytes() for path in metadata_bytes} == metadata_bytes
+    projected_selection_path.write_bytes(terminal_bytes[projected_selection_path])
+
     assert main([*projection_command, "--resume"]) == 0
     assert {path: path.read_bytes() for path in terminal_paths} == terminal_bytes
 
