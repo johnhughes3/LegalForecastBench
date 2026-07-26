@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
+import pytest
 from legalforecast import cli
 from legalforecast.cli import main
 from legalforecast.evals.inspect_task import SolverResponse
+from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseAttempt,
     CaseDevPacerPurchaseStatus,
@@ -32,6 +35,191 @@ from legalforecast.unitization.review import apply_unitization_reviews
 JsonRecord = dict[str, Any]
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "model_registries/cycle-1-2026-06-30.json"
+
+
+class _FakeSpendAuthority:
+    def __init__(self, **kwargs: object) -> None:
+        del kwargs
+
+    def authorize_attempt(
+        self,
+        key: ProviderSpendKey,
+        *,
+        reservation_microusd: int,
+    ) -> AttemptLease:
+        return AttemptLease(
+            attempt_id="b" * 64,
+            authority_identity_sha256="a" * 64,
+            logical_call_key=key.logical_call_key,
+            attempt_ordinal=1,
+            reservation_microusd=reservation_microusd,
+        )
+
+    def record_response(self, lease: AttemptLease, **kwargs: object) -> None:
+        del lease, kwargs
+
+    def record_failure(self, lease: AttemptLease, **kwargs: object) -> None:
+        del lease, kwargs
+
+    def reconcile_ambiguous(self, lease: AttemptLease, **kwargs: object) -> None:
+        del lease, kwargs
+
+    def snapshot(self) -> object:
+        raise AssertionError("snapshot is not used by this fixture")
+
+
+def test_malformed_label_response_terminalizes_local_reconstruction(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    response = SolverResponse(
+        raw_output='{"unit_findings":"not-a-list","missing_unit_flags":[]}',
+        input_tokens=10,
+        output_tokens=5,
+        estimated_cost=0.01,
+    )
+    provider_calls = 0
+
+    def malformed_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+
+        def provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "provider-response"}
+
+        handler.run_attempt(1, provider_call)
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", malformed_completion)
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    unit_record = cast(list[JsonRecord], _prediction_units()["prediction_units"])[0]
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+
+    def invoke() -> None:
+        cast(Any, llm_pipeline)._llm_label_one_model(
+            selection=_selection(),
+            decision_text=llm_pipeline.StageBDecisionText(
+                document_id="decision",
+                entered_date="2026-07-01",
+                text="The motion to dismiss Count I is granted without leave to amend.",
+            ),
+            decision_text_commitment={"decision_texts_sha256": "sha256:" + "a" * 64},
+            frozen_units=(cast(Any, llm_pipeline)._prediction_unit(unit_record),),
+            prompt="frozen label prompt",
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            transport=None,
+            environ=None,
+            timeout_seconds=1.0,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_spend_authorities=None,
+            provider_accounts=None,
+        )
+
+    messages = []
+    for _ in range(2):
+        with pytest.raises(llm_pipeline.LlmResponseValidationError) as exc_info:
+            invoke()
+        messages.append(str(exc_info.value))
+
+    assert messages == [
+        "unit_findings must be a list",
+        "unit_findings must be a list",
+    ]
+    assert provider_calls == 1
+
+    with sqlite3.connect(journal_path) as connection:
+        status, actual_cost, failure_type = connection.execute(
+            "SELECT status, actual_cost_usd, failure_type FROM provider_attempts"
+        ).fetchone()
+    assert status == "reconstruction_failed"
+    assert actual_cost == pytest.approx(0.01)
+    assert failure_type == "LlmPipelineError"
+
+
+def test_malformed_structural_review_terminalizes_local_reconstruction(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    response = SolverResponse(
+        raw_output='{"structural_flags":"not-a-list"}',
+        input_tokens=11,
+        output_tokens=6,
+        estimated_cost=0.02,
+    )
+
+    def malformed_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+        handler.run_attempt(1, lambda: {"fixture": "provider-response"})
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", malformed_completion)
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="must be a list"):
+        llm_pipeline.llm_review_stage_a_units(
+            selection_records=(_selection(),),
+            parser_records=(
+                {
+                    "candidate_id": "cand-1",
+                    "source_document_id": "complaint",
+                    "status": "succeeded",
+                    "markdown_path": "cand-1/complaint.md",
+                },
+                {
+                    "candidate_id": "cand-1",
+                    "source_document_id": "mtd",
+                    "status": "succeeded",
+                    "markdown_path": "cand-1/mtd.md",
+                },
+            ),
+            prediction_unit_records=(_prediction_units(),),
+            markdown_root=markdown_root,
+            registry_entry=llm_pipeline.ModelRegistryEntry.from_record(
+                _registry_record()
+            ),
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        )
+
+    with sqlite3.connect(journal_path) as connection:
+        status, actual_cost, failure_type = connection.execute(
+            "SELECT status, actual_cost_usd, failure_type FROM provider_attempts"
+        ).fetchone()
+    assert status == "reconstruction_failed"
+    assert actual_cost == pytest.approx(0.02)
+    assert failure_type == "LlmPipelineError"
 
 
 def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
@@ -206,9 +394,22 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
             {
                 "schema_version": "legalforecast.provider_cycle_caps.v1",
                 "cycle_id": "test-cycle",
+                "spend_authority": {
+                    "backend": "dynamodb",
+                    "resource_identity_sha256": "a" * 64,
+                    "ledger_scope_fields": [
+                        "cycle_id",
+                        "provider",
+                        "account",
+                    ],
+                    "max_billable_attempts": 3,
+                    "failure_threshold": 3,
+                    "failure_window_seconds": 300,
+                },
                 "providers": [
                     {
                         "provider": "openai",
+                        "account": "primary",
                         "cycle_reservation_cap_usd": "10.00",
                         "external_spend_limit_usd": "20.00",
                         "external_limit_scope": "test account",
@@ -274,6 +475,7 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
         lambda *args, **kwargs: (lineage, unit_card, review_queue),
     )
     monkeypatch.setattr(cli, "_verify_stage_a_review_run_card", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "DynamoDbProviderSpendAuthority", _FakeSpendAuthority)
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", _stage_b_completion)
     assert (
         main(
@@ -303,6 +505,8 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 str(apply_card),
                 "--provider-journal",
                 str(provider_journal),
+                "--provider-authority-table",
+                "fixture-provider-authority",
                 "--output-root",
                 str(output_root),
                 "--execute",

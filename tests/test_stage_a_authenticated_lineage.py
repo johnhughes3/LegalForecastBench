@@ -504,7 +504,8 @@ def test_provider_stage_replay_rejects_duplicate_cross_model_and_cross_stage_row
             "raw_response_json, normalized_response_json, "
             "reconstructed_result_json, input_tokens, output_tokens, "
             "actual_cost_usd, failure_type, failure_message, reserved_at, "
-            "completed_at FROM provider_attempts WHERE attempt_ordinal = 1"
+            "completed_at, authority_attempt_ordinal FROM provider_attempts "
+            "WHERE attempt_ordinal = 1"
         )
     with pytest.raises(cli.CommandError, match="one settled provider call"):
         cli._verified_provider_stage_attempts(
@@ -547,6 +548,196 @@ def test_provider_stage_replay_rejects_duplicate_cross_model_and_cross_stage_row
             providers_by_model=providers,
             model_registry_sha256="registry-sha",
         )
+
+
+def test_earlier_provider_shard_run_card_verifies_after_later_journal_rows(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    registry_path = tmp_path / "registry.json"
+    google_entry = replace(
+        _registry_entry(),
+        provider="google",
+        model_id="judge",
+        display_name="Google Judge",
+        model_version_or_snapshot="google-judge-2026-07-01",
+    )
+    openai_entry = replace(
+        _registry_entry(),
+        model_id="judge",
+        display_name="OpenAI Judge",
+        model_version_or_snapshot="openai-judge-2026-07-01",
+    )
+    _write_json(registry_path, [google_entry.to_record(), openai_entry.to_record()])
+    entries, registry_sha = cli._registry_entries_for_keys(
+        registry_path,
+        (google_entry.registry_key, openai_entry.registry_key),
+    )
+
+    def append_shard_attempt(*, provider: str, model_key: str, prompt: str) -> str:
+        with ProviderAttemptJournal(
+            path,
+            identity=ProviderCallIdentity(
+                stage="llm-label",
+                candidate_id="cand-1",
+                model_key=model_key,
+                prompt=prompt,
+                model_registry_sha256=registry_sha,
+            ),
+            provider=provider,
+            reservation_usd=0.1,
+            cycle_cap_usd=10.0,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:caps",
+        ) as journal:
+            journal.run_attempt(1, lambda: {"fixture": provider})
+            journal.settle_attempt(
+                1,
+                input_tokens=1,
+                output_tokens=1,
+                actual_cost_usd=0.01,
+                raw_output="{}",
+            )
+            journal.commit_reconstruction({"labels": []})
+        return hashlib.sha256(prompt.encode()).hexdigest()
+
+    google_prompt_sha = append_shard_attempt(
+        provider="google",
+        model_key=google_entry.registry_key,
+        prompt="google frozen label prompt",
+    )
+    google_expected = {("cand-1", google_entry.registry_key): google_prompt_sha}
+    google_commitment_at_completion = cli._verified_provider_stage_attempts(
+        stage="llm-label",
+        journal_path=path,
+        expected_prompts=google_expected,
+        providers_by_model={google_entry.registry_key: google_entry.provider},
+        model_registry_sha256=registry_sha,
+        allow_additional_calls=True,
+    )
+
+    lineage = cast(
+        cli._StageAUnitizationLineage,
+        SimpleNamespace(
+            provider_journal_path=path,
+            cohort_cycle_id="cycle-1",
+            provider_caps_sha256="sha256:caps",
+        ),
+    )
+    provider_chain_at_completion = cli._provider_chain_commitment(
+        lineage=lineage,
+        stage_attempts=google_commitment_at_completion,
+    )
+
+    append_shard_attempt(
+        provider="openai",
+        model_key=openai_entry.registry_key,
+        prompt="openai frozen label prompt",
+    )
+    assert google_commitment_at_completion["attempt_count"] == 1
+
+    source_paths = {
+        name: tmp_path / f"{name}.json"
+        for name in (
+            "selection",
+            "parser_manifest",
+            "decision_texts",
+            "decision_texts_manifest",
+            "decision_texts_run_card",
+            "finalized_prediction_units",
+            "llm_unitization_run_card",
+            "llm_review_stage_a_run_card",
+            "unitization_review_run_card",
+            "evaluated_model_registry",
+            "provider_cycle_caps",
+        )
+    }
+    for source_path in source_paths.values():
+        _write_json(source_path, {})
+    labels_path = tmp_path / "google-labels.jsonl"
+    audit_path = tmp_path / "google-audit.jsonl"
+    lawyer_queue_path = tmp_path / "google-lawyer-queue.jsonl"
+    _write_jsonl(labels_path, [])
+    _write_jsonl(
+        audit_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "execution_provider": google_entry.provider,
+                "model_outputs": [
+                    {
+                        "model_key": google_entry.registry_key,
+                        "provider_prompt_sha256": google_prompt_sha,
+                    }
+                ],
+            }
+        ],
+    )
+    _write_jsonl(lawyer_queue_path, [])
+    run_card_path = tmp_path / "google-shard-run-card.json"
+    _write_json(
+        run_card_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "llm-label-provider-shard",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": True,
+            "paid_activity_executed": True,
+            "source_commitments": {
+                **{
+                    name: cli._stage_a_file_commitment(source_path)
+                    for name, source_path in source_paths.items()
+                },
+                "model_registry": cli._stage_a_file_commitment(registry_path),
+            },
+            "output_commitments": {
+                "labels": cli._stage_a_file_commitment(labels_path),
+                "audit": cli._stage_a_file_commitment(audit_path),
+                "lawyer_review_queue": cli._stage_a_file_commitment(lawyer_queue_path),
+            },
+            "model_execution": {
+                "model_keys": [entry.registry_key for entry in entries],
+                "executed_model_keys": [google_entry.registry_key],
+                "model_entry_sha256": {
+                    entry.registry_key: "sha256:"
+                    + cli.model_registry_entry_sha256(entry)
+                    for entry in entries
+                },
+                "model_registry_sha256": registry_sha,
+                "providers": {entry.registry_key: entry.provider for entry in entries},
+                "execution_provider": google_entry.provider,
+                "provider_shard_merge": False,
+            },
+            "provider_chain": provider_chain_at_completion,
+        },
+    )
+
+    assert (
+        cli._verify_llm_label_provider_shard_run_card(
+            run_card_path,
+            audit_path=audit_path,
+            lineage=lineage,
+            selection_path=source_paths["selection"],
+            parser_manifest_path=source_paths["parser_manifest"],
+            decision_texts_path=source_paths["decision_texts"],
+            decision_texts_manifest_path=source_paths["decision_texts_manifest"],
+            decision_texts_run_card_path=source_paths["decision_texts_run_card"],
+            finalized_prediction_units_path=source_paths["finalized_prediction_units"],
+            llm_unitization_run_card_path=source_paths["llm_unitization_run_card"],
+            llm_review_stage_a_run_card_path=source_paths[
+                "llm_review_stage_a_run_card"
+            ],
+            unitization_review_run_card_path=source_paths[
+                "unitization_review_run_card"
+            ],
+            model_registry_path=registry_path,
+            evaluated_model_registry_path=source_paths["evaluated_model_registry"],
+            provider_cycle_caps_path=source_paths["provider_cycle_caps"],
+        )
+        == google_entry.provider
+    )
 
 
 def test_structural_review_run_card_rejects_finalize_path_and_journal_substitution(
