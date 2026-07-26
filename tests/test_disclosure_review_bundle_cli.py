@@ -4,6 +4,7 @@ import builtins
 import hashlib
 import json
 import os
+import re
 import subprocess
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
@@ -351,14 +352,16 @@ def test_disclosure_review_help_names_main_pinned_authority(
 
 
 def test_private_interactive_recorder_requires_hash_and_batch_confirmation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = _prepare_args(tmp_path)
+    args = _prepare_args(tmp_path, document_count=2)
     assert main(args) == 0
     worksheet = json.loads(
         (tmp_path / "output/disclosure-review-worksheet.json").read_text()
     )
-    digest = worksheet["documents"][0]["sha256"]
+    digests = iter(str(row["sha256"]) for row in worksheet["documents"])
 
     class _TTY:
         @staticmethod
@@ -366,10 +369,14 @@ def test_private_interactive_recorder_requires_hash_and_batch_confirmation(
             return True
 
     monkeypatch.setattr(cli_module.sys, "stdin", _TTY())
+    prompts: list[str] = []
+    stderr_before_prompt: list[str] = []
 
     def answer(prompt: str) -> str:
+        prompts.append(prompt)
+        stderr_before_prompt.append(capsys.readouterr().err)
         if prompt.startswith("Type the full inspected"):
-            return str(digest)
+            return next(digests)
         if prompt.startswith("Decision"):
             return "cleared"
         assert prompt.startswith("Type exactly '")
@@ -403,9 +410,27 @@ def test_private_interactive_recorder_requires_hash_and_batch_confirmation(
         .read_text()
         .splitlines()
     ]
-    assert decisions[0]["recording_method"] == "interactive_review_cli"
-    assert decisions[0]["status"] == "cleared"
+    assert len(decisions) == 2
+    assert {row["recording_method"] for row in decisions} == {"interactive_review_cli"}
+    assert {row["status"] for row in decisions} == {"cleared"}
+    assert len({row["batch_confirmation_sha256"] for row in decisions}) == 1
     assert len(decisions[0]["batch_confirmation_sha256"]) == 64
+    assert sum("Batch summary:" in output for output in stderr_before_prompt) == 1
+    assert "Batch summary:" in stderr_before_prompt[-1]
+    assert re.fullmatch(r"Type exactly 'CONFIRM 2 2 0 [0-9a-f]{64}': ", prompts[-1])
+
+
+def test_disclosure_review_schema_documents_final_only_batch_summary() -> None:
+    schema = (
+        Path(__file__).resolve().parents[1]
+        / "docs/schemas/disclosure-review-bundle-v1.md"
+    ).read_text(encoding="utf-8")
+
+    assert "After every row, it displays counts and a batch hash" not in schema
+    assert (
+        "After checkpointing every document, it displays one final batch summary"
+        in schema
+    )
 
 
 def test_private_recorder_checkpoints_each_document_and_resumes_remaining_only(

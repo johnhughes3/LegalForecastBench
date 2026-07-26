@@ -112,7 +112,7 @@ Until that reviewed main change lands, production preflight must continue to fai
 It uses a TTY only as its interactive review interface, with its output, run card, log, and durable per-document checkpoints inside `--controlled-private-store-root`; the TTY is not authentication authority.
 
 The command displays each private inspection path and requires the operator to type the full inspected hash and explicit decision, while the later hardware SSHSIG remains the sole reviewer authentication authority.
-After every row, it displays counts and a batch hash and requires an exact typed batch confirmation.
+After checkpointing every document, it displays one final batch summary with counts and a batch hash and requires one exact typed batch confirmation.
 Do not hand-author or bulk-import the decision JSONL.
 
 The recorder opens inspection bytes and checkpoints through no-follow file descriptors, requires one regular-file link, and compares file metadata before and after each read.
