@@ -504,6 +504,7 @@ def _cleanup_parser_input_snapshot(stage_path: Path, directory_fd: int) -> None:
             try:
                 stage_root.rmdir()
             except OSError:
+                # Another conversion may still own the shared staging root.
                 pass
     if cleanup_error is not None:
         raise cleanup_error
@@ -708,6 +709,7 @@ def _write_unique_regular_file(path: Path, payload: bytes) -> None:
         try:
             os.unlink(temporary_name, dir_fd=directory_fd)
         except FileNotFoundError:
+            # Atomic publication may already have consumed the temporary name.
             pass
         os.close(directory_fd)
 
