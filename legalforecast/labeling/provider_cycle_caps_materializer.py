@@ -30,6 +30,9 @@ SUCCESSOR_POLICY_SCHEMA_VERSION = (
 SUCCESSOR_RECEIPT_SCHEMA_VERSION = (
     "legalforecast.provider_cycle_caps_successor_receipt.v1"
 )
+SUCCESSOR_RUN_CARD_SCHEMA_VERSION = (
+    "legalforecast.provider_cycle_caps_successor_run_card.v1"
+)
 SUCCESSOR_STAGE = "materialize-provider-cycle-caps-successor"
 SUCCESSOR_CAPS_NAME = "provider-cycle-caps.json"
 SUCCESSOR_RECEIPT_NAME = "provider-cycle-caps-successor-receipt.json"
@@ -504,7 +507,7 @@ def materialize_provider_cycle_caps_successor_files(
     receipt_path = target_root / SUCCESSOR_RECEIPT_NAME
     run_card_path = target_root / "run-cards" / SUCCESSOR_RUN_CARD_NAME
     run_card: dict[str, object] = {
-        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "schema_version": SUCCESSOR_RUN_CARD_SCHEMA_VERSION,
         "stage": SUCCESSOR_STAGE,
         "status": "completed",
         "dry_run": False,
@@ -1177,6 +1180,29 @@ def _recover_stale_staging_trees(
             character not in "0123456789abcdef" for character in token
         ):
             continue
+        stage_fd = _open_child_directory(parent_fd, name, create=False)
+        try:
+            stage_identity = _directory_stat_identity(stage_fd)
+            _require_named_directory_binding(
+                parent_fd,
+                name,
+                stage_fd,
+                "stale successor staging tree",
+            )
+            has_per_file_temporary = _stale_staging_tree_has_per_file_temporary(
+                stage_fd
+            )
+            _require_named_directory_binding(
+                parent_fd,
+                name,
+                stage_fd,
+                "stale successor staging tree",
+            )
+        finally:
+            os.close(stage_fd)
+        if has_per_file_temporary:
+            _remove_staging_tree(parent_fd, name, stage_identity)
+            continue
         state = _preflight_output_tree(
             parent_fd,
             name,
@@ -1190,6 +1216,46 @@ def _recover_stale_staging_trees(
             )
         _remove_staging_tree(parent_fd, name, state.root_identity)
     os.fsync(parent_fd)
+
+
+def _stale_staging_tree_has_per_file_temporary(stage_fd: int) -> bool:
+    root_entries = frozenset(os.listdir(stage_fd))
+    if any(
+        _is_per_file_temporary(name, output_name)
+        for name in root_entries
+        for output_name in (SUCCESSOR_CAPS_NAME, SUCCESSOR_RECEIPT_NAME)
+    ):
+        return True
+    if "run-cards" not in root_entries:
+        return False
+    run_cards_fd = _open_child_directory(stage_fd, "run-cards", create=False)
+    try:
+        _require_named_directory_binding(
+            stage_fd,
+            "run-cards",
+            run_cards_fd,
+            "stale successor run-card root",
+        )
+        run_card_entries = frozenset(os.listdir(run_cards_fd))
+        if any(
+            _is_per_file_temporary(name, SUCCESSOR_RUN_CARD_NAME)
+            for name in run_card_entries
+        ):
+            return True
+        return False
+    finally:
+        os.close(run_cards_fd)
+
+
+def _is_per_file_temporary(name: str, output_name: str) -> bool:
+    prefix = f".{output_name}."
+    suffix = ".partial"
+    if not name.startswith(prefix) or not name.endswith(suffix):
+        return False
+    token = name[len(prefix) : -len(suffix)]
+    return len(token) == 16 and all(
+        character in "0123456789abcdef" for character in token
+    )
 
 
 def _commit_staged_output_tree(
@@ -2036,6 +2102,7 @@ __all__ = [
     "AUTHORITY_SMOKE_SCHEMA_VERSION",
     "SUCCESSOR_POLICY_SCHEMA_VERSION",
     "SUCCESSOR_RECEIPT_SCHEMA_VERSION",
+    "SUCCESSOR_RUN_CARD_SCHEMA_VERSION",
     "SUCCESSOR_STAGE",
     "MaterializedProviderCycleCaps",
     "ProviderCycleCapsMaterializationError",

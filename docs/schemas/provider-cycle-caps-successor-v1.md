@@ -106,7 +106,10 @@ The output root owns exactly these paths:
 
 The successor remains `legalforecast.provider_cycle_caps.v1` because that runtime schema already defines the closed authority-enabled form.
 The public receipt commits the exact source, smoke, policy, and successor byte counts and SHA-256 digests, the reviewed release, public aliases, caps, and breaker policy.
-The completed `legalforecast.acquisition_run_card.v1` additionally commits the canonical input and output paths and records provider, paid, and AWS activity as neither requested nor executed.
+The completed `legalforecast.provider_cycle_caps_successor_run_card.v1` additionally commits the canonical input and output paths and records provider, paid, and AWS activity as neither requested nor executed.
+It is a dedicated closed schema with exactly `schema_version`, `stage`, `status`, `dry_run`, `execute`, `provider_activity_requested`, `provider_activity_executed`, `paid_activity_requested`, `paid_activity_executed`, `aws_activity_requested`, `aws_activity_executed`, `release_sha`, `input_paths`, `input_commitments`, `output_commitments`, and `output_paths`.
+All fields are required and no additional field is permitted.
+The card is deterministic and therefore deliberately has no `generated_at` timestamp.
 
 Each file is published exclusively and atomically inside its destination directory, with the completed run card last.
 A retry may reuse or repair only the deterministic exact bytes.

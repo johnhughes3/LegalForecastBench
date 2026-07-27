@@ -258,7 +258,28 @@ def test_cli_publishes_hash_bound_successor_receipt_and_run_card(
         "legalforecast.provider_cycle_caps_successor_policy.v1"
     )
     assert receipt["successor"]["sha256"] == hashlib.sha256(caps_bytes).hexdigest()
-    assert run_card["schema_version"] == "legalforecast.acquisition_run_card.v1"
+    assert run_card["schema_version"] == (
+        "legalforecast.provider_cycle_caps_successor_run_card.v1"
+    )
+    assert set(run_card) == {
+        "aws_activity_executed",
+        "aws_activity_requested",
+        "dry_run",
+        "execute",
+        "input_commitments",
+        "input_paths",
+        "output_commitments",
+        "output_paths",
+        "paid_activity_executed",
+        "paid_activity_requested",
+        "provider_activity_executed",
+        "provider_activity_requested",
+        "release_sha",
+        "schema_version",
+        "stage",
+        "status",
+    }
+    assert "generated_at" not in run_card
     assert run_card["stage"] == "materialize-provider-cycle-caps-successor"
     assert run_card["status"] == "completed"
     assert run_card["provider_activity_requested"] is False
@@ -1001,6 +1022,36 @@ def test_cli_reconciles_authenticated_stale_exchange_tree_on_resume(
     assert snapshots == {
         path: (path.read_bytes(), path.stat().st_ino) for path in outputs
     }
+
+
+def test_cli_removes_crash_left_per_file_temporary_and_publishes(
+    tmp_path: Path,
+) -> None:
+    legacy, smoke, policy, payloads = _write_inputs(tmp_path / "inputs")
+    output_root = tmp_path / "outputs"
+    stale = output_root.parent / f".{output_root.name}.{'c' * 32}.partial"
+    stale.mkdir()
+    temporary = stale / f".provider-cycle-caps.json.{'d' * 16}.partial"
+    temporary.write_bytes(b"partial")
+
+    assert (
+        main(
+            _args(
+                legacy=legacy,
+                smoke=smoke,
+                policy=policy,
+                output_root=output_root,
+                payloads=payloads,
+            )
+        )
+        == 0
+    )
+    assert not stale.exists()
+    assert (output_root / "provider-cycle-caps.json").is_file()
+    assert (output_root / "provider-cycle-caps-successor-receipt.json").is_file()
+    assert (
+        output_root / "run-cards" / "materialize-provider-cycle-caps-successor.json"
+    ).is_file()
 
 
 def test_cli_does_not_reclaim_live_publishers_active_staging_tree(
