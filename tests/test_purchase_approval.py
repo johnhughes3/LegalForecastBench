@@ -465,7 +465,7 @@ def test_legacy_v1_fixture_does_not_bypass_materialization_run_card(
 
     allow_historical_v1_algorithm_fixtures(monkeypatch)
 
-    patched_preflight = getattr(cli, "_preflight_materialization_purchase_runtime")
+    patched_preflight = cli._preflight_materialization_purchase_runtime
     assert patched_preflight(args) is sentinel
 
 
