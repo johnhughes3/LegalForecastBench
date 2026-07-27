@@ -11,7 +11,7 @@ Plan publication revalidates both the caller-visible parent-directory inode and 
 
 Execution requires the immutable plan path plus its caller-supplied external SHA-256 and replays the complete target artifact closure before constructing a provider.
 Before provider construction it safely creates and opens the final-output parent, cycle-store parent, raw-artifact root, raw-page child, and document root component by component without following links.
-The cycle database and lock are exclusively created or opened as unique regular non-symlink children; their directory-entry identities are checked before connection initialization, and the database identity is checked again immediately after connection acquisition and before explicit SQLite pragma or schema writes.
+The cycle database and lock are exclusively created or opened as unique regular non-symlink children; bound-path SQLite connections open through the pinned database descriptor, and the database directory-entry identity is checked again immediately after connection acquisition and before explicit SQLite pragma or schema writes.
 After public discovery and before the document-source provider is constructed, execution creates and pins every exact candidate/provider document directory.
 Terminal publication likewise walks or creates the staging tree descriptor-relatively, holds every nested directory descriptor, and writes only relative to those descriptors.
 Those bindings remain open through SQLite, raw-page, document, and terminal-tree publication; caller-visible paths must continue to name the pinned inodes at every stage, while runtime writes use the pinned descriptor paths.

@@ -118,6 +118,102 @@ def test_bound_cycle_store_rejects_injected_database_or_lock_symlink(
     assert not (outside / "escaped.sqlite3").exists()
 
 
+def test_bound_cycle_store_connects_through_pinned_database_descriptor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "store"
+    parent.mkdir()
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    real_connect = sqlite3.connect
+    connection_paths: list[str] = []
+
+    def recording_connect(
+        database: str | Path,
+        *,
+        isolation_level: None = None,
+        uri: bool = False,
+    ) -> sqlite3.Connection:
+        connection_paths.append(os.fspath(database))
+        return real_connect(database, isolation_level=isolation_level, uri=uri)
+
+    monkeypatch.setattr(sqlite3, "connect", recording_connect)
+    try:
+        with CycleAcquisitionStore(
+            Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3")
+        ) as store:
+            store.ensure_cycle(POLICY)
+            assert (parent / "cycle.sqlite3-wal").is_file()
+            assert (parent / "cycle.sqlite3-shm").is_file()
+        with CycleAcquisitionStore(
+            Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"),
+            read_only=True,
+        ) as store:
+            assert store.cycle_policy == POLICY
+    finally:
+        os.close(parent_fd)
+
+    assert len(connection_paths) == 2
+    assert connection_paths[0].startswith("/proc/self/fd/")
+    assert Path(connection_paths[0]).name.isdecimal()
+    assert connection_paths[1].startswith("file:///proc/self/fd/")
+    assert connection_paths[1].endswith("?mode=ro&immutable=1")
+
+
+def test_bound_cycle_store_rejects_entry_swap_after_pinned_database_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "store"
+    parent.mkdir()
+    outside_database = tmp_path / "outside.sqlite3"
+    with sqlite3.connect(outside_database) as connection:
+        connection.execute("CREATE TABLE outside_marker(value TEXT)")
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    real_connect = sqlite3.connect
+    opened_database_paths: list[str] = []
+
+    def swap_then_connect(
+        database: str | Path,
+        *,
+        isolation_level: None = None,
+        uri: bool = False,
+    ) -> sqlite3.Connection:
+        (parent / "cycle.sqlite3").rename(parent / "pinned.sqlite3")
+        (parent / "cycle.sqlite3").symlink_to(outside_database)
+        connection = real_connect(
+            database,
+            isolation_level=isolation_level,
+            uri=uri,
+        )
+        opened_database_paths.append(
+            str(connection.execute("PRAGMA database_list").fetchone()[2])
+        )
+        return connection
+
+    monkeypatch.setattr(sqlite3, "connect", swap_then_connect)
+    try:
+        with pytest.raises(
+            CycleAcquisitionStoreError,
+            match="unique regular non-symlink",
+        ):
+            CycleAcquisitionStore(Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"))
+    finally:
+        os.close(parent_fd)
+
+    assert opened_database_paths == [str(parent / "pinned.sqlite3")]
+    with real_connect(outside_database) as connection:
+        assert connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall() == [("outside_marker",)]
+
+
 def test_source_neutral_cycle_policy_upgrade_preserves_credit_authorizations(
     tmp_path: Path,
 ) -> None:

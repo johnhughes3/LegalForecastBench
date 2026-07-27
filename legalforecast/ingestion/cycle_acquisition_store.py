@@ -336,6 +336,11 @@ class CycleAcquisitionStore:
             self._close_open_file_descriptors()
             raise
         try:
+            connection_path = (
+                Path(f"/proc/self/fd/{self._database_fd}")
+                if self._database_fd is not None
+                else self.path
+            )
             if read_only:
                 wal_path = Path(f"{self.path}-wal")
                 if wal_path.exists() and wal_path.stat().st_size > 0:
@@ -343,21 +348,29 @@ class CycleAcquisitionStore:
                         "read-only cycle store has a nonempty WAL; refusing an "
                         "immutable view that depends on sidecar state"
                     )
+                connection_uri_path = (
+                    connection_path
+                    if self._database_fd is not None
+                    else connection_path.resolve()
+                )
                 self._connection = sqlite3.connect(
-                    f"{self.path.resolve().as_uri()}?mode=ro&immutable=1",
+                    f"{connection_uri_path.as_uri()}?mode=ro&immutable=1",
                     isolation_level=None,
                     uri=True,
                 )
             else:
                 _trim_torn_wal_tail(self.path)
-                self._connection = sqlite3.connect(self.path, isolation_level=None)
-                if self._bound_parent_fd is not None and self._database_fd is not None:
-                    _require_bound_regular_file_current(
-                        self._bound_parent_fd,
-                        self.path.name,
-                        self._database_fd,
-                        label="cycle store",
-                    )
+                self._connection = sqlite3.connect(
+                    connection_path,
+                    isolation_level=None,
+                )
+            if self._bound_parent_fd is not None and self._database_fd is not None:
+                _require_bound_regular_file_current(
+                    self._bound_parent_fd,
+                    self.path.name,
+                    self._database_fd,
+                    label="cycle store",
+                )
             self._connection.row_factory = sqlite3.Row
             if read_only:
                 self._connection.execute("PRAGMA query_only=ON")
