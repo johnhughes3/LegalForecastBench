@@ -452,9 +452,18 @@ def build_exception_inspection_map(
 ) -> bytes:
     """Map only exception-routed commitments to contained local inspection bytes."""
 
+    schema_version = plan.get("schema_version")
+    if schema_version == PLAN_SCHEMA_VERSION:
+        documents = _plan_documents(plan)
+        exception_route = "john_exception_review"
+    elif schema_version == PLAN_SCHEMA_VERSION_V3:
+        documents = _plan_documents_v3(plan)
+        exception_route = "exception_review"
+    else:
+        raise ProvenanceClearanceError("unsupported provenance routing plan")
     rows: list[dict[str, object]] = []
-    for document in _plan_documents(plan):
-        if document.get("route") != "john_exception_review":
+    for document in documents:
+        if document.get("route") != exception_route:
             continue
         key = _key(document)
         relative = _required_text(document, "local_path")
