@@ -223,7 +223,7 @@ def test_provenance_planner_help_exposes_closed_schema_selector(
     assert raised.value.code == 0
     output = capsys.readouterr().out
     normalized = " ".join(output.split())
-    assert "--schema-version {v2,v3}" in output
+    assert "--schema-version {v2,v3}" in normalized
     assert "v2 preserves the legacy John-review vocabulary" in normalized
     assert "remains the default" in normalized
     assert "v3 emits the reviewer-neutral" in normalized
