@@ -1074,6 +1074,7 @@ def test_cli_rejects_stale_staging_root_rebinding_before_preflight(
         caps_bytes: bytes,
         receipt_bytes: bytes,
         run_card_bytes: bytes,
+        expected_root_identity: tuple[int, ...] | None = None,
     ) -> Any:
         nonlocal rebound
         if target_name == stale.name and not rebound:
@@ -1086,12 +1087,28 @@ def test_cli_rejects_stale_staging_root_rebinding_before_preflight(
             caps_bytes=caps_bytes,
             receipt_bytes=receipt_bytes,
             run_card_bytes=run_card_bytes,
+            expected_root_identity=expected_root_identity,
         )
 
     monkeypatch.setattr(
         caps_materializer,
         "_preflight_output_tree",
         rebind_stale_root_before_preflight,
+    )
+
+    def reject_replacement_inspection(
+        _entries: frozenset[str],
+        _allowed: frozenset[str],
+        _label: str,
+    ) -> None:
+        pytest.fail(
+            "replacement staging tree was inspected before identity authentication"
+        )
+
+    monkeypatch.setattr(
+        caps_materializer,
+        "_reject_entry_set",
+        reject_replacement_inspection,
     )
 
     assert (
