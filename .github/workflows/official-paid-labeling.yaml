@@ -109,7 +109,7 @@ jobs:
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
       JOB_ROOT: ${{ github.workspace }}/.official-paid-labeling-job
-      OUTPUT_ROOT: ${{ github.workspace }}/.official-paid-labeling-output
+      OUTPUT_ROOT: ${{ github.workspace }}/official-paid-labeling-output
       LFB_BATON_AGE_RECIPIENT: ${{ vars.LFB_BATON_AGE_RECIPIENT }}
       LFB_GITHUB_LABELING_ROLE_ARN: ${{ vars.LFB_GITHUB_LABELING_ROLE_ARN }}
       LFB_PROVIDER_ACCOUNT_ALIAS: ${{ vars.LFB_PROVIDER_ACCOUNT_ALIAS }}
