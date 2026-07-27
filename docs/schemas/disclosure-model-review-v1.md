@@ -25,9 +25,9 @@ The batch prompt carries those fields, the exact semantic-item fields, allowed e
 `legalforecast.disclosure_model_review_response.v1` is therefore a per-document semantic record, not a raw provider response.
 Its fields are exactly `schema_version`, `candidate_id`, `source_document_id`, `document_sha256`, `model_id`, `model_version`, `decision`, `sensitive_content`, `supporting_page_number`, and `supporting_excerpt`.
 Candidate, document, and declared registry-model identities must match.
-The authenticated transport served-version metadata is authoritative.
-The model-generated `model_version` must exactly equal that authenticated served version; a missing or different value rejects the entire batch before any private or public projection.
-Downstream projections must derive any served-version value from the authenticated transport evidence and must never trust or copy the model-generated `model_version` field.
+For the future authenticated integration, authenticated transport served-version metadata is authoritative.
+There, the model-generated `model_version` must exactly equal that authenticated served version; a missing or different value rejects the entire batch before any private or public projection built by the integration.
+Those downstream projections must derive any served-version value from the authenticated transport evidence and must never trust or copy the model-generated `model_version` field.
 The supporting excerpt must satisfy the prompt’s length, marker, and verbatim-page constraints.
 A response may clear only when `sensitive_content` is `absent`; `present` and `uncertain` require quarantine.
 
@@ -37,7 +37,7 @@ It contains no page text, prompt text, supporting excerpt, rationale, or raw pro
 It intentionally contains no caller-supplied per-document cost.
 
 Typed validated reviews are projected into canonical private JSONL containing the verbatim excerpt and exact document, prompt, response, reviewer-entry, page, identity, and status commitments.
-This pure core does not authenticate execution and therefore does not export authority or a public run card.
+This pure core cannot authenticate or compare transport metadata, does not authenticate execution, and therefore does not export authority or a public run card.
 Future integration must derive authority from verifier-owned local journal readback, authenticated remote-call evidence, raw-payload re-decoding, independently frozen registry identities, and cross-store agreement.
 It must treat a nonempty document batch as one provider attempt, or two only after the bounded retry, rather than one attempt per document.
 This foundation defines validation contracts only and does not authorize provider calls, retries, spending, evaluation, freeze, or dispatch.
