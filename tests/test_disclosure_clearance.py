@@ -4,7 +4,6 @@ import hashlib
 from io import BytesIO
 from pathlib import Path
 
-import legalforecast.ingestion.disclosure_clearance as disclosure_module
 import pytest
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
@@ -121,7 +120,9 @@ def test_page_scanner_fails_closed_on_parser_error(
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             raise ValueError("synthetic parser failure")
 
-    monkeypatch.setattr(disclosure_module, "PdfReader", BrokenReader)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.disclosure_clearance.PdfReader", BrokenReader
+    )
     scan = scan_disclosure_document(_multipage_pdf(("Motion memorandum",)))
 
     assert scan.coverage_status == "incomplete"

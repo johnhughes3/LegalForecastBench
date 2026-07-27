@@ -263,7 +263,13 @@ def test_incomplete_page_coverage_remains_review_routed(
 
 @pytest.mark.parametrize(
     "mutation",
-    ["missing_field", "extra_field", "overlapping_pages", "out_of_range_page"],
+    [
+        "missing_field",
+        "extra_field",
+        "overlapping_pages",
+        "out_of_range_page",
+        "unsupported_ocr_claim",
+    ],
 )
 def test_closed_pdf_scan_schema_rejects_invalid_coverage(
     tmp_path: Path, mutation: str
@@ -279,8 +285,13 @@ def test_closed_pdf_scan_schema_rejects_invalid_coverage(
     elif mutation == "overlapping_pages":
         scan["unscanned_page_numbers"] = [1]
         scan["coverage_status"] = "incomplete"
-    else:
+    elif mutation == "out_of_range_page":
         scan["text_scanned_page_numbers"] = [2]
+    else:
+        scan["text_scanned_page_numbers"] = []
+        scan["text_scanned_page_count"] = 0
+        scan["ocr_scanned_page_numbers"] = [1]
+        scan["ocr_scanned_page_count"] = 1
 
     with pytest.raises(ProvenanceClearanceError, match="PDF scan"):
         exception_review_worksheet(cloned)

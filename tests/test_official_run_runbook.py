@@ -714,8 +714,9 @@ def test_disclosure_review_runbook_uses_provenance_first_contract() -> None:
     assert "plan-disclosure-provenance" in section
     assert "clear-provenance-disclosures" in section
     assert "descriptor-stable manifest commitments" in section
-    assert "complete page-level text or OCR coverage" in section
+    assert "complete page-level text coverage" in section
     assert "disjoint text-scanned, OCR-scanned, and unscanned page sets" in section
+    assert "requires the reserved OCR-scanned set to be empty" in section
     assert "content-stream/page-count mismatch is only a diagnostic" in section
     assert "incomplete coverage, `medical`" in section
     assert "preflight-disclosure-review-signer" not in section

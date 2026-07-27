@@ -586,6 +586,10 @@ def _validate_scan_record(scan: Mapping[str, object], *, key: tuple[str, str]) -
         for right in partitions[index + 1 :]
     ) or set().union(*partitions) != set(range(1, parsed_page_count + 1)):
         raise ProvenanceClearanceError(f"invalid PDF scan page partition: {key}")
+    if ocr_pages:
+        raise ProvenanceClearanceError(
+            f"PDF scan pypdf page-text method cannot claim OCR coverage: {key}"
+        )
     complete = parsed_page_count > 0 and not unscanned_pages
     if scan.get("coverage_status") != ("complete" if complete else "incomplete"):
         raise ProvenanceClearanceError(f"invalid PDF scan coverage status: {key}")
