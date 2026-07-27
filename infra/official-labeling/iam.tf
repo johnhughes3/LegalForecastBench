@@ -56,6 +56,7 @@ data "aws_iam_policy_document" "labeling" {
     actions = [
       "dynamodb:ConditionCheckItem",
       "dynamodb:DescribeTable",
+      "dynamodb:DescribeTimeToLive",
       "dynamodb:GetItem",
       "dynamodb:PutItem",
       "dynamodb:UpdateItem",

@@ -709,6 +709,16 @@ from legalforecast.labeling.llm_pipeline import (
     unitization_review_queue_records,
     unitization_review_queue_records_from_items,
 )
+from legalforecast.labeling.official_paid_baton import (
+    BatonIdentity,
+    BatonReceipt,
+    PredecessorBinding,
+    assemble_paid_labeling_baton,
+    build_source_baton,
+    load_baton_receipt,
+    open_paid_labeling_baton,
+    seal_paid_labeling_baton,
+)
 from legalforecast.labeling.provider_cycle_caps_materializer import (
     ProviderCycleCapsMaterializationError,
     materialize_provider_cycle_caps_successor_files,
@@ -2064,6 +2074,40 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_build_decision_texts_arguments(acquisition_decision_texts)
+    acquisition_build_paid_source = acquisition_subparsers.add_parser(
+        "build-paid-labeling-source",
+        help=(
+            "Close and age-encrypt provider-free inputs for one protected "
+            "paid-labeling stage."
+        ),
+    )
+    _add_acquisition_build_paid_labeling_source_arguments(acquisition_build_paid_source)
+    acquisition_assemble_paid_baton = acquisition_subparsers.add_parser(
+        "assemble-paid-labeling-baton",
+        help=(
+            "Verify encrypted source and predecessor packages, then assemble "
+            "one closed encrypted provider baton."
+        ),
+    )
+    _add_acquisition_assemble_paid_labeling_baton_arguments(
+        acquisition_assemble_paid_baton
+    )
+    acquisition_open_paid_baton = acquisition_subparsers.add_parser(
+        "open-paid-labeling-baton",
+        help=(
+            "Verify and decrypt one exact protected-workflow baton into a "
+            "private job root."
+        ),
+    )
+    _add_acquisition_open_paid_labeling_baton_arguments(acquisition_open_paid_baton)
+    acquisition_seal_paid_result = acquisition_subparsers.add_parser(
+        "seal-paid-labeling-result",
+        help=(
+            "Checkpoint and age-encrypt one provider-stage success or recovery "
+            "result after credentials are cleared."
+        ),
+    )
+    _add_acquisition_seal_paid_labeling_result_arguments(acquisition_seal_paid_result)
     acquisition_llm_unitize = acquisition_subparsers.add_parser(
         "llm-unitize",
         help="Use a registry-backed LLM to construct frozen Stage A units.",
@@ -6866,6 +6910,171 @@ def _add_acquisition_build_decision_texts_arguments(
     parser.add_argument("--decision-texts-output", type=Path)
     parser.add_argument("--decision-texts-manifest-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_build_decision_texts)
+
+
+def _add_paid_baton_execute_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help=(
+            "Perform the local cryptographic operation. Omitted execution fails "
+            "closed; these commands never call providers, PACER, evaluation, "
+            "freeze, or dispatch paths."
+        ),
+    )
+
+
+def _add_paid_baton_identity_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--release-sha",
+        required=True,
+        help="Exact lowercase 40-character trusted main commit SHA.",
+    )
+    parser.add_argument(
+        "--stage",
+        required=True,
+        choices=("llm-unitize", "llm-review-stage-a", "llm-label-provider-shard"),
+    )
+    parser.add_argument(
+        "--provider",
+        required=True,
+        choices=("anthropic", "google", "openai"),
+    )
+    parser.add_argument(
+        "--sequence-ordinal",
+        type=int,
+        required=True,
+        help="Frozen Cycle 1 paid-stage sequence ordinal, 1 through 4.",
+    )
+
+
+def _add_paid_baton_age_arguments(
+    parser: argparse.ArgumentParser, *, decrypt: bool, encrypt: bool
+) -> None:
+    parser.add_argument(
+        "--age-executable",
+        type=Path,
+        required=True,
+        help="Exact age executable used without shell interpretation.",
+    )
+    if decrypt:
+        parser.add_argument(
+            "--age-identity-file",
+            type=Path,
+            required=True,
+            help="Step-scoped age X25519 identity file in controlled private storage.",
+        )
+    if encrypt:
+        parser.add_argument(
+            "--age-recipient",
+            required=True,
+            help="Reviewed public age X25519 recipient for the Cycle 1 baton.",
+        )
+
+
+def _add_acquisition_build_paid_labeling_source_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--source-root",
+        type=Path,
+        required=True,
+        help=(
+            "Closed provider-free source tree containing the exact job manifest "
+            "and every file it names."
+        ),
+    )
+    _add_paid_baton_identity_arguments(parser)
+    parser.add_argument(
+        "--predecessor-receipt",
+        type=Path,
+        help=(
+            "Exact prior result receipt required for sequence 2 through 4 and "
+            "for same-stage recovery."
+        ),
+    )
+    _add_paid_baton_age_arguments(parser, decrypt=False, encrypt=True)
+    parser.add_argument("--output-ciphertext", type=Path, required=True)
+    parser.add_argument("--receipt-output", type=Path, required=True)
+    _add_paid_baton_execute_argument(parser)
+    parser.set_defaults(handler=_cmd_acquisition_build_paid_labeling_source)
+
+
+def _add_acquisition_assemble_paid_labeling_baton_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--source-ciphertext", type=Path, required=True)
+    parser.add_argument(
+        "--source-ciphertext-sha256",
+        required=True,
+        help="Exact source ciphertext SHA-256, with optional sha256: prefix.",
+    )
+    parser.add_argument("--source-package-manifest-sha256", required=True)
+    parser.add_argument(
+        "--predecessor-root",
+        type=Path,
+        help=(
+            "Downloaded prior-result artifact root; it must contain exactly "
+            "official-paid-labeling-result.age and result-receipt.json."
+        ),
+    )
+    parser.add_argument("--predecessor-package-manifest-sha256")
+    _add_paid_baton_identity_arguments(parser)
+    _add_paid_baton_age_arguments(parser, decrypt=True, encrypt=True)
+    parser.add_argument("--job-root", type=Path, required=True)
+    parser.add_argument("--output-ciphertext", type=Path, required=True)
+    parser.add_argument("--receipt-output", type=Path, required=True)
+    _add_paid_baton_execute_argument(parser)
+    parser.set_defaults(handler=_cmd_acquisition_assemble_paid_labeling_baton)
+
+
+def _add_acquisition_open_paid_labeling_baton_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--artifact-root",
+        type=Path,
+        required=True,
+        help=(
+            "Downloaded baton artifact root; it must contain exactly "
+            "official-paid-labeling-baton.age and baton-receipt.json."
+        ),
+    )
+    parser.add_argument("--expected-package-manifest-sha256", required=True)
+    parser.add_argument("--expected-job-manifest-sha256", required=True)
+    _add_paid_baton_identity_arguments(parser)
+    _add_paid_baton_age_arguments(parser, decrypt=True, encrypt=False)
+    parser.add_argument("--job-root", type=Path, required=True)
+    _add_paid_baton_execute_argument(parser)
+    parser.set_defaults(handler=_cmd_acquisition_open_paid_labeling_baton)
+
+
+def _add_acquisition_seal_paid_labeling_result_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--job-root", type=Path, required=True)
+    parser.add_argument(
+        "--input-package-manifest",
+        type=Path,
+        required=True,
+        help="Exact package manifest installed by open-paid-labeling-baton.",
+    )
+    parser.add_argument(
+        "--expected-input-package-manifest-sha256",
+        required=True,
+        help="Protected workflow commitment to the opened package manifest.",
+    )
+    _add_paid_baton_identity_arguments(parser)
+    parser.add_argument(
+        "--provider-stage-outcome",
+        required=True,
+        choices=("success", "failure", "cancelled"),
+    )
+    _add_paid_baton_age_arguments(parser, decrypt=False, encrypt=True)
+    parser.add_argument("--output-ciphertext", type=Path, required=True)
+    parser.add_argument("--receipt-output", type=Path, required=True)
+    _add_paid_baton_execute_argument(parser)
+    parser.set_defaults(handler=_cmd_acquisition_seal_paid_labeling_result)
 
 
 def _add_acquisition_rehearse_downstream_arguments(
@@ -38992,6 +39201,232 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
             "provider_billing_usd": "0.00",
         },
     )
+    return 0
+
+
+def _require_paid_baton_execute(args: argparse.Namespace) -> None:
+    if not cast(bool, args.execute):
+        raise CommandError(
+            f"acquisition {args.acquisition_command} requires --execute; "
+            "no provider or paid activity is performed by this command"
+        )
+
+
+def _paid_baton_identity(
+    args: argparse.Namespace, *, outcome: str = "ready"
+) -> BatonIdentity:
+    return BatonIdentity(
+        release_sha=cast(str, args.release_sha),
+        stage=cast(str, args.stage),
+        provider=cast(str, args.provider),
+        sequence=cast(int, args.sequence_ordinal),
+        outcome=outcome,
+    )
+
+
+def _bare_sha256(value: str, *, label: str) -> str:
+    digest = value.removeprefix("sha256:")
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise CommandError(f"{label} must be a lowercase SHA-256")
+    return digest
+
+
+def _require_closed_baton_artifact_root(
+    root: Path, *, names: tuple[str, str]
+) -> tuple[Path, Path]:
+    try:
+        root_metadata = root.lstat()
+    except FileNotFoundError as exc:
+        raise CommandError(f"baton artifact root is missing: {root}") from exc
+    if root.is_symlink() or not stat.S_ISDIR(root_metadata.st_mode):
+        raise CommandError(f"baton artifact root is not a real directory: {root}")
+    members = list(root.iterdir())
+    if sorted(path.name for path in members) != sorted(names):
+        raise CommandError(
+            "baton artifact root must contain exactly: " + ", ".join(names)
+        )
+    by_name = {path.name: path for path in members}
+    for name in names:
+        metadata = by_name[name].lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise CommandError(
+                f"baton artifact member is not a unique regular file: {name}"
+            )
+    return by_name[names[0]], by_name[names[1]]
+
+
+def _require_baton_receipt(
+    path: Path,
+    *,
+    identity: BatonIdentity | None = None,
+    package_manifest_sha256: str | None = None,
+) -> BatonReceipt:
+    receipt = load_baton_receipt(path)
+    if identity is not None and receipt.identity != identity:
+        raise CommandError("baton receipt identity differs from protected inputs")
+    if package_manifest_sha256 is not None and (
+        receipt.package_manifest_sha256
+        != _bare_sha256(package_manifest_sha256, label="package manifest commitment")
+    ):
+        raise CommandError(
+            "baton receipt package manifest differs from protected inputs"
+        )
+    return receipt
+
+
+def _print_baton_receipt(receipt: BatonReceipt) -> None:
+    print(json.dumps(receipt.to_record(), sort_keys=True, allow_nan=False))
+
+
+def _cmd_acquisition_build_paid_labeling_source(args: argparse.Namespace) -> int:
+    _require_paid_baton_execute(args)
+    identity = _paid_baton_identity(args)
+    predecessor_path = cast(Path | None, args.predecessor_receipt)
+    predecessor = (
+        None
+        if predecessor_path is None
+        else PredecessorBinding.from_receipt(_require_baton_receipt(predecessor_path))
+    )
+    receipt = build_source_baton(
+        source_root=cast(Path, args.source_root),
+        identity=identity,
+        predecessor=predecessor,
+        age_executable=cast(Path, args.age_executable),
+        age_recipient=cast(str, args.age_recipient),
+        ciphertext_output=cast(Path, args.output_ciphertext),
+        receipt_output=cast(Path, args.receipt_output),
+    )
+    _print_baton_receipt(receipt)
+    return 0
+
+
+def _cmd_acquisition_assemble_paid_labeling_baton(
+    args: argparse.Namespace,
+) -> int:
+    _require_paid_baton_execute(args)
+    identity = _paid_baton_identity(args)
+    predecessor_root = cast(Path | None, args.predecessor_root)
+    predecessor_manifest = cast(str | None, args.predecessor_package_manifest_sha256)
+    if (predecessor_root is None) != (predecessor_manifest is None):
+        raise CommandError(
+            "--predecessor-root and --predecessor-package-manifest-sha256 "
+            "must be supplied together"
+        )
+    predecessor_ciphertext: Path | None = None
+    predecessor: PredecessorBinding | None = None
+    if predecessor_root is not None and predecessor_manifest is not None:
+        predecessor_ciphertext, predecessor_receipt = (
+            _require_closed_baton_artifact_root(
+                predecessor_root,
+                names=("official-paid-labeling-result.age", "result-receipt.json"),
+            )
+        )
+        predecessor = PredecessorBinding.from_receipt(
+            _require_baton_receipt(
+                predecessor_receipt,
+                package_manifest_sha256=predecessor_manifest,
+            )
+        )
+    receipt = assemble_paid_labeling_baton(
+        source_ciphertext=cast(Path, args.source_ciphertext),
+        expected_source_ciphertext_sha256=_bare_sha256(
+            cast(str, args.source_ciphertext_sha256),
+            label="source ciphertext commitment",
+        ),
+        expected_source_package_manifest_sha256=_bare_sha256(
+            cast(str, args.source_package_manifest_sha256),
+            label="source package manifest commitment",
+        ),
+        expected_identity=identity,
+        predecessor_ciphertext=predecessor_ciphertext,
+        predecessor=predecessor,
+        age_executable=cast(Path, args.age_executable),
+        age_identity_file=cast(Path, args.age_identity_file),
+        age_recipient=cast(str, args.age_recipient),
+        job_root=cast(Path, args.job_root),
+        ciphertext_output=cast(Path, args.output_ciphertext),
+        receipt_output=cast(Path, args.receipt_output),
+    )
+    _print_baton_receipt(receipt)
+    return 0
+
+
+def _cmd_acquisition_open_paid_labeling_baton(args: argparse.Namespace) -> int:
+    _require_paid_baton_execute(args)
+    identity = _paid_baton_identity(args)
+    ciphertext, receipt_path = _require_closed_baton_artifact_root(
+        cast(Path, args.artifact_root),
+        names=("official-paid-labeling-baton.age", "baton-receipt.json"),
+    )
+    receipt = _require_baton_receipt(
+        receipt_path,
+        identity=identity,
+        package_manifest_sha256=cast(str, args.expected_package_manifest_sha256),
+    )
+    opened = open_paid_labeling_baton(
+        ciphertext=ciphertext,
+        expected_ciphertext_sha256=receipt.ciphertext_sha256,
+        expected_package_manifest_sha256=receipt.package_manifest_sha256,
+        expected_job_manifest_sha256=_bare_sha256(
+            cast(str, args.expected_job_manifest_sha256),
+            label="job manifest commitment",
+        ),
+        expected_identity=identity,
+        expected_predecessor=receipt.predecessor,
+        age_executable=cast(Path, args.age_executable),
+        age_identity_file=cast(Path, args.age_identity_file),
+        job_root=cast(Path, args.job_root),
+    )
+    _print_baton_receipt(opened)
+    return 0
+
+
+def _cmd_acquisition_seal_paid_labeling_result(args: argparse.Namespace) -> int:
+    _require_paid_baton_execute(args)
+    expected_identity = _paid_baton_identity(args)
+    job_root = cast(Path, args.job_root)
+    package_manifest = cast(Path, args.input_package_manifest)
+    canonical_manifest = job_root / "official-paid-labeling-package.json"
+    if package_manifest.resolve(strict=False) != canonical_manifest.resolve(
+        strict=False
+    ):
+        raise CommandError(
+            "--input-package-manifest must name the manifest in --job-root"
+        )
+    manifest_sha256 = _bare_sha256(
+        cast(str, args.expected_input_package_manifest_sha256),
+        label="input package manifest commitment",
+    )
+    manifest_bytes = _read_singly_linked_regular_input(
+        package_manifest, label="paid-labeling input package manifest"
+    )
+    if hashlib.sha256(manifest_bytes).hexdigest() != manifest_sha256:
+        raise CommandError(
+            "input package manifest differs from the protected commitment"
+        )
+    manifest = _read_json_object_payload(
+        manifest_bytes, label="paid-labeling input package manifest"
+    )
+    manifest_identity = BatonIdentity.from_record(manifest.get("identity"))
+    if manifest_identity != expected_identity:
+        raise CommandError("input package identity differs from protected stage inputs")
+    raw_predecessor = manifest.get("predecessor")
+    predecessor = (
+        None
+        if raw_predecessor is None
+        else PredecessorBinding.from_record(raw_predecessor)
+    )
+    receipt = seal_paid_labeling_baton(
+        job_root=job_root,
+        expected_input_package_manifest_sha256=manifest_sha256,
+        outcome=cast(str, args.provider_stage_outcome),
+        predecessor=predecessor,
+        age_executable=cast(Path, args.age_executable),
+        age_recipient=cast(str, args.age_recipient),
+        ciphertext_output=cast(Path, args.output_ciphertext),
+        receipt_output=cast(Path, args.receipt_output),
+    )
+    _print_baton_receipt(receipt)
     return 0
 
 

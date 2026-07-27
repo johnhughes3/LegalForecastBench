@@ -209,11 +209,13 @@ def test_paid_labeling_runbook_names_exact_authority_and_external_smoke_gate() -
     for value in (
         ".github/workflows/official-paid-labeling.yaml",
         ".github/workflows/official-paid-labeling-authority-smoke.yaml",
+        ".github/workflows/official-paid-labeling-baton.yaml",
         "infra/official-labeling",
         "LFB_GITHUB_LABELING_ROLE_ARN",
         "LFB_PROVIDER_AUTHORITY_TABLE",
         "LFB_PROVIDER_ACCOUNT_ALIAS",
         "legalforecastbench-official-labeling-authority-smoke",
+        "legalforecastbench-official-labeling-baton",
         "legalforecastbench-official-labeling-anthropic-unitize",
         "legalforecastbench-official-labeling-google-review",
         "legalforecastbench-official-labeling-openai-label",
@@ -229,9 +231,16 @@ def test_paid_labeling_runbook_names_exact_authority_and_external_smoke_gate() -
         "sequential baton",
         "do not launch the Google and OpenAI Stage B shards in parallel",
         "divergent SQLite copies are intentionally not mergeable",
+        "a plaintext Actions artifact is not private",
+        "never-published draft GitHub release",
+        "uploads only the ciphertext plus a public-safe hash/count receipt",
+        "GitHub environment secrets cannot alias one another",
+        "build-paid-labeling-source",
+        "--predecessor-receipt",
+        "matching public `LFB_BATON_AGE_RECIPIENT` variable",
     ):
         assert value in runbook
-    assert "keep the official live-smoke, freeze, and dispatch gates blocked" in runbook
+    assert "Until both are recorded, keep paid labeling blocked" in runbook
     assert "Do not place OpenAI and Google credentials in one job." in runbook
 
 
