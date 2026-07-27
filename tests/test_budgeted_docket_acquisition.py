@@ -115,6 +115,35 @@ def test_ranked_docket_wave_stops_after_exact_required_entries() -> None:
     assert "entry-20-2" in render_complete_docket_html(result.bundles[0])
 
 
+def test_required_entry_wave_ignores_noncanonical_leading_zero_number() -> None:
+    page_one = _page("20", 1, has_next=True).replace(
+        '<div class="col-xs-1">1</div>',
+        '<div class="col-xs-1">007</div>',
+    )
+    page_two = _page("20", 2, has_next=True).replace(
+        '<div class="col-xs-1">2</div>',
+        '<div class="col-xs-1">7</div>',
+    )
+    scheduler = _Scheduler({("20", 1): page_one, ("20", 2): page_two})
+
+    result = acquire_ranked_dockets(
+        records=[_record("20", 0)],
+        scheduler=scheduler,  # type: ignore[arg-type]
+        limit=1,
+        max_pages_per_docket=3,
+        decision_anchor=None,
+        required_entry_numbers_by_docket={"20": frozenset({7})},
+    )
+
+    assert scheduler.waves == [[("20", 1)], [("20", 2)]]
+    assert result.failed_docket_ids == ()
+    assert [entry.entry_number for entry in result.bundles[0].entries] == [
+        "007",
+        "7",
+    ]
+    assert result.bundles[0].stopped_at_required_entries is True
+
+
 def test_required_entry_absent_at_terminal_exhaustion_fails_closed() -> None:
     result = acquire_ranked_dockets(
         records=[_record("20", 0)],

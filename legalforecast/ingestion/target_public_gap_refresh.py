@@ -277,7 +277,7 @@ class TargetPublicGapPlan:
             "max_pages_per_docket": self.max_pages_per_docket,
             "gap_manifest_sha256": self.gap_manifest_sha256,
             "docket_manifest_sha256": self.docket_manifest_sha256,
-            "provider_activity_requested": False,
+            "provider_activity_requested": self.provider_activity_requested,
             "pacer_authorized": False,
             "recap_fetch_authorized": False,
             "document_purchase_authorized": False,
@@ -1332,6 +1332,11 @@ def execute_target_public_gap_refresh(
 
     if _SHA256.fullmatch(expected_plan_sha256) is None:
         raise TargetPublicGapRefreshError("plan SHA-256 is invalid")
+    if (
+        hashlib.sha256(target_public_gap_plan_bytes(plan)).hexdigest()
+        != expected_plan_sha256
+    ):
+        raise TargetPublicGapRefreshError("plan SHA-256 mismatch")
     preflight_target_public_gap_execution(
         plan,
         expected_plan_sha256=expected_plan_sha256,
@@ -1442,6 +1447,7 @@ def execute_target_public_gap_refresh(
     execution_binding.require_current(plan)
     terminal_commitments = target_public_gap_terminal_commitments(
         plan=plan,
+        plan_sha256=expected_plan_sha256,
         refresh=refresh,
         downloads=typed_downloads,
         outcomes=typed_outcomes,
@@ -1523,12 +1529,15 @@ def download_target_public_gap_requests(
 def target_public_gap_terminal_commitments(
     *,
     plan: TargetPublicGapPlan,
+    plan_sha256: str,
     refresh: TargetPublicGapRefreshResult,
     downloads: Sequence[FreeDocumentDownloadRecord],
     outcomes: Sequence[Mapping[str, Any]] | None = None,
 ) -> Mapping[str, object]:
     """Authenticate the terminal partition and newly free manifest."""
 
+    if _SHA256.fullmatch(plan_sha256) is None:
+        raise TargetPublicGapRefreshError("plan SHA-256 is invalid")
     expected = {
         (
             cast(str, gap["candidate_id"]),
@@ -1612,6 +1621,7 @@ def target_public_gap_terminal_commitments(
         )
     return {
         "schema_version": ("legalforecast.target_public_gap_terminal_commitments.v1"),
+        "plan_sha256": plan_sha256,
         "target_cohort_root": str(plan.target_cohort_root),
         "target_run_card_sha256": plan.target_run_card_sha256,
         "target_projection_file_sha256": plan.target_projection_file_sha256,
@@ -1863,7 +1873,10 @@ def _semantic_sha256(value: object) -> str:
 
 
 def _fsync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY)
+    descriptor = os.open(
+        path,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
     try:
         os.fsync(descriptor)
     finally:

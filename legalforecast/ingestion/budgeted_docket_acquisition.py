@@ -47,6 +47,7 @@ from legalforecast.ingestion.firecrawl_docket_pagination import (
     CourtListenerDocketBundle,
     CourtListenerDocketPaginationError,
     canonical_courtlistener_docket_page_url,
+    canonical_positive_entry_number,
     may_stop_at_anchor_boundary,
     paginate_courtlistener_docket,
 )
@@ -1093,13 +1094,11 @@ def acquire_ranked_dockets(
                 del active[docket_id]
                 continue
             observed_entry_numbers = {
-                int(entry.entry_number)
+                entry_number
                 for observed_page in observed
                 for entry in observed_page.entries
-                if entry.entry_number is not None
-                and entry.entry_number.isascii()
-                and entry.entry_number.isdigit()
-                and int(entry.entry_number) > 0
+                if (entry_number := canonical_positive_entry_number(entry.entry_number))
+                is not None
             }
             required_entries = (
                 None

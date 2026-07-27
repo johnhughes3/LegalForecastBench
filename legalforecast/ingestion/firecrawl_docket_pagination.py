@@ -173,7 +173,7 @@ def _unresolved_anchored_decision_references(
         number
         for page in pages
         for entry in page.entries
-        if (number := _positive_entry_number(entry.entry_number)) is not None
+        if (number := canonical_positive_entry_number(entry.entry_number)) is not None
     }
     if not observed_numbers:
         return set()
@@ -199,7 +199,9 @@ def _unresolved_anchored_decision_references(
     }
 
 
-def _positive_entry_number(value: str | None) -> int | None:
+def canonical_positive_entry_number(value: str | None) -> int | None:
+    """Parse only CourtListener's canonical positive docket-entry form."""
+
     if value is None or re.fullmatch(r"[1-9][0-9]*", value.strip()) is None:
         return None
     return int(value)
@@ -295,7 +297,8 @@ def paginate_courtlistener_docket(
             number
             for observed_page in parsed_pages
             for entry in observed_page.entries
-            if (number := _positive_entry_number(entry.entry_number)) is not None
+            if (number := canonical_positive_entry_number(entry.entry_number))
+            is not None
         }
         required_entries_observed = (
             required_entry_numbers is not None

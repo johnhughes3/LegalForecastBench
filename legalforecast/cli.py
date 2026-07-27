@@ -18029,10 +18029,11 @@ def _target_public_gap_terminal_payloads(
         name: hashlib.sha256(payload).hexdigest()
         for name, payload in sorted(core.items())
     }
-    terminal_commitments = {
-        **dict(execution.terminal_commitments),
-        "plan_sha256": plan_sha256,
-    }
+    terminal_commitments = dict(execution.terminal_commitments)
+    if terminal_commitments.get("plan_sha256") != plan_sha256:
+        raise TargetPublicGapRefreshError(
+            "terminal commitments differ from the externally pinned plan"
+        )
     no_authority = {
         "pacer_authorized": False,
         "recap_fetch_authorized": False,

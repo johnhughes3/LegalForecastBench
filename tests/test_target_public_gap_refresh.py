@@ -35,6 +35,7 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     publish_target_public_gap_plan,
     refresh_target_public_gaps,
     require_target_public_gap_sources_unchanged,
+    target_public_gap_plan_bytes,
     target_public_gap_terminal_commitments,
     verify_target_public_gap_plan,
 )
@@ -155,10 +156,12 @@ def test_refresh_composes_existing_planner_and_free_downloader(tmp_path: Path) -
     assert all(record.sha256 == hashlib.sha256(pdf).hexdigest() for record in records)
     commitments = target_public_gap_terminal_commitments(
         plan=plan,
+        plan_sha256="1" * 64,
         refresh=result,
         downloads=records,
     )
     assert commitments["terminal_reconciliation"] is True
+    assert commitments["plan_sha256"] == "1" * 64
     assert commitments["transition_count"] == 2
     assert commitments["exclusion_count"] == 0
     assert commitments["newly_free_document_count"] == 2
@@ -223,6 +226,15 @@ def test_plan_is_immutable_digest_bound_and_replays_source_closure(
             expected_sha256="0" * 64,
             reconstructed=plan,
         )
+
+
+def test_plan_serializes_provider_activity_requested() -> None:
+    plan = _single_case_plan(Path("/immutable/target"))
+    live_plan = replace(plan, provider_activity_requested=True)
+
+    assert plan.to_record()["provider_activity_requested"] is False
+    assert live_plan.to_record()["provider_activity_requested"] is True
+    assert target_public_gap_plan_bytes(plan) != target_public_gap_plan_bytes(live_plan)
 
 
 def test_execution_preflight_and_atomic_output_publication(tmp_path: Path) -> None:
@@ -652,6 +664,7 @@ def _valid_terminal_payloads(
         outcomes=outcomes,
         terminal_commitments=target_public_gap_terminal_commitments(
             plan=plan,
+            plan_sha256="1" * 64,
             refresh=refresh,
             downloads=downloads,
             outcomes=outcomes,
@@ -896,6 +909,32 @@ def test_provider_factories_are_after_final_preflight(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="overlaps authenticated source"):
         execute_target_public_gap_refresh(
             plan=unsafe,
+            expected_plan_sha256=_plan_sha256(unsafe),
+            firecrawl_source_factory=construct_firecrawl,
+            document_source_factory=construct_document_source,
+            allow_existing_downloads=True,
+        )
+
+    assert constructed == []
+
+
+def test_execution_rejects_plan_digest_mismatch_before_provider_construction(
+    tmp_path: Path,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    constructed: list[str] = []
+
+    def construct_firecrawl() -> Never:
+        constructed.append("firecrawl")
+        raise AssertionError("provider constructed before plan digest check")
+
+    def construct_document_source() -> Never:
+        constructed.append("document")
+        raise AssertionError("provider constructed before plan digest check")
+
+    with pytest.raises(ValueError, match="plan SHA-256 mismatch"):
+        execute_target_public_gap_refresh(
+            plan=plan,
             expected_plan_sha256="1" * 64,
             firecrawl_source_factory=construct_firecrawl,
             document_source_factory=construct_document_source,
@@ -903,6 +942,7 @@ def test_provider_factories_are_after_final_preflight(tmp_path: Path) -> None:
         )
 
     assert constructed == []
+    assert not plan.execution_identity.cycle_store_path.exists()
 
 
 def test_execution_rejects_parent_rebind_before_any_runtime_write(
@@ -931,7 +971,7 @@ def test_execution_rejects_parent_rebind_before_any_runtime_write(
     with pytest.raises(ValueError, match="output parent changed"):
         execute_target_public_gap_refresh(
             plan=plan,
-            expected_plan_sha256="1" * 64,
+            expected_plan_sha256=_plan_sha256(plan),
             firecrawl_source_factory=construct_firecrawl,
             document_source_factory=construct_document_source,
             allow_existing_downloads=True,
@@ -984,6 +1024,41 @@ def test_execute_mode_validation_precedes_any_plan_or_output_write(
 
     assert status == 2
     assert not output_root.exists()
+
+
+def test_directory_fsync_rejects_links_and_nondirectories(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_open = os.open
+    observed_flags: list[int] = []
+
+    def record_open_flags(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        if Path(os.fsdecode(path)) == tmp_path:
+            observed_flags.append(flags)
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", record_open_flags)
+    target_gap_module._fsync_directory(tmp_path)  # pyright: ignore[reportPrivateUsage]
+
+    assert len(observed_flags) == 1
+    assert observed_flags[0] & os.O_DIRECTORY
+    assert observed_flags[0] & os.O_NOFOLLOW
+    assert observed_flags[0] & os.O_CLOEXEC
+    regular_file = tmp_path / "not-a-directory"
+    regular_file.write_bytes(b"x")
+    symlink = tmp_path / "directory-link"
+    symlink.symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(OSError):
+        target_gap_module._fsync_directory(regular_file)  # pyright: ignore[reportPrivateUsage]
+    with pytest.raises(OSError):
+        target_gap_module._fsync_directory(symlink)  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.parametrize(
@@ -1124,6 +1199,10 @@ def _selection(
         "decision_entry_numbers": [3],
         "documents": documents,
     }
+
+
+def _plan_sha256(plan: TargetPublicGapPlan) -> str:
+    return hashlib.sha256(target_public_gap_plan_bytes(plan)).hexdigest()
 
 
 def _single_case_plan(
