@@ -12,7 +12,9 @@ The requested supporting excerpt is closed to 20 through 240 characters of verba
 The frozen reviewer allows 16,384 output tokens so the one-call 14-document response has ample headroom under that excerpt bound.
 
 `legalforecast.disclosure_model_review_batch_prompt.v1` and `legalforecast.disclosure_model_review_batch_response.v1` are the closed single-call envelopes.
-A nonempty ordered document set, including 14 documents, produces one batch prompt and exactly one raw provider response.
+A nonempty ordered document set, including 14 documents, produces one batch prompt and exactly one raw provider response per authenticated batch-attempt identity.
+That verifier-owned attempt identity must bind the authenticated execution evidence, attempt ordinal, and exact batch-prompt hash to one private raw-response artifact.
+A bounded retry is a distinct next attempt identity with a distinct private raw-response artifact; it must never overwrite or replace the first attempt's raw artifact, combine responses across attempts, or make either attempt appear to have more than one response.
 The batch response contains one ordered `legalforecast.disclosure_model_review_response.v1` semantic item per document.
 The exact raw batch bytes have one batch-level hash; each semantic item separately has the hash of its canonical JSON bytes.
 Prompt hashes are verifier-owned transport commitments: model-generated JSON does not contain or echo either the batch prompt hash or per-document prompt hashes.
@@ -23,7 +25,9 @@ The batch prompt carries those fields, the exact semantic-item fields, allowed e
 `legalforecast.disclosure_model_review_response.v1` is therefore a per-document semantic record, not a raw provider response.
 Its fields are exactly `schema_version`, `candidate_id`, `source_document_id`, `document_sha256`, `model_id`, `model_version`, `decision`, `sensitive_content`, `supporting_page_number`, and `supporting_excerpt`.
 Candidate, document, and declared registry-model identities must match.
-The eventual served-version claim must come from authenticated provider transport metadata, not model-generated JSON.
+For the future authenticated integration, authenticated transport served-version metadata is authoritative.
+There, the model-generated `model_version` must exactly equal that authenticated served version; a missing or different value rejects the entire batch before any private or public projection built by the integration.
+Those downstream projections must derive any served-version value from the authenticated transport evidence and must never trust or copy the model-generated `model_version` field.
 The supporting excerpt must satisfy the prompt’s length, marker, and verbatim-page constraints.
 A response may clear only when `sensitive_content` is `absent`; `present` and `uncertain` require quarantine.
 
@@ -33,7 +37,8 @@ It contains no page text, prompt text, supporting excerpt, rationale, or raw pro
 It intentionally contains no caller-supplied per-document cost.
 
 Typed validated reviews are projected into canonical private JSONL containing the verbatim excerpt and exact document, prompt, response, reviewer-entry, page, identity, and status commitments.
-This pure core does not authenticate execution and therefore does not export authority or a public run card.
+This pure core cannot authenticate or compare transport metadata, does not authenticate execution, and therefore does not export authority or a public run card.
 Future integration must derive authority from verifier-owned local journal readback, authenticated remote-call evidence, raw-payload re-decoding, independently frozen registry identities, and cross-store agreement.
 It must treat a nonempty document batch as one provider attempt, or two only after the bounded retry, rather than one attempt per document.
+This foundation defines validation contracts only and does not authorize provider calls, retries, spending, evaluation, freeze, or dispatch.
 Raw page text, prompts, provider responses, and supporting excerpts remain private.
