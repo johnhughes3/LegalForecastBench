@@ -1054,6 +1054,64 @@ def test_cli_removes_crash_left_per_file_temporary_and_publishes(
     ).is_file()
 
 
+def test_cli_rejects_stale_staging_root_rebinding_before_preflight(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Any,
+) -> None:
+    legacy, smoke, policy, payloads = _write_inputs(tmp_path / "inputs")
+    output_root = tmp_path / "outputs"
+    stale = output_root.parent / f".{output_root.name}.{'c' * 32}.partial"
+    detached_stale = tmp_path / "detached-stale"
+    stale.mkdir()
+    original_preflight = caps_materializer._preflight_output_tree  # pyright: ignore[reportPrivateUsage]
+    rebound = False
+
+    def rebind_stale_root_before_preflight(
+        parent_fd: int,
+        target_name: str,
+        *,
+        caps_bytes: bytes,
+        receipt_bytes: bytes,
+        run_card_bytes: bytes,
+    ) -> Any:
+        nonlocal rebound
+        if target_name == stale.name and not rebound:
+            stale.rename(detached_stale)
+            stale.mkdir()
+            rebound = True
+        return original_preflight(
+            parent_fd,
+            target_name,
+            caps_bytes=caps_bytes,
+            receipt_bytes=receipt_bytes,
+            run_card_bytes=run_card_bytes,
+        )
+
+    monkeypatch.setattr(
+        caps_materializer,
+        "_preflight_output_tree",
+        rebind_stale_root_before_preflight,
+    )
+
+    assert (
+        main(
+            _args(
+                legacy=legacy,
+                smoke=smoke,
+                policy=policy,
+                output_root=output_root,
+                payloads=payloads,
+            )
+        )
+        == 2
+    )
+    assert "changed during recovery" in capsys.readouterr().err
+    assert detached_stale.is_dir()
+    assert stale.is_dir()
+    assert not output_root.exists()
+
+
 def test_cli_does_not_reclaim_live_publishers_active_staging_tree(
     tmp_path: Path,
     capsys: Any,
