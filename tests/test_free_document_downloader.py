@@ -291,6 +291,45 @@ def test_downloader_rejects_intermediate_symlink_escape_with_domain_error(
     assert tuple(outside.iterdir()) == ()
 
 
+def test_bound_downloader_requires_per_request_directory_bindings(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "downloads"
+    output_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (output_root / "cand-1").symlink_to(outside, target_is_directory=True)
+    root_fd = os.open(
+        output_root,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complete"}
+    )
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+
+    try:
+        with pytest.raises(
+            FreeDocumentDownloadError,
+            match="bound output root requires a bound document directory",
+        ):
+            download_free_docket_documents(
+                (request,),
+                output_root=Path(f"/proc/self/fd/{root_fd}"),
+                source=source,
+            )
+    finally:
+        os.close(root_fd)
+
+    assert source.requested_urls == ()
+    assert tuple(outside.iterdir()) == ()
+
+
 def test_completed_manifest_accepts_authenticated_shared_checkpoint_extras(
     tmp_path: Path,
 ) -> None:

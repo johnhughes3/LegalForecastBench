@@ -347,6 +347,10 @@ def _bound_or_resolved_output_root(path: Path) -> Path:
     return path.resolve()
 
 
+def _is_bound_output_root(path: Path) -> bool:
+    return path.absolute().parts[:4] == ("/", "proc", "self", "fd")
+
+
 def download_free_docket_documents(
     requests: tuple[FreeDocumentDownloadRequest, ...],
     *,
@@ -358,6 +362,10 @@ def download_free_docket_documents(
     """Download or reuse free docket documents under deterministic safe paths."""
 
     root = _bound_or_resolved_output_root(Path(output_root))
+    if _is_bound_output_root(root) and bound_output_directories is None:
+        raise FreeDocumentDownloadError(
+            "bound output root requires a bound document directory for every request"
+        )
     root.mkdir(parents=True, exist_ok=True)
     _require_free_space(root, requests, source=source)
     checkpoint_path = root / ".download-checkpoint.jsonl"
@@ -1627,7 +1635,7 @@ def _document_output_path(
     )
     filename = f"{entry_prefix}_{document_id}.{extension}"
     output_path = output_root / candidate_id / provider / filename
-    if output_root.absolute().parts[:4] != ("/", "proc", "self", "fd"):
+    if not _is_bound_output_root(output_root):
         try:
             output_path.resolve().relative_to(output_root.resolve())
         except ValueError as exc:

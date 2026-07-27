@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -775,6 +776,28 @@ def test_plan_publication_rejects_symlink_parent_without_writing(
 
     with pytest.raises(ValueError, match=r"symlink|overlaps"):
         publish_target_public_gap_plan(symlink_parent / escaped.name, plan)
+
+    assert not escaped.exists()
+
+
+def test_plan_cli_preserves_symlink_parent_for_publication_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target_root = tmp_path / "target"
+    target_root.mkdir()
+    plan = _single_case_plan(target_root)
+    escaped_parent = tmp_path / "escaped-parent"
+    escaped_parent.mkdir()
+    symlink_parent = tmp_path / "plan-parent"
+    symlink_parent.symlink_to(escaped_parent, target_is_directory=True)
+    escaped = escaped_parent / "escaped-plan.json"
+    monkeypatch.setattr(cli, "_target_public_gap_plan_from_args", lambda _: plan)
+
+    with pytest.raises(cli.CommandError, match="symlink"):
+        cli._cmd_acquisition_plan_target_public_gaps(  # pyright: ignore[reportPrivateUsage]
+            argparse.Namespace(plan_output=symlink_parent / escaped.name)
+        )
 
     assert not escaped.exists()
 

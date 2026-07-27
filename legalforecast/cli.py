@@ -17878,7 +17878,8 @@ def _target_public_gap_plan_from_args(
 def _cmd_acquisition_plan_target_public_gaps(args: argparse.Namespace) -> int:
     try:
         plan = _target_public_gap_plan_from_args(args)
-        plan_output = cast(Path, args.plan_output).resolve(strict=False)
+        plan_output = cast(Path, args.plan_output).absolute()
+        resolved_plan_output = plan_output.resolve(strict=False)
         for label, path in (
             ("target root", plan.target_cohort_root.resolve()),
             ("final output root", plan.execution_identity.output_root.resolve()),
@@ -17889,9 +17890,9 @@ def _cmd_acquisition_plan_target_public_gaps(args: argparse.Namespace) -> int:
             ),
         ):
             if (
-                plan_output == path
-                or plan_output.is_relative_to(path)
-                or path.is_relative_to(plan_output)
+                resolved_plan_output == path
+                or resolved_plan_output.is_relative_to(path)
+                or path.is_relative_to(resolved_plan_output)
             ):
                 raise TargetPublicGapRefreshError(f"plan output overlaps {label}")
         publish_target_public_gap_plan(plan_output, plan)
