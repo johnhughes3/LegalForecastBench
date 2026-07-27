@@ -224,7 +224,10 @@ def allow_historical_v1_algorithm_fixtures(
         """Retain the historical explicit-policy short circuit in legacy tests."""
 
         policy_path = getattr(args, "purchase_policy", None)
-        if policy_path is not None:
+        if (
+            policy_path is not None
+            and getattr(args, "materialization_run_card", None) is None
+        ):
             artifact = json.loads(Path(policy_path).read_text(encoding="utf-8"))
             if (
                 artifact.get("schema_version")

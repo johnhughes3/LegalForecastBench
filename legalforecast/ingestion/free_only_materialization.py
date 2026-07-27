@@ -51,6 +51,10 @@ def verify_free_only_materialization_authority(
         )
         for record in free_manifest
     }
+    if len(free_keys) != len(free_manifest):
+        raise FreeOnlyMaterializationError(
+            "free-only materialization rejects duplicate document identities"
+        )
     if free_keys != selected_document_keys:
         raise FreeOnlyMaterializationError(
             "free-only materialization requires exact free-document coverage"

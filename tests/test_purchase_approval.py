@@ -77,7 +77,10 @@ from legalforecast.ingestion.target_cohort_projection import project_target_coho
 from tests.disclosure_review_fixtures import (
     service_disclosure_authority_from_policy_bytes,
 )
-from tests.purchase_approval_fixtures import LEGACY_V1_BYPASS_MODULES
+from tests.purchase_approval_fixtures import (
+    LEGACY_V1_BYPASS_MODULES,
+    allow_historical_v1_algorithm_fixtures,
+)
 from tests.test_target_100_acquisition import (
     _snapshot_manifest_sha256,
     _target_100_fixture,
@@ -398,6 +401,21 @@ def test_free_only_materialization_authority_replays_genuine_zero_cost_decision(
             free_manifest=free_manifest[:-1],
             selected_document_keys=selected_keys,
         )
+    with pytest.raises(FreeOnlyMaterializationError, match="duplicate document"):
+        verify_free_only_materialization_authority(
+            inputs=FreeOnlyMaterializationInputs(
+                checkpoint_path=checkpoint_path,
+                run_card_path=run_card_path,
+                fee_schedule_path=fee_schedule,
+                canonical_ledger_path=ledger,
+            ),
+            controlled_private_root=private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            projected_purchased_manifest=(),
+            free_manifest=(*free_manifest, free_manifest[0]),
+            selected_document_keys=selected_keys,
+        )
     ledger.write_bytes(b"must remain absent")
     with pytest.raises(FreeOnlyMaterializationError, match="absent fresh ledger"):
         verify_free_only_materialization_authority(
@@ -414,6 +432,41 @@ def test_free_only_materialization_authority_replays_genuine_zero_cost_decision(
             free_manifest=free_manifest,
             selected_document_keys=selected_keys,
         )
+
+
+def test_legacy_v1_fixture_does_not_bypass_materialization_run_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    policy_path = tmp_path / "legacy-policy.json"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.case_dev_purchase_policy.v1",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.argparse.Namespace(
+        purchase_policy=policy_path,
+        materialization_run_card=tmp_path / "materialization-run-card.json",
+    )
+    sentinel = object()
+
+    def original_preflight(observed_args: object) -> object | None:
+        return sentinel if observed_args is args else None
+
+    monkeypatch.setattr(
+        cli,
+        "_preflight_materialization_purchase_runtime",
+        original_preflight,
+    )
+
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+
+    patched_preflight = getattr(cli, "_preflight_materialization_purchase_runtime")
+    assert patched_preflight(args) is sentinel
 
 
 def test_free_only_materialization_rejects_prior_gap_decision_after_free_refresh(
