@@ -61,6 +61,15 @@ FROZEN_BATCH_FIRECRAWL_RUN_SCHEMA = (
     "legalforecast.frozen_batch_firecrawl_observation_run.v1"
 )
 FIRECRAWL_OBSERVATION_PROVIDER = "firecrawl-courtlistener-html-v1"
+_OBSERVATION_SOURCE_FILES = {
+    "adapter": Path(__file__).resolve(),
+    "courtlistener_html_parser": Path(__file__)
+    .with_name("courtlistener_web.py")
+    .resolve(),
+    "docket_paginator": Path(__file__)
+    .with_name("firecrawl_docket_pagination.py")
+    .resolve(),
+}
 
 
 class FrozenBatchFirecrawlObservationError(ValueError):
@@ -228,6 +237,12 @@ def plan_frozen_firecrawl_observation(
         )
         if limit is not None:
             selected = selected[:limit]
+        _validate_recovery_artifact_root(
+            store,
+            candidates=selected,
+            run_id=run_id,
+            artifact_dir=artifact_dir,
+        )
     else:
         if existing.get("schema_version") != FROZEN_BATCH_FIRECRAWL_RUN_SCHEMA:
             raise FrozenBatchFirecrawlObservationError(
@@ -256,6 +271,11 @@ def plan_frozen_firecrawl_observation(
         selected = tuple(
             candidate for candidate in ordered if candidate.candidate_id in selected_set
         )
+        _reject_same_run_semantic_fixed_point(
+            store,
+            candidates=selected,
+            run_id=run_id,
+        )
 
     selected_ids = tuple(candidate.candidate_id for candidate in selected)
     batch_config = store.batch_config(batch_id)
@@ -282,6 +302,7 @@ def plan_frozen_firecrawl_observation(
         "firecrawl_proxy": firecrawl_proxy,
         "firecrawl_force_browser": firecrawl_force_browser,
         "reserved_credits_per_attempt": reserved_credits_per_attempt,
+        "observation_source_sha256": _current_observation_source_sha256(),
     }
     if existing is not None and dict(existing) != config:
         raise FrozenBatchFirecrawlObservationError(
@@ -387,6 +408,7 @@ def run_frozen_firecrawl_observation(
     by_docket = {candidate.docket_id: candidate for candidate in fetch_candidates}
     for failure in failures:
         candidate = by_docket[failure[0]]
+        requires_fresh_run = failure[1] == "complete_docket_reconstruction"
         observation = _record_observation(
             store,
             batch_id=batch_id,
@@ -397,6 +419,19 @@ def run_frozen_firecrawl_observation(
                 "failure_stage": failure[1],
                 "error": failure[2],
                 "pagination_complete_for_anchor_window": False,
+                "firecrawl_run_id": scheduler.run_id,
+                **(
+                    {
+                        "retry_contract": _semantic_retry_contract(
+                            store,
+                            scheduler=scheduler,
+                            candidate=candidate,
+                            max_pages_per_docket=max_pages_per_docket,
+                        )
+                    }
+                    if requires_fresh_run
+                    else {}
+                ),
             },
         )
         attempted += 1
@@ -447,6 +482,12 @@ def _validate_execution_plan(
         raise FrozenBatchFirecrawlObservationError(
             "observation plan does not match the durable Firecrawl run"
         )
+    if durable.get(
+        "observation_source_sha256"
+    ) != _current_observation_source_sha256():
+        raise FrozenBatchFirecrawlObservationError(
+            "observation source code does not match the frozen Firecrawl run"
+        )
     runtime_scheduler_config = {
         "raw_artifact_root": str(scheduler.artifact_dir),
         "max_attempts_per_page": scheduler.max_attempts,
@@ -463,6 +504,17 @@ def _validate_execution_plan(
             "runtime scheduler does not match the frozen Firecrawl run: "
             + ", ".join(drifted_scheduler_fields)
         )
+    _reject_same_run_semantic_fixed_point(
+        store,
+        candidates=plan.candidates,
+        run_id=scheduler.run_id,
+    )
+    _validate_recovery_artifact_root(
+        store,
+        candidates=plan.candidates,
+        run_id=scheduler.run_id,
+        artifact_dir=scheduler.artifact_dir,
+    )
     if (
         durable.get("schema_version") != FROZEN_BATCH_FIRECRAWL_RUN_SCHEMA
         or durable.get("source_batch_id") != batch_id
@@ -576,6 +628,110 @@ def _ordered_frozen_candidates(
     return tuple(selected)
 
 
+def _current_observation_source_sha256() -> dict[str, str]:
+    """Bind every source file that can change Firecrawl observation semantics."""
+
+    try:
+        return {
+            name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for name, path in _OBSERVATION_SOURCE_FILES.items()
+        }
+    except OSError as exc:
+        raise FrozenBatchFirecrawlObservationError(
+            "cannot hash the frozen Firecrawl observation sources"
+        ) from exc
+
+
+def _reject_same_run_semantic_fixed_point(
+    store: CycleAcquisitionStore,
+    *,
+    candidates: Sequence[FrozenFirecrawlCandidate],
+    run_id: str,
+) -> None:
+    for candidate in candidates:
+        for observation in reversed(store.observations(candidate.candidate_id)):
+            evidence = observation.evidence
+            raw_contract = evidence.get("retry_contract")
+            if not isinstance(raw_contract, Mapping):
+                continue
+            contract = cast(Mapping[str, object], raw_contract)
+            if (
+                observation.state == "transient_failure"
+                and contract.get("mode") == "new_firecrawl_run"
+                and contract.get("source_run_id") == run_id
+            ):
+                raise FrozenBatchFirecrawlObservationError(
+                    "semantic reconstruction failed after this run committed raw "
+                    "pages; recover with a fresh run id and raw artifact directory"
+                )
+
+
+def _validate_recovery_artifact_root(
+    store: CycleAcquisitionStore,
+    *,
+    candidates: Sequence[FrozenFirecrawlCandidate],
+    run_id: str,
+    artifact_dir: str | Path,
+) -> None:
+    requested_root = str(Path(artifact_dir).resolve())
+    for candidate in candidates:
+        for observation in reversed(store.observations(candidate.candidate_id)):
+            raw_contract = observation.evidence.get("retry_contract")
+            if not isinstance(raw_contract, Mapping):
+                continue
+            contract = cast(Mapping[str, object], raw_contract)
+            source_run_id = contract.get("source_run_id")
+            if (
+                observation.state != "transient_failure"
+                or contract.get("mode") != "new_firecrawl_run"
+                or not isinstance(source_run_id, str)
+                or source_run_id == run_id
+            ):
+                continue
+            try:
+                source_config = store.firecrawl_run_config(source_run_id)
+            except KeyError as exc:
+                raise FrozenBatchFirecrawlObservationError(
+                    "semantic recovery contract references an unknown source run"
+                ) from exc
+            if source_config.get("raw_artifact_root") == requested_root:
+                raise FrozenBatchFirecrawlObservationError(
+                    "semantic recovery requires a distinct raw artifact directory"
+                )
+            break
+
+
+def _semantic_retry_contract(
+    store: CycleAcquisitionStore,
+    *,
+    scheduler: BudgetedFirecrawlScheduler,
+    candidate: FrozenFirecrawlCandidate,
+    max_pages_per_docket: int,
+) -> dict[str, object]:
+    page_target_ids = {
+        _page_target_id(candidate.docket_id, page_number)
+        for page_number in range(1, max_pages_per_docket + 1)
+    }
+    committed_pages = [
+        {
+            "target_id": attempt.target_id,
+            "page_number": attempt.page_number,
+            "source_url": attempt.request_url,
+            "artifact_sha256": attempt.artifact_sha256,
+        }
+        for attempt in store.firecrawl_attempts(scheduler.run_id)
+        if attempt.target_id in page_target_ids and attempt.status == "succeeded"
+    ]
+    summary = store.firecrawl_run_summary(scheduler.run_id)
+    return {
+        "mode": "new_firecrawl_run",
+        "reason": "committed_page_semantic_failure",
+        "source_run_id": scheduler.run_id,
+        "source_config_digest": summary["config_digest"],
+        "committed_pages": committed_pages,
+    }
+
+
 def _validate_requested_candidate_ids(
     requested_candidate_ids: Sequence[str],
     *,
@@ -612,7 +768,9 @@ def _acquire_candidates(
     }
     base_urls: dict[str, str] = {}
     failures: dict[str, tuple[str, str, str]] = {}
-    summary: Mapping[str, object] = {}
+    summary: Mapping[str, object] = scheduler.store.firecrawl_run_summary(
+        scheduler.run_id
+    )
     for candidate in candidates:
         url = courtlistener_public_docket_url_from_case_dev(candidate.payload)
         if url is None:

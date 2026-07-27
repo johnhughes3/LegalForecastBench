@@ -10,7 +10,10 @@ from legalforecast.cli import main
 from legalforecast.ingestion.budgeted_firecrawl import BudgetedFirecrawlScheduler
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit
-from legalforecast.ingestion.firecrawl_source import FirecrawlScrapeResult
+from legalforecast.ingestion.firecrawl_source import (
+    FirecrawlScrapeResult,
+    FirecrawlServerError,
+)
 from legalforecast.ingestion.frozen_batch_firecrawl_observation import (
     FrozenBatchFirecrawlObservationError,
     plan_frozen_firecrawl_observation,
@@ -122,6 +125,51 @@ def test_cli_rejects_credit_cap_above_documented_ceiling_before_store_or_provide
     )
     assert "--credit-cap must not exceed 45000" in capsys.readouterr().err
     assert not store_path.exists()
+
+
+def test_cli_reports_missing_firecrawl_key_without_run_or_provider_mutation(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _priority_store(tmp_path):
+        pass
+    monkeypatch.delenv("FIRECRAWL_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "legalforecast.cli._validate_frozen_screening_policy",
+        lambda **_kwargs: None,
+    )
+
+    def provider_must_not_be_constructed(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("provider source constructed without an API key")
+
+    monkeypatch.setattr(
+        "legalforecast.cli.FirecrawlCourtListenerHTMLSource",
+        provider_must_not_be_constructed,
+    )
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "observe-firecrawl",
+                "--cycle-store",
+                str(tmp_path / "cycle.sqlite3"),
+                "--batch-id",
+                _BATCH_ID,
+                "--run-id",
+                "observe-run",
+                "--raw-artifact-dir",
+                str(tmp_path / "raw"),
+                "--live-firecrawl",
+            ]
+        )
+        == 2
+    )
+    assert "FIRECRAWL_API_KEY is required" in capsys.readouterr().err
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        with pytest.raises(KeyError):
+            store.firecrawl_run_config("observe-run")
 
 
 def test_selection_preserves_frozen_priority_and_ignores_requested_order(
@@ -257,7 +305,7 @@ def test_plan_rejects_invalid_per_attempt_credit_reservation(
             )
 
 
-def test_incomplete_html_is_transient_and_same_run_resumes_exact_scope(
+def test_transport_failure_is_transient_and_same_run_resumes_exact_scope(
     tmp_path: Path,
 ) -> None:
     with _priority_store(tmp_path) as store:
@@ -273,7 +321,7 @@ def test_incomplete_html_is_transient_and_same_run_resumes_exact_scope(
             credit_cap=100,
             reserved_credits_per_attempt=1,
         )
-        source = _HTMLSource("<html><body>not a docket</body></html>")
+        source = _ServerErrorSource()
         tally = run_frozen_firecrawl_observation(
             store,
             batch_id=_BATCH_ID,
@@ -296,6 +344,7 @@ def test_incomplete_html_is_transient_and_same_run_resumes_exact_scope(
         assert observation.state == "transient_failure"
         assert observation.reason_code == "temporarily_unavailable"
         assert tally.transient_by_reason == {"temporarily_unavailable": 1}
+        assert source.calls == 1
 
         resumed = _plan(
             store,
@@ -307,6 +356,182 @@ def test_incomplete_html_is_transient_and_same_run_resumes_exact_scope(
     assert tuple(candidate.candidate_id for candidate in resumed.candidates) == (
         "courtlistener-docket-10",
     )
+
+
+def test_semantic_failure_requires_fresh_run_and_clean_recovery_terminalizes(
+    tmp_path: Path,
+) -> None:
+    with _priority_store(tmp_path) as store:
+        failed_plan = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+        )
+        preplanned_recovery = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+            run_id="preplanned-recovery",
+        )
+        store.ensure_firecrawl_run(
+            "observe-run",
+            batch_id=_BATCH_ID,
+            config=failed_plan.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+        malformed_source = _HTMLSource("<html><body>not a docket</body></html>")
+        failed = run_frozen_firecrawl_observation(
+            store,
+            batch_id=_BATCH_ID,
+            scheduler=BudgetedFirecrawlScheduler(
+                store=store,
+                source=malformed_source,
+                run_id="observe-run",
+                artifact_dir=tmp_path / "raw",
+                max_attempts=1,
+                provider_5xx_circuit_threshold=2,
+                max_workers=2,
+            ),
+            plan=failed_plan,
+            eligibility_anchor=date(2026, 6, 30),
+            max_pages_per_docket=2,
+        )
+        [failure] = store.observations("courtlistener-docket-10")
+
+        assert malformed_source.calls == 1
+        assert failed.transient_by_reason == {"temporarily_unavailable": 1}
+        retry_contract = cast(dict[str, object], failure.evidence["retry_contract"])
+        assert retry_contract["mode"] == "new_firecrawl_run"
+        assert retry_contract["reason"] == "committed_page_semantic_failure"
+        assert retry_contract["source_run_id"] == "observe-run"
+        assert retry_contract["source_config_digest"] == (
+            store.firecrawl_run_summary("observe-run")["config_digest"]
+        )
+        [committed_page] = cast(
+            list[dict[str, object]],
+            retry_contract["committed_pages"],
+        )
+        [committed_attempt] = store.firecrawl_attempts("observe-run")
+        assert committed_page == {
+            "target_id": committed_attempt.target_id,
+            "page_number": 1,
+            "source_url": committed_attempt.request_url,
+            "artifact_sha256": committed_attempt.artifact_sha256,
+        }
+        same_run_source = _HTMLSource(_clean_docket_html("10"))
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="fresh run id and raw artifact directory",
+        ):
+            run_frozen_firecrawl_observation(
+                store,
+                batch_id=_BATCH_ID,
+                scheduler=BudgetedFirecrawlScheduler(
+                    store=store,
+                    source=same_run_source,
+                    run_id="observe-run",
+                    artifact_dir=tmp_path / "raw",
+                    max_attempts=1,
+                    provider_5xx_circuit_threshold=2,
+                    max_workers=2,
+                ),
+                plan=failed_plan,
+                eligibility_anchor=date(2026, 6, 30),
+                max_pages_per_docket=2,
+            )
+        assert same_run_source.calls == 0
+        assert len(store.observations("courtlistener-docket-10")) == 1
+
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="fresh run id and raw artifact directory",
+        ):
+            _plan(
+                store,
+                tmp_path,
+                requested_candidate_ids=("courtlistener-docket-10",),
+            )
+        store.ensure_firecrawl_run(
+            "preplanned-recovery",
+            batch_id=_BATCH_ID,
+            config=preplanned_recovery.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+        preplanned_source = _HTMLSource(_clean_docket_html("10"))
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="distinct raw artifact directory",
+        ):
+            run_frozen_firecrawl_observation(
+                store,
+                batch_id=_BATCH_ID,
+                scheduler=BudgetedFirecrawlScheduler(
+                    store=store,
+                    source=preplanned_source,
+                    run_id="preplanned-recovery",
+                    artifact_dir=tmp_path / "raw",
+                    max_attempts=1,
+                    provider_5xx_circuit_threshold=2,
+                    max_workers=2,
+                ),
+                plan=preplanned_recovery,
+                eligibility_anchor=date(2026, 6, 30),
+                max_pages_per_docket=2,
+            )
+        assert preplanned_source.calls == 0
+        assert len(store.observations("courtlistener-docket-10")) == 1
+
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="distinct raw artifact directory",
+        ):
+            _plan(
+                store,
+                tmp_path,
+                requested_candidate_ids=("courtlistener-docket-10",),
+                run_id="observe-recovery",
+            )
+
+        recovery_plan = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+            run_id="observe-recovery",
+            artifact_dir_name="recovery-raw",
+        )
+        store.ensure_firecrawl_run(
+            "observe-recovery",
+            batch_id=_BATCH_ID,
+            config=recovery_plan.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+        clean_source = _HTMLSource(_clean_docket_html("10"))
+        recovered = run_frozen_firecrawl_observation(
+            store,
+            batch_id=_BATCH_ID,
+            scheduler=BudgetedFirecrawlScheduler(
+                store=store,
+                source=clean_source,
+                run_id="observe-recovery",
+                artifact_dir=tmp_path / "recovery-raw",
+                max_attempts=1,
+                provider_5xx_circuit_threshold=2,
+                max_workers=2,
+            ),
+            plan=recovery_plan,
+            eligibility_anchor=date(2026, 6, 30),
+            max_pages_per_docket=2,
+        )
+
+        observation = store.current_observation("courtlistener-docket-10")
+
+    assert clean_source.calls == 1
+    assert recovered.accepted == 1
+    assert observation is not None
+    assert observation.state == "accepted"
 
 
 def test_complete_html_uses_canonical_screen_and_records_acceptance(
@@ -352,6 +577,58 @@ def test_complete_html_uses_canonical_screen_and_records_acceptance(
     assert tally.accepted == 1
 
 
+def test_completed_resume_preserves_durable_credit_accounting(
+    tmp_path: Path,
+) -> None:
+    with _priority_store(tmp_path) as store:
+        plan = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+        )
+        store.ensure_firecrawl_run(
+            "observe-run",
+            batch_id=_BATCH_ID,
+            config=plan.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+        source = _HTMLSource(_clean_docket_html("10"))
+        scheduler = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="observe-run",
+            artifact_dir=tmp_path / "raw",
+            max_attempts=1,
+            provider_5xx_circuit_threshold=2,
+            max_workers=2,
+        )
+        first = run_frozen_firecrawl_observation(
+            store,
+            batch_id=_BATCH_ID,
+            scheduler=scheduler,
+            plan=plan,
+            eligibility_anchor=date(2026, 6, 30),
+            max_pages_per_docket=2,
+        )
+        resumed = run_frozen_firecrawl_observation(
+            store,
+            batch_id=_BATCH_ID,
+            scheduler=scheduler,
+            plan=plan,
+            eligibility_anchor=date(2026, 6, 30),
+            max_pages_per_docket=2,
+        )
+        durable_summary = store.firecrawl_run_summary("observe-run")
+
+    assert source.calls == 1
+    assert resumed.skipped_already_observed == 1
+    assert resumed.attempted == 0
+    assert first.credit_summary["run_reported_credits"] == 1
+    assert resumed.credit_summary == durable_summary
+    assert resumed.credit_summary["run_reported_credits"] == 1
+
+
 def test_driver_rejects_tampered_plan_before_provider_use(tmp_path: Path) -> None:
     with _priority_store(tmp_path) as store:
         plan = _plan(
@@ -389,6 +666,74 @@ def test_driver_rejects_tampered_plan_before_provider_use(tmp_path: Path) -> Non
                     max_workers=2,
                 ),
                 plan=tampered,
+                eligibility_anchor=date(2026, 6, 30),
+                max_pages_per_docket=2,
+            )
+
+    assert source.calls == 0
+
+
+@pytest.mark.parametrize(
+    "source_name",
+    ("adapter", "courtlistener_html_parser", "docket_paginator"),
+)
+def test_source_digest_drift_blocks_resume_and_execution_before_provider_use(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source_name: str,
+) -> None:
+    with _priority_store(tmp_path) as store:
+        plan = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+        )
+        store.ensure_firecrawl_run(
+            "observe-run",
+            batch_id=_BATCH_ID,
+            config=plan.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+        frozen_sources = cast(
+            dict[str, str],
+            plan.run_config["observation_source_sha256"],
+        )
+        drifted_sources = {**frozen_sources, source_name: "0" * 64}
+        monkeypatch.setattr(
+            "legalforecast.ingestion.frozen_batch_firecrawl_observation."
+            "_current_observation_source_sha256",
+            lambda: drifted_sources,
+        )
+
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="refusing unsafe resume",
+        ):
+            _plan(
+                store,
+                tmp_path,
+                requested_candidate_ids=("courtlistener-docket-10",),
+            )
+
+        source = _HTMLSource(_clean_docket_html("10"))
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="observation source code does not match",
+        ):
+            run_frozen_firecrawl_observation(
+                store,
+                batch_id=_BATCH_ID,
+                scheduler=BudgetedFirecrawlScheduler(
+                    store=store,
+                    source=source,
+                    run_id="observe-run",
+                    artifact_dir=tmp_path / "raw",
+                    max_attempts=1,
+                    provider_5xx_circuit_threshold=2,
+                    max_workers=2,
+                ),
+                plan=plan,
                 eligibility_anchor=date(2026, 6, 30),
                 max_pages_per_docket=2,
             )
@@ -594,15 +939,17 @@ def _plan(
     tmp_path: Path,
     *,
     requested_candidate_ids: tuple[str, ...],
+    run_id: str = "observe-run",
+    artifact_dir_name: str = "raw",
     max_pages_per_docket: int = 2,
     reserved_credits_per_attempt: int = 1,
 ):
     return plan_frozen_firecrawl_observation(
         store,
         batch_id=_BATCH_ID,
-        run_id="observe-run",
+        run_id=run_id,
         eligibility_anchor=date(2026, 6, 30),
-        artifact_dir=tmp_path / "raw",
+        artifact_dir=tmp_path / artifact_dir_name,
         max_pages_per_docket=max_pages_per_docket,
         max_attempts_per_page=1,
         provider_breaker_threshold=2,
@@ -633,6 +980,18 @@ class _HTMLSource:
             credits_used=1.0,
             raw={"success": True},
             resolved_url=source_url,
+        )
+
+
+class _ServerErrorSource:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def scrape_url(self, *, source_url: str) -> FirecrawlScrapeResult:
+        self.calls += 1
+        raise FirecrawlServerError(
+            f"fixture provider failure for {source_url}",
+            provider_http_status=503,
         )
 
 

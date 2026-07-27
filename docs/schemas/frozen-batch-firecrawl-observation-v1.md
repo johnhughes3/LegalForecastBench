@@ -11,7 +11,8 @@ The durable Firecrawl run configuration binds:
 - the exact selected candidate set and its frozen traversal order;
 - the eligibility anchor and decision-window upper bound;
 - the raw artifact root, pagination ceiling, retry ceiling, circuit threshold, concurrency ceiling, proxy mode, browser mode, and worst-case credits per request; and
-- the scheduler's target-HTTP pressure policy version.
+- the scheduler's target-HTTP pressure policy version; and
+- SHA-256 digests of the adapter, CourtListener HTML parser, and docket paginator source files.
 
 Candidate IDs supplied on the command line act only as a set selector. The adapter always restores their order from the frozen priority records. With no explicit IDs, a new run freezes the candidates that do not have a current terminal observation. A resumed run restores its original selected scope from the durable configuration, skips candidates that have since become terminal, and retains each candidate's batch-global ordinal for page scheduling.
 
@@ -26,6 +27,8 @@ The reconstructed rows terminate in the same provider-independent canonical scre
 - operative-complaint requirements for bankruptcy adversary proceedings; and
 - outcome-leakage screening over model-visible predecision materials.
 
-Canonical terminal outcomes use the existing cycle reason taxonomy. Missing pages, page-cap exhaustion, malformed or ambiguous HTML, unparseable disposition dates, and other incomplete proof are append-only transient observations. They do not become a candidate's current observation and therefore remain retryable.
+Canonical terminal outcomes use the existing cycle reason taxonomy. Missing pages, page-cap exhaustion, malformed or ambiguous HTML, unparseable disposition dates, and other incomplete proof are append-only transient observations. They do not become a candidate's current observation.
+
+Same-run resume consumes unused attempts and replays already committed successful page artifacts. Transport failures that did not commit an artifact may therefore resume under the identical run. A parser or reconstruction failure discovered after raw pages were committed cannot make progress by replaying those same immutable bytes. Its transient evidence carries a `retry_contract` binding the old run, configuration digest, and committed page artifacts; recovery requires a fresh run ID and a distinct raw-artifact root for the exact unresolved candidate. The old successful attempts and artifacts are never mutated or reclassified.
 
 The command has no PACER, RECAP Fetch, fee acknowledgment, purchase, model evaluation, freeze, or dispatch path.

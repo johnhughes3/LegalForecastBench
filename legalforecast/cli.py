@@ -19018,15 +19018,18 @@ def _cmd_batch_002_observe_firecrawl(args: argparse.Namespace) -> int:
     ) as exc:
         raise CommandError(str(exc)) from exc
 
-    config = (
-        FirecrawlConfig.from_env(proxy=proxy, force_browser=force_browser)
-        if live
-        else FirecrawlConfig(
-            api_key="offline-fixture",
-            proxy=proxy,
-            force_browser=force_browser,
+    try:
+        config = (
+            FirecrawlConfig.from_env(proxy=proxy, force_browser=force_browser)
+            if live
+            else FirecrawlConfig(
+                api_key="offline-fixture",
+                proxy=proxy,
+                force_browser=force_browser,
+            )
         )
-    )
+    except (FirecrawlError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
     source = FirecrawlCourtListenerHTMLSource(
         config,
         **(
