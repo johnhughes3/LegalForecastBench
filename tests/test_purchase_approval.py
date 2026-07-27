@@ -416,6 +416,66 @@ def test_free_only_materialization_authority_replays_genuine_zero_cost_decision(
         )
 
 
+def test_free_only_materialization_rejects_prior_gap_decision_after_free_refresh(
+    tmp_path: Path,
+) -> None:
+    target_root, cohort_policy, fee_schedule = _projection_fixture(
+        tmp_path, missing_count=1
+    )
+    private_root = (tmp_path / "private").resolve()
+    ledger = (tmp_path / "ledger.sqlite3").resolve()
+    request = build_purchase_approval_request(
+        target_cohort_root=target_root,
+        cohort_policy_path=cohort_policy,
+        fee_schedule_path=fee_schedule,
+        canonical_ledger_path=ledger,
+    )
+    assert request.purchase_document_count > 0
+    checkpoint_path, run_card_path = record_purchase_approval(
+        request=request,
+        controlled_private_root=private_root,
+        decision="free_only",
+        typed_confirmation=request.required_confirmation("free_only"),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-07-26T15:00:00Z",
+    )
+    selection_records = tuple(
+        json.loads(line)
+        for line in (target_root / "target-cohort-selection.jsonl")
+        .read_text()
+        .splitlines()
+        if line
+    )
+    selected_keys = {
+        (record["candidate_id"], document["source_document_id"])
+        for record in selection_records
+        for document in record["documents"]
+    }
+    simulated_refreshed_free_manifest = tuple(
+        {"candidate_id": candidate_id, "source_document_id": document_id}
+        for candidate_id, document_id in selected_keys
+    )
+
+    with pytest.raises(
+        FreeOnlyMaterializationError,
+        match="zero purchases and zero cost",
+    ):
+        verify_free_only_materialization_authority(
+            inputs=FreeOnlyMaterializationInputs(
+                checkpoint_path=checkpoint_path,
+                run_card_path=run_card_path,
+                fee_schedule_path=fee_schedule,
+                canonical_ledger_path=ledger,
+            ),
+            controlled_private_root=private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            projected_purchased_manifest=(),
+            free_manifest=simulated_refreshed_free_manifest,
+            selected_document_keys=selected_keys,
+        )
+
+
 @pytest.mark.parametrize("decision", ["approve", "reject"])
 def test_free_only_replay_rejects_every_other_decision(
     tmp_path: Path, decision: str

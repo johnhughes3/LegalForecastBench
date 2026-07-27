@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -88,6 +89,21 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    final_snapshots: dict[Path, bytes] = {}
+    original_snapshot_check = cli._require_snapshot_unchanged
+
+    def capture_final_snapshot(
+        snapshots: Mapping[Path, bytes],
+        *,
+        label: str,
+    ) -> None:
+        if label == "materialization downstream lineage artifact":
+            final_snapshots.update(
+                {Path(path): payload for path, payload in snapshots.items()}
+            )
+        original_snapshot_check(snapshots, label=label)
+
+    monkeypatch.setattr(cli, "_require_snapshot_unchanged", capture_final_snapshot)
     preparation = tmp_path / "preparation"
     free_root = preparation / "documents/free"
     free_root.mkdir(parents=True)
@@ -267,6 +283,25 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     )
     assert len(replay.manifest_records) == 1
     assert replay.resolved_records == ()
+    assert any(
+        path.name == "materialize-cohort-documents.json" for path in final_snapshots
+    )
+    assert any(
+        path.suffix == ".pdf" and "documents" in path.parts for path in final_snapshots
+    )
+    assert any(path.name == "target-cohort-selection.jsonl" for path in final_snapshots)
+    unexpected = output / "documents/unexpected.pdf"
+    unexpected.write_bytes(b"%PDF-1.4\nunexpected\n%%EOF")
+    with pytest.raises(cli.CommandError, match="document-tree commitment changed"):
+        cli._verify_materialized_downstream_lineage(
+            run_card_path=run_card,
+            manifest_path=output / "document-downloads-merged.jsonl",
+            clearance_path=output / "disclosure-clearance.jsonl",
+            document_root=output / "documents",
+            selection_path=selection,
+            controlled_private_root=private_root,
+        )
+    unexpected.unlink()
     original_card_bytes = run_card.read_bytes()
     for tampered_mode in (None, "unknown"):
         tampered = dict(card)
@@ -341,6 +376,143 @@ def test_free_only_cli_rejects_partial_authority_before_output(tmp_path: Path) -
 
     with pytest.raises(cli.CommandError, match="all four free-only"):
         cli._cmd_acquisition_materialize_cohort_documents(args)
+
+
+def test_incomplete_paid_materialization_rejects_before_authority_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args = SimpleNamespace(
+        free_only_approval_checkpoint=None,
+        free_only_approval_run_card=None,
+        free_only_fee_schedule=None,
+        free_only_canonical_ledger_path=None,
+        purchased_recovery_root=tmp_path / "recovery",
+        purchased_disclosure_clearance=tmp_path / "clearance.jsonl",
+        purchased_clearance_run_card=tmp_path / "clearance-card.json",
+        purchase_policy=tmp_path / "policy.json",
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "_preflight_current_purchase_snapshot",
+        lambda _args: pytest.fail("incomplete paid mode read authority"),
+    )
+    with pytest.raises(cli.CommandError, match="requires recovery"):
+        cli._cmd_acquisition_materialize_cohort_documents(args)
+
+
+def test_paid_materializer_resume_rejects_injected_authority_mode(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "run-card.json"
+    card = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "materialize-cohort-documents",
+        "status": "completed",
+        "dry_run": True,
+        "execute": False,
+        "record_count": 0,
+        "input_paths": [],
+        "output_paths": [
+            str(tmp_path / name)
+            for name in (
+                "manifest.jsonl",
+                "clearance.jsonl",
+                "restriction.jsonl",
+                "derivations.jsonl",
+                "summary.json",
+                "documents",
+            )
+        ],
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "source_commitments": {},
+        "output_commitments": {},
+        "source_roots_mutated": False,
+        "zero_provider_activity_evidence": True,
+        "authority_mode": "free_only",
+    }
+    run_card.write_text(json.dumps(card, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(cli.CommandError, match="authority_mode"):
+        cli._verify_materializer_resume(
+            run_card_path=run_card,
+            input_paths=(),
+            manifest_path=tmp_path / "manifest.jsonl",
+            manifest_bytes=b"",
+            clearance_path=tmp_path / "clearance.jsonl",
+            clearance_bytes=b"",
+            restriction_path=tmp_path / "restriction.jsonl",
+            restriction_bytes=b"",
+            derivations_path=tmp_path / "derivations.jsonl",
+            derivations_bytes=b"",
+            summary_path=tmp_path / "summary.json",
+            summary_bytes=b"",
+            document_root=tmp_path / "documents",
+            materialization=SimpleNamespace(manifest=(), clearance=()),
+            source_commitments={},
+            output_commitments={},
+            dry_run=True,
+        )
+
+
+@pytest.mark.parametrize(
+    "paid_field",
+    [
+        "purchase_policy",
+        "purchase_ledger",
+        "purchase_ledger_initialization_receipt",
+        "resolved_post_recovery_documents",
+    ],
+)
+def test_free_only_downstream_preflight_rejects_paid_state_before_policy_access(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    paid_field: str,
+) -> None:
+    input_paths = [str(tmp_path / f"input-{index}") for index in range(11)]
+    run_card = tmp_path / "materialization-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "authority_mode": "free_only",
+                "input_paths": input_paths,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = SimpleNamespace(
+        materialization_run_card=run_card,
+        controlled_private_root=tmp_path / "private",
+        purchase_policy=None,
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+    paid_state_path = tmp_path / "paid-state"
+    setattr(args, paid_field, paid_state_path)
+    if paid_field == "purchase_policy":
+        paid_state_path.write_text(
+            '{"schema_version":"legalforecast.case_dev_purchase_policy.v2"}\n',
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(
+        cli,
+        "_preflight_approved_purchase_runtime",
+        lambda _args: pytest.fail("free-only mode accessed paid authority"),
+    )
+
+    with pytest.raises(cli.CommandError, match="rejects paid-runtime inputs"):
+        cli._preflight_materialization_purchase_runtime(args)
 
 
 def test_materializer_requires_exact_selected_identity_coverage(tmp_path: Path) -> None:

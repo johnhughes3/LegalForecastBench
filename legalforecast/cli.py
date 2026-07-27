@@ -139,6 +139,7 @@ from legalforecast.ingestion.case_dev_provisional_frontier import (
     verify_case_dev_provisional_frontier,
 )
 from legalforecast.ingestion.case_dev_purchase import (
+    CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION,
     CaseDevPacerCapability,
     CaseDevPacerPurchaseAttempt,
     CaseDevPacerPurchaseClient,
@@ -28731,12 +28732,12 @@ def _preflight_materialization_purchase_runtime(
 ) -> CaseDevPurchasePolicy | None:
     """Replay authority from an explicit policy or materialization run card."""
 
-    policy = _preflight_approved_purchase_runtime(args)
-    if policy is not None:
-        return policy
     run_card_path = cast(Path | None, getattr(args, "materialization_run_card", None))
     if run_card_path is None:
-        return None
+        return _preflight_approved_purchase_runtime(args)
+    legacy_policy = _preflight_legacy_purchase_policy_rejection(args)
+    if legacy_policy is not None:
+        return legacy_policy
     controlled_private_root = cast(
         Path | None, getattr(args, "controlled_private_root", None)
     )
@@ -28764,6 +28765,19 @@ def _preflight_materialization_purchase_runtime(
         )
         authority_mode = card.get("authority_mode")
         if authority_mode == "free_only":
+            paid_values = (
+                getattr(args, "purchased_recovery_root", None),
+                getattr(args, "purchased_disclosure_clearance", None),
+                getattr(args, "purchased_clearance_run_card", None),
+                getattr(args, "purchase_policy", None),
+                getattr(args, "purchase_ledger", None),
+                getattr(args, "purchase_ledger_initialization_receipt", None),
+                getattr(args, "resolved_post_recovery_documents", None),
+            )
+            if any(value is not None for value in paid_values):
+                raise CommandError(
+                    "free-only materialization rejects paid-runtime inputs"
+                )
             if len(input_paths) != 11 or controlled_private_root is None:
                 raise CommandError("invalid free-only materialization authority inputs")
             verify_free_only_materialization_authority(
@@ -28796,6 +28810,9 @@ def _preflight_materialization_purchase_runtime(
             return None
         if authority_mode is not None:
             raise CommandError("unsupported materialization authority mode")
+        policy = _preflight_approved_purchase_runtime(args)
+        if policy is not None:
+            return policy
         if len(input_paths) not in {12, 13}:
             raise CommandError("materialization run card input paths differ")
         policy = verify_case_dev_purchase_policy(_read_json_object(input_paths[9]))
@@ -28811,6 +28828,37 @@ def _preflight_materialization_purchase_runtime(
     ) as exc:
         raise CommandError(str(exc)) from exc
     return policy
+
+
+def _preflight_legacy_purchase_policy_rejection(
+    args: argparse.Namespace,
+) -> CaseDevPurchasePolicy | None:
+    """Reject valid legacy v1 authority before inspecting other runtime state."""
+
+    policy_path = cast(Path | None, getattr(args, "purchase_policy", None))
+    if policy_path is None:
+        return None
+    if policy_path.is_symlink() or not policy_path.is_file():
+        return None
+    try:
+        artifact = _read_json_object(policy_path)
+        if artifact.get("schema_version") != CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION:
+            return None
+        policy = verify_case_dev_purchase_policy(artifact)
+        require_approved_case_dev_purchase_policy(
+            policy,
+            controlled_private_root=cast(
+                Path | None, getattr(args, "controlled_private_root", None)
+            ),
+        )
+        return policy
+    except (
+        CaseDevPurchasePolicyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
 
 
 def _preflight_current_purchase_snapshot(args: argparse.Namespace) -> None:
@@ -28943,12 +28991,13 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
                 ),
             ),
         )
-    _preflight_current_purchase_snapshot(args)
+    _preflight_legacy_purchase_policy_rejection(args)
     if not all(value is not None for value in paid_values[:5]):
         raise CommandError(
             "approved-purchase materialization requires recovery, purchased "
             "clearance, purchase policy, and purchase ledger inputs"
         )
+    _preflight_current_purchase_snapshot(args)
     output_root = cast(Path, args.output_root).absolute()
     preparation_root = cast(Path, args.preparation_root).absolute()
     preparation_summary_path = cast(Path, args.preparation_summary).absolute()
@@ -31284,6 +31333,10 @@ def _verify_materializer_resume(
     for field, value in expected.items():
         if card.get(field) != value:
             raise CommandError(f"materialize-cohort-documents resume mismatch: {field}")
+    if card.get("authority_mode") != authority_mode:
+        raise CommandError(
+            "materialize-cohort-documents resume mismatch: authority_mode"
+        )
     if dry_run:
         return
     output_snapshots = {
@@ -31463,6 +31516,12 @@ def _verify_materialized_downstream_lineage(
             )
             for document in publication.materialization.documents
         }
+        verified_document_commitments = {
+            relative_path: _bytes_sha256(payload)
+            for relative_path, payload in document_tree_snapshot.items()
+        }
+        if verified_document_commitments != document_commitments:
+            raise CommandError("materialization document-tree commitment changed")
         summary_bytes = _projection_json_bytes(
             {
                 **publication.materialization.summary,
@@ -31540,16 +31599,21 @@ def _verify_materialized_downstream_lineage(
             raise CommandError(
                 "downstream selection differs from materialized target cohort"
             )
+        captured_paths = {
+            run_card_path: run_card_bytes,
+            **dict(publication.captured_source_snapshots),
+            **output_snapshots,
+            **{
+                document_root / relative_path: payload
+                for relative_path, payload in document_tree_snapshot.items()
+            },
+        }
+        _require_snapshot_unchanged(
+            captured_paths,
+            label="materialization downstream lineage artifact",
+        )
         captured = {
-            os.path.abspath(run_card_path): run_card_bytes,
-            **{
-                os.path.abspath(path): payload
-                for path, payload in publication.captured_source_snapshots.items()
-            },
-            **{
-                os.path.abspath(path): payload
-                for path, payload in output_snapshots.items()
-            },
+            os.path.abspath(path): payload for path, payload in captured_paths.items()
         }
         return _VerifiedMaterializedDownstreamLineage(
             paths=(

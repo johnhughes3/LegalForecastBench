@@ -247,6 +247,11 @@ def test_runbook_documents_authenticated_free_only_materialization() -> None:
         assert option in runbook
     assert "Stop on `reject`." in runbook
     assert "For `free_only`, do not generate a purchase policy" in runbook
+    assert (
+        "stops paid acquisition but does not authorize a later changed projection"
+        in runbook
+    )
+    assert "record a new zero-cost `free_only` decision" in runbook
 
 
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:

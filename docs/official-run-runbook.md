@@ -73,6 +73,8 @@ uv run legalforecast acquisition \
 ```
 
 The free-only path rejects every paid recovery, purchase-policy, purchase-ledger, initialization-receipt, and resolved-document input; it also fails closed unless the projected purchased manifest is empty and the free manifest exactly covers the selected documents.
+A `free_only` decision recorded against a projection that still contemplated one or more paid gaps stops paid acquisition but does not authorize a later changed projection, even if those documents subsequently become free.
+After provider-free gap recovery, publish and authenticate a new exact all-free projection, then record a new zero-cost `free_only` decision against those exact projection bytes before materialization.
 For `approve`, the order is mandatory: record the private decision, verify that exact checkpoint and run card while the canonical ledger namespace is still absent, and only then generate the public v2 policy; generation cannot be moved before verification or repeated after ledger initialization.
 Never hand-edit the private checkpoint, run card, or public v2 policy, and never reuse v1 policy input for a new official purchase.
 See [Case.dev purchase policy v2](schemas/case-dev-purchase-policy-v2.md) for the complete replay and containment contract.
