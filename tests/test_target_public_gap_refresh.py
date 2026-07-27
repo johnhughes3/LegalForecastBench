@@ -17,6 +17,10 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlPageRecord,
     FirecrawlTargetSpec,
 )
+from legalforecast.ingestion.firecrawl_source import (
+    FirecrawlConfig,
+    FirecrawlCourtListenerHTMLSource,
+)
 from legalforecast.ingestion.free_document_downloader import (
     FixtureFreeDocumentSource,
     FreeDocumentDownloadError,
@@ -277,6 +281,28 @@ def test_execution_preflight_and_atomic_output_publication(tmp_path: Path) -> No
                 **payloads,
                 "target-public-gap-outcomes.jsonl": b"different\n",
             },
+        )
+
+
+def test_completed_output_tree_reader_rejects_symlink_without_path_glob(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "published"
+    output_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "sensitive.json").write_text('{"outside": true}\n')
+    (output_root / "escaped").symlink_to(outside, target_is_directory=True)
+
+    def reject_path_glob(_path: Path, _pattern: str) -> Never:
+        raise AssertionError("published tree must not enumerate through pathnames")
+
+    monkeypatch.setattr(Path, "rglob", reject_path_glob)
+
+    with pytest.raises(ValueError, match="unsafe artifact: escaped"):
+        target_gap_module._published_tree_bytes(  # pyright: ignore[reportPrivateUsage]
+            output_root
         )
 
 
@@ -986,6 +1012,48 @@ def test_execution_rejects_plan_digest_mismatch_before_provider_construction(
         )
 
     assert constructed == []
+    assert not plan.execution_identity.cycle_store_path.exists()
+
+
+def test_execution_rejects_firecrawl_config_drift_before_provider_activity(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    constructed: list[str] = []
+
+    def construct_firecrawl() -> FirecrawlCourtListenerHTMLSource:
+        constructed.append("firecrawl")
+        return FirecrawlCourtListenerHTMLSource(
+            FirecrawlConfig(
+                api_key="fixture",
+                proxy="enhanced",
+                force_browser=True,
+            ),
+            transport=cast(Any, object()),
+        )
+
+    def construct_document_source() -> Never:
+        constructed.append("document")
+        raise AssertionError("document provider constructed after config drift")
+
+    with pytest.raises(
+        ValueError,
+        match="Firecrawl source configuration differs",
+    ):
+        execute_target_public_gap_refresh(
+            plan=plan,
+            expected_plan_sha256=_plan_sha256(plan),
+            firecrawl_source_factory=construct_firecrawl,
+            document_source_factory=construct_document_source,
+            allow_existing_downloads=True,
+        )
+
+    assert constructed == ["firecrawl"]
     assert not plan.execution_identity.cycle_store_path.exists()
 
 

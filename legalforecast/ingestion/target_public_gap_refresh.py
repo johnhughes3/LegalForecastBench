@@ -1308,6 +1308,14 @@ def execute_target_public_gap_refresh(
     firecrawl_source = firecrawl_source_factory()
     execution_binding.require_current(plan)
     require_target_public_gap_sources_unchanged(plan)
+    if (
+        firecrawl_source.config.proxy != identity.firecrawl_proxy
+        or firecrawl_source.config.force_browser != identity.force_browser
+    ):
+        raise TargetPublicGapRefreshError(
+            "Firecrawl source configuration differs from the plan-bound "
+            "execution identity"
+        )
     batch_config = {
         "schema_version": "legalforecast.target_public_gap_refresh_batch.v1",
         "purpose": "exact-target-public-gap-refresh",
@@ -1337,8 +1345,8 @@ def execute_target_public_gap_refresh(
         "max_attempts_per_page": identity.max_attempts_per_page,
         "provider_breaker_threshold": identity.provider_breaker_threshold,
         "raw_artifact_root": str(identity.raw_html_root.resolve()),
-        "firecrawl_proxy": firecrawl_source.config.proxy,
-        "firecrawl_force_browser": firecrawl_source.config.force_browser,
+        "firecrawl_proxy": identity.firecrawl_proxy,
+        "firecrawl_force_browser": identity.force_browser,
     }
     with CycleAcquisitionStore(identity.cycle_store_path) as store:
         execution_binding.require_current(plan)
@@ -2250,45 +2258,6 @@ def _reject_existing_work_tree(root: Path, *, label: str) -> None:
             )
 
 
-def _read_output_artifact(path: Path, *, bound_root: bool) -> bytes:
-    if not bound_root:
-        return read_unique_regular_file(path)
-    descriptor = os.open(
-        path,
-        os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
-    )
-    try:
-        before = os.fstat(descriptor)
-        named_before = path.lstat()
-        if (
-            not stat.S_ISREG(before.st_mode)
-            or before.st_nlink != 1
-            or _stable_stat_identity(before) != _stable_stat_identity(named_before)
-        ):
-            raise TargetPublicGapRefreshError(
-                "bound output artifact is not a stable unique regular file"
-            )
-        chunks: list[bytes] = []
-        while chunk := os.read(descriptor, 1024 * 1024):
-            chunks.append(chunk)
-        after = os.fstat(descriptor)
-        named_after = path.lstat()
-        if _stable_stat_identity(before) != _stable_stat_identity(
-            after
-        ) or _stable_stat_identity(before) != _stable_stat_identity(named_after):
-            raise TargetPublicGapRefreshError(
-                "bound output artifact changed while it was read"
-            )
-        payload = b"".join(chunks)
-        if len(payload) != after.st_size:
-            raise TargetPublicGapRefreshError(
-                "bound output artifact changed while it was read"
-            )
-        return payload
-    finally:
-        os.close(descriptor)
-
-
 def _stable_stat_identity(metadata: os.stat_result) -> tuple[int, ...]:
     return (
         metadata.st_dev,
@@ -2301,30 +2270,21 @@ def _stable_stat_identity(metadata: os.stat_result) -> tuple[int, ...]:
     )
 
 
-def _published_tree_bytes(
-    root: Path,
-    *,
-    bound_root: bool = False,
-) -> dict[str, bytes]:
-    if root.is_symlink() or not root.is_dir():
-        raise TargetPublicGapRefreshError(
-            "published output must be a non-symlink directory"
+def _published_tree_bytes(root: Path) -> dict[str, bytes]:
+    root_fd = _open_existing_directory_no_follow(
+        root,
+        label="published output",
+    )
+    try:
+        tree = _read_directory_tree_at(root_fd)
+        _require_named_directory_binding(
+            root,
+            root_fd,
+            label="published output",
         )
-    result: dict[str, bytes] = {}
-    for path in sorted(root.rglob("*")):
-        if path.is_dir() and not path.is_symlink():
-            continue
-        relative = path.relative_to(root).as_posix()
-        try:
-            result[relative] = _read_output_artifact(
-                path,
-                bound_root=bound_root,
-            )
-        except (OSError, ValueError) as exc:
-            raise TargetPublicGapRefreshError(
-                f"published output contains an unsafe artifact: {relative}"
-            ) from exc
-    return result
+        return tree
+    finally:
+        os.close(root_fd)
 
 
 def _verify_completed_output_for_plan(
