@@ -170,7 +170,7 @@ def test_provenance_planner_and_interactive_exception_recorder(
     assert main(_plan_command(paths)) == 0
 
     plan = json.loads((paths["output"] / "disclosure-provenance-plan.json").read_text())
-    assert (plan["auto_clear_count"], plan["john_review_count"]) == (1, 2)
+    assert (plan["auto_clear_count"], plan["john_review_count"]) == (2, 1)
     run_card = json.loads(
         (paths["output"] / "run-cards/plan-disclosure-provenance.json").read_text()
     )
@@ -188,7 +188,7 @@ def test_provenance_planner_and_interactive_exception_recorder(
     }
     monkeypatch.setattr(cli_module.sys, "stdin", _TTY())
     digest_iterator = iter(digests.values())
-    decision_iterator = iter(("cleared", "quarantined"))
+    decision_iterator = iter(("quarantined",))
 
     def ordered_answer(prompt: str) -> str:
         if prompt.startswith("Type the full inspected"):
@@ -220,7 +220,7 @@ def test_provenance_planner_and_interactive_exception_recorder(
     )
     decisions = paths["private"] / "disclosure-review-decisions.jsonl"
     decision_rows = [json.loads(line) for line in decisions.read_text().splitlines()]
-    assert [row["status"] for row in decision_rows] == ["cleared", "quarantined"]
+    assert [row["status"] for row in decision_rows] == ["quarantined"]
     recorder_card = paths["private"] / (
         "metadata/run-cards/record-disclosure-review-decisions.json"
     )
@@ -275,7 +275,7 @@ def test_provenance_planner_and_interactive_exception_recorder(
     ]
     by_id = {row["source_document_id"]: row for row in clearance_rows}
     assert by_id["auto"]["clearance_basis"] == "affirmative_public_provenance"
-    assert by_id["marker"]["clearance_basis"] == "john_exception_review"
+    assert by_id["marker"]["clearance_basis"] == "affirmative_public_provenance"
     assert by_id["marker"]["status"] == "cleared"
     assert by_id["sealed"]["status"] == "quarantined"
     clearance_path = tmp_path / "clearance/disclosure-clearance.jsonl"

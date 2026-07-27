@@ -42,6 +42,7 @@ _REST_PUBLIC_EVIDENCE = frozenset(
 _POSITIVE_RESTRICTION_EVIDENCE = re.compile(
     r"(?:^|_)(?:sealed|private|restricted|under_seal)(?:_true|$)"
 )
+_STRUCTURAL_EXTRACTION_DIAGNOSTICS = frozenset({"extraction_page_count_mismatch"})
 
 
 class ProvenanceClearanceError(ValueError):
@@ -150,7 +151,7 @@ def build_provenance_clearance_plan(
             route_reasons.append("visibility_contract_contradiction")
         if not affirmative_public:
             route_reasons.append("affirmative_public_provenance_unproven")
-        if markers:
+        if set(markers) - _STRUCTURAL_EXTRACTION_DIAGNOSTICS:
             route_reasons.append("automated_marker_present")
         auto_clear = not route_reasons
         documents.append(

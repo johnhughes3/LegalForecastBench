@@ -137,7 +137,9 @@ def _plan(tmp_path: Path) -> dict[str, object]:
         restriction_evidence_bytes=_jsonl(values.restrictions),
         case_relevance_bytes=_jsonl(values.relevance),
         marker_scanner=lambda payload: (
-            ("extraction_page_count_mismatch",) if payload == b"marker" else ()
+            ("extraction_page_count_mismatch",)
+            if payload in {b"marker", b"restricted", b"contradiction"}
+            else ()
         ),
     )
 
@@ -149,29 +151,111 @@ def _documents(artifact: Mapping[str, object]) -> list[Mapping[str, object]]:
     return cast(list[Mapping[str, object]], raw)
 
 
-def test_plan_routes_only_exact_affirmative_marker_free_public_bytes(
+def _route_reasons(document: Mapping[str, object]) -> list[str]:
+    reasons = document["route_reasons"]
+    assert isinstance(reasons, list)
+    raw_reasons = cast(list[object], reasons)
+    assert all(isinstance(item, str) for item in raw_reasons)
+    return cast(list[str], raw_reasons)
+
+
+def test_plan_auto_clears_only_structural_diagnostics_after_public_gates(
     tmp_path: Path,
 ) -> None:
     plan = _plan(tmp_path)
     documents = {cast(str, row["source_document_id"]): row for row in _documents(plan)}
 
     assert plan["document_count"] == 5
-    assert plan["auto_clear_count"] == 2
-    assert plan["john_review_count"] == 3
+    assert plan["auto_clear_count"] == 3
+    assert plan["john_review_count"] == 2
     assert documents["public-safe"]["route"] == "auto_clear"
     assert documents["rest-safe"]["route"] == "auto_clear"
-    assert documents["marker"]["route"] == "john_exception_review"
+    assert documents["marker"]["route"] == "auto_clear"
+    assert documents["marker"]["automated_markers"] == [
+        "extraction_page_count_mismatch"
+    ]
+    assert "automated_marker_present" not in _route_reasons(documents["marker"])
     assert documents["marker"]["human_clearance_permitted"] is True
+    assert documents["restricted"]["route"] == "john_exception_review"
     assert documents["restricted"]["human_clearance_permitted"] is False
+    assert documents["restricted"]["automated_markers"] == [
+        "extraction_page_count_mismatch"
+    ]
+    assert documents["contradiction"]["route"] == "john_exception_review"
     assert documents["contradiction"]["human_clearance_permitted"] is False
+    assert documents["contradiction"]["automated_markers"] == [
+        "extraction_page_count_mismatch"
+    ]
 
     worksheet = exception_review_worksheet(plan)
-    assert worksheet["document_count"] == 3
+    assert worksheet["document_count"] == 2
     assert {row["source_document_id"] for row in _documents(worksheet)} == {
-        "marker",
         "restricted",
         "contradiction",
     }
+
+
+@pytest.mark.parametrize("substantive_marker", ["medical", "ssn", "future_marker"])
+def test_plan_keeps_every_substantive_marker_in_review(
+    tmp_path: Path, substantive_marker: str
+) -> None:
+    values = _inputs(tmp_path)
+
+    plan = build_provenance_clearance_plan(
+        values.requests,
+        values.manifest,
+        values.restrictions,
+        values.relevance,
+        document_root=values.document_root,
+        review_requests_bytes=_jsonl(values.requests),
+        download_manifest_bytes=_jsonl(values.manifest),
+        restriction_evidence_bytes=_jsonl(values.restrictions),
+        case_relevance_bytes=_jsonl(values.relevance),
+        marker_scanner=lambda payload: (
+            (substantive_marker,) if payload == b"marker" else ()
+        ),
+    )
+
+    marker = next(
+        row for row in _documents(plan) if row["source_document_id"] == "marker"
+    )
+    assert marker["route"] == "john_exception_review"
+    assert marker["automated_markers"] == [substantive_marker]
+    assert "automated_marker_present" in _route_reasons(marker)
+    assert marker["human_clearance_permitted"] is True
+
+
+def test_structural_diagnostic_does_not_suppress_substantive_marker(
+    tmp_path: Path,
+) -> None:
+    values = _inputs(tmp_path)
+
+    plan = build_provenance_clearance_plan(
+        values.requests,
+        values.manifest,
+        values.restrictions,
+        values.relevance,
+        document_root=values.document_root,
+        review_requests_bytes=_jsonl(values.requests),
+        download_manifest_bytes=_jsonl(values.manifest),
+        restriction_evidence_bytes=_jsonl(values.restrictions),
+        case_relevance_bytes=_jsonl(values.relevance),
+        marker_scanner=lambda payload: (
+            ("extraction_page_count_mismatch", "medical")
+            if payload == b"marker"
+            else ()
+        ),
+    )
+
+    marker = next(
+        row for row in _documents(plan) if row["source_document_id"] == "marker"
+    )
+    assert marker["route"] == "john_exception_review"
+    assert marker["automated_markers"] == [
+        "extraction_page_count_mismatch",
+        "medical",
+    ]
+    assert "automated_marker_present" in _route_reasons(marker)
 
 
 @pytest.mark.parametrize(
@@ -216,7 +300,46 @@ def test_plan_forbids_human_clearance_for_spaced_positive_restrictions(
     )
     assert marker["route"] == "john_exception_review"
     assert marker["human_clearance_permitted"] is False
-    assert "positive_restriction_evidence" in marker["route_reasons"]
+    assert "positive_restriction_evidence" in _route_reasons(marker)
+
+
+def test_structural_diagnostic_does_not_clear_unproven_unknown_restriction(
+    tmp_path: Path,
+) -> None:
+    values = _inputs(tmp_path)
+    restriction = next(
+        row for row in values.restrictions if row["source_document_id"] == "marker"
+    )
+    request = next(
+        row for row in values.requests if row["source_document_id"] == "marker"
+    )
+    restriction["restriction_status"] = "unknown"
+    restriction["restriction_evidence"] = ["courtlistener_rest_docket_exact_match"]
+    request["restriction_status"] = restriction["restriction_status"]
+    request["restriction_evidence"] = restriction["restriction_evidence"]
+
+    plan = build_provenance_clearance_plan(
+        values.requests,
+        values.manifest,
+        values.restrictions,
+        values.relevance,
+        document_root=values.document_root,
+        review_requests_bytes=_jsonl(values.requests),
+        download_manifest_bytes=_jsonl(values.manifest),
+        restriction_evidence_bytes=_jsonl(values.restrictions),
+        case_relevance_bytes=_jsonl(values.relevance),
+        marker_scanner=lambda payload: (
+            ("extraction_page_count_mismatch",) if payload == b"marker" else ()
+        ),
+    )
+
+    marker = next(
+        row for row in _documents(plan) if row["source_document_id"] == "marker"
+    )
+    assert marker["route"] == "john_exception_review"
+    assert marker["human_clearance_permitted"] is True
+    assert "affirmative_public_provenance_unproven" in _route_reasons(marker)
+    assert "automated_marker_present" not in _route_reasons(marker)
 
 
 def test_plan_rejects_changed_bytes(tmp_path: Path) -> None:
@@ -341,7 +464,7 @@ def test_clearance_requires_exact_hash_bound_exception_coverage(tmp_path: Path) 
         {
             "candidate_id": "case-a",
             "source_document_id": document_id,
-            "status": "cleared" if document_id == "marker" else "quarantined",
+            "status": "quarantined",
             "reviewed_at": "2026-07-26T03:00:00Z",
             "inspected_at": "2026-07-26T03:00:00Z",
             "inspected_sha256": next(
@@ -352,7 +475,7 @@ def test_clearance_requires_exact_hash_bound_exception_coverage(tmp_path: Path) 
             "recording_method": "interactive_review_cli",
             "intended_reviewer_id": "John Hughes",
         }
-        for document_id in ("contradiction", "marker", "restricted")
+        for document_id in ("contradiction", "restricted")
     ]
     confirmation = hashlib.sha256(_jsonl(exception_rows)).hexdigest()
     decisions: list[dict[str, object]] = [
@@ -369,7 +492,7 @@ def test_clearance_requires_exact_hash_bound_exception_coverage(tmp_path: Path) 
     assert by_id["public-safe"]["status"] == "cleared"
     assert by_id["public-safe"]["clearance_basis"] == ("affirmative_public_provenance")
     assert by_id["marker"]["status"] == "cleared"
-    assert by_id["marker"]["clearance_basis"] == "john_exception_review"
+    assert by_id["marker"]["clearance_basis"] == "affirmative_public_provenance"
     assert by_id["restricted"]["status"] == "quarantined"
     assert by_id["contradiction"]["status"] == "quarantined"
 
@@ -380,20 +503,25 @@ def test_clearance_requires_exact_hash_bound_exception_coverage(tmp_path: Path) 
             routing_plan_sha256=plan_sha256,
         )
 
-    unsafe: list[dict[str, object]] = [dict(row) for row in decisions]
-    unsafe[0]["status"] = "cleared"
-    unsafe_bases: list[dict[str, object]] = [
-        {key: value for key, value in row.items() if key != "batch_confirmation_sha256"}
-        for row in unsafe
-    ]
-    unsafe_pin = hashlib.sha256(_jsonl(unsafe_bases)).hexdigest()
-    unsafe = [{**row, "batch_confirmation_sha256": unsafe_pin} for row in unsafe]
-    with pytest.raises(ProvenanceClearanceError, match="cannot be cleared"):
-        build_provenance_clearance_records(
-            plan,
-            unsafe,
-            routing_plan_sha256=plan_sha256,
-        )
+    for unsafe_index in range(len(decisions)):
+        unsafe: list[dict[str, object]] = [dict(row) for row in decisions]
+        unsafe[unsafe_index]["status"] = "cleared"
+        unsafe_bases: list[dict[str, object]] = [
+            {
+                key: value
+                for key, value in row.items()
+                if key != "batch_confirmation_sha256"
+            }
+            for row in unsafe
+        ]
+        unsafe_pin = hashlib.sha256(_jsonl(unsafe_bases)).hexdigest()
+        unsafe = [{**row, "batch_confirmation_sha256": unsafe_pin} for row in unsafe]
+        with pytest.raises(ProvenanceClearanceError, match="cannot be cleared"):
+            build_provenance_clearance_records(
+                plan,
+                unsafe,
+                routing_plan_sha256=plan_sha256,
+            )
 
     forged = [dict(row) for row in decisions]
     forged[0]["intended_reviewer_id"] = "Mallory"
