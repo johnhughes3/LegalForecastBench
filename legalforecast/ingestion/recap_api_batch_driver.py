@@ -763,6 +763,54 @@ def _validate_frozen_eligibility_anchor(
         )
 
 
+def priority_observation_input_record(
+    candidate_id: str,
+    payload: Mapping[str, Any],
+) -> dict[str, object]:
+    """Expose the exact frozen projection used by priority observation."""
+
+    return _priority_observation_input_record(candidate_id, payload)
+
+
+def observation_priority(
+    candidate_id: str,
+    payload: Mapping[str, Any],
+    *,
+    priority_batch: bool = False,
+    ranking_policy_sha256: str | None = None,
+    priority_frontier_sha256: str | None = None,
+    ranking_record_commitments: Mapping[str, object] | None = None,
+) -> tuple[object, ...]:
+    """Expose the shared fail-closed candidate order for transport adapters."""
+
+    return _observation_priority(
+        candidate_id,
+        payload,
+        priority_batch=priority_batch,
+        ranking_policy_sha256=ranking_policy_sha256,
+        priority_frontier_sha256=priority_frontier_sha256,
+        ranking_record_commitments=ranking_record_commitments,
+    )
+
+
+def config_window_end(
+    store: CycleAcquisitionStore,
+    batch_id: str,
+) -> date | None:
+    """Return the frozen decision-window upper bound for an adapter."""
+
+    return _config_window_end(store, batch_id)
+
+
+def validate_frozen_eligibility_anchor(
+    store: CycleAcquisitionStore,
+    requested: date,
+) -> None:
+    """Apply the canonical cycle eligibility-anchor identity gate."""
+
+    _validate_frozen_eligibility_anchor(store, requested)
+
+
 def _refine_excluded_reason(observation: CandidateObservation) -> str:
     """Expose the underlying strict-screen reason for operator visibility.
 

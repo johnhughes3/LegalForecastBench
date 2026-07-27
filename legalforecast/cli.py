@@ -444,6 +444,11 @@ from legalforecast.ingestion.free_only_materialization import (
     FreeOnlyMaterializationInputs,
     verify_free_only_materialization_authority,
 )
+from legalforecast.ingestion.frozen_batch_firecrawl_observation import (
+    FrozenBatchFirecrawlObservationError,
+    plan_frozen_firecrawl_observation,
+    run_frozen_firecrawl_observation,
+)
 from legalforecast.ingestion.funnel_report import (
     FunnelReportError,
     build_acquisition_funnel_report,
@@ -1133,6 +1138,22 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_observe_arguments(batch_002_observe)
+    batch_002_observe_firecrawl = batch_002_subparsers.add_parser(
+        "observe-firecrawl",
+        help=(
+            "Observe an exact unresolved frozen priority subset through "
+            "budgeted, paginated CourtListener HTML from Firecrawl."
+        ),
+        description=(
+            "Preserve the frozen batch's candidate order and canonical "
+            "eligibility/linkage/leakage screen while replacing only the "
+            "CourtListener REST reconstruction transport. Incomplete or "
+            "ambiguous evidence remains transient and unresolved. This command "
+            "cannot purchase PACER documents, acknowledge fees, freeze, "
+            "dispatch, or evaluate models."
+        ),
+    )
+    _add_batch_002_observe_firecrawl_arguments(batch_002_observe_firecrawl)
     batch_002_seed = batch_002_subparsers.add_parser(
         "seed-batch-001-leads",
         help=(
@@ -3930,6 +3951,121 @@ def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_observe)
+
+
+def _add_batch_002_observe_firecrawl_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Acquisition store containing the frozen priority batch.",
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--run-id",
+        required=True,
+        help=(
+            "Immutable resumable Firecrawl run identity. Reuse it with the same "
+            "arguments after interruption."
+        ),
+    )
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help="Must equal the frozen cycle eligibility anchor; default 2026-06-30.",
+    )
+    parser.add_argument(
+        "--candidate-id",
+        action="append",
+        default=[],
+        help=(
+            "Exact frozen batch candidate to observe. Repeat for a subset; "
+            "caller order never changes frozen acquisition priority. Without "
+            "this flag, select every candidate lacking a current observation."
+        ),
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help=(
+            "Freeze at most the first N unresolved candidates into a new run. "
+            "Ignored in favor of the already frozen scope when resuming a run."
+        ),
+    )
+    parser.add_argument(
+        "--raw-artifact-dir",
+        type=Path,
+        required=True,
+        help="Durable directory for scheduler-authenticated raw page artifacts.",
+    )
+    parser.add_argument(
+        "--credit-cap",
+        type=int,
+        default=45_000,
+        help="Cycle-wide Firecrawl authorization cap; maximum 45000.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        choices=range(1, 11),
+        default=10,
+        metavar="1-10",
+        help=(
+            "Concurrent Firecrawl docket-page requests; default 10. Durable "
+            "authorization and artifact commits remain serialized."
+        ),
+    )
+    parser.add_argument(
+        "--max-pages-per-docket",
+        type=int,
+        default=100,
+        help=(
+            "Hard pagination ceiling per docket; incomplete dockets remain "
+            "transient rather than excluded. Default 100."
+        ),
+    )
+    parser.add_argument(
+        "--max-attempts-per-page",
+        type=int,
+        default=3,
+        help="Bounded attempts per page; default 3.",
+    )
+    parser.add_argument(
+        "--provider-breaker-threshold",
+        type=int,
+        default=5,
+        help="Stop after this many consecutive Firecrawl provider 5xx responses.",
+    )
+    parser.add_argument(
+        "--proxy",
+        choices=("basic", "auto", "enhanced"),
+        default="auto",
+        help=(
+            "Firecrawl proxy mode. Basic reserves one credit; auto/enhanced "
+            "reserve at most five credits per request."
+        ),
+    )
+    parser.add_argument(
+        "--force-browser",
+        action="store_true",
+        help="Force Firecrawl's browser engine and freeze that choice in the run.",
+    )
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument(
+        "--live-firecrawl",
+        action="store_true",
+        help="Use FIRECRAWL_API_KEY for allowlisted CourtListener docket pages.",
+    )
+    source.add_argument(
+        "--firecrawl-fixture",
+        type=Path,
+        help="No-network Firecrawl response fixture for tests and rehearsal.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_observe_firecrawl)
 
 
 def _add_batch_002_seed_arguments(parser: argparse.ArgumentParser) -> None:
@@ -18804,6 +18940,160 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
         "revalidate_candidate_ids": list(revalidate_candidate_ids),
         "refresh_campaign_cutoff": refresh_campaign_cutoff,
         **_batch_002_rate_evidence(args, client, budget),
+    }
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_observe_firecrawl(args: argparse.Namespace) -> int:
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    run_id = cast(str, args.run_id)
+    raw_artifact_dir = cast(Path, args.raw_artifact_dir)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor),
+        "--eligibility-anchor",
+    )
+    candidate_ids = tuple(cast(list[str], args.candidate_id))
+    limit = cast(int | None, args.limit)
+    credit_cap = cast(int, args.credit_cap)
+    workers = cast(int, args.workers)
+    max_pages = cast(int, args.max_pages_per_docket)
+    max_attempts = cast(int, args.max_attempts_per_page)
+    breaker_threshold = cast(int, args.provider_breaker_threshold)
+    proxy = cast(FirecrawlProxy, args.proxy)
+    force_browser = cast(bool, args.force_browser)
+    fixture = cast(Path | None, args.firecrawl_fixture)
+    live = cast(bool, args.live_firecrawl)
+
+    if credit_cap <= 0:
+        raise CommandError("--credit-cap must be positive")
+    if max_pages <= 0:
+        raise CommandError("--max-pages-per-docket must be positive")
+    if max_attempts <= 0:
+        raise CommandError("--max-attempts-per-page must be positive")
+    if breaker_threshold <= 0:
+        raise CommandError("--provider-breaker-threshold must be positive")
+    if limit is not None and limit <= 0:
+        raise CommandError("--limit must be positive")
+
+    preflight_config = FirecrawlConfig(
+        api_key="preflight-only",
+        proxy=proxy,
+        force_browser=force_browser,
+    )
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            plan_frozen_firecrawl_observation(
+                store,
+                batch_id=batch_id,
+                run_id=run_id,
+                eligibility_anchor=anchor,
+                artifact_dir=raw_artifact_dir,
+                max_pages_per_docket=max_pages,
+                max_attempts_per_page=max_attempts,
+                provider_breaker_threshold=breaker_threshold,
+                max_workers=workers,
+                requested_candidate_ids=candidate_ids,
+                limit=limit,
+                firecrawl_proxy=preflight_config.proxy,
+                firecrawl_force_browser=preflight_config.force_browser,
+                reserved_credits_per_attempt=(preflight_config.max_credits_per_scrape),
+            )
+    except (
+        CycleAcquisitionStoreError,
+        FrozenBatchFirecrawlObservationError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+
+    config = (
+        FirecrawlConfig.from_env(proxy=proxy, force_browser=force_browser)
+        if live
+        else FirecrawlConfig(
+            api_key="offline-fixture",
+            proxy=proxy,
+            force_browser=force_browser,
+        )
+    )
+    source = FirecrawlCourtListenerHTMLSource(
+        config,
+        **(
+            {"transport": _firecrawl_fixture_transport(fixture)}
+            if fixture is not None
+            else {}
+        ),
+    )
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            plan = plan_frozen_firecrawl_observation(
+                store,
+                batch_id=batch_id,
+                run_id=run_id,
+                eligibility_anchor=anchor,
+                artifact_dir=raw_artifact_dir,
+                max_pages_per_docket=max_pages,
+                max_attempts_per_page=max_attempts,
+                provider_breaker_threshold=breaker_threshold,
+                max_workers=workers,
+                requested_candidate_ids=candidate_ids,
+                limit=limit,
+                firecrawl_proxy=config.proxy,
+                firecrawl_force_browser=config.force_browser,
+                reserved_credits_per_attempt=config.max_credits_per_scrape,
+            )
+            store.ensure_firecrawl_run(
+                run_id,
+                batch_id=batch_id,
+                config=plan.run_config,
+                credit_cap=credit_cap,
+                reserved_credits_per_attempt=config.max_credits_per_scrape,
+            )
+            tally = run_frozen_firecrawl_observation(
+                store,
+                batch_id=batch_id,
+                scheduler=BudgetedFirecrawlScheduler(
+                    store=store,
+                    source=source,
+                    run_id=run_id,
+                    artifact_dir=raw_artifact_dir,
+                    max_attempts=max_attempts,
+                    provider_5xx_circuit_threshold=breaker_threshold,
+                    max_workers=workers,
+                ),
+                plan=plan,
+                eligibility_anchor=anchor,
+                max_pages_per_docket=max_pages,
+            )
+    except (
+        CycleAcquisitionStoreError,
+        FirecrawlArtifactError,
+        FirecrawlCircuitOpenError,
+        FirecrawlError,
+        FrozenBatchFirecrawlObservationError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+
+    record = {
+        **tally.to_record(),
+        "batch_id": batch_id,
+        "run_id": run_id,
+        "eligibility_anchor": anchor.isoformat(),
+        "requested_candidate_ids": list(candidate_ids),
+        "live_firecrawl": live,
+        "firecrawl_activity_executed": _firecrawl_metered_activity_executed(
+            live=live,
+            summary=tally.credit_summary,
+        ),
+        "pacer_activity_executed": False,
     }
     summary_output = cast(Path | None, args.summary_output)
     if summary_output is not None:
