@@ -12,6 +12,7 @@ from legalforecast.labeling.provider_cycle_caps_materializer import (
     _ProviderCycleCapsSuccessorPolicy,
     _VerifiedAuthoritySmoke,
     canonical_successor_receipt_bytes,
+    load_provider_cycle_caps_successor_policy,
 )
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps_bytes
 
@@ -82,6 +83,37 @@ def _policy(
         failure_threshold=failure_threshold,
         failure_window_seconds=failure_window_seconds,
     )
+
+
+@pytest.mark.parametrize("nonfinite_value", [float("nan"), float("inf")])
+def test_policy_loader_rejects_nonfinite_values_with_domain_error(
+    nonfinite_value: float,
+) -> None:
+    record = {
+        "schema_version": "legalforecast.provider_cycle_caps_successor_policy.v1",
+        "cycle_id": "cycle-1",
+        "provider_accounts": [
+            {"provider": provider, "account": account}
+            for provider, account in _accounts().items()
+        ],
+        "spend_authority": {
+            "backend": "dynamodb",
+            "ledger_scope_fields": ["cycle_id", "provider", "account"],
+            "max_billable_attempts": 2,
+            "failure_threshold": nonfinite_value,
+            "failure_window_seconds": 300,
+        },
+    }
+    payload = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode()
+
+    with pytest.raises(
+        ProviderCycleCapsMaterializationError,
+        match="must use canonical JSON bytes",
+    ):
+        load_provider_cycle_caps_successor_policy(
+            payload,
+            expected_sha256=hashlib.sha256(payload).hexdigest(),
+        )
 
 
 def test_materializer_builds_deterministic_authority_enabled_successor() -> None:

@@ -229,7 +229,13 @@ def load_provider_cycle_caps_successor_policy(
         raise ProviderCycleCapsMaterializationError(
             "provider caps successor policy schema_version differs"
         )
-    if canonical_json_bytes(record) != payload:
+    try:
+        canonical_payload = canonical_json_bytes(record)
+    except ValueError as exc:
+        raise ProviderCycleCapsMaterializationError(
+            "provider caps successor policy must use canonical JSON bytes"
+        ) from exc
+    if canonical_payload != payload:
         raise ProviderCycleCapsMaterializationError(
             "provider caps successor policy must use canonical JSON bytes"
         )
@@ -1913,12 +1919,7 @@ def _read_output_snapshot(
 
 
 def _read_output(directory_fd: int, name: str) -> bytes | None:
-    flags = (
-        os.O_RDONLY
-        | os.O_NONBLOCK
-        | os.O_CLOEXEC
-        | cast(int, getattr(os, "O_NOFOLLOW", 0))
-    )
+    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | _nofollow_flag()
     try:
         file_fd = os.open(name, flags, dir_fd=directory_fd)
     except OSError as exc:
@@ -1971,13 +1972,7 @@ def _publish_or_verify(directory_fd: int, name: str, payload: bytes) -> None:
             )
         return
     temporary = f".{name}.{secrets.token_hex(8)}.partial"
-    flags = (
-        os.O_WRONLY
-        | os.O_CREAT
-        | os.O_EXCL
-        | os.O_CLOEXEC
-        | cast(int, getattr(os, "O_NOFOLLOW", 0))
-    )
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | _nofollow_flag()
     temporary_fd: int | None = None
     try:
         temporary_fd = os.open(temporary, flags, 0o600, dir_fd=directory_fd)
