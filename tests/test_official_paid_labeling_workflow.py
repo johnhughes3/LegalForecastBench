@@ -132,6 +132,7 @@ def test_workflow_authenticates_producer_and_uploads_only_ciphertext() -> None:
     assert "open-paid-labeling-baton" in text
     assert "seal-paid-labeling-result" in text
     assert "Clear baton decryption identity" in text
+    assert "OUTPUT_ROOT: ${{ github.workspace }}/official-paid-labeling-output" in text
     upload = text.split("- name: Upload encrypted paid-labeling result", 1)[1]
     assert "official-paid-labeling-result.age" in upload
     assert "result-receipt.json" in upload

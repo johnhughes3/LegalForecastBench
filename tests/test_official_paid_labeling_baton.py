@@ -14,12 +14,19 @@ from legalforecast.labeling.official_paid_baton import (
     BatonIdentity,
     OfficialPaidBatonError,
     PredecessorBinding,
+    _canonical,
     assemble_paid_labeling_baton,
     build_source_baton,
     open_paid_labeling_baton,
     seal_paid_labeling_baton,
 )
 from legalforecast.labeling.provider_journal import PROVIDER_JOURNAL_SCHEMA_VERSION
+
+
+@pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), float("-inf")])
+def test_canonical_commitment_rejects_non_finite_numbers(non_finite: float) -> None:
+    with pytest.raises(ValueError, match="Out of range float values"):
+        _canonical({"value": non_finite})
 
 
 @pytest.fixture

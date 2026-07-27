@@ -1130,7 +1130,9 @@ def _safe_read(path: Path) -> bytes:
 
 
 def _canonical(value: object) -> bytes:
-    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    return (
+        json.dumps(value, allow_nan=False, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
 
 
 def _sha256(payload: bytes) -> str:

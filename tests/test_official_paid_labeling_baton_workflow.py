@@ -26,6 +26,7 @@ def test_baton_workflow_is_provider_free_and_ciphertext_only() -> None:
     assert "gh workflow run" not in text
     assert "fan-in-publish" not in text
     assert "BATON_AGE_IDENTITY" in text
+    assert "OUTPUT_ROOT: ${{ github.workspace }}/official-labeling-baton-output" in text
     upload = text.split("- name: Upload ciphertext-only paid-labeling baton", 1)[1]
     assert "official-paid-labeling-baton.age" in upload
     assert "baton-receipt.json" in upload
