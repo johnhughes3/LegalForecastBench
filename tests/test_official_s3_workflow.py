@@ -77,6 +77,14 @@ def test_official_s3_workflow_is_manual_and_protected() -> None:
     assert "github.ref == 'refs/heads/main'" in WORKFLOW
     assert "Official LegalForecastBench S3 validation is allowed only from" in WORKFLOW
     assert "release_sha must be reachable from origin/main" in WORKFLOW
+    assert (
+        '[[ ! "${PACKET_OBJECT_KEY_INPUT}" =~ '
+        "^model-packets/[A-Za-z0-9._/-]+$ ]]" in WORKFLOW
+    )
+    assert (
+        '[[ ! "${MANIFEST_OBJECT_KEY_INPUT}" =~ '
+        "^manifests/[A-Za-z0-9._/-]+$ ]]" in WORKFLOW
+    )
     packet_input = WORKFLOW.split("      packet_object_key:", maxsplit=1)[1].split(
         "      manifest_object_key:", maxsplit=1
     )[0]

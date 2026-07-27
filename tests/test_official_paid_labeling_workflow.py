@@ -39,6 +39,7 @@ def test_workflow_references_only_one_generic_provider_secret() -> None:
     secret_expressions = re.findall(r"\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*\}\}", text)
     assert secret_expressions == ["PROVIDER_API_KEY"]
     assert text.count("${{ secrets.PROVIDER_API_KEY }}") == 1
+    assert re.search(r"\bsecrets\s*\[", text) is None
     for forbidden in (
         "secrets.ANTHROPIC_API_KEY",
         "secrets.GEMINI_API_KEY",

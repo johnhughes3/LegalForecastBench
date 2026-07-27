@@ -17,6 +17,7 @@ def test_smoke_has_no_provider_secret_or_provider_call() -> None:
     assert "CI_RUNNER" not in text
     assert "provider_call_made:false" in text
     assert "secrets." not in text
+    assert re.search(r"\bsecrets\s*\[", text) is None
     assert "OPENAI_API_KEY" not in text
     assert "ANTHROPIC_API_KEY" not in text
     assert "GEMINI_API_KEY" not in text

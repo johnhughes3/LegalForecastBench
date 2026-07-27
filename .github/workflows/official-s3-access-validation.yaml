@@ -72,20 +72,14 @@ jobs:
             exit 1
           fi
 
-          case "${PACKET_OBJECT_KEY_INPUT}" in
-            model-packets/*) ;;
-            *)
-              echo "packet_object_key must start with model-packets/." >&2
-              exit 1
-              ;;
-          esac
-          case "${MANIFEST_OBJECT_KEY_INPUT}" in
-            manifests/*) ;;
-            *)
-              echo "manifest_object_key must start with manifests/." >&2
-              exit 1
-              ;;
-          esac
+          if [[ ! "${PACKET_OBJECT_KEY_INPUT}" =~ ^model-packets/[A-Za-z0-9._/-]+$ ]]; then
+            echo "packet_object_key must start with model-packets/." >&2
+            exit 1
+          fi
+          if [[ ! "${MANIFEST_OBJECT_KEY_INPUT}" =~ ^manifests/[A-Za-z0-9._/-]+$ ]]; then
+            echo "manifest_object_key must start with manifests/." >&2
+            exit 1
+          fi
           if [[ ! "${PER_CASE_OBJECT_KEY_INPUT}" =~ ^per-case/[A-Za-z0-9._-]+/metrics/[A-Za-z0-9._/-]+$ ]]; then
             echo "per_case_object_key must name an existing object under per-case/<case>/metrics/." >&2
             exit 1

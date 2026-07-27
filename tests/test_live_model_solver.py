@@ -692,7 +692,8 @@ def test_solver_does_not_retry_nonrecoverable_credit_failures() -> None:
 
 def test_solver_creates_attempt_handler_per_harness_request_and_settles() -> None:
     handler = _RecordingAttemptHandler()
-    request = _request("prompt")
+    first_request = _request("first prompt")
+    second_request = _request("second prompt")
     observed_requests: list[object] = []
     solver = LiveModelSolver(
         registry_entry=_registry_entry("openai", "gpt-test"),
@@ -707,11 +708,14 @@ def test_solver_creates_attempt_handler_per_harness_request_and_settles() -> Non
         attempt_handler_factory=lambda item: observed_requests.append(item) or handler,
     )
 
-    solver.solve(request)
+    solver.solve(first_request)
+    solver.solve(second_request)
 
-    assert observed_requests == [request]
+    assert observed_requests == [first_request, second_request]
     assert handler.events[0] == ("run", 1)
     assert handler.events[1][:4] == ("settle", 41, 1000, 250)
+    assert handler.events[2] == ("run", 1)
+    assert handler.events[3][:4] == ("settle", 41, 1000, 250)
 
 
 def test_malformed_response_marks_authorized_attempt_ambiguous() -> None:
@@ -735,6 +739,37 @@ def test_malformed_response_marks_authorized_attempt_ambiguous() -> None:
         ("run", 1),
         ("post_response_failure", 41, "LiveModelResponseError"),
     ]
+
+
+def test_post_response_recording_failure_surfaces_as_authority_failure() -> None:
+    class FailingRecordHandler(_RecordingAttemptHandler):
+        def record_post_response_failure(
+            self,
+            durable_attempt_ordinal: int,
+            *,
+            failure_type: str,
+        ) -> None:
+            raise RuntimeError("durable failure recording unavailable")
+
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=_FixtureTransport(
+            {
+                "model": "gpt-test-2026-05-14",
+                "usage": {"input_tokens": 1000, "output_tokens": 250},
+            }
+        ),
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        attempt_handler_factory=lambda _request: FailingRecordHandler(),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="durable failure recording unavailable",
+    ) as exc_info:
+        solver.solve(_request("prompt"))
+
+    assert isinstance(exc_info.value.__context__, LiveModelResponseError)
 
 
 @pytest.mark.parametrize("interruption_type", [KeyboardInterrupt, SystemExit])

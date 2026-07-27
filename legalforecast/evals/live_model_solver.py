@@ -795,6 +795,9 @@ def _record_post_response_failure(
 ) -> None:
     if attempt_handler is None:
         return
+    # Fail closed if the spend authority cannot durably record an ambiguous
+    # post-response attempt. The original exception remains available through
+    # exception chaining, but must not hide the stronger authority failure.
     attempt_handler.record_post_response_failure(
         durable_attempt_ordinal,
         failure_type=type(exc).__name__,
