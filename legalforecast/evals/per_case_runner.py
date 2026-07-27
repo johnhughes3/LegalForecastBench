@@ -178,6 +178,7 @@ class PerCaseRunnerConfig:
                 "expected_execution_policy_sha256",
             ),
             (self.workflow_run_id, "workflow_run_id"),
+            (self.provider_account, "provider_account"),
         ):
             if value is not None and not value.strip():
                 raise ValueError(f"{field_name} must not be blank")
@@ -202,7 +203,6 @@ class PerCaseRunnerConfig:
             for value, field_name in (
                 (self.execution_policy_uri, "execution_policy_uri"),
                 (self.provider_authority_table, "provider_authority_table"),
-                (self.provider_account, "provider_account"),
             ):
                 if value is None or not value.strip():
                     raise ValueError(f"{field_name} is required for live backend")
@@ -1665,7 +1665,7 @@ def _verified_execution_policy_for_config(
             artifact,
             execution_policy_sha256=hashlib.sha256(payload).hexdigest(),
             provider=registry_entry.provider,
-            account=cast(str, config.provider_account),
+            account=config.provider_account,
         )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise PerCaseRunnerError(f"invalid execution policy: {exc}") from exc
@@ -1728,7 +1728,7 @@ def _solver_for_config(
     if verified is None:  # pragma: no cover - live backend cannot produce None.
         raise PerCaseRunnerError("live backend requires an execution policy")
     attempt_policy = verified.attempt_policy
-    account = cast(str, config.provider_account)
+    account = required_str(verified.runtime_binding, "account")
     cap_microusd = required_int(verified.runtime_binding, "cap_microusd")
     frozen_attempt_policy = FrozenAttemptPolicy(
         reservation_ledger_sha256=required_str(

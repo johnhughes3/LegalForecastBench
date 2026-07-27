@@ -226,14 +226,13 @@ def execution_policy_runtime_binding(
     *,
     execution_policy_sha256: str,
     provider: str,
-    account: str,
+    account: str | None = None,
 ) -> dict[str, Any]:
-    """Return the exact spend-policy commitment persisted with paid results."""
+    """Return the provider's exact frozen spend-policy commitment."""
 
     policy = execution_policy_content(artifact)
     attempts = _object(policy.get("attempt_policy"), "attempt_policy")
     normalized_provider = _text(provider, "provider").lower()
-    normalized_account = _text(account, "account")
     matches = [
         cap
         for cap in _object_list(
@@ -241,14 +240,17 @@ def execution_policy_runtime_binding(
             "attempt_policy.provider_account_caps",
         )
         if cap.get("provider") == normalized_provider
-        and cap.get("account") == normalized_account
     ]
     if len(matches) != 1:
         raise PolicyArtifactError(
-            "execution policy must contain exactly one matching cap for selected "
-            "provider/account"
+            "execution policy must contain exactly one cap for selected provider"
         )
     cap = matches[0]
+    frozen_account = _text(cap.get("account"), "account")
+    if account is not None and _text(account, "account") != frozen_account:
+        raise PolicyArtifactError(
+            "execution policy account does not match expected provider account"
+        )
     return {
         "schema_version": "legalforecast.execution_policy_runtime_binding.v1",
         "execution_policy_sha256": _sha(
@@ -274,7 +276,7 @@ def execution_policy_runtime_binding(
             )
         ),
         "provider": normalized_provider,
-        "account": normalized_account,
+        "account": frozen_account,
         "cap_microusd": _positive_int(cap.get("cap_microusd"), "cap_microusd"),
         "max_billable_attempts": _positive_int(
             attempts.get("max_billable_attempts"),
@@ -547,10 +549,10 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
                 ),
             }
         )
-    cap_identities = {(cap["provider"], cap["account"]) for cap in normalized_caps}
-    if len(cap_identities) != len(normalized_caps):
+    providers = {cap["provider"] for cap in normalized_caps}
+    if len(providers) != len(normalized_caps):
         raise PolicyArtifactError(
-            "attempt_policy.provider_account_caps contains duplicates"
+            "attempt_policy.provider_account_caps contains a provider more than once"
         )
     cast(dict[str, Any], attempts)["provider_account_caps"] = sorted(
         normalized_caps,

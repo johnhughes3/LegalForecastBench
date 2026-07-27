@@ -65,7 +65,7 @@ def test_workflow_uses_distinct_oidc_role_and_clears_before_upload() -> None:
     assert "LFB_GITHUB_LABELING_ROLE_ARN" in text
     assert "LFB_GITHUB_CELL_ROLE_ARN" not in text
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" not in text
-    assert "configure-aws-credentials@517a711" in text
+    assert "configure-aws-credentials@e6de054" in text
     assert "role-duration-seconds: 7200" in text
     assert text.index("Clear temporary credentials") < text.index(
         "Upload private paid-labeling result"

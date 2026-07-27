@@ -158,14 +158,21 @@ def test_execution_policy_freezes_remote_authority_caps_and_breaker() -> None:
     }
 
 
-def test_execution_policy_runtime_binding_commits_exact_policy_and_account() -> None:
-    artifact = generate_execution_policy(_execution_decisions())
+def test_execution_policy_runtime_binding_derives_frozen_provider_account() -> None:
+    decisions = _execution_decisions()
+    decisions["attempt_policy"]["provider_account_caps"].append(
+        {
+            "provider": "google",
+            "account": "gemini-primary",
+            "cap_microusd": 500_000_000,
+        }
+    )
+    artifact = generate_execution_policy(decisions)
 
     binding = execution_policy_runtime_binding(
         artifact,
         execution_policy_sha256="f" * 64,
         provider="OpenAI",
-        account="primary",
     )
 
     assert binding == {
@@ -182,6 +189,13 @@ def test_execution_policy_runtime_binding_commits_exact_policy_and_account() -> 
         "failure_threshold": 3,
         "failure_window_seconds": 300,
     }
+    google_binding = execution_policy_runtime_binding(
+        artifact,
+        execution_policy_sha256="f" * 64,
+        provider="Google",
+    )
+    assert google_binding["account"] == "gemini-primary"
+    assert google_binding["cap_microusd"] == 500_000_000
 
 
 def test_execution_policy_runtime_binding_rejects_uncommitted_account() -> None:
@@ -189,7 +203,7 @@ def test_execution_policy_runtime_binding_rejects_uncommitted_account() -> None:
 
     with pytest.raises(
         PolicyArtifactError,
-        match="exactly one matching cap for selected provider/account",
+        match="account does not match expected provider account",
     ):
         execution_policy_runtime_binding(
             artifact,
@@ -230,7 +244,22 @@ def test_execution_policy_rejects_duplicate_provider_account_caps() -> None:
     caps = decisions["attempt_policy"]["provider_account_caps"]
     caps.append(dict(caps[0]))
 
-    with pytest.raises(PolicyArtifactError, match="contains duplicates"):
+    with pytest.raises(PolicyArtifactError, match="provider more than once"):
+        generate_execution_policy(decisions)
+
+
+def test_execution_policy_rejects_multiple_accounts_for_one_provider() -> None:
+    decisions = _execution_decisions()
+    caps = decisions["attempt_policy"]["provider_account_caps"]
+    caps.append(
+        {
+            "provider": "openai",
+            "account": "secondary",
+            "cap_microusd": 500_000_000,
+        }
+    )
+
+    with pytest.raises(PolicyArtifactError, match="provider more than once"):
         generate_execution_policy(decisions)
 
 

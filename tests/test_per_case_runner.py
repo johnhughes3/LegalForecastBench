@@ -445,7 +445,6 @@ def test_live_solver_binds_frozen_account_cap_breaker_and_repeat_identity(
         workflow_run_id="123",
         workflow_run_attempt=1,
         provider_authority_table="authority-table",
-        provider_account="primary",
         provider_authority_region="us-east-2",
     )
 
@@ -855,8 +854,6 @@ def test_eval_run_case_cli_reports_live_config_error_without_traceback(
             "123",
             "--workflow-run-attempt",
             "1",
-            "--provider-account",
-            "primary",
         ]
     )
 

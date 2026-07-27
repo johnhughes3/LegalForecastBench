@@ -548,7 +548,7 @@ def test_official_eval_matrix_workflow_preflights_live_provider_credentials() ->
     assert 'missing_provider_values+=("ANTHROPIC_API_KEY")' in WORKFLOW
     assert 'missing_provider_values+=("LFB_ANTHROPIC_BEDROCK_MODEL_ID")' in WORKFLOW
     assert 'missing_provider_values+=("LFB_PROVIDER_AUTHORITY_TABLE")' in WORKFLOW
-    assert 'missing_provider_values+=("LFB_PROVIDER_ACCOUNT_ALIAS")' in WORKFLOW
+    assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in WORKFLOW
     assert (
         "Non-dry-run official evaluation is missing provider credentials/settings:"
         in WORKFLOW
@@ -611,7 +611,7 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert '--expected-packet-object-key "${EXPECTED_PACKET_OBJECT_KEY}"' in WORKFLOW
     assert '--expected-packet-sha256 "${EXPECTED_PACKET_SHA256}"' in WORKFLOW
     assert '--provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}"' in WORKFLOW
-    assert '--provider-account "${LFB_PROVIDER_ACCOUNT_ALIAS}"' in WORKFLOW
+    assert "--provider-account" not in WORKFLOW
     assert '--provider-authority-region "${AWS_REGION}"' in WORKFLOW
     assert "RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}" in WORKFLOW
     assert "resume_args+=(--resume-existing)" in WORKFLOW
@@ -624,11 +624,10 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}" in RUN_CASE_JOB
     assert (
         "required_env=(AWS_REGION LFB_PACKET_BUCKET LFB_RESULTS_BUCKET "
-        "LFB_PROVIDER_ACCOUNT_ALIAS LFB_PROVIDER_AUTHORITY_TABLE "
+        "LFB_PROVIDER_AUTHORITY_TABLE "
         "MODEL_KEY EXPECTED_PACKET_OBJECT_KEY EXPECTED_PACKET_SHA256)" in RUN_CASE_JOB
     )
     assert "LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars." in RUN_CASE_JOB
-    assert "LFB_PROVIDER_ACCOUNT_ALIAS: ${{ vars." in RUN_CASE_JOB
     assert (
         "OPENAI_API_KEY: ${{ startsWith(matrix.model_key, 'openai:') "
         "&& secrets.OPENAI_API_KEY || '' }}" in WORKFLOW

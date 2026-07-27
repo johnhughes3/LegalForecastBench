@@ -2217,8 +2217,8 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--provider-account",
         help=(
-            "Public provider-account alias matching one frozen account cap; "
-            "required for live runs."
+            "Optional expected provider-account alias; live runs derive authority "
+            "from the frozen provider cap and reject a mismatch."
         ),
     )
     parser.add_argument(
