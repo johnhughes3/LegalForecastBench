@@ -1023,6 +1023,34 @@ def test_execution_preflight_rejects_source_overlap_and_symlink(
         preflight_target_public_gap_execution(hardlinked)
 
 
+def test_execution_preflight_inspects_work_tree_without_path_globbing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    raw_root = plan.execution_identity.raw_html_root
+    raw_root.mkdir(parents=True)
+    outside = tmp_path / "outside-work-tree"
+    outside.mkdir()
+    (outside / "must-not-be-read").write_bytes(b"outside")
+    (raw_root / "escape").symlink_to(outside, target_is_directory=True)
+
+    def reject_path_glob(
+        self: Path,
+        pattern: str,
+        *,
+        case_sensitive: bool | None = None,
+        recurse_symlinks: bool = False,
+    ) -> Never:
+        del self, pattern, case_sensitive, recurse_symlinks
+        raise AssertionError("work-tree validation used pathname globbing")
+
+    monkeypatch.setattr(Path, "rglob", reject_path_glob)
+
+    with pytest.raises(ValueError, match=r"symlink|special file"):
+        preflight_target_public_gap_execution(plan)
+
+
 def test_provider_factories_are_after_final_preflight(tmp_path: Path) -> None:
     root = tmp_path / "target"
     unsafe = _single_case_plan(

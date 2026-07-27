@@ -2362,18 +2362,93 @@ def _validated_relative_payloads(
 
 
 def _reject_existing_work_tree(root: Path, *, label: str) -> None:
-    for path in root.rglob("*"):
-        metadata = path.lstat()
-        if stat.S_ISDIR(metadata.st_mode):
-            continue
-        if (
-            not stat.S_ISREG(metadata.st_mode)
-            or metadata.st_nlink != 1
-            or path.is_symlink()
-        ):
+    root_fd = _open_existing_directory_no_follow(root, label=label)
+
+    def visit(directory_fd: int) -> None:
+        try:
+            names = os.listdir(directory_fd)
+        except OSError as exc:
             raise TargetPublicGapRefreshError(
-                f"{label} contains a symlink, hard-link, or special file"
-            )
+                f"{label} cannot be enumerated safely"
+            ) from exc
+        for name in names:
+            try:
+                metadata = os.stat(
+                    name,
+                    dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except OSError as exc:
+                raise TargetPublicGapRefreshError(
+                    f"{label} cannot be inspected safely"
+                ) from exc
+            if stat.S_ISDIR(metadata.st_mode):
+                child_fd = _open_child_directory_if_present(
+                    directory_fd,
+                    name,
+                    label=label,
+                )
+                if child_fd is None:
+                    raise TargetPublicGapRefreshError(
+                        f"{label} changed while it was inspected"
+                    )
+                try:
+                    _require_child_directory_binding(
+                        directory_fd,
+                        name,
+                        child_fd,
+                        label=label,
+                    )
+                    visit(child_fd)
+                    _require_child_directory_binding(
+                        directory_fd,
+                        name,
+                        child_fd,
+                        label=label,
+                    )
+                finally:
+                    os.close(child_fd)
+                continue
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise TargetPublicGapRefreshError(
+                    f"{label} contains a symlink, hard-link, or special file"
+                )
+            descriptor: int | None = None
+            try:
+                descriptor = os.open(
+                    name,
+                    os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    dir_fd=directory_fd,
+                )
+                opened = os.fstat(descriptor)
+                named = os.stat(
+                    name,
+                    dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+                if (
+                    not stat.S_ISREG(opened.st_mode)
+                    or opened.st_nlink != 1
+                    or _stable_stat_identity(opened) != _stable_stat_identity(named)
+                ):
+                    raise TargetPublicGapRefreshError(
+                        f"{label} contains an unstable or non-unique regular file"
+                    )
+            except TargetPublicGapRefreshError:
+                raise
+            except OSError as exc:
+                raise TargetPublicGapRefreshError(
+                    f"{label} contains an unsafe regular file"
+                ) from exc
+            finally:
+                if descriptor is not None:
+                    os.close(descriptor)
+
+    try:
+        visit(root_fd)
+        _require_named_directory_binding(root, root_fd, label=label)
+    finally:
+        os.close(root_fd)
 
 
 def _stable_stat_identity(metadata: os.stat_result) -> tuple[int, ...]:
