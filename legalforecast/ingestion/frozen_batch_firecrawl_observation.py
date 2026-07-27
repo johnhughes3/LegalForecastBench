@@ -440,6 +440,22 @@ def _validate_execution_plan(
         raise FrozenBatchFirecrawlObservationError(
             "observation plan does not match the durable Firecrawl run"
         )
+    runtime_scheduler_config = {
+        "raw_artifact_root": str(scheduler.artifact_dir),
+        "max_attempts_per_page": scheduler.max_attempts,
+        "provider_breaker_threshold": scheduler.provider_5xx_circuit_threshold,
+        "workers": scheduler.max_workers,
+    }
+    drifted_scheduler_fields = tuple(
+        field
+        for field, runtime_value in runtime_scheduler_config.items()
+        if durable.get(field) != runtime_value
+    )
+    if drifted_scheduler_fields:
+        raise FrozenBatchFirecrawlObservationError(
+            "runtime scheduler does not match the frozen Firecrawl run: "
+            + ", ".join(drifted_scheduler_fields)
+        )
     if (
         durable.get("schema_version") != FROZEN_BATCH_FIRECRAWL_RUN_SCHEMA
         or durable.get("source_batch_id") != batch_id

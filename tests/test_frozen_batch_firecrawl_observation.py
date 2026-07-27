@@ -264,6 +264,8 @@ def test_incomplete_html_is_transient_and_same_run_resumes_exact_scope(
                 run_id="observe-run",
                 artifact_dir=tmp_path / "raw",
                 max_attempts=1,
+                provider_5xx_circuit_threshold=2,
+                max_workers=2,
             ),
             plan=plan,
             eligibility_anchor=date(2026, 6, 30),
@@ -313,6 +315,8 @@ def test_complete_html_uses_canonical_screen_and_records_acceptance(
                 run_id="observe-run",
                 artifact_dir=tmp_path / "raw",
                 max_attempts=1,
+                provider_5xx_circuit_threshold=2,
+                max_workers=2,
             ),
             plan=plan,
             eligibility_anchor=date(2026, 6, 30),
@@ -362,8 +366,67 @@ def test_driver_rejects_tampered_plan_before_provider_use(tmp_path: Path) -> Non
                     run_id="observe-run",
                     artifact_dir=tmp_path / "raw",
                     max_attempts=1,
+                    provider_5xx_circuit_threshold=2,
+                    max_workers=2,
                 ),
                 plan=tampered,
+                eligibility_anchor=date(2026, 6, 30),
+                max_pages_per_docket=2,
+            )
+
+    assert source.calls == 0
+
+
+@pytest.mark.parametrize(
+    ("scheduler_overrides", "drifted_field"),
+    (
+        ({"max_workers": 1}, "workers"),
+        ({"max_attempts": 2}, "max_attempts_per_page"),
+        ({"provider_5xx_circuit_threshold": 3}, "provider_breaker_threshold"),
+        ({"artifact_dir_name": "other-raw"}, "raw_artifact_root"),
+    ),
+)
+def test_driver_rejects_runtime_scheduler_drift_before_provider_use(
+    tmp_path: Path,
+    scheduler_overrides: dict[str, object],
+    drifted_field: str,
+) -> None:
+    with _priority_store(tmp_path) as store:
+        plan = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+        )
+        store.ensure_firecrawl_run(
+            "observe-run",
+            batch_id=_BATCH_ID,
+            config=plan.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+        source = _HTMLSource(_clean_docket_html("10"))
+        scheduler = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="observe-run",
+            artifact_dir=tmp_path
+            / str(scheduler_overrides.get("artifact_dir_name", "raw")),
+            max_attempts=int(scheduler_overrides.get("max_attempts", 1)),
+            provider_5xx_circuit_threshold=int(
+                scheduler_overrides.get("provider_5xx_circuit_threshold", 2)
+            ),
+            max_workers=int(scheduler_overrides.get("max_workers", 2)),
+        )
+
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match=rf"runtime scheduler.*{drifted_field}",
+        ):
+            run_frozen_firecrawl_observation(
+                store,
+                batch_id=_BATCH_ID,
+                scheduler=scheduler,
+                plan=plan,
                 eligibility_anchor=date(2026, 6, 30),
                 max_pages_per_docket=2,
             )
@@ -434,6 +497,8 @@ def test_adapter_exhausts_older_pages_before_first_disposition_decision(
                 run_id="observe-run",
                 artifact_dir=tmp_path / "raw",
                 max_attempts=1,
+                provider_5xx_circuit_threshold=2,
+                max_workers=2,
             ),
             plan=plan,
             eligibility_anchor=date(2026, 6, 30),
@@ -489,6 +554,8 @@ def test_page_cap_exhaustion_stays_transient(tmp_path: Path) -> None:
                 run_id="observe-run",
                 artifact_dir=tmp_path / "raw",
                 max_attempts=1,
+                provider_5xx_circuit_threshold=2,
+                max_workers=2,
             ),
             plan=plan,
             eligibility_anchor=date(2026, 6, 30),
