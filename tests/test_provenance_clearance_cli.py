@@ -9,7 +9,10 @@ from typing import cast
 import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
-from legalforecast.ingestion.disclosure_clearance import DisclosureClearanceError
+from legalforecast.ingestion.disclosure_clearance import (
+    DisclosureClearanceError,
+    DisclosurePdfScan,
+)
 from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan as build_plan,
 )
@@ -111,7 +114,19 @@ def _inputs(tmp_path: Path) -> dict[str, Path]:
     return paths
 
 
-def _install_marker_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
+def _complete_scan(_payload: bytes) -> DisclosurePdfScan:
+    return DisclosurePdfScan(
+        parsed_page_count=1,
+        text_scanned_page_numbers=(1,),
+        ocr_scanned_page_numbers=(),
+        unscanned_page_numbers=(),
+        coverage_status="complete",
+        diagnostics=("legacy_extraction_page_count_mismatch",),
+        automated_markers=(),
+    )
+
+
+def _install_document_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
     def deterministic_plan(
         review_requests: Sequence[Mapping[str, object]],
         download_manifest: Sequence[Mapping[str, object]],
@@ -130,9 +145,7 @@ def _install_marker_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
             download_manifest_bytes=cast(bytes, typed["download_manifest_bytes"]),
             restriction_evidence_bytes=cast(bytes, typed["restriction_evidence_bytes"]),
             case_relevance_bytes=cast(bytes, typed["case_relevance_bytes"]),
-            marker_scanner=lambda payload: (
-                ("extraction_page_count_mismatch",) if payload == b"marker" else ()
-            ),
+            document_scanner=_complete_scan,
         )
 
     monkeypatch.setattr(
@@ -166,7 +179,7 @@ def test_provenance_planner_and_interactive_exception_recorder(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     paths = _inputs(tmp_path)
-    _install_marker_scanner(monkeypatch)
+    _install_document_scanner(monkeypatch)
     assert main(_plan_command(paths)) == 0
 
     plan = json.loads((paths["output"] / "disclosure-provenance-plan.json").read_text())
@@ -324,7 +337,7 @@ def test_recorder_rejects_broad_private_root_and_public_outputs(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     paths = _inputs(tmp_path)
-    _install_marker_scanner(monkeypatch)
+    _install_document_scanner(monkeypatch)
     assert main(_plan_command(paths)) == 0
     broad_inspection_map = tmp_path / "private-document-inspection-map.jsonl"
     broad_inspection_map.write_bytes(
@@ -363,7 +376,7 @@ def test_provenance_finalizer_rejects_hand_authored_decisions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     paths = _inputs(tmp_path)
-    _install_marker_scanner(monkeypatch)
+    _install_document_scanner(monkeypatch)
     assert main(_plan_command(paths)) == 0
     decisions = paths["private"] / "hand-authored.jsonl"
     _jsonl(decisions, [])
@@ -416,7 +429,7 @@ def test_zero_exception_cohort_completes_without_prompt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     paths = _inputs(tmp_path)
-    _install_marker_scanner(monkeypatch)
+    _install_document_scanner(monkeypatch)
     for name in ("requests", "manifest", "restrictions"):
         rows = [json.loads(line) for line in paths[name].read_text().splitlines()]
         _jsonl(
@@ -466,7 +479,7 @@ def test_provenance_planner_rejects_private_root_inside_source_boundary(
     private_kind: str,
 ) -> None:
     paths = _inputs(tmp_path)
-    _install_marker_scanner(monkeypatch)
+    _install_document_scanner(monkeypatch)
     paths["private"] = (
         Path(f"relative-private-{tmp_path.name}")
         if private_kind == "relative"
@@ -480,7 +493,7 @@ def test_provenance_planner_rejects_symlinked_source_and_document_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     paths = _inputs(tmp_path)
-    _install_marker_scanner(monkeypatch)
+    _install_document_scanner(monkeypatch)
     original_requests = paths["requests"]
     requests_target = tmp_path / "requests-target.jsonl"
     original_requests.replace(requests_target)

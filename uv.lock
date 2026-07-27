@@ -286,12 +286,12 @@ source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
     { name = "ortools" },
+    { name = "pypdf" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "interrogate" },
-    { name = "pypdf" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "reportlab" },
@@ -302,12 +302,12 @@ dev = [
 requires-dist = [
     { name = "cryptography", specifier = ">=45.0" },
     { name = "ortools", specifier = ">=9.15.6755" },
+    { name = "pypdf", specifier = ">=6.14.2" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "interrogate", specifier = ">=1.7.0" },
-    { name = "pypdf", specifier = ">=6.14.2" },
     { name = "pyright", specifier = ">=1.1.409" },
     { name = "pytest", specifier = ">=8.4" },
     { name = "reportlab", specifier = ">=5.0.0" },

@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import pytest
+from legalforecast.ingestion.disclosure_clearance import DisclosurePdfScan
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
     build_provenance_clearance_plan,
     build_provenance_clearance_records,
     canonical_json_bytes,
     exception_review_worksheet,
+    validate_exception_review_worksheet,
 )
 
 PUBLIC_EVIDENCE = ["courtlistener_public_download_record_checked"]
@@ -37,6 +40,42 @@ class Inputs:
     restrictions: list[dict[str, object]]
     requests: list[dict[str, object]]
     relevance: list[dict[str, object]]
+
+
+def _complete_scan(*markers: str) -> DisclosurePdfScan:
+    return DisclosurePdfScan(
+        parsed_page_count=1,
+        text_scanned_page_numbers=(1,),
+        ocr_scanned_page_numbers=(),
+        unscanned_page_numbers=(),
+        coverage_status="complete",
+        diagnostics=("legacy_extraction_page_count_mismatch",),
+        automated_markers=tuple(sorted(markers)),
+    )
+
+
+def _incomplete_scan() -> DisclosurePdfScan:
+    return DisclosurePdfScan(
+        parsed_page_count=1,
+        text_scanned_page_numbers=(),
+        ocr_scanned_page_numbers=(),
+        unscanned_page_numbers=(1,),
+        coverage_status="incomplete",
+        diagnostics=("page_text_empty:1",),
+        automated_markers=(
+            "extraction_page_coverage_incomplete",
+            "unscannable_or_image_only",
+        ),
+    )
+
+
+def _scanner(
+    scans_by_payload: Mapping[bytes, DisclosurePdfScan],
+):
+    def scan(payload: bytes) -> DisclosurePdfScan:
+        return scans_by_payload.get(payload, _complete_scan())
+
+    return scan
 
 
 def _inputs(tmp_path: Path) -> Inputs:
@@ -136,10 +175,12 @@ def _plan(tmp_path: Path) -> dict[str, object]:
         download_manifest_bytes=_jsonl(values.manifest),
         restriction_evidence_bytes=_jsonl(values.restrictions),
         case_relevance_bytes=_jsonl(values.relevance),
-        marker_scanner=lambda payload: (
-            ("extraction_page_count_mismatch",)
-            if payload in {b"marker", b"restricted", b"contradiction"}
-            else ()
+        document_scanner=_scanner(
+            {
+                b"marker": _complete_scan(),
+                b"restricted": _complete_scan(),
+                b"contradiction": _complete_scan(),
+            }
         ),
     )
 
@@ -159,7 +200,7 @@ def _route_reasons(document: Mapping[str, object]) -> list[str]:
     return cast(list[str], raw_reasons)
 
 
-def test_plan_auto_clears_only_structural_diagnostics_after_public_gates(
+def test_plan_auto_clears_only_complete_marker_free_scans_after_public_gates(
     tmp_path: Path,
 ) -> None:
     plan = _plan(tmp_path)
@@ -171,21 +212,16 @@ def test_plan_auto_clears_only_structural_diagnostics_after_public_gates(
     assert documents["public-safe"]["route"] == "auto_clear"
     assert documents["rest-safe"]["route"] == "auto_clear"
     assert documents["marker"]["route"] == "auto_clear"
-    assert documents["marker"]["automated_markers"] == [
-        "extraction_page_count_mismatch"
-    ]
+    assert documents["marker"]["automated_markers"] == []
+    assert documents["marker"]["disclosure_pdf_scan"]["coverage_status"] == "complete"
     assert "automated_marker_present" not in _route_reasons(documents["marker"])
     assert documents["marker"]["human_clearance_permitted"] is True
     assert documents["restricted"]["route"] == "john_exception_review"
     assert documents["restricted"]["human_clearance_permitted"] is False
-    assert documents["restricted"]["automated_markers"] == [
-        "extraction_page_count_mismatch"
-    ]
+    assert documents["restricted"]["automated_markers"] == []
     assert documents["contradiction"]["route"] == "john_exception_review"
     assert documents["contradiction"]["human_clearance_permitted"] is False
-    assert documents["contradiction"]["automated_markers"] == [
-        "extraction_page_count_mismatch"
-    ]
+    assert documents["contradiction"]["automated_markers"] == []
 
     worksheet = exception_review_worksheet(plan)
     assert worksheet["document_count"] == 2
@@ -193,6 +229,85 @@ def test_plan_auto_clears_only_structural_diagnostics_after_public_gates(
         "restricted",
         "contradiction",
     }
+
+
+def test_incomplete_page_coverage_remains_review_routed(
+    tmp_path: Path,
+) -> None:
+    values = _inputs(tmp_path)
+
+    plan = build_provenance_clearance_plan(
+        values.requests,
+        values.manifest,
+        values.restrictions,
+        values.relevance,
+        document_root=values.document_root,
+        review_requests_bytes=_jsonl(values.requests),
+        download_manifest_bytes=_jsonl(values.manifest),
+        restriction_evidence_bytes=_jsonl(values.restrictions),
+        case_relevance_bytes=_jsonl(values.relevance),
+        document_scanner=_scanner({b"marker": _incomplete_scan()}),
+    )
+
+    marker = next(
+        row for row in _documents(plan) if row["source_document_id"] == "marker"
+    )
+    assert marker["route"] == "john_exception_review"
+    assert marker["automated_markers"] == [
+        "extraction_page_coverage_incomplete",
+        "unscannable_or_image_only",
+    ]
+    assert "page_scan_coverage_incomplete" in _route_reasons(marker)
+    assert "automated_marker_present" in _route_reasons(marker)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["missing_field", "extra_field", "overlapping_pages", "out_of_range_page"],
+)
+def test_closed_pdf_scan_schema_rejects_invalid_coverage(
+    tmp_path: Path, mutation: str
+) -> None:
+    plan = _plan(tmp_path)
+    cloned = cast(dict[str, object], json.loads(json.dumps(plan)))
+    documents = cast(list[dict[str, object]], cloned["documents"])
+    scan = cast(dict[str, object], documents[0]["disclosure_pdf_scan"])
+    if mutation == "missing_field":
+        del scan["method"]
+    elif mutation == "extra_field":
+        scan["unexpected"] = True
+    elif mutation == "overlapping_pages":
+        scan["unscanned_page_numbers"] = [1]
+        scan["coverage_status"] = "incomplete"
+    else:
+        scan["text_scanned_page_numbers"] = [2]
+
+    with pytest.raises(ProvenanceClearanceError, match="PDF scan"):
+        exception_review_worksheet(cloned)
+
+
+def test_closed_exception_worksheet_rejects_nested_scan_drift(tmp_path: Path) -> None:
+    worksheet = exception_review_worksheet(_plan(tmp_path))
+    assert len(validate_exception_review_worksheet(worksheet)) == 2
+    documents = cast(list[dict[str, object]], worksheet["documents"])
+    scan = cast(dict[str, object], documents[0]["disclosure_pdf_scan"])
+    scan["unexpected"] = True
+
+    with pytest.raises(ProvenanceClearanceError, match="PDF scan"):
+        validate_exception_review_worksheet(worksheet)
+
+
+def test_closed_plan_rejects_marker_route_bypass(tmp_path: Path) -> None:
+    plan = _plan(tmp_path)
+    documents = cast(list[dict[str, object]], plan["documents"])
+    restricted = next(
+        row for row in documents if row["source_document_id"] == "restricted"
+    )
+    restricted["route"] = "auto_clear"
+    restricted["route_reasons"] = []
+
+    with pytest.raises(ProvenanceClearanceError, match="routing plan decision"):
+        exception_review_worksheet(plan)
 
 
 @pytest.mark.parametrize("substantive_marker", ["medical", "ssn", "future_marker"])
@@ -211,9 +326,7 @@ def test_plan_keeps_every_substantive_marker_in_review(
         download_manifest_bytes=_jsonl(values.manifest),
         restriction_evidence_bytes=_jsonl(values.restrictions),
         case_relevance_bytes=_jsonl(values.relevance),
-        marker_scanner=lambda payload: (
-            (substantive_marker,) if payload == b"marker" else ()
-        ),
+        document_scanner=_scanner({b"marker": _complete_scan(substantive_marker)}),
     )
 
     marker = next(
@@ -225,7 +338,7 @@ def test_plan_keeps_every_substantive_marker_in_review(
     assert marker["human_clearance_permitted"] is True
 
 
-def test_structural_diagnostic_does_not_suppress_substantive_marker(
+def test_complete_page_coverage_does_not_suppress_substantive_marker(
     tmp_path: Path,
 ) -> None:
     values = _inputs(tmp_path)
@@ -240,21 +353,14 @@ def test_structural_diagnostic_does_not_suppress_substantive_marker(
         download_manifest_bytes=_jsonl(values.manifest),
         restriction_evidence_bytes=_jsonl(values.restrictions),
         case_relevance_bytes=_jsonl(values.relevance),
-        marker_scanner=lambda payload: (
-            ("extraction_page_count_mismatch", "medical")
-            if payload == b"marker"
-            else ()
-        ),
+        document_scanner=_scanner({b"marker": _complete_scan("medical")}),
     )
 
     marker = next(
         row for row in _documents(plan) if row["source_document_id"] == "marker"
     )
     assert marker["route"] == "john_exception_review"
-    assert marker["automated_markers"] == [
-        "extraction_page_count_mismatch",
-        "medical",
-    ]
+    assert marker["automated_markers"] == ["medical"]
     assert "automated_marker_present" in _route_reasons(marker)
 
 
@@ -292,7 +398,7 @@ def test_plan_forbids_human_clearance_for_spaced_positive_restrictions(
         download_manifest_bytes=_jsonl(values.manifest),
         restriction_evidence_bytes=_jsonl(values.restrictions),
         case_relevance_bytes=_jsonl(values.relevance),
-        marker_scanner=lambda _payload: (),
+        document_scanner=_scanner({}),
     )
 
     marker = next(
@@ -328,9 +434,7 @@ def test_structural_diagnostic_does_not_clear_unproven_unknown_restriction(
         download_manifest_bytes=_jsonl(values.manifest),
         restriction_evidence_bytes=_jsonl(values.restrictions),
         case_relevance_bytes=_jsonl(values.relevance),
-        marker_scanner=lambda payload: (
-            ("extraction_page_count_mismatch",) if payload == b"marker" else ()
-        ),
+        document_scanner=_scanner({b"marker": _complete_scan()}),
     )
 
     marker = next(

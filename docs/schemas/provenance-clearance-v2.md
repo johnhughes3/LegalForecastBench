@@ -1,0 +1,32 @@
+# Provenance clearance v2
+
+Cycle 1 uses provenance-first disclosure clearance instead of a signing-key ceremony.
+The supported path is `plan-disclosure-provenance` -> `record-disclosure-review-decisions` for exceptions -> `clear-provenance-disclosures`.
+Legacy signed-review and v1 routing artifacts remain verifiable for historical runs but are not a Cycle-1 readiness dependency.
+
+## Routing plan
+
+`plan-disclosure-provenance` consumes the exact frozen disclosure requests, complete download manifest, full case-relevance artifact, restriction evidence, and acquired document tree.
+It rejects symlinks, hard links, special files, changed bytes, malformed or semantically mismatched source bytes, incomplete key coverage, and unexplained relevance-only rows.
+
+The output schema is `legalforecast.disclosure_provenance_routing_plan.v2`.
+Each document embeds one closed `legalforecast.disclosure_pdf_scan.v1` record containing the parser method, parsed page count, disjoint text-scanned, OCR-scanned, and unscanned page-number sets, coverage status, diagnostics, and substantive markers.
+The three page sets must be sorted, unique, pairwise disjoint, and exactly partition `1..parsed_page_count`.
+Coverage is complete only when at least one page was parsed and the unscanned set is empty.
+A legacy content-stream/page-count mismatch is retained only as a diagnostic; it never proves coverage and never suppresses a substantive marker.
+
+A document is `auto_clear` only when all of the following are true:
+
+- its current descriptor-stable bytes match the manifest SHA-256 and byte count;
+- it is a free CourtListener document with an allowlisted public `storage.courtlistener.com/recap/` URL that matches case relevance;
+- public provenance is affirmative, either from the checked public-download record or the exact CourtListener REST proof set;
+- the visibility contract is exactly predecision/model-visible or decision/outcome-only;
+- page coverage is complete and the scan returns no substantive marker; and
+- no status, boolean, or evidence token affirmatively indicates sealed, private, restricted, or under-seal material.
+
+All other rows route to `john_exception_review`.
+Incomplete extraction and marker-only or missing-provenance exceptions may be cleared after inspection.
+A positive restriction or visibility contradiction sets `human_clearance_permitted: false` and can never be cleared.
+
+The planner emits `legalforecast.disclosure_exception_worksheet.v2`, which projects the same closed document rows for exceptions, and an exception-only private inspection map.
+The review and final-clearance integrity properties otherwise remain those documented for v1.

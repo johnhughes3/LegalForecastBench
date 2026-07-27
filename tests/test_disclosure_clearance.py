@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+from io import BytesIO
 from pathlib import Path
 
+import legalforecast.ingestion.disclosure_clearance as disclosure_module
 import pytest
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
@@ -13,7 +15,11 @@ from legalforecast.ingestion.disclosure_clearance import (
     require_cleared_documents,
     require_cleared_parse_requests,
     require_cleared_parser_records,
+    scan_disclosure_document,
 )
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import ArrayObject, NameObject
+from reportlab.pdfgen.canvas import Canvas
 
 
 def _document(tmp_path: Path, content: bytes) -> dict[str, object]:
@@ -76,6 +82,62 @@ def test_image_only_pdf_is_quarantined(tmp_path: Path) -> None:
     [record] = build_clearance_records([document], document_root=tmp_path, reviews=[])
     assert "unscannable_or_image_only" in record.automated_markers
     assert record.status == "quarantined"
+
+
+def test_page_count_mismatch_records_complete_page_text_coverage() -> None:
+    complete = scan_disclosure_document(
+        _multipage_pdf(("Motion memorandum", "Opposition memorandum"))
+    )
+    assert complete.parsed_page_count == 2
+    assert complete.text_scanned_page_numbers == (1, 2)
+    assert complete.unscanned_page_numbers == ()
+    assert complete.coverage_status == "complete"
+    assert complete.automated_markers == ()
+    assert "legacy_extraction_page_count_mismatch" in complete.diagnostics
+
+    partial = scan_disclosure_document(_multipage_pdf(("Motion memorandum", "")))
+    assert partial.text_scanned_page_numbers == (1,)
+    assert partial.unscanned_page_numbers == (2,)
+    assert partial.coverage_status == "incomplete"
+    assert "extraction_page_coverage_incomplete" in partial.automated_markers
+    assert "unscannable_or_image_only" in partial.automated_markers
+
+
+def test_page_scanner_covers_every_page_when_one_page_has_multiple_streams() -> None:
+    scan = scan_disclosure_document(_multi_stream_pdf("Motion memorandum"))
+
+    assert scan.parsed_page_count == 1
+    assert scan.text_scanned_page_numbers == (1,)
+    assert scan.unscanned_page_numbers == ()
+    assert scan.coverage_status == "complete"
+    assert scan.automated_markers == ()
+    assert "legacy_extraction_page_count_mismatch" in scan.diagnostics
+
+
+def test_page_scanner_fails_closed_on_parser_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrokenReader:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            raise ValueError("synthetic parser failure")
+
+    monkeypatch.setattr(disclosure_module, "PdfReader", BrokenReader)
+    scan = scan_disclosure_document(_multipage_pdf(("Motion memorandum",)))
+
+    assert scan.coverage_status == "incomplete"
+    assert scan.parsed_page_count == 0
+    assert "pdf_parse_failed" in scan.diagnostics
+    assert "extraction_page_coverage_incomplete" in scan.automated_markers
+
+
+def test_substantive_marker_on_later_page_forces_review_marker() -> None:
+    scan = scan_disclosure_document(
+        _multipage_pdf(("Motion memorandum", "The medical record is attached."))
+    )
+
+    assert scan.coverage_status == "complete"
+    assert scan.text_scanned_page_numbers == (1, 2)
+    assert scan.automated_markers == ("medical",)
 
 
 def test_sealed_evidence_fails_closed_and_cleared_hash_is_recorded(
@@ -461,3 +523,26 @@ def test_clearance_rejects_symlinked_document_root(tmp_path: Path) -> None:
 
 def _text_pdf(text: bytes) -> bytes:
     return b"%PDF-1.4\n/Type /Page\n<< >>\nstream\nBT (" + text + b") Tj ET\nendstream"
+
+
+def _multipage_pdf(page_texts: tuple[str, ...]) -> bytes:
+    output = BytesIO()
+    canvas = Canvas(output)
+    for text in page_texts:
+        if text:
+            canvas.drawString(72, 720, text)
+        canvas.showPage()
+    canvas.save()
+    return output.getvalue()
+
+
+def _multi_stream_pdf(text: str) -> bytes:
+    reader = PdfReader(BytesIO(_multipage_pdf((text,))))
+    page = reader.pages[0]
+    contents = page.raw_get("/Contents")
+    page[NameObject("/Contents")] = ArrayObject([contents, contents])
+    writer = PdfWriter()
+    writer.add_page(page)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()

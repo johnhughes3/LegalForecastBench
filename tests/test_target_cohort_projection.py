@@ -9,6 +9,7 @@ from typing import Any, cast
 import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.disclosure_clearance import DisclosurePdfScan
 from legalforecast.ingestion.disclosure_review_authority import (
     disclosure_authority_identity_from_cohort_policy,
 )
@@ -766,6 +767,17 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
 def test_provenance_clearance_projects_and_materializes_two_cases(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    def complete_scan(_payload: bytes) -> DisclosurePdfScan:
+        return DisclosurePdfScan(
+            parsed_page_count=1,
+            text_scanned_page_numbers=(1,),
+            ocr_scanned_page_numbers=(),
+            unscanned_page_numbers=(),
+            coverage_status="complete",
+            diagnostics=(),
+            automated_markers=(),
+        )
+
     def no_marker_plan(
         review_requests: Sequence[Mapping[str, object]],
         download_manifest: Sequence[Mapping[str, object]],
@@ -789,7 +801,7 @@ def test_provenance_clearance_projects_and_materializes_two_cases(
                 Mapping[str, bytes] | None,
                 kwargs.get("document_bytes_by_relative_path"),
             ),
-            marker_scanner=lambda _payload: (),
+            document_scanner=complete_scan,
         )
 
     monkeypatch.setattr(cli_module, "build_provenance_clearance_plan", no_marker_plan)
