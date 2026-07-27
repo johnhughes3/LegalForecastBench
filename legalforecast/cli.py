@@ -499,6 +499,7 @@ from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan,
     build_provenance_clearance_records,
     exception_review_worksheet,
+    validate_exception_review_worksheet,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
 from legalforecast.ingestion.purchase_approval import (
@@ -33928,7 +33929,15 @@ def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
         not raw_documents and not provenance_exception_review
     ):
         raise CommandError("review worksheet has no documents")
-    typed_documents = cast(list[object], raw_documents)
+    if provenance_exception_review:
+        try:
+            typed_documents: list[object] = list(
+                validate_exception_review_worksheet(worksheet)
+            )
+        except ProvenanceClearanceError as exc:
+            raise CommandError("provenance exception worksheet is invalid") from exc
+    else:
+        typed_documents = cast(list[object], raw_documents)
     documents: dict[tuple[str, str], Mapping[str, Any]] = {}
     for item in typed_documents:
         if not isinstance(item, Mapping):

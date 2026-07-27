@@ -12,19 +12,21 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from legalforecast.ingestion.disclosure_clearance import (
+    PDF_SCAN_SCHEMA_VERSION,
     ClearanceRecord,
     DisclosureClearanceError,
+    DisclosurePdfScan,
     normalize_restriction_token,
     safe_disclosure_document_path,
-    scan_disclosure_markers,
+    scan_disclosure_document,
 )
 from legalforecast.ingestion.disclosure_review_bundle import (
     ReviewBundleError,
     read_unique_regular_file,
 )
 
-PLAN_SCHEMA_VERSION = "legalforecast.disclosure_provenance_routing_plan.v1"
-WORKSHEET_SCHEMA_VERSION = "legalforecast.disclosure_exception_worksheet.v1"
+PLAN_SCHEMA_VERSION = "legalforecast.disclosure_provenance_routing_plan.v2"
+WORKSHEET_SCHEMA_VERSION = "legalforecast.disclosure_exception_worksheet.v2"
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
@@ -69,7 +71,7 @@ def build_provenance_clearance_plan(
     restriction_evidence_bytes: bytes,
     case_relevance_bytes: bytes,
     document_bytes_by_relative_path: Mapping[str, bytes] | None = None,
-    marker_scanner: Callable[[bytes], Sequence[str]] = scan_disclosure_markers,
+    document_scanner: Callable[[bytes], DisclosurePdfScan] = scan_disclosure_document,
 ) -> dict[str, object]:
     """Derive complete auto-clear versus John-review routing from exact inputs."""
 
@@ -133,11 +135,10 @@ def build_provenance_clearance_plan(
             raise ProvenanceClearanceError(
                 f"document manifest commitment mismatch: {key}"
             )
-        markers = tuple(
-            sorted(
-                {_nonempty(item, "automated marker") for item in marker_scanner(data)}
-            )
-        )
+        scan = document_scanner(data)
+        scan_record = scan.to_record()
+        _validate_scan_record(scan_record, key=key)
+        markers = scan.automated_markers
         route_reasons: list[str] = []
         positive_restriction = _positive_restriction(restriction)
         visibility_valid = _visibility_contract_valid(visibility)
@@ -150,6 +151,8 @@ def build_provenance_clearance_plan(
             route_reasons.append("visibility_contract_contradiction")
         if not affirmative_public:
             route_reasons.append("affirmative_public_provenance_unproven")
+        if scan.coverage_status != "complete":
+            route_reasons.append("page_scan_coverage_incomplete")
         if markers:
             route_reasons.append("automated_marker_present")
         auto_clear = not route_reasons
@@ -163,6 +166,7 @@ def build_provenance_clearance_plan(
                 "free_or_purchased": _required_text(source, "free_or_purchased"),
                 "source_provider": source.get("source_provider"),
                 "source_url": source.get("source_url"),
+                "source_url_or_reference": visibility.get("source_url_or_reference"),
                 "restriction_status": _required_text(restriction, "restriction_status"),
                 "restriction_evidence": list(
                     _text_set(restriction, "restriction_evidence")
@@ -171,6 +175,7 @@ def build_provenance_clearance_plan(
                 "is_private": restriction.get("is_private"),
                 "model_visible": visibility.get("model_visible"),
                 "contains_target_outcome": visibility.get("contains_target_outcome"),
+                "disclosure_pdf_scan": scan_record,
                 "automated_markers": list(markers),
                 "route": "auto_clear" if auto_clear else "john_exception_review",
                 "route_reasons": route_reasons,
@@ -217,6 +222,58 @@ def exception_review_worksheet(plan: Mapping[str, object]) -> dict[str, object]:
         "document_count": len(exceptions),
         "documents": exceptions,
     }
+
+
+def validate_exception_review_worksheet(
+    worksheet: Mapping[str, object],
+) -> list[Mapping[str, object]]:
+    """Validate and return the canonically ordered closed v2 exception rows."""
+
+    expected_fields = {
+        "schema_version",
+        "routing_plan_sha256",
+        "document_set_sha256",
+        "document_count",
+        "documents",
+    }
+    if (
+        set(worksheet) != expected_fields
+        or worksheet.get("schema_version") != WORKSHEET_SCHEMA_VERSION
+    ):
+        raise ProvenanceClearanceError("invalid provenance exception worksheet shape")
+    _digest(worksheet, "routing_plan_sha256")
+    raw = worksheet.get("documents")
+    if not isinstance(raw, list):
+        raise ProvenanceClearanceError("provenance exception worksheet lacks documents")
+    documents: list[Mapping[str, object]] = []
+    keys: list[tuple[str, str]] = []
+    for value in cast(list[object], raw):
+        if not isinstance(value, Mapping):
+            raise ProvenanceClearanceError(
+                "provenance exception worksheet document is not an object"
+            )
+        row = cast(Mapping[str, object], value)
+        key = _key(row)
+        _validate_plan_document(row, key=key)
+        if row.get("route") != "john_exception_review":
+            raise ProvenanceClearanceError(
+                f"provenance exception worksheet contains auto-clear row: {key}"
+            )
+        documents.append(row)
+        keys.append(key)
+    if keys != sorted(set(keys)):
+        raise ProvenanceClearanceError(
+            "provenance exception worksheet documents are not unique and ordered"
+        )
+    if (
+        worksheet.get("document_count") != len(documents)
+        or worksheet.get("document_set_sha256")
+        != hashlib.sha256(canonical_json_bytes(documents)).hexdigest()
+    ):
+        raise ProvenanceClearanceError(
+            "provenance exception worksheet summary mismatch"
+        )
+    return documents
 
 
 def build_exception_inspection_map(
@@ -415,6 +472,7 @@ def _plan_documents(plan: Mapping[str, object]) -> list[Mapping[str, object]]:
         seen.add(key)
         if row.get("route") not in {"auto_clear", "john_exception_review"}:
             raise ProvenanceClearanceError(f"invalid routing action: {key}")
+        _validate_plan_document(row, key=key)
         documents.append(row)
     if [_key(row) for row in documents] != sorted(seen):
         raise ProvenanceClearanceError(
@@ -430,6 +488,131 @@ def _plan_documents(plan: Mapping[str, object]) -> list[Mapping[str, object]]:
     ):
         raise ProvenanceClearanceError("provenance routing plan summary mismatch")
     return documents
+
+
+def _validate_plan_document(row: Mapping[str, object], *, key: tuple[str, str]) -> None:
+    expected_fields = {
+        "candidate_id",
+        "source_document_id",
+        "local_path",
+        "sha256",
+        "byte_count",
+        "free_or_purchased",
+        "source_provider",
+        "source_url",
+        "source_url_or_reference",
+        "restriction_status",
+        "restriction_evidence",
+        "is_sealed",
+        "is_private",
+        "model_visible",
+        "contains_target_outcome",
+        "disclosure_pdf_scan",
+        "automated_markers",
+        "route",
+        "route_reasons",
+        "human_clearance_permitted",
+    }
+    if set(row) != expected_fields:
+        raise ProvenanceClearanceError(f"invalid routing plan document shape: {key}")
+    raw_scan = row.get("disclosure_pdf_scan")
+    if not isinstance(raw_scan, Mapping):
+        raise ProvenanceClearanceError(f"routing plan document lacks PDF scan: {key}")
+    scan = cast(Mapping[str, object], raw_scan)
+    _validate_scan_record(scan, key=key)
+    markers = _text_list(row, "automated_markers")
+    if markers != scan.get("automated_markers"):
+        raise ProvenanceClearanceError(
+            f"routing plan markers differ from PDF scan: {key}"
+        )
+    positive_restriction = _positive_restriction(row)
+    visibility_valid = _visibility_contract_valid(row)
+    affirmative_public = _affirmative_public_provenance(
+        row, restriction=row, visibility=row
+    )
+    expected_reasons: list[str] = []
+    if positive_restriction:
+        expected_reasons.append("positive_restriction_evidence")
+    if not visibility_valid:
+        expected_reasons.append("visibility_contract_contradiction")
+    if not affirmative_public:
+        expected_reasons.append("affirmative_public_provenance_unproven")
+    if scan.get("coverage_status") != "complete":
+        expected_reasons.append("page_scan_coverage_incomplete")
+    if markers:
+        expected_reasons.append("automated_marker_present")
+    expected_route = "auto_clear" if not expected_reasons else "john_exception_review"
+    if (
+        row.get("route_reasons") != expected_reasons
+        or row.get("route") != expected_route
+        or row.get("human_clearance_permitted")
+        is not (not positive_restriction and visibility_valid)
+    ):
+        raise ProvenanceClearanceError(f"invalid routing plan decision: {key}")
+
+
+def _validate_scan_record(scan: Mapping[str, object], *, key: tuple[str, str]) -> None:
+    expected_fields = {
+        "schema_version",
+        "method",
+        "parsed_page_count",
+        "text_scanned_page_numbers",
+        "text_scanned_page_count",
+        "ocr_scanned_page_numbers",
+        "ocr_scanned_page_count",
+        "unscanned_page_numbers",
+        "coverage_status",
+        "diagnostics",
+        "automated_markers",
+    }
+    if (
+        set(scan) != expected_fields
+        or scan.get("schema_version") != PDF_SCAN_SCHEMA_VERSION
+        or scan.get("method") != "pypdf_page_text_v1"
+    ):
+        raise ProvenanceClearanceError(f"invalid PDF scan shape: {key}")
+    parsed_page_count = _nonnegative_int(scan, "parsed_page_count")
+    text_pages = _page_numbers(scan, "text_scanned_page_numbers")
+    ocr_pages = _page_numbers(scan, "ocr_scanned_page_numbers")
+    unscanned_pages = _page_numbers(scan, "unscanned_page_numbers")
+    if scan.get("text_scanned_page_count") != len(text_pages) or scan.get(
+        "ocr_scanned_page_count"
+    ) != len(ocr_pages):
+        raise ProvenanceClearanceError(f"invalid PDF scan page count: {key}")
+    partitions = (set(text_pages), set(ocr_pages), set(unscanned_pages))
+    if any(
+        left & right
+        for index, left in enumerate(partitions)
+        for right in partitions[index + 1 :]
+    ) or set().union(*partitions) != set(range(1, parsed_page_count + 1)):
+        raise ProvenanceClearanceError(f"invalid PDF scan page partition: {key}")
+    if ocr_pages:
+        raise ProvenanceClearanceError(
+            f"PDF scan pypdf page-text method cannot claim OCR coverage: {key}"
+        )
+    complete = parsed_page_count > 0 and not unscanned_pages
+    if scan.get("coverage_status") != ("complete" if complete else "incomplete"):
+        raise ProvenanceClearanceError(f"invalid PDF scan coverage status: {key}")
+    for field in ("diagnostics", "automated_markers"):
+        values = _text_list(scan, field)
+        if values != sorted(set(values)):
+            raise ProvenanceClearanceError(
+                f"PDF scan {field} must be sorted and unique: {key}"
+            )
+
+
+def _page_numbers(record: Mapping[str, object], field: str) -> list[int]:
+    value = record.get(field)
+    if not isinstance(value, list):
+        raise ProvenanceClearanceError(f"{field} must be a list")
+    result: list[int] = []
+    for item in cast(list[object], value):
+        if not isinstance(item, int) or isinstance(item, bool) or item <= 0:
+            raise ProvenanceClearanceError(f"{field} must contain positive integers")
+        result.append(item)
+    if result != sorted(set(result)):
+        raise ProvenanceClearanceError(f"{field} must be sorted and unique")
+    return result
 
 
 def _affirmative_public_provenance(
@@ -662,4 +845,5 @@ __all__ = [
     "build_provenance_clearance_records",
     "canonical_json_bytes",
     "exception_review_worksheet",
+    "validate_exception_review_worksheet",
 ]

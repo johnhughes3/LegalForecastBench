@@ -9,9 +9,12 @@ import stat
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from io import BytesIO
 from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
+
+from pypdf import PdfReader
 
 from legalforecast.extraction.pdf_text import (
     PDFExtractionError,
@@ -24,6 +27,7 @@ from legalforecast.ingestion.restricted_material import restricted_material_mark
 
 SCHEMA_VERSION = "legalforecast.disclosure_clearance.v1"
 REVIEW_RECEIPT_SCHEMA_VERSION = "legalforecast.disclosure_review_receipt.v2"
+PDF_SCAN_SCHEMA_VERSION = "legalforecast.disclosure_pdf_scan.v1"
 _CLEAR = "cleared"
 _QUARANTINED = "quarantined"
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
@@ -62,6 +66,38 @@ _MEDICAL = re.compile(
 
 class DisclosureClearanceError(ValueError):
     """Raised when clearance evidence is missing, inconsistent, or unsafe."""
+
+
+@dataclass(frozen=True, slots=True)
+class DisclosurePdfScan:
+    """Closed page-coverage evidence derived from one exact PDF byte string."""
+
+    parsed_page_count: int
+    text_scanned_page_numbers: tuple[int, ...]
+    ocr_scanned_page_numbers: tuple[int, ...]
+    unscanned_page_numbers: tuple[int, ...]
+    coverage_status: str
+    diagnostics: tuple[str, ...]
+    automated_markers: tuple[str, ...]
+    schema_version: str = PDF_SCAN_SCHEMA_VERSION
+    method: str = "pypdf_page_text_v1"
+
+    def to_record(self) -> dict[str, object]:
+        """Return the closed JSON representation embedded in routing plans."""
+
+        return {
+            "schema_version": self.schema_version,
+            "method": self.method,
+            "parsed_page_count": self.parsed_page_count,
+            "text_scanned_page_numbers": list(self.text_scanned_page_numbers),
+            "text_scanned_page_count": len(self.text_scanned_page_numbers),
+            "ocr_scanned_page_numbers": list(self.ocr_scanned_page_numbers),
+            "ocr_scanned_page_count": len(self.ocr_scanned_page_numbers),
+            "unscanned_page_numbers": list(self.unscanned_page_numbers),
+            "coverage_status": self.coverage_status,
+            "diagnostics": list(self.diagnostics),
+            "automated_markers": list(self.automated_markers),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -624,7 +660,65 @@ def _scan_pdf(data: bytes) -> tuple[str, ...]:
         for flag in extraction.quality_flags
         if flag in unsafe_quality
     }
-    text = extraction.text
+    for name, pattern in (
+        ("ssn", _SSN),
+        ("dob", _DOB),
+        ("minor", _MINOR),
+        ("medical", _MEDICAL),
+    ):
+        if pattern.search(extraction.text):
+            markers.add(name)
+    if not extraction.text.strip():
+        markers.add("unscannable_or_image_only")
+    return tuple(sorted(markers))
+
+
+def scan_disclosure_document(data: bytes) -> DisclosurePdfScan:
+    """Scan every parsed PDF page and return explicit, closed coverage evidence."""
+
+    diagnostics: set[str] = set()
+    try:
+        legacy = extract_pdf_text_with_ocr_fallback(data)
+    except PDFExtractionError:
+        diagnostics.add("legacy_extraction_failed")
+    else:
+        diagnostics.update(f"legacy_extraction_{flag}" for flag in legacy.quality_flags)
+
+    parsed_page_count = 0
+    text_pages: list[int] = []
+    unscanned_pages: list[int] = []
+    normalized_page_text: list[str] = []
+    try:
+        reader = PdfReader(BytesIO(data), strict=False)
+        if reader.is_encrypted:
+            diagnostics.add("pdf_encrypted")
+        else:
+            parsed_page_count = len(reader.pages)
+            if parsed_page_count == 0:
+                diagnostics.add("pdf_has_no_pages")
+            for page_number, page in enumerate(reader.pages, start=1):
+                try:
+                    normalized = (page.extract_text() or "").strip()
+                except Exception:
+                    diagnostics.add(f"page_text_extraction_failed:{page_number}")
+                    unscanned_pages.append(page_number)
+                    continue
+                if not normalized:
+                    diagnostics.add(f"page_text_empty:{page_number}")
+                    unscanned_pages.append(page_number)
+                    continue
+                text_pages.append(page_number)
+                normalized_page_text.append(normalized)
+    except Exception:
+        diagnostics.add("pdf_parse_failed")
+
+    all_pages = set(range(1, parsed_page_count + 1))
+    covered_pages = set(text_pages)
+    missing_pages = all_pages - covered_pages
+    unscanned_pages = sorted(set(unscanned_pages) | missing_pages)
+    coverage_complete = parsed_page_count > 0 and not unscanned_pages
+    markers: set[str] = set()
+    text = "\f".join(normalized_page_text)
     for name, pattern in (
         ("ssn", _SSN),
         ("dob", _DOB),
@@ -633,9 +727,19 @@ def _scan_pdf(data: bytes) -> tuple[str, ...]:
     ):
         if pattern.search(text):
             markers.add(name)
-    if not text.strip():
-        markers.add("unscannable_or_image_only")
-    return tuple(sorted(markers))
+    if not coverage_complete:
+        markers.update(
+            {"extraction_page_coverage_incomplete", "unscannable_or_image_only"}
+        )
+    return DisclosurePdfScan(
+        parsed_page_count=parsed_page_count,
+        text_scanned_page_numbers=tuple(text_pages),
+        ocr_scanned_page_numbers=(),
+        unscanned_page_numbers=tuple(unscanned_pages),
+        coverage_status="complete" if coverage_complete else "incomplete",
+        diagnostics=tuple(sorted(diagnostics)),
+        automated_markers=tuple(sorted(markers)),
+    )
 
 
 def scan_disclosure_markers(data: bytes) -> tuple[str, ...]:

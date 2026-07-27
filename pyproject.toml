@@ -21,6 +21,7 @@ classifiers = [
 dependencies = [
     "cryptography>=45.0",
     "ortools>=9.15.6755",
+    "pypdf>=6.14.2",
 ]
 
 [project.scripts]
@@ -30,7 +31,6 @@ legalforecast-acquisition-systemd-run = "legalforecast.ingestion.infisical_syste
 [dependency-groups]
 dev = [
   "interrogate>=1.7.0",
-  "pypdf>=6.14.2",
   "pyright>=1.1.409",
   "pytest>=8.4",
   "reportlab>=5.0.0",
