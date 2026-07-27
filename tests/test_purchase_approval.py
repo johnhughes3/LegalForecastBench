@@ -42,18 +42,25 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.disclosure_review_authority import (
     disclosure_authority_identity_from_cohort_policy,
 )
+from legalforecast.ingestion.free_only_materialization import (
+    FreeOnlyMaterializationError,
+    FreeOnlyMaterializationInputs,
+    verify_free_only_materialization_authority,
+)
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.purchase_approval import (
     PurchaseApprovalError,
+    VerifiedFreeOnlyPurchaseApproval,
     VerifiedPurchaseApproval,
     build_purchase_approval_request,
     generate_approved_purchase_policy,
     record_purchase_approval,
     replay_approved_purchase_policy,
     resume_purchase_approval_recording,
+    verify_free_only_purchase_approval,
     verify_purchase_approval,
 )
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
@@ -70,7 +77,10 @@ from legalforecast.ingestion.target_cohort_projection import project_target_coho
 from tests.disclosure_review_fixtures import (
     service_disclosure_authority_from_policy_bytes,
 )
-from tests.purchase_approval_fixtures import LEGACY_V1_BYPASS_MODULES
+from tests.purchase_approval_fixtures import (
+    LEGACY_V1_BYPASS_MODULES,
+    allow_historical_v1_algorithm_fixtures,
+)
 from tests.test_target_100_acquisition import (
     _snapshot_manifest_sha256,
     _target_100_fixture,
@@ -260,6 +270,309 @@ def test_nonapproval_decisions_never_mint_purchase_authority(
             cohort_policy_path=cohort_policy,
             fee_schedule_path=fee_schedule,
             canonical_ledger_path=ledger,
+        )
+
+
+def test_free_only_decision_replays_without_minting_purchase_authority(
+    tmp_path: Path,
+) -> None:
+    target_root, cohort_policy, fee_schedule = _projection_fixture(tmp_path)
+    private_root = (tmp_path / "private").resolve()
+    ledger = (tmp_path / "ledger.sqlite3").resolve()
+    request = build_purchase_approval_request(
+        target_cohort_root=target_root,
+        cohort_policy_path=cohort_policy,
+        fee_schedule_path=fee_schedule,
+        canonical_ledger_path=ledger,
+    )
+    checkpoint_path, run_card_path = record_purchase_approval(
+        request=request,
+        controlled_private_root=private_root,
+        decision="free_only",
+        typed_confirmation=request.required_confirmation("free_only"),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-07-26T15:00:00Z",
+    )
+
+    verified = verify_free_only_purchase_approval(
+        controlled_private_root=private_root,
+        checkpoint_path=checkpoint_path,
+        run_card_path=run_card_path,
+        target_cohort_root=target_root,
+        cohort_policy_path=cohort_policy,
+        fee_schedule_path=fee_schedule,
+        canonical_ledger_path=ledger,
+    )
+
+    assert verified.request == request
+    assert verified.decision == "free_only"
+    with pytest.raises(PurchaseApprovalError, match="purchase authority"):
+        generate_approved_purchase_policy(verified)  # type: ignore[arg-type]
+
+
+def test_free_only_materialization_authority_replays_genuine_zero_cost_decision(
+    tmp_path: Path,
+) -> None:
+    target_root, cohort_policy, fee_schedule = _projection_fixture(
+        tmp_path, missing_count=0
+    )
+    private_root = (tmp_path / "private").resolve()
+    ledger = (tmp_path / "ledger.sqlite3").resolve()
+    request = build_purchase_approval_request(
+        target_cohort_root=target_root,
+        cohort_policy_path=cohort_policy,
+        fee_schedule_path=fee_schedule,
+        canonical_ledger_path=ledger,
+    )
+    assert request.purchase_document_count == 0
+    assert request.projected_cost_usd == "0.00"
+    checkpoint_path, run_card_path = record_purchase_approval(
+        request=request,
+        controlled_private_root=private_root,
+        decision="free_only",
+        typed_confirmation=request.required_confirmation("free_only"),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-07-26T15:00:00Z",
+    )
+    selection_records = [
+        json.loads(line)
+        for line in (target_root / "target-cohort-selection.jsonl")
+        .read_text()
+        .splitlines()
+        if line
+    ]
+    free_manifest = [
+        json.loads(line)
+        for line in (target_root / "free-document-downloads.jsonl")
+        .read_text()
+        .splitlines()
+        if line
+    ]
+    selected_keys = {
+        (record["candidate_id"], document["source_document_id"])
+        for record in selection_records
+        for document in record["documents"]
+    }
+
+    verified = verify_free_only_materialization_authority(
+        inputs=FreeOnlyMaterializationInputs(
+            checkpoint_path=checkpoint_path,
+            run_card_path=run_card_path,
+            fee_schedule_path=fee_schedule,
+            canonical_ledger_path=ledger,
+        ),
+        controlled_private_root=private_root,
+        target_cohort_root=target_root,
+        cohort_policy_path=cohort_policy,
+        projected_purchased_manifest=(),
+        free_manifest=free_manifest,
+        selected_document_keys=selected_keys,
+    )
+
+    assert verified.request.request_sha256 == request.request_sha256
+    assert not ledger.exists()
+    with pytest.raises(FreeOnlyMaterializationError, match="projected purchased"):
+        verify_free_only_materialization_authority(
+            inputs=FreeOnlyMaterializationInputs(
+                checkpoint_path=checkpoint_path,
+                run_card_path=run_card_path,
+                fee_schedule_path=fee_schedule,
+                canonical_ledger_path=ledger,
+            ),
+            controlled_private_root=private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            projected_purchased_manifest=({"candidate_id": "paid"},),
+            free_manifest=free_manifest,
+            selected_document_keys=selected_keys,
+        )
+    with pytest.raises(FreeOnlyMaterializationError, match="exact free-document"):
+        verify_free_only_materialization_authority(
+            inputs=FreeOnlyMaterializationInputs(
+                checkpoint_path=checkpoint_path,
+                run_card_path=run_card_path,
+                fee_schedule_path=fee_schedule,
+                canonical_ledger_path=ledger,
+            ),
+            controlled_private_root=private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            projected_purchased_manifest=(),
+            free_manifest=free_manifest[:-1],
+            selected_document_keys=selected_keys,
+        )
+    with pytest.raises(FreeOnlyMaterializationError, match="duplicate document"):
+        verify_free_only_materialization_authority(
+            inputs=FreeOnlyMaterializationInputs(
+                checkpoint_path=checkpoint_path,
+                run_card_path=run_card_path,
+                fee_schedule_path=fee_schedule,
+                canonical_ledger_path=ledger,
+            ),
+            controlled_private_root=private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            projected_purchased_manifest=(),
+            free_manifest=(*free_manifest, free_manifest[0]),
+            selected_document_keys=selected_keys,
+        )
+    ledger.write_bytes(b"must remain absent")
+    with pytest.raises(FreeOnlyMaterializationError, match="absent fresh ledger"):
+        verify_free_only_materialization_authority(
+            inputs=FreeOnlyMaterializationInputs(
+                checkpoint_path=checkpoint_path,
+                run_card_path=run_card_path,
+                fee_schedule_path=fee_schedule,
+                canonical_ledger_path=ledger,
+            ),
+            controlled_private_root=private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            projected_purchased_manifest=(),
+            free_manifest=free_manifest,
+            selected_document_keys=selected_keys,
+        )
+
+
+def test_legacy_v1_fixture_does_not_bypass_materialization_run_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    policy_path = tmp_path / "legacy-policy.json"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.case_dev_purchase_policy.v1",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.argparse.Namespace(
+        purchase_policy=policy_path,
+        materialization_run_card=tmp_path / "materialization-run-card.json",
+    )
+    sentinel = object()
+
+    def original_preflight(observed_args: object) -> object | None:
+        return sentinel if observed_args is args else None
+
+    monkeypatch.setattr(
+        cli,
+        "_preflight_materialization_purchase_runtime",
+        original_preflight,
+    )
+
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+
+    patched_preflight = cli._preflight_materialization_purchase_runtime
+    assert patched_preflight(args) is sentinel
+
+
+def test_free_only_materialization_rejects_prior_gap_decision_after_free_refresh(
+    tmp_path: Path,
+) -> None:
+    target_root, cohort_policy, fee_schedule = _projection_fixture(
+        tmp_path, missing_count=1
+    )
+    private_root = (tmp_path / "private").resolve()
+    ledger = (tmp_path / "ledger.sqlite3").resolve()
+    request = build_purchase_approval_request(
+        target_cohort_root=target_root,
+        cohort_policy_path=cohort_policy,
+        fee_schedule_path=fee_schedule,
+        canonical_ledger_path=ledger,
+    )
+    assert request.purchase_document_count > 0
+    checkpoint_path, run_card_path = record_purchase_approval(
+        request=request,
+        controlled_private_root=private_root,
+        decision="free_only",
+        typed_confirmation=request.required_confirmation("free_only"),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-07-26T15:00:00Z",
+    )
+    selection_records = tuple(
+        json.loads(line)
+        for line in (target_root / "target-cohort-selection.jsonl")
+        .read_text()
+        .splitlines()
+        if line
+    )
+    selected_keys = {
+        (record["candidate_id"], document["source_document_id"])
+        for record in selection_records
+        for document in record["documents"]
+    }
+    simulated_refreshed_free_manifest = tuple(
+        {"candidate_id": candidate_id, "source_document_id": document_id}
+        for candidate_id, document_id in selected_keys
+    )
+
+    with pytest.raises(
+        FreeOnlyMaterializationError,
+        match="zero purchases and zero cost",
+    ):
+        verify_free_only_materialization_authority(
+            inputs=FreeOnlyMaterializationInputs(
+                checkpoint_path=checkpoint_path,
+                run_card_path=run_card_path,
+                fee_schedule_path=fee_schedule,
+                canonical_ledger_path=ledger,
+            ),
+            controlled_private_root=private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            projected_purchased_manifest=(),
+            free_manifest=simulated_refreshed_free_manifest,
+            selected_document_keys=selected_keys,
+        )
+
+
+@pytest.mark.parametrize("decision", ["approve", "reject"])
+def test_free_only_replay_rejects_every_other_decision(
+    tmp_path: Path, decision: str
+) -> None:
+    target_root, cohort_policy, fee_schedule = _projection_fixture(tmp_path)
+    private_root = (tmp_path / "private").resolve()
+    ledger = (tmp_path / "ledger.sqlite3").resolve()
+    request = build_purchase_approval_request(
+        target_cohort_root=target_root,
+        cohort_policy_path=cohort_policy,
+        fee_schedule_path=fee_schedule,
+        canonical_ledger_path=ledger,
+    )
+    checkpoint_path, run_card_path = record_purchase_approval(
+        request=request,
+        controlled_private_root=private_root,
+        decision=decision,
+        typed_confirmation=request.required_confirmation(decision),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-07-26T15:00:00Z",
+    )
+
+    with pytest.raises(PurchaseApprovalError, match="does not authorize free-only"):
+        verify_free_only_purchase_approval(
+            controlled_private_root=private_root,
+            checkpoint_path=checkpoint_path,
+            run_card_path=run_card_path,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            fee_schedule_path=fee_schedule,
+            canonical_ledger_path=ledger,
+        )
+
+
+def test_verified_free_only_approval_cannot_be_constructed_by_callers() -> None:
+    with pytest.raises(PurchaseApprovalError, match="only by evidence replay"):
+        VerifiedFreeOnlyPurchaseApproval(
+            request=object(),
+            decision="free_only",
+            reviewer_id="John Hughes",
+            recorded_at_utc="2026-07-26T00:00:00Z",
+            typed_confirmation_sha256="a" * 64,
+            checkpoint_sha256="b" * 64,
+            run_card_sha256="c" * 64,
         )
 
 
@@ -2247,7 +2560,10 @@ def _exact_100_cohort_policy() -> dict[str, object]:
 
 
 def _projection_fixture(
-    tmp_path: Path, *, numeric_purchase_document_ids: bool = False
+    tmp_path: Path,
+    *,
+    numeric_purchase_document_ids: bool = False,
+    missing_count: int = 1,
 ) -> tuple[Path, Path, Path]:
     root = (tmp_path / "projection").resolve()
     (root / "run-cards").mkdir(parents=True)
@@ -2256,7 +2572,8 @@ def _projection_fixture(
     candidate_ids = ("case-a", "case-b")
     source_selection = [_selection(candidate_id) for candidate_id in candidate_ids]
     source_relevance = [
-        _relevance(candidate_id, missing_count=1) for candidate_id in candidate_ids
+        _relevance(candidate_id, missing_count=missing_count)
+        for candidate_id in candidate_ids
     ]
     if numeric_purchase_document_ids:
         for index, relevance in enumerate(source_relevance, start=123):

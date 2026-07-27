@@ -139,6 +139,7 @@ from legalforecast.ingestion.case_dev_provisional_frontier import (
     verify_case_dev_provisional_frontier,
 )
 from legalforecast.ingestion.case_dev_purchase import (
+    CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION,
     CaseDevPacerCapability,
     CaseDevPacerPurchaseAttempt,
     CaseDevPacerPurchaseClient,
@@ -187,6 +188,7 @@ from legalforecast.ingestion.clearance_replacement import (
     write_replacement_frontier,
 )
 from legalforecast.ingestion.cohort_document_materializer import (
+    CohortDocumentMaterialization,
     CohortDocumentMaterializationError,
     DocumentSource,
     cleanup_orphaned_cohort_document_temporaries,
@@ -436,6 +438,11 @@ from legalforecast.ingestion.free_document_downloader import (
     reuse_authenticated_free_documents,
     verified_checkpoint_projection_sha256,
     verify_completed_free_document_manifest,
+)
+from legalforecast.ingestion.free_only_materialization import (
+    FreeOnlyMaterializationError,
+    FreeOnlyMaterializationInputs,
+    verify_free_only_materialization_authority,
 )
 from legalforecast.ingestion.funnel_report import (
     FunnelReportError,
@@ -6374,7 +6381,6 @@ def _add_acquisition_materialize_cohort_documents_arguments(
     parser.add_argument(
         "--purchased-recovery-root",
         type=Path,
-        required=True,
         help=(
             "Executed recover-purchased or recover-recap-fetch-quarantine root "
             "containing an authenticated manifest, document tree, and completed "
@@ -6384,23 +6390,24 @@ def _add_acquisition_materialize_cohort_documents_arguments(
     parser.add_argument(
         "--purchased-disclosure-clearance",
         type=Path,
-        required=True,
         help="Cleared purchased-document rows for the recovered manifest.",
     )
     parser.add_argument(
         "--purchased-clearance-run-card",
         type=Path,
-        required=True,
         help="Completed clear-disclosures card authenticating purchased clearance.",
     )
-    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--purchase-policy", type=Path)
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument(
         "--purchase-ledger",
         type=Path,
-        required=True,
         help="Canonical purchase ledger proving recovered purchase identities.",
     )
+    parser.add_argument("--free-only-approval-checkpoint", type=Path)
+    parser.add_argument("--free-only-approval-run-card", type=Path)
+    parser.add_argument("--free-only-fee-schedule", type=Path)
+    parser.add_argument("--free-only-canonical-ledger-path", type=Path)
     _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--resolved-post-recovery-documents",
@@ -28710,7 +28717,12 @@ def _preflight_approved_purchase_runtime(
         require_approved_case_dev_purchase_policy(
             policy, controlled_private_root=controlled_private_root
         )
-    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+    except (
+        CaseDevPurchasePolicyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
     return policy
 
@@ -28720,12 +28732,10 @@ def _preflight_materialization_purchase_runtime(
 ) -> CaseDevPurchasePolicy | None:
     """Replay authority from an explicit policy or materialization run card."""
 
-    policy = _preflight_approved_purchase_runtime(args)
-    if policy is not None:
-        return policy
     run_card_path = cast(Path | None, getattr(args, "materialization_run_card", None))
     if run_card_path is None:
-        return None
+        return _preflight_approved_purchase_runtime(args)
+    _preflight_legacy_purchase_policy_rejection(args)
     controlled_private_root = cast(
         Path | None, getattr(args, "controlled_private_root", None)
     )
@@ -28751,15 +28761,104 @@ def _preflight_materialization_purchase_runtime(
         input_paths = tuple(
             Path(str(path)) for path in cast(Sequence[object], raw_inputs)
         )
+        authority_mode = card.get("authority_mode")
+        if "authority_mode" in card and not isinstance(authority_mode, str):
+            raise CommandError("invalid materialization authority mode")
+        if authority_mode == "free_only":
+            paid_values = (
+                getattr(args, "purchased_recovery_root", None),
+                getattr(args, "purchased_disclosure_clearance", None),
+                getattr(args, "purchased_clearance_run_card", None),
+                getattr(args, "purchase_policy", None),
+                getattr(args, "purchase_ledger", None),
+                getattr(args, "purchase_ledger_initialization_receipt", None),
+                getattr(args, "resolved_post_recovery_documents", None),
+            )
+            if any(value is not None for value in paid_values):
+                raise CommandError(
+                    "free-only materialization rejects paid-runtime inputs"
+                )
+            if len(input_paths) != 11 or controlled_private_root is None:
+                raise CommandError("invalid free-only materialization authority inputs")
+            verify_free_only_materialization_authority(
+                inputs=FreeOnlyMaterializationInputs(
+                    checkpoint_path=input_paths[7],
+                    run_card_path=input_paths[8],
+                    fee_schedule_path=input_paths[9],
+                    canonical_ledger_path=input_paths[10].resolve(),
+                ),
+                controlled_private_root=controlled_private_root,
+                target_cohort_root=input_paths[4],
+                cohort_policy_path=input_paths[6],
+                projected_purchased_manifest=tuple(
+                    _read_records(input_paths[4] / "purchased-document-downloads.jsonl")
+                ),
+                free_manifest=_read_records(
+                    input_paths[4] / "free-document-downloads.jsonl"
+                ),
+                selected_document_keys={
+                    (
+                        _required_str(record, "candidate_id"),
+                        _required_str(document, "source_document_id"),
+                    )
+                    for record in _read_records(
+                        input_paths[4] / "target-cohort-selection.jsonl"
+                    )
+                    for document in _required_record_sequence(record, "documents")
+                },
+            )
+            return None
+        if authority_mode is not None:
+            raise CommandError("unsupported materialization authority mode")
+        policy = _preflight_approved_purchase_runtime(args)
+        if policy is not None:
+            return policy
         if len(input_paths) not in {12, 13}:
             raise CommandError("materialization run card input paths differ")
         policy = verify_case_dev_purchase_policy(_read_json_object(input_paths[9]))
         require_approved_case_dev_purchase_policy(
             policy, controlled_private_root=controlled_private_root
         )
-    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+    except (
+        CaseDevPurchasePolicyError,
+        FreeOnlyMaterializationError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
     return policy
+
+
+def _preflight_legacy_purchase_policy_rejection(
+    args: argparse.Namespace,
+) -> None:
+    """Reject valid legacy v1 authority before inspecting other runtime state."""
+
+    policy_path = cast(Path | None, getattr(args, "purchase_policy", None))
+    if policy_path is None:
+        return
+    if policy_path.is_symlink() or not policy_path.is_file():
+        return
+    try:
+        artifact = _read_json_object(policy_path)
+        if artifact.get("schema_version") != CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION:
+            return
+        policy = verify_case_dev_purchase_policy(artifact)
+        require_approved_case_dev_purchase_policy(
+            policy,
+            controlled_private_root=cast(
+                Path | None, getattr(args, "controlled_private_root", None)
+            ),
+        )
+        raise CommandError("legacy v1 purchase policy is not approved v2 authority")
+    except (
+        CaseDevPurchasePolicyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
 
 
 def _preflight_current_purchase_snapshot(args: argparse.Namespace) -> None:
@@ -28827,9 +28926,78 @@ def _preflight_approved_purchase_input_bytes(args: argparse.Namespace) -> None:
         raise CommandError(str(exc)) from exc
 
 
+@dataclass(frozen=True, slots=True)
+class _MaterializationPublication:
+    input_paths: tuple[Path, ...]
+    output_root: Path
+    manifest_path: Path
+    clearance_path: Path
+    restriction_path: Path
+    derivations_path: Path
+    summary_path: Path
+    document_root: Path
+    run_card_path: Path
+    log_path: Path
+    materialization: CohortDocumentMaterialization
+    manifest_bytes: bytes
+    clearance_bytes: bytes
+    restriction_bytes: bytes
+    derivations_bytes: bytes
+    source_commitments: Mapping[str, object]
+    target_case_count: int
+    captured_source_snapshots: Mapping[Path, bytes]
+    authority_mode: str | None = None
+    authority_recheck: Callable[[], None] | None = None
+
+
 def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> int:
     """Publish one immutable, clearance-bound document root for parsing."""
 
+    free_values = (
+        getattr(args, "free_only_approval_checkpoint", None),
+        getattr(args, "free_only_approval_run_card", None),
+        getattr(args, "free_only_fee_schedule", None),
+        getattr(args, "free_only_canonical_ledger_path", None),
+    )
+    paid_values = (
+        getattr(args, "purchased_recovery_root", None),
+        getattr(args, "purchased_disclosure_clearance", None),
+        getattr(args, "purchased_clearance_run_card", None),
+        getattr(args, "purchase_policy", None),
+        getattr(args, "purchase_ledger", None),
+        getattr(args, "purchase_ledger_initialization_receipt", None),
+        getattr(args, "resolved_post_recovery_documents", None),
+    )
+    if any(value is not None for value in free_values):
+        if not all(value is not None for value in free_values):
+            raise CommandError(
+                "free-only materialization requires all four free-only authority inputs"
+            )
+        if getattr(args, "controlled_private_root", None) is None:
+            raise CommandError(
+                "free-only materialization requires --controlled-private-root"
+            )
+        if any(value is not None for value in paid_values):
+            raise CommandError("free-only materialization rejects paid-runtime inputs")
+        return _publish_materialized_cohort_documents(
+            args,
+            _prepare_free_only_cohort_documents(
+                args,
+                FreeOnlyMaterializationInputs(
+                    checkpoint_path=cast(Path, free_values[0]).absolute(),
+                    run_card_path=cast(Path, free_values[1]).absolute(),
+                    fee_schedule_path=cast(Path, free_values[2]).absolute(),
+                    canonical_ledger_path=cast(Path, free_values[3]).resolve(),
+                ),
+            ),
+        )
+    _preflight_legacy_purchase_policy_rejection(args)
+    if not all(value is not None for value in paid_values[:5]):
+        raise CommandError(
+            "approved-purchase materialization requires recovery, purchased "
+            "clearance, purchased-clearance run card, purchase policy, and "
+            "purchase ledger inputs"
+        )
     _preflight_current_purchase_snapshot(args)
     output_root = cast(Path, args.output_root).absolute()
     preparation_root = cast(Path, args.preparation_root).absolute()
@@ -29193,174 +29361,456 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             else {}
         ),
     }
+    return _publish_materialized_cohort_documents(
+        args,
+        _MaterializationPublication(
+            input_paths=tuple(input_paths),
+            output_root=output_root,
+            manifest_path=manifest_path,
+            clearance_path=clearance_path,
+            restriction_path=restriction_path,
+            derivations_path=derivations_path,
+            summary_path=summary_path,
+            document_root=document_root,
+            run_card_path=run_card_path,
+            log_path=log_path,
+            materialization=materialization,
+            manifest_bytes=manifest_bytes,
+            clearance_bytes=clearance_bytes,
+            restriction_bytes=restriction_bytes,
+            derivations_bytes=derivations_bytes,
+            source_commitments=source_commitments,
+            target_case_count=verified_preparation.target_case_count,
+            captured_source_snapshots={
+                Path(path): payload for path, payload in captured_artifact_bytes.items()
+            },
+        ),
+    )
+
+
+def _prepare_free_only_cohort_documents(
+    args: argparse.Namespace,
+    authority_inputs: FreeOnlyMaterializationInputs,
+) -> _MaterializationPublication:
+    """Prepare provider-free publication inputs without paid runtime artifacts."""
+
+    output_root = cast(Path, args.output_root).absolute()
+    preparation_root = cast(Path, args.preparation_root).absolute()
+    preparation_summary_path = cast(Path, args.preparation_summary).absolute()
+    preparation_config_path = cast(Path, args.preparation_config).absolute()
+    snapshot_manifest_path = cast(Path, args.snapshot_manifest).absolute()
+    target_root = cast(Path, args.target_cohort_root).absolute()
+    free_clearance_path = cast(Path, args.free_disclosure_clearance).absolute()
+    cohort_policy_path = cast(Path, args.cohort_policy).absolute()
+    controlled_private_root = cast(Path, args.controlled_private_root).absolute()
+    input_paths = (
+        preparation_root,
+        preparation_summary_path,
+        preparation_config_path,
+        snapshot_manifest_path,
+        target_root,
+        free_clearance_path,
+        cohort_policy_path,
+        authority_inputs.checkpoint_path,
+        authority_inputs.run_card_path,
+        authority_inputs.fee_schedule_path,
+        authority_inputs.canonical_ledger_path,
+    )
+    _validate_projection_output_scope(output_root, input_paths=input_paths)
+    manifest_path = output_root / "document-downloads-merged.jsonl"
+    clearance_path = output_root / "disclosure-clearance.jsonl"
+    restriction_path = output_root / "restriction-evidence.jsonl"
+    derivations_path = output_root / "materialization-derivations.jsonl"
+    summary_path = output_root / "cohort-document-materialization.json"
+    document_root = output_root / "documents"
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/materialize-cohort-documents.json",
+    ).absolute()
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs/materialize-cohort-documents.jsonl",
+    ).absolute()
+    _validate_materializer_writable_paths(
+        output_root=output_root,
+        writable_paths=(
+            manifest_path,
+            clearance_path,
+            restriction_path,
+            derivations_path,
+            summary_path,
+            run_card_path,
+            log_path,
+        ),
+        document_root=document_root,
+        input_paths=input_paths,
+    )
+    direct_paths = (
+        preparation_summary_path,
+        preparation_config_path,
+        snapshot_manifest_path,
+        free_clearance_path,
+        cohort_policy_path,
+        authority_inputs.checkpoint_path,
+        authority_inputs.run_card_path,
+        authority_inputs.fee_schedule_path,
+    )
+    direct_snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="free-only materialization source artifact"
+        )
+        for path in direct_paths
+    }
+    captured_artifact_bytes = {
+        os.path.abspath(path): payload for path, payload in direct_snapshots.items()
+    }
+    try:
+        verified_preparation = _verify_completed_preparation_for_frontier(
+            preparation_root=preparation_root,
+            preparation_summary_path=preparation_summary_path,
+            preparation_config_path=preparation_config_path,
+            snapshot_manifest_path=snapshot_manifest_path,
+        )
+        captured_artifact_bytes[
+            os.path.abspath(verified_preparation.success_run_card_path)
+        ] = _read_singly_linked_regular_input(
+            verified_preparation.success_run_card_path,
+            label="materialization preparation success run card",
+        )
+        projection = _verify_materializer_projection(
+            target_root=target_root,
+            free_clearance_path=free_clearance_path,
+            preparation_summary_path=preparation_summary_path,
+            preparation_config_path=preparation_config_path,
+            snapshot_manifest_path=snapshot_manifest_path,
+            expected_target_count=verified_preparation.target_case_count,
+        )
+        _merge_verified_artifact_bytes(
+            captured_artifact_bytes,
+            cast(Mapping[str, bytes], projection["verified_artifact_bytes"]),
+            label="free-only materialization projection",
+        )
+        free_manifest = cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
+        projected_purchased_manifest = cast(
+            Sequence[Mapping[str, Any]], projection["purchased_manifest"]
+        )
+        approval = verify_free_only_materialization_authority(
+            inputs=authority_inputs,
+            controlled_private_root=controlled_private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy_path,
+            projected_purchased_manifest=projected_purchased_manifest,
+            free_manifest=free_manifest,
+            selected_document_keys=cast(
+                set[tuple[str, str]], projection["selected_document_keys"]
+            ),
+        )
+        materialization = prepare_cohort_document_materialization(
+            (
+                DocumentSource(
+                    phase="free",
+                    document_root=preparation_root / "documents/free",
+                    manifest=free_manifest,
+                    clearance=cast(
+                        Sequence[Mapping[str, Any]], projection["free_clearance"]
+                    ),
+                ),
+            ),
+            selected_document_keys=cast(
+                set[tuple[str, str]], projection["selected_document_keys"]
+            ),
+            output_root=output_root,
+        )
+    except (
+        CohortDocumentMaterializationError,
+        CommandError,
+        FreeOnlyMaterializationError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        if isinstance(exc, CommandError):
+            raise
+        raise CommandError(str(exc)) from exc
+    manifest_bytes = _projection_jsonl_bytes(materialization.manifest)
+    clearance_bytes = _projection_jsonl_bytes(materialization.clearance)
+    free_keys = {_materializer_record_key(record) for record in free_manifest}
+    restriction_records = tuple(
+        record
+        for record in cast(
+            Sequence[Mapping[str, Any]], projection["restriction_records"]
+        )
+        if _materializer_record_key(record) in free_keys
+    )
+    restriction_bytes = _projection_jsonl_bytes(restriction_records)
+    derivations_bytes = _projection_jsonl_bytes(
+        _build_materializer_derivations(
+            materialization=materialization,
+            free_manifest=free_manifest,
+            free_clearance=cast(
+                Sequence[Mapping[str, Any]], projection["free_clearance"]
+            ),
+            purchased_manifest=(),
+            purchased_clearance=(),
+            resolved_records=(),
+        )
+    )
+
+    def commitment(path: Path) -> dict[str, str]:
+        payload = captured_artifact_bytes.get(os.path.abspath(path))
+        if payload is None:
+            raise CommandError(
+                f"materialization source snapshot lacks artifact: {path}"
+            )
+        return _file_commitment_from_bytes(path, payload)
+
+    source_commitments: dict[str, object] = {
+        "preparation_summary": commitment(preparation_summary_path),
+        "preparation_config": commitment(preparation_config_path),
+        "preparation_success_run_card": commitment(
+            verified_preparation.success_run_card_path
+        ),
+        "snapshot_manifest": commitment(snapshot_manifest_path),
+        "target_projection": commitment(cast(Path, projection["summary_path"])),
+        "target_projection_run_card": commitment(
+            cast(Path, projection["run_card_path"])
+        ),
+        "target_selection": commitment(cast(Path, projection["selection_path"])),
+        "free_download_manifest": commitment(
+            cast(Path, projection["free_manifest_path"])
+        ),
+        "free_disclosure_clearance": commitment(free_clearance_path),
+        "free_restriction_evidence": commitment(
+            cast(Path, projection["restriction_path"])
+        ),
+        "cohort_policy": commitment(cohort_policy_path),
+        "free_only_approval_checkpoint": commitment(authority_inputs.checkpoint_path),
+        "free_only_approval_run_card": commitment(authority_inputs.run_card_path),
+        "free_only_fee_schedule": commitment(authority_inputs.fee_schedule_path),
+        "free_only_canonical_ledger_path": str(
+            authority_inputs.canonical_ledger_path.resolve()
+        ),
+        "free_only_request_sha256": approval.request.request_sha256,
+        "free_only_decision": approval.decision,
+    }
+
+    def recheck_authority() -> None:
+        replay = verify_free_only_materialization_authority(
+            inputs=authority_inputs,
+            controlled_private_root=controlled_private_root,
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy_path,
+            projected_purchased_manifest=projected_purchased_manifest,
+            free_manifest=free_manifest,
+            selected_document_keys=cast(
+                set[tuple[str, str]], projection["selected_document_keys"]
+            ),
+        )
+        if replay.request.request_sha256 != approval.request.request_sha256:
+            raise CommandError("free-only approval changed before publication")
+
+    return _MaterializationPublication(
+        input_paths=input_paths,
+        output_root=output_root,
+        manifest_path=manifest_path,
+        clearance_path=clearance_path,
+        restriction_path=restriction_path,
+        derivations_path=derivations_path,
+        summary_path=summary_path,
+        document_root=document_root,
+        run_card_path=run_card_path,
+        log_path=log_path,
+        materialization=materialization,
+        manifest_bytes=manifest_bytes,
+        clearance_bytes=clearance_bytes,
+        restriction_bytes=restriction_bytes,
+        derivations_bytes=derivations_bytes,
+        source_commitments=source_commitments,
+        target_case_count=verified_preparation.target_case_count,
+        captured_source_snapshots={
+            Path(path): payload for path, payload in captured_artifact_bytes.items()
+        },
+        authority_mode="free_only",
+        authority_recheck=recheck_authority,
+    )
+
+
+def _publish_materialized_cohort_documents(
+    args: argparse.Namespace,
+    publication: _MaterializationPublication,
+) -> int:
+    """Publish or replay the one shared materialization output contract."""
+
+    materialization = publication.materialization
     document_commitments = {
-        document.destination.relative_to(document_root).as_posix(): (
+        document.destination.relative_to(publication.document_root).as_posix(): (
             "sha256:" + _required_str(document.manifest_record, "sha256")
         )
         for document in materialization.documents
     }
     summary = {
         **materialization.summary,
-        "target_case_count": verified_preparation.target_case_count,
-        "source_commitments": source_commitments,
+        **(
+            {"authority_mode": publication.authority_mode}
+            if publication.authority_mode is not None
+            else {}
+        ),
+        "target_case_count": publication.target_case_count,
+        "source_commitments": publication.source_commitments,
         "output_commitments": {
-            "document-downloads-merged.jsonl": _bytes_sha256(manifest_bytes),
-            "disclosure-clearance.jsonl": _bytes_sha256(clearance_bytes),
-            "restriction-evidence.jsonl": _bytes_sha256(restriction_bytes),
-            "materialization-derivations.jsonl": _bytes_sha256(derivations_bytes),
+            "document-downloads-merged.jsonl": _bytes_sha256(
+                publication.manifest_bytes
+            ),
+            "disclosure-clearance.jsonl": _bytes_sha256(publication.clearance_bytes),
+            "restriction-evidence.jsonl": _bytes_sha256(publication.restriction_bytes),
+            "materialization-derivations.jsonl": _bytes_sha256(
+                publication.derivations_bytes
+            ),
             "documents": document_commitments,
         },
         "next_stage": "plan-parse-documents",
     }
     summary_bytes = _projection_json_bytes(summary)
     expected_files = {
-        manifest_path.resolve(),
-        clearance_path.resolve(),
-        restriction_path.resolve(),
-        derivations_path.resolve(),
-        summary_path.resolve(),
-        run_card_path.resolve(),
-        log_path.resolve(),
+        publication.manifest_path.resolve(),
+        publication.clearance_path.resolve(),
+        publication.restriction_path.resolve(),
+        publication.derivations_path.resolve(),
+        publication.summary_path.resolve(),
+        publication.run_card_path.resolve(),
+        publication.log_path.resolve(),
         *(document.destination.resolve() for document in materialization.documents),
     }
     try:
         cleanup_orphaned_cohort_document_temporaries(materialization.documents)
-    except CohortDocumentMaterializationError as exc:
-        raise CommandError(str(exc)) from exc
-    try:
-        output_root = prepare_non_symlink_directory(output_root)
+        output_root = prepare_non_symlink_directory(publication.output_root)
     except CohortDocumentMaterializationError as exc:
         raise CommandError(str(exc)) from exc
     _reject_unexpected_materializer_outputs(output_root, expected_files=expected_files)
     output_commitments = {
         "document_manifest": {
-            "path": str(manifest_path.resolve()),
-            "sha256": _bytes_sha256(manifest_bytes),
+            "path": str(publication.manifest_path.resolve()),
+            "sha256": _bytes_sha256(publication.manifest_bytes),
         },
         "disclosure_clearance": {
-            "path": str(clearance_path.resolve()),
-            "sha256": _bytes_sha256(clearance_bytes),
+            "path": str(publication.clearance_path.resolve()),
+            "sha256": _bytes_sha256(publication.clearance_bytes),
         },
         "restriction_evidence": {
-            "path": str(restriction_path.resolve()),
-            "sha256": _bytes_sha256(restriction_bytes),
+            "path": str(publication.restriction_path.resolve()),
+            "sha256": _bytes_sha256(publication.restriction_bytes),
         },
         "materialization_derivations": {
-            "path": str(derivations_path.resolve()),
-            "sha256": _bytes_sha256(derivations_bytes),
+            "path": str(publication.derivations_path.resolve()),
+            "sha256": _bytes_sha256(publication.derivations_bytes),
         },
         "materialization_summary": {
-            "path": str(summary_path.resolve()),
+            "path": str(publication.summary_path.resolve()),
             "sha256": _bytes_sha256(summary_bytes),
         },
         "document_tree": document_commitments,
     }
     dry_run = _acquisition_dry_run(args)
-    captured_source_snapshots = {
-        Path(path): payload for path, payload in captured_artifact_bytes.items()
-    }
     _require_snapshot_unchanged(
-        captured_source_snapshots, label="materialization source artifact"
+        publication.captured_source_snapshots,
+        label="materialization source artifact",
     )
-    if run_card_path.exists():
+    if publication.authority_recheck is not None:
+        publication.authority_recheck()
+    if publication.run_card_path.exists():
         if not cast(bool, args.resume):
             raise CommandError(
                 "materialize-cohort-documents run card exists and --no-resume was set"
             )
         _verify_materializer_resume(
-            run_card_path=run_card_path,
-            input_paths=input_paths,
-            manifest_path=manifest_path,
-            manifest_bytes=manifest_bytes,
-            clearance_path=clearance_path,
-            clearance_bytes=clearance_bytes,
-            restriction_path=restriction_path,
-            restriction_bytes=restriction_bytes,
-            derivations_path=derivations_path,
-            derivations_bytes=derivations_bytes,
-            summary_path=summary_path,
+            run_card_path=publication.run_card_path,
+            input_paths=publication.input_paths,
+            manifest_path=publication.manifest_path,
+            manifest_bytes=publication.manifest_bytes,
+            clearance_path=publication.clearance_path,
+            clearance_bytes=publication.clearance_bytes,
+            restriction_path=publication.restriction_path,
+            restriction_bytes=publication.restriction_bytes,
+            derivations_path=publication.derivations_path,
+            derivations_bytes=publication.derivations_bytes,
+            summary_path=publication.summary_path,
             summary_bytes=summary_bytes,
-            document_root=document_root,
+            document_root=publication.document_root,
             materialization=materialization,
-            source_commitments=source_commitments,
+            source_commitments=publication.source_commitments,
             output_commitments=output_commitments,
             dry_run=dry_run,
+            authority_mode=publication.authority_mode,
         )
         return 0
     if not dry_run:
         publish_cohort_documents(materialization.documents)
-        if _materializer_tree_commitments(document_root) != document_commitments:
+        if (
+            _materializer_tree_commitments(publication.document_root)
+            != document_commitments
+        ):
             raise CommandError("published materialization document tree differs")
-        _ensure_projection_artifact(
-            manifest_path,
-            manifest_bytes,
-            resume=cast(bool, args.resume),
-            stage="materialize-cohort-documents",
-        )
-        _ensure_projection_artifact(
-            clearance_path,
-            clearance_bytes,
-            resume=cast(bool, args.resume),
-            stage="materialize-cohort-documents",
-        )
-        _ensure_projection_artifact(
-            restriction_path,
-            restriction_bytes,
-            resume=cast(bool, args.resume),
-            stage="materialize-cohort-documents",
-        )
-        _ensure_projection_artifact(
-            derivations_path,
-            derivations_bytes,
-            resume=cast(bool, args.resume),
-            stage="materialize-cohort-documents",
-        )
-        _ensure_projection_artifact(
-            summary_path,
-            summary_bytes,
-            resume=cast(bool, args.resume),
-            stage="materialize-cohort-documents",
-        )
+        for path, payload in (
+            (publication.manifest_path, publication.manifest_bytes),
+            (publication.clearance_path, publication.clearance_bytes),
+            (publication.restriction_path, publication.restriction_bytes),
+            (publication.derivations_path, publication.derivations_bytes),
+            (publication.summary_path, summary_bytes),
+        ):
+            _ensure_projection_artifact(
+                path,
+                payload,
+                resume=cast(bool, args.resume),
+                stage="materialize-cohort-documents",
+            )
         try:
             require_cleared_documents(
                 materialization.manifest,
-                document_root=document_root,
+                document_root=publication.document_root,
                 clearance_records=materialization.clearance,
             )
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
         _require_snapshot_unchanged(
-            captured_source_snapshots, label="materialization source artifact"
+            publication.captured_source_snapshots,
+            label="materialization source artifact",
         )
     _write_acquisition_completion(
         args,
         stage="materialize-cohort-documents",
-        input_paths=input_paths,
+        input_paths=publication.input_paths,
         output_paths=(
-            manifest_path,
-            clearance_path,
-            restriction_path,
-            derivations_path,
-            summary_path,
-            document_root,
+            publication.manifest_path,
+            publication.clearance_path,
+            publication.restriction_path,
+            publication.derivations_path,
+            publication.summary_path,
+            publication.document_root,
         ),
         record_count=len(materialization.manifest),
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
         extra={
-            "target_case_count": verified_preparation.target_case_count,
+            **(
+                {"authority_mode": publication.authority_mode}
+                if publication.authority_mode is not None
+                else {}
+            ),
+            "target_case_count": publication.target_case_count,
             "free_document_count": materialization.summary["free_document_count"],
             "purchased_document_count": materialization.summary[
                 "purchased_document_count"
             ],
-            "source_commitments": source_commitments,
+            "source_commitments": publication.source_commitments,
             "output_commitments": output_commitments if not dry_run else {},
             "parse_inputs": {
-                "download_manifest": str(manifest_path.resolve()),
-                "disclosure_clearance": str(clearance_path.resolve()),
-                "materialization_run_card": str(run_card_path.resolve()),
-                "document_root": str(document_root.resolve()),
+                "download_manifest": str(publication.manifest_path.resolve()),
+                "disclosure_clearance": str(publication.clearance_path.resolve()),
+                "materialization_run_card": str(publication.run_card_path.resolve()),
+                "document_root": str(publication.document_root.resolve()),
             },
             "source_roots_mutated": False,
             "zero_provider_activity_evidence": True,
@@ -29687,6 +30137,7 @@ def _verify_materializer_projection(
         "selection_records": selection_records,
         "free_manifest_path": paths["free-document-downloads.jsonl"],
         "free_manifest": free_manifest,
+        "purchased_manifest": projected_purchased,
         "free_clearance": free_clearance,
         "restriction_path": paths["restriction-evidence.jsonl"],
         "restriction_records": _projection_jsonl_records(
@@ -30851,11 +31302,16 @@ def _verify_materializer_resume(
     source_commitments: Mapping[str, object],
     output_commitments: Mapping[str, object],
     dry_run: bool,
+    authority_mode: str | None = None,
 ) -> None:
     run_card_bytes = _read_singly_linked_regular_input(
         run_card_path, label="materialization resume run card"
     )
     card = _projection_json_object(run_card_bytes, source=run_card_path)
+    if "authority_mode" in card and not isinstance(card["authority_mode"], str):
+        raise CommandError(
+            "materialize-cohort-documents resume mismatch: authority_mode"
+        )
     expected = {
         "schema_version": "legalforecast.acquisition_run_card.v1",
         "stage": "materialize-cohort-documents",
@@ -30878,10 +31334,15 @@ def _verify_materializer_resume(
         "output_commitments": dict(output_commitments) if not dry_run else {},
         "source_roots_mutated": False,
         "zero_provider_activity_evidence": True,
+        **({"authority_mode": authority_mode} if authority_mode is not None else {}),
     }
     for field, value in expected.items():
         if card.get(field) != value:
             raise CommandError(f"materialize-cohort-documents resume mismatch: {field}")
+    if card.get("authority_mode") != authority_mode:
+        raise CommandError(
+            "materialize-cohort-documents resume mismatch: authority_mode"
+        )
     if dry_run:
         return
     output_snapshots = {
@@ -30980,6 +31441,215 @@ def _verify_materialized_downstream_lineage(
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
         raise CommandError("materialization run card lacks exact input paths")
     input_paths = tuple(Path(str(path)) for path in cast(Sequence[object], raw_inputs))
+    authority_mode = card.get("authority_mode")
+    if "authority_mode" in card and not isinstance(authority_mode, str):
+        raise CommandError("invalid materialization authority mode")
+    if authority_mode == "free_only":
+        if len(input_paths) != 11:
+            raise CommandError("materialization run card input paths differ")
+        if controlled_private_root is None:
+            raise CommandError(
+                "free-only materialization lineage requires a controlled private root"
+            )
+        if initialization_receipt_path is not None:
+            raise CommandError(
+                "free-only materialization rejects a ledger initialization receipt"
+            )
+        raw_outputs = card.get("output_paths")
+        if not isinstance(raw_outputs, Sequence) or isinstance(
+            raw_outputs, (str, bytes)
+        ):
+            raise CommandError("materialization run card lacks exact output paths")
+        output_paths = tuple(
+            Path(str(path)) for path in cast(Sequence[object], raw_outputs)
+        )
+        if len(output_paths) != 6:
+            raise CommandError("materialization run card output paths differ")
+        materialized_root = output_paths[0].parent
+        (
+            preparation_root,
+            preparation_summary_path,
+            preparation_config_path,
+            snapshot_manifest_path,
+            target_root,
+            free_clearance_path,
+            cohort_policy_path,
+            approval_checkpoint_path,
+            approval_run_card_path,
+            fee_schedule_path,
+            ledger_path,
+        ) = input_paths
+        replay_args = argparse.Namespace(
+            output_root=materialized_root,
+            preparation_root=preparation_root,
+            preparation_summary=preparation_summary_path,
+            preparation_config=preparation_config_path,
+            snapshot_manifest=snapshot_manifest_path,
+            target_cohort_root=target_root,
+            free_disclosure_clearance=free_clearance_path,
+            cohort_policy=cohort_policy_path,
+            controlled_private_root=controlled_private_root,
+            run_card_output=run_card_path,
+            log_output=None,
+        )
+        publication = _prepare_free_only_cohort_documents(
+            replay_args,
+            FreeOnlyMaterializationInputs(
+                checkpoint_path=approval_checkpoint_path,
+                run_card_path=approval_run_card_path,
+                fee_schedule_path=fee_schedule_path,
+                canonical_ledger_path=ledger_path.resolve(),
+            ),
+        )
+        expected_outputs = (
+            manifest_path,
+            clearance_path,
+            publication.restriction_path,
+            publication.derivations_path,
+            publication.summary_path,
+            document_root,
+        )
+        if tuple(path.resolve() for path in output_paths) != tuple(
+            path.resolve() for path in expected_outputs
+        ):
+            raise CommandError(
+                "materialization lineage outputs differ from parser inputs"
+            )
+        output_snapshots = {
+            path: _read_singly_linked_regular_input(
+                path, label="materialization lineage output"
+            )
+            for path in expected_outputs[:-1]
+        }
+        document_tree_snapshot = _materializer_tree_snapshot(document_root)
+        document_commitments = {
+            document.destination.relative_to(document_root).as_posix(): (
+                "sha256:" + _required_str(document.manifest_record, "sha256")
+            )
+            for document in publication.materialization.documents
+        }
+        verified_document_commitments = {
+            relative_path: _bytes_sha256(payload)
+            for relative_path, payload in document_tree_snapshot.items()
+        }
+        if verified_document_commitments != document_commitments:
+            raise CommandError("materialization document-tree commitment changed")
+        summary_bytes = _projection_json_bytes(
+            {
+                **publication.materialization.summary,
+                "authority_mode": "free_only",
+                "target_case_count": publication.target_case_count,
+                "source_commitments": publication.source_commitments,
+                "output_commitments": {
+                    "document-downloads-merged.jsonl": _bytes_sha256(
+                        publication.manifest_bytes
+                    ),
+                    "disclosure-clearance.jsonl": _bytes_sha256(
+                        publication.clearance_bytes
+                    ),
+                    "restriction-evidence.jsonl": _bytes_sha256(
+                        publication.restriction_bytes
+                    ),
+                    "materialization-derivations.jsonl": _bytes_sha256(
+                        publication.derivations_bytes
+                    ),
+                    "documents": document_commitments,
+                },
+                "next_stage": "plan-parse-documents",
+            }
+        )
+        output_commitments: dict[str, object] = {
+            "document_manifest": _file_commitment_from_bytes(
+                manifest_path, publication.manifest_bytes
+            ),
+            "disclosure_clearance": _file_commitment_from_bytes(
+                clearance_path, publication.clearance_bytes
+            ),
+            "restriction_evidence": _file_commitment_from_bytes(
+                publication.restriction_path, publication.restriction_bytes
+            ),
+            "materialization_derivations": _file_commitment_from_bytes(
+                publication.derivations_path, publication.derivations_bytes
+            ),
+            "materialization_summary": {
+                "path": str(publication.summary_path.resolve()),
+                "sha256": _bytes_sha256(summary_bytes),
+            },
+            "document_tree": document_commitments,
+        }
+        if publication.authority_recheck is not None:
+            publication.authority_recheck()
+        _verify_materializer_resume(
+            run_card_path=run_card_path,
+            input_paths=publication.input_paths,
+            manifest_path=manifest_path,
+            manifest_bytes=publication.manifest_bytes,
+            clearance_path=clearance_path,
+            clearance_bytes=publication.clearance_bytes,
+            restriction_path=publication.restriction_path,
+            restriction_bytes=publication.restriction_bytes,
+            derivations_path=publication.derivations_path,
+            derivations_bytes=publication.derivations_bytes,
+            summary_path=publication.summary_path,
+            summary_bytes=summary_bytes,
+            document_root=document_root,
+            materialization=publication.materialization,
+            source_commitments=publication.source_commitments,
+            output_commitments=output_commitments,
+            dry_run=False,
+            authority_mode="free_only",
+        )
+        selection_records = tuple(
+            _read_records(target_root / "target-cohort-selection.jsonl")
+        )
+        if selection_path is not None and (
+            selection_path.resolve()
+            != (target_root / "target-cohort-selection.jsonl").resolve()
+            or read_unique_regular_file(selection_path)
+            != read_unique_regular_file(target_root / "target-cohort-selection.jsonl")
+        ):
+            raise CommandError(
+                "downstream selection differs from materialized target cohort"
+            )
+        captured_paths = {
+            run_card_path: run_card_bytes,
+            **dict(publication.captured_source_snapshots),
+            **output_snapshots,
+            **{
+                document_root / relative_path: payload
+                for relative_path, payload in document_tree_snapshot.items()
+            },
+        }
+        _require_snapshot_unchanged(
+            captured_paths,
+            label="materialization downstream lineage artifact",
+        )
+        captured = {
+            os.path.abspath(path): payload for path, payload in captured_paths.items()
+        }
+        return _VerifiedMaterializedDownstreamLineage(
+            paths=(
+                run_card_path,
+                publication.restriction_path,
+                publication.derivations_path,
+            ),
+            artifact_bytes=captured,
+            manifest_records=tuple(
+                _projection_jsonl_records(
+                    output_snapshots[manifest_path], source=manifest_path
+                )
+            ),
+            clearance_records=tuple(
+                _projection_jsonl_records(
+                    output_snapshots[clearance_path], source=clearance_path
+                )
+            ),
+            selection_records=selection_records,
+            resolved_records=(),
+            document_tree=document_tree_snapshot,
+        )
+    if authority_mode is not None:
+        raise CommandError("unsupported materialization authority mode")
     if len(input_paths) not in {12, 13}:
         raise CommandError("materialization run card input paths differ")
     (

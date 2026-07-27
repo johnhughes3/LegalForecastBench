@@ -198,6 +198,7 @@ def allow_historical_v1_algorithm_fixtures(
     """
 
     original_require = case_dev_purchase.require_approved_case_dev_purchase_policy
+    original_materialization_preflight = cli._preflight_materialization_purchase_runtime
 
     def allow_v1(
         policy: object, *, controlled_private_root: object | None = None
@@ -218,3 +219,25 @@ def allow_historical_v1_algorithm_fixtures(
             "require_approved_case_dev_purchase_policy",
             allow_v1,
         )
+
+    def allow_v1_materialization_preflight(args: object) -> object:
+        """Retain the historical explicit-policy short circuit in legacy tests."""
+
+        policy_path = getattr(args, "purchase_policy", None)
+        if (
+            policy_path is not None
+            and getattr(args, "materialization_run_card", None) is None
+        ):
+            artifact = json.loads(Path(policy_path).read_text(encoding="utf-8"))
+            if (
+                artifact.get("schema_version")
+                == case_dev_purchase.CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION
+            ):
+                return case_dev_purchase.verify_case_dev_purchase_policy(artifact)
+        return original_materialization_preflight(args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        cli,
+        "_preflight_materialization_purchase_runtime",
+        allow_v1_materialization_preflight,
+    )

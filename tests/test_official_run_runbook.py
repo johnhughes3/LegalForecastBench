@@ -235,6 +235,48 @@ def test_paid_labeling_runbook_names_exact_authority_and_external_smoke_gate() -
     assert "Do not place OpenAI and Google credentials in one job." in runbook
 
 
+def test_runbook_documents_authenticated_free_only_materialization() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    for option in (
+        "--free-only-approval-checkpoint",
+        "--free-only-approval-run-card",
+        "--free-only-fee-schedule",
+        "--free-only-canonical-ledger-path",
+    ):
+        assert option in runbook
+    assert "Stop on `reject`." in runbook
+    assert "For `free_only`, do not generate a purchase policy" in runbook
+    assert (
+        "stops paid acquisition but does not authorize a later changed projection"
+        in runbook
+    )
+    assert "record a new zero-cost `free_only` decision" in runbook
+
+
+def test_runbook_documents_free_only_parse_variants_without_paid_state() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    section = runbook.split("For a completed `free_only` materialization", maxsplit=1)[
+        1
+    ].split(
+        "The sentinel-`op` and child-environment tests",
+        maxsplit=1,
+    )[0]
+    blocks = re.findall(r"```bash\n(.*?)\n```", section, flags=re.DOTALL)
+    plan_block = next(block for block in blocks if " plan-parse-documents " in block)
+    parse_block = next(block for block in blocks if " parse-documents " in block)
+
+    for block in (plan_block, parse_block):
+        assert "--controlled-private-root" in block
+        for paid_option in (
+            "--resolved-post-recovery-documents",
+            "--purchase-policy",
+            "--purchase-ledger",
+            "--purchase-ledger-initialization-receipt",
+        ):
+            assert paid_option not in block
+
+
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
 

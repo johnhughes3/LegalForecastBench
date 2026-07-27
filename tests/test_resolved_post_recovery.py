@@ -55,6 +55,8 @@ from tests.disclosure_review_fixtures import (
 )
 from tests.purchase_approval_fixtures import (
     allow_historical_v1_algorithm_fixtures,
+    build_approved_purchase_fixture,
+    build_completed_projection_fixture,
 )
 
 
@@ -1405,6 +1407,14 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         ).hexdigest()
     )
     resolved_path = output_root / "resolved-post-recovery-documents.jsonl"
+    runtime_projection = build_completed_projection_fixture(
+        tmp_path / "authenticated-materialization-projection",
+        monkeypatch=monkeypatch,
+    )
+    runtime_approval = build_approved_purchase_fixture(
+        tmp_path / "authenticated-materialization-approval",
+        target_cohort_root=runtime_projection.root,
+    )
     materialization_card = tmp_path / "materialization-run-card.json"
     materialization_restrictions = tmp_path / "materialization-restrictions.jsonl"
     materialization_derivations = tmp_path / "materialization-derivations.jsonl"
@@ -1417,6 +1427,21 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         {
             "schema_version": "legalforecast.acquisition_run_card.v1",
             "stage": "materialize-cohort-documents",
+            "status": "completed",
+            "input_paths": [
+                str(runtime_projection.root),
+                str(runtime_projection.root / "target-cohort-projection.json"),
+                str(runtime_projection.root / "missing-core-budget-plan.json"),
+                str(runtime_projection.selection),
+                str(runtime_projection.root),
+                str(paths["disclosure_clearance"]),
+                str(tmp_path / "recovery-output"),
+                str(paths["disclosure_clearance"]),
+                str(paths["clearance_run_card"]),
+                str(runtime_approval.policy),
+                str(runtime_approval.cohort_policy),
+                str(runtime_approval.ledger),
+            ],
             "output_paths": [
                 str(paths["download_manifest"]),
                 str(paths["disclosure_clearance"]),
@@ -1492,12 +1517,10 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(paths["review_receipt"]),
         "--restriction-evidence",
         str(paths["restriction_evidence"]),
-        "--purchase-policy",
-        str(paths["purchase_policy"]),
-        "--purchase-ledger",
-        str(ledger_path),
         "--materialization-run-card",
         str(materialization_card),
+        "--controlled-private-root",
+        str(runtime_approval.controlled_private_root),
     ]
     downstream_root = tmp_path / "downstream"
     plan_parse_command = [

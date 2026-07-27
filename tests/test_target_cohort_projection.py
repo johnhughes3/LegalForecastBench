@@ -817,8 +817,10 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
     executed_card = json.loads(
         (output_root / "run-cards/project-target-cohort.json").read_text()
     )
+    assert executed_card["stage"] == "project-target-cohort"
     assert executed_card["dry_run"] is False
     assert executed_card["execute"] is True
+    assert "authority_mode" not in executed_card
 
     terminal_paths = (
         output_root / "target-cohort-projection.json",
@@ -964,6 +966,14 @@ def test_provenance_clearance_projects_and_materializes_two_cases(
     assert len(manifest) == len(clearance)
     assert {row["clearance_basis"] for row in clearance} == {"john_exception_review"}
     assert all(row["status"] == "cleared" for row in clearance)
+    materialization_card = json.loads(canonical["run_card"].read_text())
+    materialization_summary = json.loads(
+        (
+            canonical["run_card"].parent.parent / "cohort-document-materialization.json"
+        ).read_text()
+    )
+    assert "authority_mode" not in materialization_card
+    assert "authority_mode" not in materialization_summary
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:

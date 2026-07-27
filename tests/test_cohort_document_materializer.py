@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+from collections.abc import Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import legalforecast.cli as cli
@@ -82,6 +85,647 @@ def test_materialize_cohort_documents_help_is_authoritative(
     assert "plan-parse-documents" in normalized
 
 
+def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    final_snapshots: dict[Path, bytes] = {}
+    original_snapshot_check = cli._require_snapshot_unchanged
+
+    def capture_final_snapshot(
+        snapshots: Mapping[Path, bytes],
+        *,
+        label: str,
+    ) -> None:
+        if label == "materialization downstream lineage artifact":
+            final_snapshots.update(
+                {Path(path): payload for path, payload in snapshots.items()}
+            )
+        original_snapshot_check(snapshots, label=label)
+
+    monkeypatch.setattr(cli, "_require_snapshot_unchanged", capture_final_snapshot)
+    preparation = tmp_path / "preparation"
+    free_root = preparation / "documents/free"
+    free_root.mkdir(parents=True)
+    payload = b"%PDF-1.4\nfree-only\n%%EOF"
+    source_path = free_root / "motion.pdf"
+    source_path.write_bytes(payload)
+    digest = hashlib.sha256(payload).hexdigest()
+    manifest = {
+        "candidate_id": "candidate-1",
+        "source_document_id": "motion-1",
+        "local_path": "motion.pdf",
+        "sha256": digest,
+        "byte_count": len(payload),
+        "free_or_purchased": "free",
+    }
+    clearance = {
+        "schema_version": "legalforecast.disclosure_clearance.v1",
+        "candidate_id": "candidate-1",
+        "source_document_id": "motion-1",
+        "local_path": "motion.pdf",
+        "sha256": digest,
+        "byte_count": len(payload),
+        "status": "cleared",
+        "restriction_status": "public",
+        "restriction_evidence": ["courtlistener_public_download_record_checked"],
+        "reviewer_id": "reviewer:john",
+        "controlled_store_provenance": "private-store://cycle-1/clearance",
+        "reviewed_at": "2026-07-27T12:00:00Z",
+        "free_or_purchased": "free",
+    }
+    preparation_summary = preparation / "target-cohort-preparation-summary.json"
+    preparation_config = preparation / "target-cohort-config.json"
+    success_card = preparation / "run-cards/prepare-target-cohort.json"
+    snapshot = tmp_path / "snapshot.json"
+    target = tmp_path / "target"
+    target.mkdir()
+    selection = target / "target-cohort-selection.jsonl"
+    free_manifest = target / "free-document-downloads.jsonl"
+    free_clearance = target / "disclosure-clearance.jsonl"
+    restriction = target / "restriction-evidence.jsonl"
+    projection_summary = target / "target-cohort-projection.json"
+    projection_card = target / "run-cards/project-target-cohort.json"
+    cohort_policy = tmp_path / "cohort-policy.json"
+    private_root = tmp_path / "private"
+    checkpoint = private_root / "purchase-approval-checkpoint.json"
+    approval_card = private_root / "run-cards/record-purchase-approval.json"
+    fee_schedule = tmp_path / "fee-schedule.json"
+    for path in (
+        preparation_summary,
+        preparation_config,
+        success_card,
+        snapshot,
+        projection_summary,
+        projection_card,
+        cohort_policy,
+        checkpoint,
+        approval_card,
+        fee_schedule,
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n", encoding="utf-8")
+    selection.write_text(
+        json.dumps(
+            {
+                "candidate_id": "candidate-1",
+                "documents": [{"source_document_id": "motion-1"}],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    free_manifest.write_text(
+        json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    free_clearance.write_text(
+        json.dumps(clearance, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    restriction.write_text("\n", encoding="utf-8")
+    projected_purchased_manifest: list[Mapping[str, object]] = []
+    projection_paths = (
+        selection,
+        free_manifest,
+        free_clearance,
+        restriction,
+        projection_summary,
+        projection_card,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_completed_preparation_for_frontier",
+        lambda **_kwargs: SimpleNamespace(
+            target_case_count=1,
+            success_run_card_path=success_card,
+        ),
+    )
+
+    def verified_projection(**_kwargs: object) -> dict[str, object]:
+        return {
+            "summary_path": projection_summary,
+            "run_card_path": projection_card,
+            "selection_path": selection,
+            "selection_records": tuple(cli._read_records(selection)),
+            "free_manifest_path": free_manifest,
+            "free_manifest": (manifest,),
+            "purchased_manifest": projected_purchased_manifest,
+            "free_clearance": (clearance,),
+            "restriction_path": restriction,
+            "restriction_records": (),
+            "selected_document_keys": {("candidate-1", "motion-1")},
+            "verified_artifact_bytes": {
+                os.path.abspath(path): path.read_bytes() for path in projection_paths
+            },
+        }
+
+    monkeypatch.setattr(cli, "_verify_materializer_projection", verified_projection)
+    approval = SimpleNamespace(
+        decision="free_only",
+        request=SimpleNamespace(
+            purchase_document_count=0,
+            projected_cost_usd="0.00",
+            request_sha256="a" * 64,
+        ),
+    )
+    authority_manifest_identities: list[bool] = []
+
+    def verify_free_only_authority(**kwargs: object) -> object:
+        authority_manifest_identities.append(
+            kwargs["projected_purchased_manifest"] is projected_purchased_manifest
+        )
+        return approval
+
+    monkeypatch.setattr(
+        cli,
+        "verify_free_only_materialization_authority",
+        verify_free_only_authority,
+    )
+    output = tmp_path / "materialized"
+    ledger = tmp_path / "never-created.sqlite3"
+    command = [
+        "acquisition",
+        "materialize-cohort-documents",
+        "--output-root",
+        str(output),
+        "--preparation-root",
+        str(preparation),
+        "--preparation-summary",
+        str(preparation_summary),
+        "--preparation-config",
+        str(preparation_config),
+        "--snapshot-manifest",
+        str(snapshot),
+        "--target-cohort-root",
+        str(target),
+        "--free-disclosure-clearance",
+        str(free_clearance),
+        "--cohort-policy",
+        str(cohort_policy),
+        "--controlled-private-root",
+        str(private_root),
+        "--free-only-approval-checkpoint",
+        str(checkpoint),
+        "--free-only-approval-run-card",
+        str(approval_card),
+        "--free-only-fee-schedule",
+        str(fee_schedule),
+        "--free-only-canonical-ledger-path",
+        str(ledger),
+        "--execute",
+    ]
+
+    assert cli.main(command) == 0
+    assert authority_manifest_identities == [True, True]
+    run_card = output / "run-cards/materialize-cohort-documents.json"
+    card = json.loads(run_card.read_text())
+    assert card["authority_mode"] == "free_only"
+    assert card["purchased_document_count"] == 0
+    assert not ledger.exists()
+    replay = cli._verify_materialized_downstream_lineage(
+        run_card_path=run_card,
+        manifest_path=output / "document-downloads-merged.jsonl",
+        clearance_path=output / "disclosure-clearance.jsonl",
+        document_root=output / "documents",
+        selection_path=selection,
+        controlled_private_root=private_root,
+    )
+    assert len(replay.manifest_records) == 1
+    assert replay.resolved_records == ()
+    assert any(
+        path.name == "materialize-cohort-documents.json" for path in final_snapshots
+    )
+    assert any(
+        path.suffix == ".pdf" and "documents" in path.parts for path in final_snapshots
+    )
+    assert any(path.name == "target-cohort-selection.jsonl" for path in final_snapshots)
+    unexpected = output / "documents/unexpected.pdf"
+    unexpected.write_bytes(b"%PDF-1.4\nunexpected\n%%EOF")
+    with pytest.raises(cli.CommandError, match="document-tree commitment changed"):
+        cli._verify_materialized_downstream_lineage(
+            run_card_path=run_card,
+            manifest_path=output / "document-downloads-merged.jsonl",
+            clearance_path=output / "disclosure-clearance.jsonl",
+            document_root=output / "documents",
+            selection_path=selection,
+            controlled_private_root=private_root,
+        )
+    unexpected.unlink()
+    original_card_bytes = run_card.read_bytes()
+    for tampered_mode in (None, "unknown"):
+        tampered = dict(card)
+        if tampered_mode is None:
+            tampered.pop("authority_mode")
+        else:
+            tampered["authority_mode"] = tampered_mode
+        run_card.write_text(json.dumps(tampered, sort_keys=True) + "\n")
+        with pytest.raises(cli.CommandError):
+            cli._verify_materialized_downstream_lineage(
+                run_card_path=run_card,
+                manifest_path=output / "document-downloads-merged.jsonl",
+                clearance_path=output / "disclosure-clearance.jsonl",
+                document_root=output / "documents",
+                selection_path=selection,
+                controlled_private_root=private_root,
+            )
+    run_card.write_bytes(original_card_bytes)
+
+
+@pytest.mark.parametrize(
+    "paid_field",
+    [
+        "purchased_recovery_root",
+        "purchased_disclosure_clearance",
+        "purchased_clearance_run_card",
+        "purchase_policy",
+        "purchase_ledger",
+        "purchase_ledger_initialization_receipt",
+        "resolved_post_recovery_documents",
+    ],
+)
+def test_free_only_cli_rejects_any_paid_runtime_input_before_output(
+    tmp_path: Path,
+    paid_field: str,
+) -> None:
+    args = SimpleNamespace(
+        free_only_approval_checkpoint=tmp_path / "checkpoint.json",
+        free_only_approval_run_card=tmp_path / "card.json",
+        free_only_fee_schedule=tmp_path / "fees.json",
+        free_only_canonical_ledger_path=tmp_path / "ledger.sqlite3",
+        controlled_private_root=tmp_path / "private",
+        purchased_recovery_root=None,
+        purchased_disclosure_clearance=None,
+        purchased_clearance_run_card=None,
+        purchase_policy=None,
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+    setattr(args, paid_field, tmp_path / "paid")
+
+    with pytest.raises(cli.CommandError, match="rejects paid-runtime inputs"):
+        cli._cmd_acquisition_materialize_cohort_documents(args)
+
+
+def test_free_only_cli_rejects_partial_authority_before_output(tmp_path: Path) -> None:
+    args = SimpleNamespace(
+        free_only_approval_checkpoint=tmp_path / "checkpoint.json",
+        free_only_approval_run_card=None,
+        free_only_fee_schedule=None,
+        free_only_canonical_ledger_path=None,
+        controlled_private_root=tmp_path / "private",
+        purchased_recovery_root=None,
+        purchased_disclosure_clearance=None,
+        purchased_clearance_run_card=None,
+        purchase_policy=None,
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+
+    with pytest.raises(cli.CommandError, match="all four free-only"):
+        cli._cmd_acquisition_materialize_cohort_documents(args)
+
+
+def test_incomplete_paid_materialization_rejects_before_authority_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args = SimpleNamespace(
+        free_only_approval_checkpoint=None,
+        free_only_approval_run_card=None,
+        free_only_fee_schedule=None,
+        free_only_canonical_ledger_path=None,
+        purchased_recovery_root=tmp_path / "recovery",
+        purchased_disclosure_clearance=tmp_path / "clearance.jsonl",
+        purchased_clearance_run_card=tmp_path / "clearance-card.json",
+        purchase_policy=tmp_path / "policy.json",
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "_preflight_current_purchase_snapshot",
+        lambda _args: pytest.fail("incomplete paid mode read authority"),
+    )
+    with pytest.raises(cli.CommandError, match="requires recovery"):
+        cli._cmd_acquisition_materialize_cohort_documents(args)
+
+
+@pytest.mark.parametrize("authority_mode", ["free_only", None])
+def test_paid_materializer_resume_rejects_injected_authority_mode(
+    tmp_path: Path,
+    authority_mode: object,
+) -> None:
+    run_card = tmp_path / "run-card.json"
+    card = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "materialize-cohort-documents",
+        "status": "completed",
+        "dry_run": True,
+        "execute": False,
+        "record_count": 0,
+        "input_paths": [],
+        "output_paths": [
+            str(tmp_path / name)
+            for name in (
+                "manifest.jsonl",
+                "clearance.jsonl",
+                "restriction.jsonl",
+                "derivations.jsonl",
+                "summary.json",
+                "documents",
+            )
+        ],
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "source_commitments": {},
+        "output_commitments": {},
+        "source_roots_mutated": False,
+        "zero_provider_activity_evidence": True,
+        "authority_mode": authority_mode,
+    }
+    run_card.write_text(json.dumps(card, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(cli.CommandError, match="authority_mode"):
+        cli._verify_materializer_resume(
+            run_card_path=run_card,
+            input_paths=(),
+            manifest_path=tmp_path / "manifest.jsonl",
+            manifest_bytes=b"",
+            clearance_path=tmp_path / "clearance.jsonl",
+            clearance_bytes=b"",
+            restriction_path=tmp_path / "restriction.jsonl",
+            restriction_bytes=b"",
+            derivations_path=tmp_path / "derivations.jsonl",
+            derivations_bytes=b"",
+            summary_path=tmp_path / "summary.json",
+            summary_bytes=b"",
+            document_root=tmp_path / "documents",
+            materialization=SimpleNamespace(manifest=(), clearance=()),
+            source_commitments={},
+            output_commitments={},
+            dry_run=True,
+        )
+
+
+def test_materializer_preflight_rejects_null_authority_mode(tmp_path: Path) -> None:
+    run_card = tmp_path / "run-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "authority_mode": None,
+                "input_paths": [],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(cli.CommandError, match="authority mode"):
+        cli._preflight_materialization_purchase_runtime(
+            SimpleNamespace(materialization_run_card=run_card)
+        )
+
+
+@pytest.mark.parametrize(
+    "paid_field",
+    [
+        "purchase_policy",
+        "purchase_ledger",
+        "purchase_ledger_initialization_receipt",
+        "resolved_post_recovery_documents",
+    ],
+)
+def test_free_only_downstream_preflight_rejects_paid_state_before_policy_access(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    paid_field: str,
+) -> None:
+    input_paths = [str(tmp_path / f"input-{index}") for index in range(11)]
+    run_card = tmp_path / "materialization-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "authority_mode": "free_only",
+                "input_paths": input_paths,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = SimpleNamespace(
+        materialization_run_card=run_card,
+        controlled_private_root=tmp_path / "private",
+        purchase_policy=None,
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+    paid_state_path = tmp_path / "paid-state"
+    setattr(args, paid_field, paid_state_path)
+    if paid_field == "purchase_policy":
+        paid_state_path.write_text(
+            '{"schema_version":"legalforecast.case_dev_purchase_policy.v2"}\n',
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(
+        cli,
+        "_preflight_approved_purchase_runtime",
+        lambda _args: pytest.fail("free-only mode accessed paid authority"),
+    )
+
+    with pytest.raises(cli.CommandError, match="rejects paid-runtime inputs"):
+        cli._preflight_materialization_purchase_runtime(args)
+
+
+@pytest.mark.parametrize("documents", [None, "not-a-list"])
+def test_free_only_preflight_rejects_malformed_selection_documents_as_command_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    documents: object,
+) -> None:
+    target_root = tmp_path / "target"
+    target_root.mkdir()
+    selection: dict[str, object] = {"candidate_id": "candidate-1"}
+    if documents is not None:
+        selection["documents"] = documents
+    (target_root / "target-cohort-selection.jsonl").write_text(
+        json.dumps(selection, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (target_root / "free-document-downloads.jsonl").write_text(
+        "",
+        encoding="utf-8",
+    )
+    (target_root / "purchased-document-downloads.jsonl").write_text(
+        "",
+        encoding="utf-8",
+    )
+    input_paths = [tmp_path / f"input-{index}" for index in range(11)]
+    input_paths[4] = target_root
+    run_card = tmp_path / "materialization-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "authority_mode": "free_only",
+                "input_paths": [str(path) for path in input_paths],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.argparse.Namespace(
+        materialization_run_card=run_card,
+        controlled_private_root=tmp_path / "private",
+        purchase_policy=None,
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_free_only_materialization_authority",
+        lambda **_kwargs: pytest.fail("malformed selection reached authority replay"),
+    )
+
+    with pytest.raises(cli.CommandError, match="documents"):
+        cli._preflight_materialization_purchase_runtime(args)
+
+
+def test_free_only_preflight_passes_committed_purchased_projection_to_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target_root = tmp_path / "target"
+    target_root.mkdir()
+    purchased_record = {
+        "candidate_id": "candidate-1",
+        "source_document_id": "motion-1",
+    }
+    (target_root / "target-cohort-selection.jsonl").write_text(
+        json.dumps(
+            {
+                "candidate_id": "candidate-1",
+                "documents": [{"source_document_id": "motion-1"}],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (target_root / "free-document-downloads.jsonl").write_text(
+        "",
+        encoding="utf-8",
+    )
+    (target_root / "purchased-document-downloads.jsonl").write_text(
+        json.dumps(purchased_record, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    input_paths = [tmp_path / f"input-{index}" for index in range(11)]
+    input_paths[4] = target_root
+    run_card = tmp_path / "materialization-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "authority_mode": "free_only",
+                "input_paths": [str(path) for path in input_paths],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.argparse.Namespace(
+        materialization_run_card=run_card,
+        controlled_private_root=tmp_path / "private",
+        purchase_policy=None,
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+
+    def reject_purchased_projection(**kwargs: object) -> None:
+        assert kwargs["projected_purchased_manifest"] == (purchased_record,)
+        raise cli.FreeOnlyMaterializationError(
+            "free-only materialization rejects projected purchased documents"
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "verify_free_only_materialization_authority",
+        reject_purchased_projection,
+    )
+
+    with pytest.raises(cli.CommandError, match="rejects projected purchased"):
+        cli._preflight_materialization_purchase_runtime(args)
+
+
+def test_free_only_downstream_replay_requires_controlled_private_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_card = tmp_path / "materialization-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+                "source_roots_mutated": False,
+                "zero_provider_activity_evidence": True,
+                "authority_mode": "free_only",
+                "input_paths": [
+                    str(tmp_path / f"input-{index}") for index in range(11)
+                ],
+                "output_paths": [
+                    str(tmp_path / f"output-{index}") for index in range(6)
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        cli,
+        "_prepare_free_only_cohort_documents",
+        lambda *_args, **_kwargs: pytest.fail(
+            "missing controlled private root reached preparation"
+        ),
+    )
+
+    with pytest.raises(cli.CommandError, match="controlled private root"):
+        cli._verify_materialized_downstream_lineage(
+            run_card_path=run_card,
+            manifest_path=tmp_path / "output-0",
+            clearance_path=tmp_path / "output-1",
+            document_root=tmp_path / "output-5",
+        )
+
+
 def test_materializer_requires_exact_selected_identity_coverage(tmp_path: Path) -> None:
     free, free_key = _source(
         tmp_path,
@@ -107,6 +751,44 @@ def test_materializer_requires_exact_selected_identity_coverage(tmp_path: Path) 
                 purchased_key,
                 ("candidate-1", "order-1"),
             },
+            output_root=tmp_path / "output",
+        )
+
+
+def test_materializer_accepts_exact_free_only_source(tmp_path: Path) -> None:
+    free, free_key = _source(
+        tmp_path,
+        phase="free",
+        candidate_id="candidate-1",
+        document_id="complaint-1",
+    )
+
+    prepared = prepare_cohort_document_materialization(
+        (free,),
+        selected_document_keys={free_key},
+        output_root=tmp_path / "output",
+    )
+
+    assert prepared.summary["free_document_count"] == 1
+    assert prepared.summary["purchased_document_count"] == 0
+    assert [row["free_or_purchased"] for row in prepared.manifest] == ["free"]
+
+
+def test_materializer_rejects_purchased_only_source(tmp_path: Path) -> None:
+    purchased, purchased_key = _source(
+        tmp_path,
+        phase="purchased",
+        candidate_id="candidate-1",
+        document_id="motion-1",
+    )
+
+    with pytest.raises(
+        CohortDocumentMaterializationError,
+        match="ordered exactly as free",
+    ):
+        prepare_cohort_document_materialization(
+            (purchased,),
+            selected_document_keys={purchased_key},
             output_root=tmp_path / "output",
         )
 
