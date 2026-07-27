@@ -117,6 +117,11 @@ def project_target_cohort(
             )
         clearance = clearance_index[key]
         _validate_clearance_binding(manifest, clearance, key=key)
+        _validate_relevance_clearance_restriction_binding(
+            relevance_documents[source_document_id],
+            clearance,
+            key=key,
+        )
         if clearance.get("status") != "cleared":
             quarantined.setdefault(candidate_id, []).append(source_document_id)
 
@@ -188,6 +193,7 @@ def project_target_cohort(
     exact_restrictions = restriction_evidence_from_case_relevance(
         exact_relevance,
         document_keys=frozenset(_document_key(row) for row in exact_manifest),
+        allow_unknown=True,
     )
 
     exclusion_records = _projection_exclusions(
@@ -347,6 +353,72 @@ def _validate_clearance_binding(
         raise TargetCohortProjectionError(
             f"invalid clearance policy for {key}: {exc}"
         ) from exc
+
+
+def _validate_relevance_clearance_restriction_binding(
+    relevance_document: Mapping[str, Any],
+    clearance: Mapping[str, Any],
+    *,
+    key: tuple[str, str],
+) -> None:
+    """Bind REST-unknown relevance evidence to its automatic clearance row."""
+
+    if clearance.get("status") != "cleared":
+        return
+    relevance_status = relevance_document.get("redaction_or_seal_status")
+    if relevance_status != "unknown":
+        return
+    automatic = clearance.get("clearance_basis") == "affirmative_public_provenance"
+    if not automatic:
+        raise TargetCohortProjectionError(
+            f"unknown restriction status lacks automatic clearance binding: {key}"
+        )
+    if (
+        relevance_document.get("is_sealed") is True
+        or relevance_document.get("is_private") is True
+    ):
+        raise TargetCohortProjectionError(
+            f"automatic clearance contradicts positive restriction flags: {key}"
+        )
+    clearance_status = clearance.get("restriction_status")
+    relevance_evidence = _restriction_evidence_items(
+        relevance_document,
+        key=key,
+        label="case relevance",
+    )
+    clearance_evidence = _restriction_evidence_items(
+        clearance,
+        key=key,
+        label="clearance",
+    )
+    if clearance_status != relevance_status or clearance_evidence != relevance_evidence:
+        raise TargetCohortProjectionError(
+            f"automatic clearance restriction evidence does not match relevance: {key}"
+        )
+
+
+def _restriction_evidence_items(
+    record: Mapping[str, Any],
+    *,
+    key: tuple[str, str],
+    label: str,
+) -> frozenset[str]:
+    evidence = record.get("restriction_evidence")
+    if (
+        not isinstance(evidence, Sequence)
+        or isinstance(evidence, (str, bytes))
+        or not evidence
+    ):
+        raise TargetCohortProjectionError(f"{label} lacks restriction evidence: {key}")
+    items = tuple(cast(Sequence[object], evidence))
+    if not all(isinstance(item, str) and item for item in items):
+        raise TargetCohortProjectionError(f"{label} lacks restriction evidence: {key}")
+    string_items = cast(tuple[str, ...], items)
+    if len(set(string_items)) != len(string_items):
+        raise TargetCohortProjectionError(
+            f"{label} has duplicate restriction evidence: {key}"
+        )
+    return frozenset(string_items)
 
 
 def restriction_evidence_from_case_relevance(

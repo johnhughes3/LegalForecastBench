@@ -499,6 +499,7 @@ from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan,
     build_provenance_clearance_plan_v3,
     build_provenance_clearance_records,
+    build_provider_free_quarantine_records_v3,
     exception_review_worksheet,
     exception_review_worksheet_v3,
     validate_exception_review_worksheet,
@@ -1983,6 +1984,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_clear_provenance_disclosures_arguments(
         acquisition_provenance_clearance
+    )
+    acquisition_provider_free_quarantine = acquisition_subparsers.add_parser(
+        "finalize-provenance-quarantine",
+        help=(
+            "Clear v3 automatic rows and conservatively quarantine every "
+            "exception without a reviewer or provider call."
+        ),
+        description=(
+            "Recompute the exact v3 provenance routing plan and worksheet from "
+            "immutable inputs and document bytes. Publish clearance only for "
+            "auto_clear rows and publish every exception_review row as "
+            "quarantined. This command never contacts a provider and never claims "
+            "human or model review authority."
+        ),
+    )
+    _add_acquisition_quarantine_provenance_exceptions_arguments(
+        acquisition_provider_free_quarantine
     )
     acquisition_resolve_post_recovery = acquisition_subparsers.add_parser(
         "resolve-post-recovery-documents",
@@ -6513,6 +6531,23 @@ def _add_acquisition_clear_provenance_disclosures_arguments(
     parser.set_defaults(handler=_cmd_acquisition_clear_provenance_disclosures)
 
 
+def _add_acquisition_quarantine_provenance_exceptions_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--review-requests", type=Path, required=True)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--case-relevance", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--restriction-evidence", type=Path, required=True)
+    parser.add_argument("--routing-plan", type=Path, required=True)
+    parser.add_argument("--exception-worksheet", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--clearance-output", type=Path)
+    parser.add_argument("--quarantine-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_quarantine_provenance_exceptions)
+
+
 def _add_acquisition_prepare_disclosure_review_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -7904,6 +7939,7 @@ def _disclosure_failure_context(
         "build-disclosure-review-bundle",
         "seal-disclosure-review-bundle",
         "clear-provenance-disclosures",
+        "finalize-provenance-quarantine",
     }
     if command not in disclosure_commands:
         return None
@@ -7950,6 +7986,35 @@ def _disclosure_failure_context(
                     "exception_worksheet",
                     "exception_decisions",
                     "exception_review_run_card",
+                    "cohort_policy",
+                )
+            ),
+            (
+                _acquisition_path(
+                    args,
+                    "clearance_output",
+                    output_root / "disclosure-clearance.jsonl",
+                ),
+                _acquisition_path(
+                    args,
+                    "quarantine_output",
+                    output_root / "disclosure-quarantine.jsonl",
+                ),
+            ),
+        )
+    if command == "finalize-provenance-quarantine":
+        return (
+            "finalize-provenance-quarantine",
+            tuple(
+                cast(Path, getattr(args, name))
+                for name in (
+                    "review_requests",
+                    "download_manifest",
+                    "case_relevance",
+                    "restriction_evidence",
+                    "document_root",
+                    "routing_plan",
+                    "exception_worksheet",
                     "cohort_policy",
                 )
             ),
@@ -12130,6 +12195,61 @@ def _validate_clearance_run_card_commitments(
     source_sha256: Mapping[str, str],
 ) -> None:
     if (
+        run_card.get("schema_version")
+        == "legalforecast.provenance_quarantine_clearance_run_card.v1"
+    ):
+        if (
+            run_card.get("stage") != "finalize-provenance-quarantine"
+            or run_card.get("status") != "completed"
+            or run_card.get("dry_run") is not False
+            or run_card.get("execute") is not True
+            or run_card.get("provider_activity_requested") is not False
+            or run_card.get("provider_activity_executed") is not False
+            or run_card.get("human_review_requested") is not False
+            or run_card.get("human_review_executed") is not False
+            or run_card.get("paid_activity_requested") is not False
+            or run_card.get("paid_activity_executed") is not False
+        ):
+            raise CommandError(
+                "projection requires an executed provider-free quarantine run card"
+            )
+        source_commitments = run_card.get("source_commitments")
+        output_commitments = run_card.get("output_commitments")
+        disposition_policy = run_card.get("disposition_policy")
+        if (
+            not isinstance(source_commitments, Mapping)
+            or not isinstance(output_commitments, Mapping)
+            or not isinstance(disposition_policy, Mapping)
+        ):
+            raise CommandError("provider-free quarantine run card lacks commitments")
+        for card_name, source_name in (
+            ("download_manifest", "download_manifest"),
+            ("case_relevance", "case_relevance"),
+            ("restriction_evidence", "restriction_evidence"),
+        ):
+            _validate_named_path_commitment(
+                cast(Mapping[str, object], source_commitments),
+                name=card_name,
+                expected_path=source_paths[source_name],
+                expected_sha256=source_sha256[source_name],
+            )
+        _validate_named_path_commitment(
+            cast(Mapping[str, object], output_commitments),
+            name="disclosure_clearance",
+            expected_path=source_paths["disclosure_clearance"],
+            expected_sha256=source_sha256["disclosure_clearance"],
+        )
+        if (
+            cast(Mapping[str, object], disposition_policy).get("kind")
+            != "v3_auto_clear_else_quarantine"
+            or cast(Mapping[str, object], disposition_policy).get(
+                "human_or_model_override_permitted"
+            )
+            is not False
+        ):
+            raise CommandError("provider-free quarantine disposition policy is invalid")
+        return
+    if (
         run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or run_card.get("stage") != "clear-disclosures"
         or run_card.get("status") != "completed"
@@ -12643,6 +12763,18 @@ def _reject_existing_parent_symlink(
             raise CommandError(f"{label} parent is a symlink: {current}")
 
 
+def _stable_regular_file_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+        value.st_nlink,
+    )
+
+
 def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
     """Read one immutable input without following a final symlink."""
 
@@ -12675,34 +12807,10 @@ def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
         after = os.fstat(descriptor)
         lexical_after = path.lstat()
         stable_identity = (
-            (
-                lexical_before.st_dev,
-                lexical_before.st_ino,
-                lexical_before.st_size,
-                lexical_before.st_mtime_ns,
-                lexical_before.st_nlink,
-            )
-            == (
-                before.st_dev,
-                before.st_ino,
-                before.st_size,
-                before.st_mtime_ns,
-                before.st_nlink,
-            )
-            == (
-                after.st_dev,
-                after.st_ino,
-                after.st_size,
-                after.st_mtime_ns,
-                after.st_nlink,
-            )
-            == (
-                lexical_after.st_dev,
-                lexical_after.st_ino,
-                lexical_after.st_size,
-                lexical_after.st_mtime_ns,
-                lexical_after.st_nlink,
-            )
+            _stable_regular_file_identity(lexical_before)
+            == _stable_regular_file_identity(before)
+            == _stable_regular_file_identity(after)
+            == _stable_regular_file_identity(lexical_after)
         )
         if (
             not stable_identity
@@ -12813,99 +12921,258 @@ def _complete_clearance_artifact_snapshot(
     return snapshot
 
 
-def _ensure_disclosure_review_artifact(
-    path: Path, payload: bytes, *, resume: bool
-) -> None:
-    """Publish one immutable artifact with an exclusive atomic directory entry."""
+def _open_disclosure_review_parent(path: Path, *, create: bool) -> int:
+    """Open one lexical directory path without following any component."""
 
-    _reject_existing_parent_symlink(path)
-    if path.exists() or path.is_symlink():
-        if resume and path.exists() and not path.is_symlink():
-            _recover_disclosure_review_publish_alias(path)
-        if not resume:
-            raise CommandError(f"disclosure review output already exists: {path}")
-        try:
-            existing_payload = read_unique_regular_file(path)
-        except ReviewBundleError:
-            existing_payload = None
-        if existing_payload != payload:
-            raise CommandError(f"disclosure review resume artifact mismatch: {path}")
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _reject_existing_parent_symlink(path)
-    temporary_path: Path | None = None
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    if nofollow is None or directory is None:
+        raise CommandError("disclosure review publication requires no-follow support")
+    absolute = Path(os.path.abspath(path))
+    flags = os.O_RDONLY | os.O_CLOEXEC | nofollow | directory
+    directory_fd: int | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as handle:
-            temporary_path = Path(handle.name)
-            os.chmod(temporary_path, 0o600)
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        try:
-            os.link(temporary_path, path, follow_symlinks=False)
-        except FileExistsError:
-            _reject_existing_parent_symlink(path)
+        directory_fd = os.open(absolute.anchor, flags)
+        for component in absolute.parts[1:]:
             try:
-                metadata = path.stat(follow_symlinks=False)
-            except OSError:
-                metadata = None
-            if (
-                not resume
-                or metadata is None
-                or path.is_symlink()
-                or not stat.S_ISREG(metadata.st_mode)
-                or metadata.st_nlink != 1
-                or path.read_bytes() != payload
-            ):
-                raise CommandError(
-                    f"disclosure review output appeared concurrently: {path}"
-                ) from None
-        directory_fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_fd)
-        finally:
+                next_fd = os.open(component, flags, dir_fd=directory_fd)
+            except FileNotFoundError:
+                if not create:
+                    raise
+                os.mkdir(component, mode=0o700, dir_fd=directory_fd)
+                next_fd = os.open(component, flags, dir_fd=directory_fd)
             os.close(directory_fd)
+            directory_fd = next_fd
+        return directory_fd
+    except CommandError:
+        if directory_fd is not None:
+            os.close(directory_fd)
+        raise
+    except OSError as exc:
+        if directory_fd is not None:
+            os.close(directory_fd)
+        raise CommandError(
+            f"disclosure review output parent is unsafe: {path}"
+        ) from exc
+
+
+def _disclosure_review_parent_is_current(path: Path, directory_fd: int) -> bool:
+    try:
+        live_fd = _open_disclosure_review_parent(path, create=False)
+    except CommandError:
+        return False
+    try:
+        held = os.fstat(directory_fd)
+        live = os.fstat(live_fd)
+        return (
+            stat.S_ISDIR(held.st_mode)
+            and stat.S_ISDIR(live.st_mode)
+            and (held.st_dev, held.st_ino) == (live.st_dev, live.st_ino)
+        )
     finally:
-        if temporary_path is not None and temporary_path.exists():
-            temporary_path.unlink()
+        os.close(live_fd)
 
 
-def _recover_disclosure_review_publish_alias(path: Path) -> None:
+def _read_disclosure_review_artifact_at(directory_fd: int, name: str) -> bytes | None:
+    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        file_fd = os.open(name, flags, dir_fd=directory_fd)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise CommandError(
+            f"disclosure review output must be a unique regular file: {name}"
+        ) from exc
+    try:
+        before = os.fstat(file_fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise CommandError(
+                f"disclosure review output must be a unique regular file: {name}"
+            )
+        chunks: list[bytes] = []
+        while chunk := os.read(file_fd, 1024 * 1024):
+            chunks.append(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(file_fd)
+        try:
+            named = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        except OSError as exc:
+            raise CommandError(
+                f"disclosure review output changed while being read: {name}"
+            ) from exc
+        if (
+            _stable_regular_file_identity(before)
+            != _stable_regular_file_identity(after)
+            or _stable_regular_file_identity(named)
+            != _stable_regular_file_identity(after)
+            or len(payload) != after.st_size
+        ):
+            raise CommandError(
+                f"disclosure review output changed while being read: {name}"
+            )
+        return payload
+    finally:
+        os.close(file_fd)
+
+
+def _recover_disclosure_review_publish_alias_at(directory_fd: int, name: str) -> None:
     """Remove only same-inode private temp links left by an interrupted publish."""
 
     try:
-        metadata = path.stat(follow_symlinks=False)
-    except OSError:
+        metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    except FileNotFoundError:
         return
     if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink <= 1:
         return
-    aliases: list[Path] = []
-    for candidate in path.parent.glob(f".{path.name}.*.tmp"):
+    aliases: list[str] = []
+    prefix = f".{name}."
+    for candidate in os.listdir(directory_fd):
+        if not candidate.startswith(prefix) or not candidate.endswith(".tmp"):
+            continue
         try:
-            candidate_metadata = candidate.stat(follow_symlinks=False)
+            candidate_metadata = os.stat(
+                candidate, dir_fd=directory_fd, follow_symlinks=False
+            )
         except OSError:
             continue
         if (
-            not candidate.is_symlink()
-            and stat.S_ISREG(candidate_metadata.st_mode)
+            stat.S_ISREG(candidate_metadata.st_mode)
             and candidate_metadata.st_ino == metadata.st_ino
             and candidate_metadata.st_dev == metadata.st_dev
         ):
             aliases.append(candidate)
     for alias in aliases:
-        alias.unlink()
+        os.unlink(alias, dir_fd=directory_fd)
     if aliases:
-        directory_fd = os.open(path.parent, os.O_RDONLY)
+        os.fsync(directory_fd)
+
+
+def _recover_disclosure_review_publish_alias(path: Path) -> None:
+    """Recover an interrupted alias while preserving the lexical parent binding."""
+
+    directory_fd = _open_disclosure_review_parent(path.parent, create=False)
+    try:
+        _recover_disclosure_review_publish_alias_at(directory_fd, path.name)
+        if not _disclosure_review_parent_is_current(path.parent, directory_fd):
+            raise CommandError(
+                "disclosure review output parent path binding changed "
+                f"during recovery: {path.parent}"
+            )
+    finally:
+        os.close(directory_fd)
+
+
+def _ensure_disclosure_review_artifact(
+    path: Path, payload: bytes, *, resume: bool
+) -> None:
+    """Publish one immutable artifact through one authenticated parent fd."""
+
+    _reject_existing_parent_symlink(path)
+    directory_fd = _open_disclosure_review_parent(path.parent, create=True)
+    temporary_name = f".{path.name}.{uuid.uuid4().hex}.tmp"
+    temporary_created = False
+    published_identity: tuple[int, int] | None = None
+    try:
+        if resume:
+            _recover_disclosure_review_publish_alias_at(directory_fd, path.name)
+        existing_payload = _read_disclosure_review_artifact_at(directory_fd, path.name)
+        if existing_payload is not None:
+            if not resume:
+                raise CommandError(f"disclosure review output already exists: {path}")
+            if existing_payload != payload:
+                raise CommandError(
+                    f"disclosure review resume artifact mismatch: {path}"
+                )
+            if not _disclosure_review_parent_is_current(path.parent, directory_fd):
+                raise CommandError(
+                    "disclosure review output parent path binding changed "
+                    f"during publication: {path.parent}"
+                )
+            return
+
+        flags = (
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | os.O_CLOEXEC
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        temporary_fd = os.open(temporary_name, flags, 0o600, dir_fd=directory_fd)
+        temporary_created = True
         try:
-            os.fsync(directory_fd)
+            view = memoryview(payload)
+            while view:
+                written = os.write(temporary_fd, view)
+                if written <= 0:  # pragma: no cover - OS invariant
+                    raise CommandError(f"disclosure review output short write: {path}")
+                view = view[written:]
+            os.fsync(temporary_fd)
+            temporary_metadata = os.fstat(temporary_fd)
+            published_identity = (
+                temporary_metadata.st_dev,
+                temporary_metadata.st_ino,
+            )
         finally:
-            os.close(directory_fd)
+            os.close(temporary_fd)
+        try:
+            os.link(
+                temporary_name,
+                path.name,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError:
+            published_identity = None
+            competing = _read_disclosure_review_artifact_at(directory_fd, path.name)
+            if not resume or competing != payload:
+                raise CommandError(
+                    f"disclosure review output appeared concurrently: {path}"
+                ) from None
+        os.unlink(temporary_name, dir_fd=directory_fd)
+        temporary_created = False
+        os.fsync(directory_fd)
+        if _read_disclosure_review_artifact_at(directory_fd, path.name) != payload:
+            raise CommandError(
+                f"disclosure review output changed during publication: {path}"
+            )
+        if not _disclosure_review_parent_is_current(path.parent, directory_fd):
+            if published_identity is not None:
+                try:
+                    target = os.stat(
+                        path.name, dir_fd=directory_fd, follow_symlinks=False
+                    )
+                except FileNotFoundError:
+                    target = None
+                if (
+                    target is not None
+                    and (
+                        target.st_dev,
+                        target.st_ino,
+                    )
+                    == published_identity
+                ):
+                    os.unlink(path.name, dir_fd=directory_fd)
+                    os.fsync(directory_fd)
+            raise CommandError(
+                "disclosure review output parent path binding changed "
+                f"during publication: {path.parent}"
+            )
+    except CommandError:
+        raise
+    except OSError as exc:
+        raise CommandError(
+            f"disclosure review output cannot be safely published: {path}"
+        ) from exc
+    finally:
+        if temporary_created:
+            try:
+                os.unlink(temporary_name, dir_fd=directory_fd)
+                os.fsync(directory_fd)
+            except FileNotFoundError:
+                # The successful hard-link path already consumed the temp name.
+                pass
+        os.close(directory_fd)
 
 
 def _disclosure_review_metadata_paths(
@@ -30001,6 +30268,66 @@ def _verify_materializer_clearance_lineage(
     )
     if committed_manifest.resolve() != manifest_path.resolve():
         raise CommandError("purchased clearance committed a different manifest")
+    if (
+        run_card.get("schema_version")
+        == "legalforecast.provenance_quarantine_clearance_run_card.v1"
+    ):
+        case_relevance_path = _materializer_committed_path(
+            source_records,
+            "case_relevance",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        restriction_path = _materializer_committed_path(
+            source_records,
+            "restriction_evidence",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        requests_path = _materializer_committed_path(
+            source_records,
+            "review_requests",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        worksheet_path = _materializer_committed_path(
+            source_records,
+            "exception_worksheet",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        cohort_policy_path = _materializer_committed_path(
+            source_records,
+            "cohort_policy",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        routing_plan_path = _materializer_committed_path(
+            source_records,
+            "routing_plan",
+            captured_artifact_bytes=verified_snapshot,
+        )
+        _verify_authenticated_clearance_run_card(
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=manifest_path,
+            expected_restriction_path=restriction_path,
+            captured_artifact_bytes=verified_snapshot,
+        )
+        return {
+            "lineage_kind": "provider_free_exception_quarantine",
+            "verified_artifact_bytes": verified_snapshot,
+            "clearance_records": _projection_jsonl_records(
+                verified_snapshot[os.path.abspath(clearance_path)],
+                source=clearance_path,
+            ),
+            "manifest_path": manifest_path,
+            "case_relevance_path": case_relevance_path,
+            "restriction_path": restriction_path,
+            "restriction_records": _projection_jsonl_records(
+                verified_snapshot[os.path.abspath(restriction_path)],
+                source=restriction_path,
+            ),
+            "requests_path": requests_path,
+            "worksheet_path": worksheet_path,
+            "cohort_policy_path": cohort_policy_path,
+            "routing_plan_path": routing_plan_path,
+        }
     clearance_authority = run_card.get("clearance_authority")
     authority_kind = (
         cast(Mapping[str, object], clearance_authority).get("kind")
@@ -33633,6 +33960,196 @@ def _cmd_acquisition_clear_provenance_disclosures(
     return 0
 
 
+def _cmd_acquisition_quarantine_provenance_exceptions(
+    args: argparse.Namespace,
+) -> int:
+    """Finalize v3 routing by quarantining every exception without review."""
+
+    output_root = _acquisition_output_root(args)
+    requests_path = cast(Path, args.review_requests)
+    manifest_path = cast(Path, args.download_manifest)
+    relevance_path = cast(Path, args.case_relevance)
+    document_root = cast(Path, args.document_root)
+    restriction_path = cast(Path, args.restriction_evidence)
+    plan_path = cast(Path, args.routing_plan)
+    worksheet_path = cast(Path, args.exception_worksheet)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    clearance_path = _acquisition_path(
+        args, "clearance_output", output_root / "disclosure-clearance.jsonl"
+    )
+    quarantine_path = _acquisition_path(
+        args, "quarantine_output", output_root / "disclosure-quarantine.jsonl"
+    )
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/finalize-provenance-quarantine.json",
+    )
+    source_paths = {
+        "review_requests": requests_path,
+        "download_manifest": manifest_path,
+        "case_relevance": relevance_path,
+        "restriction_evidence": restriction_path,
+        "routing_plan": plan_path,
+        "exception_worksheet": worksheet_path,
+        "cohort_policy": cohort_policy_path,
+    }
+    _validate_disclosure_review_paths(
+        input_paths=tuple(source_paths.values()),
+        output_paths=(clearance_path, quarantine_path, run_card_path),
+        protected_roots=(document_root,),
+    )
+    try:
+        _reject_existing_parent_symlink(document_root, label="document root")
+        if document_root.is_symlink() or not document_root.is_dir():
+            raise CommandError(f"document root is missing or unsafe: {document_root}")
+        source_bytes = {
+            name: _read_singly_linked_regular_input(path, label=name.replace("_", " "))
+            for name, path in source_paths.items()
+        }
+        manifest_records = _projection_jsonl_records(
+            source_bytes["download_manifest"], source=manifest_path
+        )
+        document_snapshot = _capture_provenance_document_snapshot(
+            manifest_records, document_root=document_root
+        )
+        recomputed_plan = build_provenance_clearance_plan_v3(
+            _projection_jsonl_records(
+                source_bytes["review_requests"], source=requests_path
+            ),
+            manifest_records,
+            _projection_jsonl_records(
+                source_bytes["restriction_evidence"], source=restriction_path
+            ),
+            _projection_jsonl_records(
+                source_bytes["case_relevance"], source=relevance_path
+            ),
+            document_root=document_root,
+            review_requests_bytes=source_bytes["review_requests"],
+            download_manifest_bytes=source_bytes["download_manifest"],
+            restriction_evidence_bytes=source_bytes["restriction_evidence"],
+            case_relevance_bytes=source_bytes["case_relevance"],
+            document_bytes_by_relative_path=document_snapshot,
+        )
+        plan_bytes = canonical_json_bytes(recomputed_plan)
+        if plan_bytes != source_bytes["routing_plan"]:
+            raise ProvenanceClearanceError(
+                "v3 routing plan differs from exact current inputs and document bytes"
+            )
+        worksheet = exception_review_worksheet_v3(recomputed_plan)
+        worksheet_bytes = canonical_json_bytes(worksheet)
+        if worksheet_bytes != source_bytes["exception_worksheet"]:
+            raise ProvenanceClearanceError(
+                "v3 exception worksheet differs from the immutable routing plan"
+            )
+        cohort_policy_sha256 = verify_cohort_policy(
+            _projection_json_object(
+                source_bytes["cohort_policy"], source=cohort_policy_path
+            )
+        )
+        routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        records = build_provider_free_quarantine_records_v3(
+            recomputed_plan,
+            routing_plan_sha256=routing_plan_sha256,
+        )
+        _require_provenance_document_snapshot_unchanged(
+            document_snapshot, document_root=document_root
+        )
+    except (CohortPolicyError, OSError, ProvenanceClearanceError) as exc:
+        raise CommandError(str(exc)) from exc
+
+    rows = [record.to_record() for record in records]
+    quarantined = [row for row in rows if row["status"] == "quarantined"]
+    clearance_bytes = b"".join(canonical_json_bytes(row) for row in rows)
+    quarantine_bytes = b"".join(canonical_json_bytes(row) for row in quarantined)
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        return 0
+    source_commitments: dict[str, dict[str, object]] = {
+        name: {"path": str(path.resolve()), "sha256": _bytes_sha256(source_bytes[name])}
+        for name, path in source_paths.items()
+    }
+    document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
+    source_commitments["document_root"] = {
+        "path": str(document_root.resolve()),
+        "tree_sha256": _canonical_json_sha256(document_tree),
+        "document_count": len(document_tree),
+    }
+    output_commitments = {
+        "disclosure_clearance": {
+            "path": str(clearance_path.resolve()),
+            "sha256": _bytes_sha256(clearance_bytes),
+        },
+        "disclosure_quarantine": {
+            "path": str(quarantine_path.resolve()),
+            "sha256": _bytes_sha256(quarantine_bytes),
+        },
+    }
+    run_card = {
+        "schema_version": "legalforecast.provenance_quarantine_clearance_run_card.v1",
+        "stage": "finalize-provenance-quarantine",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "human_review_requested": False,
+        "human_review_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "record_count": len(records),
+        "auto_clear_count": recomputed_plan["auto_clear_count"],
+        "exception_quarantine_count": len(quarantined),
+        "input_paths": [
+            str(path.resolve()) for path in (*source_paths.values(), document_root)
+        ],
+        "source_commitments": source_commitments,
+        "output_paths": [
+            str(clearance_path.resolve()),
+            str(quarantine_path.resolve()),
+        ],
+        "output_commitments": output_commitments,
+        "disposition_policy": {
+            "kind": "v3_auto_clear_else_quarantine",
+            "routing_plan_schema_version": recomputed_plan["schema_version"],
+            "exception_worksheet_schema_version": worksheet["schema_version"],
+            "clearance_schema_version": "legalforecast.disclosure_clearance.v1",
+            "routing_plan_sha256": _bytes_sha256(plan_bytes),
+            "exception_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+            "cohort_policy_sha256": "sha256:" + cohort_policy_sha256,
+            "auto_clear_count": recomputed_plan["auto_clear_count"],
+            "exception_quarantine_count": len(quarantined),
+            "human_or_model_override_permitted": False,
+        },
+    }
+    run_card_bytes = canonical_json_bytes(run_card)
+    if run_card_path.exists() or run_card_path.is_symlink():
+        if not cast(bool, args.resume):
+            raise CommandError(
+                "finalize-provenance-quarantine run card exists and --no-resume was set"
+            )
+        try:
+            existing_run_card = read_unique_regular_file(run_card_path)
+        except ReviewBundleError as exc:
+            raise CommandError(
+                "finalize-provenance-quarantine run card is unsafe"
+            ) from exc
+        if existing_run_card != run_card_bytes:
+            raise CommandError(
+                "finalize-provenance-quarantine resume metadata mismatch"
+            )
+    _ensure_disclosure_review_artifact(
+        clearance_path, clearance_bytes, resume=cast(bool, args.resume)
+    )
+    _ensure_disclosure_review_artifact(
+        quarantine_path, quarantine_bytes, resume=cast(bool, args.resume)
+    )
+    _ensure_disclosure_review_artifact(
+        run_card_path, run_card_bytes, resume=cast(bool, args.resume)
+    )
+    return 0
+
+
 def _validate_provenance_exception_recorder(
     run_card: Mapping[str, object],
     *,
@@ -35403,6 +35920,14 @@ def _verify_authenticated_clearance_run_card(
         captured_artifact_bytes=captured_artifact_bytes,
     )
     run_card = _projection_json_object(run_card_bytes, source=clearance_run_card_path)
+    provider_free_schema = (
+        run_card.get("schema_version")
+        == "legalforecast.provenance_quarantine_clearance_run_card.v1"
+    )
+    if provider_free_schema and run_card_bytes != canonical_json_bytes(run_card):
+        raise CommandError(
+            "provider-free provenance quarantine run card is not canonical"
+        )
     verified_snapshot = _complete_clearance_artifact_snapshot(
         run_card=run_card,
         run_card_path=clearance_run_card_path,
@@ -35410,6 +35935,15 @@ def _verify_authenticated_clearance_run_card(
         clearance_path=clearance_path,
         captured_artifact_bytes=captured_artifact_bytes,
     )
+    if provider_free_schema:
+        return _verify_provider_free_provenance_quarantine_run_card(
+            clearance_path=clearance_path,
+            clearance_run_card_path=clearance_run_card_path,
+            run_card=run_card,
+            expected_download_manifest_path=expected_download_manifest_path,
+            expected_restriction_path=expected_restriction_path,
+            captured_artifact_bytes=verified_snapshot,
+        )
     authority = run_card.get("clearance_authority")
     authority_kind = (
         cast(Mapping[str, object], authority).get("kind")
@@ -35547,11 +36081,15 @@ def _verify_provenance_clearance_run_card(
             manifest_records, document_root=document_root
         )
         tree = _provenance_document_tree_from_snapshot(document_snapshot)
-        if cast(Mapping[str, object], document_commitment).get(
-            "tree_sha256"
-        ) != _canonical_json_sha256(tree) or cast(
-            Mapping[str, object], document_commitment
-        ).get("document_count") != len(tree):
+        document_count = cast(Mapping[str, object], document_commitment).get(
+            "document_count"
+        )
+        if (
+            cast(Mapping[str, object], document_commitment).get("tree_sha256")
+            != _canonical_json_sha256(tree)
+            or type(document_count) is not int
+            or document_count != len(tree)
+        ):
             raise ProvenanceClearanceError("document-root commitment changed")
         plan = build_provenance_clearance_plan(
             _projection_jsonl_records(
@@ -35643,6 +36181,278 @@ def _verify_provenance_clearance_run_card(
     return (
         clearance_run_card_path,
         *tuple(paths[name] for name in source_names),
+        document_root,
+    )
+
+
+def _verify_provider_free_provenance_quarantine_run_card(
+    *,
+    clearance_path: Path,
+    clearance_run_card_path: Path,
+    run_card: Mapping[str, Any],
+    expected_download_manifest_path: Path | None,
+    expected_restriction_path: Path | None,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+) -> tuple[Path, ...]:
+    """Replay a v3 plan whose exception rows are all quarantined."""
+
+    expected_fields = {
+        "schema_version",
+        "stage",
+        "status",
+        "dry_run",
+        "execute",
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "human_review_requested",
+        "human_review_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "record_count",
+        "auto_clear_count",
+        "exception_quarantine_count",
+        "input_paths",
+        "source_commitments",
+        "output_paths",
+        "output_commitments",
+        "disposition_policy",
+    }
+    if (
+        set(run_card) != expected_fields
+        or run_card.get("schema_version")
+        != "legalforecast.provenance_quarantine_clearance_run_card.v1"
+        or run_card.get("stage") != "finalize-provenance-quarantine"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("provider_activity_requested") is not False
+        or run_card.get("provider_activity_executed") is not False
+        or run_card.get("human_review_requested") is not False
+        or run_card.get("human_review_executed") is not False
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError("invalid provider-free provenance quarantine run card")
+    raw_sources = run_card.get("source_commitments")
+    raw_outputs = run_card.get("output_commitments")
+    raw_policy = run_card.get("disposition_policy")
+    if (
+        not isinstance(raw_sources, Mapping)
+        or not isinstance(raw_outputs, Mapping)
+        or not isinstance(raw_policy, Mapping)
+    ):
+        raise CommandError(
+            "provider-free provenance quarantine lacks exact commitments"
+        )
+    sources = cast(Mapping[str, object], raw_sources)
+    outputs = cast(Mapping[str, object], raw_outputs)
+    disposition_policy = cast(Mapping[str, object], raw_policy)
+    source_names = (
+        "review_requests",
+        "download_manifest",
+        "case_relevance",
+        "restriction_evidence",
+        "routing_plan",
+        "exception_worksheet",
+        "cohort_policy",
+    )
+    paths = {name: _materializer_committed_path(sources, name) for name in source_names}
+    if set(sources) != {*source_names, "document_root"}:
+        raise CommandError(
+            "provider-free provenance quarantine source commitments differ"
+        )
+    if set(outputs) != {"disclosure_clearance", "disclosure_quarantine"}:
+        raise CommandError(
+            "provider-free provenance quarantine output commitments differ"
+        )
+    document_commitment = sources.get("document_root")
+    if not isinstance(document_commitment, Mapping):
+        raise CommandError(
+            "provider-free provenance quarantine lacks document-root commitment"
+        )
+    document_root_text = cast(Mapping[str, object], document_commitment).get("path")
+    if not isinstance(document_root_text, str) or not document_root_text:
+        raise CommandError("provider-free quarantine document root is invalid")
+    document_root = Path(document_root_text)
+    _reject_existing_parent_symlink(document_root, label="document root")
+    if document_root.is_symlink() or not document_root.is_dir():
+        raise CommandError(f"document root is missing or unsafe: {document_root}")
+    if expected_download_manifest_path is not None and (
+        paths["download_manifest"].resolve()
+        != expected_download_manifest_path.resolve()
+    ):
+        raise CommandError(
+            "provider-free quarantine committed different download manifest"
+        )
+    if expected_restriction_path is not None and (
+        paths["restriction_evidence"].resolve() != expected_restriction_path.resolve()
+    ):
+        raise CommandError(
+            "provider-free quarantine committed different restriction evidence"
+        )
+    committed_clearance = _materializer_committed_path(outputs, "disclosure_clearance")
+    committed_quarantine = _materializer_committed_path(
+        outputs, "disclosure_quarantine"
+    )
+    if committed_clearance.resolve() != clearance_path.resolve():
+        raise CommandError(
+            "provider-free quarantine committed different clearance artifact"
+        )
+    if run_card.get("input_paths") != [
+        str(paths[name].resolve()) for name in source_names
+    ] + [str(document_root.resolve())]:
+        raise CommandError("provider-free provenance quarantine input paths differ")
+    if run_card.get("output_paths") != [
+        str(committed_clearance.resolve()),
+        str(committed_quarantine.resolve()),
+    ]:
+        raise CommandError("provider-free provenance quarantine output paths differ")
+    try:
+        source_bytes = {
+            name: _captured_or_stable_input(
+                path,
+                label=name.replace("_", " "),
+                captured_artifact_bytes=captured_artifact_bytes,
+            )
+            for name, path in paths.items()
+        }
+        for name, path in paths.items():
+            _validate_named_path_commitment(
+                sources,
+                name=name,
+                expected_path=path,
+                expected_sha256=_bytes_sha256(source_bytes[name]),
+            )
+        clearance_bytes = _captured_or_stable_input(
+            clearance_path,
+            label="disclosure clearance",
+            captured_artifact_bytes=captured_artifact_bytes,
+        )
+        quarantine_bytes = _captured_or_stable_input(
+            committed_quarantine,
+            label="disclosure quarantine",
+            captured_artifact_bytes=captured_artifact_bytes,
+        )
+        _validate_named_path_commitment(
+            outputs,
+            name="disclosure_clearance",
+            expected_path=clearance_path,
+            expected_sha256=_bytes_sha256(clearance_bytes),
+        )
+        _validate_named_path_commitment(
+            outputs,
+            name="disclosure_quarantine",
+            expected_path=committed_quarantine,
+            expected_sha256=_bytes_sha256(quarantine_bytes),
+        )
+        manifest_records = _projection_jsonl_records(
+            source_bytes["download_manifest"], source=paths["download_manifest"]
+        )
+        document_snapshot = _capture_provenance_document_snapshot(
+            manifest_records, document_root=document_root
+        )
+        tree = _provenance_document_tree_from_snapshot(document_snapshot)
+        document_count = cast(Mapping[str, object], document_commitment).get(
+            "document_count"
+        )
+        if (
+            cast(Mapping[str, object], document_commitment).get("tree_sha256")
+            != _canonical_json_sha256(tree)
+            or type(document_count) is not int
+            or document_count != len(tree)
+        ):
+            raise ProvenanceClearanceError("document-root commitment changed")
+        plan = build_provenance_clearance_plan_v3(
+            _projection_jsonl_records(
+                source_bytes["review_requests"], source=paths["review_requests"]
+            ),
+            manifest_records,
+            _projection_jsonl_records(
+                source_bytes["restriction_evidence"],
+                source=paths["restriction_evidence"],
+            ),
+            _projection_jsonl_records(
+                source_bytes["case_relevance"], source=paths["case_relevance"]
+            ),
+            document_root=document_root,
+            review_requests_bytes=source_bytes["review_requests"],
+            download_manifest_bytes=source_bytes["download_manifest"],
+            restriction_evidence_bytes=source_bytes["restriction_evidence"],
+            case_relevance_bytes=source_bytes["case_relevance"],
+            document_bytes_by_relative_path=document_snapshot,
+        )
+        plan_bytes = canonical_json_bytes(plan)
+        if plan_bytes != source_bytes["routing_plan"]:
+            raise ProvenanceClearanceError("v3 routing plan replay mismatch")
+        worksheet = exception_review_worksheet_v3(plan)
+        worksheet_bytes = canonical_json_bytes(worksheet)
+        if worksheet_bytes != source_bytes["exception_worksheet"]:
+            raise ProvenanceClearanceError("v3 exception worksheet replay mismatch")
+        cohort_sha256 = verify_cohort_policy(
+            _projection_json_object(
+                source_bytes["cohort_policy"], source=paths["cohort_policy"]
+            )
+        )
+        routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        records = build_provider_free_quarantine_records_v3(
+            plan, routing_plan_sha256=routing_plan_sha256
+        )
+        expected_clearance = b"".join(
+            canonical_json_bytes(record.to_record()) for record in records
+        )
+        expected_quarantine = b"".join(
+            canonical_json_bytes(record.to_record())
+            for record in records
+            if record.status == "quarantined"
+        )
+        if clearance_bytes != expected_clearance:
+            raise ProvenanceClearanceError("clearance artifact replay mismatch")
+        if quarantine_bytes != expected_quarantine:
+            raise ProvenanceClearanceError("quarantine artifact replay mismatch")
+        expected_policy = {
+            "kind": "v3_auto_clear_else_quarantine",
+            "routing_plan_schema_version": plan["schema_version"],
+            "exception_worksheet_schema_version": worksheet["schema_version"],
+            "clearance_schema_version": "legalforecast.disclosure_clearance.v1",
+            "routing_plan_sha256": _bytes_sha256(plan_bytes),
+            "exception_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+            "cohort_policy_sha256": "sha256:" + cohort_sha256,
+            "auto_clear_count": plan["auto_clear_count"],
+            "exception_quarantine_count": plan["exception_review_count"],
+            "human_or_model_override_permitted": False,
+        }
+        if (
+            type(disposition_policy.get("auto_clear_count")) is not int
+            or type(disposition_policy.get("exception_quarantine_count")) is not int
+            or dict(disposition_policy) != expected_policy
+        ):
+            raise ProvenanceClearanceError(
+                "provider-free disposition policy replay mismatch"
+            )
+        expected_counts = {
+            "record_count": len(records),
+            "auto_clear_count": plan["auto_clear_count"],
+            "exception_quarantine_count": plan["exception_review_count"],
+        }
+        if any(
+            type(run_card.get(name)) is not int or run_card.get(name) != expected_value
+            for name, expected_value in expected_counts.items()
+        ):
+            raise ProvenanceClearanceError("provider-free quarantine summary mismatch")
+        _require_provenance_document_snapshot_unchanged(
+            document_snapshot, document_root=document_root
+        )
+    except (
+        CohortPolicyError,
+        OSError,
+        ProvenanceClearanceError,
+        TargetCohortProjectionError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return (
+        clearance_run_card_path,
+        *tuple(paths[name] for name in source_names),
+        committed_quarantine,
         document_root,
     )
 

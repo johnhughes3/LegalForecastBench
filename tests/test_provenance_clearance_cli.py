@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import cast
@@ -214,6 +215,56 @@ def _plan_command(
     return command
 
 
+def _provider_free_command(
+    paths: Mapping[str, Path],
+    *,
+    cohort_policy: Path,
+    clearance_root: Path,
+    resume: bool = False,
+) -> list[str]:
+    return [
+        "acquisition",
+        "finalize-provenance-quarantine",
+        "--review-requests",
+        str(paths["requests"]),
+        "--download-manifest",
+        str(paths["manifest"]),
+        "--case-relevance",
+        str(paths["relevance"]),
+        "--restriction-evidence",
+        str(paths["restrictions"]),
+        "--document-root",
+        str(paths["document_root"]),
+        "--routing-plan",
+        str(paths["output"] / "disclosure-provenance-plan.json"),
+        "--exception-worksheet",
+        str(paths["output"] / "disclosure-exception-worksheet.json"),
+        "--cohort-policy",
+        str(cohort_policy),
+        "--output-root",
+        str(clearance_root),
+        "--execute",
+        "--resume" if resume else "--no-resume",
+    ]
+
+
+def test_provider_free_failure_metadata_uses_finalizer_stage(tmp_path: Path) -> None:
+    paths = _inputs(tmp_path)
+    command = _provider_free_command(
+        paths,
+        cohort_policy=tmp_path / "cohort-policy.json",
+        clearance_root=tmp_path / "provider-free-clearance",
+    )
+    parsed = cli_module.build_parser().parse_args(command)
+
+    context = cli_module._disclosure_failure_context(  # pyright: ignore[reportPrivateUsage]
+        parsed, parsed.acquisition_command
+    )
+
+    assert context is not None
+    assert context[0] == "finalize-provenance-quarantine"
+
+
 def test_provenance_planner_help_exposes_closed_schema_selector(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -339,6 +390,410 @@ def test_provenance_planner_v3_emits_reviewer_neutral_artifacts_and_resumes(
     assert snapshots == {
         path: (path.read_bytes(), path.stat().st_ino) for path in output_paths
     }
+
+
+def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    clearance_root = tmp_path / "provider-free-clearance"
+    command = _provider_free_command(
+        paths,
+        cohort_policy=cohort_policy,
+        clearance_root=clearance_root,
+    )
+
+    dry_run_command = [argument for argument in command if argument != "--execute"]
+    assert main(dry_run_command) == 0
+    assert clearance_root.is_dir()
+    assert not tuple(clearance_root.iterdir())
+
+    assert main(command) == 0
+
+    clearance_path = clearance_root / "disclosure-clearance.jsonl"
+    quarantine_path = clearance_root / "disclosure-quarantine.jsonl"
+    run_card_path = clearance_root / "run-cards/finalize-provenance-quarantine.json"
+    rows = [json.loads(line) for line in clearance_path.read_text().splitlines()]
+    by_id = {row["source_document_id"]: row for row in rows}
+    assert by_id["auto"]["status"] == "cleared"
+    assert by_id["marker"]["status"] == "cleared"
+    assert by_id["sealed"]["status"] == "quarantined"
+    assert by_id["sealed"]["clearance_basis"] == ("provider_free_exception_quarantine")
+    assert by_id["sealed"]["reviewer_id"] is None
+    assert by_id["sealed"]["reviewed_at"] is None
+    assert [
+        json.loads(line)["source_document_id"]
+        for line in quarantine_path.read_text().splitlines()
+    ] == ["sealed"]
+    run_card = json.loads(run_card_path.read_text())
+    assert run_card["schema_version"] == (
+        "legalforecast.provenance_quarantine_clearance_run_card.v1"
+    )
+    assert "generated_at" not in run_card
+    assert "clearance_authority" not in run_card
+    assert run_card["human_review_requested"] is False
+    assert run_card["human_review_executed"] is False
+    assert run_card["provider_activity_requested"] is False
+    assert run_card["provider_activity_executed"] is False
+    assert run_card["disposition_policy"] == {
+        "kind": "v3_auto_clear_else_quarantine",
+        "routing_plan_schema_version": (
+            "legalforecast.disclosure_provenance_routing_plan.v3"
+        ),
+        "exception_worksheet_schema_version": (
+            "legalforecast.disclosure_exception_worksheet.v3"
+        ),
+        "clearance_schema_version": "legalforecast.disclosure_clearance.v1",
+        "routing_plan_sha256": (
+            "sha256:"
+            + hashlib.sha256(
+                (paths["output"] / "disclosure-provenance-plan.json").read_bytes()
+            ).hexdigest()
+        ),
+        "exception_worksheet_sha256": (
+            "sha256:"
+            + hashlib.sha256(
+                (paths["output"] / "disclosure-exception-worksheet.json").read_bytes()
+            ).hexdigest()
+        ),
+        "cohort_policy_sha256": "sha256:" + "1" * 64,
+        "auto_clear_count": 2,
+        "exception_quarantine_count": 1,
+        "human_or_model_override_permitted": False,
+    }
+    cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+        clearance_path=clearance_path,
+        clearance_run_card_path=run_card_path,
+        expected_download_manifest_path=paths["manifest"],
+        expected_restriction_path=paths["restrictions"],
+    )
+    original_run_card_bytes = run_card_path.read_bytes()
+    run_card_path.write_text(json.dumps(run_card, sort_keys=True), encoding="utf-8")
+    with pytest.raises(cli_module.CommandError, match="not canonical"):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=paths["manifest"],
+            expected_restriction_path=paths["restrictions"],
+        )
+    run_card_path.write_bytes(original_run_card_bytes)
+
+    run_card_path.write_bytes(
+        original_run_card_bytes.replace(
+            b"{",
+            b'{"schema_version":'
+            b'"legalforecast.provenance_quarantine_clearance_run_card.v1",',
+            1,
+        )
+    )
+    with pytest.raises(cli_module.CommandError, match="not canonical"):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=paths["manifest"],
+            expected_restriction_path=paths["restrictions"],
+        )
+    run_card_path.write_bytes(original_run_card_bytes)
+
+    boolean_count_run_card = dict(run_card)
+    boolean_count_run_card["exception_quarantine_count"] = True
+    run_card_path.write_bytes(cli_module.canonical_json_bytes(boolean_count_run_card))
+    with pytest.raises(cli_module.CommandError, match="summary mismatch"):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=paths["manifest"],
+            expected_restriction_path=paths["restrictions"],
+        )
+    run_card_path.write_bytes(original_run_card_bytes)
+
+    for nested_group, nested_field, ambiguous_value, expected_error in (
+        (
+            "source_commitments",
+            "document_count",
+            3.0,
+            "document-root commitment",
+        ),
+        ("disposition_policy", "auto_clear_count", 2.0, "disposition policy"),
+        (
+            "disposition_policy",
+            "exception_quarantine_count",
+            True,
+            "disposition policy",
+        ),
+    ):
+        nested_ambiguous_run_card = json.loads(json.dumps(run_card))
+        if nested_group == "source_commitments":
+            nested_ambiguous_run_card[nested_group]["document_root"][nested_field] = (
+                ambiguous_value
+            )
+        else:
+            nested_ambiguous_run_card[nested_group][nested_field] = ambiguous_value
+        run_card_path.write_bytes(
+            cli_module.canonical_json_bytes(nested_ambiguous_run_card)
+        )
+        with pytest.raises(cli_module.CommandError, match=expected_error):
+            cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+                clearance_path=clearance_path,
+                clearance_run_card_path=run_card_path,
+                expected_download_manifest_path=paths["manifest"],
+                expected_restriction_path=paths["restrictions"],
+            )
+        run_card_path.write_bytes(original_run_card_bytes)
+
+    changed_relevance = tmp_path / "changed-case-relevance.jsonl"
+    changed_relevance.write_text(
+        paths["relevance"]
+        .read_text()
+        .replace('"model_visible": true', '"model_visible": false')
+    )
+    with pytest.raises(cli_module.CommandError, match="case_relevance"):
+        cli_module._validate_clearance_run_card_commitments(  # pyright: ignore[reportPrivateUsage]
+            run_card,
+            source_paths={
+                "download_manifest": paths["manifest"],
+                "case_relevance": changed_relevance,
+                "restriction_evidence": paths["restrictions"],
+                "disclosure_clearance": clearance_path,
+            },
+            source_sha256={
+                "download_manifest": cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+                    paths["manifest"].read_bytes()
+                ),
+                "case_relevance": cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+                    changed_relevance.read_bytes()
+                ),
+                "restriction_evidence": cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+                    paths["restrictions"].read_bytes()
+                ),
+                "disclosure_clearance": cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+                    clearance_path.read_bytes()
+                ),
+            },
+        )
+    snapshots = {
+        path: (path.read_bytes(), path.stat().st_ino)
+        for path in (clearance_path, quarantine_path, run_card_path)
+    }
+    assert (
+        main(
+            _provider_free_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+                resume=True,
+            )
+        )
+        == 0
+    )
+    assert snapshots == {
+        path: (path.read_bytes(), path.stat().st_ino)
+        for path in (clearance_path, quarantine_path, run_card_path)
+    }
+
+    tampered_run_card = dict(run_card)
+    tampered_run_card["disposition_policy"] = {
+        **cast(Mapping[str, object], run_card["disposition_policy"]),
+        "human_or_model_override_permitted": True,
+    }
+    run_card_path.write_bytes(cli_module.canonical_json_bytes(tampered_run_card))
+    with pytest.raises(cli_module.CommandError, match="disposition policy"):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=paths["manifest"],
+            expected_restriction_path=paths["restrictions"],
+        )
+    run_card_path.write_bytes(snapshots[run_card_path][0])
+
+
+@pytest.mark.parametrize(
+    ("link_kind", "expected_error"),
+    (
+        ("symlink", "not a regular file"),
+        ("hardlink", "hard-link aliases"),
+    ),
+)
+def test_provider_free_v3_finalizer_rejects_unsafe_routing_plan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    link_kind: str,
+    expected_error: str,
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    plan_path = paths["output"] / "disclosure-provenance-plan.json"
+    alias_path = tmp_path / "routing-plan-alias.json"
+    if link_kind == "symlink":
+        plan_path.rename(alias_path)
+        plan_path.symlink_to(alias_path)
+    else:
+        alias_path.hardlink_to(plan_path)
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+
+    assert (
+        main(
+            _provider_free_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=tmp_path / "provider-free-clearance",
+            )
+        )
+        == 2
+    )
+
+    assert expected_error in capsys.readouterr().err
+    clearance_root = tmp_path / "provider-free-clearance"
+    assert not (clearance_root / "disclosure-clearance.jsonl").exists()
+    assert not (clearance_root / "disclosure-quarantine.jsonl").exists()
+
+
+def test_disclosure_artifact_publish_rejects_parent_rebinding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output_parent = tmp_path / "output"
+    output_parent.mkdir()
+    output_path = output_parent / "clearance.jsonl"
+    detached_parent = tmp_path / "detached-output"
+    attacker_payload = b"replacement directory sentinel"
+    original_link = os.link
+
+    def link_then_replace_parent(
+        source: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        destination: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        *,
+        src_dir_fd: int | None = None,
+        dst_dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ) -> None:
+        original_link(
+            source,
+            destination,
+            src_dir_fd=src_dir_fd,
+            dst_dir_fd=dst_dir_fd,
+            follow_symlinks=follow_symlinks,
+        )
+        output_parent.rename(detached_parent)
+        output_parent.mkdir()
+        output_path.write_bytes(attacker_payload)
+
+    monkeypatch.setattr(cli_module.os, "link", link_then_replace_parent)
+
+    with pytest.raises(cli_module.CommandError, match="parent path binding changed"):
+        cli_module._ensure_disclosure_review_artifact(  # pyright: ignore[reportPrivateUsage]
+            output_path, b"intended payload", resume=False
+        )
+
+    assert output_path.read_bytes() == attacker_payload
+    assert not (detached_parent / output_path.name).exists()
+    assert not list(output_parent.glob(f".{output_path.name}.*.tmp"))
+    assert not list(detached_parent.glob(f".{output_path.name}.*.tmp"))
+
+
+def test_disclosure_artifact_read_rejects_same_parent_entry_rebinding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output_parent = tmp_path / "output"
+    output_parent.mkdir()
+    output_path = output_parent / "clearance.jsonl"
+    detached_path = output_parent / "detached-clearance.jsonl"
+    output_path.write_bytes(b"intended payload")
+    original_read = os.read
+    rebound = False
+
+    def read_after_rebinding(file_fd: int, byte_count: int) -> bytes:
+        nonlocal rebound
+        if not rebound:
+            rebound = True
+            output_path.rename(detached_path)
+            output_path.write_bytes(b"replacement payload")
+        return original_read(file_fd, byte_count)
+
+    monkeypatch.setattr(cli_module.os, "read", read_after_rebinding)
+    directory_fd = cli_module._open_disclosure_review_parent(  # pyright: ignore[reportPrivateUsage]
+        output_parent, create=False
+    )
+    try:
+        with pytest.raises(cli_module.CommandError, match="changed while being read"):
+            cli_module._read_disclosure_review_artifact_at(  # pyright: ignore[reportPrivateUsage]
+                directory_fd, output_path.name
+            )
+    finally:
+        os.close(directory_fd)
+
+    assert detached_path.read_bytes() == b"intended payload"
+    assert output_path.read_bytes() == b"replacement payload"
+
+
+def test_disclosure_artifact_read_rejects_rename_away_and_restore(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output_parent = tmp_path / "output"
+    output_parent.mkdir()
+    output_path = output_parent / "clearance.jsonl"
+    detached_path = output_parent / "detached-clearance.jsonl"
+    output_path.write_bytes(b"intended payload")
+    baseline = output_path.stat()
+    original_read = os.read
+    rebound = False
+
+    def read_after_rename_cycle(file_fd: int, byte_count: int) -> bytes:
+        nonlocal rebound
+        if not rebound:
+            rebound = True
+            output_path.rename(detached_path)
+            detached_path.rename(output_path)
+            # A rename cycle is not required to update the file inode's ctime
+            # on every supported filesystem. Restore a permission-bit cycle so
+            # ctime is the only remaining stable-identity field that differs.
+            permissions = baseline.st_mode & 0o7777
+            for _ in range(1_000):
+                os.chmod(output_path, permissions ^ 0o100)
+                os.chmod(output_path, permissions)
+                if output_path.stat().st_ctime_ns != baseline.st_ctime_ns:
+                    break
+            else:
+                pytest.fail("filesystem did not advance ctime for metadata cycle")
+        return original_read(file_fd, byte_count)
+
+    monkeypatch.setattr(cli_module.os, "read", read_after_rename_cycle)
+    directory_fd = cli_module._open_disclosure_review_parent(  # pyright: ignore[reportPrivateUsage]
+        output_parent, create=False
+    )
+    try:
+        with pytest.raises(cli_module.CommandError, match="changed while being read"):
+            cli_module._read_disclosure_review_artifact_at(  # pyright: ignore[reportPrivateUsage]
+                directory_fd, output_path.name
+            )
+    finally:
+        os.close(directory_fd)
+
+    after = output_path.stat()
+    assert (
+        baseline.st_dev,
+        baseline.st_ino,
+        baseline.st_mode,
+        baseline.st_size,
+        baseline.st_mtime_ns,
+        baseline.st_nlink,
+    ) == (
+        after.st_dev,
+        after.st_ino,
+        after.st_mode,
+        after.st_size,
+        after.st_mtime_ns,
+        after.st_nlink,
+    )
+    assert baseline.st_ctime_ns != after.st_ctime_ns
+    assert output_path.read_bytes() == b"intended payload"
 
 
 def test_provenance_planner_resume_rejects_schema_version_change(

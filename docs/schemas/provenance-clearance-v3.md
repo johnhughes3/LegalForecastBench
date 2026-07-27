@@ -40,6 +40,10 @@ The worksheet validator rejects noncanonical encoding, duplicate keys at any dep
 Model review is permitted only when `automated_marker_present` is the sole route reason, page-text coverage is complete, CourtListener provenance is affirmative, the visibility contract is valid, and there is no positive sealed, private, restricted, or under-seal evidence.
 Every other exception remains quarantined or requires separately authenticated human review.
 
+The provider-free alternative is documented in [Provider-free provenance quarantine clearance v1](provenance-quarantine-clearance-v1.md).
+It clears only `auto_clear` rows and deterministically quarantines every exception row without claiming human or model authority.
+Its output is suitable for fail-closed cohort replacement when enough candidates remain under the frozen budget.
+
 Model-produced mappings never carry clearance authority.
 This core schema deliberately exports no model-clearance constructor, authority type, run-card builder, or receipt parser.
 Those remain blocked until an integration can authenticate the independently frozen cycle configuration, read back the exact local provider-journal row and raw payload, authenticate the matching remote logical call, and issue an opaque capability from verifier-owned evidence.

@@ -14,6 +14,7 @@ from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan,
     build_provenance_clearance_plan_v3,
     build_provenance_clearance_records,
+    build_provider_free_quarantine_records_v3,
     canonical_json_bytes,
     exception_review_worksheet_v3,
     validate_exception_review_worksheet_v3,
@@ -135,6 +136,65 @@ def test_v3_plan_and_worksheet_use_generic_vocabulary_and_exact_binding(
     assert rows[0]["route"] == "exception_review"
     assert rows[0]["exception_clearance_permitted"] is True
     assert "human_clearance_permitted" not in rows[0]
+
+
+def test_v3_provider_free_finalizer_quarantines_every_exception(
+    tmp_path: Path,
+) -> None:
+    plan = _plan(tmp_path)
+    routing_sha256 = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+
+    records = build_provider_free_quarantine_records_v3(
+        plan, routing_plan_sha256=routing_sha256
+    )
+
+    assert [record.status for record in records] == ["quarantined"]
+    assert [record.clearance_basis for record in records] == [
+        "provider_free_exception_quarantine"
+    ]
+    assert records[0].reviewer_id is None
+    assert records[0].reviewed_at is None
+    assert records[0].controlled_store_provenance is None
+    assert records[0].routing_plan_sha256 == routing_sha256
+
+
+def test_v3_provider_free_finalizer_rejects_v2_and_wrong_hash(
+    tmp_path: Path,
+) -> None:
+    root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
+    v3_root = tmp_path / "v3"
+    v3_root.mkdir()
+    plan_v3 = _plan(v3_root)
+    plan_v2 = build_provenance_clearance_plan(
+        requests,
+        manifest,
+        restrictions,
+        relevance,
+        document_root=root,
+        review_requests_bytes=_jsonl(requests),
+        download_manifest_bytes=_jsonl(manifest),
+        restriction_evidence_bytes=_jsonl(restrictions),
+        case_relevance_bytes=_jsonl(relevance),
+        document_scanner=lambda _: DisclosurePdfScan(
+            parsed_page_count=1,
+            text_scanned_page_numbers=(1,),
+            ocr_scanned_page_numbers=(),
+            unscanned_page_numbers=(),
+            coverage_status="complete",
+            diagnostics=(),
+            automated_markers=("medical",),
+        ),
+    )
+
+    with pytest.raises(ProvenanceClearanceError, match="unsupported"):
+        build_provider_free_quarantine_records_v3(
+            plan_v2,
+            routing_plan_sha256=hashlib.sha256(
+                canonical_json_bytes(plan_v2)
+            ).hexdigest(),
+        )
+    with pytest.raises(ProvenanceClearanceError, match="routing plan hash"):
+        build_provider_free_quarantine_records_v3(plan_v3, routing_plan_sha256="0" * 64)
 
 
 def test_v3_worksheet_does_not_alias_plan_documents(tmp_path: Path) -> None:
