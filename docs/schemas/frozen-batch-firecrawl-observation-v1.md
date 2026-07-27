@@ -15,7 +15,7 @@ The durable Firecrawl run configuration binds:
 
 Candidate IDs supplied on the command line act only as a set selector. The adapter always restores their order from the frozen priority records. With no explicit IDs, a new run freezes the candidates that do not have a current terminal observation. A resumed run restores its original selected scope from the durable configuration, skips candidates that have since become terminal, and retains each candidate's batch-global ordinal for page scheduling.
 
-Every requested page is authorized in the cycle-wide Firecrawl ledger before the provider call. Successful raw HTML is committed durably by the existing scheduler. Pagination uses strict newest-first CourtListener URLs and exposes a docket to screening only after full exhaustion or a conservative pre-anchor boundary proof.
+Every requested page is authorized in the cycle-wide Firecrawl ledger before the provider call. Successful raw HTML is committed durably by the existing scheduler. Pagination uses strict newest-first CourtListener URLs and exposes a docket to terminal screening only after full docket-history exhaustion. An older-than-anchor boundary is not sufficient because unseen rows could contain an earlier written MTD disposition or a motion/complaint required for linkage.
 
 The reconstructed rows terminate in the same provider-independent canonical screen used by REST observation. That screen applies:
 

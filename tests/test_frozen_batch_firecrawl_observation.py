@@ -272,11 +272,144 @@ def test_driver_rejects_tampered_plan_before_provider_use(tmp_path: Path) -> Non
     assert source.calls == 0
 
 
+def test_adapter_exhausts_older_pages_before_first_disposition_decision(
+    tmp_path: Path,
+) -> None:
+    pages = {
+        1: _docket_page_html(
+            "10",
+            (
+                (
+                    "10",
+                    "July 20, 2026",
+                    "MEMORANDUM OPINION AND ORDER granting 5 Motion to Dismiss.",
+                ),
+                (
+                    "5",
+                    "June 10, 2026",
+                    "Defendant filed Motion to Dismiss Complaint.",
+                ),
+            ),
+            page_number=1,
+            has_next=True,
+        ),
+        2: _docket_page_html(
+            "10",
+            (
+                (
+                    "4",
+                    "June 29, 2026",
+                    "MEMORANDUM OPINION AND ORDER denying 3 Motion to Dismiss.",
+                ),
+                (
+                    "3",
+                    "June 5, 2026",
+                    "Defendant filed an earlier Motion to Dismiss Complaint.",
+                ),
+                ("1", "June 1, 2026", "COMPLAINT filed."),
+            ),
+            page_number=2,
+            has_next=False,
+        ),
+    }
+    with _priority_store(tmp_path) as store:
+        plan = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+        )
+        store.ensure_firecrawl_run(
+            "observe-run",
+            batch_id=_BATCH_ID,
+            config=plan.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+        source = _PagedHTMLSource(pages)
+        tally = run_frozen_firecrawl_observation(
+            store,
+            batch_id=_BATCH_ID,
+            scheduler=BudgetedFirecrawlScheduler(
+                store=store,
+                source=source,
+                run_id="observe-run",
+                artifact_dir=tmp_path / "raw",
+                max_attempts=1,
+            ),
+            plan=plan,
+            eligibility_anchor=date(2026, 6, 30),
+            max_pages_per_docket=2,
+        )
+        observation = store.current_observation("courtlistener-docket-10")
+
+    assert source.requested_pages == [1, 2]
+    assert observation is not None
+    assert observation.state == "excluded"
+    assert observation.reason_code == "decision_before_release_anchor"
+    assert tally.excluded_by_reason == {"decision_before_release_anchor": 1}
+
+
+def test_page_cap_exhaustion_stays_transient(tmp_path: Path) -> None:
+    page = _docket_page_html(
+        "10",
+        (
+            (
+                "10",
+                "July 20, 2026",
+                "MEMORANDUM OPINION AND ORDER granting 5 Motion to Dismiss.",
+            ),
+            (
+                "5",
+                "June 10, 2026",
+                "Defendant filed Motion to Dismiss Complaint.",
+            ),
+        ),
+        page_number=1,
+        has_next=True,
+    )
+    with _priority_store(tmp_path) as store:
+        plan = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+            max_pages_per_docket=1,
+        )
+        store.ensure_firecrawl_run(
+            "observe-run",
+            batch_id=_BATCH_ID,
+            config=plan.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+        tally = run_frozen_firecrawl_observation(
+            store,
+            batch_id=_BATCH_ID,
+            scheduler=BudgetedFirecrawlScheduler(
+                store=store,
+                source=_HTMLSource(page),
+                run_id="observe-run",
+                artifact_dir=tmp_path / "raw",
+                max_attempts=1,
+            ),
+            plan=plan,
+            eligibility_anchor=date(2026, 6, 30),
+            max_pages_per_docket=1,
+        )
+
+        assert store.current_observation("courtlistener-docket-10") is None
+        [observation] = store.observations("courtlistener-docket-10")
+
+    assert observation.state == "transient_failure"
+    assert observation.evidence["error"] == "pagination_page_limit_reached"
+    assert tally.transient_by_reason == {"temporarily_unavailable": 1}
+
+
 def _plan(
     store: CycleAcquisitionStore,
     tmp_path: Path,
     *,
     requested_candidate_ids: tuple[str, ...],
+    max_pages_per_docket: int = 2,
 ):
     return plan_frozen_firecrawl_observation(
         store,
@@ -284,7 +417,7 @@ def _plan(
         run_id="observe-run",
         eligibility_anchor=date(2026, 6, 30),
         artifact_dir=tmp_path / "raw",
-        max_pages_per_docket=2,
+        max_pages_per_docket=max_pages_per_docket,
         max_attempts_per_page=1,
         provider_breaker_threshold=2,
         max_workers=2,
@@ -307,6 +440,29 @@ class _HTMLSource:
             source_url=source_url,
             docket_id=docket_id,
             raw_html=self.raw_html,
+            target_status_code=200,
+            proxy_requested="basic",
+            proxy_used="basic",
+            cache_state="miss",
+            credits_used=1.0,
+            raw={"success": True},
+            resolved_url=source_url,
+        )
+
+
+class _PagedHTMLSource:
+    def __init__(self, pages: dict[int, str]) -> None:
+        self.pages = pages
+        self.requested_pages: list[int] = []
+
+    def scrape_url(self, *, source_url: str) -> FirecrawlScrapeResult:
+        page_number = int(source_url.rsplit("page=", 1)[1])
+        self.requested_pages.append(page_number)
+        docket_id = source_url.split("/docket/", 1)[1].split("/", 1)[0]
+        return FirecrawlScrapeResult(
+            source_url=source_url,
+            docket_id=docket_id,
+            raw_html=self.pages[page_number],
             target_status_code=200,
             proxy_requested="basic",
             proxy_used="basic",
@@ -472,5 +628,35 @@ def _clean_docket_html(docket_id: str) -> str:
     return f"""
     <html><head><title>Alpha {docket_id} LLC v. Beta Inc.</title></head><body>
       <div id="docket-entry-table">{rendered}</div>
+    </body></html>
+    """
+
+
+def _docket_page_html(
+    docket_id: str,
+    rows: tuple[tuple[str, str, str], ...],
+    *,
+    page_number: int,
+    has_next: bool,
+) -> str:
+    rendered = "".join(
+        f"""
+        <div id="entry-{number}" class="row">
+          <div class="col-xs-1">{number}</div>
+          <div class="col-xs-3"><span title="{filed_at}">{filed_at}</span></div>
+          <div class="col-xs-8">{text}</div>
+        </div>
+        """
+        for number, filed_at, text in rows
+    )
+    next_link = (
+        f'<a rel="next" href="?order_by=desc&amp;page={page_number + 1}">Next</a>'
+        if has_next
+        else ""
+    )
+    return f"""
+    <html><head><title>Alpha {docket_id} LLC v. Beta Inc.</title></head><body>
+      <div id="docket-entry-table">{rendered}</div>
+      {next_link}
     </body></html>
     """

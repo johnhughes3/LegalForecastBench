@@ -38,7 +38,6 @@ from legalforecast.ingestion.firecrawl_docket_pagination import (
     CourtListenerDocketBundle,
     CourtListenerDocketPaginationError,
     canonical_courtlistener_docket_page_url,
-    may_stop_at_anchor_boundary,
     paginate_courtlistener_docket,
 )
 from legalforecast.ingestion.mtd_acquisition_screen import (
@@ -372,7 +371,6 @@ def run_frozen_firecrawl_observation(
             int, plan.run_config["frozen_batch_candidate_count"]
         ),
         max_pages_per_docket=max_pages_per_docket,
-        decision_anchor=eligibility_anchor,
     )
     by_docket = {candidate.docket_id: candidate for candidate in fetch_candidates}
     for failure in failures:
@@ -575,7 +573,6 @@ def _acquire_candidates(
     candidates: tuple[FrozenFirecrawlCandidate, ...],
     frozen_batch_candidate_count: int,
     max_pages_per_docket: int,
-    decision_anchor: date,
 ) -> tuple[
     tuple[CourtListenerDocketBundle, ...],
     tuple[tuple[str, str, str], ...],
@@ -652,14 +649,6 @@ def _acquire_candidates(
                     source_url=page.source_url,
                     docket_id=docket_id,
                 )
-                observed = tuple(
-                    parse_courtlistener_docket_html(
-                        raw_html,
-                        source_url=source_url,
-                        docket_id=docket_id,
-                    )
-                    for source_url, raw_html in pages[docket_id].items()
-                )
             except CourtListenerWebParseError as exc:
                 failures[docket_id] = (
                     docket_id,
@@ -668,10 +657,7 @@ def _acquire_candidates(
                 )
                 del active[docket_id]
                 continue
-            if not parsed.has_next_page or may_stop_at_anchor_boundary(
-                observed,
-                anchor=decision_anchor,
-            ):
+            if not parsed.has_next_page:
                 del active[docket_id]
 
     for docket_id in active:
@@ -691,7 +677,7 @@ def _acquire_candidates(
                 base_urls[candidate.docket_id],
                 fetch=lambda url, cached=cached: cached[url],
                 max_pages=max_pages_per_docket,
-                decision_anchor=decision_anchor,
+                decision_anchor=None,
             )
         except (
             KeyError,
@@ -704,11 +690,11 @@ def _acquire_candidates(
                 str(exc) or type(exc).__name__,
             )
             continue
-        if not bundle.complete_for_anchor_window:
+        if not bundle.is_exhaustive:
             failures[candidate.docket_id] = (
                 candidate.docket_id,
                 "complete_docket_reconstruction",
-                "incomplete_anchor_window",
+                "incomplete_docket_history",
             )
             continue
         bundles.append(bundle)
