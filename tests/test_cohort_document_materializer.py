@@ -415,8 +415,10 @@ def test_incomplete_paid_materialization_rejects_before_authority_read(
         cli._cmd_acquisition_materialize_cohort_documents(args)
 
 
+@pytest.mark.parametrize("authority_mode", ["free_only", None])
 def test_paid_materializer_resume_rejects_injected_authority_mode(
     tmp_path: Path,
+    authority_mode: object,
 ) -> None:
     run_card = tmp_path / "run-card.json"
     card = {
@@ -444,7 +446,7 @@ def test_paid_materializer_resume_rejects_injected_authority_mode(
         "output_commitments": {},
         "source_roots_mutated": False,
         "zero_provider_activity_evidence": True,
-        "authority_mode": "free_only",
+        "authority_mode": authority_mode,
     }
     run_card.write_text(json.dumps(card, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -467,6 +469,29 @@ def test_paid_materializer_resume_rejects_injected_authority_mode(
             source_commitments={},
             output_commitments={},
             dry_run=True,
+        )
+
+
+def test_materializer_preflight_rejects_null_authority_mode(tmp_path: Path) -> None:
+    run_card = tmp_path / "run-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "authority_mode": None,
+                "input_paths": [],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(cli.CommandError, match="authority mode"):
+        cli._preflight_materialization_purchase_runtime(
+            SimpleNamespace(materialization_run_card=run_card)
         )
 
 

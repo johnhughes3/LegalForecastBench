@@ -28762,6 +28762,8 @@ def _preflight_materialization_purchase_runtime(
             Path(str(path)) for path in cast(Sequence[object], raw_inputs)
         )
         authority_mode = card.get("authority_mode")
+        if "authority_mode" in card and not isinstance(authority_mode, str):
+            raise CommandError("invalid materialization authority mode")
         if authority_mode == "free_only":
             paid_values = (
                 getattr(args, "purchased_recovery_root", None),
@@ -31306,6 +31308,10 @@ def _verify_materializer_resume(
         run_card_path, label="materialization resume run card"
     )
     card = _projection_json_object(run_card_bytes, source=run_card_path)
+    if "authority_mode" in card and not isinstance(card["authority_mode"], str):
+        raise CommandError(
+            "materialize-cohort-documents resume mismatch: authority_mode"
+        )
     expected = {
         "schema_version": "legalforecast.acquisition_run_card.v1",
         "stage": "materialize-cohort-documents",
@@ -31436,6 +31442,8 @@ def _verify_materialized_downstream_lineage(
         raise CommandError("materialization run card lacks exact input paths")
     input_paths = tuple(Path(str(path)) for path in cast(Sequence[object], raw_inputs))
     authority_mode = card.get("authority_mode")
+    if "authority_mode" in card and not isinstance(authority_mode, str):
+        raise CommandError("invalid materialization authority mode")
     if authority_mode == "free_only":
         if len(input_paths) != 11:
             raise CommandError("materialization run card input paths differ")
