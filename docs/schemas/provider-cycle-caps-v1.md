@@ -38,4 +38,6 @@ The exact artifact bytes are hashed before the first paid labeling call. That pr
 
 Legacy artifacts without `spend_authority` and provider account aliases remain readable for historical inspection, but paid labeling refuses to use them. Every paid acquisition command also requires `--provider-authority-table`; the optional `--provider-authority-region` defaults to `us-east-1`.
 
+The canonical authority-enabled Cycle 1 artifact is derived without hand editing through the provider-free [provider cycle caps successor receipt](provider-cycle-caps-successor-v1.md) contract after the protected exact-table verifier supplies the public resource-identity SHA-256.
+
 Reservations use exact integer micro-USD values. A cap with precision finer than one micro-USD is invalid for remote execution. Ambiguous attempts retain their full reservation until immutable provider-usage evidence reconciles them.

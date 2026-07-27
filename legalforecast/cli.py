@@ -705,6 +705,10 @@ from legalforecast.labeling.llm_pipeline import (
     unitization_review_queue_records,
     unitization_review_queue_records_from_items,
 )
+from legalforecast.labeling.provider_cycle_caps_materializer import (
+    ProviderCycleCapsMaterializationError,
+    materialize_provider_cycle_caps_successor_files,
+)
 from legalforecast.labeling.provider_journal import (
     PROVIDER_JOURNAL_SCHEMA_VERSION,
     ProviderCycleCaps,
@@ -1302,6 +1306,22 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_init_cycle_arguments(acquisition_init_cycle)
+    acquisition_materialize_provider_caps = acquisition_subparsers.add_parser(
+        "materialize-provider-cycle-caps-successor",
+        help=(
+            "Provider-free derivation of authority-enabled provider cycle caps "
+            "from exact reviewed authority-smoke evidence."
+        ),
+        description=(
+            "Provider-free validation of the complete raw official-labeling "
+            "authority-smoke receipt, immutable legacy caps, and canonical public "
+            "alias policy before atomically publishing a successor caps artifact, "
+            "receipt, and run card. This command makes no AWS or provider call."
+        ),
+    )
+    _add_acquisition_materialize_provider_caps_arguments(
+        acquisition_materialize_provider_caps
+    )
     acquisition_discover_case_dev = acquisition_subparsers.add_parser(
         "discover-case-dev",
         help=(
@@ -2364,6 +2384,49 @@ def _add_acquisition_init_cycle_arguments(parser: argparse.ArgumentParser) -> No
         ),
     )
     parser.set_defaults(handler=_cmd_acquisition_init_cycle)
+
+
+def _add_acquisition_materialize_provider_caps_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--legacy-provider-cycle-caps",
+        type=Path,
+        required=True,
+        help="Absolute path to the immutable legacy provider-cycle-caps bytes.",
+    )
+    parser.add_argument("--expected-legacy-caps-sha256", required=True)
+    parser.add_argument(
+        "--authority-smoke-receipt",
+        type=Path,
+        required=True,
+        help=(
+            "Absolute path to the raw official paid-labeling authority-smoke "
+            "receipt downloaded from its reviewed workflow artifact."
+        ),
+    )
+    parser.add_argument("--expected-authority-smoke-sha256", required=True)
+    parser.add_argument("--expected-smoke-release-sha", required=True)
+    parser.add_argument(
+        "--provider-caps-successor-policy",
+        type=Path,
+        required=True,
+        help=(
+            "Canonical public provider alias and authority-policy JSON; account "
+            "IDs, ARNs, and credential material are forbidden."
+        ),
+    )
+    parser.add_argument("--expected-provider-policy-sha256", required=True)
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        required=True,
+        help=(
+            "Absolute canonical root for the fixed successor caps, receipt, and "
+            "completed run card. Exact existing bytes resume idempotently."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_materialize_provider_caps)
 
 
 def _add_acquisition_plan_arguments(parser: argparse.ArgumentParser) -> None:
@@ -15586,6 +15649,27 @@ def _cmd_acquisition_init_cycle(args: argparse.Namespace) -> int:
         paid_activity_executed=False,
         extra=identity,
     )
+    return 0
+
+
+def _cmd_acquisition_materialize_provider_caps(args: argparse.Namespace) -> int:
+    """Publish authority-enabled caps from exact provider-free smoke evidence."""
+
+    try:
+        materialize_provider_cycle_caps_successor_files(
+            legacy_caps_path=cast(Path, args.legacy_provider_cycle_caps),
+            expected_legacy_caps_sha256=cast(str, args.expected_legacy_caps_sha256),
+            authority_smoke_path=cast(Path, args.authority_smoke_receipt),
+            expected_authority_smoke_sha256=cast(
+                str, args.expected_authority_smoke_sha256
+            ),
+            expected_smoke_release_sha=cast(str, args.expected_smoke_release_sha),
+            policy_path=cast(Path, args.provider_caps_successor_policy),
+            expected_policy_sha256=cast(str, args.expected_provider_policy_sha256),
+            output_root=cast(Path, args.output_root),
+        )
+    except ProviderCycleCapsMaterializationError as exc:
+        raise CommandError(str(exc)) from exc
     return 0
 
 
