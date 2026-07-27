@@ -21,6 +21,9 @@ OIDC_PROVIDER_ARN = (
 )
 PACKET_BUCKET_ARN = "arn:aws:s3:::lfb-packets"
 RESULTS_BUCKET_ARN = "arn:aws:s3:::lfb-results"
+PROVIDER_AUTHORITY_TABLE_ARN = (
+    "arn:aws:dynamodb:us-east-1:123456789012:table/lfb-provider-authority"
+)
 REPOSITORY = "johnhughes3/LegalForecastBench"
 REF = "refs/heads/main"
 CELL_ENVIRONMENT = "legalforecastbench-official-eval"
@@ -114,6 +117,13 @@ def _bedrock_policy() -> JsonObject:
                 },
             ]
         ),
+    )
+
+
+def _provider_authority_policy() -> JsonObject:
+    return _render_template(
+        POLICY_ROOT / "cell-provider-authority-policy.json.tftpl",
+        provider_authority_table_arn=PROVIDER_AUTHORITY_TABLE_ARN,
     )
 
 
@@ -349,7 +359,12 @@ def test_exact_two_role_topology_and_policy_attachments() -> None:
     )
 
     assert roles == {"cell", "fan_in"}
-    assert inline_policies == {"cell_storage", "cell_bedrock", "fan_in_storage"}
+    assert inline_policies == {
+        "cell_storage",
+        "cell_provider_authority",
+        "cell_bedrock",
+        "fan_in_storage",
+    }
     assert set(
         re.findall(
             r'resource "aws_iam_role_policies_exclusive" "([^"]+)"',
@@ -369,13 +384,24 @@ def test_exact_two_role_topology_and_policy_attachments() -> None:
     assert "assume_role_policy   = local.fan_in_trust_policy_json" in terraform
     assert "role   = aws_iam_role.cell.id" in terraform
     assert "policy = local.cell_storage_policy_json" in terraform
+    assert "policy = local.cell_provider_authority_policy_json" in terraform
     assert "role   = aws_iam_role.fan_in.id" in terraform
     assert "policy = local.fan_in_storage_policy_json" in terraform
     assert "policy_arns = []" in terraform
     assert "aws_iam_role_policy.cell_bedrock[0].name" in terraform
+    assert "aws_iam_role_policy.cell_provider_authority.name" in terraform
     assert "var.enable_bedrock_runtime" in terraform
+    assert "computed_provider_authority_resource_identity_sha256 = sha256(" in terraform
+    assert "local.computed_provider_authority_resource_identity_sha256" in terraform
+    assert "var.provider_authority_resource_identity_sha256" in terraform
+    assert (
+        'split(":", var.provider_authority_table_arn)[3] == var.aws_region' in terraform
+    )
+    assert 'split(":", var.provider_authority_table_arn)[4]' in terraform
+    assert 'split(":", var.github_oidc_provider_arn)[4]' in terraform
     assert {path.name for path in POLICY_ROOT.glob("*.json.tftpl")} == {
         "cell-bedrock-policy.json.tftpl",
+        "cell-provider-authority-policy.json.tftpl",
         "cell-storage-policy.json.tftpl",
         "fan-in-storage-policy.json.tftpl",
         "github-oidc-trust.json.tftpl",
@@ -385,6 +411,9 @@ def test_exact_two_role_topology_and_policy_attachments() -> None:
         encoding="utf-8"
     )
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in (INFRA_ROOT / "outputs.tf").read_text(
+        encoding="utf-8"
+    )
+    assert "LFB_PROVIDER_AUTHORITY_TABLE" in (INFRA_ROOT / "outputs.tf").read_text(
         encoding="utf-8"
     )
 
@@ -401,6 +430,26 @@ def test_oidc_trust_is_exact_for_repository_ref_and_environment(
 
 def test_cell_policy_matches_current_call_graph_exactly() -> None:
     _assert_exact_cell_policy(_cell_policy())
+
+
+def test_cell_provider_authority_policy_is_exact_table_data_plane_only() -> None:
+    assert _provider_authority_policy() == {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "ExactProviderAuthorityDataPlane",
+                "Effect": "Allow",
+                "Action": [
+                    "dynamodb:ConditionCheckItem",
+                    "dynamodb:DescribeTable",
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem",
+                ],
+                "Resource": PROVIDER_AUTHORITY_TABLE_ARN,
+            }
+        ],
+    }
 
 
 def test_fan_in_policy_matches_current_call_graph_exactly() -> None:
@@ -816,6 +865,9 @@ def test_docs_record_unapplied_import_remote_state_and_live_acceptance_boundarie
         FAN_IN_ENVIRONMENT,
         "LFB_GITHUB_PACKET_READ_ROLE_ARN",
         "LFB_GITHUB_FAN_IN_ROLE_ARN",
+        "LFB_PROVIDER_AUTHORITY_TABLE",
+        "LFB_PROVIDER_ACCOUNT_ALIAS",
+        "provider_authority_resource_identity_sha256",
         "terraform import",
         "aws_iam_role_policies_exclusive",
         "aws_iam_role_policy_attachments_exclusive",

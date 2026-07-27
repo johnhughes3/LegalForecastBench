@@ -513,6 +513,86 @@ If the reviewed table already exists, import it into protected Terraform state a
 Only the ARN-derived resource-identity SHA-256 is frozen into `provider-cycle-caps`; the table ARN and AWS account ID remain protected configuration.
 The caps artifact remains mandatory because its cycle-bound per-provider reservation caps govern the shared journal, but launch does not require documentary or admin-API evidence of an external account spending limit.
 Legacy `external_spend_limit_usd`, `external_limit_scope`, `external_limit_source`, and `verified_at` fields are accepted only as optional annotations: they neither constrain the reservation cap nor grant provider spend authority, and the canonical Cycle 1 artifact omits them.
+The digest is a public equality commitment, not a confidentiality boundary: an observer who can enumerate likely table ARNs can test candidate account IDs against it.
+The currently committed `model_registries/cycle-1-provider-caps-2026-07-12.json` predates this contract and lacks both provider account aliases and top-level `spend_authority`.
+Do not treat Cycle 1 as runnable merely because this code lands: a deliberate artifact amendment must bind the reviewed public aliases and exact applied table-ARN digest, and the protected environments must match it, before live smoke, freeze, or dispatch.
+
+### Protected paid-labeling authority
+
+Official paid unitization, structural review, and Stage B judge calls run only through `.github/workflows/official-paid-labeling.yaml`.
+The workflow assumes the distinct `${name_prefix}-authority` role defined by `infra/official-labeling`; it never reuses the evaluation cell role or packet-read role.
+That role's base policy grants only `dynamodb:ConditionCheckItem`, `DescribeTable`, `GetItem`, `PutItem`, and `UpdateItem` against the one existing shared authority table.
+`TransactWriteItems` authorizes its constituent item operations rather than a standalone IAM action; the durable poison transaction specifically requires `ConditionCheckItem` and `UpdateItem`.
+It grants no S3, `Scan`, delete, wildcard-resource, or table-administration permission.
+
+Provision these exact protected environments:
+
+- `legalforecastbench-official-labeling-authority-smoke`
+- `legalforecastbench-official-labeling-anthropic-unitize`
+- `legalforecastbench-official-labeling-google-review`
+- `legalforecastbench-official-labeling-openai-label`
+- `legalforecastbench-official-labeling-google-label`
+
+Each environment must require a human reviewer and use a deployment branch policy that admits only `main`, with no tag or side-branch deployment.
+These rules are acceptance prerequisites: the OIDC trust policy binds the environment subject, but an environment-form subject does not independently bind the Git ref.
+Each provider-bearing environment contains exactly one provider secret named `PROVIDER_API_KEY` and protected variables `LFB_GITHUB_LABELING_ROLE_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE`, `LFB_PROVIDER_ACCOUNT_ALIAS`, and `LFB_AWS_REGION`.
+The authority-smoke environment contains no provider secret; it holds only the exact non-secret authority variables named by its workflow.
+The workflow resolves the environment from a closed stage/provider mapping; the dispatcher cannot supply an environment or role ARN.
+It maps the one generic secret to `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `OPENAI_API_KEY` only inside the provider-call step.
+The provider-bearing job is pinned to a GitHub-hosted runner rather than a mutable runner-label variable, and its 7,200-second OIDC role session matches the 120-minute job timeout.
+AWS OIDC credentials are cleared through `GITHUB_ENV` before the private result artifact is uploaded, and the provider secret is step-scoped rather than persisted.
+
+Before dispatch, build a private Actions artifact containing `official-paid-labeling-job.json` and every path it names.
+All paths are relative to the artifact root; absolute paths, `..` escapes, unknown arguments, provider-authority arguments, provider-shard merge inputs, and shell fragments are rejected.
+Record the artifact-producing workflow run ID, exact artifact name, manifest SHA-256, full release SHA on `main`, stage, and provider as the protected workflow inputs.
+The manifest has this closed shape:
+
+```json
+{
+  "schema_version": "legalforecast.official_paid_labeling_job.v1",
+  "release_sha": "<40-character-main-commit>",
+  "stage": "llm-unitize",
+  "provider": "anthropic",
+  "arguments": {
+    "output-root": "cycle-root",
+    "selection": "inputs/selection.jsonl",
+    "parser-manifest": "inputs/parser-manifest.jsonl",
+    "model-registry": "inputs/stage-a-registry.json",
+    "model-key": ["anthropic:<model-id>"],
+    "provider-cycle-caps": "inputs/provider-cycle-caps.json",
+    "provider-journal": "cycle-root/provider-attempts.sqlite3"
+  }
+}
+```
+
+Include every additional lineage argument required by the selected acquisition command.
+The protected wrapper appends `--provider-authority-table`, `--provider-authority-region`, and `--execute`; the manifest may not supply them.
+It also requires the selected model and protected public account alias to match the frozen registry and provider-cycle-caps.
+The shared authority constructor runs `DescribeTable`, hashes the actual table ARN, compares it with `spend_authority.resource_identity_sha256`, verifies the exact two-key schema, and refuses any mismatch before a provider call.
+
+For Stage B, create one job manifest per provider.
+Each manifest names the complete frozen judge panel, while the protected wrapper appends the one `--execution-provider` allowed by its environment.
+Each provider job emits `llm-label-provider-shard` audit and run-card artifacts but no selected labels.
+Treat the private result artifact as a sequential baton: every paid stage must start from the immediately preceding result artifact, retain the same canonical `provider-journal` path, and use distinct provider-specific audit, labels, queue, log, and run-card paths.
+In particular, do not launch the Google and OpenAI Stage B shards in parallel from two copies of the same SQLite journal.
+The workflow-wide `official-paid-labeling` concurrency group serializes protected paid jobs as a second guard against accidental parallel dispatch.
+Run the first provider shard, rebuild the next sealed job artifact from that result with only the next manifest and provider-specific output paths changed, then run the second shard.
+The remote DynamoDB authority prevents aggregate overspend, but the local journal is the authenticated replay chain; divergent SQLite copies are intentionally not mergeable and will fail provider-free reconciliation.
+After every provider shard succeeds, merge them in a provider-free context by passing each authenticated audit and run card to `llm-label`; the merge revalidates the full candidate/provider cross-product, exact prompts, decision commitments, model outputs, frozen-unit coverage, and shared journal before producing the ordinary `llm-label` run card.
+No provider credential or remote authority role is needed by this finalization step.
+
+Record the following evidence before treating the path as live:
+
+1. Terraform plan/apply identity for `infra/official-labeling`, without copying the role ARN or AWS account ID into a public artifact.
+2. Protected workflow run URL, run attempt, release SHA, environment name, job-manifest SHA-256, provider-cycle-caps SHA-256, public provider account alias, and output run-card SHA-256.
+3. A provider-free live smoke from this workflow proving allowed `DescribeTable`, `GetItem`, `PutItem`, `UpdateItem`, and a `TransactWriteItems` request containing both `ConditionCheck` and `Put` against the exact table, plus denied `Scan`, `DeleteItem`, an outside-table read/write, and table administration.
+4. Confirmation that the credential-clear step ran before artifact upload and the uploaded private artifact contains no credential material.
+
+Provisioning and the live provider-free permission smoke are external checkpoints.
+Until both are recorded, keep the official live-smoke, freeze, and dispatch gates blocked; committed code and static tests alone do not satisfy that operational evidence.
+Run the smoke through `.github/workflows/official-paid-labeling-authority-smoke.yaml` in `legalforecastbench-official-labeling-authority-smoke`.
+Set `LFB_OUTSIDE_AUTHORITY_TABLE` to a real, distinct canary table so an `AccessDenied` result proves the exact-table resource boundary rather than merely encountering a missing table.
+The smoke writes two TTL-bounded sentinel rows to the authority table, makes no provider call, suppresses denial diagnostics that can contain AWS account details, and uploads only the release SHA, public table-identity hash, and boolean allow/deny results.
 
 After the protected authority-smoke workflow succeeds, download its raw `authority-smoke.json` artifact without recreating or reformatting it and record the exact artifact SHA-256 plus the full reviewed main release SHA.
 Create the public `legalforecast.provider_cycle_caps_successor_policy.v1` artifact in canonical JSON form as specified by [the successor contract](schemas/provider-cycle-caps-successor-v1.md), using one public account alias for each legacy provider and no ARN, AWS account ID, credential, secret, or token material.
@@ -555,9 +635,9 @@ uv run legalforecast acquisition llm-unitize \
   --model-registry <frozen-stage-a-registry.json> \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
-  --provider-authority-table <provider-authority-table> \
-  --provider-authority-region <provider-authority-region> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --provider-authority-table <exact-shared-authority-table-name> \
+  --provider-authority-region <aws-region> \
   --execute --no-resume
 ```
 
@@ -579,9 +659,9 @@ uv run legalforecast acquisition llm-review-stage-a \
   --model-registry <frozen-stage-a-reviewer-registry.json> \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
-  --provider-authority-table <provider-authority-table> \
-  --provider-authority-region <provider-authority-region> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --provider-authority-table <exact-shared-authority-table-name> \
+  --provider-authority-region <aws-region> \
   --execute --no-resume
 ```
 
@@ -629,7 +709,7 @@ uv run legalforecast acquisition build-decision-texts \
 
 The command reconciles exact candidate and document coverage; verifies the target-cohort, authenticated clearance, and live-parser run-card commitments; admits only the single public, outcome-bearing, non-model-visible first written disposition entered on or after the Cycle 1 anchor; and binds the source and extracted-text hashes to the pinned parser revision. Fixture parser provenance is refused. It fails closed on missing, ambiguous, sealed, private, malformed restriction flags, unpinned, unauthenticated, or drifted inputs. `decision-texts.jsonl` is private Stage B and audit input only: never place it in a model-visible packet, hand-edit it, or substitute a manually assembled file.
 
-Pass that exact artifact, its immutable manifest, and the completed builder run card to Stage B. The parser manifest and Markdown remain required only to cross-check the authenticated artifact against the pinned live-Mistral lineage; `llm-label` never uses Markdown directly as prompt authority:
+Pass that exact artifact, its immutable manifest, and the completed builder run card to Stage B. The parser manifest and Markdown remain required only to cross-check the authenticated artifact against the pinned live-Mistral lineage; `llm-label` never uses Markdown directly as prompt authority. Run the following paid command once per provider through the protected workflow:
 
 ```bash
 uv run legalforecast acquisition llm-label \
@@ -650,13 +730,52 @@ uv run legalforecast acquisition llm-label \
   --evaluated-model-registry <frozen-evaluated-model-registry.json> \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
-  --provider-authority-table <provider-authority-table> \
-  --provider-authority-region <provider-authority-region> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --execution-provider <openai-or-google> \
+  --audit-output <provider-shard-audit.jsonl> \
+  --run-card-output <provider-shard-run-card.json> \
+  --provider-authority-table <exact-shared-authority-table-name> \
+  --provider-authority-region <aws-region> \
   --execute --no-resume
 ```
 
-Repeat `--model-key` for every entry in the frozen judge registry. Before the first provider reservation, the command replays the authenticated unitizer, structural-review, and apply-review cards; verifies exact candidate and case mapping, decision-document, disposition-date, text, text-hash, source hash and byte count, empty parser quality flags, selection, parser, and finalized-unit coverage and provenance; and requires the same canonical journal and exact caps artifact used by Stage A. It binds the decision JSONL, manifest, run-card, per-record, and text hashes plus the exact finalized-units file, candidate-envelope hashes, full Stage A card chain, journal identity, and stage-specific settled attempts into the label audit and `llm-label` run card. Changing `--output-root` cannot create a new ledger because `--provider-journal` must still resolve to the unitizer-committed canonical path. Any mismatch stops the stage without a provider call.
+Repeat `--model-key` for every entry in the frozen judge registry in every provider-shard job.
+Do not place OpenAI and Google credentials in one job.
+After all provider jobs complete, run the same command without a provider credential or authority-table argument, replacing `--execution-provider` with matching audit/card pairs:
+
+```bash
+uv run legalforecast acquisition llm-label \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --markdown-root <parsed-markdown-root> \
+  --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+  --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+  --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+  --unitization-review-run-card <apply-unitization-review-run-card.json> \
+  --model-registry <frozen-stage-b-judge-registry.json> \
+  --evaluated-model-registry <frozen-evaluated-model-registry.json> \
+  --model-key <every-frozen-judge-key-repeated> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --provider-shard-audit <openai-shard-audit.jsonl> \
+  --provider-shard-run-card <openai-shard-run-card.json> \
+  --provider-shard-audit <google-shard-audit.jsonl> \
+  --provider-shard-run-card <google-shard-run-card.json> \
+  --labels-output <labels.jsonl> \
+  --audit-output <llm-label-audit.jsonl> \
+  --lawyer-review-queue-output <lawyer-review-queue.jsonl> \
+  --run-card-output <llm-label-run-card.json> \
+  --execute --no-resume
+```
+
+Before the first provider reservation, each paid shard replays the authenticated unitizer, structural-review, and apply-review cards; verifies exact candidate and case mapping, decision-document, disposition-date, text, text-hash, source hash and byte count, empty parser quality flags, selection, parser, and finalized-unit coverage and provenance; and requires the same canonical journal and exact caps artifact used by Stage A.
+The provider-free merge binds the decision JSONL, manifest, run card, per-record and text hashes, exact finalized-units file, candidate-envelope hashes, full Stage A card chain, authenticated shard cards, journal identity, and complete settled-attempt cross-product into the final `llm-label` run card.
+Changing `--output-root` cannot create a new ledger because `--provider-journal` must still resolve to the unitizer-committed canonical path.
+Any mismatch stops the paid shard without a provider call or stops the merge without selected labels.
 
 After Stage B labeling completes, freeze the single cycle-level reliability sample before any lawyer adjudication:
 
@@ -851,6 +970,7 @@ uv run legalforecast freeze <cycle_id> \
   --harness <harness-artifact> \
   --model-registry <model-registry.json> \
   --baselines manifests/<cycle_id>.no-baselines.json \
+  --provider-cycle-caps <provider-cycle-caps.json> \
   --execution-policy <execution-policy.json> \
   --labeling-policy <labeling-policy.json> \
   --cohort-policy <cohort-policy.json>
@@ -871,17 +991,17 @@ The sentinel is a hash-bound disclosure, not the enforcement authority; `executi
 
 Use `uv run legalforecast freeze --help` for the exact argument shape. The workflow verifies the committed freeze commitment, substituting the downloaded labels and model registry for their checkout paths, before matrix fan-out. The separately downloaded run-input manifest is validated and label-bound by the workflow's manifest-freeze step; it is not substituted for the cycle manifest recorded in the freeze bundle.
 
-The intended AWS boundary is defined, but not applied, under [`infra/official-eval/`](../infra/official-eval/README.md). It uses exactly the current `legalforecastbench-official-eval` cell environment with `LFB_GITHUB_PACKET_READ_ROLE_ARN` and the `legalforecastbench-official-eval-fan-in` environment with `LFB_GITHUB_FAN_IN_ROLE_ARN`; do not recreate the obsolete five-environment topology. As observed on 2026-07-24, the fan-in environment does not yet exist and the protected variables and secrets could not be verified, so environment creation/protection and human-approved server-side variable assignment remain acceptance prerequisites.
+The intended AWS boundary is defined, but not applied, under [`infra/official-eval/`](../infra/official-eval/README.md). It uses exactly the current `legalforecastbench-official-eval` cell environment with `LFB_GITHUB_PACKET_READ_ROLE_ARN` and `LFB_PROVIDER_AUTHORITY_TABLE`, plus the `legalforecastbench-official-eval-fan-in` environment with `LFB_GITHUB_FAN_IN_ROLE_ARN`; do not recreate the obsolete five-environment topology. The runner derives each provider's account alias from its unique cap in the verified frozen execution policy. As observed on 2026-07-24, the fan-in environment does not yet exist and the protected variables and secrets could not be verified, so environment creation/protection and human-approved server-side variable assignment remain acceptance prerequisites.
 
-The packet/result role used by each case writer has only the current packet, manifest, per-case, and closure operations. It may create and read the two explicit resource patterns `cycle-publication-state/*/runs/*/*/intent.json` and `cycle-publication-state/*/runs/*/*/done.json`, has read-only GetObject authority for `cycle-publication-state/*/seal.json`, and has prefix-conditioned `s3:ListBucket` authority only for the exact seal-key pattern and current packet/per-case validation paths. `begin` uses this exact-key ListObjectsV2 probe before GetObject because S3 otherwise returns 403 rather than 404 for an absent object when ListBucket is denied. Immutable writes are separate from reads and require the `If-None-Match: *` request header; ordinary versioned per-case writes remain unconditional. The cell role has no broader marker listing, seal write, receipt, or report-prefix authority; it also has no delete, ACL, or version-list authority. The provider-free fan-in role owns exact-version per-case reads, marker read/list and seal authority, finalizer marker and receipt writes, and exclusive canonical publication under `reports/<cycle_id>/multi-ablation/`, with the same create-once precondition on every immutable write.
+The packet/result role used by each case writer has only the current packet, manifest, per-case, closure, and exact provider-attempt authority operations. It may create and read the two explicit resource patterns `cycle-publication-state/*/runs/*/*/intent.json` and `cycle-publication-state/*/runs/*/*/done.json`, has read-only GetObject authority for `cycle-publication-state/*/seal.json`, and has prefix-conditioned `s3:ListBucket` authority only for the exact seal-key pattern and current packet/per-case validation paths. `begin` uses this exact-key ListObjectsV2 probe before GetObject because S3 otherwise returns 403 rather than 404 for an absent object when ListBucket is denied. Immutable writes are separate from reads and require the `If-None-Match: *` request header; ordinary versioned per-case writes remain unconditional. The cell role may call only `ConditionCheckItem`, `DescribeTable`, `GetItem`, `PutItem`, and `UpdateItem` on the one DynamoDB table whose exact ARN hash is frozen in the provider-caps artifact. The workflow supplies the protected table name and region to every live runner; each runner derives its public account alias from the verified frozen provider cap and re-verifies the actual table ARN and key schema before a provider call. The cell role has no broader marker listing, seal write, receipt, or report-prefix authority. It also has no DynamoDB table administration, scan, or delete authority and no S3 delete, ACL, or version-list authority. The provider-free fan-in role owns exact-version per-case reads, marker read/list and seal authority, finalizer marker and receipt writes, and exclusive canonical publication under `reports/<cycle_id>/multi-ablation/`, with the same create-once precondition on every immutable write.
 
 Both roles use `aws_iam_role_policies_exclusive` and `aws_iam_role_policy_attachments_exclusive`, so the first apply is a reconciliation boundary: inventory and import existing role policies, account for every legitimate inline policy, and verify the planned managed-policy set is empty before apply. Unlisted policies will be removed.
 
 Bedrock invocation is disabled by default. The live protected value of `LFB_ANTHROPIC_RUNTIME` was unreadable during the review and must not be guessed. Keep the direct Anthropic path with both `bedrock_direct_foundation_model_arns = []` and `bedrock_geographic_inference_profiles = {}`, or deliberately enable the cell-only Bedrock policy with a structured contract that matches `LFB_ANTHROPIC_BEDROCK_MODEL_ID`. Direct foundation-model ARNs receive their own unconditional statement. Every reviewed `us.*`, `eu.*`, or `apac.*` geographic inference profile follows AWS's two-statement contract: an unconditional statement grants only its exact profile ARN, while a separate statement grants its complete reviewed source-and-destination foundation-model ARN set conditioned by exact equality on `bedrock:InferenceProfileArn`. Those conditioned model grants cannot be used for direct model invocation. Global inference profiles are rejected because their distinct three-part policy is not modeled here. Fan-in never receives provider authority.
 
-The private versioned result bucket retains the noncurrent objects named by receipt `VersionId` commitments; there is no blanket 30-day deletion rule. Per-case data can include PII, so any future destructive retention is an explicit review against the receipt audit horizon. Reserve `reports/security-negative-controls/` for later live denied-write canaries and administrator/lifecycle cleanup; never aim a negative control at a canonical report path.
+The private versioned result bucket retains the noncurrent objects named by receipt `VersionId` commitments; there is no blanket 30-day deletion rule. Per-case data can include PII, so any future destructive retention is an explicit review against the receipt audit horizon. Reserve `reports/security-negative-controls/` for live denied-write canaries and administrator/lifecycle cleanup; never aim a negative control at a canonical report path.
 
-Terraform format, initialization, validation, tests, and even a reviewed plan prove only the code shape. Import the existing buckets into approved encrypted remote state before any apply, reconcile current bucket policy and lifecycle state, and apply only an exact reviewed plan. The existing S3 validation runs predate this boundary and `fan-in-publish.yaml` has never run, so acceptance requires a separately reviewed rewrite of the S3 validation workflow, a post-provision dispatch from `main`, and then a provider-free fan-in verification dispatch from `main`. Always set `max_projected_model_cost_usd` to an explicit non-empty limit for a live run.
+Terraform format, initialization, validation, tests, and even a reviewed plan prove only the code shape. Import the existing buckets into approved encrypted remote state before any apply, reconcile current bucket policy and lifecycle state, and apply only an exact reviewed plan. The S3 validation workflow requires a known existing packet, manifest, exact-version per-case metrics object, and shard receipt. It proves the fan-in role can read the committed per-case version and receipt, then reassumes the cell role and proves that the same existing receipt is denied. The workflow proves only the specific S3 reads, lists, denied mutations, and DynamoDB `DescribeTable` call it actually performs; it does not establish the cell role's successful DynamoDB item writes or transactions. The existing runs predate this boundary and `fan-in-publish.yaml` has never run. Acceptance still requires a post-provision validation dispatch from `main`, a bounded provider-authority smoke that exercises the item-level DynamoDB contract, and a provider-free fan-in verification dispatch from `main`. Always set `max_projected_model_cost_usd` to an explicit non-empty limit for a live run.
 
 ## Dispatch Sequence
 

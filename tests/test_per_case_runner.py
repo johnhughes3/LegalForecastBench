@@ -4,12 +4,19 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
 from legalforecast.evals import per_case_runner
-from legalforecast.evals.inspect_task import HarnessRequest, SolverKind, SolverResponse
+from legalforecast.evals.inspect_task import (
+    ConfiguredModelStubSolver,
+    HarnessRequest,
+    SolverKind,
+    SolverResponse,
+)
+from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.evals.packet_builder import (
     ModelPacket,
     PacketAblation,
@@ -383,6 +390,330 @@ def test_live_per_case_runner_requires_pre_fanout_packet_identity(
         )
 
 
+def test_live_per_case_runner_requires_frozen_spend_authority_inputs(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="execution_policy_uri"):
+        PerCaseRunnerConfig(
+            manifest_uri=str(tmp_path / "manifest.json"),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            backend=per_case_runner.PerCaseExecutionBackend.LIVE,
+            model_registry_uri=str(tmp_path / "registry.json"),
+            model_key="provider:model",
+            expected_packet_object_key=(
+                "model-packets/cycle-1/case-1/full_packet.json"
+            ),
+            expected_packet_sha256="a" * 64,
+        )
+
+
+def test_live_solver_binds_frozen_account_cap_breaker_and_repeat_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_model_registry(registry_path, ("example-model",), provider="openai")
+    registry_entry = load_model_registry(registry_path).entries[0]
+    execution_policy_path = tmp_path / "execution-policy.json"
+    execution_policy_sha256 = _write_execution_policy(
+        execution_policy_path, provider="openai"
+    )
+    captured: dict[str, object] = {}
+
+    class FakeDynamoAuthority:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "legalforecast.evals.provider_spend_dynamodb.DynamoDbProviderSpendAuthority",
+        FakeDynamoAuthority,
+    )
+    config = PerCaseRunnerConfig(
+        manifest_uri=str(tmp_path / "manifest.json"),
+        case_id="case-1",
+        ablation="full_packet",
+        output_dir=tmp_path / "runner-output",
+        backend=per_case_runner.PerCaseExecutionBackend.LIVE,
+        model_registry_uri=str(registry_path),
+        model_key="openai:example-model",
+        expected_packet_object_key=("model-packets/cycle-1/case-1/full_packet.json"),
+        expected_packet_sha256="a" * 64,
+        execution_policy_uri=str(execution_policy_path),
+        expected_execution_policy_sha256=execution_policy_sha256,
+        workflow_run_id="123",
+        workflow_run_attempt=1,
+        provider_authority_table="authority-table",
+        provider_authority_region="us-east-2",
+    )
+
+    runner_module = cast(Any, per_case_runner)
+    solver = runner_module._solver_for_config(
+        config,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        cycle_id="cycle-1",
+    )
+    assert solver.max_attempts == 2
+    assert captured["cap_microusd"] == 1_000_000_000
+    assert captured["authority_identity_sha256"] == "e" * 64
+    assert captured["region"] == "us-east-2"
+    handler = solver.attempt_handler_factory(
+        SimpleNamespace(
+            sample=SimpleNamespace(
+                sample_id="case-1__repeat_02",
+                packet=SimpleNamespace(
+                    case_id="case-1",
+                    ablation=PacketAblation.FULL_PACKET,
+                ),
+            )
+        )
+    )
+    assert handler.key.repeat_index == 2
+    assert handler.key.stage == "official-eval"
+    assert handler.key.account == "primary"
+    assert handler.reservation_microusd == 53_072
+
+
+def test_live_resume_requires_exact_raw_execution_policy_binding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store_root, manifest_path, packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+    registry_path = tmp_path / "registry.json"
+    _write_model_registry(registry_path, ("example-model",), provider="openai")
+    execution_policy_path = tmp_path / "execution-policy.json"
+    execution_policy_sha256 = _write_execution_policy(
+        execution_policy_path, provider="openai"
+    )
+
+    def fake_solver_for_config(
+        config: PerCaseRunnerConfig,
+        *,
+        registry_entry: Any,
+        **_kwargs: Any,
+    ) -> ConfiguredModelStubSolver:
+        return ConfiguredModelStubSolver(
+            registry_entry=registry_entry,
+            stub_raw_output=cast(str, config.mock_output),
+            input_tokens=100,
+            output_tokens=25,
+            estimated_cost=0.0,
+        )
+
+    monkeypatch.setattr(per_case_runner, "_solver_for_config", fake_solver_for_config)
+    base: dict[str, Any] = {
+        "manifest_uri": str(manifest_path),
+        "packet_store_root": str(store_root),
+        "results_store_root": str(results_root),
+        "case_id": "case-1",
+        "ablation": "full_packet",
+        "backend": per_case_runner.PerCaseExecutionBackend.LIVE,
+        "model_registry_uri": str(registry_path),
+        "model_key": "openai:example-model",
+        "expected_packet_object_key": ("model-packets/cycle-1/case-1/full_packet.json"),
+        "expected_packet_sha256": packet_sha256,
+        "execution_policy_uri": str(execution_policy_path),
+        "expected_execution_policy_sha256": execution_policy_sha256,
+        "workflow_run_id": "123",
+        "workflow_run_attempt": 1,
+        "provider_authority_table": "authority-table",
+        "provider_account": "primary",
+    }
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            **base,
+            output_dir=tmp_path / "first-output",
+            mock_output=_mock_output(probability=0.25),
+        )
+    )
+    metrics_path = next((results_root / "metrics").rglob("*.metrics.json"))
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    binding = metrics["execution_policy_binding"]
+    assert binding["execution_policy_sha256"] == sha256_file(execution_policy_path)
+    assert binding["reservation_ledger_sha256"] == "d" * 64
+    assert binding["authority_resource_identity_sha256"] == "e" * 64
+    assert binding["provider"] == "openai"
+    assert binding["account"] == "primary"
+
+    execution_policy_path.write_bytes(execution_policy_path.read_bytes() + b"\n")
+    durable_before_resume = _snapshot_files(results_root)
+    with pytest.raises(PerCaseRunnerError, match="execution policy binding"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                **base,
+                output_dir=tmp_path / "second-output",
+                mock_output=_mock_output(probability=0.91),
+                resume_existing=True,
+            )
+        )
+    assert _snapshot_files(results_root) == durable_before_resume
+
+
+def test_live_resume_rejects_legacy_unbound_metrics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store_root, manifest_path, packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+    registry_path = tmp_path / "registry.json"
+    _write_model_registry(registry_path, ("example-model",), provider="openai")
+    execution_policy_path = tmp_path / "execution-policy.json"
+    execution_policy_sha256 = _write_execution_policy(
+        execution_policy_path, provider="openai"
+    )
+
+    def fake_solver_for_config(
+        config: PerCaseRunnerConfig,
+        *,
+        registry_entry: Any,
+        **_kwargs: Any,
+    ) -> ConfiguredModelStubSolver:
+        return ConfiguredModelStubSolver(
+            registry_entry=registry_entry,
+            stub_raw_output=cast(str, config.mock_output),
+            input_tokens=100,
+            output_tokens=25,
+            estimated_cost=0.0,
+        )
+
+    monkeypatch.setattr(per_case_runner, "_solver_for_config", fake_solver_for_config)
+    base: dict[str, Any] = {
+        "manifest_uri": str(manifest_path),
+        "packet_store_root": str(store_root),
+        "results_store_root": str(results_root),
+        "case_id": "case-1",
+        "ablation": "full_packet",
+        "backend": per_case_runner.PerCaseExecutionBackend.LIVE,
+        "model_registry_uri": str(registry_path),
+        "model_key": "openai:example-model",
+        "expected_packet_object_key": ("model-packets/cycle-1/case-1/full_packet.json"),
+        "expected_packet_sha256": packet_sha256,
+        "execution_policy_uri": str(execution_policy_path),
+        "expected_execution_policy_sha256": execution_policy_sha256,
+        "workflow_run_id": "123",
+        "workflow_run_attempt": 1,
+        "provider_authority_table": "authority-table",
+        "provider_account": "primary",
+    }
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            **base,
+            output_dir=tmp_path / "first-output",
+            mock_output=_mock_output(probability=0.25),
+        )
+    )
+    metrics_path = next((results_root / "metrics").rglob("*.metrics.json"))
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    del metrics["execution_policy_binding"]
+    _write_json(metrics_path, metrics)
+    durable_before_resume = _snapshot_files(results_root)
+
+    with pytest.raises(PerCaseRunnerError, match="execution policy binding"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                **base,
+                output_dir=tmp_path / "second-output",
+                mock_output=_mock_output(probability=0.91),
+                resume_existing=True,
+            )
+        )
+    assert _snapshot_files(results_root) == durable_before_resume
+
+
+def test_live_resume_verifies_policy_before_inspecting_durable_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store_root, manifest_path, packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    registry_path = tmp_path / "registry.json"
+    _write_model_registry(registry_path, ("example-model",), provider="openai")
+    execution_policy_path = tmp_path / "execution-policy.json"
+    _write_execution_policy(execution_policy_path, provider="openai")
+    artifact = json.loads(execution_policy_path.read_text(encoding="utf-8"))
+    artifact["policy_sha256"] = "0" * 64
+    _write_json(execution_policy_path, artifact)
+
+    def forbidden_resume(*_args: Any, **_kwargs: Any) -> None:
+        pytest.fail("resume inspection occurred before execution-policy verification")
+
+    monkeypatch.setattr(
+        per_case_runner,
+        "_try_resume_existing_outputs",
+        forbidden_resume,
+    )
+    with pytest.raises(PerCaseRunnerError, match="execution policy"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                backend=per_case_runner.PerCaseExecutionBackend.LIVE,
+                model_registry_uri=str(registry_path),
+                model_key="openai:example-model",
+                expected_packet_object_key=(
+                    "model-packets/cycle-1/case-1/full_packet.json"
+                ),
+                expected_packet_sha256=packet_sha256,
+                execution_policy_uri=str(execution_policy_path),
+                expected_execution_policy_sha256="0" * 64,
+                workflow_run_id="123",
+                workflow_run_attempt=1,
+                provider_authority_table="authority-table",
+                provider_account="primary",
+                resume_existing=True,
+            )
+        )
+
+
+def test_live_policy_verifier_rejects_valid_policy_with_wrong_expected_hash(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_model_registry(registry_path, ("example-model",), provider="openai")
+    registry_entry = load_model_registry(registry_path).entries[0]
+    execution_policy_path = tmp_path / "execution-policy.json"
+    _write_execution_policy(execution_policy_path, provider="openai")
+    config = PerCaseRunnerConfig(
+        manifest_uri=str(tmp_path / "manifest.json"),
+        case_id="case-1",
+        ablation="full_packet",
+        output_dir=tmp_path / "runner-output",
+        backend=per_case_runner.PerCaseExecutionBackend.LIVE,
+        model_registry_uri=str(registry_path),
+        model_key="openai:example-model",
+        expected_packet_object_key="model-packets/cycle-1/case-1/full_packet.json",
+        expected_packet_sha256="a" * 64,
+        execution_policy_uri=str(execution_policy_path),
+        expected_execution_policy_sha256="0" * 64,
+        workflow_run_id="123",
+        workflow_run_attempt=1,
+        provider_authority_table="authority-table",
+        provider_account="primary",
+    )
+    runner_module = cast(Any, per_case_runner)
+
+    with pytest.raises(PerCaseRunnerError, match="execution policy"):
+        runner_module._verified_execution_policy_for_config(
+            config,
+            registry_entry=registry_entry,
+            cycle_id="cycle-1",
+        )
+
+
 def test_per_case_runner_refuses_hash_mismatch_without_retaining_packet(
     tmp_path: Path,
 ) -> None:
@@ -491,6 +822,49 @@ def test_eval_run_case_cli_writes_artifact_summary(
     assert metrics["evaluation_timestamp"] == "2026-05-17T12:00:00Z"
 
 
+def test_eval_run_case_cli_reports_live_config_error_without_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = main(
+        [
+            "eval",
+            "run-case",
+            "--manifest",
+            str(tmp_path / "manifest.json"),
+            "--case-id",
+            "case-1",
+            "--output-dir",
+            str(tmp_path / "runner-output"),
+            "--backend",
+            "live",
+            "--model-registry",
+            str(tmp_path / "model-registry.json"),
+            "--model-key",
+            "openai:gpt-test",
+            "--expected-packet-object-key",
+            "model-packets/cycle-1/case-1/full_packet.json",
+            "--expected-packet-sha256",
+            "a" * 64,
+            "--execution-policy",
+            str(tmp_path / "execution-policy.json"),
+            "--expected-execution-policy-sha256",
+            "b" * 64,
+            "--workflow-run-id",
+            "123",
+            "--workflow-run-attempt",
+            "1",
+        ]
+    )
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "legalforecast: provider_authority_table is required for live backend\n"
+    )
+
+
 def test_per_case_runner_repeats_prebudgeted_subset_rows(tmp_path: Path) -> None:
     store_root, manifest_path, _packet_sha256 = _write_store_fixture(
         tmp_path,
@@ -535,7 +909,9 @@ def test_repeat_policy_mismatch_fails_before_resume_or_provider(
         tmp_path,
         packet_record=_packet_record(),
     )
-    execution_path, execution_sha256 = _write_execution_policy(tmp_path, repeat_count=3)
+    execution_path, execution_sha256 = _write_repeat_execution_policy(
+        tmp_path, repeat_count=3
+    )
 
     monkeypatch.setattr(
         per_case_runner,
@@ -570,8 +946,8 @@ def test_repeat_policy_identity_changes_durable_run_id(tmp_path: Path) -> None:
         tmp_path,
         packet_record=_packet_record(),
     )
-    first_path, first_sha256 = _write_execution_policy(tmp_path, repeat_count=2)
-    second_path, second_sha256 = _write_execution_policy(
+    first_path, first_sha256 = _write_repeat_execution_policy(tmp_path, repeat_count=2)
+    second_path, second_sha256 = _write_repeat_execution_policy(
         tmp_path, repeat_count=3, name="execution-policy-second.json"
     )
 
@@ -622,8 +998,10 @@ def test_resume_hard_fails_different_execution_policy_with_same_repeat_policy(
         packet_record=_packet_record(),
     )
     results_root = tmp_path / "results"
-    first_policy, first_sha256 = _write_execution_policy(tmp_path, repeat_count=2)
-    second_policy, second_sha256 = _write_execution_policy(
+    first_policy, first_sha256 = _write_repeat_execution_policy(
+        tmp_path, repeat_count=2
+    )
+    second_policy, second_sha256 = _write_repeat_execution_policy(
         tmp_path,
         repeat_count=2,
         max_billable_attempts=3,
@@ -1076,7 +1454,10 @@ def test_per_case_runner_rejects_unknown_model_key(tmp_path: Path) -> None:
         )
 
 
-def test_per_case_runner_rejects_packet_before_release_anchor(tmp_path: Path) -> None:
+def test_per_case_runner_rejects_packet_before_release_anchor_after_one_registry_load(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     store_root, manifest_path, _packet_sha256 = _write_store_fixture(
         tmp_path,
         packet_record=_packet_record(decision_date="2026-05-13"),
@@ -1108,6 +1489,15 @@ def test_per_case_runner_rejects_packet_before_release_anchor(tmp_path: Path) ->
             }
         ],
     )
+    original_loader = per_case_runner.load_model_registry
+    registry_load_count = 0
+
+    def counted_loader(path: Path) -> Any:
+        nonlocal registry_load_count
+        registry_load_count += 1
+        return original_loader(path)
+
+    monkeypatch.setattr(per_case_runner, "load_model_registry", counted_loader)
 
     with pytest.raises(PerCaseRunnerError, match="precedes release anchor"):
         run_per_case_evaluation(
@@ -1122,6 +1512,7 @@ def test_per_case_runner_rejects_packet_before_release_anchor(tmp_path: Path) ->
                 model_key="example-provider:example-model",
             )
         )
+    assert registry_load_count == 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -1252,38 +1643,110 @@ def _write_model_registry(
     model_ids: tuple[str, ...],
     *,
     input_price_by_model: dict[str, float] | None = None,
+    provider: str = "example-provider",
 ) -> None:
     prices = input_price_by_model or {}
+    records: list[dict[str, Any]] = [
+        {
+            "provider": provider,
+            "model_id": model_id,
+            "display_name": model_id,
+            "model_version_or_snapshot": f"{model_id}-2026-05-14",
+            "release_timestamp": "2026-05-14T09:00:00Z",
+            "release_timestamp_source": "fixture release note",
+            "provider_training_cutoff_status": "not_disclosed",
+            "provider_training_cutoff": None,
+            "temperature": 0,
+            "top_p": 1,
+            "max_output_tokens": 4096,
+            "network_disabled": True,
+            "search_disabled": True,
+            "tool_policy": "controlled_docket_tool_only",
+            "context_limit": 200000,
+            "pricing_source": "fixture",
+            "input_token_price": prices.get(model_id, 0.25),
+            "output_token_price": 1.0,
+            "known_cutoff_publicity_caveats": [],
+        }
+        for model_id in model_ids
+    ]
     _write_json(
         path,
-        [
-            {
-                "provider": "example-provider",
-                "model_id": model_id,
-                "display_name": model_id,
-                "model_version_or_snapshot": f"{model_id}-2026-05-14",
-                "release_timestamp": "2026-05-14T09:00:00Z",
-                "release_timestamp_source": "fixture release note",
-                "provider_training_cutoff_status": "not_disclosed",
-                "provider_training_cutoff": None,
-                "temperature": 0,
-                "top_p": 1,
-                "max_output_tokens": 4096,
-                "network_disabled": True,
-                "search_disabled": True,
-                "tool_policy": "controlled_docket_tool_only",
-                "context_limit": 200000,
-                "pricing_source": "fixture",
-                "input_token_price": prices.get(model_id, 0.25),
-                "output_token_price": 1.0,
-                "known_cutoff_publicity_caveats": [],
-            }
-            for model_id in model_ids
-        ],
+        records,
     )
 
 
 def _write_execution_policy(
+    path: Path,
+    *,
+    provider: str = "example-provider",
+) -> str:
+    artifact = generate_execution_policy(
+        {
+            "cycle_id": "cycle-1",
+            "cycle_series": "official",
+            "allow_no_baselines": True,
+            "labeling_policy_sha256": "a" * 64,
+            "cohort_policy_sha256": "b" * 64,
+            "cohort_observation_manifest_sha256": "c" * 64,
+            "lifecycle": {
+                "labeling_policy_published_at": "2026-07-12T20:00:00Z",
+                "production_labeling_started_at": "2026-07-13T00:00:00Z",
+                "cohort_policy_published_at": "2026-07-12T19:00:00Z",
+                "batch_002_started_at": "2026-07-12T21:00:00Z",
+            },
+            "shard_schedule": {
+                "shard_count": 2,
+                "dispatch_unit": "model_key_ablation",
+                "shards": [
+                    {
+                        "model_key": f"{provider}:example-model",
+                        "ablation": ablation,
+                    }
+                    for ablation in ("full_packet", "metadata_only")
+                ],
+            },
+            "concurrency_policy": {
+                "mode": "shard_identity",
+                "identity_fields": ["cycle_id", "model_key", "ablation"],
+            },
+            "receipt_policy": {
+                "write_once_per_attempt": True,
+                "identity_fields": [
+                    "workflow_run_id",
+                    "workflow_run_attempt",
+                ],
+                "result_commitment_required": True,
+            },
+            "attempt_policy": {
+                "authority_backend": "dynamodb",
+                "authority_resource_identity_sha256": "e" * 64,
+                "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                "provider_account_caps": [
+                    {
+                        "provider": provider,
+                        "account": "primary",
+                        "cap_microusd": 1_000_000_000,
+                    }
+                ],
+                "reservation_ledger_sha256": "d" * 64,
+                "max_billable_attempts": 2,
+                "failure_threshold": 3,
+                "failure_window_seconds": 300,
+            },
+            "repeat_policy": {"case_ids": ["case-1"], "count": 1},
+            "cadence_counts": {
+                "clean_motion_count_source": "frozen_manifest",
+                "prediction_unit_count_source": "frozen_units",
+                "reject_operator_mismatch": True,
+            },
+        }
+    )
+    _write_json(path, artifact)
+    return cast(str, artifact["policy_sha256"])
+
+
+def _write_repeat_execution_policy(
     tmp_path: Path,
     *,
     repeat_count: int,
@@ -1322,8 +1785,20 @@ def _write_execution_policy(
                 "result_commitment_required": True,
             },
             "attempt_policy": {
+                "authority_backend": "dynamodb",
+                "authority_resource_identity_sha256": "e" * 64,
+                "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                "provider_account_caps": [
+                    {
+                        "provider": "fixture",
+                        "account": "primary",
+                        "cap_microusd": 1_000_000_000,
+                    }
+                ],
                 "reservation_ledger_sha256": "d" * 64,
                 "max_billable_attempts": max_billable_attempts,
+                "failure_threshold": 3,
+                "failure_window_seconds": 300,
             },
             "repeat_policy": {"case_ids": ["case-1"], "count": repeat_count},
             "cadence_counts": {

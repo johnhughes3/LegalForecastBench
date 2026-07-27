@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.labeling.provider_journal import load_provider_cycle_caps
 from legalforecast.protocol.freeze import cli_freeze
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
+    execution_policy_runtime_binding,
     execution_repeat_policy_sha256,
     generate_execution_policy,
     generate_labeling_policy,
@@ -133,6 +136,133 @@ def test_receipt_policy_requires_run_and_attempt_identity() -> None:
         generate_execution_policy(decisions)
 
 
+def test_execution_policy_freezes_remote_authority_caps_and_breaker() -> None:
+    artifact = generate_execution_policy(_execution_decisions())
+
+    attempts = artifact["policy"]["attempt_policy"]
+    assert attempts == {
+        "authority_backend": "dynamodb",
+        "authority_resource_identity_sha256": "e" * 64,
+        "failure_threshold": 3,
+        "failure_window_seconds": 300,
+        "ledger_scope_fields": ["cycle_id", "provider", "account"],
+        "max_billable_attempts": 2,
+        "provider_account_caps": [
+            {
+                "account": "primary",
+                "cap_microusd": 1_000_000_000,
+                "provider": "openai",
+            }
+        ],
+        "reservation_ledger_sha256": "d" * 64,
+    }
+
+
+def test_execution_policy_runtime_binding_derives_frozen_provider_account() -> None:
+    decisions = _execution_decisions()
+    decisions["attempt_policy"]["provider_account_caps"].append(
+        {
+            "provider": "google",
+            "account": "gemini-primary",
+            "cap_microusd": 500_000_000,
+        }
+    )
+    artifact = generate_execution_policy(decisions)
+
+    binding = execution_policy_runtime_binding(
+        artifact,
+        execution_policy_sha256="f" * 64,
+        provider="OpenAI",
+    )
+
+    assert binding == {
+        "schema_version": "legalforecast.execution_policy_runtime_binding.v1",
+        "execution_policy_sha256": "f" * 64,
+        "reservation_ledger_sha256": "d" * 64,
+        "authority_backend": "dynamodb",
+        "authority_resource_identity_sha256": "e" * 64,
+        "ledger_scope_fields": ["cycle_id", "provider", "account"],
+        "provider": "openai",
+        "account": "primary",
+        "cap_microusd": 1_000_000_000,
+        "max_billable_attempts": 2,
+        "failure_threshold": 3,
+        "failure_window_seconds": 300,
+    }
+    google_binding = execution_policy_runtime_binding(
+        artifact,
+        execution_policy_sha256="f" * 64,
+        provider="Google",
+    )
+    assert google_binding["account"] == "gemini-primary"
+    assert google_binding["cap_microusd"] == 500_000_000
+
+
+def test_execution_policy_runtime_binding_rejects_uncommitted_account() -> None:
+    artifact = generate_execution_policy(_execution_decisions())
+
+    with pytest.raises(
+        PolicyArtifactError,
+        match="account does not match expected provider account",
+    ):
+        execution_policy_runtime_binding(
+            artifact,
+            execution_policy_sha256="f" * 64,
+            provider="openai",
+            account="other-account",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("authority_backend", "sqlite", "authority_backend"),
+        (
+            "ledger_scope_fields",
+            ["cycle_id", "provider", "account", "stage"],
+            "share one ledger",
+        ),
+        ("provider_account_caps", [], "must not be empty"),
+        ("failure_threshold", 0, "positive integer"),
+        ("failure_window_seconds", 0, "positive integer"),
+    ),
+)
+def test_execution_policy_rejects_mutable_or_non_shared_attempt_controls(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    decisions = _execution_decisions()
+    decisions["attempt_policy"][field] = value
+
+    with pytest.raises(PolicyArtifactError, match=message):
+        generate_execution_policy(decisions)
+
+
+def test_execution_policy_rejects_duplicate_provider_account_caps() -> None:
+    decisions = _execution_decisions()
+    caps = decisions["attempt_policy"]["provider_account_caps"]
+    caps.append(dict(caps[0]))
+
+    with pytest.raises(PolicyArtifactError, match="provider more than once"):
+        generate_execution_policy(decisions)
+
+
+def test_execution_policy_rejects_multiple_accounts_for_one_provider() -> None:
+    decisions = _execution_decisions()
+    caps = decisions["attempt_policy"]["provider_account_caps"]
+    caps.append(
+        {
+            "provider": "openai",
+            "account": "secondary",
+            "cap_microusd": 500_000_000,
+        }
+    )
+
+    with pytest.raises(PolicyArtifactError, match="provider more than once"):
+        generate_execution_policy(decisions)
+
+
 def test_dispatch_choices_must_match_frozen_execution_policy() -> None:
     artifact = generate_execution_policy(_execution_decisions())
     require_dispatch_policy_match(
@@ -210,9 +340,43 @@ def test_policy_generator_and_verifier_clis_round_trip(tmp_path: Path) -> None:
         )
         == 0
     )
-
+    caps_path = tmp_path / "provider-cycle-caps.json"
+    caps_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.provider_cycle_caps.v1",
+                "cycle_id": "cycle-1",
+                "spend_authority": {
+                    "backend": "dynamodb",
+                    "resource_identity_sha256": "e" * 64,
+                    "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                    "max_billable_attempts": 2,
+                    "failure_threshold": 3,
+                    "failure_window_seconds": 300,
+                },
+                "providers": [
+                    {
+                        "provider": "openai",
+                        "account": "primary",
+                        "cycle_reservation_cap_usd": "1000.00",
+                        "external_spend_limit_usd": "1000.00",
+                        "external_limit_scope": "test account",
+                        "external_limit_source": "test fixture",
+                        "verified_at": "2026-07-12T16:00:00Z",
+                    }
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    decisions = _execution_decisions()
+    caps = load_provider_cycle_caps(caps_path)
+    decisions["attempt_policy"] = caps.execution_attempt_policy(
+        hashlib.sha256(caps_path.read_bytes()).hexdigest()
+    )
     decisions_path = tmp_path / "execution-decisions.json"
-    decisions_path.write_text(json.dumps(_execution_decisions()), encoding="utf-8")
+    decisions_path.write_text(json.dumps(decisions), encoding="utf-8")
     execution_path = tmp_path / "execution-policy.json"
     assert (
         cli_freeze(
@@ -220,11 +384,31 @@ def test_policy_generator_and_verifier_clis_round_trip(tmp_path: Path) -> None:
                 "generate-execution-policy",
                 "--decisions",
                 str(decisions_path),
+                "--provider-cycle-caps",
+                str(caps_path),
                 "--output",
                 str(execution_path),
             ]
         )
         == 0
+    )
+    mismatched_caps_path = tmp_path / "mismatched-provider-cycle-caps.json"
+    mismatched_caps = json.loads(caps_path.read_text(encoding="utf-8"))
+    mismatched_caps["providers"][0]["account"] = "different-account"
+    mismatched_caps_path.write_text(json.dumps(mismatched_caps), encoding="utf-8")
+    assert (
+        cli_freeze(
+            [
+                "generate-execution-policy",
+                "--decisions",
+                str(decisions_path),
+                "--provider-cycle-caps",
+                str(mismatched_caps_path),
+                "--output",
+                str(tmp_path / "mismatched-execution-policy.json"),
+            ]
+        )
+        == 1
     )
     assert (
         cli_freeze(
@@ -329,7 +513,7 @@ def test_acquisition_labeling_policy_is_immutable(tmp_path: Path) -> None:
     assert main(changed) == 2
 
 
-def _labeling_policy() -> dict[str, object]:
+def _labeling_policy() -> dict[str, Any]:
     return generate_labeling_policy(
         cycle_id="cycle-1",
         judge_registry_path=JUDGE_REGISTRY,
@@ -338,7 +522,7 @@ def _labeling_policy() -> dict[str, object]:
     )
 
 
-def _execution_decisions() -> dict[str, object]:
+def _execution_decisions() -> dict[str, Any]:
     return {
         "cycle_id": "cycle-1",
         "cycle_series": "official",
@@ -371,8 +555,20 @@ def _execution_decisions() -> dict[str, object]:
             "result_commitment_required": True,
         },
         "attempt_policy": {
+            "authority_backend": "dynamodb",
+            "authority_resource_identity_sha256": "e" * 64,
+            "ledger_scope_fields": ["cycle_id", "provider", "account"],
+            "provider_account_caps": [
+                {
+                    "provider": "openai",
+                    "account": "primary",
+                    "cap_microusd": 1_000_000_000,
+                }
+            ],
             "reservation_ledger_sha256": "d" * 64,
             "max_billable_attempts": 2,
+            "failure_threshold": 3,
+            "failure_window_seconds": 300,
         },
         "repeat_policy": {"case_ids": ["case-1", "case-2"], "count": 2},
         "cadence_counts": {

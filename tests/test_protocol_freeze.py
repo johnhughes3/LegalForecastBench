@@ -4,6 +4,7 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 from legalforecast.ingestion.cohort_policy import generate_cohort_policy
@@ -72,6 +73,7 @@ def test_freeze_api_cannot_override_mandatory_policy_artifacts(tmp_path: Path) -
         for name, path in artifact_paths.items()
         if name
         not in {
+            FrozenArtifactName.PROVIDER_CYCLE_CAPS,
             FrozenArtifactName.EXECUTION_POLICY,
             FrozenArtifactName.LABELING_POLICY,
             FrozenArtifactName.COHORT_POLICY,
@@ -80,7 +82,7 @@ def test_freeze_api_cannot_override_mandatory_policy_artifacts(tmp_path: Path) -
 
     with pytest.raises(
         MissingFreezeArtifactError,
-        match="execution_policy, labeling_policy, cohort_policy",
+        match=("provider_cycle_caps, execution_policy, labeling_policy, cohort_policy"),
     ):
         freeze_cycle("cycle_fixture", without_policies)
 
@@ -145,6 +147,7 @@ def test_freeze_cli_creates_policy_bound_artifact_bundle(tmp_path: Path) -> None
         FrozenArtifactName.MODEL_REGISTRY: "--model-registry",
         FrozenArtifactName.BASELINES: "--baselines",
         FrozenArtifactName.EXCLUSION_LEDGER: "--exclusion-ledger",
+        FrozenArtifactName.PROVIDER_CYCLE_CAPS: "--provider-cycle-caps",
         FrozenArtifactName.EXECUTION_POLICY: "--execution-policy",
         FrozenArtifactName.LABELING_POLICY: "--labeling-policy",
         FrozenArtifactName.COHORT_POLICY: "--cohort-policy",
@@ -173,9 +176,82 @@ def test_freeze_cli_creates_policy_bound_artifact_bundle(tmp_path: Path) -> None
     }
 
 
+def test_generate_execution_policy_cli_rejects_legacy_caps_without_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    caps_path = artifact_paths[FrozenArtifactName.PROVIDER_CYCLE_CAPS]
+    _write_legacy_provider_caps(caps_path)
+    execution = json.loads(
+        artifact_paths[FrozenArtifactName.EXECUTION_POLICY].read_text(encoding="utf-8")
+    )
+    decisions_path = tmp_path / "execution-decisions.json"
+    decisions_path.write_text(json.dumps(execution["policy"]), encoding="utf-8")
+    output_path = tmp_path / "generated-execution-policy.json"
+
+    result = cli_freeze(
+        [
+            "generate-execution-policy",
+            "--decisions",
+            str(decisions_path),
+            "--provider-cycle-caps",
+            str(caps_path),
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert result == 1
+    assert capsys.readouterr().err == (
+        "provider cycle caps artifact lacks spend_authority\n"
+    )
+    assert not output_path.exists()
+
+
+def test_freeze_cli_rejects_legacy_caps_without_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_legacy_provider_caps(artifact_paths[FrozenArtifactName.PROVIDER_CYCLE_CAPS])
+    flags = {
+        FrozenArtifactName.MANIFEST: "--manifest",
+        FrozenArtifactName.UNITS: "--units",
+        FrozenArtifactName.LABELS: "--labels",
+        FrozenArtifactName.PROMPT: "--prompt",
+        FrozenArtifactName.SCORER: "--scorer",
+        FrozenArtifactName.HARNESS: "--harness",
+        FrozenArtifactName.MODEL_REGISTRY: "--model-registry",
+        FrozenArtifactName.BASELINES: "--baselines",
+        FrozenArtifactName.EXCLUSION_LEDGER: "--exclusion-ledger",
+        FrozenArtifactName.PROVIDER_CYCLE_CAPS: "--provider-cycle-caps",
+        FrozenArtifactName.EXECUTION_POLICY: "--execution-policy",
+        FrozenArtifactName.LABELING_POLICY: "--labeling-policy",
+        FrozenArtifactName.COHORT_POLICY: "--cohort-policy",
+    }
+    artifact_args = [
+        value
+        for name, flag in flags.items()
+        for value in (flag, str(artifact_paths[name]))
+    ]
+
+    result = cli_freeze(["cycle_fixture", *artifact_args])
+
+    assert result == 1
+    assert capsys.readouterr().err == (
+        "invalid policy artifact: provider cycle caps artifact lacks spend_authority\n"
+    )
+
+
 @pytest.mark.parametrize(
     "missing_flag",
-    ("--execution-policy", "--labeling-policy", "--cohort-policy"),
+    (
+        "--provider-cycle-caps",
+        "--execution-policy",
+        "--labeling-policy",
+        "--cohort-policy",
+    ),
 )
 def test_freeze_cli_requires_every_policy_artifact(
     tmp_path: Path, missing_flag: str
@@ -191,6 +267,7 @@ def test_freeze_cli_requires_every_policy_artifact(
         FrozenArtifactName.MODEL_REGISTRY: "--model-registry",
         FrozenArtifactName.BASELINES: "--baselines",
         FrozenArtifactName.EXCLUSION_LEDGER: "--exclusion-ledger",
+        FrozenArtifactName.PROVIDER_CYCLE_CAPS: "--provider-cycle-caps",
         FrozenArtifactName.EXECUTION_POLICY: "--execution-policy",
         FrozenArtifactName.LABELING_POLICY: "--labeling-policy",
         FrozenArtifactName.COHORT_POLICY: "--cohort-policy",
@@ -212,6 +289,45 @@ def test_freeze_rejects_policy_hash_link_mismatch(tmp_path: Path) -> None:
     )
 
     with pytest.raises(FreezeProtocolError, match="labeling_policy_sha256"):
+        freeze_cycle("cycle_fixture", artifact_paths)
+
+
+def test_freeze_rejects_missing_provider_cycle_caps(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    del artifact_paths[FrozenArtifactName.PROVIDER_CYCLE_CAPS]
+
+    with pytest.raises(
+        MissingFreezeArtifactError,
+        match="provider_cycle_caps",
+    ):
+        freeze_cycle("cycle_fixture", artifact_paths)
+
+
+def test_freeze_rejects_raw_provider_cycle_caps_tampering(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    artifact_paths[FrozenArtifactName.PROVIDER_CYCLE_CAPS].write_bytes(
+        artifact_paths[FrozenArtifactName.PROVIDER_CYCLE_CAPS].read_bytes() + b"\n"
+    )
+
+    with pytest.raises(FreezeProtocolError, match="provider cycle caps"):
+        freeze_cycle("cycle_fixture", artifact_paths)
+
+
+def test_freeze_rejects_execution_policy_cross_bound_to_other_caps(
+    tmp_path: Path,
+) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    execution_path = artifact_paths[FrozenArtifactName.EXECUTION_POLICY]
+    execution = json.loads(execution_path.read_text(encoding="utf-8"))
+    decisions = execution["policy"]
+    decisions["attempt_policy"]["failure_threshold"] = 4
+    cross_bound = generate_execution_policy(decisions)
+    execution_path.write_text(
+        f"{json.dumps(cross_bound, sort_keys=True, separators=(',', ':'))}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FreezeProtocolError, match="attempt_policy"):
         freeze_cycle("cycle_fixture", artifact_paths)
 
 
@@ -581,6 +697,7 @@ def _artifact_paths(tmp_path: Path) -> dict[FrozenArtifactName, Path]:
         FrozenArtifactName.MODEL_REGISTRY: tmp_path / "models.json",
         FrozenArtifactName.BASELINES: tmp_path / "baselines.json",
         FrozenArtifactName.EXCLUSION_LEDGER: tmp_path / "exclusion-ledger.jsonl",
+        FrozenArtifactName.PROVIDER_CYCLE_CAPS: tmp_path / "provider-cycle-caps.json",
         FrozenArtifactName.EXECUTION_POLICY: tmp_path / "execution-policy.json",
         FrozenArtifactName.LABELING_POLICY: tmp_path / "labeling-policy.json",
         FrozenArtifactName.COHORT_POLICY: tmp_path / "cohort-policy.json",
@@ -600,6 +717,37 @@ def _artifact_paths(tmp_path: Path) -> dict[FrozenArtifactName, Path]:
     }
     for name, payload in payloads.items():
         paths[name].write_text(payload, encoding="utf-8")
+    paths[FrozenArtifactName.PROVIDER_CYCLE_CAPS].write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.provider_cycle_caps.v1",
+                "cycle_id": "cycle_fixture",
+                "spend_authority": {
+                    "backend": "dynamodb",
+                    "resource_identity_sha256": "e" * 64,
+                    "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                    "max_billable_attempts": 2,
+                    "failure_threshold": 3,
+                    "failure_window_seconds": 300,
+                },
+                "providers": [
+                    {
+                        "provider": "openai",
+                        "account": "primary",
+                        "cycle_reservation_cap_usd": "1000.00",
+                        "external_spend_limit_usd": "1000.00",
+                        "external_limit_scope": "test account",
+                        "external_limit_source": "test fixture",
+                        "verified_at": "2026-05-12T16:00:00Z",
+                    }
+                ],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     labeling = generate_labeling_policy(
         cycle_id="cycle_fixture",
         judge_registry_path=(
@@ -654,8 +802,22 @@ def _artifact_paths(tmp_path: Path) -> dict[FrozenArtifactName, Path]:
                 "result_commitment_required": True,
             },
             "attempt_policy": {
-                "reservation_ledger_sha256": "d" * 64,
+                "authority_backend": "dynamodb",
+                "authority_resource_identity_sha256": "e" * 64,
+                "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                "provider_account_caps": [
+                    {
+                        "provider": "openai",
+                        "account": "primary",
+                        "cap_microusd": 1_000_000_000,
+                    }
+                ],
+                "reservation_ledger_sha256": sha256_file(
+                    paths[FrozenArtifactName.PROVIDER_CYCLE_CAPS]
+                ),
                 "max_billable_attempts": 2,
+                "failure_threshold": 3,
+                "failure_window_seconds": 300,
             },
             "repeat_policy": {"case_ids": ["case-1"], "count": 1},
             "cadence_counts": {
@@ -670,6 +832,14 @@ def _artifact_paths(tmp_path: Path) -> dict[FrozenArtifactName, Path]:
         encoding="utf-8",
     )
     return paths
+
+
+def _write_legacy_provider_caps(path: Path) -> None:
+    caps = json.loads(path.read_text(encoding="utf-8"))
+    del caps["spend_authority"]
+    for provider in caps["providers"]:
+        del provider["account"]
+    path.write_text(json.dumps(caps), encoding="utf-8")
 
 
 def _cohort_decisions() -> dict[str, object]:
@@ -772,7 +942,7 @@ def _write_registry(
 ) -> None:
     prices = input_price_by_model or {}
     releases = release_by_model or {}
-    records: list[dict[str, object]] = [
+    records: list[dict[str, Any]] = [
         {
             "provider": "example",
             "model_id": model_id,

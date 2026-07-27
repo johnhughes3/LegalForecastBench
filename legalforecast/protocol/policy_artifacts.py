@@ -221,6 +221,78 @@ def policy_content_sha256(policy: Mapping[str, Any]) -> str:
     return _hash(policy)
 
 
+def execution_policy_runtime_binding(
+    artifact: Mapping[str, Any],
+    *,
+    execution_policy_sha256: str,
+    provider: str,
+    account: str | None = None,
+) -> dict[str, Any]:
+    """Return the provider's exact frozen spend-policy commitment."""
+
+    policy = execution_policy_content(artifact)
+    attempts = _object(policy.get("attempt_policy"), "attempt_policy")
+    normalized_provider = _text(provider, "provider").lower()
+    matches = [
+        cap
+        for cap in _object_list(
+            attempts.get("provider_account_caps"),
+            "attempt_policy.provider_account_caps",
+        )
+        if cap.get("provider") == normalized_provider
+    ]
+    if len(matches) != 1:
+        raise PolicyArtifactError(
+            "execution policy must contain exactly one cap for selected provider"
+        )
+    cap = matches[0]
+    frozen_account = _text(cap.get("account"), "account")
+    if account is not None and _text(account, "account") != frozen_account:
+        raise PolicyArtifactError(
+            "execution policy account does not match expected provider account"
+        )
+    return {
+        "schema_version": "legalforecast.execution_policy_runtime_binding.v1",
+        "execution_policy_sha256": _sha(
+            execution_policy_sha256,
+            "execution_policy_sha256",
+        ),
+        "reservation_ledger_sha256": _sha(
+            attempts.get("reservation_ledger_sha256"),
+            "reservation_ledger_sha256",
+        ),
+        "authority_backend": _text(
+            attempts.get("authority_backend"),
+            "authority_backend",
+        ),
+        "authority_resource_identity_sha256": _sha(
+            attempts.get("authority_resource_identity_sha256"),
+            "authority_resource_identity_sha256",
+        ),
+        "ledger_scope_fields": list(
+            _string_list(
+                attempts.get("ledger_scope_fields"),
+                "attempt_policy.ledger_scope_fields",
+            )
+        ),
+        "provider": normalized_provider,
+        "account": frozen_account,
+        "cap_microusd": _positive_int(cap.get("cap_microusd"), "cap_microusd"),
+        "max_billable_attempts": _positive_int(
+            attempts.get("max_billable_attempts"),
+            "max_billable_attempts",
+        ),
+        "failure_threshold": _positive_int(
+            attempts.get("failure_threshold"),
+            "failure_threshold",
+        ),
+        "failure_window_seconds": _positive_int(
+            attempts.get("failure_window_seconds"),
+            "failure_window_seconds",
+        ),
+    }
+
+
 def require_dispatch_policy_match(
     artifact: Mapping[str, Any],
     *,
@@ -429,11 +501,67 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
     attempts = _object(policy.get("attempt_policy"), "attempt_policy")
     _exact_keys(
         attempts,
-        {"reservation_ledger_sha256", "max_billable_attempts"},
+        {
+            "authority_backend",
+            "authority_resource_identity_sha256",
+            "ledger_scope_fields",
+            "provider_account_caps",
+            "reservation_ledger_sha256",
+            "max_billable_attempts",
+            "failure_threshold",
+            "failure_window_seconds",
+        },
         "attempt_policy",
+    )
+    if attempts.get("authority_backend") != "dynamodb":
+        raise PolicyArtifactError("attempt_policy.authority_backend must be dynamodb")
+    _sha(
+        attempts.get("authority_resource_identity_sha256"),
+        "authority_resource_identity_sha256",
+    )
+    ledger_scope_fields = _string_list(
+        attempts.get("ledger_scope_fields"),
+        "attempt_policy.ledger_scope_fields",
+    )
+    if ledger_scope_fields != ("cycle_id", "provider", "account"):
+        raise PolicyArtifactError(
+            "attempt_policy.ledger_scope_fields must share one ledger across stages"
+        )
+    provider_account_caps = _object_list(
+        attempts.get("provider_account_caps"),
+        "attempt_policy.provider_account_caps",
+    )
+    if not provider_account_caps:
+        raise PolicyArtifactError(
+            "attempt_policy.provider_account_caps must not be empty"
+        )
+    normalized_caps: list[dict[str, Any]] = []
+    for index, cap in enumerate(provider_account_caps):
+        name = f"attempt_policy.provider_account_caps[{index}]"
+        _exact_keys(cap, {"provider", "account", "cap_microusd"}, name)
+        normalized_caps.append(
+            {
+                "provider": _text(cap.get("provider"), f"{name}.provider").lower(),
+                "account": _text(cap.get("account"), f"{name}.account"),
+                "cap_microusd": _positive_int(
+                    cap.get("cap_microusd"),
+                    f"{name}.cap_microusd",
+                ),
+            }
+        )
+    providers = {cap["provider"] for cap in normalized_caps}
+    if len(providers) != len(normalized_caps):
+        raise PolicyArtifactError(
+            "attempt_policy.provider_account_caps contains a provider more than once"
+        )
+    cast(dict[str, Any], attempts)["provider_account_caps"] = sorted(
+        normalized_caps,
+        key=lambda cap: (cap["provider"], cap["account"]),
     )
     _sha(attempts.get("reservation_ledger_sha256"), "reservation_ledger_sha256")
     _positive_int(attempts.get("max_billable_attempts"), "max_billable_attempts")
+    _positive_int(attempts.get("failure_threshold"), "failure_threshold")
+    _positive_int(attempts.get("failure_window_seconds"), "failure_window_seconds")
 
     repeat = _object(policy.get("repeat_policy"), "repeat_policy")
     _exact_keys(repeat, {"case_ids", "count"}, "repeat_policy")

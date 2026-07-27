@@ -103,6 +103,10 @@ class _ResumedPolicyMismatchError(PerCaseRunnerError):
     """Raised when durable outputs do not match the frozen repeat policy."""
 
 
+class _ResumedExecutionPolicyMismatchError(PerCaseRunnerError):
+    """Raised when durable outputs lack the exact current spend-policy binding."""
+
+
 class PacketManifestError(PerCaseRunnerError):
     """Raised when the runner input manifest is missing or unsafe."""
 
@@ -141,6 +145,9 @@ class PerCaseRunnerConfig:
     evaluation_timestamp: datetime | None = None
     timeout_seconds: float = 120.0
     resume_existing: bool = False
+    provider_authority_table: str | None = None
+    provider_account: str | None = None
+    provider_authority_region: str = "us-east-1"
 
     def __post_init__(self) -> None:
         for value, field_name in (
@@ -171,6 +178,7 @@ class PerCaseRunnerConfig:
                 "expected_execution_policy_sha256",
             ),
             (self.workflow_run_id, "workflow_run_id"),
+            (self.provider_account, "provider_account"),
         ):
             if value is not None and not value.strip():
                 raise ValueError(f"{field_name} must not be blank")
@@ -191,6 +199,15 @@ class PerCaseRunnerConfig:
                 "live backend requires pre-fanout packet identity "
                 "(expected_packet_object_key and expected_packet_sha256)"
             )
+        if self.backend is PerCaseExecutionBackend.LIVE:
+            for value, field_name in (
+                (self.execution_policy_uri, "execution_policy_uri"),
+                (self.provider_authority_table, "provider_authority_table"),
+            ):
+                if value is None or not value.strip():
+                    raise ValueError(f"{field_name} is required for live backend")
+        if not self.provider_authority_region.strip():
+            raise ValueError("provider_authority_region must not be blank")
         if self.expected_packet_object_key is not None:
             _ensure_packet_key(self.expected_packet_object_key)
         if self.expected_packet_sha256 is not None:
@@ -283,6 +300,15 @@ class _RepeatPolicyBinding:
     execution_policy_sha256: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class _VerifiedExecutionPolicy:
+    """One raw execution-policy artifact verified before paid resume or execution."""
+
+    policy: Mapping[str, Any]
+    attempt_policy: Mapping[str, Any]
+    runtime_binding: Mapping[str, Any]
+
+
 def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
     """Fetch, verify, run, clean up, and publish one model-visible packet shard."""
 
@@ -316,7 +342,11 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 packet_object.cycle_id or _optional_manifest_cycle_id(manifest)
             ),
         )
-        registry_entry, model_registry_sha256 = _optional_registry_entry(config)
+        (
+            registry_entry,
+            model_registry_sha256,
+            registry_release_anchor_date,
+        ) = _optional_registry_entry(config)
         registry_entry_sha256 = (
             model_registry_entry_sha256(registry_entry)
             if registry_entry is not None
@@ -336,6 +366,17 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             repeat_policy_sha256=repeat_policy.sha256,
         )
         output_keys = _output_keys(packet_object, run_id=run_id)
+        cycle_id = packet_object.cycle_id or _optional_manifest_cycle_id(manifest)
+        verified_execution_policy = _verified_execution_policy_for_config(
+            config,
+            registry_entry=registry_entry,
+            cycle_id=cycle_id,
+        )
+        execution_policy_binding = (
+            verified_execution_policy.runtime_binding
+            if verified_execution_policy is not None
+            else None
+        )
         log(
             "manifest_selected",
             manifest_uri=config.manifest_uri,
@@ -356,6 +397,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 model_registry_sha256=model_registry_sha256,
                 model_registry_entry_sha256=registry_entry_sha256,
                 repeat_policy=repeat_policy,
+                execution_policy_binding=execution_policy_binding,
                 log=log,
             )
             if resumed is not None:
@@ -395,7 +437,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             _validate_packet_release_anchor(
                 packet,
                 packet_object=packet_object,
-                config=config,
+                release_anchor_date=registry_release_anchor_date,
             )
 
             samples = build_inspect_samples(
@@ -409,6 +451,8 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 config,
                 registry_entry=registry_entry,
                 model_registry_sha256=model_registry_sha256,
+                cycle_id=cycle_id,
+                verified_execution_policy=verified_execution_policy,
             )
             run = run_inspect_fixture(
                 samples,
@@ -452,6 +496,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             model_registry_sha256=model_registry_sha256,
             model_registry_entry_sha256=registry_entry_sha256,
             repeat_policy=repeat_policy,
+            execution_policy_binding=execution_policy_binding,
         )
         _write_json(metrics_path, metrics)
         local_paths = (runs_path, accounting_path, metrics_path, log_path)
@@ -560,6 +605,7 @@ def _try_resume_existing_outputs(
     model_registry_sha256: str | None,
     model_registry_entry_sha256: str | None,
     repeat_policy: _RepeatPolicyBinding,
+    execution_policy_binding: Mapping[str, Any] | None,
     log: Any,
 ) -> PerCaseRunArtifacts | None:
     existing = _read_existing_output_bytes(config, output_keys=output_keys, log=log)
@@ -584,11 +630,16 @@ def _try_resume_existing_outputs(
             model_registry_sha256=model_registry_sha256,
             model_registry_entry_sha256=model_registry_entry_sha256,
             repeat_policy=repeat_policy,
+            execution_policy_binding=execution_policy_binding,
             runs=runs,
             accounting=accounting,
             metrics=metrics,
         )
-    except (_ResumedRegistryMismatchError, _ResumedPolicyMismatchError) as exc:
+    except (
+        _ResumedRegistryMismatchError,
+        _ResumedPolicyMismatchError,
+        _ResumedExecutionPolicyMismatchError,
+    ) as exc:
         log(
             "resume_existing_rejected",
             run_id=run_id,
@@ -887,6 +938,7 @@ def _validate_resumed_outputs(
     model_registry_sha256: str | None,
     model_registry_entry_sha256: str | None,
     repeat_policy: _RepeatPolicyBinding,
+    execution_policy_binding: Mapping[str, Any] | None,
     runs: Sequence[Mapping[str, Any]],
     accounting: Sequence[Mapping[str, Any]],
     metrics: Mapping[str, Any],
@@ -897,6 +949,17 @@ def _validate_resumed_outputs(
         raise PerCaseRunnerError("resumed accounting artifact is empty")
     if required_str(metrics, "schema_version") != "legalforecast.per_case_metrics.v1":
         raise PerCaseRunnerError("resumed metrics schema version is invalid")
+    if execution_policy_binding is not None:
+        stored_binding = metrics.get("execution_policy_binding")
+        if not isinstance(stored_binding, Mapping):
+            raise _ResumedExecutionPolicyMismatchError(
+                "resumed metrics execution policy binding does not match"
+            )
+        typed_stored_binding = cast(Mapping[str, Any], stored_binding)
+        if dict(typed_stored_binding) != dict(execution_policy_binding):
+            raise _ResumedExecutionPolicyMismatchError(
+                "resumed metrics execution policy binding does not match"
+            )
     expected_cycle_id = packet_object.cycle_id
     if (
         expected_cycle_id is not None
@@ -1183,6 +1246,7 @@ def _metrics_record(
     model_registry_sha256: str | None,
     model_registry_entry_sha256: str | None,
     repeat_policy: _RepeatPolicyBinding,
+    execution_policy_binding: Mapping[str, Any] | None,
 ) -> JsonRecord:
     raw_output_hashes = [
         required_str(record, "raw_output_sha256") for record in run_records
@@ -1191,7 +1255,7 @@ def _metrics_record(
         len(cast(Sequence[object], record.get("tool_call_logs", ())))
         for record in run_records
     )
-    return {
+    metrics: JsonRecord = {
         "schema_version": "legalforecast.per_case_metrics.v1",
         "run_id": run_id,
         "cycle_id": packet_object.cycle_id,
@@ -1219,6 +1283,9 @@ def _metrics_record(
             run_records
         ),
     }
+    if execution_policy_binding is not None:
+        metrics["execution_policy_binding"] = dict(execution_policy_binding)
+    return metrics
 
 
 def _require_publishable_response_verification(
@@ -1426,15 +1493,12 @@ def _validate_packet_release_anchor(
     packet: ModelPacket,
     *,
     packet_object: ModelPacketObject,
-    config: PerCaseRunnerConfig,
+    release_anchor_date: date | None,
 ) -> None:
     """Re-verify packet decision-date eligibility against the frozen registry."""
 
-    if config.model_registry_uri is None:
+    if release_anchor_date is None:
         return
-    registry, _digest = _load_model_registry_uri(config.model_registry_uri)
-    official_entries = require_official_registry_entries(registry.entries)
-    release_anchor_date = earliest_eligible_decision_date(official_entries)
     packet_decision_date = _packet_decision_date(packet, packet_object=packet_object)
     if packet_decision_date is None:
         raise PerCaseRunnerError(
@@ -1483,19 +1547,19 @@ def _optional_iso_date(value: str | None, field_name: str) -> date | None:
 
 def _optional_registry_entry(
     config: PerCaseRunnerConfig,
-) -> tuple[ModelRegistryEntry | None, str | None]:
+) -> tuple[ModelRegistryEntry | None, str | None, date | None]:
     if config.model_registry_uri is None:
-        return None, None
+        return None, None, None
     registry, digest = _load_model_registry_uri(config.model_registry_uri)
-    if config.backend is PerCaseExecutionBackend.LIVE:
-        require_official_registry_entries(registry.entries)
+    official_entries = require_official_registry_entries(registry.entries)
+    release_anchor_date = earliest_eligible_decision_date(official_entries)
     if config.model_key is None:
         raise PerCaseRunnerError("model_key is required with model_registry_uri")
     provider, separator, model_id = config.model_key.partition(":")
     if separator != ":" or not provider or not model_id:
         raise PerCaseRunnerError("model_key must use provider:model_id")
     try:
-        return registry.get(provider, model_id), digest
+        return registry.get(provider, model_id), digest, release_anchor_date
     except KeyError as exc:
         raise PerCaseRunnerError(
             f"model_key not found in model registry: {config.model_key}"
@@ -1564,11 +1628,61 @@ def _load_model_registry_uri(uri: str) -> tuple[ModelRegistry, str]:
     return load_model_registry(path), sha256_file(path)
 
 
+def _verified_execution_policy_for_config(
+    config: PerCaseRunnerConfig,
+    *,
+    registry_entry: ModelRegistryEntry | None,
+    cycle_id: str | None,
+) -> _VerifiedExecutionPolicy | None:
+    """Verify exact policy bytes before examining any paid resume artifacts."""
+
+    if config.backend is PerCaseExecutionBackend.FIXTURE:
+        return None
+    if registry_entry is None:
+        raise PerCaseRunnerError("live backend requires a model registry entry")
+    if cycle_id is None:
+        raise PerCaseRunnerError("live backend requires a frozen cycle_id")
+    try:
+        from legalforecast.protocol.policy_artifacts import (
+            execution_policy_content,
+            execution_policy_runtime_binding,
+            verify_execution_policy,
+        )
+
+        payload = _read_uri_bytes(cast(str, config.execution_policy_uri))
+        loaded: object = json.loads(payload.decode("utf-8"))
+        if not isinstance(loaded, Mapping):
+            raise ValueError("artifact must be a JSON object")
+        artifact = cast(Mapping[str, Any], loaded)
+        verify_execution_policy(
+            artifact,
+            expected_cycle_id=cycle_id,
+            expected_sha256=config.expected_execution_policy_sha256,
+        )
+        policy = execution_policy_content(artifact)
+        attempt_policy = _mapping(policy.get("attempt_policy"), "attempt_policy")
+        binding = execution_policy_runtime_binding(
+            artifact,
+            execution_policy_sha256=hashlib.sha256(payload).hexdigest(),
+            provider=registry_entry.provider,
+            account=config.provider_account,
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise PerCaseRunnerError(f"invalid execution policy: {exc}") from exc
+    return _VerifiedExecutionPolicy(
+        policy=policy,
+        attempt_policy=attempt_policy,
+        runtime_binding=binding,
+    )
+
+
 def _solver_for_config(
     config: PerCaseRunnerConfig,
     *,
     registry_entry: ModelRegistryEntry | None,
     model_registry_sha256: str | None,
+    cycle_id: str | None,
+    verified_execution_policy: _VerifiedExecutionPolicy | None = None,
 ) -> Any:
     if config.backend is PerCaseExecutionBackend.FIXTURE:
         if registry_entry is None:
@@ -1589,15 +1703,101 @@ def _solver_for_config(
         )
     if registry_entry is None:
         raise PerCaseRunnerError("live backend requires a model registry entry")
+    if cycle_id is None:
+        raise PerCaseRunnerError("live backend requires a frozen cycle_id")
     try:
         from legalforecast.evals.live_model_solver import LiveModelSolver
+        from legalforecast.evals.provider_spend_attempt_handler import (
+            ProviderSpendAttemptHandler,
+            conservative_reservation_microusd,
+        )
+        from legalforecast.evals.provider_spend_control import (
+            FrozenAttemptPolicy,
+            ProviderSpendKey,
+        )
+        from legalforecast.evals.provider_spend_dynamodb import (
+            DynamoDbProviderSpendAuthority,
+        )
     except ImportError as exc:  # pragma: no cover - defensive for partial installs.
         raise PerCaseRunnerError("live model solver is not available") from exc
+    verified = verified_execution_policy or _verified_execution_policy_for_config(
+        config,
+        registry_entry=registry_entry,
+        cycle_id=cycle_id,
+    )
+    if verified is None:  # pragma: no cover - live backend cannot produce None.
+        raise PerCaseRunnerError("live backend requires an execution policy")
+    attempt_policy = verified.attempt_policy
+    account = required_str(verified.runtime_binding, "account")
+    cap_microusd = required_int(verified.runtime_binding, "cap_microusd")
+    frozen_attempt_policy = FrozenAttemptPolicy(
+        reservation_ledger_sha256=required_str(
+            attempt_policy,
+            "reservation_ledger_sha256",
+        ),
+        max_billable_attempts=required_int(
+            attempt_policy,
+            "max_billable_attempts",
+        ),
+        failure_threshold=required_int(attempt_policy, "failure_threshold"),
+        failure_window_seconds=required_int(
+            attempt_policy,
+            "failure_window_seconds",
+        ),
+    )
+    authority = DynamoDbProviderSpendAuthority(
+        table_name=cast(str, config.provider_authority_table),
+        authority_identity_sha256=required_str(
+            attempt_policy,
+            "authority_resource_identity_sha256",
+        ),
+        cycle_id=cycle_id,
+        provider=registry_entry.provider,
+        account=account,
+        cap_microusd=cap_microusd,
+        policy=frozen_attempt_policy,
+        region=config.provider_authority_region,
+    )
+    reservation_microusd = conservative_reservation_microusd(
+        context_limit=registry_entry.context_limit,
+        max_output_tokens=registry_entry.max_output_tokens,
+        input_token_price=registry_entry.input_token_price,
+        output_token_price=registry_entry.output_token_price,
+    )
+
+    def attempt_handler_factory(request: Any) -> ProviderSpendAttemptHandler:
+        sample = request.sample
+        return ProviderSpendAttemptHandler(
+            authority=authority,
+            key=ProviderSpendKey(
+                cycle_id=cycle_id,
+                provider=registry_entry.provider,
+                account=account,
+                stage="official-eval",
+                model_key=registry_entry.registry_key,
+                case_id=sample.packet.case_id,
+                ablation=sample.packet.ablation.value,
+                repeat_index=_sample_repeat_index(sample.sample_id),
+            ),
+            reservation_microusd=reservation_microusd,
+        )
+
     return LiveModelSolver(
         registry_entry=registry_entry,
         model_registry_sha256=model_registry_sha256,
         timeout_seconds=config.timeout_seconds,
+        max_attempts=frozen_attempt_policy.max_billable_attempts,
+        attempt_handler_factory=attempt_handler_factory,
     )
+
+
+def _sample_repeat_index(sample_id: str) -> int:
+    if "__repeat_" not in sample_id:
+        return 1
+    suffix = sample_id.rsplit("__repeat_", 1)[1]
+    if not suffix.isdigit() or int(suffix) <= 0:
+        raise PerCaseRunnerError(f"invalid repeat sample_id suffix: {sample_id}")
+    return int(suffix)
 
 
 def _reject_restricted_packet_references(value: object) -> None:

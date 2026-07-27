@@ -28,6 +28,36 @@ variable "github_oidc_provider_arn" {
   }
 }
 
+variable "provider_authority_table_arn" {
+  description = "Exact DynamoDB table ARN for official-evaluation provider attempt authority."
+  type        = string
+
+  validation {
+    condition = (
+      can(regex(
+        "^arn:aws[a-zA-Z-]*:dynamodb:[a-z0-9-]+:[0-9]{12}:table/[A-Za-z0-9_.-]{3,255}$",
+        var.provider_authority_table_arn,
+      )) &&
+      !strcontains(var.provider_authority_table_arn, "*") &&
+      !strcontains(var.provider_authority_table_arn, "?")
+    )
+    error_message = "provider_authority_table_arn must be one exact DynamoDB table ARN without wildcards."
+  }
+}
+
+variable "provider_authority_resource_identity_sha256" {
+  description = "Frozen lowercase SHA-256 commitment of provider_authority_table_arn."
+  type        = string
+
+  validation {
+    condition = can(regex(
+      "^[0-9a-f]{64}$",
+      var.provider_authority_resource_identity_sha256,
+    ))
+    error_message = "provider_authority_resource_identity_sha256 must be 64 lowercase hexadecimal characters."
+  }
+}
+
 variable "packet_bucket_name" {
   description = "Existing private S3 bucket containing model-visible packets."
   type        = string

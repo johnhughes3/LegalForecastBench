@@ -12,6 +12,9 @@ locals {
   fan_in_subject = (
     "${local.github_subject_prefix}:environment:${local.fan_in_environment_name}"
   )
+  computed_provider_authority_resource_identity_sha256 = sha256(
+    var.provider_authority_table_arn
+  )
 
   cell_trust_policy_json = templatefile(
     "${path.module}/policies/github-oidc-trust.json.tftpl",
@@ -37,6 +40,12 @@ locals {
     {
       packet_bucket_arn  = aws_s3_bucket.packet.arn
       results_bucket_arn = aws_s3_bucket.results.arn
+    },
+  )
+  cell_provider_authority_policy_json = templatefile(
+    "${path.module}/policies/cell-provider-authority-policy.json.tftpl",
+    {
+      provider_authority_table_arn = var.provider_authority_table_arn
     },
   )
   bedrock_invoke_model_statements = concat(

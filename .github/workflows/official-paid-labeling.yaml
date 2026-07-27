@@ -1,0 +1,235 @@
+name: Official protected paid labeling
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Exact paid labeling stage
+        required: true
+        type: choice
+        options:
+          - llm-unitize
+          - llm-review-stage-a
+          - llm-label-provider-shard
+      provider:
+        description: Provider isolated in this job
+        required: true
+        type: choice
+        options:
+          - anthropic
+          - google
+          - openai
+      release_sha:
+        description: Full trusted commit SHA on main
+        required: true
+        type: string
+      job_artifact_run_id:
+        description: Workflow run containing the sealed paid-labeling job artifact
+        required: true
+        type: string
+      job_artifact_name:
+        description: Exact private Actions artifact name
+        required: true
+        type: string
+      job_manifest_sha256:
+        description: Lowercase SHA-256 of official-paid-labeling-job.json
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-paid-labeling
+  cancel-in-progress: false
+
+jobs:
+  authorize-boundary:
+    name: Authorize exact stage and provider boundary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      environment_name: ${{ steps.boundary.outputs.environment_name }}
+    steps:
+      - name: Resolve reviewed protected environment
+        id: boundary
+        shell: bash
+        env:
+          PROVIDER: ${{ inputs.provider }}
+          STAGE: ${{ inputs.stage }}
+        run: |
+          set -euo pipefail
+          case "${STAGE}:${PROVIDER}" in
+            llm-unitize:anthropic)
+              environment_name="legalforecastbench-official-labeling-anthropic-unitize"
+              ;;
+            llm-review-stage-a:google)
+              environment_name="legalforecastbench-official-labeling-google-review"
+              ;;
+            llm-label-provider-shard:openai)
+              environment_name="legalforecastbench-official-labeling-openai-label"
+              ;;
+            llm-label-provider-shard:google)
+              environment_name="legalforecastbench-official-labeling-google-label"
+              ;;
+            *)
+              echo "Stage/provider pair is outside the reviewed paid-labeling allowlist." >&2
+              exit 1
+              ;;
+          esac
+          echo "environment_name=${environment_name}" >> "${GITHUB_OUTPUT}"
+
+  run-provider-stage:
+    name: Run ${{ inputs.stage }} / ${{ inputs.provider }}
+    needs: authorize-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: ${{ needs.authorize-boundary.outputs.environment_name }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      JOB_ROOT: ${{ github.workspace }}/.official-paid-labeling-job
+      LFB_GITHUB_LABELING_ROLE_ARN: ${{ vars.LFB_GITHUB_LABELING_ROLE_ARN }}
+      LFB_PROVIDER_ACCOUNT_ALIAS: ${{ vars.LFB_PROVIDER_ACCOUNT_ALIAS }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+    steps:
+      - name: Checkout trusted release
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.release_sha }}
+
+      - name: Validate immutable release and protected values
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]] || [[ "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
+            echo "release_sha must be the exact checked-out full commit SHA." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "${RELEASE_SHA}" origin/main || {
+            echo "release_sha must be reachable from origin/main." >&2
+            exit 1
+          }
+          missing=()
+          for name in \
+            LFB_GITHUB_LABELING_ROLE_ARN \
+            LFB_PROVIDER_ACCOUNT_ALIAS \
+            LFB_PROVIDER_AUTHORITY_TABLE; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing protected paid-labeling values:\n' >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+          if [[ ! "${LFB_GITHUB_LABELING_ROLE_ARN}" =~ ^arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/.+ ]]; then
+            echo "LFB_GITHUB_LABELING_ROLE_ARN must be an IAM role ARN." >&2
+            exit 1
+          fi
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
+        with:
+          enable-cache: true
+
+      - name: Download sealed paid-labeling job
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          name: ${{ inputs.job_artifact_name }}
+          path: ${{ env.JOB_ROOT }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.job_artifact_run_id }}
+
+      - name: Verify sealed job manifest commitment
+        shell: bash
+        env:
+          EXPECTED_SHA256: ${{ inputs.job_manifest_sha256 }}
+        run: |
+          set -euo pipefail
+          manifest="${JOB_ROOT}/official-paid-labeling-job.json"
+          if [[ ! "${EXPECTED_SHA256}" =~ ^[0-9a-f]{64}$ ]] || [[ ! -f "${manifest}" ]] || [[ -L "${manifest}" ]]; then
+            echo "The sealed paid-labeling job manifest is missing or invalid." >&2
+            exit 1
+          fi
+          printf '%s  %s\n' "${EXPECTED_SHA256}" "${manifest}" | sha256sum --check --strict
+
+      - name: Configure exact-table labeling AWS authority
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 7200
+          role-session-name: lfb-label-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_LABELING_ROLE_ARN }}
+
+      - name: Run isolated paid-labeling stage
+        shell: bash
+        env:
+          LFB_PROVIDER_API_KEY: ${{ secrets.PROVIDER_API_KEY }}
+          PROVIDER: ${{ inputs.provider }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          STAGE: ${{ inputs.stage }}
+        run: |
+          set -euo pipefail
+          [[ -n "${LFB_PROVIDER_API_KEY:-}" ]] || {
+            echo "The protected environment lacks PROVIDER_API_KEY." >&2
+            exit 1
+          }
+          case "${PROVIDER}" in
+            anthropic)
+              export ANTHROPIC_API_KEY="${LFB_PROVIDER_API_KEY}"
+              ;;
+            google)
+              export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"
+              ;;
+            openai)
+              export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"
+              ;;
+            *)
+              echo "Provider is outside the reviewed allowlist." >&2
+              exit 1
+              ;;
+          esac
+          uv run python -m legalforecast.labeling.official_paid_job \
+            --job-manifest "${JOB_ROOT}/official-paid-labeling-job.json" \
+            --job-root "${JOB_ROOT}" \
+            --release-sha "${RELEASE_SHA}" \
+            --stage "${STAGE}" \
+            --provider "${PROVIDER}" \
+            --provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}" \
+            --provider-authority-region "${AWS_REGION}" \
+            --expected-provider-account-alias "${LFB_PROVIDER_ACCOUNT_ALIAS}"
+
+      - name: Clear temporary credentials
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'AWS_ACCESS_KEY_ID='
+            echo 'AWS_SECRET_ACCESS_KEY='
+            echo 'AWS_SESSION_TOKEN='
+            echo 'AWS_SECURITY_TOKEN='
+          } >> "${GITHUB_ENV}"
+          unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
+
+      - name: Upload private paid-labeling result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: official-paid-labeling-${{ inputs.stage }}-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.JOB_ROOT }}
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
