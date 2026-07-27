@@ -128,6 +128,17 @@ class BudgetedFirecrawlRunResult:
     summary: Mapping[str, object]
 
 
+def _bound_or_resolved_path(path: Path) -> Path:
+    absolute = path.absolute()
+    if _is_bound_path(absolute):
+        return absolute
+    return path.resolve()
+
+
+def _is_bound_path(path: Path) -> bool:
+    return path.absolute().parts[:4] == ("/", "proc", "self", "fd")
+
+
 class BudgetedFirecrawlScheduler:
     """Run generic page targets with durable budget and retry checkpoints."""
 
@@ -161,7 +172,7 @@ class BudgetedFirecrawlScheduler:
         self.store = store
         self.source = source
         self.run_id = run_id
-        self.artifact_dir = Path(artifact_dir).resolve()
+        self.artifact_dir = _bound_or_resolved_path(Path(artifact_dir))
         self.max_attempts = max_attempts
         self.provider_5xx_circuit_threshold = provider_5xx_circuit_threshold
         self.max_workers = max_workers
@@ -170,7 +181,7 @@ class BudgetedFirecrawlScheduler:
         self.terminalize_abandoned_authorizations = terminalize_abandoned_authorizations
         self.sleeper = sleeper
         self.semantic_failure_quarantine_dir = (
-            Path(semantic_failure_quarantine_dir).resolve()
+            _bound_or_resolved_path(Path(semantic_failure_quarantine_dir))
             if semantic_failure_quarantine_dir is not None
             else None
         )
@@ -640,7 +651,17 @@ class BudgetedFirecrawlScheduler:
                         "committed artifact path mismatch for target "
                         f"{target.target_id!r}"
                     )
-            raw_html = _read_verified_artifact(attempt)
+            artifact_path = (
+                self.artifact_dir / attempt.artifact_path.name
+                if _is_bound_path(self.artifact_dir)
+                and self.artifact_path_resolver is None
+                and attempt.artifact_path is not None
+                else None
+            )
+            raw_html = _read_verified_artifact(
+                attempt,
+                artifact_path=artifact_path,
+            )
             successful[target.target_id] = _page_record(
                 target, attempt, raw_html=raw_html
             )
@@ -979,7 +1000,11 @@ def _page_record(
     )
 
 
-def _read_verified_artifact(attempt: FirecrawlAttempt) -> str:
+def _read_verified_artifact(
+    attempt: FirecrawlAttempt,
+    *,
+    artifact_path: Path | None = None,
+) -> str:
     if (
         attempt.artifact_path is None
         or attempt.artifact_sha256 is None
@@ -989,7 +1014,7 @@ def _read_verified_artifact(attempt: FirecrawlAttempt) -> str:
             f"successful attempt {attempt.attempt_id} has incomplete artifact metadata"
         )
     try:
-        raw = attempt.artifact_path.read_bytes()
+        raw = (artifact_path or attempt.artifact_path).read_bytes()
     except OSError as error:
         raise FirecrawlArtifactError(
             f"cannot read artifact for successful attempt {attempt.attempt_id}"

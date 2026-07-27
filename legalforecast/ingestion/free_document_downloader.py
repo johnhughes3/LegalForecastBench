@@ -340,16 +340,24 @@ class FreeDocumentReuseResult:
     destination_checkpoint_sha256: str
 
 
+def _bound_or_resolved_output_root(path: Path) -> Path:
+    absolute = path.absolute()
+    if absolute.parts[:4] == ("/", "proc", "self", "fd"):
+        return absolute
+    return path.resolve()
+
+
 def download_free_docket_documents(
     requests: tuple[FreeDocumentDownloadRequest, ...],
     *,
     output_root: str | Path,
     source: FreeDocumentSource,
     allow_existing: bool = True,
+    bound_output_directories: Mapping[str, Path] | None = None,
 ) -> tuple[FreeDocumentDownloadRecord, ...]:
     """Download or reuse free docket documents under deterministic safe paths."""
 
-    root = Path(output_root).resolve()
+    root = _bound_or_resolved_output_root(Path(output_root))
     root.mkdir(parents=True, exist_ok=True)
     _require_free_space(root, requests, source=source)
     checkpoint_path = root / ".download-checkpoint.jsonl"
@@ -358,12 +366,23 @@ def download_free_docket_documents(
         _reject_existing_outputs(requests, output_root=root)
     records: list[FreeDocumentDownloadRecord] = []
     for request in requests:
+        bound_directory = (
+            bound_output_directories.get(_request_key(request))
+            if bound_output_directories is not None
+            else None
+        )
+        if bound_output_directories is not None and bound_directory is None:
+            raise FreeDocumentDownloadError(
+                "bound document directory is missing for request: "
+                f"{request.candidate_id}/{request.source_document_id}"
+            )
         record = _download_one(
             request,
             output_root=root,
             source=source,
             allow_existing=allow_existing,
             expected=checkpoint.get(_request_key(request)),
+            bound_output_directory=bound_directory,
         )
         records.append(record)
         checkpoint[_request_key(request)] = record
@@ -1184,9 +1203,15 @@ def _download_one(
     source: FreeDocumentSource,
     allow_existing: bool,
     expected: FreeDocumentDownloadRecord | None,
+    bound_output_directory: Path | None = None,
 ) -> FreeDocumentDownloadRecord:
     _validate_public_document_url(request.source_url)
-    output_path = _document_output_path(output_root, request)
+    canonical_output_path = _document_output_path(output_root, request)
+    output_path = (
+        canonical_output_path
+        if bound_output_directory is None
+        else bound_output_directory / canonical_output_path.name
+    )
     if output_path.is_symlink() or output_path.exists():
         if (
             output_path.is_symlink()
@@ -1196,17 +1221,17 @@ def _download_one(
             raise FreeDocumentDownloadError(
                 "existing document artifact must be a singly linked regular "
                 "non-symlink file: "
-                f"{output_path.relative_to(output_root).as_posix()}"
+                f"{canonical_output_path.relative_to(output_root).as_posix()}"
             )
         if not allow_existing:
             raise FreeDocumentDownloadError(
                 "existing document artifact present while resume is disabled: "
-                f"{output_path.relative_to(output_root).as_posix()}"
+                f"{canonical_output_path.relative_to(output_root).as_posix()}"
             )
         if expected is None:
             raise FreeDocumentDownloadError(
                 "existing document artifact lacks a matching download checkpoint: "
-                f"{output_path.relative_to(output_root).as_posix()}"
+                f"{canonical_output_path.relative_to(output_root).as_posix()}"
             )
         if not _record_matches_request(expected, request, output_root=output_root):
             raise FreeDocumentDownloadError(
@@ -1217,7 +1242,7 @@ def _download_one(
         if expected.sha256 != digest or expected.byte_count != byte_count:
             raise FreeDocumentDownloadError(
                 "existing document artifact differs from its download checkpoint: "
-                f"{output_path.relative_to(output_root).as_posix()}"
+                f"{canonical_output_path.relative_to(output_root).as_posix()}"
             )
         return expected
     if isinstance(source, UrlLibFreeDocumentSource):
@@ -1226,6 +1251,7 @@ def _download_one(
             request,
             output_root=output_root,
             output_path=output_path,
+            canonical_output_path=canonical_output_path,
             fetch=fetch,
             reused_existing=False,
         )
@@ -1245,7 +1271,7 @@ def _download_one(
     return _record_for_content(
         request,
         output_root=output_root,
-        output_path=output_path,
+        canonical_output_path=canonical_output_path,
         content=fetch.content,
         fetch=fetch,
         reused_existing=False,
@@ -1329,6 +1355,7 @@ def _record_for_path(
     *,
     output_root: Path,
     output_path: Path,
+    canonical_output_path: Path | None = None,
     fetch: FreeDocumentFetch,
     reused_existing: bool,
 ) -> FreeDocumentDownloadRecord:
@@ -1340,7 +1367,9 @@ def _record_for_path(
         docket_entry_number=request.docket_entry_number,
         document_role=request.document_role,
         source_url=request.source_url,
-        local_path=output_path.relative_to(output_root).as_posix(),
+        local_path=(canonical_output_path or output_path)
+        .relative_to(output_root)
+        .as_posix(),
         sha256=digest,
         byte_count=byte_count,
         free_or_purchased="free",
@@ -1441,7 +1470,7 @@ def _record_for_content(
     request: FreeDocumentDownloadRequest,
     *,
     output_root: Path,
-    output_path: Path,
+    canonical_output_path: Path,
     content: bytes,
     fetch: FreeDocumentFetch,
     reused_existing: bool,
@@ -1453,7 +1482,7 @@ def _record_for_content(
         docket_entry_number=request.docket_entry_number,
         document_role=request.document_role,
         source_url=request.source_url,
-        local_path=output_path.relative_to(output_root).as_posix(),
+        local_path=canonical_output_path.relative_to(output_root).as_posix(),
         sha256=hashlib.sha256(content).hexdigest(),
         byte_count=len(content),
         free_or_purchased="free",
@@ -1598,13 +1627,14 @@ def _document_output_path(
     )
     filename = f"{entry_prefix}_{document_id}.{extension}"
     output_path = output_root / candidate_id / provider / filename
-    try:
-        output_path.resolve().relative_to(output_root)
-    except ValueError as exc:
-        raise FreeDocumentDownloadError(
-            "document output path escapes the output root: "
-            f"{candidate_id}/{provider}/{filename}"
-        ) from exc
+    if output_root.absolute().parts[:4] != ("/", "proc", "self", "fd"):
+        try:
+            output_path.resolve().relative_to(output_root.resolve())
+        except ValueError as exc:
+            raise FreeDocumentDownloadError(
+                "document output path escapes the output root: "
+                f"{candidate_id}/{provider}/{filename}"
+            ) from exc
     return output_path
 
 

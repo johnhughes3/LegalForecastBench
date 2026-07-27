@@ -55,12 +55,19 @@ class CourtListenerDocketBundle:
     pages: tuple[CourtListenerDocketPageProvenance, ...]
     is_exhaustive: bool
     stopped_at_anchor_boundary: bool
+    stopped_at_required_entries: bool = False
 
     @property
     def complete_for_anchor_window(self) -> bool:
         """Return whether the bundle is complete for its requested window."""
 
         return self.is_exhaustive or self.stopped_at_anchor_boundary
+
+    @property
+    def complete_for_requested_window(self) -> bool:
+        """Return whether the caller's explicit bounded window is complete."""
+
+        return self.complete_for_anchor_window or self.stopped_at_required_entries
 
     def as_docket_page(self) -> CourtListenerWebDocketPage:
         """Adapt the completed bundle for existing single-page consumers."""
@@ -204,6 +211,7 @@ def paginate_courtlistener_docket(
     fetch: Callable[[str], str],
     max_pages: int,
     decision_anchor: date | None = None,
+    required_entry_numbers: frozenset[int] | None = None,
 ) -> CourtListenerDocketBundle:
     """Fetch and merge a CourtListener docket in strict newest-first order.
 
@@ -214,6 +222,19 @@ def paginate_courtlistener_docket(
 
     if max_pages <= 0:
         raise CourtListenerDocketPaginationError("max_pages must be positive")
+    if required_entry_numbers is not None and (
+        not required_entry_numbers
+        or any(
+            isinstance(number, bool) or number <= 0 for number in required_entry_numbers
+        )
+    ):
+        raise CourtListenerDocketPaginationError(
+            "required_entry_numbers must contain positive integers"
+        )
+    if decision_anchor is not None and required_entry_numbers is not None:
+        raise CourtListenerDocketPaginationError(
+            "decision_anchor and required_entry_numbers are mutually exclusive"
+        )
     page_one_url = canonical_courtlistener_docket_page_url(
         base_url,
         page_number=1,
@@ -270,7 +291,21 @@ def paginate_courtlistener_docket(
             )
         )
 
+        observed_entry_numbers = {
+            number
+            for observed_page in parsed_pages
+            for entry in observed_page.entries
+            if (number := _positive_entry_number(entry.entry_number)) is not None
+        }
+        required_entries_observed = (
+            required_entry_numbers is not None
+            and required_entry_numbers.issubset(observed_entry_numbers)
+        )
         if not page.has_next_page:
+            if required_entry_numbers is not None and not required_entries_observed:
+                raise CourtListenerDocketPaginationError(
+                    "required_entries_not_observed_before_exhaustion"
+                )
             return _bundle(
                 docket_id=docket_id,
                 base_url=canonical_base_url,
@@ -279,6 +314,18 @@ def paginate_courtlistener_docket(
                 provenance=provenance,
                 is_exhaustive=True,
                 stopped_at_anchor_boundary=False,
+                stopped_at_required_entries=False,
+            )
+        if required_entries_observed:
+            return _bundle(
+                docket_id=docket_id,
+                base_url=canonical_base_url,
+                title=title,
+                parsed_pages=parsed_pages,
+                provenance=provenance,
+                is_exhaustive=False,
+                stopped_at_anchor_boundary=False,
+                stopped_at_required_entries=True,
             )
         if decision_anchor is not None and may_stop_at_anchor_boundary(
             parsed_pages,
@@ -292,6 +339,7 @@ def paginate_courtlistener_docket(
                 provenance=provenance,
                 is_exhaustive=False,
                 stopped_at_anchor_boundary=True,
+                stopped_at_required_entries=False,
             )
 
     raise CourtListenerDocketPaginationError(
@@ -308,6 +356,7 @@ def _bundle(
     provenance: Iterable[CourtListenerDocketPageProvenance],
     is_exhaustive: bool,
     stopped_at_anchor_boundary: bool,
+    stopped_at_required_entries: bool,
 ) -> CourtListenerDocketBundle:
     return CourtListenerDocketBundle(
         docket_id=docket_id,
@@ -317,6 +366,7 @@ def _bundle(
         pages=tuple(provenance),
         is_exhaustive=is_exhaustive,
         stopped_at_anchor_boundary=stopped_at_anchor_boundary,
+        stopped_at_required_entries=stopped_at_required_entries,
     )
 
 

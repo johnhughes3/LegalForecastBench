@@ -7,7 +7,9 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from legalforecast.ingestion.budgeted_docket_acquisition import (
+    BudgetedDocketAcquisitionError,
     acquire_ranked_dockets,
     materialize_selected_slice_batch,
     render_complete_docket_html,
@@ -48,6 +50,7 @@ def test_ranked_dockets_are_paginated_in_budgeted_page_waves() -> None:
     assert [len(bundle.pages) for bundle in result.bundles] == [2, 1]
     assert result.failed_docket_ids == ()
     assert result.credit_summary == {"reserved_credits": 15}
+    assert all(not bundle.stopped_at_required_entries for bundle in result.bundles)
 
     rendered = render_complete_docket_html(result.bundles[0])
     reparsed = parse_courtlistener_docket_html(
@@ -85,6 +88,84 @@ def test_ranked_docket_wave_recovers_anchored_decision_related_older_rows() -> N
         "63",
     ]
     assert result.bundles[0].stopped_at_anchor_boundary is True
+
+
+def test_ranked_docket_wave_stops_after_exact_required_entries() -> None:
+    scheduler = _Scheduler(
+        {
+            ("20", 1): _page("20", 1, has_next=True),
+            ("20", 2): _page("20", 2, has_next=True),
+        }
+    )
+
+    result = acquire_ranked_dockets(
+        records=[_record("20", 0)],
+        scheduler=scheduler,  # type: ignore[arg-type]
+        limit=1,
+        max_pages_per_docket=6,
+        decision_anchor=None,
+        required_entry_numbers_by_docket={"20": frozenset({2})},
+    )
+
+    assert scheduler.waves == [[("20", 1)], [("20", 2)]]
+    assert result.failed_docket_ids == ()
+    assert len(result.bundles[0].pages) == 2
+    assert result.bundles[0].stopped_at_required_entries is True
+    assert result.bundles[0].complete_for_requested_window is True
+    assert "entry-20-2" in render_complete_docket_html(result.bundles[0])
+
+
+def test_required_entry_absent_at_terminal_exhaustion_fails_closed() -> None:
+    result = acquire_ranked_dockets(
+        records=[_record("20", 0)],
+        scheduler=_Scheduler({("20", 1): _page("20", 1, has_next=False)}),  # type: ignore[arg-type]
+        limit=1,
+        max_pages_per_docket=3,
+        decision_anchor=None,
+        required_entry_numbers_by_docket={"20": frozenset({2})},
+    )
+
+    assert result.bundles == ()
+    assert result.failures[0].failure_reason == (
+        "required_entries_not_observed_before_exhaustion"
+    )
+
+
+@pytest.mark.parametrize(
+    "required",
+    [
+        {},
+        {"10": frozenset({1})},
+        {"20": frozenset[int]()},
+        {"20": frozenset({0})},
+    ],
+)
+def test_required_entry_map_must_exactly_bind_ranked_targets(
+    required: dict[str, frozenset[int]],
+) -> None:
+    with pytest.raises(BudgetedDocketAcquisitionError):
+        acquire_ranked_dockets(
+            records=[_record("20", 0)],
+            scheduler=_Scheduler({}),  # type: ignore[arg-type]
+            limit=1,
+            max_pages_per_docket=3,
+            decision_anchor=None,
+            required_entry_numbers_by_docket=required,
+        )
+
+
+def test_required_entry_max_page_exhaustion_fails_closed() -> None:
+    result = acquire_ranked_dockets(
+        records=[_record("20", 0)],
+        scheduler=_Scheduler({("20", 1): _page("20", 1, has_next=True)}),  # type: ignore[arg-type]
+        limit=1,
+        max_pages_per_docket=1,
+        decision_anchor=None,
+        required_entry_numbers_by_docket={"20": frozenset({2})},
+    )
+
+    assert result.bundles == ()
+    assert result.failures[0].failure_reason == "pagination_page_limit_reached"
 
 
 def test_ranked_docket_continuation_pages_have_run_unique_ordinals(

@@ -95,6 +95,29 @@ def test_cycle_and_batch_config_identity_fail_closed(tmp_path: Path) -> None:
         assert store.ensure_batch("batch-002", {"page_size": 100}) != digest
 
 
+@pytest.mark.parametrize("injected_name", ["cycle.sqlite3", "cycle.sqlite3.lock"])
+def test_bound_cycle_store_rejects_injected_database_or_lock_symlink(
+    tmp_path: Path,
+    injected_name: str,
+) -> None:
+    parent = tmp_path / "store"
+    outside = tmp_path / "outside"
+    parent.mkdir()
+    outside.mkdir()
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    try:
+        (parent / injected_name).symlink_to(outside / "escaped.sqlite3")
+        with pytest.raises(CycleAcquisitionStoreError, match="non-symlink"):
+            CycleAcquisitionStore(Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"))
+    finally:
+        os.close(parent_fd)
+
+    assert not (outside / "escaped.sqlite3").exists()
+
+
 def test_source_neutral_cycle_policy_upgrade_preserves_credit_authorizations(
     tmp_path: Path,
 ) -> None:
@@ -504,6 +527,56 @@ def test_firecrawl_artifact_is_atomic_immutable_and_attempt_bound(
                 proxy_used="stealth",
                 target_http_status=200,
             )
+
+
+def test_firecrawl_artifact_write_stays_bound_to_open_directory(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_firecrawl_run(
+            "search-run",
+            batch_id="batch-001",
+            config={"purpose": "search"},
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+        store.ensure_firecrawl_target(
+            "search-run",
+            target_id="search-1",
+            target_kind="search",
+            source_url="https://www.courtlistener.com/?type=r&q=alpha",
+            ordinal=0,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "search-run",
+            target_id="search-1",
+            page_number=1,
+            request_url="https://www.courtlistener.com/?type=r&q=alpha",
+        )
+        pages = tmp_path / "pages"
+        pages.mkdir()
+        descriptor = os.open(
+            pages,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+        )
+        moved = tmp_path / "moved-pages"
+        try:
+            pages.rename(moved)
+            pages.mkdir()
+            committed = store.commit_firecrawl_artifact(
+                attempt.attempt_id,
+                Path(f"/proc/self/fd/{descriptor}") / "search-1.html",
+                b"<html>safe fixture</html>",
+                reported_credits=5,
+                proxy_used="stealth",
+                target_http_status=200,
+            )
+        finally:
+            os.close(descriptor)
+
+        assert committed.artifact_path == moved / "search-1.html"
+        assert (moved / "search-1.html").read_bytes() == (b"<html>safe fixture</html>")
+        assert list(pages.iterdir()) == []
 
 
 def test_store_holds_a_nonblocking_process_lifetime_lock(tmp_path: Path) -> None:

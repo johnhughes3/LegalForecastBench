@@ -83,6 +83,51 @@ See [Case.dev purchase policy v2](schemas/case-dev-purchase-policy-v2.md) for th
 
 The official happy path is the CourtListener REST workflow documented under [Cycle 1 Batch-002 CourtListener-First Acquisition](#cycle-1-batch-002-courtlistener-first-acquisition). Use Firecrawl only as a compatibility fallback when a required search is not exposed by a supported CourtListener API. Case.dev may supply an optional free upstream or bulk lookup only when its response is equivalent to the CourtListener data needed at that step; it is never the final authority for paid gaps and must not perform a fee-bearing fetch.
 
+For the authenticated exact target, plan a narrower public-link refresh before any fee-bearing recovery.
+The plan reruns the canonical target verifier and makes no provider call:
+
+```bash
+uv run legalforecast acquisition plan-target-public-gaps \
+  --output-root <new-public-gap-refresh-root> \
+  --plan-output <immutable-public-gap-plan.json> \
+  --target-cohort-root <completed-project-target-cohort-root> \
+  --expected-target-run-card-sha256 <external-lowercase-sha256> \
+  --cycle-store <official-cycle-store.sqlite3> \
+  --raw-html-dir <durable-raw-html-root> \
+  --document-output-root <durable-free-document-root> \
+  --batch-id <new-exact-target-refresh-batch> \
+  --run-id <new-exact-target-refresh-run> \
+  --firecrawl-mode live --document-mode live \
+  --fresh-credit-cap 500 --workers 10
+```
+
+Record the lowercase SHA-256 of the single immutable plan file.
+John's existing bounded Firecrawl authorization covers this narrower exact run; do not create a new spending decision artifact.
+Execute only that plan and repeat every plan-bound identity argument exactly:
+
+```bash
+uv run legalforecast acquisition execute-target-public-gaps \
+  --plan <immutable-public-gap-plan.json> \
+  --expected-plan-sha256 <external-lowercase-plan-sha256> \
+  --output-root <new-public-gap-refresh-root> \
+  --target-cohort-root <completed-project-target-cohort-root> \
+  --expected-target-run-card-sha256 <external-lowercase-sha256> \
+  --cycle-store <official-cycle-store.sqlite3> \
+  --raw-html-dir <durable-raw-html-root> \
+  --document-output-root <durable-free-document-root> \
+  --batch-id <new-exact-target-refresh-batch> \
+  --run-id <new-exact-target-refresh-run> \
+  --firecrawl-mode live --document-mode live \
+  --fresh-credit-cap 500 --workers 10 \
+  --live-firecrawl --live-public-download
+```
+
+The command uses the durable Firecrawl scheduler, stops each docket after its selected gap-entry set is observed, routes matches through the existing public planner and free downloader, and records every required document in the per-document outcome ledger.
+It cannot call PACER or RECAP Fetch, acknowledge fees, purchase a document, call a model, evaluate, freeze, or dispatch.
+The terminal artifact is a distinct authenticated per-document gap-outcome ledger, not the canonical per-case exclusion ledger.
+Recovered downloads remain ineligible for packets until the existing disclosure-provenance clearance and provider-free target reprojection are completed against the augmented manifest; that downstream reprojection emits at most one valid canonical candidate exclusion when required documents remain missing.
+See [Exact-target public-gap refresh v1](schemas/target-public-gap-refresh-v1.md).
+
 `discover-firecrawl-recap --resume` deliberately does not retry a nontransient `terminal_error`. If a primary discovery fails for that reason, run exactly one child recovery with a unique run ID, `--proxy enhanced`, `--force-browser`, and `--recover-terminal-errors-from-run <primary-run-id>`. If bounded fresh runs were already attempted, repeat `--reuse-verified-pages-from-run <run-id>` for each one. The command verifies that every source uses the exact frozen batch/query plan, SHA-checks and deduplicates successful pages by search URL, rejects conflicting bytes, routes only still-unresolved evidenced terminal URLs through the child, resumes newly revealed continuation pages under the parent's immutable scheduler settings, shares the cycle-wide credit cap, and refuses both recovery chaining and a second child of the same parent.
 
 Generated or private acquisition runbooks must guard each primary discovery explicitly and let either command's failure stop the script. Never use `|| true`. Repeat every frozen batch/window/query argument byte-for-byte in the recovery command; only the child run ID, recovery flag, proxy, and browser setting differ:
