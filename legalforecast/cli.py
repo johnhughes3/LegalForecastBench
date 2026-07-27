@@ -18971,6 +18971,8 @@ def _cmd_batch_002_observe_firecrawl(args: argparse.Namespace) -> int:
 
     if credit_cap <= 0:
         raise CommandError("--credit-cap must be positive")
+    if credit_cap > 45_000:
+        raise CommandError("--credit-cap must not exceed 45000")
     if max_pages <= 0:
         raise CommandError("--max-pages-per-docket must be positive")
     if max_attempts <= 0:
@@ -18987,6 +18989,10 @@ def _cmd_batch_002_observe_firecrawl(args: argparse.Namespace) -> int:
     )
     try:
         with CycleAcquisitionStore(cycle_store) as store:
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
+            )
             plan_frozen_firecrawl_observation(
                 store,
                 batch_id=batch_id,
@@ -19031,6 +19037,12 @@ def _cmd_batch_002_observe_firecrawl(args: argparse.Namespace) -> int:
     )
     try:
         with CycleAcquisitionStore(cycle_store) as store:
+            # Repeat after constructing the provider client so no future command
+            # refactor can introduce a time-of-check/time-of-use gap.
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
+            )
             plan = plan_frozen_firecrawl_observation(
                 store,
                 batch_id=batch_id,

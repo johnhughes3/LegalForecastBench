@@ -45,6 +45,84 @@ def test_observe_firecrawl_help_documents_bounded_resumable_scope(
     assert "--firecrawl-fixture" in output
 
 
+def test_cli_rejects_stale_screening_policy_before_firecrawl_configuration(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _priority_store(tmp_path):
+        pass
+
+    def provider_configuration_must_not_run(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Firecrawl configured before frozen-policy validation")
+
+    monkeypatch.setattr(
+        "legalforecast.cli.FirecrawlConfig.from_env",
+        provider_configuration_must_not_run,
+    )
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "observe-firecrawl",
+                "--cycle-store",
+                str(tmp_path / "cycle.sqlite3"),
+                "--batch-id",
+                _BATCH_ID,
+                "--run-id",
+                "observe-run",
+                "--raw-artifact-dir",
+                str(tmp_path / "raw"),
+                "--live-firecrawl",
+            ]
+        )
+        == 2
+    )
+    assert (
+        "current screening sources do not match frozen cycle policy"
+        in capsys.readouterr().err
+    )
+
+
+def test_cli_rejects_credit_cap_above_documented_ceiling_before_store_or_provider(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def provider_configuration_must_not_run(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Firecrawl configured for an invalid credit cap")
+
+    monkeypatch.setattr(
+        "legalforecast.cli.FirecrawlConfig.from_env",
+        provider_configuration_must_not_run,
+    )
+    store_path = tmp_path / "must-not-be-created.sqlite3"
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "observe-firecrawl",
+                "--cycle-store",
+                str(store_path),
+                "--batch-id",
+                _BATCH_ID,
+                "--run-id",
+                "observe-run",
+                "--raw-artifact-dir",
+                str(tmp_path / "raw"),
+                "--credit-cap",
+                "45001",
+                "--live-firecrawl",
+            ]
+        )
+        == 2
+    )
+    assert "--credit-cap must not exceed 45000" in capsys.readouterr().err
+    assert not store_path.exists()
+
+
 def test_selection_preserves_frozen_priority_and_ignores_requested_order(
     tmp_path: Path,
 ) -> None:
