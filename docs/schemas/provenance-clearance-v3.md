@@ -1,7 +1,8 @@
 # Provenance clearance v3
 
 Version 3 is additive to the byte-exact version 1 and version 2 human-review contracts.
-Existing `legalforecast.disclosure_provenance_routing_plan.v2`, `legalforecast.disclosure_exception_worksheet.v2`, interactive John decisions, and their validators are unchanged.
+Existing `legalforecast.disclosure_provenance_routing_plan.v2`, `legalforecast.disclosure_exception_worksheet.v2`, and interactive John decisions keep their schemas and semantics.
+Shared document validation now also enforces closed identity and safety domains, safe relative local paths, and exact scan-page counts on the v2 path.
 
 The v3 routing-plan schema is `legalforecast.disclosure_provenance_routing_plan.v3`.
 It replaces the reviewer-specific `john_exception_review`, `john_review_count`, and `human_clearance_permitted` vocabulary with `exception_review`, `exception_review_count`, and `exception_clearance_permitted`.

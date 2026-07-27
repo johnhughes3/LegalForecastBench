@@ -9,7 +9,7 @@
       "Every official response must return the exact modelVersion gemini-3.5-flash or fail closed.",
       "Raw marker-page prompts, provider output, and supporting excerpts remain private; only hash-bound decisions and run summaries may be public."
     ],
-    "max_output_tokens": 4096,
+    "max_output_tokens": 16384,
     "model_id": "gemini-3.5-flash",
     "model_version_or_snapshot": "gemini-3.5-flash",
     "network_disabled": true,

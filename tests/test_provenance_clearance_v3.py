@@ -11,7 +11,9 @@ import pytest
 from legalforecast.ingestion.disclosure_clearance import DisclosurePdfScan
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
+    build_provenance_clearance_plan,
     build_provenance_clearance_plan_v3,
+    build_provenance_clearance_records,
     canonical_json_bytes,
     exception_review_worksheet_v3,
     validate_exception_review_worksheet_v3,
@@ -133,6 +135,18 @@ def test_v3_plan_and_worksheet_use_generic_vocabulary_and_exact_binding(
     assert rows[0]["route"] == "exception_review"
     assert rows[0]["exception_clearance_permitted"] is True
     assert "human_clearance_permitted" not in rows[0]
+
+
+def test_v3_worksheet_does_not_alias_plan_documents(tmp_path: Path) -> None:
+    plan = _plan(tmp_path)
+    worksheet = exception_review_worksheet_v3(plan)
+    plan_before = deepcopy(plan)
+    rows = cast(list[dict[str, object]], worksheet["documents"])
+    scan = cast(dict[str, object], rows[0]["disclosure_pdf_scan"])
+
+    scan["coverage_status"] = "mutated"
+
+    assert plan == plan_before
 
 
 def test_v3_worksheet_rejects_cross_plan_replay(tmp_path: Path) -> None:
@@ -330,24 +344,32 @@ def test_v3_document_rejects_non_integer_byte_count(
 
 @pytest.mark.parametrize("artifact", ["routing_plan", "worksheet"])
 @pytest.mark.parametrize(
-    ("field", "value"),
+    ("field", "value", "match"),
     [
-        ("sha256", "bad"),
-        ("local_path", ""),
-        ("local_path", "../escape.pdf"),
-        ("free_or_purchased", "borrowed"),
-        ("source_provider", ""),
-        ("source_url", 0),
-        ("source_url_or_reference", ""),
-        ("restriction_status", 0),
-        ("is_sealed", "false"),
-        ("is_private", 0),
-        ("model_visible", 1),
-        ("contains_target_outcome", "false"),
+        ("sha256", "bad", "lowercase SHA-256"),
+        ("local_path", "", "local_path must be a non-empty string"),
+        ("local_path", "../escape.pdf", "safe relative POSIX path.*case-a"),
+        ("free_or_purchased", "borrowed", "must be free or purchased"),
+        ("source_provider", "", "source_provider must be a non-empty string"),
+        ("source_url", 0, "source_url must be a non-empty string"),
+        (
+            "source_url_or_reference",
+            "",
+            "source_url_or_reference must be a non-empty string",
+        ),
+        ("restriction_status", 0, "restriction_status must be a non-empty string"),
+        ("is_sealed", "false", "restriction is_sealed must be bool or null"),
+        ("is_private", 0, "restriction is_private must be bool or null"),
+        ("model_visible", 1, "visibility model_visible must be bool"),
+        (
+            "contains_target_outcome",
+            "false",
+            "visibility contains_target_outcome must be bool",
+        ),
     ],
 )
 def test_v3_document_rejects_invalid_identity_and_safety_domains(
-    tmp_path: Path, artifact: str, field: str, value: object
+    tmp_path: Path, artifact: str, field: str, value: object, match: str
 ) -> None:
     plan = _plan(tmp_path)
     worksheet = exception_review_worksheet_v3(plan)
@@ -358,7 +380,7 @@ def test_v3_document_rejects_invalid_identity_and_safety_domains(
         canonical_json_bytes(documents)
     ).hexdigest()
 
-    with pytest.raises(ProvenanceClearanceError):
+    with pytest.raises(ProvenanceClearanceError, match=match):
         if artifact == "routing_plan":
             exception_review_worksheet_v3(target)
         else:
@@ -391,6 +413,63 @@ def test_v3_preserves_non_courtlistener_source_as_exception_routed(
     assert rows[0]["route"] == "exception_review"
 
 
+@pytest.mark.parametrize(
+    "source_url",
+    [
+        "https://storage.courtlistener.com:443/recap/a.pdf",
+        "https://storage.courtlistener.com:8443/recap/a.pdf",
+        "https://storage.courtlistener.com:bad/recap/a.pdf",
+        "https://storage.courtlistener.com[/recap/a.pdf",
+    ],
+)
+def test_v2_and_v3_reject_noncanonical_courtlistener_port_as_public(
+    tmp_path: Path, source_url: str
+) -> None:
+    root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
+    manifest[0]["source_url"] = source_url
+    relevance_documents = cast(list[dict[str, object]], relevance[0]["documents"])
+    relevance_documents[0]["source_url_or_reference"] = source_url
+    scan = DisclosurePdfScan(
+        parsed_page_count=1,
+        text_scanned_page_numbers=(1,),
+        ocr_scanned_page_numbers=(),
+        unscanned_page_numbers=(),
+        coverage_status="complete",
+        diagnostics=(),
+        automated_markers=(),
+    )
+    kwargs = {
+        "document_root": root,
+        "review_requests_bytes": _jsonl(requests),
+        "download_manifest_bytes": _jsonl(manifest),
+        "restriction_evidence_bytes": _jsonl(restrictions),
+        "case_relevance_bytes": _jsonl(relevance),
+        "document_scanner": lambda _: scan,
+    }
+
+    v2 = build_provenance_clearance_plan(
+        requests,
+        manifest,
+        restrictions,
+        relevance,
+        **kwargs,
+    )
+    v3 = build_provenance_clearance_plan_v3(
+        requests,
+        manifest,
+        restrictions,
+        relevance,
+        **kwargs,
+    )
+
+    v2_document = cast(list[dict[str, object]], v2["documents"])[0]
+    v3_document = cast(list[dict[str, object]], v3["documents"])[0]
+    assert v2_document["route"] == "john_exception_review"
+    assert v3_document["route"] == "exception_review"
+    assert v2_document["route_reasons"] == ["affirmative_public_provenance_unproven"]
+    assert v3_document["route_reasons"] == ["affirmative_public_provenance_unproven"]
+
+
 def test_v3_worksheet_rejects_substituted_bytes(tmp_path: Path) -> None:
     plan = _plan(tmp_path)
     worksheet = exception_review_worksheet_v3(plan)
@@ -400,5 +479,47 @@ def test_v3_worksheet_rejects_substituted_bytes(tmp_path: Path) -> None:
             worksheet,
             routing_plan=plan,
             routing_plan_bytes=canonical_json_bytes({**plan, "document_count": 0}),
+            worksheet_bytes=canonical_json_bytes(worksheet),
+        )
+
+
+def test_v2_constructor_rejects_v3_plan(tmp_path: Path) -> None:
+    plan = _plan(tmp_path)
+
+    with pytest.raises(
+        ProvenanceClearanceError, match="unsupported provenance routing plan"
+    ):
+        build_provenance_clearance_records(
+            plan,
+            [],
+            routing_plan_sha256=hashlib.sha256(canonical_json_bytes(plan)).hexdigest(),
+        )
+
+
+def test_v3_worksheet_rejects_valid_auto_clear_document(tmp_path: Path) -> None:
+    plan = _plan(tmp_path)
+    plan_document = cast(list[dict[str, object]], plan["documents"])[0]
+    scan = cast(dict[str, object], plan_document["disclosure_pdf_scan"])
+    scan["automated_markers"] = []
+    plan_document["automated_markers"] = []
+    plan_document["route"] = "auto_clear"
+    plan_document["route_reasons"] = []
+    plan["auto_clear_count"] = 1
+    plan["exception_review_count"] = 0
+    plan["document_set_sha256"] = hashlib.sha256(
+        canonical_json_bytes([plan_document])
+    ).hexdigest()
+    worksheet = exception_review_worksheet_v3(plan)
+    worksheet["documents"] = [deepcopy(plan_document)]
+    worksheet["document_count"] = 1
+    worksheet["document_set_sha256"] = hashlib.sha256(
+        canonical_json_bytes(worksheet["documents"])
+    ).hexdigest()
+
+    with pytest.raises(ProvenanceClearanceError, match="auto-clear row"):
+        validate_exception_review_worksheet_v3(
+            worksheet,
+            routing_plan=plan,
+            routing_plan_bytes=canonical_json_bytes(plan),
             worksheet_bytes=canonical_json_bytes(worksheet),
         )

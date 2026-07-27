@@ -767,9 +767,11 @@ def scan_disclosure_document(data: bytes) -> DisclosurePdfScan:
     unscanned_pages = list(extraction.unscanned_page_numbers)
     parsed_page_count = extraction.parsed_page_count
     coverage_complete = parsed_page_count > 0 and not unscanned_pages
-    markers = set(
-        disclosure_markers_for_text("\f".join(page.text for page in extraction.pages))
-    )
+    markers = {
+        marker
+        for page in extraction.pages
+        for marker in disclosure_markers_for_text(page.text)
+    }
     if not coverage_complete:
         markers.update(
             {"extraction_page_coverage_incomplete", "unscannable_or_image_only"}

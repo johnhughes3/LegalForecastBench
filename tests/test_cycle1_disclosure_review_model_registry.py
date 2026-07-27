@@ -19,6 +19,7 @@ def test_cycle_1_disclosure_review_registry_is_one_disjoint_gemini_entry() -> No
     assert entry.network_disabled
     assert entry.search_disabled
     assert entry.tool_policy.value == "no_tools"
+    assert entry.max_output_tokens == 16_384
     assert "disclosure" in entry.display_name.casefold()
 
 

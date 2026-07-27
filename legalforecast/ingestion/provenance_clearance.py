@@ -6,8 +6,9 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
 
@@ -284,7 +285,9 @@ def exception_review_worksheet_v3(
     """Project reviewer-neutral v3 exception rows."""
 
     documents = _plan_documents_v3(plan)
-    exceptions = [row for row in documents if row.get("route") == "exception_review"]
+    exceptions = [
+        deepcopy(row) for row in documents if row.get("route") == "exception_review"
+    ]
     return {
         "schema_version": WORKSHEET_SCHEMA_VERSION_V3,
         "routing_plan_sha256": hashlib.sha256(canonical_json_bytes(plan)).hexdigest(),
@@ -786,7 +789,7 @@ def _validate_plan_document(row: Mapping[str, object], *, key: tuple[str, str]) 
         raise ProvenanceClearanceError(f"invalid routing plan document shape: {key}")
     _digest(row, "sha256")
     _nonnegative_int(row, "byte_count")
-    _validate_relative_local_path(_required_text(row, "local_path"))
+    _validate_relative_local_path(_required_text(row, "local_path"), key=key)
     if _required_text(row, "free_or_purchased") not in {"free", "purchased"}:
         raise ProvenanceClearanceError(
             f"free_or_purchased must be free or purchased: {key}"
@@ -912,10 +915,15 @@ def _affirmative_public_provenance(
         or visibility.get("source_url_or_reference") != source.get("source_url")
     ):
         return False
-    parsed = urlsplit(_required_text(source, "source_url"))
+    try:
+        parsed = urlsplit(_required_text(source, "source_url"))
+        port = parsed.port
+    except ValueError:
+        return False
     if (
         parsed.scheme != "https"
         or parsed.hostname != "storage.courtlistener.com"
+        or port is not None
         or not parsed.path.startswith("/recap/")
         or parsed.username is not None
         or parsed.password is not None
@@ -1087,15 +1095,12 @@ def _required_text(record: Mapping[str, object], field: str) -> str:
     return value
 
 
-def _validate_relative_local_path(value: str) -> None:
-    path = PurePosixPath(value)
+def _validate_relative_local_path(value: str, *, key: tuple[str, str]) -> None:
     raw_parts = value.split("/")
-    if (
-        path.is_absolute()
-        or "\\" in value
-        or any(part in {"", ".", ".."} for part in raw_parts)
-    ):
-        raise ProvenanceClearanceError("local_path must be a safe relative POSIX path")
+    if "\\" in value or any(part in {"", ".", ".."} for part in raw_parts):
+        raise ProvenanceClearanceError(
+            f"local_path must be a safe relative POSIX path: {key}"
+        )
 
 
 def _nonempty(value: object, label: str) -> str:
