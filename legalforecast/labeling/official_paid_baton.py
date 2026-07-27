@@ -441,6 +441,10 @@ def seal_paid_labeling_baton(
     ):
         raise OfficialPaidBatonError("input package manifest commitment differs")
     manifest = _load_manifest(manifest_bytes)
+    if manifest.get("kind") != "baton":
+        raise OfficialPaidBatonError(
+            "provider input package must be an assembled baton"
+        )
     identity = BatonIdentity.from_record(manifest["identity"])
     if identity.outcome != "ready":
         raise OfficialPaidBatonError("provider input package is not ready")
@@ -813,6 +817,7 @@ def _scan_tree(
     if not stat.S_ISDIR(root_stat.st_mode) or root.is_symlink():
         raise OfficialPaidBatonError("package root must be a real directory")
     files: dict[str, bytes] = {}
+    folded: dict[str, str] = {}
     total = 0
     for directory, dirnames, filenames in os.walk(root, followlinks=False):
         directory_path = Path(directory)
@@ -833,6 +838,9 @@ def _scan_tree(
                 raise OfficialPaidBatonError(
                     "source uses reserved package manifest path"
                 )
+            prior = folded.setdefault(relative.casefold(), relative)
+            if prior != relative:
+                raise OfficialPaidBatonError("package path collision")
             payload = _safe_read(path)
             if len(payload) > max_file_bytes:
                 raise OfficialPaidBatonError("package file exceeds size limit")

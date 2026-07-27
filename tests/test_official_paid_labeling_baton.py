@@ -226,6 +226,29 @@ def test_source_rejects_non_unique_or_special_files(
         )
 
 
+def test_source_rejects_case_insensitive_path_collisions(
+    tmp_path: Path, age_material: tuple[Path, Path, str]
+) -> None:
+    age, _, recipient = age_material
+    identity = BatonIdentity("a" * 40, "llm-unitize", "anthropic", 1, "ready")
+    source = tmp_path / "source"
+    _job(source, identity)
+    (source / "inputs/markdown/Fixture.txt").write_text(
+        "case collision\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(OfficialPaidBatonError, match="package path collision"):
+        build_source_baton(
+            source_root=source,
+            identity=identity,
+            age_executable=age,
+            age_recipient=recipient,
+            ciphertext_output=tmp_path / "bad.age",
+            receipt_output=tmp_path / "bad.json",
+        )
+
+
 def test_source_rejects_provider_journal_and_sidecars(
     tmp_path: Path, age_material: tuple[Path, Path, str]
 ) -> None:
@@ -588,6 +611,58 @@ def test_successful_result_advances_and_failed_result_only_resumes_same_stage(
     )
     assert resumed.identity == second
     assert resumed.predecessor == _binding(failed)
+
+
+def test_seal_rejects_source_package_kind(
+    tmp_path: Path, age_material: tuple[Path, Path, str]
+) -> None:
+    age, age_identity, recipient = age_material
+    identity = BatonIdentity("a" * 40, "llm-unitize", "anthropic", 1, "ready")
+    source = tmp_path / "source"
+    _job(source, identity)
+    source_receipt = build_source_baton(
+        source_root=source,
+        identity=identity,
+        age_executable=age,
+        age_recipient=recipient,
+        ciphertext_output=tmp_path / "source.age",
+        receipt_output=tmp_path / "source.json",
+    )
+    assemble_paid_labeling_baton(
+        source_ciphertext=tmp_path / "source.age",
+        expected_source_ciphertext_sha256=source_receipt.ciphertext_sha256,
+        expected_source_package_manifest_sha256=(
+            source_receipt.package_manifest_sha256
+        ),
+        expected_identity=identity,
+        predecessor_ciphertext=None,
+        predecessor=None,
+        age_executable=age,
+        age_identity_file=age_identity,
+        age_recipient=recipient,
+        job_root=tmp_path / "job",
+        ciphertext_output=tmp_path / "ready.age",
+        receipt_output=tmp_path / "ready.json",
+    )
+    manifest_path = tmp_path / "job/official-paid-labeling-package.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["kind"] = "source"
+    manifest_bytes = _canonical(manifest)
+    manifest_path.write_bytes(manifest_bytes)
+
+    with pytest.raises(OfficialPaidBatonError, match="assembled baton"):
+        seal_paid_labeling_baton(
+            job_root=tmp_path / "job",
+            expected_input_package_manifest_sha256=hashlib.sha256(
+                manifest_bytes
+            ).hexdigest(),
+            outcome="failure",
+            predecessor=None,
+            age_executable=age,
+            age_recipient=recipient,
+            ciphertext_output=tmp_path / "result.age",
+            receipt_output=tmp_path / "result.json",
+        )
 
 
 def test_seal_rejects_changed_input_and_journal_identity(

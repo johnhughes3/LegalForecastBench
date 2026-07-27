@@ -235,17 +235,7 @@ def validate_official_paid_labeling_job_package(
     if files.get("official-paid-labeling-job.json") != manifest_bytes:
         raise OfficialPaidLabelingJobError("closed package job manifest bytes differ")
     paths = _validated_relative_argument_paths(arguments)
-    output_root = paths["output-root"]
-    for name in (*_OUTPUT_PATH_ARGUMENTS, "provider-journal"):
-        path = paths.get(name)
-        if (
-            path is not None
-            and path != output_root
-            and not path.is_relative_to(output_root)
-        ):
-            raise OfficialPaidLabelingJobError(
-                f"official paid-labeling {name} must remain under output-root"
-            )
+    _validate_output_path_confinement(paths)
 
     input_paths = {
         name: path
@@ -407,6 +397,22 @@ def _validated_relative_argument_paths(
     return paths
 
 
+def _validate_output_path_confinement(
+    paths: Mapping[str, PurePosixPath],
+) -> None:
+    output_root = paths["output-root"]
+    for name in (*_OUTPUT_PATH_ARGUMENTS, "provider-journal"):
+        path = paths.get(name)
+        if (
+            path is not None
+            and path != output_root
+            and not path.is_relative_to(output_root)
+        ):
+            raise OfficialPaidLabelingJobError(
+                f"official paid-labeling {name} must remain under output-root"
+            )
+
+
 def run_official_paid_labeling_job(
     *,
     job_manifest_path: Path,
@@ -435,7 +441,8 @@ def run_official_paid_labeling_job(
         raise OfficialPaidLabelingJobError(
             "protected provider authority table and region are required"
         )
-    _validated_relative_argument_paths(arguments)
+    relative_paths = _validated_relative_argument_paths(arguments)
+    _validate_output_path_confinement(relative_paths)
 
     cli_arguments: list[str] = [
         "acquisition",

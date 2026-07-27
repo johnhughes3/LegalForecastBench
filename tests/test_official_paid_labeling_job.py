@@ -259,6 +259,40 @@ def test_job_rejects_path_escape_and_authority_argument_substitution(
         )
 
 
+@pytest.mark.parametrize("path_name", ["provider-journal", "labels-output"])
+def test_job_rejects_output_paths_outside_output_root(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    path_name: str,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["arguments"][path_name] = f"outside-output/{path_name}"
+    _write_json(manifest, payload)
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda args: pytest.fail(f"CLI must not run: {args}"),
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match=rf"{path_name} must remain under output-root",
+    ):
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="",
+            provider_authority_region="",
+            expected_provider_account_alias="openai-primary",
+            validate_only=True,
+        )
+
+
 @pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), float("-inf")])
 def test_job_rejects_non_finite_numeric_arguments(
     tmp_path: Path,
