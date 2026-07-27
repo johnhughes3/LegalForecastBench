@@ -7,7 +7,7 @@ import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import cast
 from urllib.parse import urlsplit
 
@@ -27,6 +27,8 @@ from legalforecast.ingestion.disclosure_review_bundle import (
 
 PLAN_SCHEMA_VERSION = "legalforecast.disclosure_provenance_routing_plan.v2"
 WORKSHEET_SCHEMA_VERSION = "legalforecast.disclosure_exception_worksheet.v2"
+PLAN_SCHEMA_VERSION_V3 = "legalforecast.disclosure_provenance_routing_plan.v3"
+WORKSHEET_SCHEMA_VERSION_V3 = "legalforecast.disclosure_exception_worksheet.v3"
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
@@ -222,6 +224,169 @@ def exception_review_worksheet(plan: Mapping[str, object]) -> dict[str, object]:
         "document_count": len(exceptions),
         "documents": exceptions,
     }
+
+
+def build_provenance_clearance_plan_v3(
+    review_requests: Sequence[Mapping[str, object]],
+    download_manifest: Sequence[Mapping[str, object]],
+    restriction_evidence: Sequence[Mapping[str, object]],
+    case_relevance: Sequence[Mapping[str, object]],
+    *,
+    document_root: Path,
+    review_requests_bytes: bytes,
+    download_manifest_bytes: bytes,
+    restriction_evidence_bytes: bytes,
+    case_relevance_bytes: bytes,
+    document_bytes_by_relative_path: Mapping[str, bytes] | None = None,
+    document_scanner: Callable[[bytes], DisclosurePdfScan] = scan_disclosure_document,
+) -> dict[str, object]:
+    """Build additive v3 routing with reviewer-neutral exception vocabulary."""
+
+    legacy = build_provenance_clearance_plan(
+        review_requests,
+        download_manifest,
+        restriction_evidence,
+        case_relevance,
+        document_root=document_root,
+        review_requests_bytes=review_requests_bytes,
+        download_manifest_bytes=download_manifest_bytes,
+        restriction_evidence_bytes=restriction_evidence_bytes,
+        case_relevance_bytes=case_relevance_bytes,
+        document_bytes_by_relative_path=document_bytes_by_relative_path,
+        document_scanner=document_scanner,
+    )
+    legacy_documents = cast(list[dict[str, object]], legacy["documents"])
+    documents: list[dict[str, object]] = []
+    for legacy_document in legacy_documents:
+        document = dict(legacy_document)
+        if document["route"] == "john_exception_review":
+            document["route"] = "exception_review"
+        document["exception_clearance_permitted"] = document.pop(
+            "human_clearance_permitted"
+        )
+        documents.append(document)
+    return {
+        "schema_version": PLAN_SCHEMA_VERSION_V3,
+        "source_sha256": legacy["source_sha256"],
+        "document_set_sha256": hashlib.sha256(
+            canonical_json_bytes(documents)
+        ).hexdigest(),
+        "document_count": legacy["document_count"],
+        "auto_clear_count": legacy["auto_clear_count"],
+        "exception_review_count": legacy["john_review_count"],
+        "documents": documents,
+    }
+
+
+def exception_review_worksheet_v3(
+    plan: Mapping[str, object],
+) -> dict[str, object]:
+    """Project reviewer-neutral v3 exception rows."""
+
+    documents = _plan_documents_v3(plan)
+    exceptions = [row for row in documents if row.get("route") == "exception_review"]
+    return {
+        "schema_version": WORKSHEET_SCHEMA_VERSION_V3,
+        "routing_plan_sha256": hashlib.sha256(canonical_json_bytes(plan)).hexdigest(),
+        "document_set_sha256": hashlib.sha256(
+            canonical_json_bytes(exceptions)
+        ).hexdigest(),
+        "document_count": len(exceptions),
+        "documents": exceptions,
+    }
+
+
+def validate_exception_review_worksheet_v3(
+    worksheet: Mapping[str, object],
+    *,
+    routing_plan: Mapping[str, object],
+    routing_plan_bytes: bytes,
+    worksheet_bytes: bytes,
+) -> list[Mapping[str, object]]:
+    """Validate exact bytes and the exact v3 routing-plan exception projection."""
+
+    if _load_exact_json_object(routing_plan_bytes, "routing plan") != dict(
+        routing_plan
+    ) or routing_plan_bytes != canonical_json_bytes(routing_plan):
+        raise ProvenanceClearanceError("routing plan differs from exact bytes")
+    if _load_exact_json_object(worksheet_bytes, "worksheet") != dict(
+        worksheet
+    ) or worksheet_bytes != canonical_json_bytes(worksheet):
+        raise ProvenanceClearanceError("worksheet differs from exact bytes")
+    plan_documents = _plan_documents_v3(routing_plan)
+    expected_documents = [
+        row for row in plan_documents if row.get("route") == "exception_review"
+    ]
+    expected_plan_sha256 = hashlib.sha256(
+        canonical_json_bytes(routing_plan)
+    ).hexdigest()
+
+    expected_fields = {
+        "schema_version",
+        "routing_plan_sha256",
+        "document_set_sha256",
+        "document_count",
+        "documents",
+    }
+    if (
+        set(worksheet) != expected_fields
+        or worksheet.get("schema_version") != WORKSHEET_SCHEMA_VERSION_V3
+    ):
+        raise ProvenanceClearanceError("invalid provenance exception worksheet shape")
+    if worksheet.get("routing_plan_sha256") != expected_plan_sha256:
+        raise ProvenanceClearanceError("worksheet routing plan hash mismatch")
+    raw = worksheet.get("documents")
+    if not isinstance(raw, list):
+        raise ProvenanceClearanceError("provenance exception worksheet lacks documents")
+    documents: list[Mapping[str, object]] = []
+    keys: list[tuple[str, str]] = []
+    for value in cast(list[object], raw):
+        if not isinstance(value, Mapping):
+            raise ProvenanceClearanceError(
+                "provenance exception worksheet document is not an object"
+            )
+        row = cast(Mapping[str, object], value)
+        key = _key(row)
+        _validate_plan_document_v3(row, key=key)
+        if row.get("route") != "exception_review":
+            raise ProvenanceClearanceError(
+                f"provenance exception worksheet contains auto-clear row: {key}"
+            )
+        documents.append(row)
+        keys.append(key)
+    if keys != sorted(set(keys)):
+        raise ProvenanceClearanceError(
+            "provenance exception worksheet documents are not unique and ordered"
+        )
+    document_count = _nonnegative_int(worksheet, "document_count")
+    if (
+        documents != expected_documents
+        or document_count != len(documents)
+        or worksheet.get("document_set_sha256")
+        != hashlib.sha256(canonical_json_bytes(documents)).hexdigest()
+    ):
+        raise ProvenanceClearanceError(
+            "provenance exception worksheet summary mismatch"
+        )
+    return documents
+
+
+def _load_exact_json_object(data: bytes, label: str) -> dict[str, object]:
+    def pairs(items: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in items:
+            if key in result:
+                raise ProvenanceClearanceError(f"{label} contains duplicate key: {key}")
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(data.decode("utf-8"), object_pairs_hook=pairs)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ProvenanceClearanceError(f"{label} bytes are malformed") from exc
+    if not isinstance(value, dict):
+        raise ProvenanceClearanceError(f"{label} must be an object")
+    return cast(dict[str, object], value)
 
 
 def validate_exception_review_worksheet(
@@ -490,6 +655,110 @@ def _plan_documents(plan: Mapping[str, object]) -> list[Mapping[str, object]]:
     return documents
 
 
+def _plan_documents_v3(plan: Mapping[str, object]) -> list[Mapping[str, object]]:
+    expected_fields = {
+        "schema_version",
+        "source_sha256",
+        "document_set_sha256",
+        "document_count",
+        "auto_clear_count",
+        "exception_review_count",
+        "documents",
+    }
+    if (
+        set(plan) != expected_fields
+        or plan.get("schema_version") != PLAN_SCHEMA_VERSION_V3
+    ):
+        raise ProvenanceClearanceError("unsupported provenance routing plan")
+    source_sha256 = plan.get("source_sha256")
+    source_fields = {
+        "review_requests",
+        "download_manifest",
+        "restriction_evidence",
+        "case_relevance",
+    }
+    if not isinstance(source_sha256, Mapping):
+        raise ProvenanceClearanceError("invalid provenance routing source commitments")
+    source_commitments = cast(Mapping[str, object], source_sha256)
+    if set(source_commitments) != source_fields:
+        raise ProvenanceClearanceError("invalid provenance routing source commitments")
+    for field in sorted(source_fields):
+        value = source_commitments.get(field)
+        if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+            raise ProvenanceClearanceError(
+                f"invalid provenance routing source digest: {field}"
+            )
+    raw = plan.get("documents")
+    if not isinstance(raw, list):
+        raise ProvenanceClearanceError("provenance routing plan lacks documents")
+    documents: list[Mapping[str, object]] = []
+    seen: set[tuple[str, str]] = set()
+    for value in cast(list[object], raw):
+        if not isinstance(value, Mapping):
+            raise ProvenanceClearanceError("routing plan document is not an object")
+        row = cast(Mapping[str, object], value)
+        key = _key(row)
+        if key in seen:
+            raise ProvenanceClearanceError(f"duplicate routing plan document: {key}")
+        seen.add(key)
+        _validate_plan_document_v3(row, key=key)
+        documents.append(row)
+    if [_key(row) for row in documents] != sorted(seen):
+        raise ProvenanceClearanceError(
+            "routing plan documents are not canonically ordered"
+        )
+    auto_count = sum(row.get("route") == "auto_clear" for row in documents)
+    document_count = _nonnegative_int(plan, "document_count")
+    declared_auto_count = _nonnegative_int(plan, "auto_clear_count")
+    exception_review_count = _nonnegative_int(plan, "exception_review_count")
+    if (
+        document_count != len(documents)
+        or declared_auto_count != auto_count
+        or exception_review_count != len(documents) - auto_count
+        or plan.get("document_set_sha256")
+        != hashlib.sha256(canonical_json_bytes(documents)).hexdigest()
+    ):
+        raise ProvenanceClearanceError("provenance routing plan summary mismatch")
+    return documents
+
+
+def _validate_plan_document_v3(
+    row: Mapping[str, object], *, key: tuple[str, str]
+) -> None:
+    expected_fields = {
+        "candidate_id",
+        "source_document_id",
+        "local_path",
+        "sha256",
+        "byte_count",
+        "free_or_purchased",
+        "source_provider",
+        "source_url",
+        "source_url_or_reference",
+        "restriction_status",
+        "restriction_evidence",
+        "is_sealed",
+        "is_private",
+        "model_visible",
+        "contains_target_outcome",
+        "disclosure_pdf_scan",
+        "automated_markers",
+        "route",
+        "route_reasons",
+        "exception_clearance_permitted",
+    }
+    if set(row) != expected_fields or row.get("route") not in {
+        "auto_clear",
+        "exception_review",
+    }:
+        raise ProvenanceClearanceError(f"invalid routing plan document shape: {key}")
+    legacy = dict(row)
+    legacy["human_clearance_permitted"] = legacy.pop("exception_clearance_permitted")
+    if legacy["route"] == "exception_review":
+        legacy["route"] = "john_exception_review"
+    _validate_plan_document(legacy, key=key)
+
+
 def _validate_plan_document(row: Mapping[str, object], *, key: tuple[str, str]) -> None:
     expected_fields = {
         "candidate_id",
@@ -515,6 +784,22 @@ def _validate_plan_document(row: Mapping[str, object], *, key: tuple[str, str]) 
     }
     if set(row) != expected_fields:
         raise ProvenanceClearanceError(f"invalid routing plan document shape: {key}")
+    _digest(row, "sha256")
+    _nonnegative_int(row, "byte_count")
+    _validate_relative_local_path(_required_text(row, "local_path"))
+    if _required_text(row, "free_or_purchased") not in {"free", "purchased"}:
+        raise ProvenanceClearanceError(
+            f"free_or_purchased must be free or purchased: {key}"
+        )
+    for field in (
+        "source_provider",
+        "source_url",
+        "source_url_or_reference",
+        "restriction_status",
+    ):
+        _required_text(row, field)
+    _validate_restriction_flags(row, key=key)
+    _validate_visibility_flags(row, key=key)
     raw_scan = row.get("disclosure_pdf_scan")
     if not isinstance(raw_scan, Mapping):
         raise ProvenanceClearanceError(f"routing plan document lacks PDF scan: {key}")
@@ -575,9 +860,9 @@ def _validate_scan_record(scan: Mapping[str, object], *, key: tuple[str, str]) -
     text_pages = _page_numbers(scan, "text_scanned_page_numbers")
     ocr_pages = _page_numbers(scan, "ocr_scanned_page_numbers")
     unscanned_pages = _page_numbers(scan, "unscanned_page_numbers")
-    if scan.get("text_scanned_page_count") != len(text_pages) or scan.get(
-        "ocr_scanned_page_count"
-    ) != len(ocr_pages):
+    text_page_count = _nonnegative_int(scan, "text_scanned_page_count")
+    ocr_page_count = _nonnegative_int(scan, "ocr_scanned_page_count")
+    if text_page_count != len(text_pages) or ocr_page_count != len(ocr_pages):
         raise ProvenanceClearanceError(f"invalid PDF scan page count: {key}")
     partitions = (set(text_pages), set(ocr_pages), set(unscanned_pages))
     if any(
@@ -802,6 +1087,17 @@ def _required_text(record: Mapping[str, object], field: str) -> str:
     return value
 
 
+def _validate_relative_local_path(value: str) -> None:
+    path = PurePosixPath(value)
+    raw_parts = value.split("/")
+    if (
+        path.is_absolute()
+        or "\\" in value
+        or any(part in {"", ".", ".."} for part in raw_parts)
+    ):
+        raise ProvenanceClearanceError("local_path must be a safe relative POSIX path")
+
+
 def _nonempty(value: object, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise ProvenanceClearanceError(f"{label} must be a non-empty string")
@@ -838,12 +1134,17 @@ def _text_list(record: Mapping[str, object], field: str) -> list[str]:
 
 __all__ = [
     "PLAN_SCHEMA_VERSION",
+    "PLAN_SCHEMA_VERSION_V3",
     "WORKSHEET_SCHEMA_VERSION",
+    "WORKSHEET_SCHEMA_VERSION_V3",
     "ProvenanceClearanceError",
     "build_exception_inspection_map",
     "build_provenance_clearance_plan",
+    "build_provenance_clearance_plan_v3",
     "build_provenance_clearance_records",
     "canonical_json_bytes",
     "exception_review_worksheet",
+    "exception_review_worksheet_v3",
     "validate_exception_review_worksheet",
+    "validate_exception_review_worksheet_v3",
 ]

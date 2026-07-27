@@ -1,0 +1,28 @@
+[
+  {
+    "context_limit": 1048576,
+    "display_name": "Gemini 3.5 Flash (model-disjoint disclosure exception reviewer)",
+    "input_token_price": 1.5,
+    "known_cutoff_publicity_caveats": [
+      "This one-entry registry is restricted to non-evaluation acquisition disclosure review and is not an evaluated benchmark model registry.",
+      "Google documents gemini-3.5-flash as a stable model ID rather than a latest or preview alias, but says stable IDs usually do not change and does not guarantee immutable weights or expose a dated snapshot.",
+      "Every official response must return the exact modelVersion gemini-3.5-flash or fail closed.",
+      "Raw marker-page prompts, provider output, and supporting excerpts remain private; only hash-bound decisions and run summaries may be public."
+    ],
+    "max_output_tokens": 4096,
+    "model_id": "gemini-3.5-flash",
+    "model_version_or_snapshot": "gemini-3.5-flash",
+    "network_disabled": true,
+    "output_token_price": 9.0,
+    "pricing_source": "https://ai.google.dev/gemini-api/docs/pricing, Gemini 3.5 Flash standard pricing, checked 2026-07-12",
+    "provider": "google",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-05-19T00:00:00Z",
+    "release_timestamp_source": "https://ai.google.dev/gemini-api/docs/changelog, Gemini 3.5 Flash GA release on 2026-05-19, checked 2026-07-12",
+    "search_disabled": true,
+    "temperature": 0.0,
+    "tool_policy": "no_tools",
+    "top_p": 1.0
+  }
+]
