@@ -482,9 +482,7 @@ def _validate_execution_plan(
         raise FrozenBatchFirecrawlObservationError(
             "observation plan does not match the durable Firecrawl run"
         )
-    if durable.get(
-        "observation_source_sha256"
-    ) != _current_observation_source_sha256():
+    if durable.get("observation_source_sha256") != _current_observation_source_sha256():
         raise FrozenBatchFirecrawlObservationError(
             "observation source code does not match the frozen Firecrawl run"
         )

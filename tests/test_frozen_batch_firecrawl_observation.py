@@ -405,8 +405,9 @@ def test_semantic_failure_requires_fresh_run_and_clean_recovery_terminalizes(
         assert retry_contract["mode"] == "new_firecrawl_run"
         assert retry_contract["reason"] == "committed_page_semantic_failure"
         assert retry_contract["source_run_id"] == "observe-run"
-        assert retry_contract["source_config_digest"] == (
-            store.firecrawl_run_summary("observe-run")["config_digest"]
+        assert (
+            retry_contract["source_config_digest"]
+            == (store.firecrawl_run_summary("observe-run")["config_digest"])
         )
         [committed_page] = cast(
             list[dict[str, object]],
