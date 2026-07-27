@@ -28993,7 +28993,8 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
     if not all(value is not None for value in paid_values[:5]):
         raise CommandError(
             "approved-purchase materialization requires recovery, purchased "
-            "clearance, purchase policy, and purchase ledger inputs"
+            "clearance, purchased-clearance run card, purchase policy, and "
+            "purchase ledger inputs"
         )
     _preflight_current_purchase_snapshot(args)
     output_root = cast(Path, args.output_root).absolute()
