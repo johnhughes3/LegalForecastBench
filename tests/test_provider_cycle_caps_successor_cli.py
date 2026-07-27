@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -1000,6 +1001,37 @@ def test_cli_reconciles_authenticated_stale_exchange_tree_on_resume(
     assert snapshots == {
         path: (path.read_bytes(), path.stat().st_ino) for path in outputs
     }
+
+
+def test_cli_does_not_reclaim_live_publishers_active_staging_tree(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    legacy, smoke, policy, payloads = _write_inputs(tmp_path / "inputs")
+    output_root = tmp_path / "outputs"
+    active_stage = tmp_path / f".{output_root.name}.{'d' * 32}.partial"
+    active_stage.mkdir()
+    owner_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        fcntl.flock(owner_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        assert (
+            main(
+                _args(
+                    legacy=legacy,
+                    smoke=smoke,
+                    policy=policy,
+                    output_root=output_root,
+                    payloads=payloads,
+                )
+            )
+            == 2
+        )
+        assert "another live successor publisher" in capsys.readouterr().err
+        assert active_stage.is_dir()
+        assert not output_root.exists()
+    finally:
+        os.close(owner_fd)
 
 
 def test_cli_rejects_relative_or_symlinked_output_root(

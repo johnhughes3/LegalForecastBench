@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import errno
+import fcntl
 import hashlib
 import json
 import os
@@ -540,9 +541,10 @@ def materialize_provider_cycle_caps_successor_files(
 
     parent_fd = _open_output_parent(target_root)
     parent_path = target_root.parent
-    parent_identity = _directory_stat_identity(parent_fd)
     staged_tree: _StagedOutputTree | None = None
     try:
+        _acquire_output_parent_ownership(parent_fd)
+        parent_identity = _directory_stat_identity(parent_fd)
         target_name = target_root.name
         _recover_stale_staging_trees(
             parent_fd,
@@ -857,6 +859,21 @@ def _output_commitment(path: Path, payload: bytes) -> dict[str, object]:
 
 def _directory_flags() -> int:
     return os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | _nofollow_flag()
+
+
+def _acquire_output_parent_ownership(parent_fd: int) -> None:
+    # SAFETY: parent_fd remains open through recovery, publication, and cleanup,
+    # so no concurrent publisher can reclaim an active staging tree.
+    try:
+        fcntl.flock(parent_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        raise ProviderCycleCapsMaterializationError(
+            "output parent is owned by another live successor publisher"
+        ) from exc
+    except OSError as exc:
+        raise ProviderCycleCapsMaterializationError(
+            "exclusive output-parent ownership cannot be established safely"
+        ) from exc
 
 
 def _nofollow_flag() -> int:
