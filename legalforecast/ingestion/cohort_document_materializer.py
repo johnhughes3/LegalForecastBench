@@ -63,7 +63,7 @@ def prepare_cohort_document_materialization(
     output_root: Path,
     resolved_post_recovery_records: Sequence[Mapping[str, Any]] = (),
 ) -> CohortDocumentMaterialization:
-    """Validate two immutable lineages and prepare a single parse-ready root."""
+    """Validate immutable source lineages and prepare a single parse-ready root."""
 
     phases = tuple(source.phase for source in sources)
     if phases not in {("free",), ("free", "purchased")}:
