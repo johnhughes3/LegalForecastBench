@@ -189,6 +189,37 @@ infisical-agent-sandbox run \
   --execute --resume
 ```
 
+For a completed `free_only` materialization, use these downstream variants.
+They retain the controlled private root needed to replay the exact zero-cost approval, but omit every paid recovery, purchase-policy, purchase-ledger, initialization-receipt, and resolved-document input:
+
+```bash
+uv run legalforecast acquisition plan-parse-documents \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --materialization-run-card <free-only-materialize-cohort-documents-run-card.json> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --document-root <materialized-document-root> \
+  --requests-output <parse-document-requests.jsonl> \
+  --markdown-output-root <parsed-markdown-root> \
+  --execute --no-resume
+```
+
+```bash
+infisical-agent-sandbox run \
+  --path /agents/sandbox/legalforecastbench/parser \
+  -- uv run legalforecast acquisition parse-documents \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --requests <parse-document-requests.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --materialization-run-card <free-only-materialize-cohort-documents-run-card.json> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --parser-root <pinned-parser-checkout> \
+  --execute --resume
+```
+
 The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce the subprocess boundary, but they do not authorize injecting a broad acquisition secret set into the parent process.
 
 ### Provider-free exact-cohort downstream rehearsal

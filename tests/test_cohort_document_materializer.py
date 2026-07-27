@@ -515,6 +515,107 @@ def test_free_only_downstream_preflight_rejects_paid_state_before_policy_access(
         cli._preflight_materialization_purchase_runtime(args)
 
 
+@pytest.mark.parametrize("documents", [None, "not-a-list"])
+def test_free_only_preflight_rejects_malformed_selection_documents_as_command_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    documents: object,
+) -> None:
+    target_root = tmp_path / "target"
+    target_root.mkdir()
+    selection: dict[str, object] = {"candidate_id": "candidate-1"}
+    if documents is not None:
+        selection["documents"] = documents
+    (target_root / "target-cohort-selection.jsonl").write_text(
+        json.dumps(selection, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (target_root / "free-document-downloads.jsonl").write_text(
+        "",
+        encoding="utf-8",
+    )
+    input_paths = [tmp_path / f"input-{index}" for index in range(11)]
+    input_paths[4] = target_root
+    run_card = tmp_path / "materialization-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "authority_mode": "free_only",
+                "input_paths": [str(path) for path in input_paths],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.argparse.Namespace(
+        materialization_run_card=run_card,
+        controlled_private_root=tmp_path / "private",
+        purchase_policy=None,
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_free_only_materialization_authority",
+        lambda **_kwargs: pytest.fail("malformed selection reached authority replay"),
+    )
+
+    with pytest.raises(cli.CommandError, match="documents"):
+        cli._preflight_materialization_purchase_runtime(args)
+
+
+def test_free_only_downstream_replay_requires_controlled_private_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_card = tmp_path / "materialization-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+                "source_roots_mutated": False,
+                "zero_provider_activity_evidence": True,
+                "authority_mode": "free_only",
+                "input_paths": [
+                    str(tmp_path / f"input-{index}") for index in range(11)
+                ],
+                "output_paths": [
+                    str(tmp_path / f"output-{index}") for index in range(6)
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        cli,
+        "_prepare_free_only_cohort_documents",
+        lambda *_args, **_kwargs: pytest.fail(
+            "missing controlled private root reached preparation"
+        ),
+    )
+
+    with pytest.raises(cli.CommandError, match="controlled private root"):
+        cli._verify_materialized_downstream_lineage(
+            run_card_path=run_card,
+            manifest_path=tmp_path / "output-0",
+            clearance_path=tmp_path / "output-1",
+            document_root=tmp_path / "output-5",
+        )
+
+
 def test_materializer_requires_exact_selected_identity_coverage(tmp_path: Path) -> None:
     free, free_key = _source(
         tmp_path,

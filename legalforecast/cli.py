@@ -28735,9 +28735,7 @@ def _preflight_materialization_purchase_runtime(
     run_card_path = cast(Path | None, getattr(args, "materialization_run_card", None))
     if run_card_path is None:
         return _preflight_approved_purchase_runtime(args)
-    legacy_policy = _preflight_legacy_purchase_policy_rejection(args)
-    if legacy_policy is not None:
-        return legacy_policy
+    _preflight_legacy_purchase_policy_rejection(args)
     controlled_private_root = cast(
         Path | None, getattr(args, "controlled_private_root", None)
     )
@@ -28802,9 +28800,7 @@ def _preflight_materialization_purchase_runtime(
                     for record in _read_records(
                         input_paths[4] / "target-cohort-selection.jsonl"
                     )
-                    for document in cast(
-                        Sequence[Mapping[str, Any]], record["documents"]
-                    )
+                    for document in _required_record_sequence(record, "documents")
                 },
             )
             return None
@@ -28832,18 +28828,18 @@ def _preflight_materialization_purchase_runtime(
 
 def _preflight_legacy_purchase_policy_rejection(
     args: argparse.Namespace,
-) -> CaseDevPurchasePolicy | None:
+) -> None:
     """Reject valid legacy v1 authority before inspecting other runtime state."""
 
     policy_path = cast(Path | None, getattr(args, "purchase_policy", None))
     if policy_path is None:
-        return None
+        return
     if policy_path.is_symlink() or not policy_path.is_file():
-        return None
+        return
     try:
         artifact = _read_json_object(policy_path)
         if artifact.get("schema_version") != CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION:
-            return None
+            return
         policy = verify_case_dev_purchase_policy(artifact)
         require_approved_case_dev_purchase_policy(
             policy,
@@ -28851,7 +28847,7 @@ def _preflight_legacy_purchase_policy_rejection(
                 Path | None, getattr(args, "controlled_private_root", None)
             ),
         )
-        return policy
+        raise CommandError("legacy v1 purchase policy is not approved v2 authority")
     except (
         CaseDevPurchasePolicyError,
         OSError,
@@ -31439,6 +31435,10 @@ def _verify_materialized_downstream_lineage(
     if authority_mode == "free_only":
         if len(input_paths) != 11:
             raise CommandError("materialization run card input paths differ")
+        if controlled_private_root is None:
+            raise CommandError(
+                "free-only materialization lineage requires a controlled private root"
+            )
         if initialization_receipt_path is not None:
             raise CommandError(
                 "free-only materialization rejects a ledger initialization receipt"
