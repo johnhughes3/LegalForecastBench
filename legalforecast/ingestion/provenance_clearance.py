@@ -560,6 +560,52 @@ def build_provenance_clearance_records(
     return tuple(records)
 
 
+def build_provider_free_quarantine_records_v3(
+    plan: Mapping[str, object],
+    *,
+    routing_plan_sha256: str,
+) -> tuple[ClearanceRecord, ...]:
+    """Clear automatic v3 rows and quarantine every exception without review."""
+
+    if hashlib.sha256(canonical_json_bytes(plan)).hexdigest() != _strict_digest(
+        routing_plan_sha256, "routing plan hash"
+    ):
+        raise ProvenanceClearanceError("routing plan hash mismatch")
+    documents = _plan_documents_v3(plan)
+    records: list[ClearanceRecord] = []
+    for document in documents:
+        key = _key(document)
+        automatic = document.get("route") == "auto_clear"
+        records.append(
+            ClearanceRecord(
+                candidate_id=key[0],
+                source_document_id=key[1],
+                local_path=_required_text(document, "local_path"),
+                sha256=_digest(document, "sha256"),
+                byte_count=_nonnegative_int(document, "byte_count"),
+                status="cleared" if automatic else "quarantined",
+                automated_markers=tuple(_text_list(document, "automated_markers")),
+                restriction_status=_required_text(document, "restriction_status"),
+                restriction_evidence=tuple(
+                    _text_list(document, "restriction_evidence")
+                ),
+                reviewer_id=None,
+                controlled_store_provenance=(
+                    _required_text(document, "source_url") if automatic else None
+                ),
+                reviewed_at=None,
+                free_or_purchased=_required_text(document, "free_or_purchased"),
+                clearance_basis=(
+                    "affirmative_public_provenance"
+                    if automatic
+                    else "provider_free_exception_quarantine"
+                ),
+                routing_plan_sha256=routing_plan_sha256,
+            )
+        )
+    return tuple(records)
+
+
 def _validated_decisions(
     rows: Sequence[Mapping[str, object]],
     *,
@@ -1156,6 +1202,7 @@ __all__ = [
     "build_provenance_clearance_plan",
     "build_provenance_clearance_plan_v3",
     "build_provenance_clearance_records",
+    "build_provider_free_quarantine_records_v3",
     "canonical_json_bytes",
     "exception_review_worksheet",
     "exception_review_worksheet_v3",

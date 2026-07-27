@@ -394,7 +394,10 @@ def test_projection_rejects_restricted_relevance_document() -> None:
 def test_projection_rejects_unknown_restriction_status() -> None:
     relevance = _relevance("case-a", missing_count=0)
     relevance["documents"][0]["redaction_or_seal_status"] = "unknown"
-    with pytest.raises(TargetCohortProjectionError, match="sealed/private/restricted"):
+    with pytest.raises(
+        TargetCohortProjectionError,
+        match="unknown restriction status lacks automatic clearance binding",
+    ):
         project_target_cohort(
             selections=[_selection("case-a")],
             case_relevance=[relevance],
@@ -403,6 +406,151 @@ def test_projection_rejects_unknown_restriction_status() -> None:
             target_case_count=1,
             cost_per_document_usd="3.05",
             max_projected_budget_usd="100.00",
+            max_missing_core_documents_per_case=24,
+        )
+
+
+def test_projection_accepts_exact_rest_unknown_automatic_clearance() -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    rest_evidence = [
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_available_true",
+        "courtlistener_rest_recap_document_is_sealed_unknown",
+        "courtlistener_rest_public_download_url_allowlisted",
+    ]
+    relevance = _relevance(candidate_id, missing_count=1)
+    relevance_document = relevance["documents"][0]
+    relevance_document.update(
+        {
+            "redaction_or_seal_status": "unknown",
+            "restriction_evidence": list(reversed(rest_evidence)),
+            "is_sealed": None,
+            "is_private": None,
+        }
+    )
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "affirmative_public_provenance",
+            "routing_plan_sha256": "b" * 64,
+            "restriction_status": "unknown",
+            "restriction_evidence": rest_evidence,
+            "reviewer_id": None,
+            "controlled_store_provenance": (
+                "https://storage.courtlistener.com/recap/case-a/complaint.pdf"
+            ),
+            "reviewed_at": None,
+        }
+    )
+
+    projection = project_target_cohort(
+        selections=[_selection(candidate_id)],
+        case_relevance=[relevance],
+        download_manifest=[_download(candidate_id, document_id)],
+        clearance_records=[clearance],
+        target_case_count=1,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="10.00",
+        max_missing_core_documents_per_case=24,
+    )
+
+    assert projection.selected_candidate_ids == (candidate_id,)
+    assert projection.restriction_evidence == (
+        {
+            "candidate_id": candidate_id,
+            "source_document_id": document_id,
+            "restriction_status": "unknown",
+            "restriction_evidence": list(reversed(rest_evidence)),
+            "is_sealed": None,
+            "is_private": None,
+        },
+    )
+
+
+def test_projection_does_not_apply_rest_unknown_binding_to_public_document() -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    relevance = _relevance(candidate_id, missing_count=1)
+    relevance["documents"][0]["restriction_evidence"] = [
+        "different_public_relevance_evidence"
+    ]
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "affirmative_public_provenance",
+            "routing_plan_sha256": "b" * 64,
+            "reviewer_id": None,
+            "controlled_store_provenance": (
+                "https://storage.courtlistener.com/recap/case-a/complaint.pdf"
+            ),
+            "reviewed_at": None,
+        }
+    )
+
+    projection = project_target_cohort(
+        selections=[_selection(candidate_id)],
+        case_relevance=[relevance],
+        download_manifest=[_download(candidate_id, document_id)],
+        clearance_records=[clearance],
+        target_case_count=1,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="10.00",
+        max_missing_core_documents_per_case=24,
+    )
+
+    assert projection.selected_candidate_ids == (candidate_id,)
+
+
+def test_projection_rejects_rest_unknown_clearance_evidence_mismatch() -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    rest_evidence = [
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_available_true",
+        "courtlistener_rest_recap_document_is_sealed_unknown",
+        "courtlistener_rest_public_download_url_allowlisted",
+    ]
+    relevance = _relevance(candidate_id, missing_count=1)
+    relevance["documents"][0].update(
+        {
+            "redaction_or_seal_status": "unknown",
+            "restriction_evidence": [*rest_evidence, "unbound_extra_evidence"],
+            "is_sealed": None,
+            "is_private": None,
+        }
+    )
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "affirmative_public_provenance",
+            "routing_plan_sha256": "b" * 64,
+            "restriction_status": "unknown",
+            "restriction_evidence": rest_evidence,
+            "reviewer_id": None,
+            "controlled_store_provenance": (
+                "https://storage.courtlistener.com/recap/case-a/complaint.pdf"
+            ),
+            "reviewed_at": None,
+        }
+    )
+
+    with pytest.raises(
+        TargetCohortProjectionError,
+        match="automatic clearance restriction evidence does not match relevance",
+    ):
+        project_target_cohort(
+            selections=[_selection(candidate_id)],
+            case_relevance=[relevance],
+            download_manifest=[_download(candidate_id, document_id)],
+            clearance_records=[clearance],
+            target_case_count=1,
+            cost_per_document_usd="3.05",
+            max_projected_budget_usd="10.00",
             max_missing_core_documents_per_case=24,
         )
 
