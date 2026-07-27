@@ -23,6 +23,7 @@ from legalforecast.ingestion.frozen_batch_firecrawl_observation import (
 from legalforecast.ingestion.recap_api_batch_driver import (
     DIRECT_SEARCH_PRIORITY_POLICY_SHA256,
     DIRECT_SEARCH_PRIORITY_TRANCHE_SCHEMA,
+    RecapApiBatchDriverError,
     direct_search_record_sha256,
     priority_observation_input_record,
 )
@@ -302,6 +303,30 @@ def test_plan_rejects_invalid_per_attempt_credit_reservation(
                 tmp_path,
                 requested_candidate_ids=("courtlistener-docket-10",),
                 reserved_credits_per_attempt=cast(int, invalid_reservation),
+            )
+
+
+def test_plan_translates_recap_driver_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_anchor(*_args: object, **_kwargs: object) -> None:
+        raise RecapApiBatchDriverError("fixture frozen-anchor failure")
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.frozen_batch_firecrawl_observation."
+        "validate_frozen_eligibility_anchor",
+        fail_anchor,
+    )
+    with _priority_store(tmp_path) as store:
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="fixture frozen-anchor failure",
+        ):
+            _plan(
+                store,
+                tmp_path,
+                requested_candidate_ids=("courtlistener-docket-10",),
             )
 
 
@@ -676,7 +701,13 @@ def test_driver_rejects_tampered_plan_before_provider_use(tmp_path: Path) -> Non
 
 @pytest.mark.parametrize(
     "source_name",
-    ("adapter", "courtlistener_html_parser", "docket_paginator"),
+    (
+        "adapter",
+        "courtlistener_html_parser",
+        "docket_paginator",
+        "docket_screen",
+        "metadata_screen",
+    ),
 )
 def test_source_digest_drift_blocks_resume_and_execution_before_provider_use(
     tmp_path: Path,
@@ -721,6 +752,64 @@ def test_source_digest_drift_blocks_resume_and_execution_before_provider_use(
         with pytest.raises(
             FrozenBatchFirecrawlObservationError,
             match="observation source code does not match",
+        ):
+            run_frozen_firecrawl_observation(
+                store,
+                batch_id=_BATCH_ID,
+                scheduler=BudgetedFirecrawlScheduler(
+                    store=store,
+                    source=source,
+                    run_id="observe-run",
+                    artifact_dir=tmp_path / "raw",
+                    max_attempts=1,
+                    provider_5xx_circuit_threshold=2,
+                    max_workers=2,
+                ),
+                plan=plan,
+                eligibility_anchor=date(2026, 6, 30),
+                max_pages_per_docket=2,
+            )
+
+    assert source.calls == 0
+
+
+@pytest.mark.parametrize(
+    "dependency_name",
+    ("validate_frozen_eligibility_anchor", "config_window_end"),
+)
+def test_execution_translates_recap_driver_errors_before_provider_use(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    dependency_name: str,
+) -> None:
+    with _priority_store(tmp_path) as store:
+        plan = _plan(
+            store,
+            tmp_path,
+            requested_candidate_ids=("courtlistener-docket-10",),
+        )
+        store.ensure_firecrawl_run(
+            "observe-run",
+            batch_id=_BATCH_ID,
+            config=plan.run_config,
+            credit_cap=100,
+            reserved_credits_per_attempt=1,
+        )
+
+        def fail_dependency(*_args: object, **_kwargs: object) -> None:
+            raise RecapApiBatchDriverError(
+                f"fixture {dependency_name} boundary failure"
+            )
+
+        monkeypatch.setattr(
+            "legalforecast.ingestion.frozen_batch_firecrawl_observation."
+            + dependency_name,
+            fail_dependency,
+        )
+        source = _HTMLSource(_clean_docket_html("10"))
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match=rf"fixture {dependency_name} boundary failure",
         ):
             run_frozen_firecrawl_observation(
                 store,

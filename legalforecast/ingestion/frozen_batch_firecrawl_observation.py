@@ -69,6 +69,8 @@ _OBSERVATION_SOURCE_FILES = {
     "docket_paginator": Path(__file__)
     .with_name("firecrawl_docket_pagination.py")
     .resolve(),
+    "docket_screen": Path(__file__).with_name("courtlistener_acquisition.py").resolve(),
+    "metadata_screen": Path(__file__).with_name("mtd_acquisition_screen.py").resolve(),
 }
 
 
@@ -206,7 +208,10 @@ def plan_frozen_firecrawl_observation(
         )
     if limit is not None and limit <= 0:
         raise FrozenBatchFirecrawlObservationError("limit must be positive")
-    validate_frozen_eligibility_anchor(store, eligibility_anchor)
+    try:
+        validate_frozen_eligibility_anchor(store, eligibility_anchor)
+    except RecapApiBatchDriverError as exc:
+        raise FrozenBatchFirecrawlObservationError(str(exc)) from exc
 
     ordered = _ordered_frozen_candidates(store, batch_id=batch_id)
     candidate_id_set = frozenset(candidate.candidate_id for candidate in ordered)
@@ -327,7 +332,10 @@ def run_frozen_firecrawl_observation(
     as a transient event, leaving the candidate unresolved for a later resume.
     """
 
-    validate_frozen_eligibility_anchor(store, eligibility_anchor)
+    try:
+        validate_frozen_eligibility_anchor(store, eligibility_anchor)
+    except RecapApiBatchDriverError as exc:
+        raise FrozenBatchFirecrawlObservationError(str(exc)) from exc
     _validate_execution_plan(
         store,
         batch_id=batch_id,
@@ -336,7 +344,10 @@ def run_frozen_firecrawl_observation(
         eligibility_anchor=eligibility_anchor,
         max_pages_per_docket=max_pages_per_docket,
     )
-    decision_window_end = config_window_end(store, batch_id)
+    try:
+        decision_window_end = config_window_end(store, batch_id)
+    except RecapApiBatchDriverError as exc:
+        raise FrozenBatchFirecrawlObservationError(str(exc)) from exc
     skipped = 0
     attempted = 0
     accepted = 0

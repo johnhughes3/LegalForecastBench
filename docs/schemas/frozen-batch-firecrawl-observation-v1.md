@@ -12,7 +12,7 @@ The durable Firecrawl run configuration binds:
 - the eligibility anchor and decision-window upper bound;
 - the raw artifact root, pagination ceiling, retry ceiling, circuit threshold, concurrency ceiling, proxy mode, browser mode, and worst-case credits per request; and
 - the scheduler's target-HTTP pressure policy version; and
-- SHA-256 digests of the adapter, CourtListener HTML parser, and docket paginator source files.
+- SHA-256 digests of the adapter, CourtListener HTML parser, docket paginator, docket screen, and metadata-screen source files.
 
 Candidate IDs supplied on the command line act only as a set selector. The adapter always restores their order from the frozen priority records. With no explicit IDs, a new run freezes the candidates that do not have a current terminal observation. A resumed run restores its original selected scope from the durable configuration, skips candidates that have since become terminal, and retains each candidate's batch-global ordinal for page scheduling.
 

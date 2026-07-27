@@ -2031,6 +2031,7 @@ Each command prints a machine-readable JSON summary to stdout (use `--summary-ou
 - `observe` tally: `considered` (candidates scanned), `skipped_already_observed` (resume skips), `observed` (fetched this pass), `eligible` (strict-clean accepted), `excluded_by_reason` (immutable/posture exclusions, with the underlying strict-screen reason surfaced as `strict_clean_screen_failed:<screen_reason>`), and `transient_by_reason` (retryable failures to re-run).
 - `seed-batch-001-leads`: `leads_selected`, `leads_seeded`, and `already_seeded`.
 - `seed-direct-search`: the same transfer counts plus `source_batch_digest` and `source_candidate_set_sha256`, which bind the REST batch to the exact saturated source pool.
+
 ### Frozen priority-batch Firecrawl observation
 
 When authenticated CourtListener REST reconstruction is unavailable or its daily request budget is exhausted, `legalforecast batch-002 observe-firecrawl` may observe an exact unresolved subset of an already frozen direct-search priority tranche through Firecrawl:
