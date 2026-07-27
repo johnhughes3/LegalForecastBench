@@ -713,6 +713,9 @@ def test_disclosure_review_runbook_uses_provenance_first_contract() -> None:
     assert "Provenance clearance v1" in section
     assert "plan-disclosure-provenance" in section
     assert "clear-provenance-disclosures" in section
+    assert "descriptor-stable manifest commitments" in section
+    assert "`extraction_page_count_mismatch` marker is a structural" in section
+    assert "`medical` and every other substantive or unknown marker" in section
     assert "preflight-disclosure-review-signer" not in section
     assert "build-disclosure-review-bundle" not in section
     assert "seal-disclosure-review-bundle" not in section

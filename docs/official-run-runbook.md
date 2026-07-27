@@ -1556,7 +1556,8 @@ The current generated policy binds cycle hash `35f70123bfc966512d61119746ba09716
 Its internal policy identity is `76c98406536e38fede7a1a72b60af731088fae04888b9662b1d3ed37538a7207`.
 The value-by-value human-authority and source derivation record is [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md).
 First derive the exact provenance routing plan, exception-only worksheet, and private exact-byte inspection map.
-Only exact marker-free bytes with affirmative public CourtListener provenance and a consistent visibility contract auto-clear; every other document routes to John, while positive sealed/private/restricted evidence and visibility contradictions remain impossible to clear.
+Only exact bytes with descriptor-stable manifest commitments, affirmative public CourtListener provenance, and a consistent model-visibility/target-outcome separation can auto-clear.
+The exact `extraction_page_count_mismatch` marker is a structural extraction-integrity diagnostic rather than substantive disclosure content, so it does not by itself require review after those gates pass and no affirmative sealed/private/restricted evidence exists; `medical` and every other substantive or unknown marker still routes to John, while positive restriction evidence and visibility contradictions remain impossible to clear.
 The private root must not equal, contain, or be contained by the acquisition output root.
 The command writes `private-document-inspection-map.jsonl` only under that private root and deliberately excludes its path and bytes from downstream run-card commitments.
 This no-FIDO flow trusts the integrity of that controlled private root and its owning host UID; reviewer names and timestamps are audit assertions, not cryptographic identity or trusted-time proof, and a suspected same-UID compromise requires discarding and repeating the clearance on a trusted host.
