@@ -497,8 +497,10 @@ from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
     build_exception_inspection_map,
     build_provenance_clearance_plan,
+    build_provenance_clearance_plan_v3,
     build_provenance_clearance_records,
     exception_review_worksheet,
+    exception_review_worksheet_v3,
     validate_exception_review_worksheet,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
@@ -794,6 +796,10 @@ from legalforecast.unitization.schemas import (
 
 JsonRecord = dict[str, Any]
 CommandHandler = Callable[[argparse.Namespace], int]
+_ACQUISITION_STAGE_LOG_SCHEMA_VERSION = "legalforecast.acquisition_stage_log.v1"
+_DISCLOSURE_PROVENANCE_STAGE_LOG_SCHEMA_VERSION = (
+    "legalforecast.disclosure_provenance_stage_log.v1"
+)
 
 
 class CommandError(RuntimeError):
@@ -1937,7 +1943,7 @@ def build_parser() -> argparse.ArgumentParser:
         "plan-disclosure-provenance",
         help=(
             "Route exact affirmative-public bytes automatically and all other "
-            "documents to hash-bound John review."
+            "documents to a hash-bound exception workflow."
         ),
     )
     _add_acquisition_plan_disclosure_provenance_arguments(
@@ -6459,6 +6465,16 @@ def _add_acquisition_plan_disclosure_provenance_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--schema-version",
+        choices=("v2", "v3"),
+        default="v2",
+        help=(
+            "Closed routing-artifact contract to emit. v2 preserves the legacy "
+            "John-review vocabulary and remains the default; v3 emits the "
+            "reviewer-neutral exception-review contract."
+        ),
+    )
     parser.add_argument("--review-requests", type=Path, required=True)
     parser.add_argument("--download-manifest", type=Path, required=True)
     parser.add_argument("--case-relevance", type=Path, required=True)
@@ -12962,6 +12978,8 @@ def _completed_disclosure_review_resume(
     output_paths: Sequence[Path],
     record_count: int,
     expected_extra: Mapping[str, object] | None = None,
+    expected_log_extra: Mapping[str, object] | None = None,
+    repair_terminal_metadata: bool = True,
 ) -> bool:
     """Return without mutating an already completed exact stage record."""
 
@@ -13074,7 +13092,70 @@ def _completed_disclosure_review_resume(
         else:
             raise CommandError(f"{stage} resume metadata mismatch")
     log_records = _read_records(log_path) if log_path.exists() else []
-    log_fields = {
+    log_extra = dict(expected_log_extra or {})
+    log_completed = _validate_disclosure_review_resume_log(
+        log_records,
+        stage=stage,
+        run_card_path=run_card_path,
+        record_count=record_count,
+        expected_log_schema_version=(
+            _DISCLOSURE_PROVENANCE_STAGE_LOG_SCHEMA_VERSION
+            if expected_log_extra
+            else _ACQUISITION_STAGE_LOG_SCHEMA_VERSION
+        ),
+        expected_log_extra=expected_log_extra,
+    )
+    if card_completed and log_completed:
+        return True
+    if not card_completed and not log_completed:
+        # A durable failure history is retryable after its inputs are repaired.
+        return False
+    if not repair_terminal_metadata:
+        return True
+    if card_completed:
+        _append_disclosure_review_log(
+            log_path,
+            [
+                {
+                    "schema_version": (
+                        _DISCLOSURE_PROVENANCE_STAGE_LOG_SCHEMA_VERSION
+                        if log_extra
+                        else _ACQUISITION_STAGE_LOG_SCHEMA_VERSION
+                    ),
+                    "event": "stage_completed",
+                    "stage": stage,
+                    "status": "completed",
+                    "dry_run": False,
+                    "run_card_path": str(run_card_path),
+                    "record_count": record_count,
+                    "paid_activity_requested": False,
+                    "paid_activity_executed": False,
+                    **log_extra,
+                }
+            ],
+        )
+        return True
+    repaired_card: JsonRecord = {
+        **expected,
+        "resume": cast(bool, args.resume),
+        "generated_at": _iso_datetime(datetime.now(UTC)),
+    }
+    _atomic_write_json(run_card_path, repaired_card)
+    return True
+
+
+def _validate_disclosure_review_resume_log(
+    log_records: Sequence[Mapping[str, object]],
+    *,
+    stage: str,
+    run_card_path: Path,
+    record_count: int,
+    expected_log_schema_version: str,
+    expected_log_extra: Mapping[str, object] | None,
+) -> bool:
+    """Validate the complete closed terminal-log history without writing."""
+
+    base_log_fields = {
         "schema_version",
         "event",
         "stage",
@@ -13085,6 +13166,9 @@ def _completed_disclosure_review_resume(
         "paid_activity_requested",
         "paid_activity_executed",
     }
+    log_extra = dict(expected_log_extra or {})
+    if set(log_extra) & base_log_fields:
+        raise CommandError(f"{stage} resume log expectation repeats a base field")
     log_completed = False
     for index, record in enumerate(log_records):
         status = record.get("status")
@@ -13098,7 +13182,11 @@ def _completed_disclosure_review_resume(
         event = "stage_completed" if status == "completed" else "stage_failed"
         count = record_count if status == "completed" else 0
         common_log_expectation = {
-            "schema_version": "legalforecast.acquisition_stage_log.v1",
+            "schema_version": (
+                expected_log_schema_version
+                if status == "completed"
+                else _ACQUISITION_STAGE_LOG_SCHEMA_VERSION
+            ),
             "stage": stage,
             "status": status,
             "event": event,
@@ -13106,8 +13194,18 @@ def _completed_disclosure_review_resume(
             "paid_activity_requested": False,
             "paid_activity_executed": False,
         }
-        if set(record) != log_fields or any(
-            record.get(name) != value for name, value in common_log_expectation.items()
+        expected_log_fields = (
+            base_log_fields | set(log_extra)
+            if status == "completed"
+            else base_log_fields
+        )
+        expected_log_values = (
+            {**common_log_expectation, **log_extra}
+            if status == "completed"
+            else common_log_expectation
+        )
+        if set(record) != expected_log_fields or any(
+            record.get(name) != value for name, value in expected_log_values.items()
         ):
             raise CommandError(f"{stage} completed resume log mismatch")
         if planning_record:
@@ -13120,36 +13218,7 @@ def _completed_disclosure_review_resume(
             continue
         if record.get("dry_run") is not False or record.get("record_count") != count:
             raise CommandError(f"{stage} completed resume log mismatch")
-    if card_completed and log_completed:
-        return True
-    if not card_completed and not log_completed:
-        # A durable failure history is retryable after its inputs are repaired.
-        return False
-    if card_completed:
-        _append_disclosure_review_log(
-            log_path,
-            [
-                {
-                    "schema_version": "legalforecast.acquisition_stage_log.v1",
-                    "event": "stage_completed",
-                    "stage": stage,
-                    "status": "completed",
-                    "dry_run": False,
-                    "run_card_path": str(run_card_path),
-                    "record_count": record_count,
-                    "paid_activity_requested": False,
-                    "paid_activity_executed": False,
-                }
-            ],
-        )
-        return True
-    repaired_card: JsonRecord = {
-        **expected,
-        "resume": cast(bool, args.resume),
-        "generated_at": _iso_datetime(datetime.now(UTC)),
-    }
-    _atomic_write_json(run_card_path, repaired_card)
-    return True
+    return log_completed
 
 
 def _write_disclosure_review_failure(
@@ -33177,6 +33246,19 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     )
     private_root = cast(Path, args.controlled_private_store_root)
     inspection_path = private_root / "private-document-inspection-map.jsonl"
+    selected_schema = cast(str, args.schema_version)
+    if selected_schema == "v2":
+        plan_builder = build_provenance_clearance_plan
+        worksheet_builder = exception_review_worksheet
+        exception_count_field = "john_review_count"
+    elif selected_schema == "v3":
+        plan_builder = build_provenance_clearance_plan_v3
+        worksheet_builder = exception_review_worksheet_v3
+        exception_count_field = "exception_review_count"
+    else:
+        raise CommandError(
+            "plan-disclosure-provenance requires --schema-version v2 or v3"
+        )
     input_paths = (requests_path, manifest_path, relevance_path, restriction_path)
     _require_controlled_private_review_root(
         private_root,
@@ -33213,7 +33295,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         document_snapshot = _capture_provenance_document_snapshot(
             manifest_records, document_root=document_root
         )
-        plan = build_provenance_clearance_plan(
+        plan = plan_builder(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=requests_path
             ),
@@ -33231,7 +33313,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
         )
-        worksheet = exception_review_worksheet(plan)
+        worksheet = worksheet_builder(plan)
         inspection = build_exception_inspection_map(
             plan,
             document_root=document_root,
@@ -33245,16 +33327,14 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     plan_bytes = canonical_json_bytes(plan)
     worksheet_bytes = canonical_json_bytes(worksheet)
     dry_run = _acquisition_dry_run(args)
-    if not dry_run:
-        _ensure_disclosure_review_artifact(
-            plan_path, plan_bytes, resume=cast(bool, args.resume)
-        )
-        _ensure_disclosure_review_artifact(
-            worksheet_path, worksheet_bytes, resume=cast(bool, args.resume)
-        )
-        _ensure_disclosure_review_artifact(
-            inspection_path, inspection, resume=cast(bool, args.resume)
-        )
+    schema_log_extra: dict[str, object] | None = (
+        {
+            "routing_plan_schema_version": plan["schema_version"],
+            "exception_worksheet_schema_version": worksheet["schema_version"],
+        }
+        if selected_schema == "v3"
+        else None
+    )
     source_commitments: dict[str, dict[str, object]] = {
         name: {
             "path": str(path.resolve()),
@@ -33287,22 +33367,48 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             },
         }
     )
-    completion_extra = {
+    completion_extra: dict[str, object] = {
         "auto_clear_count": plan["auto_clear_count"],
-        "john_review_count": plan["john_review_count"],
+        exception_count_field: plan[exception_count_field],
         "source_commitments": source_commitments,
         "output_commitments": output_commitments,
         "private_inspection_map_written": not dry_run,
         "private_inspection_map_excluded_from_commitments": True,
     }
-    if not dry_run and _completed_disclosure_review_resume(
-        args,
-        stage=stage,
-        input_paths=(*input_paths, document_root),
-        output_paths=(plan_path, worksheet_path),
-        record_count=cast(int, plan["document_count"]),
-        expected_extra=completion_extra,
-    ):
+    if selected_schema == "v3":
+        completion_extra.update(cast(dict[str, object], schema_log_extra))
+    terminal_metadata_present = False
+    if not dry_run:
+        terminal_metadata_present = _completed_disclosure_review_resume(
+            args,
+            stage=stage,
+            input_paths=(*input_paths, document_root),
+            output_paths=(plan_path, worksheet_path),
+            record_count=cast(int, plan["document_count"]),
+            expected_extra=completion_extra,
+            expected_log_extra=schema_log_extra,
+            repair_terminal_metadata=False,
+        )
+        _ensure_disclosure_review_artifact(
+            plan_path, plan_bytes, resume=cast(bool, args.resume)
+        )
+        _ensure_disclosure_review_artifact(
+            worksheet_path, worksheet_bytes, resume=cast(bool, args.resume)
+        )
+        _ensure_disclosure_review_artifact(
+            inspection_path, inspection, resume=cast(bool, args.resume)
+        )
+    if terminal_metadata_present:
+        if not _completed_disclosure_review_resume(
+            args,
+            stage=stage,
+            input_paths=(*input_paths, document_root),
+            output_paths=(plan_path, worksheet_path),
+            record_count=cast(int, plan["document_count"]),
+            expected_extra=completion_extra,
+            expected_log_extra=schema_log_extra,
+        ):
+            raise CommandError(f"{stage} terminal resume state changed")
         return 0
     _write_acquisition_completion(
         args,
@@ -33314,6 +33420,12 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         paid_activity_requested=False,
         paid_activity_executed=False,
         extra=completion_extra,
+        log_extra=schema_log_extra,
+        log_schema_version=(
+            _DISCLOSURE_PROVENANCE_STAGE_LOG_SCHEMA_VERSION
+            if schema_log_extra
+            else _ACQUISITION_STAGE_LOG_SCHEMA_VERSION
+        ),
         resumable_terminal_metadata=True,
     )
     return 0
@@ -46272,6 +46384,8 @@ def _write_acquisition_completion(
     paid_activity_requested: bool,
     paid_activity_executed: bool,
     extra: Mapping[str, Any] | None = None,
+    log_extra: Mapping[str, Any] | None = None,
+    log_schema_version: str = _ACQUISITION_STAGE_LOG_SCHEMA_VERSION,
     resumable_terminal_metadata: bool = False,
 ) -> None:
     _write_acquisition_stage_record(
@@ -46286,6 +46400,8 @@ def _write_acquisition_completion(
         paid_activity_requested=paid_activity_requested,
         paid_activity_executed=paid_activity_executed,
         extra=extra,
+        log_extra=log_extra,
+        log_schema_version=log_schema_version,
         resumable_terminal_metadata=resumable_terminal_metadata,
     )
 
@@ -46317,6 +46433,8 @@ def _write_acquisition_failure(
         paid_activity_requested=paid_activity_requested,
         paid_activity_executed=paid_activity_executed,
         extra=failure_extra,
+        log_extra=None,
+        log_schema_version=_ACQUISITION_STAGE_LOG_SCHEMA_VERSION,
         resumable_terminal_metadata=resumable_terminal_metadata,
     )
 
@@ -46334,6 +46452,8 @@ def _write_acquisition_stage_record(
     paid_activity_requested: bool,
     paid_activity_executed: bool,
     extra: Mapping[str, Any] | None,
+    log_extra: Mapping[str, Any] | None,
+    log_schema_version: str,
     resumable_terminal_metadata: bool,
 ) -> None:
     output_root = _acquisition_output_root(args)
@@ -46363,24 +46483,31 @@ def _write_acquisition_stage_record(
     }
     if extra is not None:
         run_card.update(extra)
+    log_record: JsonRecord = {
+        "schema_version": log_schema_version,
+        "event": event,
+        "stage": stage,
+        "status": status,
+        "dry_run": dry_run,
+        "run_card_path": str(run_card_path),
+        "record_count": record_count,
+        "paid_activity_requested": paid_activity_requested,
+        "paid_activity_executed": paid_activity_executed,
+    }
+    if log_extra is not None:
+        repeated = set(log_record) & set(log_extra)
+        if repeated:
+            raise CommandError(
+                f"{stage} completion log metadata repeats base fields: "
+                f"{sorted(repeated)}"
+            )
+        log_record.update(log_extra)
+    log_records = [log_record]
     if resumable_terminal_metadata:
         # The atomic run card is phase one of a resumable terminal publication.
         # Disclosure-review resume repairs a missing phase-two log entry without
         # rewriting the surviving marker.
         _atomic_write_json(run_card_path, run_card)
-    log_records = [
-        {
-            "schema_version": "legalforecast.acquisition_stage_log.v1",
-            "event": event,
-            "stage": stage,
-            "status": status,
-            "dry_run": dry_run,
-            "run_card_path": str(run_card_path),
-            "record_count": record_count,
-            "paid_activity_requested": paid_activity_requested,
-            "paid_activity_executed": paid_activity_executed,
-        }
-    ]
     if resumable_terminal_metadata:
         _append_disclosure_review_log(log_path, log_records)
     else:

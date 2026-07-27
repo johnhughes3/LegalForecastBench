@@ -4,6 +4,31 @@ Version 3 is additive to the byte-exact version 1 and version 2 human-review con
 Existing `legalforecast.disclosure_provenance_routing_plan.v2`, `legalforecast.disclosure_exception_worksheet.v2`, and interactive John decisions keep their schemas and semantics.
 Shared document validation now also enforces closed identity and safety domains, safe relative local paths, and exact scan-page counts on the v2 path.
 
+Select this contract explicitly with `plan-disclosure-provenance --schema-version v3`.
+Omitting `--schema-version` or passing `--schema-version v2` preserves the legacy v2 artifacts and run-card shape.
+The selector is closed to `v2` and `v3`.
+Never resume a v3 execution from a v2 output root, or a v2 execution from a v3 output root; use a fresh immutable output root and controlled private store for each selected contract.
+Completed run cards for v3 bind both selected artifact schema versions and record `exception_review_count`, while v2 retains its byte-compatible `john_review_count` metadata.
+The v3 terminal log binds those same schema versions so same-version repair remains possible if only the completed log survives.
+The closed legacy terminal-log shape continues to prove v2 without changing its bytes.
+An opposite-version card or log fails before any public artifact or private inspection map can be restored.
+The v3 completed-log schema is `legalforecast.disclosure_provenance_stage_log.v1`.
+Its fields are exactly `schema_version`, `event`, `stage`, `status`, `dry_run`, `run_card_path`, `record_count`, `paid_activity_requested`, `paid_activity_executed`, `routing_plan_schema_version`, and `exception_worksheet_schema_version`.
+Failure-history rows retain `legalforecast.acquisition_stage_log.v1`; they carry no completion authority and remain retryable only under the existing closed failure contract.
+
+```bash
+uv run legalforecast acquisition plan-disclosure-provenance \
+  --schema-version v3 \
+  --output-root <fresh-v3-review-root> \
+  --review-requests <disclosure-review-requests.jsonl> \
+  --download-manifest <document-downloads-merged.jsonl> \
+  --case-relevance <case-relevance.jsonl> \
+  --document-root <immutable-document-root> \
+  --restriction-evidence <restriction-evidence.jsonl> \
+  --controlled-private-store-root <fresh-controlled-private-v3-root> \
+  --execute --no-resume
+```
+
 The v3 routing-plan schema is `legalforecast.disclosure_provenance_routing_plan.v3`.
 It replaces the reviewer-specific `john_exception_review`, `john_review_count`, and `human_clearance_permitted` vocabulary with `exception_review`, `exception_review_count`, and `exception_clearance_permitted`.
 All source, page-coverage, marker, public-provenance, restriction, visibility, ordering, and hash commitments are otherwise identical to v2.
