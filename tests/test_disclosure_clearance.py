@@ -141,6 +141,16 @@ def test_substantive_marker_on_later_page_forces_review_marker() -> None:
     assert scan.automated_markers == ("medical",)
 
 
+def test_substantive_marker_cannot_span_pdf_page_boundary() -> None:
+    scan = scan_disclosure_document(
+        _multipage_pdf(("The date of birth:", "01/01/1990"))
+    )
+
+    assert scan.coverage_status == "complete"
+    assert scan.text_scanned_page_numbers == (1, 2)
+    assert scan.automated_markers == ()
+
+
 def test_sealed_evidence_fails_closed_and_cleared_hash_is_recorded(
     tmp_path: Path,
 ) -> None:

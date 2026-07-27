@@ -69,6 +69,24 @@ class DisclosureClearanceError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class DisclosurePdfPage:
+    """Nonempty text extracted from one page of an exact PDF byte string."""
+
+    page_number: int
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class DisclosurePdfPageExtraction:
+    """Closed page-text extraction result over one exact PDF byte string."""
+
+    parsed_page_count: int
+    pages: tuple[DisclosurePdfPage, ...]
+    unscanned_page_numbers: tuple[int, ...]
+    diagnostics: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class DisclosurePdfScan:
     """Closed page-coverage evidence derived from one exact PDF byte string."""
 
@@ -673,21 +691,13 @@ def _scan_pdf(data: bytes) -> tuple[str, ...]:
     return tuple(sorted(markers))
 
 
-def scan_disclosure_document(data: bytes) -> DisclosurePdfScan:
-    """Scan every parsed PDF page and return explicit, closed coverage evidence."""
+def extract_disclosure_pdf_pages(data: bytes) -> DisclosurePdfPageExtraction:
+    """Extract nonempty page text from one exact PDF byte string."""
 
     diagnostics: set[str] = set()
-    try:
-        legacy = extract_pdf_text_with_ocr_fallback(data)
-    except PDFExtractionError:
-        diagnostics.add("legacy_extraction_failed")
-    else:
-        diagnostics.update(f"legacy_extraction_{flag}" for flag in legacy.quality_flags)
-
     parsed_page_count = 0
-    text_pages: list[int] = []
+    pages: list[DisclosurePdfPage] = []
     unscanned_pages: list[int] = []
-    normalized_page_text: list[str] = []
     try:
         reader = PdfReader(BytesIO(data), strict=False)
         if reader.is_encrypted:
@@ -707,26 +717,61 @@ def scan_disclosure_document(data: bytes) -> DisclosurePdfScan:
                     diagnostics.add(f"page_text_empty:{page_number}")
                     unscanned_pages.append(page_number)
                     continue
-                text_pages.append(page_number)
-                normalized_page_text.append(normalized)
+                pages.append(
+                    DisclosurePdfPage(page_number=page_number, text=normalized)
+                )
     except Exception:
         diagnostics.add("pdf_parse_failed")
 
     all_pages = set(range(1, parsed_page_count + 1))
-    covered_pages = set(text_pages)
+    covered_pages = {page.page_number for page in pages}
     missing_pages = all_pages - covered_pages
     unscanned_pages = sorted(set(unscanned_pages) | missing_pages)
+    return DisclosurePdfPageExtraction(
+        parsed_page_count=parsed_page_count,
+        pages=tuple(pages),
+        unscanned_page_numbers=tuple(unscanned_pages),
+        diagnostics=tuple(sorted(diagnostics)),
+    )
+
+
+def disclosure_markers_for_text(text: str) -> tuple[str, ...]:
+    """Return substantive disclosure marker categories in one text string."""
+
+    markers = {
+        name
+        for name, pattern in (
+            ("ssn", _SSN),
+            ("dob", _DOB),
+            ("minor", _MINOR),
+            ("medical", _MEDICAL),
+        )
+        if pattern.search(text)
+    }
+    return tuple(sorted(markers))
+
+
+def scan_disclosure_document(data: bytes) -> DisclosurePdfScan:
+    """Scan every parsed PDF page and return explicit, closed coverage evidence."""
+
+    extraction = extract_disclosure_pdf_pages(data)
+    diagnostics = set(extraction.diagnostics)
+    try:
+        legacy = extract_pdf_text_with_ocr_fallback(data)
+    except PDFExtractionError:
+        diagnostics.add("legacy_extraction_failed")
+    else:
+        diagnostics.update(f"legacy_extraction_{flag}" for flag in legacy.quality_flags)
+
+    text_pages = [page.page_number for page in extraction.pages]
+    unscanned_pages = list(extraction.unscanned_page_numbers)
+    parsed_page_count = extraction.parsed_page_count
     coverage_complete = parsed_page_count > 0 and not unscanned_pages
-    markers: set[str] = set()
-    text = "\f".join(normalized_page_text)
-    for name, pattern in (
-        ("ssn", _SSN),
-        ("dob", _DOB),
-        ("minor", _MINOR),
-        ("medical", _MEDICAL),
-    ):
-        if pattern.search(text):
-            markers.add(name)
+    markers = {
+        marker
+        for page in extraction.pages
+        for marker in disclosure_markers_for_text(page.text)
+    }
     if not coverage_complete:
         markers.update(
             {"extraction_page_coverage_incomplete", "unscannable_or_image_only"}
