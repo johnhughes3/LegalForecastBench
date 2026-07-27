@@ -197,6 +197,7 @@ class PurchaseApprovalRequest:
 
 
 _VERIFIED_APPROVAL_MINT = object()
+_VERIFIED_FREE_ONLY_MINT = object()
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -220,6 +221,28 @@ class VerifiedPurchaseApproval:
         return self._mint_token is _VERIFIED_APPROVAL_MINT
 
 
+@dataclass(frozen=True, slots=True, init=False)
+class VerifiedFreeOnlyPurchaseApproval:
+    """Replay-verified authority to use only already-free cohort documents."""
+
+    request: PurchaseApprovalRequest
+    decision: str
+    reviewer_id: str
+    recorded_at_utc: str
+    typed_confirmation_sha256: str
+    checkpoint_sha256: str
+    run_card_sha256: str
+    _mint_token: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise PurchaseApprovalError(
+            "VerifiedFreeOnlyPurchaseApproval can be created only by evidence replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint_token is _VERIFIED_FREE_ONLY_MINT
+
+
 def _mint_verified_purchase_approval(
     evidence: _VerifiedPurchaseApprovalEvidence,
 ) -> VerifiedPurchaseApproval:
@@ -237,11 +260,30 @@ def _mint_verified_purchase_approval(
     return approval
 
 
+def _mint_verified_free_only_purchase_approval(
+    evidence: _VerifiedPurchaseApprovalEvidence,
+) -> VerifiedFreeOnlyPurchaseApproval:
+    approval = object.__new__(VerifiedFreeOnlyPurchaseApproval)
+    for name, value in (
+        ("request", evidence.request),
+        ("decision", evidence.decision),
+        ("reviewer_id", evidence.reviewer_id),
+        ("recorded_at_utc", evidence.recorded_at_utc),
+        ("typed_confirmation_sha256", evidence.typed_confirmation_sha256),
+        ("checkpoint_sha256", evidence.checkpoint_sha256),
+        ("run_card_sha256", evidence.run_card_sha256),
+        ("_mint_token", _VERIFIED_FREE_ONLY_MINT),
+    ):
+        object.__setattr__(approval, name, value)
+    return approval
+
+
 @dataclass(frozen=True, slots=True)
 class _VerifiedPurchaseApprovalEvidence:
     """Common verified evidence that is not itself minting authority."""
 
     request: PurchaseApprovalRequest
+    decision: str
     reviewer_id: str
     recorded_at_utc: str
     typed_confirmation_sha256: str
@@ -848,8 +890,35 @@ def verify_purchase_approval(
         fee_schedule_path=fee_schedule_path,
         canonical_ledger_path=canonical_ledger_path,
         require_fresh_ledger_namespace=True,
+        required_decision="approve",
     )
     return _mint_verified_purchase_approval(evidence)
+
+
+def verify_free_only_purchase_approval(
+    *,
+    controlled_private_root: Path,
+    checkpoint_path: Path,
+    run_card_path: Path,
+    target_cohort_root: Path,
+    cohort_policy_path: Path,
+    fee_schedule_path: Path,
+    canonical_ledger_path: Path,
+) -> VerifiedFreeOnlyPurchaseApproval:
+    """Replay exact ``free_only`` authority without minting purchase authority."""
+
+    evidence = _verify_purchase_approval_evidence(
+        controlled_private_root=controlled_private_root,
+        checkpoint_path=checkpoint_path,
+        run_card_path=run_card_path,
+        target_cohort_root=target_cohort_root,
+        cohort_policy_path=cohort_policy_path,
+        fee_schedule_path=fee_schedule_path,
+        canonical_ledger_path=canonical_ledger_path,
+        require_fresh_ledger_namespace=True,
+        required_decision="free_only",
+    )
+    return _mint_verified_free_only_purchase_approval(evidence)
 
 
 def _verify_purchase_approval_evidence(
@@ -862,6 +931,7 @@ def _verify_purchase_approval_evidence(
     fee_schedule_path: Path,
     canonical_ledger_path: Path,
     require_fresh_ledger_namespace: bool,
+    required_decision: str = "approve",
 ) -> _VerifiedPurchaseApprovalEvidence:
     """Verify common evidence for minting or existing-policy comparison."""
 
@@ -923,8 +993,13 @@ def _verify_purchase_approval_evidence(
     }:
         raise PurchaseApprovalError("private approval verification inputs changed")
     decision = _decision(checkpoint.get("decision"))
-    if decision != "approve":
-        raise PurchaseApprovalError(f"{decision} does not authorize purchases")
+    expected_decision = _decision(required_decision)
+    if decision != expected_decision:
+        if expected_decision == "approve":
+            raise PurchaseApprovalError(f"{decision} does not authorize purchases")
+        raise PurchaseApprovalError(
+            f"{decision} does not authorize free-only materialization"
+        )
     confirmation = _text(checkpoint.get("typed_confirmation"), "typed confirmation")
     if confirmation != request.required_confirmation(decision):
         raise PurchaseApprovalError("typed confirmation does not bind exact request")
@@ -961,6 +1036,7 @@ def _verify_purchase_approval_evidence(
         )
     return _VerifiedPurchaseApprovalEvidence(
         request=request,
+        decision=decision,
         reviewer_id=reviewer,
         recorded_at_utc=recorded,
         typed_confirmation_sha256=_sha256(confirmation.encode()),

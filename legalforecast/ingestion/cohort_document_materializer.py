@@ -65,9 +65,10 @@ def prepare_cohort_document_materialization(
 ) -> CohortDocumentMaterialization:
     """Validate two immutable lineages and prepare a single parse-ready root."""
 
-    if tuple(source.phase for source in sources) != ("free", "purchased"):
+    phases = tuple(source.phase for source in sources)
+    if phases not in {("free",), ("free", "purchased")}:
         raise CohortDocumentMaterializationError(
-            "document sources must be ordered exactly as free, purchased"
+            "document sources must be ordered exactly as free or free, purchased"
         )
     output = output_root.absolute()
     document_output_root = output / "documents"

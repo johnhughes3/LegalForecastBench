@@ -235,6 +235,20 @@ def test_paid_labeling_runbook_names_exact_authority_and_external_smoke_gate() -
     assert "Do not place OpenAI and Google credentials in one job." in runbook
 
 
+def test_runbook_documents_authenticated_free_only_materialization() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    for option in (
+        "--free-only-approval-checkpoint",
+        "--free-only-approval-run-card",
+        "--free-only-fee-schedule",
+        "--free-only-canonical-ledger-path",
+    ):
+        assert option in runbook
+    assert "Stop on `reject`." in runbook
+    assert "For `free_only`, do not generate a purchase policy" in runbook
+
+
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
 

@@ -50,8 +50,30 @@ uv run legalforecast acquisition generate-purchase-policy \
   --output <purchase-policy-v2.json>
 ```
 
-Stop on `reject` or `free_only`.
-The order is mandatory: record the private decision, verify that exact checkpoint and run card while the canonical ledger namespace is still absent, and only then generate the public v2 policy; generation cannot be moved before verification or repeated after ledger initialization.
+Stop on `reject`.
+For `free_only`, do not generate a purchase policy or initialize a ledger; materialize the exact all-free projection directly:
+
+```bash
+uv run legalforecast acquisition \
+  materialize-cohort-documents \
+  --output-root <immutable-materialized-cohort-root> \
+  --preparation-root <completed-prepare-target-cohort-root> \
+  --preparation-summary <completed-preparation-summary.json> \
+  --preparation-config <completed-preparation-config.json> \
+  --snapshot-manifest <authenticated-snapshot-manifest.json> \
+  --target-cohort-root <completed-project-target-cohort-root> \
+  --free-disclosure-clearance <completed-project-target-cohort-root/disclosure-clearance.jsonl> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --free-only-approval-checkpoint <absolute-controlled-private-approval-root/purchase-approval-checkpoint.json> \
+  --free-only-approval-run-card <absolute-controlled-private-approval-root/run-cards/record-purchase-approval.json> \
+  --free-only-fee-schedule <immutable-fee-schedule.json> \
+  --free-only-canonical-ledger-path <approved-absent-ledger-path> \
+  --execute
+```
+
+The free-only path rejects every paid recovery, purchase-policy, purchase-ledger, initialization-receipt, and resolved-document input; it also fails closed unless the projected purchased manifest is empty and the free manifest exactly covers the selected documents.
+For `approve`, the order is mandatory: record the private decision, verify that exact checkpoint and run card while the canonical ledger namespace is still absent, and only then generate the public v2 policy; generation cannot be moved before verification or repeated after ledger initialization.
 Never hand-edit the private checkpoint, run card, or public v2 policy, and never reuse v1 policy input for a new official purchase.
 See [Case.dev purchase policy v2](schemas/case-dev-purchase-policy-v2.md) for the complete replay and containment contract.
 
