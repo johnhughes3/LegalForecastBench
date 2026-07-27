@@ -76,24 +76,18 @@ jobs:
           STAGE: ${{ inputs.stage }}
         run: |
           set -euo pipefail
-          case "${STAGE}:${PROVIDER}" in
-            llm-unitize:anthropic)
-              environment_name="legalforecastbench-official-labeling-anthropic-unitize"
-              ;;
-            llm-review-stage-a:google)
-              environment_name="legalforecastbench-official-labeling-google-review"
-              ;;
-            llm-label-provider-shard:openai)
-              environment_name="legalforecastbench-official-labeling-openai-label"
-              ;;
-            llm-label-provider-shard:google)
-              environment_name="legalforecastbench-official-labeling-google-label"
-              ;;
-            *)
-              echo "Stage/provider pair is outside the reviewed paid-labeling allowlist." >&2
-              exit 1
-              ;;
-          esac
+          if [[ "${STAGE}:${PROVIDER}" == "llm-unitize:anthropic" ]]; then
+            environment_name="legalforecastbench-official-labeling-anthropic-unitize"
+          elif [[ "${STAGE}:${PROVIDER}" == "llm-review-stage-a:google" ]]; then
+            environment_name="legalforecastbench-official-labeling-google-review"
+          elif [[ "${STAGE}:${PROVIDER}" == "llm-label-provider-shard:openai" ]]; then
+            environment_name="legalforecastbench-official-labeling-openai-label"
+          elif [[ "${STAGE}:${PROVIDER}" == "llm-label-provider-shard:google" ]]; then
+            environment_name="legalforecastbench-official-labeling-google-label"
+          else
+            echo "Stage/provider pair is outside the reviewed paid-labeling allowlist." >&2
+            exit 1
+          fi
           echo "environment_name=${environment_name}" >> "${GITHUB_OUTPUT}"
 
   run-provider-stage:
@@ -136,19 +130,18 @@ jobs:
             echo "release_sha must equal the exact main commit that triggered this workflow." >&2
             exit 1
           fi
-          missing=()
+          missing=""
           for name in \
             LFB_GITHUB_LABELING_ROLE_ARN \
             LFB_BATON_AGE_RECIPIENT \
             LFB_PROVIDER_ACCOUNT_ALIAS \
             LFB_PROVIDER_AUTHORITY_TABLE; do
             if [[ -z "${!name:-}" ]]; then
-              missing+=("${name}")
+              printf -v missing '%s  - %s\n' "${missing}" "${name}"
             fi
           done
-          if (( ${#missing[@]} > 0 )); then
-            printf 'Missing protected paid-labeling values:\n' >&2
-            printf '  - %s\n' "${missing[@]}" >&2
+          if [[ -n "${missing}" ]]; then
+            printf 'Missing protected paid-labeling values:\n%s' "${missing}" >&2
             exit 1
           fi
           if [[ ! "${LFB_GITHUB_LABELING_ROLE_ARN}" =~ ^arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/.+ ]]; then
@@ -326,25 +319,20 @@ jobs:
           STAGE: ${{ inputs.stage }}
         run: |
           set -euo pipefail
-          [[ -n "${LFB_PROVIDER_API_KEY:-}" ]] || {
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" ]]; then
             echo "The protected environment lacks PROVIDER_API_KEY." >&2
             exit 1
-          }
-          case "${PROVIDER}" in
-            anthropic)
-              export ANTHROPIC_API_KEY="${LFB_PROVIDER_API_KEY}"
-              ;;
-            google)
-              export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"
-              ;;
-            openai)
-              export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"
-              ;;
-            *)
-              echo "Provider is outside the reviewed allowlist." >&2
-              exit 1
-              ;;
-          esac
+          fi
+          if [[ "${PROVIDER}" == "anthropic" ]]; then
+            export ANTHROPIC_API_KEY="${LFB_PROVIDER_API_KEY}"
+          elif [[ "${PROVIDER}" == "google" ]]; then
+            export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"
+          elif [[ "${PROVIDER}" == "openai" ]]; then
+            export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"
+          else
+            echo "Provider is outside the reviewed allowlist." >&2
+            exit 1
+          fi
           uv run python -m legalforecast.labeling.official_paid_job \
             --job-manifest "${JOB_ROOT}/official-paid-labeling-job.json" \
             --job-root "${JOB_ROOT}" \
