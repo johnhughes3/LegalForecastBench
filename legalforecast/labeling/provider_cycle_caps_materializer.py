@@ -1210,11 +1210,15 @@ def _recover_stale_staging_trees(
             receipt_bytes=receipt_bytes,
             run_card_bytes=run_card_bytes,
         )
-        if not state.exists or state.root_identity is None:
+        if (
+            not state.exists
+            or state.root_identity is None
+            or not _same_inode(state.root_identity, stage_identity)
+        ):
             raise ProviderCycleCapsMaterializationError(
                 "stale successor staging tree changed during recovery"
             )
-        _remove_staging_tree(parent_fd, name, state.root_identity)
+        _remove_staging_tree(parent_fd, name, stage_identity)
     os.fsync(parent_fd)
 
 
