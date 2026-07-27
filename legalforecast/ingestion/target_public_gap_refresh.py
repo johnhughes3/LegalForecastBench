@@ -8,7 +8,6 @@ import json
 import os
 import re
 import secrets
-import shutil
 import stat
 import urllib.error
 from collections import defaultdict
@@ -725,75 +724,22 @@ def publish_target_public_gap_outputs(
     if _SHA256.fullmatch(plan_sha256) is None:
         raise TargetPublicGapRefreshError("plan SHA-256 is invalid")
     expected = _validated_relative_payloads(payloads)
-    if execution_binding is not None:
-        execution_binding.require_current(plan)
-        _publish_target_public_gap_outputs_bound(
-            plan=plan,
-            plan_sha256=plan_sha256,
-            expected=expected,
-            execution_binding=execution_binding,
-        )
-        return
-    output_root = plan.execution_identity.output_root.resolve()
-    bound_root = False
-    output_root.parent.mkdir(parents=True, exist_ok=True)
-    lock_path = output_root.parent / f".{output_root.name}.lock"
-    lock_fd = _acquire_output_lock(lock_path)
-    stage = output_root.parent / f".{output_root.name}.{plan_sha256}.partial"
-    try:
-        if output_root.exists() or output_root.is_symlink():
-            if _published_tree_bytes(output_root, bound_root=bound_root) != expected:
-                raise TargetPublicGapRefreshError(
-                    "published output differs from current exact execution"
-                )
-            if execution_binding is not None:
-                execution_binding.require_current(plan)
-            return
-        if stage.exists() or stage.is_symlink():
-            _require_owned_stage(stage)
-            current = _published_tree_bytes(stage, bound_root=bound_root)
-            unexpected = set(current) - set(expected)
-            if unexpected or any(current[name] != expected[name] for name in current):
-                raise TargetPublicGapRefreshError(
-                    "partial output is incompatible with current exact execution"
-                )
-        else:
-            stage.mkdir(mode=0o700)
-        for relative, payload in expected.items():
-            destination = stage / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            if destination.exists() or destination.is_symlink():
-                if (
-                    _read_output_artifact(
-                        destination,
-                        bound_root=bound_root,
-                    )
-                    != payload
-                ):
-                    raise TargetPublicGapRefreshError(
-                        f"partial output differs: {relative}"
-                    )
-                continue
-            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-            flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
-            descriptor = os.open(destination, flags, 0o600)
-            with os.fdopen(descriptor, "wb") as handle:
-                handle.write(payload)
-                handle.flush()
-                os.fsync(handle.fileno())
-        if _published_tree_bytes(stage, bound_root=bound_root) != expected:
-            raise TargetPublicGapRefreshError(
-                "staged output does not exactly match terminal payloads"
+    if execution_binding is None:
+        with bind_target_public_gap_execution(plan) as binding:
+            publish_target_public_gap_outputs(
+                plan=plan,
+                plan_sha256=plan_sha256,
+                payloads=expected,
+                execution_binding=binding,
             )
-        _fsync_tree_directories(stage)
-        os.rename(stage, output_root)
-        _fsync_directory(output_root.parent)
-        if execution_binding is not None:
-            execution_binding.require_current(plan)
-    finally:
-        if stage.exists() and output_root.exists():
-            shutil.rmtree(stage)
-        _release_output_lock(lock_fd)
+        return
+    execution_binding.require_current(plan)
+    _publish_target_public_gap_outputs_bound(
+        plan=plan,
+        plan_sha256=plan_sha256,
+        expected=expected,
+        execution_binding=execution_binding,
+    )
 
 
 def _publish_target_public_gap_outputs_bound(
@@ -1872,17 +1818,6 @@ def _semantic_sha256(value: object) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
-def _fsync_directory(path: Path) -> None:
-    descriptor = os.open(
-        path,
-        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
-    )
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
 def _open_existing_directory_no_follow(path: Path, *, label: str) -> int:
     absolute = Path(os.path.abspath(path))
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
@@ -2790,56 +2725,6 @@ def _jsonl_mapping_records(
     return cast(tuple[Mapping[str, Any], ...], loaded)
 
 
-def _require_owned_stage(stage: Path) -> None:
-    if stage.is_symlink() or not stage.is_dir():
-        raise TargetPublicGapRefreshError(
-            "partial output must be a non-symlink directory"
-        )
-    descriptor = os.open(
-        stage,
-        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
-    )
-    try:
-        opened = os.fstat(descriptor)
-        named = stage.lstat()
-        if (
-            not stat.S_ISDIR(opened.st_mode)
-            or not stat.S_ISDIR(named.st_mode)
-            or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)
-        ):
-            raise TargetPublicGapRefreshError(
-                "partial output changed while authenticating"
-            )
-    finally:
-        os.close(descriptor)
-
-
-def _acquire_output_lock(path: Path) -> int:
-    flags = os.O_RDWR | os.O_CREAT
-    flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
-    descriptor: int | None = None
-    try:
-        descriptor = os.open(path, flags, 0o600)
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-            raise TargetPublicGapRefreshError(
-                "output lock must be a singly linked regular file"
-            )
-        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        named = path.lstat()
-        if (
-            not stat.S_ISREG(named.st_mode)
-            or named.st_nlink != 1
-            or (metadata.st_dev, metadata.st_ino) != (named.st_dev, named.st_ino)
-        ):
-            raise TargetPublicGapRefreshError("output lock changed while acquiring")
-        return descriptor
-    except Exception:
-        if descriptor is not None:
-            os.close(descriptor)
-        raise
-
-
 def _acquire_output_lock_at(parent_fd: int, name: str) -> int:
     flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC
     descriptor: int | None = None
@@ -2870,12 +2755,3 @@ def _release_output_lock(descriptor: int) -> None:
         fcntl.flock(descriptor, fcntl.LOCK_UN)
     finally:
         os.close(descriptor)
-
-
-def _fsync_tree_directories(root: Path) -> None:
-    for directory in sorted(
-        (path for path in root.rglob("*") if path.is_dir()),
-        reverse=True,
-    ):
-        _fsync_directory(directory)
-    _fsync_directory(root)

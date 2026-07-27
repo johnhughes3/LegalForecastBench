@@ -24,6 +24,9 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     DiscoveryHit,
     TermTerminalStatus,
 )
+from legalforecast.ingestion.firecrawl_docket_pagination import (
+    canonical_positive_entry_number,
+)
 from legalforecast.ingestion.firecrawl_source import FirecrawlScrapeResult
 
 
@@ -116,6 +119,7 @@ def test_ranked_docket_wave_stops_after_exact_required_entries() -> None:
 
 
 def test_required_entry_wave_ignores_noncanonical_leading_zero_number() -> None:
+    assert canonical_positive_entry_number("007") is None
     page_one = _page("20", 1, has_next=True).replace(
         '<div class="col-xs-1">1</div>',
         '<div class="col-xs-1">007</div>',

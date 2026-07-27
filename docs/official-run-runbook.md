@@ -102,7 +102,7 @@ uv run legalforecast acquisition plan-target-public-gaps \
 ```
 
 Record the lowercase SHA-256 of the single immutable plan file.
-John's existing bounded Firecrawl authorization covers this narrower exact run; do not create a new spending decision artifact.
+The recorded bounded Firecrawl authorization decision covers this narrower exact run; do not create a new spending decision artifact.
 Execute only that plan and repeat every plan-bound identity argument exactly:
 
 ```bash

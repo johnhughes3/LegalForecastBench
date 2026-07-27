@@ -4,7 +4,7 @@
 It cannot select new cases or alter the exact target.
 
 Planning reruns the canonical target verifier, checks an external SHA-256 for the target run card, subtracts the authenticated free-download manifest from the selected document set, and commits the resulting gap and docket manifests.
-The Cycle 1 target currently projects 179 document gaps across 95 of 100 selected dockets from 320 selected documents and 141 authenticated downloads.
+The exact selected-case, document, existing-download, gap, and affected-docket counts are committed in each immutable plan and its manifests rather than fixed by this schema.
 The plan independently commits the original target root, run-card and projection-file hashes, semantic projection hash, selection and free-manifest file hashes, ordered selected-candidate hash, selected document-key hash, and the exact ordered required-gap document-ID hash.
 Planning is provider-free.
 Plan publication revalidates both the caller-visible parent-directory inode and final directory-entry inode through the last read before returning; a parent rename, rebind, or destination swap fails closed.

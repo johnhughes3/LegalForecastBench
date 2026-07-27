@@ -279,6 +279,27 @@ def test_execution_preflight_and_atomic_output_publication(tmp_path: Path) -> No
         )
 
 
+def test_public_output_helper_internally_binds_and_rejects_symlink_parent(
+    tmp_path: Path,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    payloads = {"artifact.json": b"{}\n"}
+    output_parent = plan.execution_identity.output_root.parent
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    output_parent.parent.mkdir(parents=True, exist_ok=True)
+    output_parent.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="output parent"):
+        publish_target_public_gap_outputs(
+            plan=plan,
+            plan_sha256="1" * 64,
+            payloads=payloads,
+        )
+
+    assert tuple(outside.iterdir()) == ()
+
+
 def test_preflight_rejects_recommitted_terminal_plan_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -1024,41 +1045,6 @@ def test_execute_mode_validation_precedes_any_plan_or_output_write(
 
     assert status == 2
     assert not output_root.exists()
-
-
-def test_directory_fsync_rejects_links_and_nondirectories(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    original_open = os.open
-    observed_flags: list[int] = []
-
-    def record_open_flags(
-        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
-        flags: int,
-        mode: int = 0o777,
-        *,
-        dir_fd: int | None = None,
-    ) -> int:
-        if Path(os.fsdecode(path)) == tmp_path:
-            observed_flags.append(flags)
-        return original_open(path, flags, mode, dir_fd=dir_fd)
-
-    monkeypatch.setattr(os, "open", record_open_flags)
-    target_gap_module._fsync_directory(tmp_path)  # pyright: ignore[reportPrivateUsage]
-
-    assert len(observed_flags) == 1
-    assert observed_flags[0] & os.O_DIRECTORY
-    assert observed_flags[0] & os.O_NOFOLLOW
-    assert observed_flags[0] & os.O_CLOEXEC
-    regular_file = tmp_path / "not-a-directory"
-    regular_file.write_bytes(b"x")
-    symlink = tmp_path / "directory-link"
-    symlink.symlink_to(tmp_path, target_is_directory=True)
-    with pytest.raises(OSError):
-        target_gap_module._fsync_directory(regular_file)  # pyright: ignore[reportPrivateUsage]
-    with pytest.raises(OSError):
-        target_gap_module._fsync_directory(symlink)  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.parametrize(
