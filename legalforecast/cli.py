@@ -12980,10 +12980,13 @@ def _completed_disclosure_review_resume(
     expected_extra: Mapping[str, object] | None = None,
     expected_log_extra: Mapping[str, object] | None = None,
     repair_terminal_metadata: bool = True,
+    validate_without_resume: bool = False,
 ) -> bool:
     """Return without mutating an already completed exact stage record."""
 
-    if not cast(bool, args.resume) or _acquisition_dry_run(args):
+    if not validate_without_resume and (
+        not cast(bool, args.resume) or _acquisition_dry_run(args)
+    ):
         return False
     output_root = _acquisition_output_root(args)
     run_card_path, log_path = _disclosure_review_metadata_paths(
@@ -33377,18 +33380,22 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     }
     if selected_schema == "v3":
         completion_extra.update(cast(dict[str, object], schema_log_extra))
-    terminal_metadata_present = False
-    if not dry_run:
-        terminal_metadata_present = _completed_disclosure_review_resume(
-            args,
-            stage=stage,
-            input_paths=(*input_paths, document_root),
-            output_paths=(plan_path, worksheet_path),
-            record_count=cast(int, plan["document_count"]),
-            expected_extra=completion_extra,
-            expected_log_extra=schema_log_extra,
-            repair_terminal_metadata=False,
+    terminal_metadata_present = _completed_disclosure_review_resume(
+        args,
+        stage=stage,
+        input_paths=(*input_paths, document_root),
+        output_paths=(plan_path, worksheet_path),
+        record_count=cast(int, plan["document_count"]),
+        expected_extra=completion_extra,
+        expected_log_extra=schema_log_extra,
+        repair_terminal_metadata=False,
+        validate_without_resume=True,
+    )
+    if terminal_metadata_present and (dry_run or not cast(bool, args.resume)):
+        raise CommandError(
+            f"{stage} already has completed terminal metadata; use --execute --resume"
         )
+    if not dry_run:
         _ensure_disclosure_review_artifact(
             plan_path, plan_bytes, resume=cast(bool, args.resume)
         )

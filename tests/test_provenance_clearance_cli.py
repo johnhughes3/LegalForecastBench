@@ -385,6 +385,68 @@ def test_provenance_planner_execute_rejects_opposite_schema_dry_run_card(
 
 
 @pytest.mark.parametrize(
+    ("execute", "remove_outputs"),
+    ((False, False), (True, True)),
+)
+@pytest.mark.parametrize(
+    ("source_schema", "target_schema"), (("v2", "v3"), ("v3", "v2"))
+)
+def test_provenance_planner_rejects_opposite_completed_schema_without_writes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    execute: bool,
+    remove_outputs: bool,
+    source_schema: str,
+    target_schema: str,
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version=source_schema)) == 0
+    run_card = paths["output"] / "run-cards/plan-disclosure-provenance.json"
+    log = paths["output"] / "logs/plan-disclosure-provenance.jsonl"
+    output_paths = (
+        paths["output"] / "disclosure-provenance-plan.json",
+        paths["output"] / "disclosure-exception-worksheet.json",
+        paths["private"] / "private-document-inspection-map.jsonl",
+    )
+    metadata_snapshots = {
+        path: (path.read_bytes(), path.stat().st_ino) for path in (run_card, log)
+    }
+    if remove_outputs:
+        for path in output_paths:
+            path.unlink()
+    output_snapshots = {
+        path: (path.read_bytes(), path.stat().st_ino)
+        for path in output_paths
+        if path.exists()
+    }
+
+    assert (
+        main(
+            _plan_command(
+                paths,
+                schema_version=target_schema,
+                execute=execute,
+                resume=False,
+            )
+        )
+        == 2
+    )
+    assert "completed resume" in capsys.readouterr().err
+    assert metadata_snapshots == {
+        path: (path.read_bytes(), path.stat().st_ino) for path in (run_card, log)
+    }
+    assert output_snapshots == {
+        path: (path.read_bytes(), path.stat().st_ino)
+        for path in output_paths
+        if path.exists()
+    }
+    if remove_outputs:
+        assert all(not path.exists() for path in output_paths)
+
+
+@pytest.mark.parametrize(
     ("source_schema", "target_schema"), (("v2", "v3"), ("v3", "v2"))
 )
 def test_provenance_planner_rejects_schema_change_from_completed_log_only(
