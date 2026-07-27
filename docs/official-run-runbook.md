@@ -514,6 +514,27 @@ Only the ARN-derived resource-identity SHA-256 is frozen into `provider-cycle-ca
 The caps artifact remains mandatory because its cycle-bound per-provider reservation caps govern the shared journal, but launch does not require documentary or admin-API evidence of an external account spending limit.
 Legacy `external_spend_limit_usd`, `external_limit_scope`, `external_limit_source`, and `verified_at` fields are accepted only as optional annotations: they neither constrain the reservation cap nor grant provider spend authority, and the canonical Cycle 1 artifact omits them.
 
+After the protected authority-smoke workflow succeeds, download its raw `authority-smoke.json` artifact without recreating or reformatting it and record the exact artifact SHA-256 plus the full reviewed main release SHA.
+Create the public `legalforecast.provider_cycle_caps_successor_policy.v1` artifact in canonical JSON form as specified by [the successor contract](schemas/provider-cycle-caps-successor-v1.md), using one public account alias for each legacy provider and no ARN, AWS account ID, credential, secret, or token material.
+Then derive the authority-enabled caps only through the supported provider-free command:
+
+```bash
+uv run legalforecast acquisition materialize-provider-cycle-caps-successor \
+  --legacy-provider-cycle-caps /absolute/path/provider-cycle-caps-legacy.json \
+  --expected-legacy-caps-sha256 <lowercase-sha256-of-exact-legacy-bytes> \
+  --authority-smoke-receipt /absolute/path/authority-smoke.json \
+  --expected-authority-smoke-sha256 <lowercase-sha256-of-exact-raw-smoke-bytes> \
+  --expected-smoke-release-sha <full-lowercase-reviewed-main-commit> \
+  --provider-caps-successor-policy /absolute/path/provider-caps-successor-policy.json \
+  --expected-provider-policy-sha256 <lowercase-sha256-of-exact-policy-bytes> \
+  --output-root /absolute/path/provider-caps-successor
+```
+
+The command verifies the complete closed smoke schema, exact release, raw byte digest, authority identity, all required allowed and denied operations, and `provider_call_made=false` before it opens or creates the output root.
+It then exclusively publishes `provider-cycle-caps.json`, its public successor receipt, and the completed run card, with exact partial-output repair on resume and no AWS or provider call.
+Any identity-only substitute, uppercase digest, changed input, noncanonical policy, unsafe link, special file, conflicting byte, or unexpected output residue fails closed.
+Use the resulting exact `provider-cycle-caps.json` path in every paid Stage A and Stage B command below; retain the successor receipt and run card as pre-provider launch evidence.
+
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
 
 ```bash

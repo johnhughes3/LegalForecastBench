@@ -353,9 +353,16 @@ def test_docs_keep_table_provisioning_separate_from_eval_infrastructure() -> Non
     assert "AWS provider" in readme
     assert "LFB_PROTECTED_STATE_DIR" in readme
     assert "LFB_PROVIDER_AUTHORITY_VAR_FILE" in readme
+    assert 'tf_data_dir="$state_dir/tfdata"' in readme
+    assert 'install -d -m 0700 "$state_dir" "$tf_data_dir"' in readme
+    assert 'TF_DATA_DIR="$tf_data_dir"' in readme
+    assert "/tmp/lfb-provider-authority-tfdata" not in readme
     assert '-state="$state_dir/terraform.tfstate"' in readme
     assert '-var-file="$var_file"' in readme
     assert "terraform -chdir=infra/provider-authority apply" in readme
+    assert "materialize-provider-cycle-caps-successor" in readme
+    assert "raw reviewed smoke receipt" in readme
+    assert "Never hand-edit the authority identity" in readme
     assert (
         'apply \\\n  -input=false \\\n  -state="$state_dir/terraform.tfstate"' in readme
     )

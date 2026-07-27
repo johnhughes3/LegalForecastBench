@@ -22,12 +22,13 @@ For an existing table, inspect its protected identity and controls first, then u
 ```bash
 state_dir="${LFB_PROTECTED_STATE_DIR:?set a durable protected directory outside the checkout}"
 var_file="${LFB_PROVIDER_AUTHORITY_VAR_FILE:?set a protected external tfvars path}"
-install -d -m 0700 "$state_dir"
+tf_data_dir="$state_dir/tfdata"
+install -d -m 0700 "$state_dir" "$tf_data_dir"
 test -f "$var_file"
 
-TF_DATA_DIR=/tmp/lfb-provider-authority-tfdata \
+TF_DATA_DIR="$tf_data_dir" \
   terraform -chdir=infra/provider-authority init -backend=false
-TF_DATA_DIR=/tmp/lfb-provider-authority-tfdata terraform -chdir=infra/provider-authority import \
+TF_DATA_DIR="$tf_data_dir" terraform -chdir=infra/provider-authority import \
   -input=false \
   -state="$state_dir/terraform.tfstate" \
   -var-file="$var_file" \
@@ -41,7 +42,7 @@ Protect and back up that state as sensitive operational data.
 For either an imported or new table, save and review a Terraform plan before a separately authorized operator applies that exact plan:
 
 ```bash
-TF_DATA_DIR=/tmp/lfb-provider-authority-tfdata terraform -chdir=infra/provider-authority plan \
+TF_DATA_DIR="$tf_data_dir" terraform -chdir=infra/provider-authority plan \
   -input=false \
   -state="$state_dir/terraform.tfstate" \
   -var-file="$var_file" \
@@ -51,7 +52,7 @@ TF_DATA_DIR=/tmp/lfb-provider-authority-tfdata terraform -chdir=infra/provider-a
 After separate authorization, apply that reviewed plan with the same explicit protected state path:
 
 ```bash
-TF_DATA_DIR=/tmp/lfb-provider-authority-tfdata \
+TF_DATA_DIR="$tf_data_dir" \
   terraform -chdir=infra/provider-authority apply \
   -input=false \
   -state="$state_dir/terraform.tfstate" \
@@ -60,4 +61,6 @@ TF_DATA_DIR=/tmp/lfb-provider-authority-tfdata \
 
 Record the reviewed plan digest and protected apply evidence in bead `LegalForecastBench-5qd6.98.1`.
 Do not publish the table ARN or AWS account ID.
-Freeze only the SHA-256 resource identity output into `provider-cycle-caps`, configure the protected paid-labeling environments with the table name and role values, and then run the separate provider-free authority smoke.
+Configure the protected paid-labeling environments with the table name, role values, and public resource-identity SHA-256, then run the separate provider-free authority smoke.
+Download the raw reviewed smoke receipt and pass it, its exact release and digest, immutable legacy caps, and the canonical public alias policy to `legalforecast acquisition materialize-provider-cycle-caps-successor`.
+Never hand-edit the authority identity into `provider-cycle-caps`; the supported provider-free successor command binds the complete smoke evidence and publishes the caps, receipt, and run card atomically.

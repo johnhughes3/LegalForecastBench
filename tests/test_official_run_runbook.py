@@ -186,6 +186,23 @@ def test_every_documented_acquisition_command_matches_current_cli_help(
         )
 
 
+def test_runbook_derives_provider_caps_from_complete_raw_smoke_evidence() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    for required in (
+        "materialize-provider-cycle-caps-successor",
+        "--expected-legacy-caps-sha256",
+        "--expected-authority-smoke-sha256",
+        "--expected-smoke-release-sha",
+        "--expected-provider-policy-sha256",
+        "provider_call_made=false",
+        "no AWS or provider call",
+        "Any identity-only substitute",
+    ):
+        assert required in runbook
+    assert "hand-edit the authority identity" not in runbook
+
+
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
 
