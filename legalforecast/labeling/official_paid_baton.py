@@ -1041,6 +1041,7 @@ def _unlink_owned_output(path: Path) -> None:
         if path.is_file() and not path.is_symlink():
             path.unlink()
     except OSError:
+        # Cleanup is best-effort after the primary baton operation has failed.
         pass
 
 

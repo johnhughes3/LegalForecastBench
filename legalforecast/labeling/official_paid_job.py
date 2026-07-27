@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
@@ -359,8 +360,10 @@ def _validated_manifest_shape(
         else:
             values = (value,)
         for raw_value in values:
-            if not isinstance(raw_value, (str, int, float)) or isinstance(
-                raw_value, bool
+            if (
+                not isinstance(raw_value, (str, int, float))
+                or isinstance(raw_value, bool)
+                or (isinstance(raw_value, float) and not math.isfinite(raw_value))
             ):
                 raise OfficialPaidLabelingJobError(
                     f"official paid-labeling {name} has an invalid value"
@@ -459,8 +462,10 @@ def run_official_paid_labeling_job(
         else:
             values = (value,)
         for raw_value in values:
-            if not isinstance(raw_value, (str, int, float)) or isinstance(
-                raw_value, bool
+            if (
+                not isinstance(raw_value, (str, int, float))
+                or isinstance(raw_value, bool)
+                or (isinstance(raw_value, float) and not math.isfinite(raw_value))
             ):
                 raise OfficialPaidLabelingJobError(
                     f"official paid-labeling {name} has an invalid value"

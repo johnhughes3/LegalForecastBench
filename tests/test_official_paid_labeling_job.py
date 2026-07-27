@@ -259,6 +259,39 @@ def test_job_rejects_path_escape_and_authority_argument_substitution(
         )
 
 
+@pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), float("-inf")])
+def test_job_rejects_non_finite_numeric_arguments(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    non_finite: float,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["arguments"]["high-confidence-threshold"] = non_finite
+    _write_json(manifest, payload)
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda args: pytest.fail(f"CLI must not run: {args}"),
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match="high-confidence-threshold has an invalid value",
+    ):
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="exact-provider-authority",
+            provider_authority_region="us-east-1",
+            expected_provider_account_alias="openai-primary",
+        )
+
+
 @pytest.mark.parametrize("missing_component", ["root", "path"])
 def test_within_root_wraps_missing_strict_resolution(
     tmp_path: Path,
