@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.cli import main
@@ -236,6 +237,24 @@ def test_selection_fails_closed_when_priority_commitment_drifts(
             match="ranking record is invalid",
         ):
             select_frozen_firecrawl_candidates(store, batch_id=_BATCH_ID)
+
+
+@pytest.mark.parametrize("invalid_reservation", (0, 6, True, 1.5))
+def test_plan_rejects_invalid_per_attempt_credit_reservation(
+    tmp_path: Path,
+    invalid_reservation: object,
+) -> None:
+    with _priority_store(tmp_path) as store:
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="reserved_credits_per_attempt must be an integer from 1 through 5",
+        ):
+            _plan(
+                store,
+                tmp_path,
+                requested_candidate_ids=("courtlistener-docket-10",),
+                reserved_credits_per_attempt=cast(int, invalid_reservation),
+            )
 
 
 def test_incomplete_html_is_transient_and_same_run_resumes_exact_scope(
@@ -576,6 +595,7 @@ def _plan(
     *,
     requested_candidate_ids: tuple[str, ...],
     max_pages_per_docket: int = 2,
+    reserved_credits_per_attempt: int = 1,
 ):
     return plan_frozen_firecrawl_observation(
         store,
@@ -590,7 +610,7 @@ def _plan(
         requested_candidate_ids=requested_candidate_ids,
         firecrawl_proxy="basic",
         firecrawl_force_browser=False,
-        reserved_credits_per_attempt=1,
+        reserved_credits_per_attempt=reserved_credits_per_attempt,
     )
 
 

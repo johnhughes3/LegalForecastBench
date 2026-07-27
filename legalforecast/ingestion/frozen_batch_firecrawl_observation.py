@@ -188,6 +188,13 @@ def plan_frozen_firecrawl_observation(
         raise FrozenBatchFirecrawlObservationError(
             "max_workers must be between 1 and 10"
         )
+    if (
+        type(reserved_credits_per_attempt) is not int
+        or not 1 <= reserved_credits_per_attempt <= 5
+    ):
+        raise FrozenBatchFirecrawlObservationError(
+            "reserved_credits_per_attempt must be an integer from 1 through 5"
+        )
     if limit is not None and limit <= 0:
         raise FrozenBatchFirecrawlObservationError("limit must be positive")
     validate_frozen_eligibility_anchor(store, eligibility_anchor)
