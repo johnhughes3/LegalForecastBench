@@ -3776,29 +3776,85 @@ def _trim_torn_wal_tail(database: Path) -> None:
     """Trim only bytes that cannot form a complete SQLite WAL frame."""
 
     wal = Path(f"{database}-wal")
-    if not wal.exists():
+    descriptor: int | None = None
+    flags = os.O_RDWR | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        descriptor = os.open(wal, flags)
+    except FileNotFoundError:
         return
-    size = wal.stat().st_size
-    if size == 0:
-        return
-    if size < 32:
-        with wal.open("r+b") as handle:
-            handle.truncate(0)
-            handle.flush()
-            os.fsync(handle.fileno())
-        return
-    with wal.open("rb") as handle:
-        header = handle.read(32)
-    page_size = int.from_bytes(header[8:12], "big")
-    if page_size == 1:
-        page_size = 65_536
-    if page_size < 512 or page_size > 65_536 or page_size & (page_size - 1):
-        raise CycleAcquisitionStoreError("invalid SQLite WAL page size")
-    frame_size = 24 + page_size
-    complete_size = 32 + ((size - 32) // frame_size) * frame_size
-    if complete_size == size:
-        return
-    with wal.open("r+b") as handle:
-        handle.truncate(complete_size)
-        handle.flush()
-        os.fsync(handle.fileno())
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            "SQLite WAL sidecar must be a singly linked regular non-symlink file"
+        ) from exc
+    try:
+        before = os.fstat(descriptor)
+        named_before = os.stat(wal, follow_symlinks=False)
+        before_identity = _wal_stat_identity(before)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or before_identity != _wal_stat_identity(named_before)
+        ):
+            raise CycleAcquisitionStoreError(
+                "SQLite WAL sidecar must be a singly linked regular non-symlink file"
+            )
+        size = before.st_size
+        if size == 0:
+            return
+        if size < 32:
+            complete_size = 0
+        else:
+            header = os.pread(descriptor, 32, 0)
+            after_read = os.fstat(descriptor)
+            named_after_read = os.stat(wal, follow_symlinks=False)
+            if (
+                len(header) != 32
+                or before_identity != _wal_stat_identity(after_read)
+                or before_identity != _wal_stat_identity(named_after_read)
+            ):
+                raise CycleAcquisitionStoreError(
+                    "SQLite WAL sidecar changed while it was inspected"
+                )
+            page_size = int.from_bytes(header[8:12], "big")
+            if page_size == 1:
+                page_size = 65_536
+            if page_size < 512 or page_size > 65_536 or page_size & (page_size - 1):
+                raise CycleAcquisitionStoreError("invalid SQLite WAL page size")
+            frame_size = 24 + page_size
+            complete_size = 32 + ((size - 32) // frame_size) * frame_size
+        if complete_size == size:
+            return
+        os.ftruncate(descriptor, complete_size)
+        os.fsync(descriptor)
+        after = os.fstat(descriptor)
+        named_after = os.stat(wal, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(after.st_mode)
+            or after.st_nlink != 1
+            or (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
+            or _wal_stat_identity(after) != _wal_stat_identity(named_after)
+            or after.st_size != complete_size
+        ):
+            raise CycleAcquisitionStoreError(
+                "SQLite WAL sidecar changed while it was truncated"
+            )
+    except CycleAcquisitionStoreError:
+        raise
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            "SQLite WAL sidecar cannot be inspected safely"
+        ) from exc
+    finally:
+        os.close(descriptor)
+
+
+def _wal_stat_identity(metadata: os.stat_result) -> tuple[int, ...]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_nlink,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )

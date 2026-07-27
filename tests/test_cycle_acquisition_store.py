@@ -118,6 +118,29 @@ def test_bound_cycle_store_rejects_injected_database_or_lock_symlink(
     assert not (outside / "escaped.sqlite3").exists()
 
 
+def test_bound_cycle_store_rejects_wal_symlink_without_touching_target(
+    tmp_path: Path,
+) -> None:
+    parent = tmp_path / "store"
+    parent.mkdir()
+    outside = tmp_path / "outside-wal"
+    original = b"must remain unchanged"
+    outside.write_bytes(original)
+    (parent / "cycle.sqlite3-wal").symlink_to(outside)
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    try:
+        with pytest.raises(CycleAcquisitionStoreError, match="WAL sidecar"):
+            CycleAcquisitionStore(Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"))
+    finally:
+        os.close(parent_fd)
+
+    assert outside.read_bytes() == original
+    assert (parent / "cycle.sqlite3-wal").is_symlink()
+
+
 def test_bound_cycle_store_connects_through_pinned_database_descriptor(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -688,10 +688,86 @@ def test_document_download_pins_intermediate_directory_against_symlink_rebind(
     ).is_file()
 
 
+def test_bound_document_downloads_resume_checkpoint_across_multiple_requests(
+    tmp_path: Path,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    refresh = refresh_target_public_gaps(
+        plan=plan,
+        scheduler=_Scheduler({("70000000", 1): _public_docket_html("70000000")}),
+    )
+    source = FixtureFreeDocumentSource(
+        {
+            request.source_url: b"%PDF-1.7\nbound checkpoint\n"
+            for request in refresh.download_requests
+        }
+    )
+
+    with bind_target_public_gap_execution(plan) as execution_binding:
+        with target_gap_module._bind_target_document_directories(  # pyright: ignore[reportPrivateUsage]
+            execution_binding,
+            refresh.download_requests,
+        ) as document_binding:
+            records, outcomes = download_target_public_gap_requests(
+                refresh=refresh,
+                document_source=source,
+                document_output_root=(
+                    execution_binding.runtime_identity.document_output_root
+                ),
+                allow_existing_downloads=True,
+                bound_output_directories=document_binding.directories_by_request,
+            )
+
+    assert len(records) == 2
+    assert len(outcomes) == 2
+    assert (
+        plan.execution_identity.document_output_root / ".download-checkpoint.jsonl"
+    ).is_file()
+
+
+def test_verified_download_bindings_remain_live_through_publication_scope(
+    tmp_path: Path,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    refresh = refresh_target_public_gaps(
+        plan=plan,
+        scheduler=_Scheduler({("70000000", 1): _public_docket_html("70000000")}),
+    )
+    downloads, _ = download_target_public_gap_requests(
+        refresh=refresh,
+        document_source=FixtureFreeDocumentSource(
+            {
+                request.source_url: b"%PDF-1.7\npublication binding\n"
+                for request in refresh.download_requests
+            }
+        ),
+        document_output_root=plan.execution_identity.document_output_root,
+        allow_existing_downloads=True,
+    )
+    candidate_directory = plan.execution_identity.document_output_root / "70000000"
+    moved_candidate = tmp_path / "moved-candidate-for-publication"
+    outside = tmp_path / "outside-publication"
+    outside.mkdir()
+
+    with bind_target_public_gap_execution(plan) as execution_binding:
+        with pytest.raises(ValueError, match="document candidate directory"):
+            with target_gap_module.bind_verified_target_public_gap_downloads(
+                execution_binding=execution_binding,
+                requests=refresh.download_requests,
+                downloads=downloads,
+            ):
+                candidate_directory.rename(moved_candidate)
+                candidate_directory.symlink_to(outside, target_is_directory=True)
+
+    assert len(tuple(moved_candidate.rglob("*.pdf"))) == 2
+    assert tuple(outside.iterdir()) == ()
+
+
 def _valid_terminal_payloads(
     plan: TargetPublicGapPlan,
     *,
     tmp_path: Path,
+    plan_sha256: str = "1" * 64,
 ) -> dict[str, bytes]:
     refresh = refresh_target_public_gaps(
         plan=plan,
@@ -712,7 +788,7 @@ def _valid_terminal_payloads(
         outcomes=outcomes,
         terminal_commitments=target_public_gap_terminal_commitments(
             plan=plan,
-            plan_sha256="1" * 64,
+            plan_sha256=plan_sha256,
             refresh=refresh,
             downloads=downloads,
             outcomes=outcomes,
@@ -721,7 +797,7 @@ def _valid_terminal_payloads(
     payloads = cli._target_public_gap_terminal_payloads(  # pyright: ignore[reportPrivateUsage]
         plan=plan,
         plan_path=tmp_path / "plan.json",
-        plan_sha256="1" * 64,
+        plan_sha256=plan_sha256,
         execution=execution,
         live_firecrawl=False,
         live_download=False,
@@ -1006,6 +1082,48 @@ def test_execution_rejects_plan_digest_mismatch_before_provider_construction(
         execute_target_public_gap_refresh(
             plan=plan,
             expected_plan_sha256="1" * 64,
+            firecrawl_source_factory=construct_firecrawl,
+            document_source_factory=construct_document_source,
+            allow_existing_downloads=True,
+        )
+
+    assert constructed == []
+    assert not plan.execution_identity.cycle_store_path.exists()
+
+
+def test_completed_execution_is_rejected_before_provider_construction(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    plan_sha256 = _plan_sha256(plan)
+    publish_target_public_gap_outputs(
+        plan=plan,
+        plan_sha256=plan_sha256,
+        payloads=_valid_terminal_payloads(
+            plan,
+            tmp_path=tmp_path,
+            plan_sha256=plan_sha256,
+        ),
+    )
+    constructed: list[str] = []
+
+    def construct_firecrawl() -> Never:
+        constructed.append("firecrawl")
+        raise AssertionError("provider constructed for completed output")
+
+    def construct_document_source() -> Never:
+        constructed.append("document")
+        raise AssertionError("provider constructed for completed output")
+
+    with pytest.raises(ValueError, match="already completed"):
+        execute_target_public_gap_refresh(
+            plan=plan,
+            expected_plan_sha256=plan_sha256,
             firecrawl_source_factory=construct_firecrawl,
             document_source_factory=construct_document_source,
             allow_existing_downloads=True,

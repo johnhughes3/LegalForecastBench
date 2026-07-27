@@ -14,7 +14,7 @@ from collections import defaultdict
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol, cast
 
 from legalforecast.ingestion.budgeted_docket_acquisition import (
@@ -338,6 +338,7 @@ class TargetPublicGapExecutionBinding:
 @dataclass(slots=True)
 class _TargetDocumentDirectoryBinding:
     directories_by_request: Mapping[str, Path]
+    directory_fds_by_request: Mapping[str, int]
     _directories: tuple[tuple[Path, int, str], ...]
 
     def require_current(self) -> None:
@@ -451,6 +452,22 @@ def _bind_target_document_directories(
             )
         binding = _TargetDocumentDirectoryBinding(
             directories_by_request=request_directories,
+            directory_fds_by_request={
+                request_key: provider_fds[
+                    (
+                        safe_path_component(
+                            request.candidate_id,
+                            field_name="candidate_id",
+                        ),
+                        safe_path_component(
+                            request.source_provider,
+                            field_name="source_provider",
+                        ),
+                    )
+                ]
+                for request in requests
+                for request_key in (_download_request_key(request),)
+            },
             _directories=tuple(opened),
         )
         binding.require_current()
@@ -458,6 +475,102 @@ def _bind_target_document_directories(
     finally:
         for _, descriptor, _ in reversed(opened):
             os.close(descriptor)
+
+
+@contextmanager
+def bind_verified_target_public_gap_downloads(
+    *,
+    execution_binding: TargetPublicGapExecutionBinding,
+    requests: Sequence[FreeDocumentDownloadRequest],
+    downloads: Sequence[FreeDocumentDownloadRecord],
+) -> Generator[None]:
+    """Reauthenticate and pin downloaded PDFs through terminal publication."""
+
+    execution_binding.require_current()
+    with _bind_target_document_directories(execution_binding, requests) as binding:
+        _verify_bound_target_public_gap_downloads(
+            binding=binding,
+            requests=requests,
+            downloads=downloads,
+        )
+        yield
+        binding.require_current()
+        _verify_bound_target_public_gap_downloads(
+            binding=binding,
+            requests=requests,
+            downloads=downloads,
+        )
+        execution_binding.require_current()
+
+
+def _verify_bound_target_public_gap_downloads(
+    *,
+    binding: _TargetDocumentDirectoryBinding,
+    requests: Sequence[FreeDocumentDownloadRequest],
+    downloads: Sequence[FreeDocumentDownloadRecord],
+) -> None:
+    requests_by_key: dict[str, FreeDocumentDownloadRequest] = {}
+    for request in requests:
+        key = _download_request_key(request)
+        if key in requests_by_key:
+            raise TargetPublicGapRefreshError(
+                "target public-gap download request identity is duplicated"
+            )
+        requests_by_key[key] = request
+    seen: set[str] = set()
+    for record in downloads:
+        key = "\0".join(
+            (
+                record.candidate_id,
+                record.source_provider,
+                record.source_document_id,
+            )
+        )
+        request = requests_by_key.get(key)
+        if request is None or key in seen:
+            raise TargetPublicGapRefreshError(
+                "target public-gap download manifest identity differs"
+            )
+        seen.add(key)
+        local_path = PurePosixPath(record.local_path)
+        candidate = safe_path_component(
+            request.candidate_id,
+            field_name="candidate_id",
+        )
+        provider = safe_path_component(
+            request.source_provider,
+            field_name="source_provider",
+        )
+        if (
+            local_path.is_absolute()
+            or len(local_path.parts) != 3
+            or local_path.parts[:2] != (candidate, provider)
+            or any(part in {"", ".", ".."} for part in local_path.parts)
+            or record.docket_entry_number != request.docket_entry_number
+            or record.document_role is not request.document_role
+            or record.source_url != request.source_url
+            or record.free_or_purchased != "free"
+        ):
+            raise TargetPublicGapRefreshError(
+                "target public-gap download manifest differs from its request"
+            )
+        descriptor = binding.directory_fds_by_request.get(key)
+        if descriptor is None:
+            raise TargetPublicGapRefreshError(
+                "target public-gap download directory binding is missing"
+            )
+        payload = _read_unique_regular_file_at_named(
+            descriptor,
+            local_path.parts[2],
+            label=f"target public-gap document {record.local_path}",
+        )
+        if (
+            len(payload) != record.byte_count
+            or hashlib.sha256(payload).hexdigest() != record.sha256
+        ):
+            raise TargetPublicGapRefreshError(
+                "target public-gap download bytes differ from their manifest"
+            )
 
 
 def target_public_gap_plan_bytes(plan: TargetPublicGapPlan) -> bytes:
@@ -1304,6 +1417,11 @@ def execute_target_public_gap_refresh(
         expected_plan_sha256=expected_plan_sha256,
     )
     require_target_public_gap_sources_unchanged(plan)
+    if plan.execution_identity.output_root.exists():
+        raise TargetPublicGapRefreshError(
+            "target public-gap execution is already completed; refusing "
+            "provider re-execution"
+        )
     identity = execution_binding.runtime_identity
     firecrawl_source = firecrawl_source_factory()
     execution_binding.require_current(plan)

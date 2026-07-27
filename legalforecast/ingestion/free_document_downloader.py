@@ -348,7 +348,12 @@ def _bound_or_resolved_output_root(path: Path) -> Path:
 
 
 def _is_bound_output_root(path: Path) -> bool:
-    return path.absolute().parts[:4] == ("/", "proc", "self", "fd")
+    parts = path.absolute().parts
+    return (
+        len(parts) == 5
+        and parts[:4] == ("/", "proc", "self", "fd")
+        and parts[4].isdigit()
+    )
 
 
 def download_free_docket_documents(
@@ -908,7 +913,8 @@ def _reject_existing_path_symlinks(path: Path, *, label: str) -> None:
 
 
 def _read_stable_regular_file(path: Path, *, label: str) -> bytes:
-    _reject_existing_path_symlinks(path.parent, label=f"{label} parent")
+    if not _is_bound_output_root(path.parent):
+        _reject_existing_path_symlinks(path.parent, label=f"{label} parent")
     descriptor: int | None = None
     try:
         lexical_before = path.lstat()

@@ -683,6 +683,7 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     TargetPublicGapPlan,
     TargetPublicGapRefreshError,
     bind_target_public_gap_execution,
+    bind_verified_target_public_gap_downloads,
     execute_target_public_gap_refresh,
     plan_target_public_gaps,
     preflight_target_public_gap_execution,
@@ -17977,20 +17978,25 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                 execution_binding=binding,
             )
             binding.require_current(plan)
-            payloads = _target_public_gap_terminal_payloads(
-                plan=plan,
-                plan_path=cast(Path, args.plan),
-                plan_sha256=expected_plan_sha256,
-                execution=execution,
-                live_firecrawl=live_firecrawl,
-                live_download=live_download,
-            )
-            publish_target_public_gap_outputs(
-                plan=plan,
-                plan_sha256=expected_plan_sha256,
-                payloads=payloads,
+            with bind_verified_target_public_gap_downloads(
                 execution_binding=binding,
-            )
+                requests=execution.refresh.download_requests,
+                downloads=execution.downloads,
+            ):
+                payloads = _target_public_gap_terminal_payloads(
+                    plan=plan,
+                    plan_path=cast(Path, args.plan),
+                    plan_sha256=expected_plan_sha256,
+                    execution=execution,
+                    live_firecrawl=live_firecrawl,
+                    live_download=live_download,
+                )
+                publish_target_public_gap_outputs(
+                    plan=plan,
+                    plan_sha256=expected_plan_sha256,
+                    payloads=payloads,
+                    execution_binding=binding,
+                )
             binding.require_current(plan)
             require_target_public_gap_sources_unchanged(plan)
     except (

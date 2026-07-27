@@ -12,9 +12,10 @@ Plan publication revalidates both the caller-visible parent-directory inode and 
 Execution requires the immutable plan path plus its caller-supplied external SHA-256 and replays the complete target artifact closure before constructing a provider.
 Before provider construction it safely creates and opens the final-output parent, cycle-store parent, raw-artifact root, raw-page child, and document root component by component without following links.
 The cycle database and lock are exclusively created or opened as unique regular non-symlink children; bound-path SQLite connections open through the pinned database descriptor, and the database directory-entry identity is checked again immediately after connection acquisition and before explicit SQLite pragma or schema writes.
-After public discovery and before the document-source provider is constructed, execution creates and pins every exact candidate/provider document directory.
+After public discovery and before the document-source provider is constructed, execution creates and pins every exact candidate/provider document directory through document download.
 Terminal publication likewise walks or creates the staging tree descriptor-relatively, holds every nested directory descriptor, and writes only relative to those descriptors.
-Those bindings remain open through SQLite, raw-page, document, and terminal-tree publication; caller-visible paths must continue to name the pinned inodes at every stage, while runtime writes use the pinned descriptor paths.
+Before terminal publication, execution reopens those exact candidate/provider directories, reauthenticates every downloaded PDF against its committed path, source identity, byte count, and SHA-256 through the pinned descriptors, and holds the bindings through publication.
+Caller-visible paths must continue to name the pinned inodes at every stage, while runtime writes use the pinned descriptor paths.
 The command rejects a fresh Firecrawl cap above 500 and workers above 10; the durable scheduler enforces that immutable cap.
 Run evidence sets PACER, RECAP Fetch, document purchase, model calls, evaluation, freeze, and dispatch authority to `false`.
 
@@ -27,7 +28,9 @@ Newly public links pass through the existing public packet planner and `bridge_f
 Terminal evidence is a distinct per-document outcome ledger that partitions every required gap exactly once into newly free or terminal gap failure, requires the newly free download manifest to equal the successful outcome set, and commits outcome and newly free manifest hashes with zero purchased documents or purchase activity.
 The completed execution tree has a closed seven-artifact shape: four data JSONL artifacts, one summary, one receipt, and one completion log.
 The receipt commits the exact four data artifacts plus the summary; the summary independently commits the exact data artifacts and repeats the terminal commitments; and the terminal commitments include the immutable plan SHA-256 and reconcile the plan gap identities, transition/request identities, outcome partition, and newly free download identities.
-Resume validates every digest and both commitment layers before any provider is constructed; missing, extra, empty, or inconsistent commitments fail closed.
+Partial resume validates every durable checkpoint before continuing.
+If the completed output directory already exists, execution verifies the immutable plan and source closure and then rejects the rerun before constructing any provider; callers must consume the existing terminal artifacts instead of re-executing the provider.
+Missing, extra, empty, or inconsistent commitments fail closed.
 It is not the canonical per-case exclusion ledger; normal provider-free target reprojection creates any canonical candidate exclusions after merging and clearing the newly free downloads.
 This lineage supports an authenticated all-free successor projection; it does not reuse or replace a prior human purchase decision.
 The command then uses `download_free_docket_documents`, retaining its allowlisted-host, PDF magic, size ceiling, hash, atomic-write, and resumable-checkpoint checks.
