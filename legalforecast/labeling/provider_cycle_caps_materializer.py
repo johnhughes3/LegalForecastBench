@@ -950,9 +950,14 @@ def _preflight_output_tree(
     caps_bytes: bytes,
     receipt_bytes: bytes,
     run_card_bytes: bytes,
+    expected_root_identity: tuple[int, ...] | None = None,
 ) -> _OutputTreeState:
     target_fd = _open_optional_child_directory(parent_fd, target_name)
     if target_fd is None:
+        if expected_root_identity is not None:
+            raise ProviderCycleCapsMaterializationError(
+                "stale successor staging tree changed during recovery"
+            )
         return _OutputTreeState(
             exists=False,
             root_identity=None,
@@ -971,6 +976,12 @@ def _preflight_output_tree(
     run_cards_fd: int | None = None
     try:
         root_before = _directory_stat_identity(target_fd)
+        if expected_root_identity is not None and not _same_inode(
+            root_before, expected_root_identity
+        ):
+            raise ProviderCycleCapsMaterializationError(
+                "stale successor staging tree changed during recovery"
+            )
         root_entries_before = frozenset(os.listdir(target_fd))
         _reject_entry_set(root_entries_before, _ROOT_ENTRIES, "successor output root")
         missing: set[str] = set()
@@ -1209,6 +1220,7 @@ def _recover_stale_staging_trees(
             caps_bytes=caps_bytes,
             receipt_bytes=receipt_bytes,
             run_card_bytes=run_card_bytes,
+            expected_root_identity=stage_identity,
         )
         if (
             not state.exists
