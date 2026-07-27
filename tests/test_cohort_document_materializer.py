@@ -183,6 +183,7 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
         json.dumps(clearance, sort_keys=True) + "\n", encoding="utf-8"
     )
     restriction.write_text("\n", encoding="utf-8")
+    projected_purchased_manifest: list[Mapping[str, object]] = []
     projection_paths = (
         selection,
         free_manifest,
@@ -209,7 +210,7 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
             "selection_records": tuple(cli._read_records(selection)),
             "free_manifest_path": free_manifest,
             "free_manifest": (manifest,),
-            "purchased_manifest": (),
+            "purchased_manifest": projected_purchased_manifest,
             "free_clearance": (clearance,),
             "restriction_path": restriction,
             "restriction_records": (),
@@ -228,10 +229,18 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
             request_sha256="a" * 64,
         ),
     )
+    authority_manifest_identities: list[bool] = []
+
+    def verify_free_only_authority(**kwargs: object) -> object:
+        authority_manifest_identities.append(
+            kwargs["projected_purchased_manifest"] is projected_purchased_manifest
+        )
+        return approval
+
     monkeypatch.setattr(
         cli,
         "verify_free_only_materialization_authority",
-        lambda **_kwargs: approval,
+        verify_free_only_authority,
     )
     output = tmp_path / "materialized"
     ledger = tmp_path / "never-created.sqlite3"
@@ -268,6 +277,7 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     ]
 
     assert cli.main(command) == 0
+    assert authority_manifest_identities == [True, True]
     run_card = output / "run-cards/materialize-cohort-documents.json"
     card = json.loads(run_card.read_text())
     assert card["authority_mode"] == "free_only"
@@ -534,6 +544,10 @@ def test_free_only_preflight_rejects_malformed_selection_documents_as_command_er
         "",
         encoding="utf-8",
     )
+    (target_root / "purchased-document-downloads.jsonl").write_text(
+        "",
+        encoding="utf-8",
+    )
     input_paths = [tmp_path / f"input-{index}" for index in range(11)]
     input_paths[4] = target_root
     run_card = tmp_path / "materialization-card.json"
@@ -566,6 +580,77 @@ def test_free_only_preflight_rejects_malformed_selection_documents_as_command_er
     )
 
     with pytest.raises(cli.CommandError, match="documents"):
+        cli._preflight_materialization_purchase_runtime(args)
+
+
+def test_free_only_preflight_passes_committed_purchased_projection_to_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target_root = tmp_path / "target"
+    target_root.mkdir()
+    purchased_record = {
+        "candidate_id": "candidate-1",
+        "source_document_id": "motion-1",
+    }
+    (target_root / "target-cohort-selection.jsonl").write_text(
+        json.dumps(
+            {
+                "candidate_id": "candidate-1",
+                "documents": [{"source_document_id": "motion-1"}],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (target_root / "free-document-downloads.jsonl").write_text(
+        "",
+        encoding="utf-8",
+    )
+    (target_root / "purchased-document-downloads.jsonl").write_text(
+        json.dumps(purchased_record, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    input_paths = [tmp_path / f"input-{index}" for index in range(11)]
+    input_paths[4] = target_root
+    run_card = tmp_path / "materialization-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-cohort-documents",
+                "status": "completed",
+                "authority_mode": "free_only",
+                "input_paths": [str(path) for path in input_paths],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.argparse.Namespace(
+        materialization_run_card=run_card,
+        controlled_private_root=tmp_path / "private",
+        purchase_policy=None,
+        purchase_ledger=None,
+        purchase_ledger_initialization_receipt=None,
+        resolved_post_recovery_documents=None,
+    )
+
+    def reject_purchased_projection(**kwargs: object) -> None:
+        assert kwargs["projected_purchased_manifest"] == (purchased_record,)
+        raise cli.FreeOnlyMaterializationError(
+            "free-only materialization rejects projected purchased documents"
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "verify_free_only_materialization_authority",
+        reject_purchased_projection,
+    )
+
+    with pytest.raises(cli.CommandError, match="rejects projected purchased"):
         cli._preflight_materialization_purchase_runtime(args)
 
 

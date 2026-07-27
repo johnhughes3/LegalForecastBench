@@ -28788,7 +28788,9 @@ def _preflight_materialization_purchase_runtime(
                 controlled_private_root=controlled_private_root,
                 target_cohort_root=input_paths[4],
                 cohort_policy_path=input_paths[6],
-                projected_purchased_manifest=(),
+                projected_purchased_manifest=tuple(
+                    _read_records(input_paths[4] / "purchased-document-downloads.jsonl")
+                ),
                 free_manifest=_read_records(
                     input_paths[4] / "free-document-downloads.jsonl"
                 ),
@@ -29488,14 +29490,15 @@ def _prepare_free_only_cohort_documents(
             label="free-only materialization projection",
         )
         free_manifest = cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
+        projected_purchased_manifest = cast(
+            Sequence[Mapping[str, Any]], projection["purchased_manifest"]
+        )
         approval = verify_free_only_materialization_authority(
             inputs=authority_inputs,
             controlled_private_root=controlled_private_root,
             target_cohort_root=target_root,
             cohort_policy_path=cohort_policy_path,
-            projected_purchased_manifest=cast(
-                Sequence[Mapping[str, Any]], projection["purchased_manifest"]
-            ),
+            projected_purchased_manifest=projected_purchased_manifest,
             free_manifest=free_manifest,
             selected_document_keys=cast(
                 set[tuple[str, str]], projection["selected_document_keys"]
@@ -29596,7 +29599,7 @@ def _prepare_free_only_cohort_documents(
             controlled_private_root=controlled_private_root,
             target_cohort_root=target_root,
             cohort_policy_path=cohort_policy_path,
-            projected_purchased_manifest=(),
+            projected_purchased_manifest=projected_purchased_manifest,
             free_manifest=free_manifest,
             selected_document_keys=cast(
                 set[tuple[str, str]], projection["selected_document_keys"]
