@@ -126,6 +126,27 @@ def test_default_selection_contains_only_candidates_without_current_observations
     )
 
 
+def test_new_plan_rejects_explicit_terminal_candidate(tmp_path: Path) -> None:
+    with _priority_store(tmp_path) as store:
+        store.record_observation(
+            "courtlistener-docket-10",
+            batch_id=_BATCH_ID,
+            state="excluded",
+            reason_code="procedural_or_standing_order",
+            evidence={"candidate_id": "courtlistener-docket-10"},
+        )
+
+        with pytest.raises(
+            FrozenBatchFirecrawlObservationError,
+            match="already has a terminal observation",
+        ):
+            _plan(
+                store,
+                tmp_path,
+                requested_candidate_ids=("courtlistener-docket-10",),
+            )
+
+
 def test_selection_fails_closed_when_priority_commitment_drifts(
     tmp_path: Path,
 ) -> None:

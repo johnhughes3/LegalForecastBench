@@ -205,6 +205,11 @@ def plan_frozen_firecrawl_observation(
         existing = None
 
     if existing is None:
+        for candidate_id in requested:
+            if store.current_observation(candidate_id) is not None:
+                raise FrozenBatchFirecrawlObservationError(
+                    f"candidate {candidate_id!r} already has a terminal observation"
+                )
         selected = tuple(
             candidate
             for candidate in ordered
