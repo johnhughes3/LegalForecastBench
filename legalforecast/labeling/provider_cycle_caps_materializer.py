@@ -925,11 +925,11 @@ def _open_child_directory(parent_fd: int, name: str, *, create: bool) -> int:
             return os.open(name, flags, dir_fd=parent_fd)
         except OSError as exc:
             raise ProviderCycleCapsMaterializationError(
-                "successor run-card directory cannot be created safely"
+                "successor output path cannot be created safely"
             ) from exc
     except OSError as exc:
         raise ProviderCycleCapsMaterializationError(
-            "successor run-card output path is unsafe"
+            "successor output path is unsafe"
         ) from exc
 
 
@@ -1955,17 +1955,9 @@ def _read_output(directory_fd: int, name: str) -> bytes | None:
         while chunk := os.read(file_fd, 1024 * 1024):
             chunks.append(chunk)
         after = os.fstat(file_fd)
-        stable_fields = (
-            "st_dev",
-            "st_ino",
-            "st_mode",
-            "st_nlink",
-            "st_size",
-            "st_mtime_ns",
-            "st_ctime_ns",
-        )
         if any(
-            getattr(before, field) != getattr(after, field) for field in stable_fields
+            getattr(before, field) != getattr(after, field)
+            for field in _STABLE_STAT_FIELDS
         ):
             raise ProviderCycleCapsMaterializationError(
                 f"output {name} changed while being verified"
