@@ -133,7 +133,7 @@ class RecapFetchBrokerConfig:
     def from_env(
         cls, environ: Mapping[str, str] | None = None
     ) -> RecapFetchBrokerConfig:
-        """Load only the four stage-scoped identity values from the environment."""
+        """Load only the five stage-scoped broker values from the environment."""
 
         values = os.environ if environ is None else environ
         names = (
@@ -154,9 +154,6 @@ class RecapFetchBrokerConfig:
             private_key_jwk=values[names[2]].strip(),
             identity_policy_json=values[names[3]].strip(),
             identity_policy_sha256=values[names[4]].strip(),
-            timeout_seconds=float(
-                values.get("RECAP_FETCH_BROKER_TIMEOUT_SECONDS", "30")
-            ),
         )
 
 
