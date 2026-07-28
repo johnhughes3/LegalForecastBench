@@ -396,6 +396,7 @@ def test_verified_attempt_policy_adds_all_incomplete_privacy_docs_to_union() -> 
 
 def test_attempt_policy_preflight_is_write_once_and_idempotent(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     selection = deepcopy(_selection())
     selection[0]["documents"][0].update(
@@ -438,6 +439,28 @@ def test_attempt_policy_preflight_is_write_once_and_idempotent(
     with pytest.raises(RecapFetchAttemptPolicyError, match="refusing to overwrite"):
         preflight_recap_fetch_attempt_policy(different_output, attempt)
     assert different_output.read_bytes() == b"stale"
+
+    raced_output = tmp_path / "raced-attempt-policy.json"
+    original_link = attempt_policy_module.os.link
+
+    def create_different_target_before_link(
+        source: str | Path,
+        target: str | Path,
+    ) -> None:
+        Path(target).write_bytes(b"raced")
+        original_link(source, target)
+
+    monkeypatch.setattr(
+        attempt_policy_module.os,
+        "link",
+        create_different_target_before_link,
+    )
+    with pytest.raises(
+        RecapFetchAttemptPolicyError,
+        match="concurrently created with different content",
+    ):
+        write_recap_fetch_attempt_policy(raced_output, attempt)
+    assert raced_output.read_bytes() == b"raced"
 
 
 def test_attempt_policy_indexes_mixed_free_and_paid_document_id_shapes() -> None:

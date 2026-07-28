@@ -305,8 +305,6 @@ def write_recap_fetch_attempt_policy(
     payload = _attempt_policy_payload(artifact)
     preflight_recap_fetch_attempt_policy(target, artifact)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        return target
     descriptor, temporary_name = tempfile.mkstemp(
         dir=target.parent, prefix=f".{target.name}.", suffix=".tmp"
     )
