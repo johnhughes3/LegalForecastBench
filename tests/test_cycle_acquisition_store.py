@@ -6,7 +6,6 @@ import os
 import sqlite3
 from pathlib import Path
 
-import legalforecast.ingestion.cycle_acquisition_store as cycle_store_module
 import pytest
 from legalforecast.ingestion.cycle_acquisition_store import (
     ConfigMismatchError,
@@ -18,6 +17,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     PageReplayMismatchError,
     SnapshotVerificationError,
     StoreLockedError,
+    _is_bound_descriptor_path,
     cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
@@ -50,7 +50,7 @@ def test_bound_store_path_requires_numeric_fd_without_traversal(
     expected: bool,
 ) -> None:
     assert (
-        cycle_store_module._is_bound_descriptor_path(  # pyright: ignore[reportPrivateUsage]
+        _is_bound_descriptor_path(  # pyright: ignore[reportPrivateUsage]
             path
         )
         is expected

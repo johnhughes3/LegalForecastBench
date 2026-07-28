@@ -7,7 +7,6 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
-import legalforecast.ingestion.budgeted_docket_acquisition as docket_acquisition_module
 import pytest
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
@@ -27,6 +26,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 )
 from legalforecast.ingestion.firecrawl_docket_pagination import (
     canonical_positive_entry_number,
+    paginate_courtlistener_docket,
 )
 from legalforecast.ingestion.firecrawl_source import FirecrawlScrapeResult
 
@@ -205,7 +205,7 @@ def test_required_entry_max_page_exhaustion_fails_closed() -> None:
 def test_incomplete_bundle_reports_requested_window_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    original = docket_acquisition_module.paginate_courtlistener_docket
+    original = paginate_courtlistener_docket
 
     def return_incomplete(*args: object, **kwargs: object):
         return replace(
@@ -216,7 +216,7 @@ def test_incomplete_bundle_reports_requested_window_failure(
         )
 
     monkeypatch.setattr(
-        docket_acquisition_module,
+        "legalforecast.ingestion.budgeted_docket_acquisition."
         "paginate_courtlistener_docket",
         return_incomplete,
     )

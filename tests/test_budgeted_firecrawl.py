@@ -7,13 +7,13 @@ from dataclasses import replace
 from pathlib import Path
 from threading import Event, Lock, get_ident
 
-import legalforecast.ingestion.budgeted_firecrawl as budgeted_firecrawl_module
 import pytest
 from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
     FirecrawlArtifactError,
     FirecrawlCircuitOpenError,
     FirecrawlTargetSpec,
+    _is_bound_path,
     is_retryable_target_accepted,
     load_successful_firecrawl_pages,
 )
@@ -72,12 +72,7 @@ def test_bound_artifact_path_requires_numeric_fd_without_traversal(
     path: Path,
     expected: bool,
 ) -> None:
-    assert (
-        budgeted_firecrawl_module._is_bound_path(  # pyright: ignore[reportPrivateUsage]
-            path
-        )
-        is expected
-    )
+    assert _is_bound_path(path) is expected  # pyright: ignore[reportPrivateUsage]
 
 
 class _ConcurrentSource:
