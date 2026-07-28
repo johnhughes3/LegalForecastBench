@@ -69,6 +69,9 @@ def generate_recap_fetch_broker_policy(
     broad_frontier_allowlist: bool = False,
     attempt_policy_artifact: Mapping[str, object] | None = None,
     controlled_private_root: Path | None = None,
+    replacement_purchase_authority_artifact: Mapping[str, object] | None = None,
+    replacement_controlled_private_root: Path | None = None,
+    purchase_ledger_initialization_receipt_path: Path | None = None,
 ) -> dict[str, object]:
     """Build the exact broker policy accepted by secure-gate.
 
@@ -91,6 +94,13 @@ def generate_recap_fetch_broker_policy(
         attempt_policy_artifact=attempt_policy_artifact,
         controlled_private_root=controlled_private_root,
         require_fresh_ledger_namespace=True,
+        replacement_purchase_authority_artifact=(
+            replacement_purchase_authority_artifact
+        ),
+        replacement_controlled_private_root=replacement_controlled_private_root,
+        purchase_ledger_initialization_receipt_path=(
+            purchase_ledger_initialization_receipt_path
+        ),
     )
 
 
@@ -107,6 +117,9 @@ def _build_recap_fetch_broker_policy(
     attempt_policy_artifact: Mapping[str, object] | None,
     controlled_private_root: Path | None,
     require_fresh_ledger_namespace: bool,
+    replacement_purchase_authority_artifact: Mapping[str, object] | None,
+    replacement_controlled_private_root: Path | None,
+    purchase_ledger_initialization_receipt_path: Path | None,
 ) -> dict[str, object]:
     """Build minting or replay evidence under an explicit private mode."""
 
@@ -120,16 +133,48 @@ def _build_recap_fetch_broker_policy(
         require_approved_case_dev_purchase_policy(
             purchase_policy, controlled_private_root=controlled_private_root
         )
-        if purchase_policy.has_verified_approval and require_fresh_ledger_namespace:
+        replacement_mode = replacement_purchase_authority_artifact is not None
+        if replacement_mode != (
+            replacement_controlled_private_root is not None
+            and purchase_ledger_initialization_receipt_path is not None
+        ):
+            raise ValueError(
+                "replacement authority, controlled private root, and purchase-ledger "
+                "initialization receipt must be supplied together"
+            )
+        if (
+            purchase_policy.has_verified_approval
+            and require_fresh_ledger_namespace
+            and not replacement_mode
+        ):
             require_fresh_purchase_ledger_namespace(
                 purchase_policy.canonical_ledger_path
             )
-        verify_approved_purchase_input_bytes(
-            purchase_policy,
-            controlled_private_root=cast(Path, controlled_private_root),
-            budget_plan_bytes=budget_plan_bytes,
-            selection_bytes=selection_bytes,
-        )
+        if replacement_purchase_authority_artifact is None:
+            verify_approved_purchase_input_bytes(
+                purchase_policy,
+                controlled_private_root=cast(Path, controlled_private_root),
+                budget_plan_bytes=budget_plan_bytes,
+                selection_bytes=selection_bytes,
+            )
+        else:
+            from legalforecast.ingestion.replacement_purchase_approval import (
+                verify_replacement_purchase_authority,
+            )
+
+            verify_replacement_purchase_authority(
+                authority_artifact=replacement_purchase_authority_artifact,
+                controlled_private_root=cast(Path, replacement_controlled_private_root),
+                initial_purchase_policy_artifact=purchase_policy_artifact,
+                initial_controlled_private_root=cast(Path, controlled_private_root),
+                cohort_policy_artifact=cohort_policy_artifact,
+                budget_plan_bytes=cast(bytes, budget_plan_bytes),
+                selection_bytes=cast(bytes, selection_bytes),
+                purchase_ledger_path=purchase_policy.canonical_ledger_path,
+                purchase_ledger_initialization_receipt_path=cast(
+                    Path, purchase_ledger_initialization_receipt_path
+                ),
+            )
         if purchase_policy.has_verified_approval:
             _require_structured_inputs_match_authenticated_bytes(
                 budget_plan_artifact=budget_plan_artifact,
@@ -209,6 +254,15 @@ def _build_recap_fetch_broker_policy(
                 budget_plan_bytes=cast(bytes, budget_plan_bytes),
                 selection_bytes=cast(bytes, selection_bytes),
                 controlled_private_root=cast(Path, controlled_private_root),
+                replacement_purchase_authority_artifact=(
+                    replacement_purchase_authority_artifact
+                ),
+                replacement_controlled_private_root=(
+                    replacement_controlled_private_root
+                ),
+                purchase_ledger_initialization_receipt_path=(
+                    purchase_ledger_initialization_receipt_path
+                ),
             )
             attempt_policy_sha256 = attempt_policy_artifact.get("policy_sha256")
             if (
@@ -336,6 +390,9 @@ def verify_recap_fetch_broker_policy(
     selection_bytes: bytes,
     controlled_private_root: Path,
     attempt_policy_artifact: Mapping[str, object] | None = None,
+    replacement_purchase_authority_artifact: Mapping[str, object] | None = None,
+    replacement_controlled_private_root: Path | None = None,
+    purchase_ledger_initialization_receipt_path: Path | None = None,
 ) -> ReplayedRecapFetchBrokerPolicy:
     """Replay an existing exact broker policy without minting after init."""
 
@@ -351,6 +408,13 @@ def verify_recap_fetch_broker_policy(
         attempt_policy_artifact=attempt_policy_artifact,
         controlled_private_root=controlled_private_root,
         require_fresh_ledger_namespace=False,
+        replacement_purchase_authority_artifact=(
+            replacement_purchase_authority_artifact
+        ),
+        replacement_controlled_private_root=replacement_controlled_private_root,
+        purchase_ledger_initialization_receipt_path=(
+            purchase_ledger_initialization_receipt_path
+        ),
     )
     if dict(artifact) != expected:
         raise RecapFetchBrokerPolicyError(
