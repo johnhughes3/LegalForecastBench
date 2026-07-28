@@ -615,18 +615,19 @@ The caps artifact remains mandatory because its cycle-bound per-provider reserva
 Legacy `external_spend_limit_usd`, `external_limit_scope`, `external_limit_source`, and `verified_at` fields are accepted only as optional annotations: they neither constrain the reservation cap nor grant provider spend authority, and the canonical Cycle 1 artifact omits them.
 The digest is a public equality commitment, not a confidentiality boundary: an observer who can enumerate likely table ARNs can test candidate account IDs against it.
 The currently committed `model_registries/cycle-1-provider-caps-2026-07-12.json` predates this contract and lacks both provider account aliases and top-level `spend_authority`.
-Do not treat Cycle 1 as runnable merely because this code lands: a deliberate artifact amendment must bind the reviewed public aliases and exact applied table-ARN digest, and the protected environments must match it, before live smoke, freeze, or dispatch.
+Do not treat paid labeling as runnable merely because this code lands: a deliberate artifact amendment must bind the reviewed public aliases and exact applied table-ARN digest, and the protected environments must match it before any provider call.
 
 ### Protected paid-labeling authority
 
 Official paid unitization, structural review, and Stage B judge calls run only through `.github/workflows/official-paid-labeling.yaml`.
 The workflow assumes the distinct `${name_prefix}-authority` role defined by `infra/official-labeling`; it never reuses the evaluation cell role or packet-read role.
-That role's base policy grants only `dynamodb:ConditionCheckItem`, `DescribeTable`, `GetItem`, `PutItem`, and `UpdateItem` against the one existing shared authority table.
+That role's base policy grants only `dynamodb:ConditionCheckItem`, `DescribeTable`, `DescribeTimeToLive`, `GetItem`, `PutItem`, and `UpdateItem` against the one existing shared authority table.
 `TransactWriteItems` authorizes its constituent item operations rather than a standalone IAM action; the durable poison transaction specifically requires `ConditionCheckItem` and `UpdateItem`.
 It grants no S3, `Scan`, delete, wildcard-resource, or table-administration permission.
 
 Provision these exact protected environments:
 
+- `legalforecastbench-official-labeling-baton`
 - `legalforecastbench-official-labeling-authority-smoke`
 - `legalforecastbench-official-labeling-anthropic-unitize`
 - `legalforecastbench-official-labeling-google-review`
@@ -635,16 +636,45 @@ Provision these exact protected environments:
 
 Each environment must require a human reviewer and use a deployment branch policy that admits only `main`, with no tag or side-branch deployment.
 These rules are acceptance prerequisites: the OIDC trust policy binds the environment subject, but an environment-form subject does not independently bind the Git ref.
-Each provider-bearing environment contains exactly one provider secret named `PROVIDER_API_KEY` and protected variables `LFB_GITHUB_LABELING_ROLE_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE`, `LFB_PROVIDER_ACCOUNT_ALIAS`, and `LFB_AWS_REGION`.
+Each provider-bearing environment contains exactly one provider secret named `PROVIDER_API_KEY`, the transport-only `BATON_AGE_IDENTITY`, and protected variables `LFB_BATON_AGE_RECIPIENT`, `LFB_GITHUB_LABELING_ROLE_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE`, `LFB_PROVIDER_ACCOUNT_ALIAS`, and `LFB_AWS_REGION`.
+The baton environment contains only the `BATON_AGE_IDENTITY` secret and the matching public `LFB_BATON_AGE_RECIPIENT` variable, requires a human reviewer, admits only `main`, and grants no OIDC, AWS, provider, evaluation, freeze, or dispatch authority.
+The same one-key age identity is present in the baton and four provider environments because GitHub environment secrets cannot alias one another; it is one cryptographic identity, not five independent credential values.
 The authority-smoke environment contains no provider secret; it holds only the exact non-secret authority variables named by its workflow.
 The workflow resolves the environment from a closed stage/provider mapping; the dispatcher cannot supply an environment or role ARN.
 It maps the one generic secret to `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `OPENAI_API_KEY` only inside the provider-call step.
 The provider-bearing job is pinned to a GitHub-hosted runner rather than a mutable runner-label variable, and its 7,200-second OIDC role session matches the 120-minute job timeout.
-AWS OIDC credentials are cleared through `GITHUB_ENV` before the private result artifact is uploaded, and the provider secret is step-scoped rather than persisted.
+AWS OIDC credentials are cleared through `GITHUB_ENV` before any result is sealed, the provider secret is step-scoped rather than persisted, and decrypted state is destroyed before upload.
 
-Before dispatch, build a private Actions artifact containing `official-paid-labeling-job.json` and every path it names.
+LegalForecastBench is a public repository, so a plaintext Actions artifact is not private: signed-in public-repository readers can download it.
+Never upload source documents, decision text, provider journals, raw model output, labels, or any other paid-labeling state as plaintext.
+Before dispatch, build a closed source package containing `official-paid-labeling-job.json` and every path it names, encrypt it to the reviewed Cycle 1 age recipient, and upload only the ciphertext to a never-published draft GitHub release.
+The source builder rejects provider journals, symlinks, hardlinks, special files, duplicate or escaping paths, undeclared residue, and file or aggregate size-limit violations; its package manifest commits the exact sorted path, byte count, and SHA-256 of every regular file plus the release, stage, provider, sequence, job-manifest hash, and predecessor identity.
+Generate and retain the age identity only on a trusted human-controlled machine; expose only its public recipient to this provider-free command:
+
+```bash
+uv run legalforecast acquisition build-paid-labeling-source \
+  --source-root <closed-provider-free-source-root> \
+  --release-sha <exact-main-release-sha> \
+  --stage llm-unitize \
+  --provider anthropic \
+  --sequence-ordinal 1 \
+  --age-executable <reviewed-age-executable> \
+  --age-recipient <public-cycle-age-recipient> \
+  --output-ciphertext <private-staging-root>/official-paid-labeling-source-<exact-main-release-sha>-llm-unitize-anthropic-1.age \
+  --receipt-output <private-staging-root>/source-receipt.json \
+  --execute
+```
+
+For sequence 2 through 4, build the next stage-specific source tree and repeat the command with the exact next stage/provider/ordinal plus `--predecessor-receipt <prior-result-receipt.json>`.
+The ciphertext asset name is canonical: `official-paid-labeling-source-<release-sha>-<stage>-<provider>-<sequence>.age`.
+The receipt is public-safe commitment metadata, but the source tree and any decrypted bytes remain in controlled private storage.
+Run `.github/workflows/official-paid-labeling-baton.yaml` with the exact draft release ID, asset ID, asset name, size, GitHub asset digest, package-manifest SHA-256, release SHA, stage, provider, and sequence ordinal.
+The provider-free protected workflow rechecks the immutable `main` release, exact draft asset metadata and bytes, decrypts only under `legalforecastbench-official-labeling-baton`, validates the closed package without archive extraction shortcuts, re-encrypts it, destroys plaintext and the identity file, and uploads only the ciphertext plus a public-safe hash/count receipt.
+Both the baton assembler and provider workflow rematerialize the package at `${{ github.workspace }}/.official-paid-labeling-job`, so the journal's immutable canonical-path identity survives sequential GitHub-hosted jobs instead of being silently rebased.
+For sequence ordinals after one, it also requires the exact completed predecessor run attempt, encrypted artifact name and digest, predecessor package-manifest SHA-256, and immediate-predecessor identity; forks, skipped predecessors, collisions, or a reset provider journal fail closed.
+There is no supported laptop-to-Actions-artifact upload API, and the shared code-quality runner must not be repurposed to read private acquisition state.
 All paths are relative to the artifact root; absolute paths, `..` escapes, unknown arguments, provider-authority arguments, provider-shard merge inputs, and shell fragments are rejected.
-Record the artifact-producing workflow run ID, exact artifact name, manifest SHA-256, full release SHA on `main`, stage, and provider as the protected workflow inputs.
+Record the artifact-producing workflow run ID and attempt, exact artifact name and GitHub digest, package-manifest SHA-256, job-manifest SHA-256, full release SHA on `main`, sequence ordinal, stage, and provider as the protected workflow inputs.
 The manifest has this closed shape:
 
 ```json
@@ -673,10 +703,10 @@ The shared authority constructor runs `DescribeTable`, hashes the actual table A
 For Stage B, create one job manifest per provider.
 Each manifest names the complete frozen judge panel, while the protected wrapper appends the one `--execution-provider` allowed by its environment.
 Each provider job emits `llm-label-provider-shard` audit and run-card artifacts but no selected labels.
-Treat the private result artifact as a sequential baton: every paid stage must start from the immediately preceding result artifact, retain the same canonical `provider-journal` path, and use distinct provider-specific audit, labels, queue, log, and run-card paths.
+Treat the encrypted result artifact as a sequential baton: every paid stage must start from the immediately preceding result artifact, retain the same canonical `provider-journal` path, and use distinct provider-specific audit, labels, queue, log, and run-card paths.
 In particular, do not launch the Google and OpenAI Stage B shards in parallel from two copies of the same SQLite journal.
 The workflow-wide `official-paid-labeling` concurrency group serializes protected paid jobs as a second guard against accidental parallel dispatch.
-Run the first provider shard, rebuild the next sealed job artifact from that result with only the next manifest and provider-specific output paths changed, then run the second shard.
+Run the first provider shard, rebuild the next encrypted closed baton from that result with only the next manifest and provider-specific output paths changed, then run the second shard.
 The remote DynamoDB authority prevents aggregate overspend, but the local journal is the authenticated replay chain; divergent SQLite copies are intentionally not mergeable and will fail provider-free reconciliation.
 After every provider shard succeeds, merge them in a provider-free context by passing each authenticated audit and run card to `llm-label`; the merge revalidates the full candidate/provider cross-product, exact prompts, decision commitments, model outputs, frozen-unit coverage, and shared journal before producing the ordinary `llm-label` run card.
 No provider credential or remote authority role is needed by this finalization step.
@@ -684,15 +714,15 @@ No provider credential or remote authority role is needed by this finalization s
 Record the following evidence before treating the path as live:
 
 1. Terraform plan/apply identity for `infra/official-labeling`, without copying the role ARN or AWS account ID into a public artifact.
-2. Protected workflow run URL, run attempt, release SHA, environment name, job-manifest SHA-256, provider-cycle-caps SHA-256, public provider account alias, and output run-card SHA-256.
-3. A provider-free live smoke from this workflow proving allowed `DescribeTable`, `GetItem`, `PutItem`, `UpdateItem`, and a `TransactWriteItems` request containing both `ConditionCheck` and `Put` against the exact table, plus denied `Scan`, `DeleteItem`, an outside-table read/write, and table administration.
-4. Confirmation that the credential-clear step ran before artifact upload and the uploaded private artifact contains no credential material.
+2. Protected producer and provider workflow run URLs and attempts, release SHA, environments, encrypted artifact digests, package- and job-manifest SHA-256 values, sequence/predecessor identities, provider-cycle-caps SHA-256, public provider account alias, and output run-card SHA-256.
+3. A provider-free live smoke proving allowed operations against the exact authority table and denied read/write operations against a distinct canary table, plus denied scan, delete, and table administration.
+4. Confirmation that the identity and credential-clear steps ran, plaintext state was destroyed, and the uploaded artifact contains only ciphertext plus its public-safe receipt.
 
 Provisioning and the live provider-free permission smoke are external checkpoints.
-Until both are recorded, keep the official live-smoke, freeze, and dispatch gates blocked; committed code and static tests alone do not satisfy that operational evidence.
+Until both are recorded, keep paid labeling blocked; committed code and static tests alone do not satisfy that operational evidence.
 Run the smoke through `.github/workflows/official-paid-labeling-authority-smoke.yaml` in `legalforecastbench-official-labeling-authority-smoke`.
-Set `LFB_OUTSIDE_AUTHORITY_TABLE` to a real, distinct canary table so an `AccessDenied` result proves the exact-table resource boundary rather than merely encountering a missing table.
-The smoke writes two TTL-bounded sentinel rows to the authority table, makes no provider call, suppresses denial diagnostics that can contain AWS account details, and uploads only the release SHA, public table-identity hash, and boolean allow/deny results.
+Set `LFB_OUTSIDE_AUTHORITY_TABLE` to a real, distinct disposable canary table so an `AccessDenied` result proves the exact-table resource boundary rather than merely encountering a missing table.
+The smoke first requires DynamoDB TTL to be enabled on the exact `expires_at` attribute, then writes only TTL-bounded sentinel rows, makes no provider call, suppresses denial diagnostics that can contain AWS account details, and uploads only the release SHA, public table-identity hash, and boolean allow/deny results.
 
 After the protected authority-smoke workflow succeeds, download its raw `authority-smoke.json` artifact without recreating or reformatting it and record the exact artifact SHA-256 plus the full reviewed main release SHA.
 Create the public `legalforecast.provider_cycle_caps_successor_policy.v1` artifact in canonical JSON form as specified by [the successor contract](schemas/provider-cycle-caps-successor-v1.md), using one public account alias for each legacy provider and no ARN, AWS account ID, credential, secret, or token material.

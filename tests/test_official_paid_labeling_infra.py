@@ -9,6 +9,7 @@ INFRA_ROOT = ROOT / "infra" / "official-labeling"
 ALLOWED_ACTIONS = {
     "dynamodb:ConditionCheckItem",
     "dynamodb:DescribeTable",
+    "dynamodb:DescribeTimeToLive",
     "dynamodb:GetItem",
     "dynamodb:PutItem",
     "dynamodb:UpdateItem",

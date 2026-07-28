@@ -41,15 +41,14 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
-          if [[ ! "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]] || [[ "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
-            echo "release_sha must be the exact checked-out full commit SHA." >&2
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]] || [[ ! "${GITHUB_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "authority smoke must be dispatched from the immutable main commit." >&2
             exit 1
           fi
-          git fetch --no-tags origin main
-          git merge-base --is-ancestor "${RELEASE_SHA}" origin/main || {
-            echo "release_sha must be reachable from origin/main." >&2
+          if [[ "${RELEASE_SHA}" != "${GITHUB_SHA}" ]] || [[ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]]; then
+            echo "release_sha must equal the exact main commit that triggered this workflow." >&2
             exit 1
-          }
+          fi
           missing=()
           for name in \
             LFB_GITHUB_LABELING_ROLE_ARN \
@@ -101,6 +100,17 @@ jobs:
             echo "Exact authority table differs from the frozen identity." >&2
             exit 1
           fi
+          ttl_json="$(aws dynamodb describe-time-to-live \
+            --table-name "${LFB_PROVIDER_AUTHORITY_TABLE}" \
+            --output json)"
+          ttl_status="$(jq -er '.TimeToLiveDescription.TimeToLiveStatus' <<<"${ttl_json}")"
+          ttl_attribute="$(jq -er '.TimeToLiveDescription.AttributeName' <<<"${ttl_json}")"
+          unset ttl_json
+          if [[ "${ttl_status}" != "ENABLED" ]] || [[ "${ttl_attribute}" != "expires_at" ]]; then
+            echo "Exact authority table must have TTL enabled on expires_at." >&2
+            exit 1
+          fi
+          unset ttl_status ttl_attribute
           nonce="$(printf '%s:%s:%s' "${RELEASE_SHA}" "${GITHUB_RUN_ID}" "${GITHUB_RUN_ATTEMPT}" | sha256sum | cut -c1-32)"
           expires_at="$(( $(date +%s) + 86400 ))"
           key="{\"authority_key\":{\"S\":\"smoke-${nonce}\"},\"record_key\":{\"S\":\"get-put-update\"}}"
@@ -158,6 +168,33 @@ jobs:
             --key "{\"authority_key\":{\"S\":\"smoke-${nonce}\"},\"record_key\":{\"S\":\"get-put-update\"}}"
           deny aws dynamodb describe-table \
             --table-name "${LFB_OUTSIDE_AUTHORITY_TABLE}"
+          outside_key="{\"authority_key\":{\"S\":\"outside-smoke-${nonce}\"},\"record_key\":{\"S\":\"get-put\"}}"
+          outside_item="{\"authority_key\":{\"S\":\"outside-smoke-${nonce}\"},\"record_key\":{\"S\":\"get-put\"},\"smoke_state\":{\"S\":\"put\"},\"expires_at\":{\"N\":\"${expires_at}\"}}"
+          deny aws dynamodb get-item \
+            --table-name "${LFB_OUTSIDE_AUTHORITY_TABLE}" \
+            --key "${outside_key}" \
+            --consistent-read
+          deny aws dynamodb put-item \
+            --table-name "${LFB_OUTSIDE_AUTHORITY_TABLE}" \
+            --item "${outside_item}" \
+            --condition-expression "attribute_not_exists(authority_key)"
+          deny aws dynamodb update-item \
+            --table-name "${LFB_OUTSIDE_AUTHORITY_TABLE}" \
+            --key "{\"authority_key\":{\"S\":\"outside-smoke-${nonce}\"},\"record_key\":{\"S\":\"update\"}}" \
+            --update-expression "SET smoke_state = :updated, expires_at = :expires" \
+            --expression-attribute-values "{\":updated\":{\"S\":\"updated\"},\":expires\":{\"N\":\"${expires_at}\"}}"
+          outside_transaction="$(jq -cn \
+            --arg table "${LFB_OUTSIDE_AUTHORITY_TABLE}" \
+            --arg authority "outside-smoke-${nonce}" \
+            --arg expires "${expires_at}" \
+            '{TransactItems:[{Put:{
+              TableName:$table,
+              Item:{authority_key:{S:$authority},record_key:{S:"transact"},smoke_state:{S:"transacted"},expires_at:{N:$expires}},
+              ConditionExpression:"attribute_not_exists(authority_key)"
+            }}]}')"
+          deny aws dynamodb transact-write-items \
+            --cli-input-json "${outside_transaction}"
+          unset outside_key outside_item outside_transaction
           deny aws dynamodb list-tables --limit 1
 
           jq -n \
@@ -170,6 +207,7 @@ jobs:
               provider_call_made:false,
               allowed:{
                 describe_table:true,
+                describe_time_to_live:true,
                 get_item:true,
                 put_item:true,
                 update_item:true,
@@ -180,11 +218,16 @@ jobs:
                 scan:true,
                 delete_item:true,
                 outside_table_describe:true,
+                outside_table_get_item:true,
+                outside_table_put_item:true,
+                outside_table_update_item:true,
+                outside_table_transact_write_items:true,
                 list_tables:true
               }
             }' > "${EVIDENCE_ROOT}/authority-smoke.json"
 
       - name: Clear temporary AWS credentials
+        id: clear_credentials
         if: ${{ always() }}
         shell: bash
         run: |
@@ -198,7 +241,7 @@ jobs:
           unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
 
       - name: Upload redacted smoke evidence
-        if: ${{ always() }}
+        if: ${{ always() && steps.clear_credentials.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
           name: official-paid-labeling-authority-smoke-${{ github.run_id }}-${{ github.run_attempt }}

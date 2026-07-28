@@ -68,6 +68,23 @@ def _job_root(tmp_path: Path) -> tuple[Path, list[str]]:
 
 
 def _write_label_job(root: Path, model_keys: list[str], *, provider: str) -> Path:
+    required_inputs = {
+        "decision-texts": "inputs/decision-texts.jsonl",
+        "decision-texts-manifest": "inputs/decision-texts-manifest.json",
+        "decision-texts-run-card": "inputs/decision-texts-card.json",
+        "evaluated-model-registry": "inputs/evaluated-registry.json",
+        "llm-review-stage-a-run-card": "inputs/review-card.json",
+        "llm-unitization-run-card": "inputs/unitization-card.json",
+        "parser-manifest": "inputs/parser-manifest.jsonl",
+        "prediction-units": "inputs/finalized-units.jsonl",
+        "selection": "inputs/selection.jsonl",
+        "unitization-review-run-card": "inputs/apply-card.json",
+    }
+    for relative in required_inputs.values():
+        _write_json(root / relative, {})
+    markdown_root = root / "inputs/markdown"
+    markdown_root.mkdir(parents=True)
+    (markdown_root / "fixture.md").write_text("fixture\n", encoding="utf-8")
     path = root / "official-paid-labeling-job.json"
     _write_json(
         path,
@@ -77,10 +94,13 @@ def _write_label_job(root: Path, model_keys: list[str], *, provider: str) -> Pat
             "stage": "llm-label-provider-shard",
             "provider": provider,
             "arguments": {
+                **required_inputs,
+                "markdown-root": "inputs/markdown",
                 "model-key": model_keys,
                 "model-registry": "judge-registry.json",
                 "output-root": "output",
                 "provider-cycle-caps": "provider-caps.json",
+                "provider-journal": "output/provider-attempts.sqlite3",
             },
         },
     )
@@ -121,6 +141,48 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
     assert captured.count("--model-key") == len(model_keys)
     assert "--provider-shard-audit" not in captured
     assert "--provider-shard-run-card" not in captured
+
+
+def test_validate_only_checks_all_inputs_without_authority_or_provider_cli(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="google")
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda args: pytest.fail(f"provider CLI must not run: {args}"),
+    )
+
+    assert (
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="google",
+            provider_authority_table="",
+            provider_authority_region="",
+            expected_provider_account_alias="google-primary",
+            validate_only=True,
+        )
+        == 0
+    )
+
+    (root / "inputs/selection.jsonl").unlink()
+    with pytest.raises(OfficialPaidLabelingJobError, match="required input is absent"):
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="google",
+            provider_authority_table="",
+            provider_authority_region="",
+            expected_provider_account_alias="google-primary",
+            validate_only=True,
+        )
 
 
 def test_job_rejects_cross_stage_provider_before_cli(
@@ -184,9 +246,7 @@ def test_job_rejects_path_escape_and_authority_argument_substitution(
 
     del payload["arguments"]["provider-authority-table"]
     _write_json(manifest, payload)
-    with pytest.raises(
-        OfficialPaidLabelingJobError, match="escapes the sealed job root"
-    ):
+    with pytest.raises(OfficialPaidLabelingJobError, match="path is unsafe"):
         run_official_paid_labeling_job(
             job_manifest_path=manifest,
             job_root=root,
@@ -196,6 +256,73 @@ def test_job_rejects_path_escape_and_authority_argument_substitution(
             provider_authority_table="exact-provider-authority",
             provider_authority_region="us-east-1",
             expected_provider_account_alias="google-primary",
+        )
+
+
+@pytest.mark.parametrize("path_name", ["provider-journal", "labels-output"])
+def test_job_rejects_output_paths_outside_output_root(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    path_name: str,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["arguments"][path_name] = f"outside-output/{path_name}"
+    _write_json(manifest, payload)
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda args: pytest.fail(f"CLI must not run: {args}"),
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match=rf"{path_name} must remain under output-root",
+    ):
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="",
+            provider_authority_region="",
+            expected_provider_account_alias="openai-primary",
+            validate_only=True,
+        )
+
+
+@pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), float("-inf")])
+def test_job_rejects_non_finite_numeric_arguments(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    non_finite: float,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["arguments"]["high-confidence-threshold"] = non_finite
+    _write_json(manifest, payload)
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda args: pytest.fail(f"CLI must not run: {args}"),
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match="high-confidence-threshold has an invalid value",
+    ):
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="exact-provider-authority",
+            provider_authority_region="us-east-1",
+            expected_provider_account_alias="openai-primary",
         )
 
 

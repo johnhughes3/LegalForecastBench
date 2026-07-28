@@ -233,6 +233,38 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
     assert "Use AWS Bedrock." in body["messages"][0]["content"][0]["text"]
 
 
+def test_bedrock_malformed_response_marks_authorized_attempt_ambiguous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler = _RecordingAttemptHandler()
+
+    monkeypatch.setattr(
+        live_model_solver,
+        "_invoke_bedrock_runtime_json",
+        lambda *args, **kwargs: {
+            "model": "claude-sonnet-4-6",
+            "usage": {"input_tokens": 220, "output_tokens": 55},
+        },
+    )
+
+    with pytest.raises(LiveModelResponseError):
+        live_model_solver.complete_live_prompt(
+            _registry_entry(
+                "anthropic",
+                "claude-sonnet-4-6",
+                model_version_or_snapshot="claude-sonnet-4-6",
+            ),
+            "Use AWS Bedrock.",
+            environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
+            attempt_handler=handler,
+        )
+
+    assert handler.events == [
+        ("run", 1),
+        ("post_response_failure", 41, "LiveModelResponseError"),
+    ]
+
+
 def test_sonnet_5_legacy_bedrock_fails_before_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

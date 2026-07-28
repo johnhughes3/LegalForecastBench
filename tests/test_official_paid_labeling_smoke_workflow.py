@@ -29,6 +29,7 @@ def test_smoke_exercises_exact_allowlist_and_required_denials() -> None:
 
     for command in (
         "dynamodb describe-table",
+        "dynamodb describe-time-to-live",
         "dynamodb get-item",
         "dynamodb put-item",
         "dynamodb update-item",
@@ -48,6 +49,33 @@ def test_smoke_exercises_exact_allowlist_and_required_denials() -> None:
     assert 'record_key:{S:"get-put-update"}' in text
     assert 'ConditionExpression:"smoke_state = :updated"' in text
     assert "condition_check_item:true" in text
+    assert '[[ "${ttl_status}" != "ENABLED" ]]' in text
+    assert '[[ "${ttl_attribute}" != "expires_at" ]]' in text
+    assert "describe_time_to_live:true" in text
+    for receipt_field in (
+        "outside_table_get_item:true",
+        "outside_table_put_item:true",
+        "outside_table_update_item:true",
+        "outside_table_transact_write_items:true",
+    ):
+        assert receipt_field in text
+    assert text.count("dynamodb get-item") == 2
+    assert text.count("dynamodb put-item") == 2
+    assert text.count("dynamodb update-item") == 2
+    assert text.count("dynamodb transact-write-items") == 2
+    assert "outside_key=" in text
+    assert "outside_item=" in text
+    assert "outside_transaction=" in text
+
+
+def test_smoke_binds_execution_to_exact_current_main_commit() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+
+    assert '[[ "${GITHUB_REF}" != "refs/heads/main" ]]' in text
+    assert '[[ "${RELEASE_SHA}" != "${GITHUB_SHA}" ]]' in text
+    assert '[[ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]]' in text
+    assert "git merge-base --is-ancestor" not in text
+    assert "git fetch --no-tags origin main" not in text
 
 
 def test_smoke_redacts_denials_and_clears_credentials_before_upload() -> None:
@@ -59,6 +87,8 @@ def test_smoke_redacts_denials_and_clears_credentials_before_upload() -> None:
     assert text.index("Clear temporary AWS credentials") < text.index(
         "Upload redacted smoke evidence"
     )
+    assert "id: clear_credentials" in text
+    assert "steps.clear_credentials.outcome == 'success'" in text
     for credential in (
         "AWS_ACCESS_KEY_ID=",
         "AWS_SECRET_ACCESS_KEY=",
