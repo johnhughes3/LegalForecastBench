@@ -327,6 +327,21 @@ def test_public_output_helper_internally_binds_and_rejects_symlink_parent(
     assert tuple(outside.iterdir()) == ()
 
 
+def test_public_output_helper_rejects_nonclosed_terminal_payload_set(
+    tmp_path: Path,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+
+    with pytest.raises(ValueError, match="exact terminal artifact set"):
+        publish_target_public_gap_outputs(
+            plan=plan,
+            plan_sha256="1" * 64,
+            payloads={"unexpected.json": b"{}\n"},
+        )
+
+    assert not plan.execution_identity.output_root.exists()
+
+
 def test_preflight_rejects_recommitted_terminal_plan_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -819,41 +834,30 @@ def test_preflight_rejects_forged_incomplete_output_commitments(
             output_root=tmp_path / f"forged-{commitment_mode}",
         ),
     )
-    outcome_name = "target-public-gap-outcomes.jsonl"
     run_card_name = "run-cards/execute-target-public-gaps.json"
     log_name = "logs/execute-target-public-gaps.jsonl"
-    outcome_bytes = b'{"outcome":"forged"}\n'
-    receipt: dict[str, object] = {
-        "schema_version": "legalforecast.target_public_gap_execution_receipt.v1",
-        "status": "completed",
-        "plan_sha256": "1" * 64,
-        "execution_identity": dict(plan.execution_identity.to_record()),
-        "source_artifact_commitments": dict(plan.source_artifact_commitments),
-        "purchased_document_count": 0,
-        "output_paths": [
-            str(plan.execution_identity.output_root / name)
-            for name in (outcome_name, run_card_name, log_name)
-        ],
-        **_no_authority_flags(),
-    }
+    payloads = _valid_terminal_payloads(plan, tmp_path=tmp_path)
+    receipt = cast(dict[str, object], json.loads(payloads[run_card_name]))
     if commitment_mode == "empty":
         receipt["output_commitments"] = {}
+    else:
+        receipt.pop("output_commitments")
     run_card_bytes = _json_bytes(receipt)
+    payloads[run_card_name] = run_card_bytes
+    payloads[log_name] = _jsonl_bytes(
+        [
+            {
+                "schema_version": "legalforecast.target_public_gap_execution_log.v1",
+                "event": "completed",
+                "plan_sha256": "1" * 64,
+                "run_card_sha256": hashlib.sha256(run_card_bytes).hexdigest(),
+            }
+        ]
+    )
     publish_target_public_gap_outputs(
         plan=plan,
         plan_sha256="1" * 64,
-        payloads={
-            outcome_name: outcome_bytes,
-            run_card_name: run_card_bytes,
-            log_name: _jsonl_bytes(
-                [
-                    {
-                        "plan_sha256": "1" * 64,
-                        "run_card_sha256": hashlib.sha256(run_card_bytes).hexdigest(),
-                    }
-                ]
-            ),
-        },
+        payloads=payloads,
     )
 
     with pytest.raises(

@@ -6,6 +6,7 @@ import os
 import sqlite3
 from pathlib import Path
 
+import legalforecast.ingestion.cycle_acquisition_store as cycle_store_module
 import pytest
 from legalforecast.ingestion.cycle_acquisition_store import (
     ConfigMismatchError,
@@ -34,6 +35,26 @@ def _store(tmp_path: Path) -> CycleAcquisitionStore:
     store.ensure_cycle(POLICY)
     store.ensure_batch("batch-001", {"start": "2026-06-30", "page_size": 50})
     return store
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (Path("/proc/self/fd/7/cycle.sqlite3"), True),
+        (Path("/proc/self/fd/not-a-fd/cycle.sqlite3"), False),
+        (Path("/proc/self/fd/7/../../tmp/escaped.sqlite3"), False),
+    ],
+)
+def test_bound_store_path_requires_numeric_fd_without_traversal(
+    path: Path,
+    expected: bool,
+) -> None:
+    assert (
+        cycle_store_module._is_bound_descriptor_path(  # pyright: ignore[reportPrivateUsage]
+            path
+        )
+        is expected
+    )
 
 
 def _hit(provider_hit_id: str, candidate_id: str) -> dict[str, object]:

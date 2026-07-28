@@ -847,6 +847,10 @@ def publish_target_public_gap_outputs(
             )
         return
     execution_binding.require_current(plan)
+    if set(expected) != set(_TARGET_PUBLIC_GAP_ALL_OUTPUTS):
+        raise TargetPublicGapRefreshError(
+            "terminal payloads must contain the exact terminal artifact set"
+        )
     _publish_target_public_gap_outputs_bound(
         plan=plan,
         plan_sha256=plan_sha256,

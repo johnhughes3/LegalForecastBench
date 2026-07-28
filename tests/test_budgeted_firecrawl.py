@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 from threading import Event, Lock, get_ident
 
+import legalforecast.ingestion.budgeted_firecrawl as budgeted_firecrawl_module
 import pytest
 from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
@@ -56,6 +57,27 @@ class FixtureSource:
         if isinstance(response, BaseException):
             raise response
         return response
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (Path("/proc/self/fd/7"), True),
+        (Path("/proc/self/fd/7/pages/1.html"), True),
+        (Path("/proc/self/fd/not-a-fd/pages/1.html"), False),
+        (Path("/proc/self/fd/7/../../tmp/escaped.html"), False),
+    ],
+)
+def test_bound_artifact_path_requires_numeric_fd_without_traversal(
+    path: Path,
+    expected: bool,
+) -> None:
+    assert (
+        budgeted_firecrawl_module._is_bound_path(  # pyright: ignore[reportPrivateUsage]
+            path
+        )
+        is expected
+    )
 
 
 class _ConcurrentSource:

@@ -136,7 +136,14 @@ def _bound_or_resolved_path(path: Path) -> Path:
 
 
 def _is_bound_path(path: Path) -> bool:
-    return path.absolute().parts[:4] == ("/", "proc", "self", "fd")
+    parts = path.absolute().parts
+    return (
+        len(parts) >= 5
+        and parts[:4] == ("/", "proc", "self", "fd")
+        and parts[4].isascii()
+        and parts[4].isdigit()
+        and not any(component in {".", ".."} for component in parts[5:])
+    )
 
 
 class BudgetedFirecrawlScheduler:

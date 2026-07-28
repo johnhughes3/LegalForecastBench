@@ -1184,7 +1184,7 @@ def acquire_ranked_dockets(
                 target=target,
                 reason="docket_reconstruction_failed",
                 stage="complete_docket_reconstruction",
-                detail="incomplete_anchor_window",
+                detail="incomplete_requested_window",
             )
             continue
         bundles.append(bundle)

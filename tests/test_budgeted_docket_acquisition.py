@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
+import legalforecast.ingestion.budgeted_docket_acquisition as docket_acquisition_module
 import pytest
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
@@ -199,6 +200,36 @@ def test_required_entry_max_page_exhaustion_fails_closed() -> None:
 
     assert result.bundles == ()
     assert result.failures[0].failure_reason == "pagination_page_limit_reached"
+
+
+def test_incomplete_bundle_reports_requested_window_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = docket_acquisition_module.paginate_courtlistener_docket
+
+    def return_incomplete(*args: object, **kwargs: object):
+        return replace(
+            original(*args, **kwargs),  # pyright: ignore[reportCallIssue]
+            is_exhaustive=False,
+            stopped_at_anchor_boundary=False,
+            stopped_at_required_entries=False,
+        )
+
+    monkeypatch.setattr(
+        docket_acquisition_module,
+        "paginate_courtlistener_docket",
+        return_incomplete,
+    )
+    result = acquire_ranked_dockets(
+        records=[_record("20", 0)],
+        scheduler=_Scheduler({("20", 1): _page("20", 1, has_next=False)}),  # type: ignore[arg-type]
+        limit=1,
+        max_pages_per_docket=1,
+        decision_anchor=date(2026, 6, 30),
+    )
+
+    assert result.bundles == ()
+    assert result.failures[0].failure_reason == "incomplete_requested_window"
 
 
 def test_ranked_docket_continuation_pages_have_run_unique_ordinals(

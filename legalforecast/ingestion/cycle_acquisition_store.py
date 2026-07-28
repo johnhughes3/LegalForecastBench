@@ -3672,9 +3672,20 @@ def _firecrawl_target_from_row(row: sqlite3.Row) -> FirecrawlTarget:
 
 def _bound_or_resolved_write_path(path: Path) -> Path:
     absolute = path.absolute()
-    if absolute.parts[:4] == ("/", "proc", "self", "fd"):
+    if _is_bound_descriptor_path(absolute):
         return absolute
     return path.resolve()
+
+
+def _is_bound_descriptor_path(path: Path) -> bool:
+    parts = path.absolute().parts
+    return (
+        len(parts) >= 5
+        and parts[:4] == ("/", "proc", "self", "fd")
+        and parts[4].isascii()
+        and parts[4].isdigit()
+        and not any(component in {".", ".."} for component in parts[5:])
+    )
 
 
 def _atomic_write_bytes(destination: Path, content: bytes) -> None:
