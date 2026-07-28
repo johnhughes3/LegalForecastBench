@@ -25033,6 +25033,25 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                     frozen_batch_config,
                 )
         except CycleAcquisitionStoreError as exc:
+            _write_acquisition_failure(
+                args,
+                stage="discover-courtlistener",
+                input_paths=input_paths,
+                output_paths=output_paths,
+                reason=str(exc),
+                paid_activity_requested=live_firecrawl_docket_html,
+                extra=(
+                    _firecrawl_docket_html_audit(
+                        requested=True,
+                        credit_cap=firecrawl_credit_cap,
+                        source=None,
+                        store=None,
+                        run_id=firecrawl_run_id,
+                    )
+                    if live_firecrawl_docket_html
+                    else None
+                ),
+            )
             raise CommandError(str(exc)) from exc
 
     config = CourtListenerConfig.from_env()
