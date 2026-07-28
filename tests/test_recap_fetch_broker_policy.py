@@ -18,8 +18,10 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
+    UNKNOWN_STATUS_EVIDENCE,
     RecapFetchAttemptPolicyError,
     generate_recap_fetch_attempt_policy,
+    is_exact_unknown_status_evidence,
     preflight_recap_fetch_attempt_policy,
     write_recap_fetch_attempt_policy,
 )
@@ -70,6 +72,32 @@ pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 _GOLDEN_ROOT = Path("tests/fixtures/recap_fetch_broker_policy")
+
+
+def test_unknown_status_evidence_is_immutable_and_accepts_json_roundtrip() -> None:
+    assert isinstance(UNKNOWN_STATUS_EVIDENCE, tuple)
+    emitted_evidence = json.loads(json.dumps(UNKNOWN_STATUS_EVIDENCE))
+    assert is_exact_unknown_status_evidence(emitted_evidence)
+
+    emitted_evidence.pop()
+
+    assert len(UNKNOWN_STATUS_EVIDENCE) == 6
+    assert not is_exact_unknown_status_evidence(emitted_evidence)
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        list(reversed(UNKNOWN_STATUS_EVIDENCE)),
+        list(UNKNOWN_STATUS_EVIDENCE[:-1]),
+        [*UNKNOWN_STATUS_EVIDENCE, UNKNOWN_STATUS_EVIDENCE[-1]],
+        [*UNKNOWN_STATUS_EVIDENCE[:-1], 1],
+        "courtlistener_rest_docket_exact_match",
+        None,
+    ],
+)
+def test_unknown_status_evidence_rejects_nonexact_json_shapes(evidence: object) -> None:
+    assert not is_exact_unknown_status_evidence(evidence)
 
 
 @pytest.mark.parametrize(

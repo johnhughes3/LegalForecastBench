@@ -242,7 +242,7 @@ class _CourtListenerRestGapDocument:
         return "public" if self.is_sealed is False else "unknown"
 
     @property
-    def restriction_evidence(self) -> tuple[str, ...] | list[str]:
+    def restriction_evidence(self) -> tuple[str, ...]:
         if self.free:
             return (
                 _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
@@ -250,7 +250,7 @@ class _CourtListenerRestGapDocument:
                 else _COURTLISTENER_REST_FREE_UNKNOWN_PRIVACY_EVIDENCE
             )
         if self.is_sealed is False:
-            return COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
+            return tuple(COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE)
         if (
             self.is_available is False
             and self.is_sealed is None
