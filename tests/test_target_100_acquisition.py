@@ -928,9 +928,40 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
         "sha256:" + hashlib.sha256(frontier_path.read_bytes()).hexdigest()
     )
     assert config["config_sha256"].startswith("sha256:")
-    normalized_frontier = cli._replacement_frontier_rows(frontier_path)
+    normalized_frontier = cli._replacement_frontier_rows(
+        frontier_path.read_bytes(),
+        source=frontier_path,
+    )
     assert len(normalized_frontier) == 3
     assert all("selection_status" not in row for row in normalized_frontier)
+    reconciled_selection_bytes = reconciled_selection.read_bytes()
+    selected_candidate_ids = tuple(
+        str(row["candidate_id"])
+        for row in frontier
+        if row["selection_status"] == "selected"
+    )
+    assert (
+        cli._verify_replacement_initial_selection_lineage(
+            initial_candidate_ids=selected_candidate_ids,
+            target_frontier_artifact=frontier_artifact,
+            reconciled_selection_bytes=reconciled_selection_bytes,
+            reconciled_selection_path=reconciled_selection,
+        )
+        == normalized_frontier
+    )
+    with pytest.raises(
+        cli.ClearanceReplacementError,
+        match="initial selection differs from the verified target-frontier",
+    ):
+        cli._verify_replacement_initial_selection_lineage(
+            initial_candidate_ids=(
+                *selected_candidate_ids[:-1],
+                str(frontier[-1]["candidate_id"]),
+            ),
+            target_frontier_artifact=frontier_artifact,
+            reconciled_selection_bytes=reconciled_selection_bytes,
+            reconciled_selection_path=reconciled_selection,
+        )
     missing_lineage = json.loads(json.dumps(frontier_artifact))
     missing_lineage["policy"]["source_commitments"].pop("snapshot_manifest_sha256")
     missing_lineage["policy_sha256"] = cli._canonical_json_sha256(
@@ -967,7 +998,10 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
     frontier_artifact["policy"]["candidate_count"] = 2
     tampered_frontier.write_text(json.dumps(frontier_artifact, sort_keys=True) + "\n")
     with pytest.raises(ValueError, match="policy hash mismatch"):
-        cli._replacement_frontier_rows(tampered_frontier)
+        cli._replacement_frontier_rows(
+            tampered_frontier.read_bytes(),
+            source=tampered_frontier,
+        )
 
     committed = {
         path: path.read_bytes()
@@ -3368,6 +3402,10 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
         "--labels",
         str(dummy_jsonl),
         "--llm-label-audit",
+        str(dummy_jsonl),
+        "--original-llm-label-labels",
+        str(dummy_jsonl),
+        "--original-llm-label-audit",
         str(dummy_jsonl),
         "--llm-label-run-card",
         str(dummy_jsonl),

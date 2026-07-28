@@ -1724,9 +1724,13 @@ def test_replacement_cli_rejects_v2_before_touching_purchase_journal(
                 str(policy_path),
                 "--purchase-ledger",
                 str(ledger),
+                "--purchase-ledger-initialization-receipt",
+                str(missing),
                 "--cohort-policy",
                 str(missing),
                 "--frontier",
+                str(missing),
+                "--candidate-selection",
                 str(missing),
                 "--purchased-clearance",
                 str(missing),
@@ -1740,6 +1744,10 @@ def test_replacement_cli_rejects_v2_before_touching_purchase_journal(
                 str(tmp_path / "allowlist.json"),
                 "--exclusions-output",
                 str(tmp_path / "exclusions.jsonl"),
+                "--active-selection-output",
+                str(tmp_path / "active-selection.jsonl"),
+                "--replacement-selection-output",
+                str(tmp_path / "replacement-selection.jsonl"),
             ]
         )
         == 2

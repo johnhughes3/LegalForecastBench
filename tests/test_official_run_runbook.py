@@ -381,6 +381,8 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
             "--apply-unitization-review-run-card",
             "--labels",
             "--llm-label-audit",
+            "--original-llm-label-labels",
+            "--original-llm-label-audit",
             "--llm-label-run-card",
             "--stage-b-judge-registry",
             "--labeling-policy",
@@ -1226,6 +1228,22 @@ def test_acquisition_snapshot_pin_is_not_self_derived() -> None:
     assert (
         """test "$(sha256sum "$SNAPSHOT/manifest.json" | cut -d' ' -f1)" """
         """= "$SNAPSHOT_MANIFEST_SHA256\""""
+    ) in runbook
+
+
+def test_replacement_reprojection_is_the_only_post_quarantine_downstream_cohort() -> (
+    None
+):
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    assert "cycle-1-target-100.replacement-reprojection.template.json" in runbook
+    assert 'canonical_target_root="$replacement_root/01-projection"' in runbook
+    assert "$canonical_target_root/target-cohort-selection.jsonl" in runbook
+    assert "$canonical_target_root/run-cards/project-target-cohort.json" in runbook
+    assert "finalize-corpus --target-clean-cases 100" in runbook
+    assert (
+        "The narrow successor purchase selection authorizes a tranche but never "
+        "becomes a downstream cohort"
     ) in runbook
 
 

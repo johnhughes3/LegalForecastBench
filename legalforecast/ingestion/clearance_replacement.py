@@ -80,6 +80,139 @@ class ClearanceReplacementPlan:
         return record
 
 
+def bind_replacement_selection_outputs(
+    plan: ClearanceReplacementPlan,
+    *,
+    active_selection_sha256: str,
+    active_selection_count: int,
+    replacement_selection_sha256: str,
+    replacement_selection_count: int,
+) -> dict[str, Any]:
+    """Bind exact active/tranche JSONL bytes into the planner result."""
+
+    active_sha = _sha(active_selection_sha256, "active_selection_sha256")
+    replacement_sha = _sha(replacement_selection_sha256, "replacement_selection_sha256")
+    if active_selection_count != len(plan.active_candidate_ids):
+        raise ClearanceReplacementError(
+            "active selection count differs from planned active candidates"
+        )
+    if replacement_selection_count != len(plan.replacement_plan.case_plans):
+        raise ClearanceReplacementError(
+            "replacement selection count differs from planned replacement tranche"
+        )
+    record = plan.to_record()
+    record.pop("plan_sha256")
+    record.update(
+        {
+            "active_selection_sha256": active_sha,
+            "active_selection_count": active_selection_count,
+            "replacement_selection_sha256": replacement_sha,
+            "replacement_selection_count": replacement_selection_count,
+        }
+    )
+    record["plan_sha256"] = _prefixed_hash(record)
+    return record
+
+
+def verify_bound_active_selection(
+    result: Mapping[str, object],
+    *,
+    active_selection_bytes: bytes,
+    replayed_result: Mapping[str, object],
+) -> tuple[str, ...]:
+    """Verify an independently replayed planner result and its active selection."""
+
+    if result.get("schema_version") != RESULT_SCHEMA_VERSION:
+        raise ClearanceReplacementError("replacement result schema is unsupported")
+    expected_fields = {
+        "schema_version",
+        "active_candidate_ids",
+        "replacement_plan",
+        "broker_allowlist_plan",
+        "ledger_records",
+        "derived_exclusions",
+        "stop_reason",
+        "frontier_sha256",
+        "purchase_journal_state_sha256",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "active_selection_sha256",
+        "active_selection_count",
+        "replacement_selection_sha256",
+        "replacement_selection_count",
+        "plan_sha256",
+    }
+    if set(result) != expected_fields:
+        raise ClearanceReplacementError(
+            "replacement result does not have the closed planner-result schema"
+        )
+    if dict(result) != dict(replayed_result):
+        raise ClearanceReplacementError(
+            "replacement result differs from authenticated planner replay"
+        )
+    body = {key: value for key, value in result.items() if key != "plan_sha256"}
+    if result.get("plan_sha256") != _prefixed_hash(body):
+        raise ClearanceReplacementError("replacement result plan hash mismatch")
+    _sha(result.get("frontier_sha256"), "frontier_sha256")
+    _sha(
+        result.get("purchase_journal_state_sha256"),
+        "purchase_journal_state_sha256",
+    )
+    _sha(result.get("replacement_selection_sha256"), "replacement_selection_sha256")
+    if (
+        result.get("paid_activity_requested") is not False
+        or result.get("paid_activity_executed") is not False
+    ):
+        raise ClearanceReplacementError(
+            "replacement result unexpectedly claims paid activity"
+        )
+    if result.get("active_selection_sha256") != (
+        "sha256:" + hashlib.sha256(active_selection_bytes).hexdigest()
+    ):
+        raise ClearanceReplacementError(
+            "active selection differs from the replacement result"
+        )
+    try:
+        records = [
+            json.loads(line)
+            for line in active_selection_bytes.decode("utf-8").splitlines()
+            if line.strip()
+        ]
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ClearanceReplacementError("active selection is invalid JSONL") from exc
+    if any(not isinstance(record, Mapping) for record in records):
+        raise ClearanceReplacementError("active selection rows must be objects")
+    raw_candidate_ids = tuple(record.get("candidate_id") for record in records)
+    if any(
+        not isinstance(candidate_id, str)
+        or not candidate_id
+        or candidate_id.strip() != candidate_id
+        for candidate_id in raw_candidate_ids
+    ):
+        raise ClearanceReplacementError("active selection rows require candidate_id")
+    candidate_ids = cast(tuple[str, ...], raw_candidate_ids)
+    raw_active = result.get("active_candidate_ids")
+    if not isinstance(raw_active, Sequence) or isinstance(raw_active, (str, bytes)):
+        raise ClearanceReplacementError(
+            "replacement result active_candidate_ids must be a list"
+        )
+    active_values = cast(Sequence[object], raw_active)
+    if any(not isinstance(candidate_id, str) for candidate_id in active_values):
+        raise ClearanceReplacementError(
+            "replacement result active_candidate_ids must contain strings"
+        )
+    expected_ids = cast(tuple[str, ...], tuple(active_values))
+    if (
+        result.get("active_selection_count") != len(records)
+        or candidate_ids != expected_ids
+        or len(candidate_ids) != len(set(candidate_ids))
+    ):
+        raise ClearanceReplacementError(
+            "active selection does not exactly reproduce replacement candidates"
+        )
+    return candidate_ids
+
+
 def build_replacement_frontier(
     *,
     cohort_policy_artifact: Mapping[str, Any],
@@ -89,6 +222,7 @@ def build_replacement_frontier(
     candidate_rows: Sequence[Mapping[str, object]],
     case_mix_max_per_bucket: int | None,
     source_commitments: Mapping[str, str],
+    controlled_private_root: Path | None = None,
 ) -> dict[str, Any]:
     """Freeze the complete canonical candidate order and replacement constraints.
 
@@ -101,12 +235,15 @@ def build_replacement_frontier(
     try:
         cohort_sha256 = verify_cohort_policy(cohort_policy_artifact)
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
-        if purchase_policy.has_verified_approval:
+        if purchase_policy.has_verified_approval and controlled_private_root is None:
             raise CaseDevPurchasePolicyError(
                 "the initial exact-selection approval does not authorize a "
-                "replacement frontier"
+                "replacement frontier without authenticated provider-free replay"
             )
-        require_approved_case_dev_purchase_policy(purchase_policy)
+        require_approved_case_dev_purchase_policy(
+            purchase_policy,
+            controlled_private_root=controlled_private_root,
+        )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy, cohort_policy_artifact
         )
@@ -174,6 +311,7 @@ def verify_replacement_frontier(
     *,
     cohort_policy_artifact: Mapping[str, Any] | None = None,
     purchase_policy_artifact: Mapping[str, object] | None = None,
+    controlled_private_root: Path | None = None,
 ) -> dict[str, Any]:
     """Verify the full frontier, its hash, and optional source policy bindings."""
 
@@ -283,12 +421,10 @@ def verify_replacement_frontier(
     if purchase_policy_artifact is not None:
         try:
             purchase = verify_case_dev_purchase_policy(purchase_policy_artifact)
-            if purchase.has_verified_approval:
-                raise CaseDevPurchasePolicyError(
-                    "the initial exact-selection approval does not authorize "
-                    "replacement verification"
-                )
-            require_approved_case_dev_purchase_policy(purchase)
+            require_approved_case_dev_purchase_policy(
+                purchase,
+                controlled_private_root=controlled_private_root,
+            )
             if cohort_policy_artifact is not None:
                 verify_case_dev_purchase_policy_cohort_binding(
                     purchase, cohort_policy_artifact
@@ -350,6 +486,7 @@ def build_broad_broker_allowlist_plan(
     cohort_policy_artifact: Mapping[str, Any],
     purchase_policy_artifact: Mapping[str, object],
     frontier_artifact: Mapping[str, Any],
+    controlled_private_root: Path | None = None,
 ) -> MissingCoreBudgetPlan:
     """Derive the broad broker scope before any purchase or clearance result."""
 
@@ -357,15 +494,14 @@ def build_broad_broker_allowlist_plan(
         frontier_artifact,
         cohort_policy_artifact=cohort_policy_artifact,
         purchase_policy_artifact=purchase_policy_artifact,
+        controlled_private_root=controlled_private_root,
     )
     try:
         purchase = verify_case_dev_purchase_policy(purchase_policy_artifact)
-        if purchase.has_verified_approval:
-            raise CaseDevPurchasePolicyError(
-                "the initial exact-selection approval does not authorize a "
-                "broad allowlist"
-            )
-        require_approved_case_dev_purchase_policy(purchase)
+        require_approved_case_dev_purchase_policy(
+            purchase,
+            controlled_private_root=controlled_private_root,
+        )
     except CaseDevPurchasePolicyError as exc:
         raise ClearanceReplacementError(str(exc)) from exc
     policy = cast(Mapping[str, Any], frontier["policy"])
@@ -381,6 +517,7 @@ def plan_clearance_replacements(
     purchase_journal: CaseDevPurchaseJournal,
     purchased_clearance_records: Sequence[Mapping[str, object]],
     clearance_run_card_sha256: str,
+    controlled_private_root: Path | None = None,
 ) -> ClearanceReplacementPlan:
     """Plan replacements without provider calls or purchase-state mutation."""
 
@@ -389,14 +526,13 @@ def plan_clearance_replacements(
             frontier_artifact,
             cohort_policy_artifact=cohort_policy_artifact,
             purchase_policy_artifact=purchase_policy_artifact,
+            controlled_private_root=controlled_private_root,
         )
         purchase = verify_case_dev_purchase_policy(purchase_policy_artifact)
-        if purchase.has_verified_approval:
-            raise CaseDevPurchasePolicyError(
-                "the initial exact-selection approval does not authorize "
-                "replacement planning"
-            )
-        require_approved_case_dev_purchase_policy(purchase)
+        require_approved_case_dev_purchase_policy(
+            purchase,
+            controlled_private_root=controlled_private_root,
+        )
         purchase_journal.require_reconciled()
     except (CaseDevPurchasePolicyError, CaseDevPurchaseLedgerError) as exc:
         message = str(exc)
@@ -666,6 +802,7 @@ def plan_clearance_replacements(
         cohort_policy_artifact=cohort_policy_artifact,
         purchase_policy_artifact=purchase_policy_artifact,
         frontier_artifact=frontier_artifact,
+        controlled_private_root=controlled_private_root,
     )
     return ClearanceReplacementPlan(
         active_candidate_ids=tuple(active),

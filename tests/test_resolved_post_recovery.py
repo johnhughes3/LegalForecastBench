@@ -803,6 +803,8 @@ def test_resolve_post_recovery_cli_help_names_all_lineage_inputs(
         "--cohort-policy",
         "--budget-plan",
         "--purchase-ledger",
+        "--replacement-purchase-authority",
+        "--replacement-controlled-private-root",
         "--attempt-policy",
         "--download-manifest",
         "--disclosure-clearance",

@@ -1055,6 +1055,8 @@ uv run legalforecast acquisition finalize-corpus \
   --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
   --labels <labels.jsonl> \
   --llm-label-audit <llm-label-audit-cycle-planned.jsonl> \
+  --original-llm-label-labels <llm-label-output-root>/labels.jsonl \
+  --original-llm-label-audit <llm-label-output-root>/llm-label-audit.jsonl \
   --llm-label-run-card <llm-label-run-card.json> \
   --stage-b-judge-registry model_registries/cycle-1-stage-b-judges-2026-07-12.json \
   --labeling-policy <precommitted-labeling-policy.json> \
@@ -1076,7 +1078,7 @@ uv run legalforecast acquisition finalize-corpus \
   --execute --no-resume
 ```
 
-Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It replays the authenticated unitizer and structural-review cards against the exact raw units, original and merged review queues, structural flags, review audit, reviewer registry and key, provider-caps bytes, and canonical shared journal before accepting and reproducing the apply-review output. It then replays the authenticated `llm-label` card against the same Stage A authority, exact decision-text inputs, judge registry, journaled per-model reconstructions, labels, audit, and original lawyer queue. Finally it verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation, and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
+Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It replays the authenticated unitizer and structural-review cards against the exact raw units, original and merged review queues, structural flags, review audit, reviewer registry and key, provider-caps bytes, and canonical shared journal before accepting and reproducing the apply-review output. It then replays the authenticated `llm-label` card against the same Stage A authority, exact decision-text inputs, judge registry, journaled per-model reconstructions, and the immutable outputs supplied separately as `--original-llm-label-labels` and `--original-llm-label-audit`; the reviewed `--labels` and cycle-planned `--llm-label-audit` remain the readiness inputs and cannot masquerade as the original provider outputs. Finally it verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation, and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
 
 ## Before Dispatch
 
@@ -1266,6 +1268,20 @@ Commands that do not yet emit the common acquisition completion card remain expl
 Its default `--execute` mode advances provider-free stages only and reports the exact next command when it reaches a network, human, model-provider, or paid boundary.
 Evaluation, freeze, dispatch, and publication are outside its allowlist.
 
+Use the checked-in [cycle-template schema](schemas/acquisition-cycle-template-v1.md) and `render-cycle-config` for machine-specific absolute paths.
+The renderer validates the complete future stage list before publishing the immutable config, so later outputs may be named before they exist without resorting to `/tmp` run cards or shell-history reconstruction.
+
+```bash
+mkdir -p -- "$PWD/artifacts/<cycle>"
+
+uv run legalforecast acquisition render-cycle-config \
+  --template manifests/<cycle>.acquisition-cycle.template.json \
+  --variable REPO_ROOT="$PWD" \
+  --variable ARTIFACT_ROOT="$PWD/artifacts/<cycle>" \
+  --variable PRIVATE_ROOT="<absolute-controlled-private-root>" \
+  --output "$PWD/artifacts/<cycle>/acquisition-cycle.json"
+```
+
 ```bash
 uv run legalforecast acquisition run-cycle \
   --config <absolute-canonical-cycle-config.json> \
@@ -1274,6 +1290,7 @@ uv run legalforecast acquisition run-cycle \
 ```
 
 Add only the boundary switch required for the next reviewed stage.
+One invocation executes at most one non-provider-free boundary stage and then stops for receipt review, even if the same switch would classify a later stage.
 In particular, `--allow-paid` also requires `--allow-network` and still cannot run without the existing approved purchase policy, initialized ledger, bounded attempt policy, broker policy, broker identity, and remaining budget.
 Every successful stage receives an immutable receipt bound to the exact config and completion run-card bytes, so rerunning the same command reauthenticates and skips it rather than reconstructing shell history.
 
@@ -1964,7 +1981,10 @@ uv run legalforecast acquisition generate-recap-fetch-broker-policy \
   --output "$broker_policy"
 ```
 
-Inspect the projected total, allowlisted numeric RECAP document IDs, and remaining budget before invoking the only fee-bearing happy path:
+Inspect the projected total, allowlisted numeric RECAP document IDs, and remaining budget.
+Generation is provider-free and does not deploy or activate the policy.
+Before invoking the only fee-bearing happy path, deploy and activate those exact policy bytes through the protected secure-gate RECAP Fetch broker control plane and independently verify the active cycle, purchase-policy digest, and generated policy digest.
+Do not use a broad-frontier allowlist for an approved-v2 purchase, and do not treat local generation as deployment evidence.
 
 Ledger initialization is a mandatory, non-provider step. The absolute ledger path below must exactly match `canonical_ledger_path` in the verified purchase policy. This command must succeed and publish its authenticated initialization receipt before any purchase command runs:
 
@@ -1995,6 +2015,7 @@ uv run legalforecast acquisition purchase-missing-recap-fetch \
   --controlled-private-root "$controlled_private_root" \
   --purchase-ledger-initialization-receipt "$purchase_ledger_initialization_receipt" \
   --attempt-policy "$attempt_policy" \
+  --broker-policy "$broker_policy" \
   --request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3" \
   --live-purchase --acknowledge-pacer-fees \
   --execute --resume
@@ -2112,6 +2133,14 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
 ```
 
 Only after that resolver succeeds may `materialize-cohort-documents` use `$quarantine_recovery_root` as `--purchased-recovery-root`, the purchased clearance/card above, and `$resolved_post_recovery`. The materializer replays the generated review queue and recovery document-tree commitments, verifies the authenticated clearance and canonical operation bindings, and fails closed if any quarantine artifact was hand-edited or omitted.
+
+If purchased-document clearance quarantines any selected candidate, do not continue with the initial `$launch_root`.
+Run the authenticated replacement loop in [the clearance-replacement schema](schemas/clearance-replacement-v1.md) until `plan-clearance-replacements` reports no additional replacement plan, then execute the checked-in `cycle-1-target-100.replacement-reprojection.template.json`.
+The planner's `--active-selection-output` is the reprojection's only candidate input; `project-replacement-exact-100` must publish exactly 100 rows under `$replacement_root/01-projection`.
+Set `canonical_target_root="$replacement_root/01-projection"` after that authenticated reprojection succeeds.
+Render and execute `manifests/cycle-1-target-100.replacement-corpus.template.json` for the downstream continuation.
+That corpus-mode plan uses only `$canonical_target_root/target-cohort-selection.jsonl` and `$canonical_target_root/run-cards/project-target-cohort.json` through consolidation, materialization, parse planning, decision texts, Stage A, Stage B, packet planning, packet building, and `finalize-corpus --target-clean-cases 100`.
+The narrow successor purchase selection authorizes a tranche but never becomes a downstream cohort, and the initial `$launch_root` remains historical evidence rather than an input after any quarantine.
 
 ### Expected Volumes
 

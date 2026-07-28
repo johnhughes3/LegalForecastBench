@@ -1,0 +1,18 @@
+{
+  "cycle_id": "cycle-1-target-100-2026-07-25",
+  "providers": [
+    {
+      "cycle_reservation_cap_usd": "100.00",
+      "provider": "anthropic"
+    },
+    {
+      "cycle_reservation_cap_usd": "50.00",
+      "provider": "google"
+    },
+    {
+      "cycle_reservation_cap_usd": "50.00",
+      "provider": "openai"
+    }
+  ],
+  "schema_version": "legalforecast.provider_cycle_caps.v1"
+}

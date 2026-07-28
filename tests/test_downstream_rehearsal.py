@@ -1380,6 +1380,10 @@ def _official_finalize_rejection_command(
         "--parse-plan-run-card": fixture["parse_plan_card"],
         "--labels": rehearsal_root / "rehearsal-labels.jsonl",
         "--llm-label-audit": rehearsal_root / "rehearsal-llm-label-audit.jsonl",
+        "--original-llm-label-labels": (rehearsal_root / "rehearsal-labels.jsonl"),
+        "--original-llm-label-audit": (
+            rehearsal_root / "rehearsal-llm-label-audit.jsonl"
+        ),
         "--stage-b-judge-registry": fixture["judge_registry"],
         "--labeling-policy": placeholder,
         "--lawyer-review-queue": (

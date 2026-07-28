@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import hashlib
+import io
 import json
 import math
 import os
@@ -20,7 +21,7 @@ import uuid
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -183,9 +184,11 @@ from legalforecast.ingestion.case_dev_smoke import (
 )
 from legalforecast.ingestion.clearance_replacement import (
     ClearanceReplacementError,
+    bind_replacement_selection_outputs,
     build_broad_broker_allowlist_plan,
     build_replacement_frontier,
     plan_clearance_replacements,
+    verify_bound_active_selection,
     write_replacement_frontier,
 )
 from legalforecast.ingestion.cohort_document_materializer import (
@@ -294,9 +297,15 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
+from legalforecast.ingestion.cycle_manifest_template import (
+    CycleManifestTemplateError,
+    render_cycle_config,
+)
 from legalforecast.ingestion.cycle_orchestrator import (
+    AcquisitionCycleConfig,
     BoundaryPermissions,
     CycleOrchestratorError,
+    CycleStage,
     run_acquisition_cycle,
 )
 from legalforecast.ingestion.decision_text_artifact import (
@@ -580,6 +589,7 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
     RecapFetchBrokerPolicyError,
     broker_policy_sha256,
     generate_recap_fetch_broker_policy,
+    verify_recap_fetch_broker_policy,
     write_recap_fetch_broker_policy,
 )
 from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
@@ -593,6 +603,14 @@ from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
 from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
     project_partial_recap_checkpoint,
+)
+from legalforecast.ingestion.replacement_purchase_approval import (
+    ReplacementPurchaseApprovalError,
+    build_replacement_purchase_approval_request,
+    generate_replacement_purchase_authority,
+    record_replacement_purchase_approval,
+    verify_replacement_purchase_approval,
+    verify_replacement_purchase_authority,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
     ResolvedPostRecoveryError,
@@ -1360,6 +1378,20 @@ def build_parser() -> argparse.ArgumentParser:
         dest="acquisition_command",
         metavar="COMMAND",
     )
+    acquisition_render_cycle_config = acquisition_subparsers.add_parser(
+        "render-cycle-config",
+        help=(
+            "Render and validate a canonical acquisition-cycle config from a "
+            "path-parameterized template."
+        ),
+        description=(
+            "Substitute only explicitly declared absolute-path variables, validate "
+            "the complete rendered config against the run-cycle allowlist and "
+            "boundary rules, and publish it without replacement. This command "
+            "performs no provider call, purchase, evaluation, freeze, or dispatch."
+        ),
+    )
+    _add_acquisition_render_cycle_config_arguments(acquisition_render_cycle_config)
     acquisition_run_cycle = acquisition_subparsers.add_parser(
         "run-cycle",
         help=(
@@ -1679,6 +1711,82 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_plan_clearance_replacements_arguments(acquisition_plan_clearance_replacements)
+    acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
+        "accumulate-replacement-clearance",
+        help=(
+            "Merge the prior authenticated purchased clearance with one new "
+            "replacement tranche and require exact current-ledger coverage."
+        ),
+    )
+    _add_accumulate_replacement_clearance_arguments(
+        acquisition_accumulate_replacement_clearance
+    )
+    acquisition_build_replacement_exclusions = acquisition_subparsers.add_parser(
+        "build-replacement-exclusions",
+        help=(
+            "Publish the authenticated successor exclusion ledger that exactly "
+            "reconciles the screened pool against the final replacement cohort."
+        ),
+    )
+    _add_build_replacement_exclusions_arguments(
+        acquisition_build_replacement_exclusions
+    )
+    acquisition_build_replacement_recovery_index = acquisition_subparsers.add_parser(
+        "build-replacement-recovery-index",
+        help=(
+            "Canonicalize one initial-v2 recovery source followed by ordered "
+            "successor recovery sources without provider activity."
+        ),
+    )
+    _add_build_replacement_recovery_index_arguments(
+        acquisition_build_replacement_recovery_index
+    )
+    acquisition_consolidate_replacement_recovery = acquisition_subparsers.add_parser(
+        "consolidate-replacement-recovery",
+        help=(
+            "Consolidate authenticated purchased recovery from every approved "
+            "replacement tranche for the final active cohort without providers."
+        ),
+    )
+    _add_consolidate_replacement_recovery_arguments(
+        acquisition_consolidate_replacement_recovery
+    )
+    acquisition_record_replacement_purchase_approval = (
+        acquisition_subparsers.add_parser(
+            "record-replacement-purchase-approval",
+            help=(
+                "Interactively record John approval for one exact ranked "
+                "clearance-replacement tranche without provider or paid activity."
+            ),
+        )
+    )
+    _add_record_replacement_purchase_approval_arguments(
+        acquisition_record_replacement_purchase_approval
+    )
+    acquisition_verify_replacement_purchase_approval = (
+        acquisition_subparsers.add_parser(
+            "verify-replacement-purchase-approval",
+            help=(
+                "Replay an exact successor approval against the unchanged v2 "
+                "policy, frozen frontier, and existing Cycle ledger."
+            ),
+        )
+    )
+    _add_verify_replacement_purchase_approval_arguments(
+        acquisition_verify_replacement_purchase_approval
+    )
+    acquisition_generate_replacement_purchase_authority = (
+        acquisition_subparsers.add_parser(
+            "generate-replacement-purchase-authority",
+            help=(
+                "Publish a hash-bound successor authority sidecar for one exact "
+                "approved replacement tranche."
+            ),
+        )
+    )
+    _add_generate_replacement_purchase_authority_arguments(
+        acquisition_generate_replacement_purchase_authority
+    )
     acquisition_generate_recap_fetch_attempt_policy = acquisition_subparsers.add_parser(
         "generate-recap-fetch-attempt-policy",
         help=(
@@ -2509,30 +2617,48 @@ def _add_acquisition_run_cycle_arguments(parser: argparse.ArgumentParser) -> Non
         ),
     )
     parser.add_argument(
+        "--adopt-next-completed",
+        action="store_true",
+        help=(
+            "Receipt exactly one externally completed next model-provider stage "
+            "without invoking its handler or creating network, provider, or AWS "
+            "authority. The existing run card and every output are authenticated "
+            "before the ordinary immutable receipt is written. Cannot be combined "
+            "with --execute or any --allow-* flag."
+        ),
+    )
+    parser.add_argument(
         "--allow-network",
         action="store_true",
-        help="Permit explicitly classified noncharging network stages.",
+        help=(
+            "Permit the next explicitly classified noncharging network stage. "
+            "The coordinator stops after one authorized boundary stage."
+        ),
     )
     parser.add_argument(
         "--allow-human",
         action="store_true",
-        help="Permit an explicitly classified interactive or human-review stage.",
+        help=(
+            "Permit the next explicitly classified interactive or human-review "
+            "stage. The coordinator stops immediately after that stage."
+        ),
     )
     parser.add_argument(
         "--allow-model-provider",
         action="store_true",
         help=(
-            "Permit parser or labeling-model stages; also requires "
-            "--allow-network. Existing provider authority remains mandatory."
+            "Permit the next parser or labeling-model stage, then stop; also "
+            "requires --allow-network. Existing provider authority remains "
+            "mandatory."
         ),
     )
     parser.add_argument(
         "--allow-paid",
         action="store_true",
         help=(
-            "Permit the reviewed CourtListener RECAP Fetch purchase stage; also "
-            "requires --allow-network and every existing purchase-policy, ledger, "
-            "broker, and budget gate. Omitted by default."
+            "Permit the next reviewed CourtListener RECAP Fetch purchase stage, "
+            "then stop; also requires --allow-network and every existing "
+            "purchase-policy, ledger, broker, and budget gate. Omitted by default."
         ),
     )
     parser.add_argument(
@@ -2541,6 +2667,37 @@ def _add_acquisition_run_cycle_arguments(parser: argparse.ArgumentParser) -> Non
         help="Emit the stable machine-readable cycle status object.",
     )
     parser.set_defaults(handler=_cmd_acquisition_run_cycle)
+
+
+def _add_acquisition_render_cycle_config_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--template",
+        type=Path,
+        required=True,
+        help=("Canonical legalforecast.acquisition_cycle_template.v1 JSON file."),
+    )
+    parser.add_argument(
+        "--variable",
+        action="append",
+        default=[],
+        metavar="NAME=/ABSOLUTE/PATH",
+        help=(
+            "Supply one declared template path variable. Repeat exactly once for "
+            "every variable; relative paths, duplicates, and extras are rejected."
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help=(
+            "New canonical acquisition-cycle config. Existing paths and symlinked "
+            "output directories are rejected."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_render_cycle_config)
 
 
 def _add_acquisition_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -2955,6 +3112,27 @@ def _add_acquisition_project_target_cohort_arguments(
         required=True,
         help="Full CourtListener-resolved public-packet selection JSONL.",
     )
+    parser.add_argument(
+        "--replacement-result",
+        type=Path,
+        help=(
+            "Terminal clearance-replacement result. When supplied, all "
+            "--replacement-replay-* evidence is required and independently "
+            "replayed before a changed active selection is accepted."
+        ),
+    )
+    parser.add_argument("--replacement-replay-cohort-policy", type=Path)
+    parser.add_argument("--replacement-replay-purchase-policy", type=Path)
+    parser.add_argument("--replacement-replay-controlled-private-root", type=Path)
+    parser.add_argument("--replacement-replay-frontier", type=Path)
+    parser.add_argument("--replacement-replay-purchase-ledger", type=Path)
+    parser.add_argument(
+        "--replacement-replay-purchase-ledger-initialization-receipt",
+        type=Path,
+    )
+    parser.add_argument("--replacement-replay-purchased-clearance", type=Path)
+    parser.add_argument("--replacement-replay-clearance-run-card", type=Path)
+    parser.add_argument("--replacement-replay-tranche-selection", type=Path)
     parser.add_argument(
         "--case-relevance",
         type=Path,
@@ -5015,6 +5193,16 @@ def _add_build_clearance_replacement_frontier_arguments(
         help="Frozen Cycle-wide purchase policy with the canonical journal path.",
     )
     parser.add_argument(
+        "--controlled-private-root",
+        type=Path,
+        help=(
+            "Trusted private root for replaying the initial approved-v2 policy. "
+            "This authenticates provider-free planning only and does not approve "
+            "replacement purchases. Required for approved-v2; omitted only by "
+            "historical v1 fixture replays."
+        ),
+    )
+    parser.add_argument(
         "--projection",
         type=Path,
         required=True,
@@ -5041,6 +5229,15 @@ def _add_build_clearance_replacement_frontier_arguments(
             "full-candidate artifact emitted by prepare-target-cohort. Rows must "
             "include frozen case-mix metadata; this command preserves their order "
             "and refuses truncation."
+        ),
+    )
+    parser.add_argument(
+        "--candidate-selection",
+        type=Path,
+        required=True,
+        help=(
+            "Full CourtListener-resolved selection JSONL committed by the candidate "
+            "frontier. It is hash-bound for later exact-100 reprojection."
         ),
     )
     parser.add_argument(
@@ -5080,10 +5277,26 @@ def _add_plan_clearance_replacements_arguments(
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--purchase-policy", type=Path, required=True)
     parser.add_argument(
+        "--controlled-private-root",
+        type=Path,
+        help=(
+            "Trusted private root for replaying the initial approved-v2 policy. "
+            "A separately recorded successor approval is still required before "
+            "any replacement purchase. Required for approved-v2; omitted only by "
+            "historical v1 fixture replays."
+        ),
+    )
+    parser.add_argument(
         "--frontier",
         type=Path,
         required=True,
         help="Verified full replacement frontier from the builder command.",
+    )
+    parser.add_argument(
+        "--candidate-selection",
+        type=Path,
+        required=True,
+        help=("Exact full resolved selection hash-bound by the replacement frontier."),
     )
     parser.add_argument(
         "--purchase-ledger",
@@ -5093,6 +5306,12 @@ def _add_plan_clearance_replacements_arguments(
             "Canonical Cycle purchase SQLite journal. It remains the single writer "
             "for purchase and hash-chained replacement state."
         ),
+    )
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt",
+        type=Path,
+        required=True,
+        help="Immutable init-purchase-ledger receipt for the canonical Cycle ledger.",
     )
     parser.add_argument(
         "--purchased-clearance",
@@ -5139,7 +5358,237 @@ def _add_plan_clearance_replacements_arguments(
         required=True,
         help="Derived JSONL exclusions for every frontier candidate skipped in replay.",
     )
+    parser.add_argument(
+        "--active-selection-output",
+        type=Path,
+        required=True,
+        help=(
+            "Provider-free full selection subset for exactly the retained plus "
+            "replacement candidate IDs; consume it with project-target-cohort."
+        ),
+    )
+    parser.add_argument(
+        "--replacement-selection-output",
+        type=Path,
+        required=True,
+        help=(
+            "Provider-free exact JSONL selection for only the next replacement "
+            "purchase tranche; its bytes are committed by the replacement result."
+        ),
+    )
     parser.set_defaults(handler=_cmd_plan_clearance_replacements)
+
+
+def _add_accumulate_replacement_clearance_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument("--prior-purchased-clearance", type=Path, required=True)
+    parser.add_argument("--prior-clearance-run-card", type=Path, required=True)
+    parser.add_argument("--current-purchased-clearance", type=Path, required=True)
+    parser.add_argument("--current-clearance-run-card", type=Path, required=True)
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument("--controlled-private-root", type=Path, required=True)
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt", type=Path, required=True
+    )
+    parser.add_argument("--run-card-output", type=Path)
+    parser.add_argument(
+        "--resume", action=argparse.BooleanOptionalAction, default=False
+    )
+    parser.add_argument("--execute", action="store_true")
+    parser.set_defaults(handler=_cmd_accumulate_replacement_clearance)
+
+
+def _add_build_replacement_exclusions_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument("--target-cohort-root", type=Path, required=True)
+    parser.add_argument("--screened-cases", type=Path, required=True)
+    parser.add_argument("--exclusion-source", type=Path, action="append", required=True)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--run-card-output", type=Path)
+    parser.add_argument(
+        "--resume", action=argparse.BooleanOptionalAction, default=False
+    )
+    parser.add_argument("--execute", action="store_true")
+    parser.set_defaults(handler=_cmd_build_replacement_exclusions)
+
+
+def _add_consolidate_replacement_recovery_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument(
+        "--tranche-index",
+        type=Path,
+        required=True,
+        help=(
+            "Provider-free routing index for every replacement tranche recovery, "
+            "clearance, resolved-document artifact, and successor authority."
+        ),
+    )
+    parser.add_argument(
+        "--tranche-index-run-card",
+        type=Path,
+        required=True,
+        help="Completed provider-free producer card for the exact tranche index.",
+    )
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help="Final authenticated exact-100 target-cohort selection JSONL.",
+    )
+    parser.add_argument(
+        "--target-purchased-manifest",
+        type=Path,
+        required=True,
+        help=(
+            "Purchased-document manifest from the same final target projection; "
+            "its identities must be selected and present in the canonical ledger."
+        ),
+    )
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument("--controlled-private-root", type=Path, required=True)
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt",
+        type=Path,
+        required=True,
+    )
+    parser.add_argument("--run-card-output", type=Path)
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument(
+        "--resume", action=argparse.BooleanOptionalAction, default=False
+    )
+    parser.set_defaults(handler=_cmd_consolidate_replacement_recovery)
+
+
+def _add_build_replacement_recovery_index_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument(
+        "--initial-source",
+        type=Path,
+        required=True,
+        help="Closed initial_v2 recovery-source descriptor JSON.",
+    )
+    parser.add_argument(
+        "--successor-source",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Closed successor recovery-source descriptor JSON, or a directory of "
+            "ordinal-prefixed JSON descriptors. Repeat in immutable tranche order."
+        ),
+    )
+    parser.add_argument("--index-output", type=Path)
+    parser.add_argument("--run-card-output", type=Path)
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument(
+        "--resume", action=argparse.BooleanOptionalAction, default=False
+    )
+    parser.set_defaults(handler=_cmd_build_replacement_recovery_index)
+
+
+def _add_replacement_purchase_approval_source_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--initial-purchase-policy", type=Path, required=True)
+    parser.add_argument(
+        "--initial-controlled-private-root",
+        type=Path,
+        required=True,
+        help="Trusted private root used to replay the unchanged initial v2 approval.",
+    )
+    parser.add_argument("--frontier", type=Path, required=True)
+    parser.add_argument("--replacement-result", type=Path, required=True)
+    parser.add_argument("--replacement-budget-plan", type=Path, required=True)
+    parser.add_argument(
+        "--replacement-selection",
+        type=Path,
+        required=True,
+        help=(
+            "Exact JSONL selection/restriction metadata used by the successor "
+            "purchase. Its bytes are part of John's approval."
+        ),
+    )
+    parser.add_argument(
+        "--purchase-ledger",
+        type=Path,
+        required=True,
+        help=(
+            "Existing canonical Cycle ledger. Its reconciled spend and exact "
+            "pre-tranche state are committed without mutation."
+        ),
+    )
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt",
+        type=Path,
+        required=True,
+        help=(
+            "Immutable init-purchase-ledger receipt for the existing canonical "
+            "Cycle ledger. Its exact path and bytes are bound into the successor."
+        ),
+    )
+
+
+def _add_record_replacement_purchase_approval_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    _add_replacement_purchase_approval_source_arguments(parser)
+    parser.add_argument(
+        "--controlled-private-root",
+        type=Path,
+        required=True,
+        help=(
+            "New absolute private root for this successor decision; it must equal "
+            "--output-root and must not be the initial approval root."
+        ),
+    )
+    parser.add_argument(
+        "--authority-output",
+        type=Path,
+        help=(
+            "Provider-free public successor authority published immediately after "
+            "the exact human decision is replay-verified."
+        ),
+    )
+    parser.add_argument(
+        "--attempt-policy-output",
+        type=Path,
+        help=(
+            "Provider-free exact RECAP attempt policy published with the successor "
+            "authority; required together with --authority-output."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_record_replacement_purchase_approval)
+
+
+def _add_verify_replacement_purchase_approval_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_replacement_purchase_approval_source_arguments(parser)
+    parser.add_argument("--controlled-private-root", type=Path, required=True)
+    parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--approval-run-card", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_verify_replacement_purchase_approval)
+
+
+def _add_generate_replacement_purchase_authority_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_verify_replacement_purchase_approval_arguments(parser)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_generate_replacement_purchase_authority)
 
 
 def _add_generate_recap_fetch_attempt_policy_arguments(
@@ -5147,6 +5596,20 @@ def _add_generate_recap_fetch_attempt_policy_arguments(
 ) -> None:
     parser.add_argument("--purchase-policy", type=Path, required=True)
     parser.add_argument("--controlled-private-root", type=Path)
+    parser.add_argument(
+        "--replacement-purchase-authority",
+        type=Path,
+        help=(
+            "Exact successor sidecar for a replacement tranche. It never changes "
+            "the initial v2 policy, cap, or canonical ledger."
+        ),
+    )
+    parser.add_argument(
+        "--replacement-controlled-private-root",
+        type=Path,
+        help="Private successor evidence root; required with replacement authority.",
+    )
+    parser.add_argument("--purchase-ledger-initialization-receipt", type=Path)
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument(
         "--budget-plan",
@@ -5170,6 +5633,12 @@ def _add_generate_recap_fetch_attempt_policy_arguments(
 def _add_generate_recap_fetch_broker_policy_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
+    parser.add_argument("--output-root", type=Path)
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--log-output", type=Path)
+    parser.add_argument("--run-card-output", type=Path)
+    parser.add_argument("--resume", dest="resume", action="store_true", default=True)
+    parser.add_argument("--no-resume", dest="resume", action="store_false")
     parser.add_argument(
         "--purchase-policy",
         type=Path,
@@ -5181,6 +5650,9 @@ def _add_generate_recap_fetch_broker_policy_arguments(
         ),
     )
     parser.add_argument("--controlled-private-root", type=Path)
+    parser.add_argument("--replacement-purchase-authority", type=Path)
+    parser.add_argument("--replacement-controlled-private-root", type=Path)
+    parser.add_argument("--purchase-ledger-initialization-receipt", type=Path)
     parser.add_argument(
         "--cohort-policy",
         type=Path,
@@ -6361,11 +6833,37 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
     parser.add_argument("--purchase-ledger", type=Path, required=True)
     _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
+        "--replacement-purchase-authority",
+        type=Path,
+        help=(
+            "Exact public successor authority for a clearance replacement tranche. "
+            "Without it only the initial approved projection bytes are accepted."
+        ),
+    )
+    parser.add_argument(
+        "--replacement-controlled-private-root",
+        type=Path,
+        help=(
+            "Private successor checkpoint root. Required exactly when "
+            "--replacement-purchase-authority is supplied."
+        ),
+    )
+    parser.add_argument(
         "--attempt-policy",
         type=Path,
         help=(
             "Verified exact unknown-status attempt authority. Without it every "
             "planned document must carry ordinary public/nonsealed evidence."
+        ),
+    )
+    parser.add_argument(
+        "--broker-policy",
+        type=Path,
+        help=(
+            "Exact locally generated broker policy deployed and activated through "
+            "the protected secure-gate control plane. Required for a live "
+            "replacement purchase and replay-verified before provider "
+            "configuration is loaded."
         ),
     )
     parser.add_argument(
@@ -6437,10 +6935,10 @@ def _add_acquisition_recover_recap_fetch_quarantine_arguments(
     parser.add_argument(
         "--target-projection-run-card",
         type=Path,
-        required=True,
         help=(
             "Completed project-target-cohort run card committing --selection "
-            "and --case-relevance."
+            "and --case-relevance. Required for the initial tranche; replacement "
+            "tranches instead require the exact successor authority."
         ),
     )
     parser.add_argument("--purchase-policy", type=Path, required=True)
@@ -6448,6 +6946,8 @@ def _add_acquisition_recover_recap_fetch_quarantine_arguments(
     parser.add_argument("--budget-plan", type=Path, required=True)
     parser.add_argument("--purchase-ledger", type=Path, required=True)
     _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument("--replacement-purchase-authority", type=Path)
+    parser.add_argument("--replacement-controlled-private-root", type=Path)
     parser.add_argument("--attempt-policy", type=Path, required=True)
     parser.add_argument("--manifest-output", type=Path)
     parser.add_argument(
@@ -7049,6 +7549,8 @@ def _add_acquisition_resolve_post_recovery_arguments(
     parser.add_argument("--budget-plan", type=Path, required=True)
     parser.add_argument("--purchase-ledger", type=Path, required=True)
     _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument("--replacement-purchase-authority", type=Path)
+    parser.add_argument("--replacement-controlled-private-root", type=Path)
     parser.add_argument("--attempt-policy", type=Path, required=True)
     parser.add_argument("--download-manifest", type=Path, required=True)
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
@@ -8262,8 +8764,39 @@ def _add_acquisition_finalize_corpus_arguments(
         ),
     )
     parser.add_argument("--parse-plan-run-card", type=Path, required=True)
-    parser.add_argument("--labels", type=Path, required=True)
-    parser.add_argument("--llm-label-audit", type=Path, required=True)
+    parser.add_argument(
+        "--labels",
+        type=Path,
+        required=True,
+        help="Final labels after apply-lawyer-review; used for corpus readiness.",
+    )
+    parser.add_argument(
+        "--llm-label-audit",
+        type=Path,
+        required=True,
+        help=(
+            "Cycle-planned Stage B audit after review routing; used for corpus "
+            "readiness."
+        ),
+    )
+    parser.add_argument(
+        "--original-llm-label-labels",
+        type=Path,
+        required=True,
+        help=(
+            "Immutable labels output committed by --llm-label-run-card. "
+            "This is distinct from reviewed --labels."
+        ),
+    )
+    parser.add_argument(
+        "--original-llm-label-audit",
+        type=Path,
+        required=True,
+        help=(
+            "Immutable audit output committed by --llm-label-run-card. "
+            "This is distinct from reviewed --llm-label-audit."
+        ),
+    )
     parser.add_argument(
         "--llm-label-run-card",
         type=Path,
@@ -8346,6 +8879,15 @@ def _add_acquisition_finalize_corpus_arguments(
         action="append",
         default=[],
         help="Stage exclusion JSONL to merge. Repeat for every exclusion source.",
+    )
+    parser.add_argument(
+        "--replacement-exclusion-run-card",
+        type=Path,
+        help=(
+            "Authenticated build-replacement-exclusions card. When supplied, its "
+            "single successor exclusion output must be one --exclusion-source and "
+            "must exactly reconcile screened candidates selected xor excluded."
+        ),
     )
     parser.add_argument("--target-clean-cases", type=int, default=150)
     parser.add_argument("--complete-exclusion-ledger-output", type=Path)
@@ -11140,10 +11682,134 @@ def _unique_frontier_document_keys(
     return set(keys)
 
 
+def _verify_replacement_projection_replay(
+    *,
+    source_paths: Mapping[str, Path],
+    source_bytes: Mapping[str, bytes],
+    controlled_private_root: Path,
+    purchase_ledger_path: Path,
+) -> JsonRecord:
+    """Replay the complete approved-v2 replacement authority for a projection."""
+
+    replacement_result = _projection_json_object(
+        source_bytes["replacement_result"],
+        source=source_paths["replacement_result"],
+    )
+    replacement_policy_artifact = _projection_json_object(
+        source_bytes["replacement_replay_purchase_policy"],
+        source=source_paths["replacement_replay_purchase_policy"],
+    )
+    replacement_policy = verify_case_dev_purchase_policy(replacement_policy_artifact)
+    replacement_cohort_policy = _projection_json_object(
+        source_bytes["replacement_replay_cohort_policy"],
+        source=source_paths["replacement_replay_cohort_policy"],
+    )
+    replacement_frontier = _projection_json_object(
+        source_bytes["replacement_replay_frontier"],
+        source=source_paths["replacement_replay_frontier"],
+    )
+    replacement_clearance = _verify_replacement_clearance_evidence(
+        clearance_bytes=source_bytes["replacement_replay_purchased_clearance"],
+        clearance_path=source_paths["replacement_replay_purchased_clearance"],
+        run_card_bytes=source_bytes["replacement_replay_clearance_run_card"],
+        run_card_path=source_paths["replacement_replay_clearance_run_card"],
+    )
+    replacement_tranche_selection = _projection_jsonl_records(
+        source_bytes["replacement_replay_tranche_selection"],
+        source=source_paths["replacement_replay_tranche_selection"],
+    )
+    with CaseDevPurchaseJournal(
+        purchase_ledger_path.resolve(),
+        policy=replacement_policy,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=source_paths[
+            "replacement_replay_purchase_ledger_initialization_receipt"
+        ],
+    ) as journal:
+        replayed_plan = plan_clearance_replacements(
+            cohort_policy_artifact=replacement_cohort_policy,
+            purchase_policy_artifact=replacement_policy_artifact,
+            frontier_artifact=replacement_frontier,
+            purchase_journal=journal,
+            purchased_clearance_records=replacement_clearance,
+            clearance_run_card_sha256=_bytes_sha256(
+                source_bytes["replacement_replay_clearance_run_card"]
+            ),
+            controlled_private_root=controlled_private_root,
+        )
+    if replayed_plan.replacement_plan.case_plans:
+        raise ClearanceReplacementError(
+            "replacement reprojection requires a terminal replacement plan"
+        )
+    replayed_result = bind_replacement_selection_outputs(
+        replayed_plan,
+        active_selection_sha256=_bytes_sha256(source_bytes["selection"]),
+        active_selection_count=len(replayed_plan.active_candidate_ids),
+        replacement_selection_sha256=_bytes_sha256(
+            source_bytes["replacement_replay_tranche_selection"]
+        ),
+        replacement_selection_count=len(replacement_tranche_selection),
+    )
+    verify_bound_active_selection(
+        replacement_result,
+        active_selection_bytes=source_bytes["selection"],
+        replayed_result=replayed_result,
+    )
+    return replacement_result
+
+
 def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
     """Freeze exact post-clearance artifacts from the resolved candidate pool."""
 
     output_root = cast(Path, args.output_root)
+    replacement_result_path = cast(Path | None, args.replacement_result)
+    replacement_replay_arguments = {
+        "replacement_replay_cohort_policy": cast(
+            Path | None, args.replacement_replay_cohort_policy
+        ),
+        "replacement_replay_purchase_policy": cast(
+            Path | None, args.replacement_replay_purchase_policy
+        ),
+        "replacement_replay_controlled_private_root": cast(
+            Path | None, args.replacement_replay_controlled_private_root
+        ),
+        "replacement_replay_frontier": cast(
+            Path | None, args.replacement_replay_frontier
+        ),
+        "replacement_replay_purchase_ledger": cast(
+            Path | None, args.replacement_replay_purchase_ledger
+        ),
+        "replacement_replay_purchase_ledger_initialization_receipt": cast(
+            Path | None,
+            args.replacement_replay_purchase_ledger_initialization_receipt,
+        ),
+        "replacement_replay_purchased_clearance": cast(
+            Path | None, args.replacement_replay_purchased_clearance
+        ),
+        "replacement_replay_clearance_run_card": cast(
+            Path | None, args.replacement_replay_clearance_run_card
+        ),
+        "replacement_replay_tranche_selection": cast(
+            Path | None, args.replacement_replay_tranche_selection
+        ),
+    }
+    supplied_replay_arguments = {
+        name: path
+        for name, path in replacement_replay_arguments.items()
+        if path is not None
+    }
+    if replacement_result_path is None and supplied_replay_arguments:
+        raise CommandError("replacement replay evidence requires --replacement-result")
+    if replacement_result_path is not None and len(supplied_replay_arguments) != len(
+        replacement_replay_arguments
+    ):
+        missing = sorted(
+            name for name, path in replacement_replay_arguments.items() if path is None
+        )
+        raise CommandError(
+            "replacement reprojection requires complete authenticated replay "
+            "evidence: " + ", ".join(missing)
+        )
     source_paths = {
         "selection": cast(Path, args.selection),
         "case_relevance": cast(Path, args.case_relevance),
@@ -11155,7 +11821,27 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
         "preparation_config": cast(Path, args.preparation_config),
         "snapshot_manifest": cast(Path, args.snapshot_manifest),
     }
-    input_paths = tuple(source_paths.values())
+    if replacement_result_path is not None:
+        source_paths["replacement_result"] = replacement_result_path
+        for name in (
+            "replacement_replay_cohort_policy",
+            "replacement_replay_purchase_policy",
+            "replacement_replay_frontier",
+            "replacement_replay_purchase_ledger_initialization_receipt",
+            "replacement_replay_purchased_clearance",
+            "replacement_replay_clearance_run_card",
+            "replacement_replay_tranche_selection",
+        ):
+            source_paths[name] = cast(Path, replacement_replay_arguments[name])
+    replay_context_paths = tuple(
+        cast(Path, replacement_replay_arguments[name])
+        for name in (
+            "replacement_replay_controlled_private_root",
+            "replacement_replay_purchase_ledger",
+        )
+        if replacement_replay_arguments[name] is not None
+    )
+    input_paths = (*source_paths.values(), *replay_context_paths)
     _validate_projection_output_scope(output_root, input_paths=input_paths)
     source_bytes = {
         name: _read_singly_linked_regular_input(path, label=name)
@@ -11184,6 +11870,101 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
         source_bytes["restriction_evidence"],
         source=source_paths["restriction_evidence"],
     )
+    replacement_selection_authorized = False
+    replacement_result: JsonRecord | None = None
+    if replacement_result_path is not None:
+        try:
+            replacement_result = _projection_json_object(
+                source_bytes["replacement_result"],
+                source=replacement_result_path,
+            )
+            replacement_policy_artifact = _projection_json_object(
+                source_bytes["replacement_replay_purchase_policy"],
+                source=source_paths["replacement_replay_purchase_policy"],
+            )
+            replacement_policy = verify_case_dev_purchase_policy(
+                replacement_policy_artifact
+            )
+            replacement_cohort_policy = _projection_json_object(
+                source_bytes["replacement_replay_cohort_policy"],
+                source=source_paths["replacement_replay_cohort_policy"],
+            )
+            replacement_frontier = _projection_json_object(
+                source_bytes["replacement_replay_frontier"],
+                source=source_paths["replacement_replay_frontier"],
+            )
+            replacement_clearance = _verify_replacement_clearance_evidence(
+                clearance_bytes=source_bytes["replacement_replay_purchased_clearance"],
+                clearance_path=source_paths["replacement_replay_purchased_clearance"],
+                run_card_bytes=source_bytes["replacement_replay_clearance_run_card"],
+                run_card_path=source_paths["replacement_replay_clearance_run_card"],
+            )
+            replacement_tranche_selection = _projection_jsonl_records(
+                source_bytes["replacement_replay_tranche_selection"],
+                source=source_paths["replacement_replay_tranche_selection"],
+            )
+            with CaseDevPurchaseJournal(
+                cast(
+                    Path,
+                    replacement_replay_arguments["replacement_replay_purchase_ledger"],
+                ).resolve(),
+                policy=replacement_policy,
+                controlled_private_root=cast(
+                    Path,
+                    replacement_replay_arguments[
+                        "replacement_replay_controlled_private_root"
+                    ],
+                ),
+                initialization_receipt_path=cast(
+                    Path,
+                    replacement_replay_arguments[
+                        "replacement_replay_purchase_ledger_initialization_receipt"
+                    ],
+                ),
+            ) as journal:
+                replayed_plan = plan_clearance_replacements(
+                    cohort_policy_artifact=replacement_cohort_policy,
+                    purchase_policy_artifact=replacement_policy_artifact,
+                    frontier_artifact=replacement_frontier,
+                    purchase_journal=journal,
+                    purchased_clearance_records=replacement_clearance,
+                    clearance_run_card_sha256=_bytes_sha256(
+                        source_bytes["replacement_replay_clearance_run_card"]
+                    ),
+                    controlled_private_root=cast(
+                        Path,
+                        replacement_replay_arguments[
+                            "replacement_replay_controlled_private_root"
+                        ],
+                    ),
+                )
+            if replayed_plan.replacement_plan.case_plans:
+                raise ClearanceReplacementError(
+                    "replacement reprojection requires a terminal replacement plan"
+                )
+            replayed_result = bind_replacement_selection_outputs(
+                replayed_plan,
+                active_selection_sha256=_bytes_sha256(source_bytes["selection"]),
+                active_selection_count=len(replayed_plan.active_candidate_ids),
+                replacement_selection_sha256=_bytes_sha256(
+                    source_bytes["replacement_replay_tranche_selection"]
+                ),
+                replacement_selection_count=len(replacement_tranche_selection),
+            )
+            verify_bound_active_selection(
+                replacement_result,
+                active_selection_bytes=source_bytes["selection"],
+                replayed_result=replayed_result,
+            )
+        except (
+            CaseDevPurchaseLedgerError,
+            CaseDevPurchasePolicyError,
+            ClearanceReplacementError,
+            OSError,
+            ValueError,
+        ) as exc:
+            raise CommandError(str(exc)) from exc
+        replacement_selection_authorized = True
     _validate_projection_source_commitments(
         preparation_summary=preparation_summary,
         preparation_config=preparation_config,
@@ -11197,6 +11978,7 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
         max_missing_core_documents_per_case=cast(
             int, args.max_missing_core_documents_per_case
         ),
+        replacement_selection_authorized=replacement_selection_authorized,
     )
     clearance_snapshot = _capture_clearance_artifact_snapshot(
         run_card=clearance_run_card,
@@ -11332,6 +12114,14 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
             for path, payload in output_records.items()
         },
     }
+    if replacement_result is not None:
+        completion_extra.update(
+            {
+                "active_selection_sha256": source_sha256["selection"],
+                "active_selection_count": replacement_result["active_selection_count"],
+                "replacement_result_sha256": source_sha256["replacement_result"],
+            }
+        )
     if not dry_run:
         if _completed_disclosure_review_resume(
             args,
@@ -12577,6 +13367,7 @@ def _validate_projection_source_commitments(
     cost_per_document_usd: str,
     max_projected_budget_usd: str,
     max_missing_core_documents_per_case: int,
+    replacement_selection_authorized: bool = False,
 ) -> None:
     schema_pair = (
         preparation_summary.get("schema_version"),
@@ -12641,12 +13432,13 @@ def _validate_projection_source_commitments(
     ):
         raise CommandError("target-100 config snapshot commitment mismatch")
 
-    _validate_prepared_stage_commitment(
-        preparation_summary,
-        stage="03-gap-bridge",
-        relative_path="public-packet-selection-reconciled.jsonl",
-        actual_sha256=source_sha256["selection"],
-    )
+    if not replacement_selection_authorized:
+        _validate_prepared_stage_commitment(
+            preparation_summary,
+            stage="03-gap-bridge",
+            relative_path="public-packet-selection-reconciled.jsonl",
+            actual_sha256=source_sha256["selection"],
+        )
     _validate_prepared_stage_commitment(
         preparation_summary,
         stage="03-gap-bridge",
@@ -15408,9 +16200,11 @@ def _path_sha256(path: Path) -> str:
 
 
 def _replacement_source_commitments(
-    values: Sequence[str], *, fixed: Mapping[str, Path]
+    values: Sequence[str], *, fixed: Mapping[str, bytes]
 ) -> dict[str, str]:
-    commitments = {name: _path_sha256(path) for name, path in fixed.items()}
+    """Hash one captured byte snapshot for every replacement-frontier input."""
+
+    commitments = {name: _bytes_sha256(payload) for name, payload in fixed.items()}
     for value in values:
         name, separator, raw_path = value.partition("=")
         if (
@@ -15422,27 +16216,38 @@ def _replacement_source_commitments(
         ):
             raise ValueError("--source must be a unique canonical NAME=PATH commitment")
         path = Path(raw_path)
-        commitments[name] = _path_sha256(path)
+        commitments[name] = _bytes_sha256(read_unique_regular_file(path))
     return commitments
 
 
-def _replacement_initial_candidate_ids(path: Path) -> tuple[str, ...]:
-    loaded = _loads_json(path.read_text(encoding="utf-8"))
-    if isinstance(loaded, Mapping):
-        mapping = cast(Mapping[object, object], loaded)
+def _replacement_initial_candidate_ids(
+    payload: bytes, *, source: Path
+) -> tuple[str, ...]:
+    if source.suffix != ".jsonl":
+        mapping = cast(
+            Mapping[object, object],
+            _projection_json_object(payload, source=source),
+        )
         raw_ids = mapping.get("selected_candidate_ids")
         if isinstance(raw_ids, Sequence) and not isinstance(raw_ids, (str, bytes)):
             ids = tuple(cast(Sequence[object], raw_ids))
             if all(isinstance(item, str) for item in ids):
                 return cast(tuple[str, ...], ids)
     return tuple(
-        _required_str(record, "candidate_id") for record in _read_records(path)
+        _required_str(record, "candidate_id")
+        for record in _projection_jsonl_records(payload, source=source)
     )
 
 
-def _replacement_frontier_rows(path: Path) -> tuple[JsonRecord, ...]:
+def _replacement_frontier_rows(
+    payload: bytes, *, source: Path
+) -> tuple[JsonRecord, ...]:
+    path = source
     if path.suffix != ".jsonl":
-        loaded = _loads_json(path.read_text(encoding="utf-8"))
+        try:
+            loaded = _loads_json(payload.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise CommandError(f"candidate frontier has invalid JSON: {path}") from exc
         if isinstance(loaded, Mapping):
             mapping = cast(Mapping[object, object], loaded)
             if mapping.get("schema_version") == (
@@ -15459,7 +16264,85 @@ def _replacement_frontier_rows(path: Path) -> tuple[JsonRecord, ...]:
                     _mapping(item, "candidate frontier case_plan")
                     for item in cast(Sequence[object], raw_rows)
                 )
-    return tuple(_read_records(path))
+        elif isinstance(loaded, Sequence) and not isinstance(loaded, (str, bytes)):
+            return tuple(
+                _mapping(item, "candidate frontier row")
+                for item in cast(Sequence[object], loaded)
+            )
+    return tuple(_projection_jsonl_records(payload, source=path))
+
+
+def _verified_target_frontier_selected_candidate_ids(
+    artifact: Mapping[str, Any],
+) -> tuple[str, ...]:
+    """Return the selected IDs only after full target-frontier verification."""
+
+    _verified_target_cohort_frontier_rows(artifact)
+    policy = _mapping(artifact.get("policy"), "target-cohort candidate frontier policy")
+    return tuple(
+        _required_str(candidate, "candidate_id")
+        for candidate in cast(Sequence[Mapping[str, Any]], policy["candidates"])
+        if candidate.get("selection_status") == "selected"
+    )
+
+
+def _reconciled_candidate_ids(payload: bytes, *, source: Path) -> tuple[str, ...]:
+    """Extract the unique candidate order from captured reconciled-selection bytes."""
+
+    records = _projection_jsonl_records(payload, source=source)
+    candidate_ids: list[str] = []
+    for record in records:
+        value = record.get("selected")
+        if not isinstance(value, bool):
+            raise ValueError("reconciled selection row requires boolean selected")
+        candidate_ids.append(_required_str(record, "candidate_id"))
+    if len(candidate_ids) != len(set(candidate_ids)):
+        raise ValueError("reconciled selection has duplicate candidates")
+    return tuple(candidate_ids)
+
+
+def _verify_replacement_initial_selection_lineage(
+    *,
+    initial_candidate_ids: tuple[str, ...],
+    target_frontier_artifact: Mapping[str, Any],
+    reconciled_selection_bytes: bytes,
+    reconciled_selection_path: Path,
+) -> tuple[JsonRecord, ...]:
+    """Prove initial IDs came from the authenticated ranked/reconciled frontier."""
+
+    candidate_rows = _verified_target_cohort_frontier_rows(target_frontier_artifact)
+    frontier_policy = _mapping(
+        target_frontier_artifact.get("policy"),
+        "target-cohort candidate frontier policy",
+    )
+    frontier_commitments = _mapping(
+        frontier_policy.get("source_commitments"),
+        "target-cohort candidate frontier source commitments",
+    )
+    if frontier_commitments.get("reconciled_selection_sha256") != _bytes_sha256(
+        reconciled_selection_bytes
+    ):
+        raise ClearanceReplacementError(
+            "candidate selection differs from the authenticated target frontier"
+        )
+    reconciled_ids = _reconciled_candidate_ids(
+        reconciled_selection_bytes,
+        source=reconciled_selection_path,
+    )
+    initial_set = set(initial_candidate_ids)
+    reconciled_initial_order = tuple(
+        candidate_id for candidate_id in reconciled_ids if candidate_id in initial_set
+    )
+    if (
+        initial_candidate_ids
+        != _verified_target_frontier_selected_candidate_ids(target_frontier_artifact)
+        or initial_candidate_ids != reconciled_initial_order
+    ):
+        raise ClearanceReplacementError(
+            "initial selection differs from the verified target-frontier "
+            "reconciled projection"
+        )
+    return candidate_rows
 
 
 def _verified_target_cohort_frontier_rows(
@@ -16432,12 +17315,61 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
     return 0
 
 
+def _cmd_acquisition_render_cycle_config(args: argparse.Namespace) -> int:
+    """Render a complete canonical cycle config without executing any stage."""
+
+    try:
+        receipt = render_cycle_config(
+            template_path=cast(Path, args.template),
+            output_path=cast(Path, args.output),
+            variable_assignments=cast(list[str], args.variable),
+            argument_validator=_validate_rendered_cycle_arguments,
+        )
+    except CycleManifestTemplateError as exc:
+        raise CommandError(str(exc)) from exc
+    print(json.dumps(receipt, sort_keys=True))
+    return 0
+
+
+def _validate_rendered_cycle_arguments(config: AcquisitionCycleConfig) -> None:
+    parser = build_parser()
+    for stage in config.stages:
+        stderr = io.StringIO()
+        try:
+            with redirect_stderr(stderr):
+                parsed = parser.parse_args(
+                    ["acquisition", stage.command, *stage.arguments]
+                )
+        except SystemExit as exc:
+            detail = stderr.getvalue().strip()
+            raise CycleManifestTemplateError(
+                f"stage {stage.stage_id} arguments are invalid"
+                + (f": {detail}" if detail else "")
+            ) from exc
+        if getattr(parsed, "handler", None) is None:
+            raise CycleManifestTemplateError(
+                f"stage {stage.stage_id} has no executable acquisition handler"
+            )
+
+
 def _cmd_acquisition_run_cycle(args: argparse.Namespace) -> int:
     """Inspect or advance a receipt-backed acquisition-only cycle."""
 
     allow_network = cast(bool, args.allow_network)
     allow_model_provider = cast(bool, args.allow_model_provider)
     allow_paid = cast(bool, args.allow_paid)
+    adopt_next_completed = cast(bool, args.adopt_next_completed)
+    if adopt_next_completed and (
+        cast(bool, args.execute)
+        or allow_network
+        or cast(bool, args.allow_human)
+        or allow_model_provider
+        or allow_paid
+    ):
+        raise CommandError(
+            "--adopt-next-completed cannot be combined with --execute or "
+            "--allow-* flags"
+        )
     if allow_model_provider and not allow_network:
         raise CommandError("--allow-model-provider requires --allow-network")
     if allow_paid and not allow_network:
@@ -16462,6 +17394,8 @@ def _cmd_acquisition_run_cycle(args: argparse.Namespace) -> int:
             config_path=cast(Path, args.config),
             state_root=cast(Path, args.state_root),
             execute=cast(bool, args.execute),
+            adopt_next_completed=adopt_next_completed,
+            external_stage_verifier=_verify_external_completed_cycle_stage,
             permissions=BoundaryPermissions(
                 network=allow_network,
                 human=cast(bool, args.allow_human),
@@ -16493,6 +17427,250 @@ def _cmd_acquisition_run_cycle(args: argparse.Namespace) -> int:
             if isinstance(boundary, str):
                 print(f"boundary: {boundary}")
     return 0
+
+
+def _cycle_stage_flag_values(stage: CycleStage, flag: str) -> tuple[str, ...]:
+    values: list[str] = []
+    index = 0
+    while index < len(stage.arguments):
+        if stage.arguments[index] == flag:
+            if index + 1 >= len(stage.arguments):
+                raise CycleOrchestratorError(
+                    f"stage {stage.stage_id} {flag} has no value"
+                )
+            values.append(stage.arguments[index + 1])
+            index += 2
+        else:
+            index += 1
+    return tuple(values)
+
+
+def _cycle_stage_path(
+    stage: CycleStage,
+    flag: str,
+    *,
+    default_name: str | None = None,
+) -> Path:
+    values = _cycle_stage_flag_values(stage, flag)
+    if len(values) > 1:
+        raise CycleOrchestratorError(f"stage {stage.stage_id} repeats {flag}")
+    if values:
+        return Path(values[0])
+    if default_name is None:
+        raise CycleOrchestratorError(f"stage {stage.stage_id} omits {flag}")
+    return _cycle_stage_path(stage, "--output-root") / default_name
+
+
+def _cycle_stage_optional_path(stage: CycleStage, flag: str) -> Path | None:
+    values = _cycle_stage_flag_values(stage, flag)
+    if len(values) > 1:
+        raise CycleOrchestratorError(f"stage {stage.stage_id} repeats {flag}")
+    return Path(values[0]) if values else None
+
+
+def _verify_external_completed_cycle_stage(
+    stage: CycleStage,
+    run_card: Mapping[str, object],
+) -> None:
+    """Replay existing local producer verifiers before protected-stage adoption."""
+
+    try:
+        if stage.command == "parse-documents":
+            manifest_path = _cycle_stage_path(
+                stage,
+                "--manifest-output",
+                default_name="mistral-markdown-conversions.jsonl",
+            )
+            clearance_path = _cycle_stage_path(stage, "--disclosure-clearance")
+            selection_path = _cycle_stage_path(stage, "--selection")
+            requests_path = _cycle_stage_path(stage, "--requests")
+            materialization_card_path = _cycle_stage_path(
+                stage, "--materialization-run-card"
+            )
+            manifest_payload = _read_singly_linked_regular_input(
+                manifest_path, label="external parser manifest"
+            )
+            selection_payload = _read_singly_linked_regular_input(
+                selection_path, label="external parser selection"
+            )
+            requests_payload = _read_singly_linked_regular_input(
+                requests_path, label="external parser requests"
+            )
+            clearance_payload = _read_singly_linked_regular_input(
+                clearance_path, label="external parser clearance"
+            )
+            parser_card_payload = _read_singly_linked_regular_input(
+                stage.run_card, label="external parser run card"
+            )
+            parser_records = _projection_jsonl_records(
+                manifest_payload, source=manifest_path
+            )
+            materialization_card = _read_json_object(materialization_card_path)
+            raw_materialization_outputs = materialization_card.get("output_paths")
+            if not isinstance(raw_materialization_outputs, Sequence) or isinstance(
+                raw_materialization_outputs, (str, bytes)
+            ):
+                raise CommandError("materialization run card lacks exact outputs")
+            materialization_outputs = tuple(
+                Path(str(path))
+                for path in cast(Sequence[object], raw_materialization_outputs)
+            )
+            if len(materialization_outputs) != 6:
+                raise CommandError("materialization run card output paths differ")
+            materialization = _verify_materialized_downstream_lineage(
+                run_card_path=materialization_card_path,
+                manifest_path=materialization_outputs[0],
+                clearance_path=clearance_path,
+                document_root=materialization_outputs[5],
+                selection_path=selection_path,
+                controlled_private_root=_cycle_stage_optional_path(
+                    stage, "--controlled-private-root"
+                ),
+                initialization_receipt_path=_cycle_stage_optional_path(
+                    stage, "--purchase-ledger-initialization-receipt"
+                ),
+            )
+            markdown_root = _cycle_stage_path(stage, "--output-root") / "markdown"
+            _markdown_tree, markdown_bytes = _stage_a_markdown_tree_snapshot(
+                parser_records,
+                markdown_root=markdown_root,
+            )
+            _verify_stage_a_parse_lineage(
+                selection_path=selection_path,
+                manifest_path=materialization_outputs[0],
+                clearance_path=clearance_path,
+                document_root=materialization_outputs[5],
+                materialization_paths=materialization.paths,
+                requests_path=requests_path,
+                parser_manifest_path=manifest_path,
+                parser_records=parser_records,
+                parser_run_card_path=stage.run_card,
+                selection_bytes=selection_payload,
+                requests_bytes=requests_payload,
+                parser_manifest_bytes=manifest_payload,
+                parser_run_card_bytes=parser_card_payload,
+                markdown_root=markdown_root,
+                download_records=materialization.manifest_records,
+                clearance_bytes=clearance_payload,
+                markdown_bytes=markdown_bytes,
+            )
+            return
+
+        unitization_card_path = (
+            stage.run_card
+            if stage.command == "llm-unitize"
+            else _cycle_stage_path(stage, "--llm-unitization-run-card")
+        )
+        raw_units_path = (
+            _cycle_stage_path(
+                stage,
+                "--prediction-units-output",
+                default_name="prediction-units.jsonl",
+            )
+            if stage.command == "llm-unitize"
+            else _cycle_stage_path(stage, "--prediction-units")
+        )
+        unitization_queue_path = (
+            _cycle_stage_path(
+                stage,
+                "--unitization-review-queue-output",
+                default_name="unitization-review-queue.jsonl",
+            )
+            if stage.command == "llm-unitize"
+            else (
+                _cycle_stage_path(stage, "--unitization-review-queue")
+                if stage.command == "llm-review-stage-a"
+                else None
+            )
+        )
+        unitization_audit_path = (
+            _cycle_stage_path(
+                stage,
+                "--audit-output",
+                default_name="llm-unitization-audit.jsonl",
+            )
+            if stage.command == "llm-unitize"
+            else None
+        )
+        lineage = _verify_stage_a_unitization_run_card(
+            unitization_card_path,
+            expected_prediction_units_path=raw_units_path,
+            expected_review_queue_path=unitization_queue_path,
+            expected_audit_path=unitization_audit_path,
+            controlled_private_root=_cycle_stage_optional_path(
+                stage, "--controlled-private-root"
+            ),
+            initialization_receipt_path=_cycle_stage_optional_path(
+                stage, "--purchase-ledger-initialization-receipt"
+            ),
+        )
+        if stage.command == "llm-unitize":
+            return
+        if stage.command == "llm-review-stage-a":
+            model_keys = _cycle_stage_flag_values(stage, "--model-key")
+            if len(model_keys) != 1:
+                raise CycleOrchestratorError(
+                    f"stage {stage.stage_id} must provide exactly one --model-key"
+                )
+            _verify_stage_a_review_run_card(
+                stage.run_card,
+                lineage=lineage,
+                llm_unitization_run_card_path=unitization_card_path,
+                expected_review_queue_path=_cycle_stage_path(
+                    stage,
+                    "--review-queue-output",
+                    default_name="unitization-review-queue-reviewed.jsonl",
+                ),
+                expected_structural_flags_path=_cycle_stage_path(
+                    stage,
+                    "--structural-flags-output",
+                    default_name="stage-a-structural-flags.jsonl",
+                ),
+                expected_audit_path=_cycle_stage_path(
+                    stage,
+                    "--audit-output",
+                    default_name="stage-a-structural-review-audit.jsonl",
+                ),
+                expected_registry_path=_cycle_stage_path(stage, "--model-registry"),
+                expected_model_key=model_keys[0],
+            )
+            return
+        _verify_llm_label_run_card(
+            stage.run_card,
+            lineage=lineage,
+            selection_path=_cycle_stage_path(stage, "--selection"),
+            parser_manifest_path=_cycle_stage_path(stage, "--parser-manifest"),
+            decision_texts_path=_cycle_stage_path(stage, "--decision-texts"),
+            decision_texts_manifest_path=_cycle_stage_path(
+                stage, "--decision-texts-manifest"
+            ),
+            decision_texts_run_card_path=_cycle_stage_path(
+                stage, "--decision-texts-run-card"
+            ),
+            finalized_prediction_units_path=raw_units_path,
+            llm_unitization_run_card_path=unitization_card_path,
+            llm_review_stage_a_run_card_path=_cycle_stage_path(
+                stage, "--llm-review-stage-a-run-card"
+            ),
+            unitization_review_run_card_path=_cycle_stage_path(
+                stage, "--unitization-review-run-card"
+            ),
+            model_registry_path=_cycle_stage_path(stage, "--model-registry"),
+            evaluated_model_registry_path=_cycle_stage_path(
+                stage, "--evaluated-model-registry"
+            ),
+            provider_cycle_caps_path=_cycle_stage_path(stage, "--provider-cycle-caps"),
+            labels_path=_cycle_stage_path(
+                stage, "--labels-output", default_name="labels.jsonl"
+            ),
+            audit_path=_cycle_stage_path(
+                stage, "--audit-output", default_name="llm-label-audit.jsonl"
+            ),
+        )
+    except (CommandError, OSError, UnicodeError, ValueError) as exc:
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} semantic replay failed: {exc}"
+        ) from exc
 
 
 def _cmd_acquisition_init_cycle(args: argparse.Namespace) -> int:
@@ -20977,7 +22155,7 @@ def _cmd_generate_purchase_policy(args: argparse.Namespace) -> int:
         write_case_dev_purchase_policy(
             cast(Path, args.output),
             artifact,
-            controlled_private_root=cast(Path, args.controlled_private_root),
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
         )
     except (
         CaseDevPurchasePolicyError,
@@ -21043,7 +22221,7 @@ def _cmd_init_purchase_ledger(args: argparse.Namespace) -> int:
         )
         require_approved_case_dev_purchase_policy(
             purchase_policy,
-            controlled_private_root=cast(Path, args.controlled_private_root),
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
         )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy,
@@ -21295,35 +22473,59 @@ def _cmd_build_clearance_replacement_frontier(args: argparse.Namespace) -> int:
     projection_path = cast(Path, args.projection)
     initial_selection_path = cast(Path, args.initial_selection)
     candidate_frontier_path = cast(Path, args.candidate_frontier)
+    candidate_selection_path = cast(Path, args.candidate_selection)
     try:
+        purchase_artifact = _read_json_object(cast(Path, args.purchase_policy))
+        purchase_policy = verify_case_dev_purchase_policy(purchase_artifact)
+        projection_bytes = read_unique_regular_file(projection_path)
+        initial_selection_bytes = read_unique_regular_file(initial_selection_path)
+        candidate_selection_bytes = read_unique_regular_file(candidate_selection_path)
+        candidate_frontier_bytes = read_unique_regular_file(candidate_frontier_path)
+        initial_candidate_ids = _replacement_initial_candidate_ids(
+            initial_selection_bytes,
+            source=initial_selection_path,
+        )
+        if purchase_policy.has_verified_approval:
+            candidate_frontier_artifact = _projection_json_object(
+                candidate_frontier_bytes,
+                source=candidate_frontier_path,
+            )
+            candidate_rows = _verify_replacement_initial_selection_lineage(
+                initial_candidate_ids=initial_candidate_ids,
+                target_frontier_artifact=candidate_frontier_artifact,
+                reconciled_selection_bytes=candidate_selection_bytes,
+                reconciled_selection_path=candidate_selection_path,
+            )
+        else:
+            candidate_rows = _replacement_frontier_rows(
+                candidate_frontier_bytes,
+                source=candidate_frontier_path,
+            )
         commitments = _replacement_source_commitments(
             cast(Sequence[str], args.source),
             fixed={
-                "projection_artifact": projection_path,
-                "initial_selection": initial_selection_path,
-                "candidate_frontier": candidate_frontier_path,
+                "projection_artifact": projection_bytes,
+                "initial_selection": initial_selection_bytes,
+                "candidate_frontier": candidate_frontier_bytes,
+                "candidate_selection": candidate_selection_bytes,
             },
         )
         artifact = build_replacement_frontier(
             cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
-            purchase_policy_artifact=_read_json_object(
-                cast(Path, args.purchase_policy)
-            ),
-            projection_sha256=_path_sha256(projection_path),
-            initial_selected_candidate_ids=_replacement_initial_candidate_ids(
-                initial_selection_path
-            ),
-            candidate_rows=_replacement_frontier_rows(candidate_frontier_path),
+            purchase_policy_artifact=purchase_artifact,
+            projection_sha256=_bytes_sha256(projection_bytes),
+            initial_selected_candidate_ids=initial_candidate_ids,
+            candidate_rows=candidate_rows,
             case_mix_max_per_bucket=cast(int | None, args.case_mix_max_per_bucket),
             source_commitments=commitments,
+            controlled_private_root=cast(Path, args.controlled_private_root),
         )
         write_replacement_frontier(cast(Path, args.output), artifact)
         broad_allowlist = build_broad_broker_allowlist_plan(
             cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
-            purchase_policy_artifact=_read_json_object(
-                cast(Path, args.purchase_policy)
-            ),
+            purchase_policy_artifact=purchase_artifact,
             frontier_artifact=artifact,
+            controlled_private_root=cast(Path, args.controlled_private_root),
         )
         _atomic_write_json(
             cast(Path, args.broker_allowlist_plan_output),
@@ -21356,36 +22558,125 @@ def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
     replacement_output = cast(Path, args.replacement_budget_plan_output)
     allowlist_output = cast(Path, args.broker_allowlist_plan_output)
     exclusions_output = cast(Path, args.exclusions_output)
+    active_selection_output = cast(Path, args.active_selection_output)
+    replacement_selection_output = cast(Path, args.replacement_selection_output)
     try:
-        purchase_artifact = _read_json_object(cast(Path, args.purchase_policy))
+        purchase_policy_path = cast(Path, args.purchase_policy)
+        cohort_policy_path = cast(Path, args.cohort_policy)
+        frontier_path = cast(Path, args.frontier)
+        candidate_selection_path = cast(Path, args.candidate_selection)
+        purchased_clearance_path = cast(Path, args.purchased_clearance)
+        clearance_run_card_path = cast(Path, args.clearance_run_card)
+        purchase_artifact = _projection_json_object(
+            read_unique_regular_file(purchase_policy_path),
+            source=purchase_policy_path,
+        )
+        cohort_artifact = _projection_json_object(
+            read_unique_regular_file(cohort_policy_path),
+            source=cohort_policy_path,
+        )
+        frontier_bytes = read_unique_regular_file(frontier_path)
+        frontier_artifact = _projection_json_object(
+            frontier_bytes,
+            source=frontier_path,
+        )
+        candidate_selection_bytes = read_unique_regular_file(candidate_selection_path)
+        purchased_clearance_bytes = read_unique_regular_file(purchased_clearance_path)
+        clearance_run_card_bytes = read_unique_regular_file(clearance_run_card_path)
         purchase_policy = verify_case_dev_purchase_policy(purchase_artifact)
-        if purchase_policy.has_verified_approval:
-            raise CaseDevPurchasePolicyError(
-                "the initial exact-selection approval does not authorize "
-                "replacement planning"
+        purchased_clearance_records = (
+            _verify_replacement_clearance_evidence(
+                clearance_bytes=purchased_clearance_bytes,
+                clearance_path=purchased_clearance_path,
+                run_card_bytes=clearance_run_card_bytes,
+                run_card_path=clearance_run_card_path,
             )
-        require_approved_case_dev_purchase_policy(purchase_policy)
+            if purchase_policy.has_verified_approval
+            else _projection_jsonl_records(
+                purchased_clearance_bytes,
+                source=purchased_clearance_path,
+            )
+        )
+        require_approved_case_dev_purchase_policy(
+            purchase_policy,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+        )
         with CaseDevPurchaseJournal(
-            cast(Path, args.purchase_ledger).resolve(), policy=purchase_policy
+            cast(Path, args.purchase_ledger).resolve(),
+            policy=purchase_policy,
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path, args.purchase_ledger_initialization_receipt
+            ),
         ) as journal:
             result = plan_clearance_replacements(
-                cohort_policy_artifact=_read_json_object(
-                    cast(Path, args.cohort_policy)
-                ),
+                cohort_policy_artifact=cohort_artifact,
                 purchase_policy_artifact=purchase_artifact,
-                frontier_artifact=_read_json_object(cast(Path, args.frontier)),
+                frontier_artifact=frontier_artifact,
                 purchase_journal=journal,
-                purchased_clearance_records=_read_records(
-                    cast(Path, args.purchased_clearance)
-                ),
-                clearance_run_card_sha256=_path_sha256(
-                    cast(Path, args.clearance_run_card)
-                ),
+                purchased_clearance_records=purchased_clearance_records,
+                clearance_run_card_sha256=_bytes_sha256(clearance_run_card_bytes),
+                controlled_private_root=cast(Path | None, args.controlled_private_root),
             )
-        _atomic_write_json(output, result.to_record())
+        frontier_policy = _mapping(
+            frontier_artifact.get("policy"),
+            "replacement frontier policy",
+        )
+        source_commitments = _mapping(
+            frontier_policy.get("source_commitments"),
+            "replacement frontier source commitments",
+        )
+        if source_commitments.get("candidate_selection") != _bytes_sha256(
+            candidate_selection_bytes
+        ):
+            raise ClearanceReplacementError(
+                "candidate selection differs from the frozen replacement frontier"
+            )
+        selection_records = _projection_jsonl_records(
+            candidate_selection_bytes,
+            source=candidate_selection_path,
+        )
+        selection_by_candidate: dict[str, Mapping[str, object]] = {}
+        for record in selection_records:
+            candidate_id = _required_str(record, "candidate_id")
+            if candidate_id in selection_by_candidate:
+                raise ClearanceReplacementError(
+                    "candidate selection contains duplicate candidate IDs"
+                )
+            selection_by_candidate[candidate_id] = record
+        if any(
+            candidate_id not in selection_by_candidate
+            for candidate_id in result.active_candidate_ids
+        ):
+            raise ClearanceReplacementError(
+                "active replacement candidates do not exactly reconcile selection"
+            )
+        active_selection = tuple(
+            selection_by_candidate[candidate_id]
+            for candidate_id in result.active_candidate_ids
+        )
+        replacement_candidate_ids = tuple(
+            plan.candidate_id for plan in result.replacement_plan.case_plans
+        )
+        replacement_selection = tuple(
+            selection_by_candidate[candidate_id]
+            for candidate_id in replacement_candidate_ids
+        )
+        active_selection_bytes = _projection_jsonl_bytes(active_selection)
+        replacement_selection_bytes = _projection_jsonl_bytes(replacement_selection)
+        result_record = bind_replacement_selection_outputs(
+            result,
+            active_selection_sha256=_bytes_sha256(active_selection_bytes),
+            active_selection_count=len(active_selection),
+            replacement_selection_sha256=_bytes_sha256(replacement_selection_bytes),
+            replacement_selection_count=len(replacement_selection),
+        )
+        _atomic_write_json(output, result_record)
         _atomic_write_json(replacement_output, result.replacement_plan.to_record())
         _atomic_write_json(allowlist_output, result.broker_allowlist_plan.to_record())
         _write_jsonl(exclusions_output, result.derived_exclusions)
+        _write_jsonl(active_selection_output, active_selection)
+        _write_jsonl(replacement_selection_output, replacement_selection)
     except (
         CaseDevPurchaseLedgerError,
         CaseDevPurchasePolicyError,
@@ -21414,6 +22705,1811 @@ def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
     return 0
 
 
+_REPLACEMENT_CLEARANCE_ACCUMULATION_SCHEMA = (
+    "legalforecast.replacement_clearance_accumulation_run_card.v1"
+)
+_REPLACEMENT_EXCLUSION_CARD_SCHEMA = (
+    "legalforecast.replacement_successor_exclusion_run_card.v1"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _ReplacementExclusionPublication:
+    records: tuple[JsonRecord, ...]
+    input_paths: tuple[Path, ...]
+    source_snapshots: Mapping[Path, bytes]
+    selected_candidate_ids: tuple[str, ...]
+    screened_candidate_ids: tuple[str, ...]
+
+
+def _prepare_replacement_exclusions(
+    *,
+    target_root: Path,
+    screened_cases_path: Path,
+    exclusion_paths: Sequence[Path],
+    verified_projection: Mapping[str, object] | None = None,
+    captured_source_bytes: Mapping[str, bytes] | None = None,
+) -> _ReplacementExclusionPublication:
+    projection = (
+        verified_projection
+        if verified_projection is not None
+        else verify_completed_target_cohort_projection_for_purchase_approval(
+            target_root
+        )
+    )
+    source_bytes = dict(captured_source_bytes or {})
+    for path, label in (
+        (screened_cases_path, "replacement screened cases"),
+        *((path, "replacement exclusion source") for path in exclusion_paths),
+    ):
+        absolute = os.path.abspath(path)
+        if absolute not in source_bytes:
+            source_bytes[absolute] = _read_singly_linked_regular_input(
+                path, label=label
+            )
+    selection_path = cast(Path, projection["selection_path"])
+    selection_records = cast(
+        Sequence[Mapping[str, Any]], projection["selection_records"]
+    )
+    selected_ids = tuple(
+        _required_str(record, "candidate_id") for record in selection_records
+    )
+    if len(selected_ids) != len(set(selected_ids)):
+        raise ClearanceReplacementError(
+            "replacement successor selection repeats a candidate"
+        )
+    screened_bytes = source_bytes[os.path.abspath(screened_cases_path)]
+    screened_records = _projection_jsonl_records(
+        screened_bytes, source=screened_cases_path
+    )
+    screened_ids = tuple(
+        _required_str(_required_record(record, "candidate"), "docket_id")
+        for record in screened_records
+    )
+    if len(screened_ids) != len(set(screened_ids)):
+        raise ClearanceReplacementError("screened pool repeats a candidate")
+    run_card = cast(Mapping[str, object], projection["run_card"])
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise ClearanceReplacementError(
+            "successor exclusions require an authenticated replacement projection"
+        )
+    replacement_inputs = cast(Sequence[object], raw_inputs)
+    if len(replacement_inputs) != 19:
+        raise ClearanceReplacementError(
+            "successor exclusions require an authenticated replacement projection"
+        )
+    replacement_result_path = Path(str(replacement_inputs[9]))
+    verified_projection_bytes = cast(
+        Mapping[str, bytes], projection["verified_artifact_bytes"]
+    )
+    replacement_result_bytes = verified_projection_bytes.get(
+        os.path.abspath(replacement_result_path)
+    )
+    if replacement_result_bytes is None:
+        raise ClearanceReplacementError(
+            "authenticated replacement projection lacks replacement result bytes"
+        )
+    replacement_result = _projection_json_object(
+        replacement_result_bytes,
+        source=replacement_result_path,
+    )
+    raw_ledger = replacement_result.get("ledger_records")
+    raw_derived = replacement_result.get("derived_exclusions")
+    if (
+        not isinstance(raw_ledger, Sequence)
+        or isinstance(raw_ledger, (str, bytes))
+        or not isinstance(raw_derived, Sequence)
+        or isinstance(raw_derived, (str, bytes))
+    ):
+        raise ClearanceReplacementError("replacement result lacks exclusion lineage")
+    quarantined_rows: list[JsonRecord] = []
+    for raw_event in cast(Sequence[object], raw_ledger):
+        event = _mapping(raw_event, "replacement ledger event")
+        candidate_id = _required_str(event, "quarantined_candidate_id")
+        quarantined_rows.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": candidate_id,
+                "stage": "eligibility",
+                "reason": "purchased_document_quarantined",
+                "source_document_ids": list(
+                    _required_str_tuple(event, "quarantined_document_ids")
+                ),
+                "source_entry_ids": [
+                    _required_str(event, "record_sha256"),
+                ],
+                "notes": (
+                    "Removed from the active cohort by the authenticated "
+                    "purchased-clearance replacement ledger."
+                ),
+            }
+        )
+    source_groups = tuple(
+        _projection_jsonl_records(
+            (source_bytes[os.path.abspath(path)]),
+            source=path,
+        )
+        for path in exclusion_paths
+    )
+    derived_rows = tuple(
+        dict(_mapping(row, "replacement derived exclusion"))
+        for row in cast(Sequence[object], raw_derived)
+    )
+    ledger = merge_exclusion_ledger_records(
+        *source_groups,
+        derived_rows,
+        quarantined_rows,
+    )
+    selected_set = set(selected_ids)
+    records = tuple(
+        dict(record)
+        for record in ledger.to_records()
+        if _required_str(record, "candidate_id") not in selected_set
+    )
+    excluded_ids = {_required_str(record, "candidate_id") for record in records}
+    screened_set = set(screened_ids)
+    if selected_set & excluded_ids:
+        raise ClearanceReplacementError(
+            "replacement successor candidate is both selected and excluded"
+        )
+    if selected_set | excluded_ids != screened_set:
+        raise ClearanceReplacementError(
+            "replacement successor exclusions do not exactly reconcile screened "
+            f"pool; missing={sorted(screened_set - selected_set - excluded_ids)}; "
+            f"unknown={sorted((selected_set | excluded_ids) - screened_set)}"
+        )
+    source_paths = (
+        cast(Path, projection["run_card_path"]),
+        selection_path,
+        replacement_result_path,
+        screened_cases_path,
+        *exclusion_paths,
+    )
+    snapshots = {
+        path: (
+            source_bytes[os.path.abspath(path)]
+            if os.path.abspath(path) in source_bytes
+            else verified_projection_bytes[os.path.abspath(path)]
+            if os.path.abspath(path) in verified_projection_bytes
+            else _read_singly_linked_regular_input(
+                path, label="replacement successor exclusion input"
+            )
+        )
+        for path in source_paths
+    }
+    return _ReplacementExclusionPublication(
+        records=records,
+        input_paths=source_paths,
+        source_snapshots=snapshots,
+        selected_candidate_ids=tuple(sorted(selected_set)),
+        screened_candidate_ids=tuple(sorted(screened_set)),
+    )
+
+
+def _cmd_build_replacement_exclusions(args: argparse.Namespace) -> int:
+    output_root = cast(Path, args.output_root).absolute()
+    output_path = (
+        cast(Path, args.exclusions_output).absolute()
+        if args.exclusions_output is not None
+        else output_root / "successor-target-exclusions.jsonl"
+    )
+    run_card_path = (
+        cast(Path, args.run_card_output).absolute()
+        if args.run_card_output is not None
+        else output_root / "run-cards" / "build-replacement-exclusions.json"
+    )
+    try:
+        prepared = _prepare_replacement_exclusions(
+            target_root=cast(Path, args.target_cohort_root).absolute(),
+            screened_cases_path=cast(Path, args.screened_cases).absolute(),
+            exclusion_paths=tuple(
+                path.absolute() for path in cast(Sequence[Path], args.exclusion_source)
+            ),
+        )
+        payload = _projection_jsonl_bytes(prepared.records)
+        card: JsonRecord = {
+            "schema_version": _REPLACEMENT_EXCLUSION_CARD_SCHEMA,
+            "stage": "build-replacement-exclusions",
+            "status": "completed",
+            "dry_run": not cast(bool, args.execute),
+            "execute": cast(bool, args.execute),
+            "resume": cast(bool, args.resume),
+            "record_count": len(prepared.records),
+            "input_paths": [str(path) for path in prepared.input_paths],
+            "output_paths": [str(output_path)],
+            "source_commitments": {
+                str(path.resolve()): _bytes_sha256(source)
+                for path, source in prepared.source_snapshots.items()
+            },
+            "output_commitments": {str(output_path.resolve()): _bytes_sha256(payload)},
+            "selected_candidate_ids": list(prepared.selected_candidate_ids),
+            "screened_candidate_ids": list(prepared.screened_candidate_ids),
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+        }
+        if not cast(bool, args.execute):
+            print(json.dumps(card, sort_keys=True))
+            return 0
+        _ensure_projection_artifact(
+            output_path, payload, resume=cast(bool, args.resume)
+        )
+        _ensure_projection_artifact(
+            run_card_path,
+            _projection_json_bytes(card),
+            resume=cast(bool, args.resume),
+        )
+    except (
+        ClearanceReplacementError,
+        CommandError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "output": str(output_path),
+                "excluded_candidate_count": len(prepared.records),
+                "selected_candidate_count": len(prepared.selected_candidate_ids),
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _verify_replacement_exclusion_card(
+    *,
+    run_card_path: Path,
+    output_path: Path,
+    selection_path: Path,
+    screened_cases_path: Path,
+) -> tuple[JsonRecord, ...]:
+    card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="replacement successor exclusion run card"
+    )
+    card = _projection_json_object(card_bytes, source=run_card_path)
+    if (
+        card.get("schema_version") != _REPLACEMENT_EXCLUSION_CARD_SCHEMA
+        or card.get("stage") != "build-replacement-exclusions"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or card.get("provider_activity_requested") is not False
+        or card.get("provider_activity_executed") is not False
+    ):
+        raise CommandError("invalid completed replacement successor exclusion card")
+    raw_inputs = card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("replacement successor exclusion card lacks exact inputs")
+    inputs = tuple(Path(str(value)) for value in cast(Sequence[object], raw_inputs))
+    if (
+        len(inputs) < 5
+        or inputs[1].resolve() != selection_path.resolve()
+        or inputs[3].resolve() != screened_cases_path.resolve()
+    ):
+        raise CommandError("replacement successor exclusion inputs differ")
+    source_commitments = card.get("source_commitments")
+    if not isinstance(source_commitments, Mapping):
+        raise CommandError(
+            "replacement successor exclusion card lacks source commitments"
+        )
+    captured_inputs: dict[str, bytes] = {}
+    for path in inputs:
+        payload = _read_singly_linked_regular_input(
+            path, label="replacement successor exclusion input"
+        )
+        if cast(Mapping[str, object], source_commitments).get(
+            str(path.resolve())
+        ) != _bytes_sha256(payload):
+            raise CommandError(
+                "replacement successor exclusion source commitment changed"
+            )
+        captured_inputs[os.path.abspath(path)] = payload
+    if card.get("output_paths") != [str(output_path)]:
+        raise CommandError("replacement successor exclusion output path differs")
+    output_bytes = _read_singly_linked_regular_input(
+        output_path, label="replacement successor exclusions"
+    )
+    if card.get("output_commitments") != {
+        str(output_path.resolve()): _bytes_sha256(output_bytes)
+    }:
+        raise CommandError("replacement successor exclusion output commitment changed")
+    projection = verify_completed_target_cohort_projection_for_purchase_approval(
+        inputs[0].parent.parent
+    )
+    verified_projection_bytes = cast(
+        Mapping[str, bytes], projection["verified_artifact_bytes"]
+    )
+    for path in inputs[:3]:
+        if (
+            verified_projection_bytes.get(os.path.abspath(path))
+            != captured_inputs[os.path.abspath(path)]
+        ):
+            raise CommandError(
+                "replacement successor projection changed during exclusion replay"
+            )
+    replay = _prepare_replacement_exclusions(
+        target_root=inputs[0].parent.parent,
+        screened_cases_path=inputs[3],
+        exclusion_paths=inputs[4:],
+        verified_projection=projection,
+        captured_source_bytes=captured_inputs,
+    )
+    records = tuple(_projection_jsonl_records(output_bytes, source=output_path))
+    if (
+        records != replay.records
+        or card.get("record_count") != len(records)
+        or card.get("selected_candidate_ids") != list(replay.selected_candidate_ids)
+        or card.get("screened_candidate_ids") != list(replay.screened_candidate_ids)
+    ):
+        raise CommandError("replacement successor exclusions do not reproduce")
+    return records
+
+
+def _replacement_finalization_exclusion_groups(
+    *,
+    exclusion_paths: Sequence[Path],
+    replacement_exclusion_card_path: Path | None,
+    selection_path: Path,
+    screened_cases_path: Path,
+) -> tuple[list[JsonRecord], ...]:
+    matching_successor_sources = tuple(
+        path
+        for path in exclusion_paths
+        if path.name == "successor-target-exclusions.jsonl"
+    )
+    if replacement_exclusion_card_path is None:
+        if matching_successor_sources:
+            raise CommandError(
+                "replacement successor exclusion source requires "
+                "--replacement-exclusion-run-card"
+            )
+        return tuple(_read_records(path) for path in exclusion_paths)
+    if len(matching_successor_sources) != 1:
+        raise CommandError(
+            "replacement finalization requires exactly one successor "
+            "target exclusion source"
+        )
+    successor_path = matching_successor_sources[0]
+    successor_records = _verify_replacement_exclusion_card(
+        run_card_path=replacement_exclusion_card_path,
+        output_path=successor_path,
+        selection_path=selection_path,
+        screened_cases_path=screened_cases_path,
+    )
+    return tuple(
+        (
+            list(successor_records)
+            if path.resolve() == successor_path.resolve()
+            else _read_records(path)
+        )
+        for path in exclusion_paths
+    )
+
+
+def _clearance_card_artifact_snapshots(
+    card: Mapping[str, object],
+) -> tuple[tuple[Path, bytes], tuple[Path, bytes]]:
+    sources = card.get("source_commitments")
+    if not isinstance(sources, Mapping):
+        raise ClearanceReplacementError(
+            "replacement clearance run card lacks source commitments"
+        )
+    try:
+        manifest = _packet_card_committed_snapshot(
+            cast(Mapping[str, object], sources),
+            name="download_manifest",
+        )
+        restrictions = _packet_card_committed_snapshot(
+            cast(Mapping[str, object], sources),
+            name="restriction_evidence",
+        )
+    except CommandError as exc:
+        raise ClearanceReplacementError(str(exc)) from exc
+    return manifest, restrictions
+
+
+def _merge_exact_document_records(
+    groups: Sequence[Sequence[Mapping[str, Any]]], *, label: str
+) -> tuple[JsonRecord, ...]:
+    merged: dict[tuple[str, str], JsonRecord] = {}
+    for group in groups:
+        for record in group:
+            key = _materializer_record_key(record)
+            current = dict(record)
+            previous = merged.get(key)
+            if previous is not None and previous != current:
+                raise ClearanceReplacementError(
+                    f"cumulative replacement {label} conflicts for {key[0]}/{key[1]}"
+                )
+            merged[key] = current
+    return tuple(merged[key] for key in sorted(merged))
+
+
+def _verified_accumulated_replacement_clearance(
+    *,
+    clearance_path: Path,
+    run_card_path: Path,
+    clearance_bytes: bytes,
+    run_card_bytes: bytes,
+) -> list[JsonRecord]:
+    card = _projection_json_object(run_card_bytes, source=run_card_path)
+    if (
+        card.get("schema_version") != _REPLACEMENT_CLEARANCE_ACCUMULATION_SCHEMA
+        or card.get("stage") != "accumulate-replacement-clearance"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or card.get("provider_activity_requested") is not False
+        or card.get("provider_activity_executed") is not False
+    ):
+        raise ClearanceReplacementError(
+            "invalid completed replacement clearance accumulation card"
+        )
+    raw_inputs = card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise ClearanceReplacementError(
+            "replacement clearance accumulation lacks exact inputs"
+        )
+    inputs = tuple(Path(str(value)) for value in cast(Sequence[object], raw_inputs))
+    if len(inputs) != 8:
+        raise ClearanceReplacementError(
+            "replacement clearance accumulation input paths differ"
+        )
+    source_commitments = card.get("input_commitments")
+    if not isinstance(source_commitments, Mapping):
+        raise ClearanceReplacementError(
+            "replacement clearance accumulation lacks input commitments"
+        )
+    source_bytes: dict[Path, bytes] = {}
+    for path in (inputs[0], inputs[1], inputs[2], inputs[3], inputs[4], inputs[7]):
+        payload = _read_singly_linked_regular_input(
+            path, label="replacement clearance accumulation input"
+        )
+        if cast(Mapping[str, object], source_commitments).get(
+            str(path.resolve())
+        ) != _bytes_sha256(payload):
+            raise ClearanceReplacementError(
+                "replacement clearance accumulation input commitment changed"
+            )
+        source_bytes[path] = payload
+    prior = _verify_replacement_clearance_evidence(
+        clearance_bytes=source_bytes[inputs[0]],
+        clearance_path=inputs[0],
+        run_card_bytes=source_bytes[inputs[1]],
+        run_card_path=inputs[1],
+    )
+    current = _verify_replacement_clearance_evidence(
+        clearance_bytes=source_bytes[inputs[2]],
+        clearance_path=inputs[2],
+        run_card_bytes=source_bytes[inputs[3]],
+        run_card_path=inputs[3],
+    )
+    merged_clearance = _merge_exact_document_records(
+        (prior, current), label="clearance"
+    )
+    output_root = clearance_path.parent
+    manifest_path = output_root / "purchased-document-downloads.jsonl"
+    restriction_path = output_root / "restriction-evidence.jsonl"
+    expected_outputs = (
+        manifest_path,
+        clearance_path,
+        restriction_path,
+    )
+    raw_outputs = card.get("output_paths")
+    if (
+        not isinstance(raw_outputs, Sequence)
+        or isinstance(raw_outputs, (str, bytes))
+        or tuple(
+            Path(str(value)).resolve() for value in cast(Sequence[object], raw_outputs)
+        )
+        != tuple(path.resolve() for path in expected_outputs)
+    ):
+        raise ClearanceReplacementError(
+            "replacement clearance accumulation output paths differ"
+        )
+    prior_card = _projection_json_object(source_bytes[inputs[1]], source=inputs[1])
+    current_card = _projection_json_object(source_bytes[inputs[3]], source=inputs[3])
+    (
+        (prior_manifest_path, prior_manifest_bytes),
+        (
+            prior_restriction_path,
+            prior_restriction_bytes,
+        ),
+    ) = _clearance_card_artifact_snapshots(prior_card)
+    (
+        (current_manifest_path, current_manifest_bytes),
+        (
+            current_restriction_path,
+            current_restriction_bytes,
+        ),
+    ) = _clearance_card_artifact_snapshots(current_card)
+    merged_manifest = _merge_exact_document_records(
+        (
+            _projection_jsonl_records(prior_manifest_bytes, source=prior_manifest_path),
+            _projection_jsonl_records(
+                current_manifest_bytes, source=current_manifest_path
+            ),
+        ),
+        label="manifest",
+    )
+    merged_restrictions = _merge_exact_document_records(
+        (
+            _projection_jsonl_records(
+                prior_restriction_bytes, source=prior_restriction_path
+            ),
+            _projection_jsonl_records(
+                current_restriction_bytes, source=current_restriction_path
+            ),
+        ),
+        label="restriction evidence",
+    )
+    expected_payloads = {
+        manifest_path: _projection_jsonl_bytes(merged_manifest),
+        clearance_path: _projection_jsonl_bytes(merged_clearance),
+        restriction_path: _projection_jsonl_bytes(merged_restrictions),
+    }
+    output_commitments = card.get("output_commitments")
+    if not isinstance(output_commitments, Mapping):
+        raise ClearanceReplacementError(
+            "replacement clearance accumulation lacks output commitments"
+        )
+    for path, expected in expected_payloads.items():
+        observed = (
+            clearance_bytes
+            if path == clearance_path
+            else read_unique_regular_file(path)
+        )
+        if observed != expected or cast(Mapping[str, object], output_commitments).get(
+            path.name
+        ) != _bytes_sha256(expected):
+            raise ClearanceReplacementError(
+                "replacement clearance accumulation does not reproduce"
+            )
+    if card.get("record_count") != len(merged_clearance):
+        raise ClearanceReplacementError(
+            "replacement clearance accumulation record count differs"
+        )
+    return list(merged_clearance)
+
+
+def _cmd_accumulate_replacement_clearance(args: argparse.Namespace) -> int:
+    output_root = cast(Path, args.output_root).absolute()
+    input_paths = (
+        cast(Path, args.prior_purchased_clearance).absolute(),
+        cast(Path, args.prior_clearance_run_card).absolute(),
+        cast(Path, args.current_purchased_clearance).absolute(),
+        cast(Path, args.current_clearance_run_card).absolute(),
+        cast(Path, args.purchase_policy).absolute(),
+        cast(Path, args.purchase_ledger).resolve(),
+        cast(Path, args.controlled_private_root).absolute(),
+        cast(Path, args.purchase_ledger_initialization_receipt).absolute(),
+    )
+    manifest_path = output_root / "purchased-document-downloads.jsonl"
+    clearance_path = output_root / "disclosure-clearance.jsonl"
+    restriction_path = output_root / "restriction-evidence.jsonl"
+    run_card_path = (
+        cast(Path, args.run_card_output).absolute()
+        if args.run_card_output is not None
+        else output_root / "run-cards" / "accumulate-replacement-clearance.json"
+    )
+    try:
+        source_bytes = {
+            path: _read_singly_linked_regular_input(
+                path, label="replacement clearance accumulation input"
+            )
+            for path in (
+                input_paths[0],
+                input_paths[1],
+                input_paths[2],
+                input_paths[3],
+                input_paths[4],
+                input_paths[7],
+            )
+        }
+        prior = _verify_replacement_clearance_evidence(
+            clearance_bytes=source_bytes[input_paths[0]],
+            clearance_path=input_paths[0],
+            run_card_bytes=source_bytes[input_paths[1]],
+            run_card_path=input_paths[1],
+        )
+        current = _verify_replacement_clearance_evidence(
+            clearance_bytes=source_bytes[input_paths[2]],
+            clearance_path=input_paths[2],
+            run_card_bytes=source_bytes[input_paths[3]],
+            run_card_path=input_paths[3],
+        )
+        merged_clearance = _merge_exact_document_records(
+            (prior, current), label="clearance"
+        )
+        prior_card = _projection_json_object(
+            source_bytes[input_paths[1]], source=input_paths[1]
+        )
+        current_card = _projection_json_object(
+            source_bytes[input_paths[3]], source=input_paths[3]
+        )
+        (
+            (prior_manifest, prior_manifest_bytes),
+            (
+                prior_restriction,
+                prior_restriction_bytes,
+            ),
+        ) = _clearance_card_artifact_snapshots(prior_card)
+        (
+            (current_manifest, current_manifest_bytes),
+            (
+                current_restriction,
+                current_restriction_bytes,
+            ),
+        ) = _clearance_card_artifact_snapshots(current_card)
+        merged_manifest = _merge_exact_document_records(
+            (
+                _projection_jsonl_records(prior_manifest_bytes, source=prior_manifest),
+                _projection_jsonl_records(
+                    current_manifest_bytes, source=current_manifest
+                ),
+            ),
+            label="manifest",
+        )
+        merged_restrictions = _merge_exact_document_records(
+            (
+                _projection_jsonl_records(
+                    prior_restriction_bytes, source=prior_restriction
+                ),
+                _projection_jsonl_records(
+                    current_restriction_bytes, source=current_restriction
+                ),
+            ),
+            label="restriction evidence",
+        )
+        policy = verify_case_dev_purchase_policy(
+            _projection_json_object(source_bytes[input_paths[4]], source=input_paths[4])
+        )
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=input_paths[6]
+        )
+        snapshot = read_case_dev_purchase_snapshot(
+            input_paths[5],
+            policy=policy,
+            controlled_private_root=input_paths[6],
+            initialization_receipt_path=input_paths[7],
+        )
+        confirmed_keys = {
+            (
+                _required_str(operation, "candidate_id"),
+                _required_str(operation, "source_document_id"),
+            )
+            for operation in snapshot.operations
+            if operation.get("status") == "confirmed"
+        }
+        clearance_keys = {
+            _materializer_record_key(record) for record in merged_clearance
+        }
+        if clearance_keys != confirmed_keys:
+            raise ClearanceReplacementError(
+                "cumulative purchased clearance does not exactly cover confirmed "
+                "purchase operations"
+            )
+        if {
+            _materializer_record_key(record) for record in merged_manifest
+        } != confirmed_keys or {
+            _materializer_record_key(record) for record in merged_restrictions
+        } != confirmed_keys:
+            raise ClearanceReplacementError(
+                "cumulative purchased manifest or restriction coverage differs"
+            )
+        payloads = {
+            manifest_path: _projection_jsonl_bytes(merged_manifest),
+            clearance_path: _projection_jsonl_bytes(merged_clearance),
+            restriction_path: _projection_jsonl_bytes(merged_restrictions),
+        }
+        card: JsonRecord = {
+            "schema_version": _REPLACEMENT_CLEARANCE_ACCUMULATION_SCHEMA,
+            "stage": "accumulate-replacement-clearance",
+            "status": "completed",
+            "dry_run": not cast(bool, args.execute),
+            "execute": cast(bool, args.execute),
+            "resume": cast(bool, args.resume),
+            "record_count": len(merged_clearance),
+            "input_paths": [str(path) for path in input_paths],
+            "output_paths": [str(path) for path in payloads],
+            "input_commitments": {
+                str(path.resolve()): _bytes_sha256(payload)
+                for path, payload in source_bytes.items()
+            },
+            "source_commitments": {
+                "download_manifest": _file_commitment_from_bytes(
+                    manifest_path, payloads[manifest_path]
+                ),
+                "restriction_evidence": _file_commitment_from_bytes(
+                    restriction_path, payloads[restriction_path]
+                ),
+            },
+            "output_commitments": {
+                path.name: _bytes_sha256(payload) for path, payload in payloads.items()
+            },
+            "purchase_state_sha256": snapshot.purchase_state_sha256,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+        }
+        if not cast(bool, args.execute):
+            print(json.dumps(card, sort_keys=True))
+            return 0
+        for path, payload in payloads.items():
+            _ensure_projection_artifact(path, payload, resume=cast(bool, args.resume))
+        _ensure_projection_artifact(
+            run_card_path,
+            _projection_json_bytes(card),
+            resume=cast(bool, args.resume),
+        )
+        _verified_accumulated_replacement_clearance(
+            clearance_path=clearance_path,
+            run_card_path=run_card_path,
+            clearance_bytes=payloads[clearance_path],
+            run_card_bytes=read_unique_regular_file(run_card_path),
+        )
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        ClearanceReplacementError,
+        CommandError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "output_root": str(output_root),
+                "record_count": len(merged_clearance),
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _verify_replacement_clearance_evidence(
+    *,
+    clearance_bytes: bytes,
+    clearance_path: Path,
+    run_card_bytes: bytes,
+    run_card_path: Path,
+) -> list[JsonRecord]:
+    """Authenticate purchased-clearance bytes before replacement planning."""
+
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    if run_card.get("schema_version") == _REPLACEMENT_CLEARANCE_ACCUMULATION_SCHEMA:
+        return _verified_accumulated_replacement_clearance(
+            clearance_path=clearance_path,
+            run_card_path=run_card_path,
+            clearance_bytes=clearance_bytes,
+            run_card_bytes=run_card_bytes,
+        )
+    sources = run_card.get("source_commitments")
+    if not isinstance(sources, Mapping):
+        raise ClearanceReplacementError(
+            "replacement clearance run card lacks source commitments"
+        )
+    try:
+        manifest_path = _materializer_committed_path(
+            cast(Mapping[str, object], sources), "download_manifest"
+        )
+        restriction_path = _materializer_committed_path(
+            cast(Mapping[str, object], sources), "restriction_evidence"
+        )
+        snapshot = _capture_clearance_artifact_snapshot(
+            run_card=run_card,
+            run_card_path=run_card_path,
+            clearance_path=clearance_path,
+            initial_artifact_bytes={
+                os.path.abspath(run_card_path): run_card_bytes,
+                os.path.abspath(clearance_path): clearance_bytes,
+            },
+        )
+        _verify_authenticated_clearance_run_card(
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=manifest_path,
+            expected_restriction_path=restriction_path,
+            captured_artifact_bytes=snapshot,
+        )
+    except (CommandError, OSError, ValueError) as exc:
+        raise ClearanceReplacementError(str(exc)) from exc
+    return _projection_jsonl_records(clearance_bytes, source=clearance_path)
+
+
+_REPLACEMENT_RECOVERY_INDEX_SCHEMA = (
+    "legalforecast.replacement_recovery_tranche_index.v1"
+)
+_REPLACEMENT_RECOVERY_CARD_SCHEMA = (
+    "legalforecast.replacement_recovery_consolidation_run_card.v1"
+)
+_REPLACEMENT_RECOVERY_INDEX_CARD_SCHEMA = (
+    "legalforecast.replacement_recovery_index_run_card.v1"
+)
+
+_INITIAL_RECOVERY_SOURCE_FIELDS = {
+    "kind",
+    "ordinal",
+    "recovery_root",
+    "selection",
+    "purchased_clearance",
+    "purchased_clearance_run_card",
+    "resolved_post_recovery_documents",
+}
+_SUCCESSOR_RECOVERY_SOURCE_FIELDS = {
+    *_INITIAL_RECOVERY_SOURCE_FIELDS,
+    "replacement_purchase_authority",
+    "replacement_controlled_private_root",
+    "replacement_budget_plan",
+}
+
+
+def _validated_replacement_recovery_sources(
+    index: Mapping[str, object],
+) -> tuple[JsonRecord, ...]:
+    if (
+        set(index) != {"schema_version", "sources"}
+        or index.get("schema_version") != _REPLACEMENT_RECOVERY_INDEX_SCHEMA
+    ):
+        raise ValueError("replacement recovery tranche index fields differ")
+    raw_sources = index.get("sources")
+    if (
+        not isinstance(raw_sources, Sequence)
+        or isinstance(raw_sources, (str, bytes))
+        or not raw_sources
+    ):
+        raise ValueError("replacement recovery tranche index must be nonempty")
+    sources: list[JsonRecord] = []
+    seen_roots: set[Path] = set()
+    for ordinal, raw_source in enumerate(cast(Sequence[object], raw_sources)):
+        source = dict(_mapping(raw_source, "replacement recovery source"))
+        kind = source.get("kind")
+        expected_fields = (
+            _INITIAL_RECOVERY_SOURCE_FIELDS
+            if kind == "initial_v2"
+            else _SUCCESSOR_RECOVERY_SOURCE_FIELDS
+            if kind == "successor"
+            else None
+        )
+        if expected_fields is None or set(source) != expected_fields:
+            raise ValueError("replacement recovery source fields differ")
+        if source.get("ordinal") != ordinal:
+            raise ValueError("replacement recovery source order differs")
+        if ordinal == 0 and kind != "initial_v2":
+            raise ValueError("replacement recovery index must begin with initial_v2")
+        if ordinal > 0 and kind != "successor":
+            raise ValueError(
+                "replacement recovery index permits exactly one initial_v2 source"
+            )
+        root = Path(_required_str(source, "recovery_root")).resolve()
+        if root in seen_roots:
+            raise ValueError("replacement recovery index repeats a recovery root")
+        seen_roots.add(root)
+        sources.append(source)
+    return tuple(sources)
+
+
+def _verify_replacement_recovery_index_card(
+    *,
+    index_path: Path,
+    run_card_path: Path,
+    index_bytes: bytes,
+) -> None:
+    card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            run_card_path, label="replacement recovery index run card"
+        ),
+        source=run_card_path,
+    )
+    raw_inputs = card.get("input_paths")
+    source_commitments = card.get("source_commitments")
+    if (
+        card.get("schema_version") != _REPLACEMENT_RECOVERY_INDEX_CARD_SCHEMA
+        or card.get("stage") != "build-replacement-recovery-index"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or card.get("provider_activity_requested") is not False
+        or card.get("provider_activity_executed") is not False
+        or card.get("output_paths") != [str(index_path)]
+        or card.get("output_commitments")
+        != {str(index_path.resolve()): _bytes_sha256(index_bytes)}
+        or not isinstance(raw_inputs, Sequence)
+        or isinstance(raw_inputs, (str, bytes))
+        or not isinstance(source_commitments, Mapping)
+    ):
+        raise ValueError("invalid authenticated replacement recovery index card")
+    input_paths = tuple(
+        Path(str(value)) for value in cast(Sequence[object], raw_inputs)
+    )
+    if not input_paths or set(cast(Mapping[object, object], source_commitments)) != {
+        str(path.resolve()) for path in input_paths
+    }:
+        raise ValueError("replacement recovery index source commitments differ")
+    descriptor_bytes: list[bytes] = []
+    for path in input_paths:
+        payload = _read_singly_linked_regular_input(
+            path, label="replacement recovery source descriptor"
+        )
+        if cast(Mapping[str, object], source_commitments).get(
+            str(path.resolve())
+        ) != _bytes_sha256(payload):
+            raise ValueError("replacement recovery source descriptor changed")
+        descriptor_bytes.append(payload)
+    sources = _validated_replacement_recovery_sources(
+        {
+            "schema_version": _REPLACEMENT_RECOVERY_INDEX_SCHEMA,
+            "sources": [
+                _projection_json_object(payload, source=path)
+                for path, payload in zip(input_paths, descriptor_bytes, strict=True)
+            ],
+        }
+    )
+    reproduced = _projection_json_bytes(
+        {
+            "schema_version": _REPLACEMENT_RECOVERY_INDEX_SCHEMA,
+            "sources": list(sources),
+        }
+    )
+    if card.get("record_count") != len(sources) or reproduced != index_bytes:
+        raise ValueError("replacement recovery index does not reproduce")
+
+
+def _cmd_build_replacement_recovery_index(args: argparse.Namespace) -> int:
+    output_root = cast(Path, args.output_root).absolute()
+    index_path = (
+        cast(Path, args.index_output).absolute()
+        if args.index_output is not None
+        else output_root / "tranche-recovery-index.json"
+    )
+    run_card_path = (
+        cast(Path, args.run_card_output).absolute()
+        if args.run_card_output is not None
+        else output_root / "run-cards/build-replacement-recovery-index.json"
+    )
+    initial_descriptor = cast(Path, args.initial_source).absolute()
+    configured_successors = tuple(
+        path.absolute() for path in cast(Sequence[Path], args.successor_source)
+    )
+    descriptor_directories = tuple(
+        path for path in configured_successors if path.is_dir()
+    )
+    successor_descriptors: list[Path] = []
+    for configured in configured_successors:
+        if configured.is_dir():
+            successor_descriptors.extend(
+                sorted(
+                    (
+                        path
+                        for path in configured.iterdir()
+                        if path.name.endswith(".json")
+                    ),
+                    key=lambda path: path.name,
+                )
+            )
+        else:
+            successor_descriptors.append(configured)
+    descriptor_paths = (initial_descriptor, *successor_descriptors)
+    directory_inventories = {
+        directory: tuple(
+            sorted(
+                path.name for path in directory.iterdir() if path.name.endswith(".json")
+            )
+        )
+        for directory in descriptor_directories
+    }
+    try:
+        descriptor_bytes = {
+            path: _read_singly_linked_regular_input(
+                path, label="replacement recovery source descriptor"
+            )
+            for path in descriptor_paths
+        }
+        raw_sources = [
+            _projection_json_object(descriptor_bytes[path], source=path)
+            for path in descriptor_paths
+        ]
+        index: JsonRecord = {
+            "schema_version": _REPLACEMENT_RECOVERY_INDEX_SCHEMA,
+            "sources": raw_sources,
+        }
+        sources = _validated_replacement_recovery_sources(index)
+        payload = _projection_json_bytes(
+            {
+                "schema_version": _REPLACEMENT_RECOVERY_INDEX_SCHEMA,
+                "sources": list(sources),
+            }
+        )
+        card: JsonRecord = {
+            "schema_version": _REPLACEMENT_RECOVERY_INDEX_CARD_SCHEMA,
+            "stage": "build-replacement-recovery-index",
+            "status": "completed",
+            "dry_run": not cast(bool, args.execute),
+            "execute": cast(bool, args.execute),
+            "resume": cast(bool, args.resume),
+            "record_count": len(sources),
+            "input_paths": [str(path) for path in descriptor_paths],
+            "output_paths": [str(index_path)],
+            "source_commitments": {
+                str(path.resolve()): _bytes_sha256(source)
+                for path, source in descriptor_bytes.items()
+            },
+            "output_commitments": {str(index_path.resolve()): _bytes_sha256(payload)},
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+        }
+        if not cast(bool, args.execute):
+            print(json.dumps(card, sort_keys=True))
+            return 0
+        _ensure_projection_artifact(index_path, payload, resume=cast(bool, args.resume))
+        _ensure_projection_artifact(
+            run_card_path,
+            _projection_json_bytes(card),
+            resume=cast(bool, args.resume),
+        )
+        _require_snapshot_unchanged(
+            descriptor_bytes, label="replacement recovery source descriptor"
+        )
+        for directory, expected_inventory in directory_inventories.items():
+            observed_inventory = tuple(
+                sorted(
+                    path.name
+                    for path in directory.iterdir()
+                    if path.name.endswith(".json")
+                )
+            )
+            if observed_inventory != expected_inventory:
+                raise ValueError(
+                    "replacement recovery source directory changed during indexing"
+                )
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "index": str(index_path),
+                "source_count": len(sources),
+                "successor_count": len(sources) - 1,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+@dataclass(frozen=True, slots=True)
+class _ReplacementRecoveryConsolidation:
+    input_paths: tuple[Path, ...]
+    source_snapshots: Mapping[Path, bytes]
+    manifest_records: tuple[JsonRecord, ...]
+    clearance_records: tuple[JsonRecord, ...]
+    restriction_records: tuple[JsonRecord, ...]
+    resolved_records: tuple[JsonRecord, ...]
+    document_bytes: Mapping[str, bytes]
+    purchase_state_sha256: str
+
+
+def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
+    try:
+        prepared = _prepare_replacement_recovery_consolidation(args)
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        ClearanceReplacementError,
+        CohortDocumentMaterializationError,
+        ReplacementPurchaseApprovalError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    output_root = cast(Path, args.output_root).absolute()
+    manifest_path = output_root / "purchased-document-downloads.jsonl"
+    clearance_path = output_root / "disclosure-clearance.jsonl"
+    restriction_path = output_root / "restriction-evidence.jsonl"
+    resolved_path = output_root / "resolved-post-recovery-documents.jsonl"
+    document_root = output_root / "documents/purchased"
+    run_card_path = (
+        cast(Path, args.run_card_output).absolute()
+        if args.run_card_output is not None
+        else output_root / "run-cards" / "consolidate-replacement-recovery.json"
+    )
+    output_paths = (
+        manifest_path,
+        clearance_path,
+        restriction_path,
+        resolved_path,
+        document_root,
+    )
+    payloads = {
+        manifest_path: _projection_jsonl_bytes(prepared.manifest_records),
+        clearance_path: _projection_jsonl_bytes(prepared.clearance_records),
+        restriction_path: _projection_jsonl_bytes(prepared.restriction_records),
+        resolved_path: _projection_jsonl_bytes(prepared.resolved_records),
+    }
+    output_commitments: JsonRecord = {
+        path.name: _bytes_sha256(payload) for path, payload in payloads.items()
+    }
+    output_commitments["document_tree"] = {
+        relative: _bytes_sha256(payload)
+        for relative, payload in sorted(prepared.document_bytes.items())
+    }
+    source_commitments = {
+        str(path.resolve()): _bytes_sha256(payload)
+        for path, payload in sorted(
+            prepared.source_snapshots.items(), key=lambda item: str(item[0])
+        )
+    }
+    run_card: JsonRecord = {
+        "schema_version": _REPLACEMENT_RECOVERY_CARD_SCHEMA,
+        "stage": "consolidate-replacement-recovery",
+        "status": "completed",
+        "dry_run": not cast(bool, args.execute),
+        "execute": cast(bool, args.execute),
+        "resume": cast(bool, args.resume),
+        "record_count": len(prepared.manifest_records),
+        "input_paths": [str(path) for path in prepared.input_paths],
+        "output_paths": [str(path) for path in output_paths],
+        "source_commitments": source_commitments,
+        "output_commitments": output_commitments,
+        "purchase_state_sha256": prepared.purchase_state_sha256,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+    }
+    if not cast(bool, args.execute):
+        print(json.dumps(run_card, sort_keys=True))
+        return 0
+    for path, payload in payloads.items():
+        _ensure_projection_artifact(path, payload, resume=cast(bool, args.resume))
+    for relative, payload in prepared.document_bytes.items():
+        _ensure_projection_artifact(
+            document_root / relative,
+            payload,
+            resume=cast(bool, args.resume),
+        )
+    _ensure_projection_artifact(
+        run_card_path,
+        _projection_json_bytes(run_card),
+        resume=cast(bool, args.resume),
+    )
+    _require_snapshot_unchanged(
+        prepared.source_snapshots,
+        label="replacement recovery consolidation input",
+    )
+    print(
+        json.dumps(
+            {
+                "output_root": str(output_root),
+                "record_count": len(prepared.manifest_records),
+                "run_card": str(run_card_path),
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _prepare_replacement_recovery_consolidation(
+    args: argparse.Namespace,
+) -> _ReplacementRecoveryConsolidation:
+    index_path = cast(Path, args.tranche_index).absolute()
+    index_run_card_path = cast(Path, args.tranche_index_run_card).absolute()
+    selection_path = cast(Path, args.selection).absolute()
+    target_purchased_manifest_path = cast(
+        Path, args.target_purchased_manifest
+    ).absolute()
+    purchase_policy_path = cast(Path, args.purchase_policy).absolute()
+    cohort_policy_path = cast(Path, args.cohort_policy).absolute()
+    ledger_path = cast(Path, args.purchase_ledger).resolve()
+    controlled_private_root = cast(Path, args.controlled_private_root).absolute()
+    receipt_path = cast(Path, args.purchase_ledger_initialization_receipt).absolute()
+    direct_paths = (
+        index_path,
+        index_run_card_path,
+        selection_path,
+        target_purchased_manifest_path,
+        purchase_policy_path,
+        cohort_policy_path,
+        receipt_path,
+    )
+    snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="replacement recovery consolidation input"
+        )
+        for path in direct_paths
+    }
+    _verify_replacement_recovery_index_card(
+        index_path=index_path,
+        run_card_path=index_run_card_path,
+        index_bytes=snapshots[index_path],
+    )
+    index = _projection_json_object(snapshots[index_path], source=index_path)
+    sources = _validated_replacement_recovery_sources(index)
+    policy_artifact = _projection_json_object(
+        snapshots[purchase_policy_path], source=purchase_policy_path
+    )
+    cohort_artifact = _projection_json_object(
+        snapshots[cohort_policy_path], source=cohort_policy_path
+    )
+    policy = verify_case_dev_purchase_policy(policy_artifact)
+    require_approved_case_dev_purchase_policy(
+        policy, controlled_private_root=controlled_private_root
+    )
+    verify_case_dev_purchase_policy_cohort_binding(policy, cohort_artifact)
+    if ledger_path != policy.canonical_ledger_path:
+        raise ValueError("replacement consolidation ledger differs from policy")
+    purchase_snapshot = read_case_dev_purchase_snapshot(
+        ledger_path,
+        policy=policy,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=receipt_path,
+    )
+    selection_records = _projection_jsonl_records(
+        snapshots[selection_path], source=selection_path
+    )
+    selected_keys = _replacement_consolidation_selection_keys(selection_records)
+    target_projection = verify_completed_target_cohort_projection_for_purchase_approval(
+        target_purchased_manifest_path.parent
+    )
+    authenticated_selection_path = cast(Path, target_projection["selection_path"])
+    if (
+        selection_path.resolve() != authenticated_selection_path.resolve()
+        or selection_records != target_projection["selection_records"]
+    ):
+        raise ValueError(
+            "consolidation selection differs from authenticated target projection"
+        )
+    target_purchased_records = _projection_jsonl_records(
+        snapshots[target_purchased_manifest_path],
+        source=target_purchased_manifest_path,
+    )
+    required_purchased_keys = {
+        _materializer_record_key(record) for record in target_purchased_records
+    }
+    operation_keys = {
+        (
+            _required_str(operation, "candidate_id"),
+            _required_str(operation, "source_document_id"),
+        )
+        for operation in purchase_snapshot.operations
+    }
+    expected_purchased_keys = selected_keys & operation_keys
+    authenticated_purchased_keys = {
+        _materializer_record_key(record)
+        for record in cast(
+            Sequence[Mapping[str, Any]], target_projection["purchased_manifest"]
+        )
+    }
+    if required_purchased_keys != authenticated_purchased_keys:
+        raise ValueError(
+            "target purchased manifest differs from authenticated target projection"
+        )
+    if required_purchased_keys != expected_purchased_keys:
+        raise ValueError(
+            "target purchased manifest differs from final active ledger coverage"
+        )
+    manifest_by_key: dict[tuple[str, str], JsonRecord] = {}
+    clearance_by_key: dict[tuple[str, str], JsonRecord] = {}
+    restriction_by_key: dict[tuple[str, str], list[JsonRecord]] = defaultdict(list)
+    resolved_by_key: dict[tuple[str, str], JsonRecord] = {}
+    document_bytes: dict[str, bytes] = {}
+    tranche_input_paths: list[Path] = []
+    all_approved_pairs: set[tuple[str, str]] = set()
+    for tranche in sources[1:]:
+        budget_path = Path(_required_str(tranche, "replacement_budget_plan")).absolute()
+        budget = _projection_json_object(
+            _read_singly_linked_regular_input(
+                budget_path, label="replacement budget plan"
+            ),
+            source=budget_path,
+        )
+        raw_case_plans = budget.get("case_plans")
+        if not isinstance(raw_case_plans, Sequence) or isinstance(
+            raw_case_plans, (str, bytes)
+        ):
+            raise ValueError("replacement budget case_plans must be a list")
+        for raw_plan in cast(Sequence[object], raw_case_plans):
+            plan = _mapping(raw_plan, "replacement budget case plan")
+            candidate_id = _required_str(plan, "candidate_id")
+            raw_documents = plan.get("purchase_document_ids")
+            if not isinstance(raw_documents, Sequence) or isinstance(
+                raw_documents, (str, bytes)
+            ):
+                raise ValueError(
+                    "replacement budget purchase_document_ids must be a list"
+                )
+            for raw_document in cast(Sequence[object], raw_documents):
+                if not isinstance(raw_document, str) or not raw_document:
+                    raise ValueError(
+                        "replacement budget purchase document ID is invalid"
+                    )
+                pair = (candidate_id, raw_document)
+                if pair in all_approved_pairs:
+                    raise ValueError(
+                        "replacement tranche index repeats an approved operation"
+                    )
+                all_approved_pairs.add(pair)
+    for tranche in sources:
+        kind = _required_str(tranche, "kind")
+        paths = {
+            name: Path(_required_str(tranche, name)).absolute()
+            for name in set(tranche)
+            if name
+            not in {
+                "kind",
+                "ordinal",
+                "recovery_root",
+                "replacement_controlled_private_root",
+                "resolved_post_recovery_documents",
+            }
+        }
+        recovery_root = Path(_required_str(tranche, "recovery_root")).absolute()
+        if recovery_root.resolve() == cast(Path, args.output_root).absolute().resolve():
+            raise ValueError(
+                "replacement tranche recovery root cannot be the consolidation output"
+            )
+        raw_resolved = tranche.get("resolved_post_recovery_documents")
+        if raw_resolved is not None and (
+            not isinstance(raw_resolved, str) or not raw_resolved
+        ):
+            raise ValueError("resolved post-recovery path must be string or null")
+        resolved_path = Path(raw_resolved).absolute() if raw_resolved else None
+        tranche_selection_path = paths["selection"]
+        tranche_selection_bytes = _read_singly_linked_regular_input(
+            tranche_selection_path, label="replacement tranche selection"
+        )
+        tranche_selection = _projection_jsonl_records(
+            tranche_selection_bytes, source=tranche_selection_path
+        )
+        tranche_keys = _replacement_consolidation_selection_keys(tranche_selection)
+        recovery = _verify_materializer_recovery(
+            recovery_root=recovery_root,
+            selection_path=tranche_selection_path,
+            selected_document_keys=tranche_keys,
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            ledger_path=ledger_path,
+        )
+        clearance = _verify_materializer_clearance_lineage(
+            manifest_path=cast(Path, recovery["manifest_path"]),
+            clearance_path=paths["purchased_clearance"],
+            run_card_path=paths["purchased_clearance_run_card"],
+        )
+        _verify_materializer_recovery_clearance_binding(
+            recovery=recovery, clearance_lineage=clearance
+        )
+        if kind == "successor":
+            successor_root = Path(
+                _required_str(tranche, "replacement_controlled_private_root")
+            ).absolute()
+            budget_bytes = _read_singly_linked_regular_input(
+                paths["replacement_budget_plan"], label="replacement budget plan"
+            )
+            authority_bytes = _read_singly_linked_regular_input(
+                paths["replacement_purchase_authority"],
+                label="replacement purchase authority",
+            )
+            authority = _projection_json_object(
+                authority_bytes, source=paths["replacement_purchase_authority"]
+            )
+            verify_replacement_purchase_authority(
+                authority_artifact=authority,
+                controlled_private_root=successor_root,
+                initial_purchase_policy_artifact=policy_artifact,
+                initial_controlled_private_root=controlled_private_root,
+                cohort_policy_artifact=cohort_artifact,
+                budget_plan_bytes=budget_bytes,
+                selection_bytes=tranche_selection_bytes,
+                purchase_ledger_path=ledger_path,
+                purchase_ledger_initialization_receipt_path=receipt_path,
+                allowed_additional_operation_pairs=all_approved_pairs,
+            )
+        resolved_records = (
+            _projection_jsonl_records(
+                _read_singly_linked_regular_input(
+                    resolved_path,
+                    label="replacement resolved post-recovery documents",
+                ),
+                source=resolved_path,
+            )
+            if resolved_path is not None
+            else []
+        )
+        source_input_paths = (
+            tranche_selection_path,
+            paths["purchased_clearance"],
+            paths["purchased_clearance_run_card"],
+            *(
+                (
+                    paths["replacement_purchase_authority"],
+                    paths["replacement_budget_plan"],
+                )
+                if kind == "successor"
+                else ()
+            ),
+            *((resolved_path,) if resolved_path is not None else ()),
+        )
+        tranche_input_paths.extend(source_input_paths)
+        for path in source_input_paths:
+            snapshots.setdefault(
+                path,
+                _read_singly_linked_regular_input(
+                    path, label="replacement recovery tranche input"
+                ),
+            )
+        for record in cast(Sequence[Mapping[str, Any]], recovery["manifest_records"]):
+            key = _materializer_record_key(record)
+            if key not in required_purchased_keys:
+                continue
+            clearance_record = _materializer_record_index(
+                cast(Sequence[Mapping[str, Any]], clearance["clearance_records"]),
+                label="replacement tranche clearance",
+            )[key]
+            _merge_replacement_consolidation_record(
+                manifest_by_key, key, dict(record), label="manifest"
+            )
+            _merge_replacement_consolidation_record(
+                clearance_by_key,
+                key,
+                dict(clearance_record),
+                label="clearance",
+            )
+            source_root = cast(Path, recovery["document_root"])
+            raw_local = _required_str(record, "local_path")
+            relative = Path(raw_local)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError("replacement recovery local_path is unsafe")
+            payload = _read_singly_linked_regular_input(
+                source_root / relative, label="replacement recovered document"
+            )
+            sha256 = _required_str(record, "sha256")
+            if hashlib.sha256(payload).hexdigest() != sha256 or len(
+                payload
+            ) != _required_int(record, "byte_count"):
+                raise ValueError("replacement recovered document bytes differ")
+            consolidated_relative = f"sha256/{sha256[:2]}/{sha256}.pdf"
+            existing = document_bytes.get(consolidated_relative)
+            if existing is not None and existing != payload:
+                raise ValueError("replacement recovery document hash collision")
+            document_bytes[consolidated_relative] = payload
+            manifest_by_key[key]["local_path"] = consolidated_relative
+            clearance_by_key[key]["local_path"] = consolidated_relative
+        for record in cast(
+            Sequence[Mapping[str, Any]], clearance["restriction_records"]
+        ):
+            key = _materializer_record_key(record)
+            if key in required_purchased_keys:
+                restriction_by_key[key].append(dict(record))
+        for record in resolved_records:
+            key = _materializer_record_key(record)
+            if key not in required_purchased_keys:
+                continue
+            _merge_replacement_consolidation_record(
+                resolved_by_key, key, dict(record), label="resolved document"
+            )
+    if (
+        set(manifest_by_key) != required_purchased_keys
+        or set(clearance_by_key) != required_purchased_keys
+    ):
+        raise ValueError(
+            "replacement recovery coverage differs from final active purchased cohort"
+        )
+    ordered_keys = sorted(required_purchased_keys)
+    return _ReplacementRecoveryConsolidation(
+        input_paths=(
+            index_path,
+            index_run_card_path,
+            selection_path,
+            target_purchased_manifest_path,
+            purchase_policy_path,
+            cohort_policy_path,
+            ledger_path,
+            controlled_private_root,
+            receipt_path,
+            *tranche_input_paths,
+        ),
+        source_snapshots=snapshots,
+        manifest_records=tuple(manifest_by_key[key] for key in ordered_keys),
+        clearance_records=tuple(clearance_by_key[key] for key in ordered_keys),
+        restriction_records=tuple(
+            record
+            for key in ordered_keys
+            for record in sorted(restriction_by_key[key], key=_canonical_json_sha256)
+        ),
+        resolved_records=tuple(
+            resolved_by_key[key] for key in ordered_keys if key in resolved_by_key
+        ),
+        document_bytes=document_bytes,
+        purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+    )
+
+
+def _replacement_consolidation_selection_keys(
+    records: Sequence[Mapping[str, Any]],
+) -> set[tuple[str, str]]:
+    keys: set[tuple[str, str]] = set()
+    for record in records:
+        candidate_id = _required_str(record, "candidate_id")
+        raw_documents = record.get("documents")
+        if not isinstance(raw_documents, Sequence) or isinstance(
+            raw_documents, (str, bytes)
+        ):
+            raise ValueError("replacement selection documents must be a list")
+        for raw_document in cast(Sequence[object], raw_documents):
+            document = _mapping(raw_document, "replacement selection document")
+            key = (candidate_id, _required_str(document, "source_document_id"))
+            if key in keys:
+                raise ValueError("replacement selection has duplicate document")
+            keys.add(key)
+    return keys
+
+
+def _merge_replacement_consolidation_record(
+    records: dict[tuple[str, str], JsonRecord],
+    key: tuple[str, str],
+    record: JsonRecord,
+    *,
+    label: str,
+) -> None:
+    existing = records.get(key)
+    if existing is not None and existing != record:
+        raise ValueError(f"conflicting replacement recovery {label}: {key}")
+    records[key] = record
+
+
+def _replacement_purchase_approval_request_from_args(
+    args: argparse.Namespace,
+) -> Any:
+    return build_replacement_purchase_approval_request(
+        cohort_policy_path=cast(Path, args.cohort_policy),
+        initial_purchase_policy_path=cast(Path, args.initial_purchase_policy),
+        initial_controlled_private_root=cast(
+            Path, args.initial_controlled_private_root
+        ),
+        frontier_path=cast(Path, args.frontier),
+        replacement_result_path=cast(Path, args.replacement_result),
+        replacement_budget_plan_path=cast(Path, args.replacement_budget_plan),
+        replacement_selection_path=cast(Path, args.replacement_selection),
+        purchase_ledger_path=cast(Path, args.purchase_ledger),
+        purchase_ledger_initialization_receipt_path=cast(
+            Path, args.purchase_ledger_initialization_receipt
+        ),
+    )
+
+
+def _publish_recorded_replacement_successor_artifacts(
+    args: argparse.Namespace,
+    approval: Any,
+) -> None:
+    authority_output = cast(Path | None, getattr(args, "authority_output", None))
+    attempt_output = cast(Path | None, getattr(args, "attempt_policy_output", None))
+    if (authority_output is None) != (attempt_output is None):
+        raise CommandError(
+            "--authority-output and --attempt-policy-output must be supplied together"
+        )
+    if authority_output is None or attempt_output is None:
+        return
+    authority = generate_replacement_purchase_authority(approval)
+    budget_path = cast(Path, args.replacement_budget_plan)
+    selection_path = cast(Path, args.replacement_selection)
+    budget_bytes = read_unique_regular_file(budget_path)
+    selection_bytes = read_unique_regular_file(selection_path)
+    budget_artifact = _projection_json_object(budget_bytes, source=budget_path)
+    attempt = generate_recap_fetch_attempt_policy(
+        purchase_policy_artifact=_read_json_object(
+            cast(Path, args.initial_purchase_policy)
+        ),
+        cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
+        budget_plan=_missing_core_budget_plan(budget_artifact),
+        budget_plan_artifact=budget_artifact,
+        selection_records=_projection_jsonl_records(
+            selection_bytes, source=selection_path
+        ),
+        budget_plan_bytes=budget_bytes,
+        selection_bytes=selection_bytes,
+        controlled_private_root=cast(Path, args.initial_controlled_private_root),
+        replacement_purchase_authority_artifact=authority,
+        replacement_controlled_private_root=cast(Path, args.controlled_private_root),
+        purchase_ledger_initialization_receipt_path=cast(
+            Path, args.purchase_ledger_initialization_receipt
+        ),
+    )
+    _atomic_write_json(authority_output, authority)
+    write_recap_fetch_attempt_policy(attempt_output, attempt)
+
+
+def _cmd_record_replacement_purchase_approval(args: argparse.Namespace) -> int:
+    private_root = cast(Path, args.controlled_private_root)
+    output_root = cast(Path, args.output_root)
+    if private_root != output_root:
+        raise CommandError("--controlled-private-root must equal --output-root")
+    if private_root == cast(Path, args.initial_controlled_private_root):
+        raise CommandError(
+            "successor approval root must differ from the initial approval root"
+        )
+    try:
+        request = _replacement_purchase_approval_request_from_args(args)
+    except (OSError, ReplacementPurchaseApprovalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(json.dumps({"approval_request": request.to_record()}, sort_keys=True))
+    if _acquisition_dry_run(args):
+        return 0
+    checkpoint_path = private_root / "replacement-purchase-approval-checkpoint.json"
+    run_card_path = private_root / "run-cards/record-replacement-purchase-approval.json"
+    if cast(bool, args.resume) and (
+        checkpoint_path.exists() or checkpoint_path.is_symlink()
+    ):
+        try:
+            approval = verify_replacement_purchase_approval(
+                request=request,
+                controlled_private_root=private_root,
+                checkpoint_path=checkpoint_path,
+                run_card_path=run_card_path,
+            )
+            _publish_recorded_replacement_successor_artifacts(args, approval)
+        except (
+            OSError,
+            RecapFetchAttemptPolicyError,
+            ReplacementPurchaseApprovalError,
+            UnicodeError,
+            ValueError,
+        ) as exc:
+            raise CommandError(str(exc)) from exc
+        print(
+            json.dumps(
+                {
+                    "resumed": True,
+                    "decision": "approve",
+                    "checkpoint_sha256": approval.checkpoint_sha256,
+                    "run_card_sha256": approval.run_card_sha256,
+                    "provider_activity_requested": False,
+                    "provider_activity_executed": False,
+                    "paid_activity_requested": False,
+                    "paid_activity_executed": False,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    if not sys.stdin.isatty():
+        raise CommandError(
+            "record-replacement-purchase-approval requires an interactive TTY"
+        )
+    decision = input("Decision [approve/reject]: ").strip()
+    try:
+        required = request.required_confirmation(decision)
+    except ReplacementPurchaseApprovalError as exc:
+        raise CommandError(str(exc)) from exc
+    print(f"Type exactly: {required}")
+    confirmation = input("Exact confirmation: ")
+    try:
+        checkpoint, run_card = record_replacement_purchase_approval(
+            request=request,
+            controlled_private_root=private_root,
+            decision=decision,
+            typed_confirmation=confirmation,
+            reviewer_id="John Hughes",
+            recorded_at_utc=_iso_datetime(datetime.now(UTC)),
+        )
+    except (OSError, ReplacementPurchaseApprovalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    try:
+        approval = verify_replacement_purchase_approval(
+            request=request,
+            controlled_private_root=private_root,
+            checkpoint_path=checkpoint,
+            run_card_path=run_card,
+        )
+        _publish_recorded_replacement_successor_artifacts(args, approval)
+    except (
+        OSError,
+        RecapFetchAttemptPolicyError,
+        ReplacementPurchaseApprovalError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "decision": decision,
+                "checkpoint_sha256": _path_sha256(checkpoint),
+                "run_card_sha256": _path_sha256(run_card),
+                "provider_activity_requested": False,
+                "provider_activity_executed": False,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _verified_replacement_purchase_approval_from_args(
+    args: argparse.Namespace,
+) -> Any:
+    request = _replacement_purchase_approval_request_from_args(args)
+    return verify_replacement_purchase_approval(
+        request=request,
+        controlled_private_root=cast(Path, args.controlled_private_root),
+        checkpoint_path=cast(Path, args.checkpoint),
+        run_card_path=cast(Path, args.approval_run_card),
+    )
+
+
+def _cmd_verify_replacement_purchase_approval(args: argparse.Namespace) -> int:
+    try:
+        approval = _verified_replacement_purchase_approval_from_args(args)
+        authority = generate_replacement_purchase_authority(approval)
+    except (OSError, ReplacementPurchaseApprovalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "verified": True,
+                "authority_sha256": authority["authority_sha256"],
+                "replacement_candidate_count": len(
+                    approval.request.replacement_candidate_ids
+                ),
+                "purchase_document_count": len(approval.request.purchase_document_ids),
+                "tranche_projected_cost_usd": (
+                    approval.request.tranche_projected_cost_usd
+                ),
+                "remaining_headroom_after_usd": (
+                    approval.request.remaining_headroom_after_usd
+                ),
+                "provider_activity_requested": False,
+                "provider_activity_executed": False,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _cmd_generate_replacement_purchase_authority(
+    args: argparse.Namespace,
+) -> int:
+    try:
+        approval = _verified_replacement_purchase_approval_from_args(args)
+        authority = generate_replacement_purchase_authority(approval)
+        _atomic_write_json(cast(Path, args.output), authority)
+    except (OSError, ReplacementPurchaseApprovalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
 def _cmd_generate_recap_fetch_attempt_policy(args: argparse.Namespace) -> int:
     _preflight_approved_purchase_runtime(args)
     output = cast(Path, args.output)
@@ -21436,6 +24532,17 @@ def _cmd_generate_recap_fetch_attempt_policy(args: argparse.Namespace) -> int:
             budget_plan_bytes=budget_bytes,
             selection_bytes=selection_bytes,
             controlled_private_root=cast(Path | None, args.controlled_private_root),
+            replacement_purchase_authority_artifact=(
+                _read_json_object(cast(Path, args.replacement_purchase_authority))
+                if cast(Path | None, args.replacement_purchase_authority) is not None
+                else None
+            ),
+            replacement_controlled_private_root=cast(
+                Path | None, args.replacement_controlled_private_root
+            ),
+            purchase_ledger_initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
         )
         write_recap_fetch_attempt_policy(output, artifact)
     except (
@@ -21457,17 +24564,39 @@ def _cmd_generate_recap_fetch_attempt_policy(args: argparse.Namespace) -> int:
 def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
     _preflight_approved_purchase_runtime(args)
     output = cast(Path, args.output)
+    policy_path = cast(Path, args.purchase_policy)
+    cohort_path = cast(Path, args.cohort_policy)
+    budget_path = cast(Path, args.budget_plan)
+    selection_path = cast(Path, args.selection)
+    attempt_path = cast(Path | None, args.attempt_policy)
+    replacement_authority_path = cast(Path | None, args.replacement_purchase_authority)
+    initialization_receipt_path = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
+    input_paths = (
+        policy_path,
+        cohort_path,
+        budget_path,
+        selection_path,
+        *((attempt_path,) if attempt_path is not None else ()),
+        *(
+            (replacement_authority_path,)
+            if replacement_authority_path is not None
+            else ()
+        ),
+        *(
+            (initialization_receipt_path,)
+            if initialization_receipt_path is not None
+            else ()
+        ),
+    )
     try:
-        budget_path = cast(Path, args.budget_plan)
-        selection_path = cast(Path, args.selection)
         budget_bytes = read_unique_regular_file(budget_path)
         selection_bytes = read_unique_regular_file(selection_path)
         budget_plan_artifact = _projection_json_object(budget_bytes, source=budget_path)
         policy = generate_recap_fetch_broker_policy(
-            purchase_policy_artifact=_read_json_object(
-                cast(Path, args.purchase_policy)
-            ),
-            cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
+            purchase_policy_artifact=_read_json_object(policy_path),
+            cohort_policy_artifact=_read_json_object(cohort_path),
             budget_plan=_missing_core_budget_plan(budget_plan_artifact),
             budget_plan_artifact=budget_plan_artifact,
             selection_records=_projection_jsonl_records(
@@ -21476,11 +24605,20 @@ def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
             budget_plan_bytes=budget_bytes,
             selection_bytes=selection_bytes,
             controlled_private_root=cast(Path | None, args.controlled_private_root),
+            replacement_purchase_authority_artifact=(
+                _read_json_object(replacement_authority_path)
+                if replacement_authority_path is not None
+                else None
+            ),
+            replacement_controlled_private_root=cast(
+                Path | None, args.replacement_controlled_private_root
+            ),
+            purchase_ledger_initialization_receipt_path=cast(
+                Path | None, args.purchase_ledger_initialization_receipt
+            ),
             broad_frontier_allowlist=cast(bool, args.broad_frontier_allowlist),
             attempt_policy_artifact=(
-                _read_json_object(cast(Path, args.attempt_policy))
-                if cast(Path | None, args.attempt_policy) is not None
-                else None
+                _read_json_object(attempt_path) if attempt_path is not None else None
             ),
         )
         write_recap_fetch_broker_policy(output, policy)
@@ -21491,6 +24629,19 @@ def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
+    if cast(Path | None, args.output_root) is not None:
+        _acquisition_output_root(args)
+        _write_acquisition_completion(
+            args,
+            stage="generate-recap-fetch-broker-policy",
+            input_paths=input_paths,
+            output_paths=(output,),
+            record_count=len(cast(Sequence[object], policy["allowed_documents"])),
+            dry_run=_acquisition_dry_run(args),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={"broker_policy_sha256": broker_policy_sha256(policy)},
+        )
     print(
         json.dumps(
             {
@@ -29935,14 +33086,60 @@ def _preflight_approved_purchase_input_bytes(args: argparse.Namespace) -> None:
     controlled_private_root = cast(
         Path | None, getattr(args, "controlled_private_root", None)
     )
-    try:
-        verify_approved_purchase_input_bytes(
-            policy,
-            controlled_private_root=cast(Path, controlled_private_root),
-            budget_plan_bytes=read_unique_regular_file(budget_path),
-            selection_bytes=read_unique_regular_file(selection_path),
+    replacement_authority = cast(
+        Path | None, getattr(args, "replacement_purchase_authority", None)
+    )
+    replacement_private_root = cast(
+        Path | None, getattr(args, "replacement_controlled_private_root", None)
+    )
+    if (replacement_authority is None) != (replacement_private_root is None):
+        raise CommandError(
+            "replacement purchase authority and private root must be supplied together"
         )
-    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+    initialization_receipt = cast(
+        Path | None,
+        getattr(args, "purchase_ledger_initialization_receipt", None),
+    )
+    if replacement_authority is not None and initialization_receipt is None:
+        raise CommandError(
+            "replacement purchase authority requires the purchase-ledger "
+            "initialization receipt"
+        )
+    try:
+        budget_bytes = read_unique_regular_file(budget_path)
+        selection_bytes = read_unique_regular_file(selection_path)
+        if replacement_authority is None:
+            verify_approved_purchase_input_bytes(
+                policy,
+                controlled_private_root=cast(Path, controlled_private_root),
+                budget_plan_bytes=budget_bytes,
+                selection_bytes=selection_bytes,
+            )
+        else:
+            verify_replacement_purchase_authority(
+                authority_artifact=_read_json_object(replacement_authority),
+                controlled_private_root=cast(Path, replacement_private_root),
+                initial_purchase_policy_artifact=_read_json_object(
+                    cast(Path, args.purchase_policy)
+                ),
+                initial_controlled_private_root=cast(Path, controlled_private_root),
+                cohort_policy_artifact=_read_json_object(
+                    cast(Path, args.cohort_policy)
+                ),
+                budget_plan_bytes=budget_bytes,
+                selection_bytes=selection_bytes,
+                purchase_ledger_path=cast(Path, args.purchase_ledger),
+                purchase_ledger_initialization_receipt_path=cast(
+                    Path, initialization_receipt
+                ),
+            )
+    except (
+        CaseDevPurchasePolicyError,
+        OSError,
+        ReplacementPurchaseApprovalError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
 
 
@@ -30878,22 +34075,40 @@ def _verify_materializer_projection(
     projection_inputs = tuple(
         Path(str(path)) for path in cast(Sequence[object], raw_inputs)
     )
-    if len(projection_inputs) != 9:
+    base_input_names = (
+        "selection",
+        "case_relevance",
+        "download_manifest",
+        "disclosure_clearance",
+        "clearance_run_card",
+        "restriction_evidence",
+        "preparation_summary",
+        "preparation_config",
+        "snapshot_manifest",
+    )
+    replacement_input_names = (
+        "replacement_result",
+        "replacement_replay_cohort_policy",
+        "replacement_replay_purchase_policy",
+        "replacement_replay_frontier",
+        "replacement_replay_purchase_ledger_initialization_receipt",
+        "replacement_replay_purchased_clearance",
+        "replacement_replay_clearance_run_card",
+        "replacement_replay_tranche_selection",
+    )
+    replacement_projection = len(projection_inputs) == (
+        len(base_input_names) + len(replacement_input_names) + 2
+    )
+    if len(projection_inputs) != len(base_input_names) and not replacement_projection:
         raise CommandError("target projection run card input paths differ")
+    regular_input_names = (
+        *base_input_names,
+        *(replacement_input_names if replacement_projection else ()),
+    )
     source_paths: dict[str, Path] = dict(
         zip(
-            (
-                "selection",
-                "case_relevance",
-                "download_manifest",
-                "disclosure_clearance",
-                "clearance_run_card",
-                "restriction_evidence",
-                "preparation_summary",
-                "preparation_config",
-                "snapshot_manifest",
-            ),
-            projection_inputs,
+            regular_input_names,
+            projection_inputs[: len(regular_input_names)],
             strict=True,
         )
     )
@@ -30928,6 +34143,33 @@ def _verify_materializer_projection(
     clearance_run_card = _projection_json_object(
         source_bytes["clearance_run_card"], source=source_paths["clearance_run_card"]
     )
+    replacement_result: JsonRecord | None = None
+    if replacement_projection:
+        try:
+            replacement_result = _verify_replacement_projection_replay(
+                source_paths=source_paths,
+                source_bytes=source_bytes,
+                controlled_private_root=projection_inputs[-2],
+                purchase_ledger_path=projection_inputs[-1],
+            )
+        except (
+            CaseDevPurchaseLedgerError,
+            CaseDevPurchasePolicyError,
+            ClearanceReplacementError,
+            OSError,
+            ValueError,
+        ) as exc:
+            raise CommandError(str(exc)) from exc
+        if (
+            run_card.get("active_selection_sha256") != source_sha256["selection"]
+            or run_card.get("active_selection_count")
+            != replacement_result.get("active_selection_count")
+            or run_card.get("replacement_result_sha256")
+            != source_sha256["replacement_result"]
+        ):
+            raise CommandError(
+                "target projection replacement selection commitment differs"
+            )
     clearance_snapshot = _capture_clearance_artifact_snapshot(
         run_card=clearance_run_card,
         run_card_path=source_paths["clearance_run_card"],
@@ -30960,6 +34202,7 @@ def _verify_materializer_projection(
         max_missing_core_documents_per_case=_required_int(
             preparation_config, "max_missing_core_documents_per_case"
         ),
+        replacement_selection_authorized=replacement_projection,
     )
     raw_outputs = run_card.get("output_paths")
     if not isinstance(raw_outputs, Sequence) or isinstance(raw_outputs, (str, bytes)):
@@ -31005,6 +34248,11 @@ def _verify_materializer_projection(
         or summary.get("snapshot_manifest_sha256") != source_sha256["snapshot_manifest"]
     ):
         raise CommandError("target projection lineage or target commitment differs")
+    expected_input_commitments = {
+        str(path.resolve()): source_sha256[name] for name, path in source_paths.items()
+    }
+    if summary.get("input_commitments") != expected_input_commitments:
+        raise CommandError("target projection input commitments differ")
     summary_outputs = summary.get("output_commitments")
     if not isinstance(summary_outputs, Mapping):
         raise CommandError("target projection summary lacks output commitments")
@@ -31203,7 +34451,7 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
     input_paths = tuple(
         Path(str(value)) for value in cast(Sequence[object], raw_inputs)
     )
-    if len(input_paths) != 9:
+    if len(input_paths) not in {9, 19}:
         raise CommandError("target projection run card input paths differ")
     config_path = input_paths[7]
     config = _projection_json_object(
@@ -31232,11 +34480,36 @@ def _verify_materializer_recovery(
 ) -> dict[str, object]:
     legacy_card = recovery_root / "run-cards/recover-purchased.json"
     quarantine_card = recovery_root / "run-cards/recover-recap-fetch-quarantine.json"
-    present = tuple(path for path in (legacy_card, quarantine_card) if path.exists())
+    consolidated_card = (
+        recovery_root / "run-cards/consolidate-replacement-recovery.json"
+    )
+    present = tuple(
+        path
+        for path in (legacy_card, quarantine_card, consolidated_card)
+        if path.exists()
+    )
     if len(present) != 1:
         raise CommandError(
             "purchased recovery root must contain exactly one supported completed "
             "recovery run card"
+        )
+    if present[0] == consolidated_card:
+        if (
+            purchase_policy_path is None
+            or cohort_policy_path is None
+            or ledger_path is None
+        ):
+            raise CommandError(
+                "consolidated recovery verification requires current purchase lineage"
+            )
+        return _verify_materializer_consolidated_recovery(
+            recovery_root=recovery_root,
+            run_card_path=consolidated_card,
+            selection_path=selection_path,
+            selected_document_keys=selected_document_keys,
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            ledger_path=ledger_path,
         )
     if present[0] == quarantine_card:
         if (
@@ -31261,6 +34534,234 @@ def _verify_materializer_recovery(
         selection_path=selection_path,
         selected_document_keys=selected_document_keys,
     )
+
+
+def _verify_materializer_consolidated_recovery(
+    *,
+    recovery_root: Path,
+    run_card_path: Path,
+    selection_path: object,
+    selected_document_keys: object,
+    purchase_policy_path: Path,
+    cohort_policy_path: Path,
+    ledger_path: Path,
+) -> dict[str, object]:
+    if not isinstance(selection_path, Path) or not isinstance(
+        selected_document_keys, set
+    ):
+        raise CommandError("internal target projection verification failed")
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="consolidated replacement recovery run card"
+    )
+    card = _projection_json_object(run_card_bytes, source=run_card_path)
+    if (
+        card.get("schema_version") != _REPLACEMENT_RECOVERY_CARD_SCHEMA
+        or card.get("stage") != "consolidate-replacement-recovery"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or card.get("provider_activity_requested") is not False
+        or card.get("provider_activity_executed") is not False
+    ):
+        raise CommandError("invalid completed consolidated replacement recovery card")
+    raw_inputs = card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("consolidated replacement recovery lacks exact inputs")
+    inputs = tuple(Path(str(path)) for path in cast(Sequence[object], raw_inputs))
+    if (
+        len(inputs) < 9
+        or inputs[2].resolve() != selection_path.resolve()
+        or inputs[4].resolve() != purchase_policy_path.resolve()
+        or inputs[5].resolve() != cohort_policy_path.resolve()
+        or inputs[6].resolve() != ledger_path.resolve()
+    ):
+        raise CommandError(
+            "consolidated replacement recovery differs from materializer inputs"
+        )
+    source_commitments = card.get("source_commitments")
+    if not isinstance(source_commitments, Mapping):
+        raise CommandError("consolidated replacement recovery lacks source commitments")
+    verified_bytes: dict[str, bytes] = {os.path.abspath(run_card_path): run_card_bytes}
+    for raw_path, expected_sha256 in cast(
+        Mapping[object, object], source_commitments
+    ).items():
+        if not isinstance(raw_path, str) or not _valid_prefixed_sha256(expected_sha256):
+            raise CommandError(
+                "consolidated replacement recovery source commitment is invalid"
+            )
+        path = Path(raw_path)
+        payload = _read_singly_linked_regular_input(
+            path, label="consolidated replacement recovery source"
+        )
+        if _bytes_sha256(payload) != expected_sha256:
+            raise CommandError(
+                "consolidated replacement recovery source commitment changed"
+            )
+        verified_bytes[os.path.abspath(path)] = payload
+    for required in (
+        selection_path,
+        inputs[3],
+        purchase_policy_path,
+        cohort_policy_path,
+        inputs[8],
+    ):
+        if os.path.abspath(required) not in verified_bytes:
+            raise CommandError(
+                "consolidated replacement recovery omitted a common source commitment"
+            )
+    policy = verify_case_dev_purchase_policy(
+        _projection_json_object(
+            verified_bytes[os.path.abspath(purchase_policy_path)],
+            source=purchase_policy_path,
+        )
+    )
+    require_approved_case_dev_purchase_policy(policy, controlled_private_root=inputs[7])
+    verify_case_dev_purchase_policy_cohort_binding(
+        policy,
+        _projection_json_object(
+            verified_bytes[os.path.abspath(cohort_policy_path)],
+            source=cohort_policy_path,
+        ),
+    )
+    snapshot = read_case_dev_purchase_snapshot(
+        ledger_path.resolve(),
+        policy=policy,
+        controlled_private_root=inputs[7],
+        initialization_receipt_path=inputs[8],
+    )
+    if card.get("purchase_state_sha256") != snapshot.purchase_state_sha256:
+        raise CommandError("consolidated replacement recovery purchase state changed")
+    manifest_path = recovery_root / "purchased-document-downloads.jsonl"
+    clearance_path = recovery_root / "disclosure-clearance.jsonl"
+    restriction_path = recovery_root / "restriction-evidence.jsonl"
+    resolved_path = recovery_root / "resolved-post-recovery-documents.jsonl"
+    document_root = recovery_root / "documents/purchased"
+    output_paths = {
+        manifest_path.resolve(),
+        clearance_path.resolve(),
+        restriction_path.resolve(),
+        resolved_path.resolve(),
+        document_root.resolve(),
+    }
+    raw_outputs = card.get("output_paths")
+    if (
+        not isinstance(raw_outputs, Sequence)
+        or isinstance(raw_outputs, (str, bytes))
+        or {Path(str(path)).resolve() for path in cast(Sequence[object], raw_outputs)}
+        != output_paths
+    ):
+        raise CommandError("consolidated replacement recovery output paths differ")
+    output_commitments = card.get("output_commitments")
+    if not isinstance(output_commitments, Mapping):
+        raise CommandError("consolidated replacement recovery lacks output commitments")
+    output_snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="consolidated replacement recovery output"
+        )
+        for path in (manifest_path, clearance_path, restriction_path, resolved_path)
+    }
+    for path, payload in output_snapshots.items():
+        if cast(Mapping[str, object], output_commitments).get(
+            path.name
+        ) != _bytes_sha256(payload):
+            raise CommandError(
+                "consolidated replacement recovery output commitment changed"
+            )
+        verified_bytes[os.path.abspath(path)] = payload
+    tree = _materializer_tree_snapshot(document_root)
+    if cast(Mapping[str, object], output_commitments).get("document_tree") != {
+        relative: _bytes_sha256(payload) for relative, payload in tree.items()
+    }:
+        raise CommandError("consolidated replacement recovery document tree changed")
+    manifest_records = _projection_jsonl_records(
+        output_snapshots[manifest_path], source=manifest_path
+    )
+    clearance_records = _projection_jsonl_records(
+        output_snapshots[clearance_path], source=clearance_path
+    )
+    manifest_index = _materializer_record_index(
+        manifest_records, label="consolidated replacement recovery manifest"
+    )
+    clearance_index = _materializer_record_index(
+        clearance_records, label="consolidated replacement recovery clearance"
+    )
+    operation_keys = {
+        (
+            _required_str(operation, "candidate_id"),
+            _required_str(operation, "source_document_id"),
+        )
+        for operation in snapshot.operations
+    }
+    expected_keys = cast(set[tuple[str, str]], selected_document_keys) & operation_keys
+    if set(manifest_index) != expected_keys or set(clearance_index) != expected_keys:
+        raise CommandError(
+            "consolidated replacement recovery coverage differs from active cohort"
+        )
+    for key, record in manifest_index.items():
+        relative = Path(_required_str(record, "local_path"))
+        payload = tree.get(relative.as_posix())
+        if (
+            payload is None
+            or hashlib.sha256(payload).hexdigest() != _required_str(record, "sha256")
+            or len(payload) != _required_int(record, "byte_count")
+        ):
+            raise CommandError(f"consolidated replacement document bytes differ: {key}")
+    if card.get("record_count") != len(expected_keys):
+        raise CommandError("consolidated replacement recovery record count differs")
+    replay = _prepare_replacement_recovery_consolidation(
+        argparse.Namespace(
+            output_root=recovery_root,
+            tranche_index=inputs[0],
+            tranche_index_run_card=inputs[1],
+            selection=inputs[2],
+            target_purchased_manifest=inputs[3],
+            purchase_policy=inputs[4],
+            cohort_policy=inputs[5],
+            purchase_ledger=inputs[6],
+            controlled_private_root=inputs[7],
+            purchase_ledger_initialization_receipt=inputs[8],
+        )
+    )
+    if (
+        tuple(manifest_records) != replay.manifest_records
+        or tuple(clearance_records) != replay.clearance_records
+        or _projection_jsonl_records(
+            output_snapshots[restriction_path], source=restriction_path
+        )
+        != list(replay.restriction_records)
+        or _projection_jsonl_records(
+            output_snapshots[resolved_path], source=resolved_path
+        )
+        != list(replay.resolved_records)
+        or tree != dict(replay.document_bytes)
+        or card.get("purchase_state_sha256") != replay.purchase_state_sha256
+    ):
+        raise CommandError(
+            "consolidated replacement recovery does not reproduce from tranches"
+        )
+    replay_source_commitments = {
+        str(path.resolve()): _bytes_sha256(payload)
+        for path, payload in sorted(
+            replay.source_snapshots.items(), key=lambda item: str(item[0])
+        )
+    }
+    if source_commitments != replay_source_commitments:
+        raise CommandError(
+            "consolidated replacement recovery source commitments do not reproduce"
+        )
+    return {
+        "recovery_stage": "consolidate-replacement-recovery",
+        "manifest_path": manifest_path,
+        "manifest_records": manifest_records,
+        "recovery_path": restriction_path,
+        "document_root": document_root,
+        "run_card_path": run_card_path,
+        "restriction_path": restriction_path,
+        "resolved_path": resolved_path,
+        "verified_artifact_bytes": verified_bytes,
+    }
 
 
 def _verify_materializer_legacy_recovery(
@@ -31444,17 +34945,31 @@ def _verify_materializer_quarantine_recovery(
     recovery_inputs = tuple(
         Path(str(path)) for path in cast(Sequence[object], raw_inputs)
     )
+    replacement_mode = run_card.get("authority_mode") == "replacement_successor"
     if len(recovery_inputs) not in {8, 10}:
         raise CommandError("quarantine recovery run card input paths differ")
     expected_inputs = (
-        selection_path,
-        recovery_inputs[1],
-        recovery_inputs[2],
-        purchase_policy_path,
-        cohort_policy_path,
-        recovery_inputs[5],
-        ledger_path,
-        recovery_inputs[7],
+        (
+            selection_path,
+            recovery_inputs[1],
+            purchase_policy_path,
+            cohort_policy_path,
+            recovery_inputs[4],
+            ledger_path,
+            recovery_inputs[6],
+            recovery_inputs[7],
+        )
+        if replacement_mode
+        else (
+            selection_path,
+            recovery_inputs[1],
+            recovery_inputs[2],
+            purchase_policy_path,
+            cohort_policy_path,
+            recovery_inputs[5],
+            ledger_path,
+            recovery_inputs[7],
+        )
     )
     if tuple(path.resolve() for path in recovery_inputs[:8]) != tuple(
         path.resolve() for path in expected_inputs
@@ -31467,15 +34982,27 @@ def _verify_materializer_quarantine_recovery(
     ):
         raise CommandError("quarantine recovery run card lacks exact commitments")
     typed_output_commitments = cast(Mapping[str, object], output_commitments)
-    source_paths: dict[str, Path] = {
-        "selection": selection_path,
-        "case_relevance": recovery_inputs[1],
-        "target_projection_run_card": recovery_inputs[2],
-        "purchase_policy": purchase_policy_path,
-        "cohort_policy": cohort_policy_path,
-        "budget_plan": recovery_inputs[5],
-        "attempt_policy": recovery_inputs[7],
-    }
+    source_paths: dict[str, Path] = (
+        {
+            "selection": selection_path,
+            "case_relevance": recovery_inputs[1],
+            "purchase_policy": purchase_policy_path,
+            "cohort_policy": cohort_policy_path,
+            "budget_plan": recovery_inputs[4],
+            "attempt_policy": recovery_inputs[6],
+            "replacement_purchase_authority": recovery_inputs[7],
+        }
+        if replacement_mode
+        else {
+            "selection": selection_path,
+            "case_relevance": recovery_inputs[1],
+            "target_projection_run_card": recovery_inputs[2],
+            "purchase_policy": purchase_policy_path,
+            "cohort_policy": cohort_policy_path,
+            "budget_plan": recovery_inputs[5],
+            "attempt_policy": recovery_inputs[7],
+        }
+    )
     if len(recovery_inputs) == 10:
         source_paths.update(
             {
@@ -31565,12 +35092,20 @@ def _verify_materializer_quarantine_recovery(
         os.path.abspath(path): source_snapshot[name]
         for name, path in source_paths.items()
     }
-    selection_bytes, case_relevance_bytes = _authenticated_target_projection_inputs(
-        selection_path=selection_path,
-        case_relevance_path=recovery_inputs[1],
-        run_card_path=recovery_inputs[2],
-        captured_artifact_bytes=normalized_source_snapshot,
-    )
+    if replacement_mode:
+        if selection_path.resolve() != recovery_inputs[1].resolve():
+            raise CommandError(
+                "replacement recovery selection and case relevance differ"
+            )
+        selection_bytes = source_snapshot["selection"]
+        case_relevance_bytes = source_snapshot["case_relevance"]
+    else:
+        selection_bytes, case_relevance_bytes = _authenticated_target_projection_inputs(
+            selection_path=selection_path,
+            case_relevance_path=recovery_inputs[1],
+            run_card_path=recovery_inputs[2],
+            captured_artifact_bytes=normalized_source_snapshot,
+        )
     _projection_jsonl_records(selection_bytes, source=selection_path)
     expected_purchased_relevance = _projection_jsonl_bytes(
         _project_purchased_case_relevance(
@@ -31631,8 +35166,17 @@ def _verify_materializer_quarantine_recovery(
         "review_requests_path": review_requests_path,
         "case_relevance_path": purchased_case_relevance_path,
         "target_case_relevance_path": recovery_inputs[1],
-        "target_projection_run_card_path": recovery_inputs[2],
-        "attempt_policy_path": recovery_inputs[7],
+        **(
+            {
+                "replacement_purchase_authority_path": recovery_inputs[7],
+                "attempt_policy_path": recovery_inputs[6],
+            }
+            if replacement_mode
+            else {
+                "target_projection_run_card_path": recovery_inputs[2],
+                "attempt_policy_path": recovery_inputs[7],
+            }
+        ),
         "verified_artifact_bytes": {
             os.path.abspath(run_card_path): run_card_bytes,
             **normalized_source_snapshot,
@@ -31684,11 +35228,23 @@ def _materializer_recovery_source_commitments(
         commitments["purchased_recovery_case_relevance"] = committed(
             cast(Path, recovery["case_relevance_path"])
         )
-        commitments["target_projection_run_card"] = committed(
-            cast(Path, recovery["target_projection_run_card_path"])
-        )
+        if "target_projection_run_card_path" in recovery:
+            commitments["target_projection_run_card"] = committed(
+                cast(Path, recovery["target_projection_run_card_path"])
+            )
+        else:
+            commitments["replacement_purchase_authority"] = committed(
+                cast(Path, recovery["replacement_purchase_authority_path"])
+            )
         commitments["purchased_recovery_attempt_policy"] = committed(
             cast(Path, recovery["attempt_policy_path"])
+        )
+    elif stage == "consolidate-replacement-recovery":
+        commitments["purchased_recovery_restriction_evidence"] = committed(
+            cast(Path, recovery["restriction_path"])
+        )
+        commitments["purchased_recovery_resolved_documents"] = committed(
+            cast(Path, recovery["resolved_path"])
         )
     else:
         raise CommandError("unsupported materializer recovery stage")
@@ -31702,7 +35258,10 @@ def _verify_materializer_recovery_clearance_binding(
 ) -> None:
     """Require quarantine clearance to consume the recovery-produced inputs."""
 
-    if recovery.get("recovery_stage") == "recover-purchased":
+    if recovery.get("recovery_stage") in {
+        "recover-purchased",
+        "consolidate-replacement-recovery",
+    }:
         return
     if recovery.get("recovery_stage") != "recover-recap-fetch-quarantine":
         raise CommandError("unsupported materializer recovery stage")
@@ -31749,6 +35308,78 @@ def _verify_materializer_clearance_lineage(
         captured_artifact_bytes=captured_artifact_bytes,
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    if run_card.get("schema_version") == _REPLACEMENT_RECOVERY_CARD_SCHEMA:
+        expected_root = run_card_path.parents[1]
+        restriction_path = expected_root / "restriction-evidence.jsonl"
+        resolved_path = expected_root / "resolved-post-recovery-documents.jsonl"
+        expected_paths = (
+            expected_root / "purchased-document-downloads.jsonl",
+            expected_root / "disclosure-clearance.jsonl",
+            restriction_path,
+            resolved_path,
+        )
+        if (
+            manifest_path.resolve() != expected_paths[0].resolve()
+            or clearance_path.resolve() != expected_paths[1].resolve()
+        ):
+            raise CommandError(
+                "consolidated replacement clearance paths differ from recovery"
+            )
+        output_commitments = run_card.get("output_commitments")
+        if not isinstance(output_commitments, Mapping):
+            raise CommandError(
+                "consolidated replacement clearance lacks output commitments"
+            )
+        snapshots = {
+            path: _captured_or_stable_input(
+                path,
+                label="consolidated replacement clearance output",
+                captured_artifact_bytes=captured_artifact_bytes,
+            )
+            for path in expected_paths
+        }
+        for path, payload in snapshots.items():
+            if cast(Mapping[str, object], output_commitments).get(
+                path.name
+            ) != _bytes_sha256(payload):
+                raise CommandError(
+                    "consolidated replacement clearance commitment changed"
+                )
+        manifest_records = _projection_jsonl_records(
+            snapshots[expected_paths[0]], source=expected_paths[0]
+        )
+        clearance_records = _projection_jsonl_records(
+            snapshots[expected_paths[1]], source=expected_paths[1]
+        )
+        if set(
+            _materializer_record_index(
+                manifest_records,
+                label="consolidated replacement manifest",
+            )
+        ) != set(
+            _materializer_record_index(
+                clearance_records,
+                label="consolidated replacement clearance",
+            )
+        ):
+            raise CommandError("consolidated replacement clearance coverage differs")
+        return {
+            "lineage_kind": "replacement_recovery_consolidation",
+            "verified_artifact_bytes": {
+                os.path.abspath(run_card_path): run_card_bytes,
+                **{
+                    os.path.abspath(path): payload
+                    for path, payload in snapshots.items()
+                },
+            },
+            "clearance_records": clearance_records,
+            "manifest_path": manifest_path,
+            "restriction_path": restriction_path,
+            "restriction_records": _projection_jsonl_records(
+                snapshots[restriction_path], source=restriction_path
+            ),
+            "resolved_path": resolved_path,
+        }
     verified_snapshot = _complete_clearance_artifact_snapshot(
         run_card=run_card,
         run_card_path=run_card_path,
@@ -34135,6 +37766,11 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
     courtlistener_fixture = cast(Path | None, args.courtlistener_fixture)
     broker_fixture = cast(Path | None, args.purchase_broker_fixture)
     attempt_policy_path = cast(Path | None, args.attempt_policy)
+    broker_policy_path = cast(Path | None, args.broker_policy)
+    replacement_authority_path = cast(Path | None, args.replacement_purchase_authority)
+    replacement_private_root = cast(
+        Path | None, args.replacement_controlled_private_root
+    )
     controlled_private_root = cast(Path | None, args.controlled_private_root)
     initialization_receipt = cast(
         Path | None, args.purchase_ledger_initialization_receipt
@@ -34145,6 +37781,12 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         policy_path,
         cohort_policy_path,
         *((attempt_policy_path,) if attempt_policy_path is not None else ()),
+        *((broker_policy_path,) if broker_policy_path is not None else ()),
+        *(
+            (replacement_authority_path,)
+            if replacement_authority_path is not None
+            else ()
+        ),
     )
     client: CourtListenerRecapFetchClient | None = None
     request_budget: CourtListenerRequestBudget | None = None
@@ -34158,6 +37800,11 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         plan = _missing_core_budget_plan(budget_plan_artifact)
         purchase_policy_artifact = _read_json_object(policy_path)
         cohort_policy_artifact = _read_json_object(cohort_policy_path)
+        replacement_authority_artifact = (
+            _read_json_object(replacement_authority_path)
+            if replacement_authority_path is not None
+            else None
+        )
         selection_records = _projection_jsonl_records(
             selection_bytes, source=selection_path
         )
@@ -34165,18 +37812,44 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         require_approved_case_dev_purchase_policy(
             purchase_policy, controlled_private_root=controlled_private_root
         )
-        verify_approved_purchase_input_bytes(
-            purchase_policy,
-            controlled_private_root=cast(Path, controlled_private_root),
-            budget_plan_bytes=budget_plan_bytes,
-            selection_bytes=selection_bytes,
-        )
+        if replacement_authority_path is None:
+            if replacement_private_root is not None:
+                raise CommandError(
+                    "replacement private root requires replacement purchase authority"
+                )
+            verify_approved_purchase_input_bytes(
+                purchase_policy,
+                controlled_private_root=cast(Path, controlled_private_root),
+                budget_plan_bytes=budget_plan_bytes,
+                selection_bytes=selection_bytes,
+            )
+        else:
+            if replacement_private_root is None:
+                raise CommandError(
+                    "replacement purchase authority requires its private root"
+                )
+            verify_replacement_purchase_authority(
+                authority_artifact=cast(
+                    Mapping[str, object], replacement_authority_artifact
+                ),
+                controlled_private_root=replacement_private_root,
+                initial_purchase_policy_artifact=purchase_policy_artifact,
+                initial_controlled_private_root=cast(Path, controlled_private_root),
+                cohort_policy_artifact=cohort_policy_artifact,
+                budget_plan_bytes=budget_plan_bytes,
+                selection_bytes=selection_bytes,
+                purchase_ledger_path=ledger_path,
+                purchase_ledger_initialization_receipt_path=cast(
+                    Path, initialization_receipt
+                ),
+            )
         verify_case_dev_purchase_policy_cohort_binding(
             purchase_policy, cohort_policy_artifact
         )
         public_documents = public_documents_from_selection(selection_records)
         attempt_documents: Mapping[str, Mapping[str, str]] = {}
         attempt_policy_sha256: str | None = None
+        attempt_policy_artifact: Mapping[str, object] | None = None
         if attempt_policy_path is not None:
             attempt_policy_artifact = _read_json_object(attempt_policy_path)
             attempt_documents = verify_recap_fetch_attempt_policy(
@@ -34189,9 +37862,43 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                 budget_plan_bytes=budget_plan_bytes,
                 selection_bytes=selection_bytes,
                 controlled_private_root=cast(Path, controlled_private_root),
+                replacement_purchase_authority_artifact=(
+                    replacement_authority_artifact
+                ),
+                replacement_controlled_private_root=replacement_private_root,
+                purchase_ledger_initialization_receipt_path=initialization_receipt,
             )
             attempt_policy_sha256 = _required_str(
                 attempt_policy_artifact, "policy_sha256"
+            )
+        if (
+            live_purchase
+            and replacement_authority_path is not None
+            and broker_policy_path is None
+        ):
+            raise CommandError(
+                "--broker-policy is required for a live replacement purchase; "
+                "generate the exact successor policy, deploy and activate it "
+                "through secure-gate, and verify that activation before paid "
+                "admission"
+            )
+        if broker_policy_path is not None:
+            verify_recap_fetch_broker_policy(
+                _read_json_object(broker_policy_path),
+                purchase_policy_artifact=purchase_policy_artifact,
+                cohort_policy_artifact=cohort_policy_artifact,
+                budget_plan=plan,
+                budget_plan_artifact=budget_plan_artifact,
+                selection_records=selection_records,
+                budget_plan_bytes=budget_plan_bytes,
+                selection_bytes=selection_bytes,
+                controlled_private_root=cast(Path, controlled_private_root),
+                attempt_policy_artifact=attempt_policy_artifact,
+                replacement_purchase_authority_artifact=(
+                    replacement_authority_artifact
+                ),
+                replacement_controlled_private_root=replacement_private_root,
+                purchase_ledger_initialization_receipt_path=initialization_receipt,
             )
         if ledger_path != purchase_policy.canonical_ledger_path:
             raise CommandError(
@@ -34341,6 +38048,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         CaseDevPurchaseLedgerError,
         CaseDevPurchasePolicyError,
         RecapFetchAttemptPolicyError,
+        RecapFetchBrokerPolicyError,
         CourtListenerRecapFetchError,
         CourtListenerRequestBudgetError,
         OSError,
@@ -34534,7 +38242,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
 ) -> int:
     if not _acquisition_dry_run(args):
         _preflight_current_purchase_snapshot(args)
-    _preflight_approved_purchase_runtime(args)
+    _preflight_approved_purchase_input_bytes(args)
     controlled_private_root = cast(Path | None, args.controlled_private_root)
     initialization_receipt = cast(
         Path | None, args.purchase_ledger_initialization_receipt
@@ -34542,12 +38250,16 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
     output_root = cast(Path, args.output_root)
     selection_path = cast(Path, args.selection)
     case_relevance_path = cast(Path, args.case_relevance)
-    target_projection_run_card_path = cast(Path, args.target_projection_run_card)
+    target_projection_run_card_path = cast(Path | None, args.target_projection_run_card)
     purchase_policy_path = cast(Path, args.purchase_policy)
     cohort_policy_path = cast(Path, args.cohort_policy)
     budget_plan_path = cast(Path, args.budget_plan)
     ledger_path = cast(Path, args.purchase_ledger).resolve()
     attempt_policy_path = cast(Path, args.attempt_policy)
+    replacement_authority_path = cast(Path | None, args.replacement_purchase_authority)
+    replacement_private_root = cast(
+        Path | None, args.replacement_controlled_private_root
+    )
     manifest_path = _acquisition_path(
         args,
         "manifest_output",
@@ -34580,23 +38292,33 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
     immutable_input_paths: tuple[Path, ...] = (
         selection_path,
         case_relevance_path,
-        target_projection_run_card_path,
+        *(
+            (target_projection_run_card_path,)
+            if target_projection_run_card_path is not None
+            else ()
+        ),
         purchase_policy_path,
         cohort_policy_path,
         budget_plan_path,
         attempt_policy_path,
+        *((replacement_authority_path,) if replacement_authority_path else ()),
         *((courtlistener_fixture,) if courtlistener_fixture is not None else ()),
         *((document_fixture,) if document_fixture is not None else ()),
     )
     input_paths = (
         selection_path,
         case_relevance_path,
-        target_projection_run_card_path,
+        *(
+            (target_projection_run_card_path,)
+            if target_projection_run_card_path is not None
+            else ()
+        ),
         purchase_policy_path,
         cohort_policy_path,
         budget_plan_path,
         ledger_path,
         attempt_policy_path,
+        *((replacement_authority_path,) if replacement_authority_path else ()),
         *((courtlistener_fixture,) if courtlistener_fixture is not None else ()),
         *((document_fixture,) if document_fixture is not None else ()),
     )
@@ -34611,12 +38333,33 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             os.path.abspath(path): payload
             for path, payload in immutable_input_snapshot.items()
         }
-        selection_bytes, case_relevance_bytes = _authenticated_target_projection_inputs(
-            selection_path=selection_path,
-            case_relevance_path=case_relevance_path,
-            run_card_path=target_projection_run_card_path,
-            captured_artifact_bytes=normalized_input_snapshot,
-        )
+        replacement_mode = replacement_authority_path is not None
+        if replacement_mode:
+            if (
+                replacement_private_root is None
+                or target_projection_run_card_path is not None
+                or selection_path.resolve() != case_relevance_path.resolve()
+            ):
+                raise CommandError(
+                    "replacement recovery requires its successor authority, no "
+                    "target projection card, and the exact authority-bound selection "
+                    "for both --selection and --case-relevance"
+                )
+            selection_bytes = immutable_input_snapshot[selection_path]
+            case_relevance_bytes = selection_bytes
+        else:
+            if target_projection_run_card_path is None:
+                raise CommandError(
+                    "initial recovery requires --target-projection-run-card"
+                )
+            selection_bytes, case_relevance_bytes = (
+                _authenticated_target_projection_inputs(
+                    selection_path=selection_path,
+                    case_relevance_path=case_relevance_path,
+                    run_card_path=target_projection_run_card_path,
+                    captured_artifact_bytes=normalized_input_snapshot,
+                )
+            )
         selection_records = _projection_jsonl_records(
             selection_bytes, source=selection_path
         )
@@ -34639,12 +38382,13 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         require_approved_case_dev_purchase_policy(
             policy, controlled_private_root=controlled_private_root
         )
-        verify_approved_purchase_input_bytes(
-            policy,
-            controlled_private_root=cast(Path, controlled_private_root),
-            budget_plan_bytes=immutable_input_snapshot[budget_plan_path],
-            selection_bytes=selection_bytes,
-        )
+        if not replacement_mode:
+            verify_approved_purchase_input_bytes(
+                policy,
+                controlled_private_root=cast(Path, controlled_private_root),
+                budget_plan_bytes=immutable_input_snapshot[budget_plan_path],
+                selection_bytes=selection_bytes,
+            )
         verify_case_dev_purchase_policy_cohort_binding(policy, cohort_policy_artifact)
         if ledger_path != policy.canonical_ledger_path:
             raise RecapFetchQuarantineRecoveryError(
@@ -34661,6 +38405,16 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             budget_plan_bytes=immutable_input_snapshot[budget_plan_path],
             selection_bytes=selection_bytes,
             controlled_private_root=cast(Path, controlled_private_root),
+            replacement_purchase_authority_artifact=(
+                _projection_json_object(
+                    immutable_input_snapshot[replacement_authority_path],
+                    source=replacement_authority_path,
+                )
+                if replacement_authority_path is not None
+                else None
+            ),
+            replacement_controlled_private_root=replacement_private_root,
+            purchase_ledger_initialization_receipt_path=initialization_receipt,
         )
         attempt_policy_sha256 = _required_str(attempt_policy_artifact, "policy_sha256")
         purchase_state_sha256: str | None = None
@@ -34837,9 +38591,31 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                         case_relevance_path,
                         immutable_input_snapshot[case_relevance_path],
                     ),
-                    "target_projection_run_card": _file_commitment_from_bytes(
-                        target_projection_run_card_path,
-                        immutable_input_snapshot[target_projection_run_card_path],
+                    **(
+                        {
+                            "target_projection_run_card": _file_commitment_from_bytes(
+                                target_projection_run_card_path,
+                                immutable_input_snapshot[
+                                    target_projection_run_card_path
+                                ],
+                            )
+                        }
+                        if target_projection_run_card_path is not None
+                        else {}
+                    ),
+                    **(
+                        {
+                            "replacement_purchase_authority": (
+                                _file_commitment_from_bytes(
+                                    replacement_authority_path,
+                                    immutable_input_snapshot[
+                                        replacement_authority_path
+                                    ],
+                                )
+                            )
+                        }
+                        if replacement_authority_path is not None
+                        else {}
                     ),
                     "purchase_policy": _file_commitment_from_bytes(
                         purchase_policy_path,
@@ -34897,6 +38673,11 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                     "document_tree": _materializer_tree_commitments(document_root),
                     "purchase_state_sha256": purchase_state_sha256,
                 }
+            ),
+            "authority_mode": (
+                "replacement_successor"
+                if replacement_authority_path is not None
+                else "initial_projection"
             ),
         },
     )
@@ -38251,7 +42032,7 @@ def _require_current_purchase_lineage(
 def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
     if not _acquisition_dry_run(args):
         _preflight_current_purchase_snapshot(args)
-    _preflight_approved_purchase_runtime(args)
+    _preflight_approved_purchase_input_bytes(args)
     output_root = cast(Path, args.output_root)
     selection_path = cast(Path, args.selection)
     purchase_policy_path = cast(Path, args.purchase_policy)
@@ -38263,6 +42044,12 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
         Path | None, args.purchase_ledger_initialization_receipt
     )
     attempt_policy_path = cast(Path, args.attempt_policy)
+    replacement_authority_path = cast(
+        Path | None, getattr(args, "replacement_purchase_authority", None)
+    )
+    replacement_private_root = cast(
+        Path | None, getattr(args, "replacement_controlled_private_root", None)
+    )
     download_path = cast(Path, args.download_manifest)
     clearance_path = cast(Path, args.disclosure_clearance)
     resolved_path = _acquisition_path(
@@ -38283,6 +42070,11 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
         budget_plan_bytes, source=budget_plan_path
     )
     attempt_policy_artifact = _read_json_object(attempt_policy_path)
+    replacement_authority_artifact = (
+        _read_json_object(replacement_authority_path)
+        if replacement_authority_path is not None
+        else None
+    )
     clearance_kwargs, clearance_paths = _authenticated_clearance_lineage_inputs(
         args, clearance_path=clearance_path
     )
@@ -38291,12 +42083,27 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
         require_approved_case_dev_purchase_policy(
             policy, controlled_private_root=controlled_private_root
         )
-        verify_approved_purchase_input_bytes(
-            policy,
-            controlled_private_root=cast(Path, controlled_private_root),
-            budget_plan_bytes=budget_plan_bytes,
-            selection_bytes=selection_bytes,
-        )
+        if replacement_authority_artifact is None:
+            verify_approved_purchase_input_bytes(
+                policy,
+                controlled_private_root=cast(Path, controlled_private_root),
+                budget_plan_bytes=budget_plan_bytes,
+                selection_bytes=selection_bytes,
+            )
+        else:
+            verify_replacement_purchase_authority(
+                authority_artifact=replacement_authority_artifact,
+                controlled_private_root=cast(Path, replacement_private_root),
+                initial_purchase_policy_artifact=purchase_policy_artifact,
+                initial_controlled_private_root=cast(Path, controlled_private_root),
+                cohort_policy_artifact=cohort_policy_artifact,
+                budget_plan_bytes=budget_plan_bytes,
+                selection_bytes=selection_bytes,
+                purchase_ledger_path=ledger_path,
+                purchase_ledger_initialization_receipt_path=cast(
+                    Path, initialization_receipt
+                ),
+            )
         verify_case_dev_purchase_policy_cohort_binding(policy, cohort_policy_artifact)
         if ledger_path != policy.canonical_ledger_path:
             raise ResolvedPostRecoveryError(
@@ -38313,6 +42120,9 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
             budget_plan_bytes=budget_plan_bytes,
             selection_bytes=selection_bytes,
             controlled_private_root=cast(Path, controlled_private_root),
+            replacement_purchase_authority_artifact=(replacement_authority_artifact),
+            replacement_controlled_private_root=replacement_private_root,
+            purchase_ledger_initialization_receipt_path=initialization_receipt,
         )
         dry_run = _acquisition_dry_run(args)
         _acquisition_output_root(args)
@@ -38375,6 +42185,7 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
         budget_plan_path,
         ledger_path,
         attempt_policy_path,
+        *((replacement_authority_path,) if replacement_authority_path else ()),
         download_path,
         clearance_path,
         *clearance_paths,
@@ -38925,6 +42736,18 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 }
             }
             if selection_path is not None
+            else {}
+        ),
+        **(
+            {
+                "materialization_run_card": {
+                    "path": str(materialization_card_path.resolve()),
+                    "sha256": _bytes_sha256(
+                        completion_input_snapshots[materialization_card_path]
+                    ),
+                }
+            }
+            if materialization_card_path is not None
             else {}
         ),
         **{
@@ -46995,6 +50818,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     parse_plan_run_card_path = cast(Path, args.parse_plan_run_card)
     labels_path = cast(Path, args.labels)
     label_audit_path = cast(Path, args.llm_label_audit)
+    original_llm_label_labels_path = cast(Path, args.original_llm_label_labels)
+    original_llm_label_audit_path = cast(Path, args.original_llm_label_audit)
     label_run_card_path = cast(Path | None, args.llm_label_run_card)
     stage_b_judge_registry_path = cast(Path, args.stage_b_judge_registry)
     labeling_policy_path = cast(Path, args.labeling_policy)
@@ -47040,6 +50865,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             "--packet-input-run-card, and --packet-build-run-card"
         )
     exclusion_paths = tuple(cast(list[Path], args.exclusion_source))
+    replacement_exclusion_card_path = cast(
+        Path | None, args.replacement_exclusion_run_card
+    )
     complete_ledger_path = _acquisition_path(
         args,
         "complete_exclusion_ledger_output",
@@ -47101,6 +50929,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         parse_plan_run_card_path,
         labels_path,
         label_audit_path,
+        original_llm_label_labels_path,
+        original_llm_label_audit_path,
         *((label_run_card_path,) if label_run_card_path else ()),
         stage_b_judge_registry_path,
         labeling_policy_path,
@@ -47128,6 +50958,11 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         target_preparation_summary_path,
         target_preparation_run_card_path,
         *exclusion_paths,
+        *(
+            (replacement_exclusion_card_path,)
+            if replacement_exclusion_card_path is not None
+            else ()
+        ),
     )
     materialization_paths = _verify_optional_finalize_materialization(
         selection_path=selection_path,
@@ -47307,8 +51142,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             model_registry_path=stage_b_judge_registry_path,
             evaluated_model_registry_path=model_registry_path,
             provider_cycle_caps_path=provider_caps_path,
-            labels_path=labels_path,
-            audit_path=label_audit_path,
+            labels_path=original_llm_label_labels_path,
+            audit_path=original_llm_label_audit_path,
         )
         try:
             verified_preparation = _verify_completed_preparation_for_frontier(
@@ -47413,7 +51248,12 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         packet_records = [dict(record) for record in packet_build_replay.packet_records]
         screened_case_records = _read_records(screened_cases_path)
         discovery_exclusion_records = _read_records(discovery_exclusions_path)
-        exclusion_groups = tuple(_read_records(path) for path in exclusion_paths)
+        exclusion_groups = _replacement_finalization_exclusion_groups(
+            exclusion_paths=exclusion_paths,
+            replacement_exclusion_card_path=replacement_exclusion_card_path,
+            selection_path=selection_path,
+            screened_cases_path=screened_cases_path,
+        )
         ledger = merge_exclusion_ledger_records(
             discovery_exclusion_records,
             *exclusion_groups,
@@ -47743,6 +51583,12 @@ def _validate_acquisition_discovery_reconciliation(
 
     selected = set(selection_ids)
     ledgered = set(ledger_ids)
+    overlap = sorted(selected & ledgered)
+    if overlap:
+        raise CommandError(
+            "screened candidates must be selected xor excluded; overlap="
+            + ", ".join(overlap)
+        )
     unknown_selected = sorted(selected - screened)
     if unknown_selected:
         raise CommandError(

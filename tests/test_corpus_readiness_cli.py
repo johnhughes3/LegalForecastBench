@@ -38,6 +38,17 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
     markdown_root = tmp_path / "markdown"
     inputs.mkdir()
     stage_a_run_card_args = _stub_stage_a_run_card_chain(monkeypatch, inputs)
+    verified_label_inputs: dict[str, Path] = {}
+
+    def _capture_llm_label_inputs(_run_card_path: Path, **kwargs: object) -> None:
+        verified_label_inputs["labels"] = Path(str(kwargs["labels_path"]))
+        verified_label_inputs["audit"] = Path(str(kwargs["audit_path"]))
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_llm_label_run_card",
+        _capture_llm_label_inputs,
+    )
     markdown_root.mkdir()
     (markdown_root / "decision-1.md").write_text(
         "The Court rules. Count I is dismissed.",
@@ -432,6 +443,10 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
         sum(buckets.values()) == readiness["clean_count"]
         for buckets in readiness["case_mix"].values()
     )
+    assert verified_label_inputs == {
+        "labels": inputs / "original-llm-label-labels.jsonl",
+        "audit": inputs / "original-llm-label-audit.jsonl",
+    }
 
 
 def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
@@ -1089,6 +1104,10 @@ def _stub_stage_a_run_card_chain(
     label_card.write_text("{}\n", encoding="utf-8")
     provider_caps.write_text("{}\n", encoding="utf-8")
     provider_journal.write_bytes(b"fixture")
+    original_labels = inputs / "original-llm-label-labels.jsonl"
+    original_audit = inputs / "original-llm-label-audit.jsonl"
+    _write_jsonl(original_labels, [{"artifact": "original-llm-label-labels"}])
+    _write_jsonl(original_audit, [{"artifact": "original-llm-label-audit"}])
     lineage = SimpleNamespace(provider_journal_path=provider_journal)
     monkeypatch.setattr(
         cli,
@@ -1124,6 +1143,10 @@ def _stub_stage_a_run_card_chain(
         str(review_card),
         "--llm-label-run-card",
         str(label_card),
+        "--original-llm-label-labels",
+        str(original_labels),
+        "--original-llm-label-audit",
+        str(original_audit),
         "--provider-cycle-caps",
         str(provider_caps),
         "--provider-journal",

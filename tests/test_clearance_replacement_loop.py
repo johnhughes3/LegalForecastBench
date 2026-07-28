@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from copy import deepcopy
@@ -7,6 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import legalforecast.cli as cli
 import legalforecast.ingestion.clearance_replacement as clearance_replacement_module
 import legalforecast.ingestion.recap_fetch_broker_policy as recap_broker_policy_module
 import pytest
@@ -21,6 +23,7 @@ from legalforecast.ingestion.clearance_replacement import (
     ClearanceReplacementError,
     build_replacement_frontier,
     plan_clearance_replacements,
+    verify_bound_active_selection,
     verify_replacement_frontier,
 )
 from legalforecast.ingestion.missing_core_budget import (
@@ -30,6 +33,28 @@ from legalforecast.ingestion.missing_core_budget import (
 from tests.purchase_approval_fixtures import (
     allow_historical_v1_algorithm_fixtures,
 )
+
+
+def test_replacement_planning_rejects_self_attested_clearance_card(
+    tmp_path: Path,
+) -> None:
+    clearance_path = tmp_path / "purchased-clearance.jsonl"
+    card_path = tmp_path / "clearance-card.json"
+    clearance_bytes = b'{"candidate_id":"case-1","status":"cleared"}\n'
+    card_bytes = b'{"source_commitments":{},"status":"completed"}\n'
+    clearance_path.write_bytes(clearance_bytes)
+    card_path.write_bytes(card_bytes)
+
+    with pytest.raises(
+        ClearanceReplacementError,
+        match="clearance run card lacks download_manifest commitment",
+    ):
+        cli._verify_replacement_clearance_evidence(
+            clearance_bytes=clearance_bytes,
+            clearance_path=clearance_path,
+            run_card_bytes=card_bytes,
+            run_card_path=card_path,
+        )
 
 
 @pytest.fixture
@@ -477,6 +502,14 @@ def test_cli_separates_broad_allowlist_from_narrow_iteration(tmp_path: Path) -> 
         {"selected_candidate_ids": ["100", "200"]},
     )
     candidates_path = _write_json(tmp_path / "frontier.json", _frontier_rows())
+    candidate_selection_path = tmp_path / "candidate-selection.jsonl"
+    candidate_selection_path.write_text(
+        "".join(
+            json.dumps(row, sort_keys=True) + "\n"
+            for row in reversed(_broker_selection())
+        ),
+        encoding="utf-8",
+    )
     frontier_path = tmp_path / "replacement-frontier.json"
     upfront_broad_path = tmp_path / "upfront-broker-allowlist-plan.json"
 
@@ -495,6 +528,8 @@ def test_cli_separates_broad_allowlist_from_narrow_iteration(tmp_path: Path) -> 
                 str(selection_path),
                 "--candidate-frontier",
                 str(candidates_path),
+                "--candidate-selection",
+                str(candidate_selection_path),
                 "--source",
                 f"snapshot={projection_path}",
                 "--output",
@@ -520,6 +555,8 @@ def test_cli_separates_broad_allowlist_from_narrow_iteration(tmp_path: Path) -> 
     narrow_path = tmp_path / "replacement-budget-plan.json"
     broad_path = tmp_path / "broker-allowlist-plan.json"
     exclusions_path = tmp_path / "replacement-exclusions.jsonl"
+    active_selection_path = tmp_path / "active-selection.jsonl"
+    replacement_selection_path = tmp_path / "replacement-selection.jsonl"
 
     assert (
         main(
@@ -532,8 +569,12 @@ def test_cli_separates_broad_allowlist_from_narrow_iteration(tmp_path: Path) -> 
                 str(policy_path),
                 "--frontier",
                 str(frontier_path),
+                "--candidate-selection",
+                str(candidate_selection_path),
                 "--purchase-ledger",
                 str(policy.canonical_ledger_path),
+                "--purchase-ledger-initialization-receipt",
+                str(tmp_path / "legacy-v1-initialization-receipt.json"),
                 "--purchased-clearance",
                 str(clearance_path),
                 "--clearance-run-card",
@@ -546,6 +587,10 @@ def test_cli_separates_broad_allowlist_from_narrow_iteration(tmp_path: Path) -> 
                 str(broad_path),
                 "--exclusions-output",
                 str(exclusions_path),
+                "--active-selection-output",
+                str(active_selection_path),
+                "--replacement-selection-output",
+                str(replacement_selection_path),
             ]
         )
         == 0
@@ -559,6 +604,67 @@ def test_cli_separates_broad_allowlist_from_narrow_iteration(tmp_path: Path) -> 
     assert [row["candidate_id"] for row in broad["case_plans"]] == ["200", "300"]
     assert all(row["dry_run"] is True for row in broad["case_plans"])
     assert broad == upfront_broad
+    assert [
+        row["candidate_id"]
+        for row in (
+            json.loads(line)
+            for line in active_selection_path.read_text(encoding="utf-8").splitlines()
+        )
+    ] == ["100", "300"]
+    assert [
+        row["candidate_id"]
+        for row in (
+            json.loads(line)
+            for line in replacement_selection_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+        )
+    ] == ["300"]
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    assert result["active_selection_count"] == 2
+    assert result["replacement_selection_count"] == 1
+    active_selection_bytes = active_selection_path.read_bytes()
+    assert verify_bound_active_selection(
+        result,
+        active_selection_bytes=active_selection_bytes,
+        replayed_result=result,
+    ) == ("100", "300")
+    with pytest.raises(
+        ClearanceReplacementError,
+        match="active selection differs",
+    ):
+        verify_bound_active_selection(
+            result,
+            active_selection_bytes=active_selection_bytes
+            + b'{"candidate_id":"tampered"}\n',
+            replayed_result=result,
+        )
+
+    forged = {
+        "schema_version": result["schema_version"],
+        "active_candidate_ids": result["active_candidate_ids"],
+        "active_selection_sha256": result["active_selection_sha256"],
+    }
+    forged["plan_sha256"] = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                forged,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+    )
+    with pytest.raises(
+        ClearanceReplacementError,
+        match="closed planner-result schema",
+    ):
+        verify_bound_active_selection(
+            forged,
+            active_selection_bytes=active_selection_bytes,
+            replayed_result=result,
+        )
 
     broker_selection_path = tmp_path / "broker-selection.jsonl"
     broker_selection_path.write_text(
@@ -607,22 +713,30 @@ def _broker_selection() -> list[dict[str, object]]:
     ]
     return [
         {
-            "candidate_id": candidate_id,
-            "selected": False,
-            "exclusion_reasons": ["reserve_for_clearance_replacement"],
-            "documents": [
-                {
-                    "source_document_id": document_id,
-                    "redaction_or_seal_status": "public",
-                    "restriction_evidence": evidence,
-                    "availability_status": "unavailable",
-                    "requires_paid_recovery": True,
-                    "is_sealed": False,
-                    "is_private": None,
-                }
-            ],
-        }
-        for candidate_id, document_id in (("200", "202"), ("300", "303"))
+            "candidate_id": "100",
+            "selected": True,
+            "exclusion_reasons": [],
+            "documents": [],
+        },
+        *[
+            {
+                "candidate_id": candidate_id,
+                "selected": False,
+                "exclusion_reasons": ["reserve_for_clearance_replacement"],
+                "documents": [
+                    {
+                        "source_document_id": document_id,
+                        "redaction_or_seal_status": "public",
+                        "restriction_evidence": evidence,
+                        "availability_status": "unavailable",
+                        "requires_paid_recovery": True,
+                        "is_sealed": False,
+                        "is_private": None,
+                    }
+                ],
+            }
+            for candidate_id, document_id in (("200", "202"), ("300", "303"))
+        ],
     ]
 
 
