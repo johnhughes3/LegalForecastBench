@@ -26,6 +26,7 @@ Missing terminal entries, page-cap exhaustion, contradictory repeated rows, rest
 
 Newly public links pass through the existing public packet planner and `bridge_free_download_requests_from_selection`.
 Terminal evidence is a distinct per-document outcome ledger that partitions every required gap exactly once into newly free or terminal gap failure, requires the newly free download manifest to equal the successful outcome set, and commits outcome and newly free manifest hashes with zero purchased documents or purchase activity.
+Its transition count records all public links discovered before download, while the newly free document count records only PDFs that passed download and content validation; terminal download failures can therefore make those counts differ.
 The completed execution tree has a closed seven-artifact shape: four data JSONL artifacts, one summary, one receipt, and one completion log.
 The receipt commits the exact four data artifacts plus the summary; the summary independently commits the exact data artifacts and repeats the terminal commitments; and the terminal commitments include the immutable plan SHA-256 and reconcile the plan gap identities, transition/request identities, outcome partition, and newly free download identities.
 Partial resume validates every durable checkpoint before continuing.

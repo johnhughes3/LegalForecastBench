@@ -16,11 +16,35 @@ from legalforecast.ingestion.free_document_downloader import (
     UrlLibFreeDocumentSource,
     _adopt_authenticated_destination,
     _AllowlistedRedirectHandler,
+    _bound_or_resolved_output_root,
     download_free_docket_documents,
     reuse_authenticated_free_documents,
     verify_completed_free_document_manifest,
 )
 from legalforecast.ingestion.provenance import DocumentRole
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (Path("/proc/self/fd/7"), Path("/proc/self/fd/7")),
+        (Path("/proc/self/fd/not-a-fd"), Path("/proc/self/fd/not-a-fd").resolve()),
+        (
+            Path("/proc/self/fd/7/../../tmp/escaped"),
+            Path("/proc/self/fd/7/../../tmp/escaped").resolve(),
+        ),
+    ],
+)
+def test_bound_download_root_requires_exact_numeric_fd(
+    path: Path,
+    expected: Path,
+) -> None:
+    assert (
+        _bound_or_resolved_output_root(  # pyright: ignore[reportPrivateUsage]
+            path
+        )
+        == expected
+    )
 
 
 def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path: Path) -> None:

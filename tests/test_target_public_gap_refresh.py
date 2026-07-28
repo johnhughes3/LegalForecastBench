@@ -1353,6 +1353,16 @@ def test_downloads_terminalize_content_failure_but_not_transport_failure(
         "newly_free",
         "terminal_gap_failure",
     }
+    commitments = target_public_gap_terminal_commitments(
+        plan=plan,
+        plan_sha256="1" * 64,
+        refresh=refresh,
+        downloads=downloads,
+        outcomes=outcomes,
+    )
+    assert commitments["transition_count"] == 2
+    assert commitments["newly_free_document_count"] == 1
+    assert commitments["exclusion_count"] == 1
     with pytest.raises(FreeDocumentDownloadError, match="retry later"):
         download_target_public_gap_requests(
             refresh=refresh,
@@ -1589,6 +1599,7 @@ def _semantic_sha256(value: object) -> str:
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
+        allow_nan=False,
     ).encode()
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 

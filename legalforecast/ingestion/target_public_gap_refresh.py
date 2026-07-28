@@ -1713,7 +1713,7 @@ def target_public_gap_terminal_commitments(
         "discovered_transition_manifest_sha256": _records_sha256(refresh.transitions),
         "terminal_outcome_manifest_sha256": _records_sha256(terminal_outcomes),
         "newly_free_manifest_sha256": _records_sha256(download_records),
-        "transition_count": len(newly_free_keys),
+        "transition_count": len(refresh.transitions),
         "exclusion_count": len(terminal_outcomes) - len(newly_free_keys),
         "newly_free_document_count": len(download_records),
         "purchased_document_count": 0,
@@ -2835,7 +2835,7 @@ def _verify_target_public_gap_terminal_commitments(
         != _records_sha256(outcomes)
         or terminal_commitments.get("newly_free_manifest_sha256")
         != _records_sha256(downloads)
-        or terminal_commitments.get("transition_count") != len(newly_free)
+        or terminal_commitments.get("transition_count") != len(transitions)
         or terminal_commitments.get("exclusion_count") != len(excluded)
         or terminal_commitments.get("newly_free_document_count") != len(downloads)
     ):

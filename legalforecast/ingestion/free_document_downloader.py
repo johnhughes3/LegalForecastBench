@@ -342,7 +342,7 @@ class FreeDocumentReuseResult:
 
 def _bound_or_resolved_output_root(path: Path) -> Path:
     absolute = path.absolute()
-    if absolute.parts[:4] == ("/", "proc", "self", "fd"):
+    if _is_bound_output_root(absolute):
         return absolute
     return path.resolve()
 
@@ -352,6 +352,7 @@ def _is_bound_output_root(path: Path) -> bool:
     return (
         len(parts) == 5
         and parts[:4] == ("/", "proc", "self", "fd")
+        and parts[4].isascii()
         and parts[4].isdigit()
     )
 
