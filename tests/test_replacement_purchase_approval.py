@@ -64,9 +64,14 @@ def _request() -> ReplacementPurchaseApprovalRequest:
         purchase_ledger_initialization_receipt_sha256="e" * 64,
         committed_spend_usd="100.00",
         hard_cap_usd="567.30",
+        max_per_case_usd="73.20",
         remaining_headroom_before_usd="467.30",
         tranche_projected_cost_usd="6.10",
         remaining_headroom_after_usd="461.20",
+        candidate_headroom=(
+            ("candidate-101", "0.00", "73.20", "3.05", "70.15"),
+            ("candidate-102", "0.00", "73.20", "3.05", "70.15"),
+        ),
         replacement_candidate_ids=("candidate-101", "candidate-102"),
         purchase_document_ids=("9001", "9002"),
         replacement_event_record_sha256s=(
@@ -103,6 +108,23 @@ def test_exact_successor_approval_records_replays_and_publishes(
     assert authority["authority"]["request"]["session_scope"] == (
         "exact_replacement_tranche_one_global_session"
     )
+    assert authority["authority"]["request"]["max_per_case_usd"] == "73.20"
+    assert authority["authority"]["request"]["candidate_headroom"] == [
+        {
+            "candidate_id": "candidate-101",
+            "committed_spend_usd": "0.00",
+            "remaining_headroom_before_usd": "73.20",
+            "approved_tranche_cost_usd": "3.05",
+            "remaining_headroom_after_usd": "70.15",
+        },
+        {
+            "candidate_id": "candidate-102",
+            "committed_spend_usd": "0.00",
+            "remaining_headroom_before_usd": "73.20",
+            "approved_tranche_cost_usd": "3.05",
+            "remaining_headroom_after_usd": "70.15",
+        },
+    ]
     card = json.loads(run_card.read_text(encoding="utf-8"))
     assert card["schema_version"] == REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA
     assert card["run_card"]["stage"] == "record-replacement-purchase-approval"
@@ -230,6 +252,26 @@ def test_changed_exact_tranche_fails_private_replay(tmp_path: Path) -> None:
             checkpoint_path=checkpoint,
             run_card_path=run_card,
         )
+
+
+def test_invalid_per_case_headroom_fails_before_writing(tmp_path: Path) -> None:
+    request = replace(_request(), max_per_case_usd="74.20")
+    private_root = (tmp_path / "invalid-headroom").resolve()
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="request scope or headroom arithmetic is invalid",
+    ):
+        record_replacement_purchase_approval(
+            request=request,
+            controlled_private_root=private_root,
+            decision="approve",
+            typed_confirmation=request.required_confirmation("approve"),
+            reviewer_id="John Hughes",
+            recorded_at_utc="2026-07-28T16:00:00Z",
+        )
+
+    assert not private_root.exists()
 
 
 def test_v2_replacement_requires_exact_successor_before_broker_authority(
@@ -415,6 +457,25 @@ def test_v2_replacement_requires_exact_successor_before_broker_authority(
         replacement_selection_path=selection_path,
         purchase_ledger_path=policy.canonical_ledger_path,
         purchase_ledger_initialization_receipt_path=receipt_path,
+    )
+    assert request.max_per_case_usd == f"{policy.max_per_case_usd:.2f}"
+    headroom_by_candidate = {
+        candidate_id: (committed, before, approved_cost, after)
+        for candidate_id, committed, before, approved_cost, after in (
+            request.candidate_headroom
+        )
+    }
+    assert headroom_by_candidate[quarantined_candidate] == (
+        f"{reservation:.2f}",
+        f"{policy.max_per_case_usd - reservation:.2f}",
+        "0.00",
+        f"{policy.max_per_case_usd - reservation:.2f}",
+    )
+    assert headroom_by_candidate[replacement_candidate] == (
+        "0.00",
+        f"{policy.max_per_case_usd:.2f}",
+        f"{reservation:.2f}",
+        f"{policy.max_per_case_usd - reservation:.2f}",
     )
     tampered_selection = tmp_path / "tampered-replacement-selection.jsonl"
     tampered_selection.write_bytes(

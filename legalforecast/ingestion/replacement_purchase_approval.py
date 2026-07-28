@@ -66,9 +66,11 @@ class ReplacementPurchaseApprovalRequest:
     purchase_ledger_initialization_receipt_sha256: str
     committed_spend_usd: str
     hard_cap_usd: str
+    max_per_case_usd: str
     remaining_headroom_before_usd: str
     tranche_projected_cost_usd: str
     remaining_headroom_after_usd: str
+    candidate_headroom: tuple[tuple[str, str, str, str, str], ...]
     replacement_candidate_ids: tuple[str, ...]
     purchase_document_ids: tuple[str, ...]
     replacement_event_record_sha256s: tuple[str, ...]
@@ -98,9 +100,22 @@ class ReplacementPurchaseApprovalRequest:
             ),
             "committed_spend_usd": self.committed_spend_usd,
             "hard_cap_usd": self.hard_cap_usd,
+            "max_per_case_usd": self.max_per_case_usd,
             "remaining_headroom_before_usd": self.remaining_headroom_before_usd,
             "tranche_projected_cost_usd": self.tranche_projected_cost_usd,
             "remaining_headroom_after_usd": self.remaining_headroom_after_usd,
+            "candidate_headroom": [
+                {
+                    "candidate_id": candidate_id,
+                    "committed_spend_usd": committed,
+                    "remaining_headroom_before_usd": before,
+                    "approved_tranche_cost_usd": approved,
+                    "remaining_headroom_after_usd": after,
+                }
+                for candidate_id, committed, before, approved, after in (
+                    self.candidate_headroom
+                )
+            ],
             "replacement_candidate_ids": list(self.replacement_candidate_ids),
             "purchase_document_ids": list(self.purchase_document_ids),
             "replacement_event_record_sha256s": list(
@@ -379,6 +394,46 @@ def build_replacement_purchase_approval_request(
         raise ReplacementPurchaseApprovalError(
             "replacement event coverage differs from the exact tranche"
         )
+    approved_costs_by_candidate = {
+        candidate_id: _usd(
+            cast(Mapping[str, object], raw_plan).get("estimated_cost_usd"),
+            "replacement cost",
+        )
+        for candidate_id, raw_plan in zip(candidate_ids, case_plans, strict=True)
+    }
+    baseline_candidate_ids = sorted(
+        set(candidate_ids)
+        | set(policy.opening_case_committed_spend_usd)
+        | {cast(str, operation["candidate_id"]) for operation in operations}
+    )
+    try:
+        with CaseDevPurchaseJournal(
+            ledger,
+            policy=policy,
+            controlled_private_root=initial_controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
+        ) as journal:
+            journal.require_reconciled()
+            if "sha256:" + journal.purchase_state_sha256() != state_sha256:
+                raise ReplacementPurchaseApprovalError(
+                    "purchase journal changed while snapshotting per-case headroom"
+                )
+            candidate_headroom = tuple(
+                _candidate_headroom_record(
+                    candidate_id=candidate_id,
+                    committed=_usd(
+                        journal.candidate_committed_amount_usd(candidate_id),
+                        f"{candidate_id} committed spend",
+                    ),
+                    approved_cost=approved_costs_by_candidate.get(
+                        candidate_id, Decimal("0.00")
+                    ),
+                    max_per_case=policy.max_per_case_usd,
+                )
+                for candidate_id in baseline_candidate_ids
+            )
+    except (CaseDevPurchaseLedgerError, OSError, ValueError) as exc:
+        raise ReplacementPurchaseApprovalError(str(exc)) from exc
     request = ReplacementPurchaseApprovalRequest(
         cycle_id=policy.cycle_id,
         cohort_policy_sha256=policy.cohort_policy_sha256,
@@ -396,9 +451,11 @@ def build_replacement_purchase_approval_request(
         ),
         committed_spend_usd=_money(committed),
         hard_cap_usd=_money(hard_cap),
+        max_per_case_usd=_money(policy.max_per_case_usd),
         remaining_headroom_before_usd=_money(headroom_before),
         tranche_projected_cost_usd=_money(total_cost),
         remaining_headroom_after_usd=_money(headroom_before - total_cost),
+        candidate_headroom=candidate_headroom,
         replacement_candidate_ids=tuple(candidate_ids),
         purchase_document_ids=tuple(document_ids),
         replacement_event_record_sha256s=event_hashes,
@@ -422,6 +479,10 @@ def record_replacement_purchase_approval(
 ) -> tuple[Path, Path]:
     """Record a new exact successor decision without provider or paid activity."""
 
+    if _request_from_record(request.to_record()) != request:
+        raise ReplacementPurchaseApprovalError(
+            "replacement approval request does not canonically replay"
+        )
     root = _absolute_root(controlled_private_root)
     normalized_decision = _decision(decision)
     if reviewer_id != "John Hughes":
@@ -699,6 +760,7 @@ def verify_replacement_purchase_authority(
         != _sha256(initialization_receipt_bytes)
         or ledger != policy.canonical_ledger_path
         or request.hard_cap_usd != _money(policy.hard_cap_usd)
+        or request.max_per_case_usd != _money(policy.max_per_case_usd)
     ):
         raise ReplacementPurchaseApprovalError(
             "replacement authority differs from the initial v2 policy or ledger"
@@ -725,6 +787,16 @@ def verify_replacement_purchase_authority(
                 journal.committed_amount_usd, "current committed spend"
             )
             operations = tuple(journal.operation_records())
+            current_candidate_totals = {
+                candidate_id: _usd(
+                    journal.candidate_committed_amount_usd(candidate_id),
+                    f"{candidate_id} current committed spend",
+                )
+                for candidate_id in sorted(
+                    set(policy.opening_case_committed_spend_usd)
+                    | {cast(str, operation["candidate_id"]) for operation in operations}
+                )
+            }
     except (CaseDevPurchaseLedgerError, OSError, ValueError) as exc:
         raise ReplacementPurchaseApprovalError(str(exc)) from exc
     base_committed = _usd(request.committed_spend_usd, "approved committed spend")
@@ -795,6 +867,24 @@ def verify_replacement_purchase_authority(
                 "successor operation reservation differs from the unchanged policy"
             )
         observed_successor_pairs.add(pair)
+    baseline_candidate_headroom = {
+        candidate_id: _usd(committed, f"{candidate_id} approved committed spend")
+        for candidate_id, committed, _before, _approved, _after in (
+            request.candidate_headroom
+        )
+    }
+    if set(request.replacement_candidate_ids) - set(baseline_candidate_headroom):
+        raise ReplacementPurchaseApprovalError(
+            "successor approval lacks replacement candidate headroom"
+        )
+    max_per_case = _usd(request.max_per_case_usd, "approved per-case cap")
+    for candidate_id, current_total in current_candidate_totals.items():
+        baseline_total = baseline_candidate_headroom.get(candidate_id, Decimal("0.00"))
+        if current_total < baseline_total or current_total > max_per_case:
+            raise ReplacementPurchaseApprovalError(
+                "current per-case committed spend is outside the approved "
+                "successor envelope"
+            )
     return request
 
 
@@ -816,9 +906,11 @@ def _request_from_record(
         "purchase_ledger_initialization_receipt_sha256",
         "committed_spend_usd",
         "hard_cap_usd",
+        "max_per_case_usd",
         "remaining_headroom_before_usd",
         "tranche_projected_cost_usd",
         "remaining_headroom_after_usd",
+        "candidate_headroom",
         "replacement_candidate_ids",
         "purchase_document_ids",
         "replacement_event_record_sha256s",
@@ -873,6 +965,9 @@ def _request_from_record(
             _usd(record.get("committed_spend_usd"), "committed_spend_usd")
         ),
         hard_cap_usd=_money(_usd(record.get("hard_cap_usd"), "hard_cap_usd")),
+        max_per_case_usd=_money(
+            _usd(record.get("max_per_case_usd"), "max_per_case_usd")
+        ),
         remaining_headroom_before_usd=_money(
             _usd(
                 record.get("remaining_headroom_before_usd"),
@@ -890,6 +985,9 @@ def _request_from_record(
                 record.get("remaining_headroom_after_usd"),
                 "remaining_headroom_after_usd",
             )
+        ),
+        candidate_headroom=_candidate_headroom_from_record(
+            record.get("candidate_headroom")
         ),
         replacement_candidate_ids=_unique_texts(
             _sequence(
@@ -922,6 +1020,18 @@ def _request_from_record(
     if (
         request.session_scope != "exact_replacement_tranche_one_global_session"
         or request.fallback != "stop_without_replacement_purchase"
+        or tuple(entry[0] for entry in request.candidate_headroom)
+        != tuple(sorted(entry[0] for entry in request.candidate_headroom))
+        or len({entry[0] for entry in request.candidate_headroom})
+        != len(request.candidate_headroom)
+        or any(
+            _usd(committed, "candidate committed spend")
+            + _usd(before, "candidate remaining headroom before")
+            != _usd(request.max_per_case_usd, "max_per_case_usd")
+            for _candidate_id, committed, before, _approved, _after in (
+                request.candidate_headroom
+            )
+        )
         or request.remaining_headroom_after_usd
         != _money(
             _usd(
@@ -938,6 +1048,72 @@ def _request_from_record(
             "replacement request scope or headroom arithmetic is invalid"
         )
     return request
+
+
+def _candidate_headroom_record(
+    *,
+    candidate_id: str,
+    committed: Decimal,
+    approved_cost: Decimal,
+    max_per_case: Decimal,
+) -> tuple[str, str, str, str, str]:
+    before = max_per_case - committed
+    after = before - approved_cost
+    if before < 0 or after < 0:
+        raise ReplacementPurchaseApprovalError(
+            f"replacement tranche exceeds per-case headroom: {candidate_id}"
+        )
+    return (
+        candidate_id,
+        _money(committed),
+        _money(before),
+        _money(approved_cost),
+        _money(after),
+    )
+
+
+def _candidate_headroom_from_record(
+    value: object,
+) -> tuple[tuple[str, str, str, str, str], ...]:
+    output: list[tuple[str, str, str, str, str]] = []
+    for raw in _sequence(value, "candidate_headroom"):
+        entry = _mapping(raw, "candidate headroom")
+        if set(entry) != {
+            "candidate_id",
+            "committed_spend_usd",
+            "remaining_headroom_before_usd",
+            "approved_tranche_cost_usd",
+            "remaining_headroom_after_usd",
+        }:
+            raise ReplacementPurchaseApprovalError("candidate headroom fields differ")
+        candidate_id = _text(entry.get("candidate_id"), "candidate headroom ID")
+        committed = _usd(entry.get("committed_spend_usd"), "candidate committed spend")
+        before = _usd(
+            entry.get("remaining_headroom_before_usd"),
+            "candidate remaining headroom before",
+        )
+        approved = _usd(
+            entry.get("approved_tranche_cost_usd"),
+            "candidate approved tranche cost",
+        )
+        after = _usd(
+            entry.get("remaining_headroom_after_usd"),
+            "candidate remaining headroom after",
+        )
+        if after != before - approved or after < 0:
+            raise ReplacementPurchaseApprovalError(
+                "candidate headroom arithmetic is invalid"
+            )
+        output.append(
+            (
+                candidate_id,
+                _money(committed),
+                _money(before),
+                _money(approved),
+                _money(after),
+            )
+        )
+    return tuple(output)
 
 
 def _approved_documents_by_candidate(
@@ -972,11 +1148,10 @@ def _verify_runtime_budget_plan(
         raise ReplacementPurchaseApprovalError(
             "replacement budget plan is not the approved executable tranche"
         )
+    approved_by_candidate = _approved_documents_by_candidate(request, budget_plan_bytes)
     documents = tuple(
         document_id
-        for candidate_documents in _approved_documents_by_candidate(
-            request, budget_plan_bytes
-        ).values()
+        for candidate_documents in approved_by_candidate.values()
         for document_id in candidate_documents
     )
     if set(documents) != set(request.purchase_document_ids) or len(documents) != len(
@@ -984,6 +1159,28 @@ def _verify_runtime_budget_plan(
     ):
         raise ReplacementPurchaseApprovalError(
             "replacement budget documents differ from exact successor approval"
+        )
+    planned_costs = {
+        _text(
+            _mapping(raw_plan, "replacement case plan").get("candidate_id"),
+            "candidate_id",
+        ): _money(
+            _usd(
+                _mapping(raw_plan, "replacement case plan").get("estimated_cost_usd"),
+                "replacement cost",
+            )
+        )
+        for raw_plan in _sequence(budget.get("case_plans"), "replacement case plans")
+    }
+    if {
+        candidate_id: approved
+        for candidate_id, _committed, _before, approved, _after in (
+            request.candidate_headroom
+        )
+        if approved != "0.00"
+    } != planned_costs:
+        raise ReplacementPurchaseApprovalError(
+            "replacement candidate headroom differs from exact successor plan"
         )
 
 

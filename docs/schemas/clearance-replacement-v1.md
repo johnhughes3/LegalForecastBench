@@ -76,7 +76,7 @@ uv run legalforecast acquisition record-replacement-purchase-approval \
   --execute --no-resume
 ```
 
-The successor request commits the unchanged initial policy and approval identities, the frozen frontier, exact replacement result, executable budget-plan and selection bytes, canonical ledger, reconciled pre-tranche journal state, committed spend, unchanged Cycle cap, before/after headroom, ranked unselected candidate IDs, document IDs, and replacement-event hashes.
+The successor request commits the unchanged initial policy and approval identities, the frozen frontier, exact replacement result, executable budget-plan and selection bytes, canonical ledger, reconciled pre-tranche journal state, committed spend, unchanged Cycle and per-case caps, Cycle before/after headroom, every affected candidate's committed spend and before/approved/after per-case headroom, ranked unselected candidate IDs, document IDs, and replacement-event hashes.
 Its typed confirmation is tranche-specific.
 The checkpoint and run card record no provider request, PACER fee acknowledgment, or paid activity.
 
