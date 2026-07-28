@@ -183,8 +183,15 @@ def test_select_case_dev_ranked_accepts_authenticated_historical_opinion_project
     )
     assert selected["source_available_only"] == "absent"
     assert selected["source_query_terms"] == ['"motion to dismiss"']
-    assert len(selected["source_query_commitment_sha256"]) == 64
-    assert len(selected["source_hit_set_sha256"]) == 64
+    expected_commitments = _expected_source_authority_commitments(search_type="o")
+    assert (
+        selected["source_query_commitment_sha256"]
+        == expected_commitments["source_query_commitment_sha256"]
+    )
+    assert (
+        selected["source_hit_set_sha256"]
+        == expected_commitments["source_hit_set_sha256"]
+    )
     with CycleAcquisitionStore(target_store) as store:
         assert store.candidate_ids("ranked-rest") == ("courtlistener-docket-102",)
 
@@ -687,8 +694,14 @@ def test_select_case_dev_ranked_accepts_authenticated_unrestricted_recap_source(
     )
     assert frozen["source_available_only"] == "omitted"
     assert frozen["source_query_terms"] == ['"motion to dismiss"']
-    assert len(frozen["source_query_commitment_sha256"]) == 64
-    assert len(frozen["source_hit_set_sha256"]) == 64
+    expected_commitments = _expected_source_authority_commitments(search_type="r")
+    assert (
+        frozen["source_query_commitment_sha256"]
+        == expected_commitments["source_query_commitment_sha256"]
+    )
+    assert (
+        frozen["source_hit_set_sha256"] == expected_commitments["source_hit_set_sha256"]
+    )
     with CycleAcquisitionStore(target_store) as store:
         config = store.batch_config("ranked-rest")
         assert config["source_search_type"] == "r"
@@ -2174,6 +2187,49 @@ def _opinion_hit(docket_id: str, cluster_id: str) -> dict[str, object]:
                 "date_filed": "2026-07-14",
             },
         },
+    }
+
+
+def _expected_source_authority_commitments(
+    *,
+    search_type: str,
+    docket_ids: tuple[str, ...] = ("101", "102"),
+) -> dict[str, str]:
+    term = '"motion to dismiss"'
+    query_commitment = {
+        "source_schema_version": (
+            "legalforecast.courtlistener_unrestricted_recap.v1"
+            if search_type == "r"
+            else "legalforecast.courtlistener_opinion_discovery.v1"
+        ),
+        "source_search_type": search_type,
+        "source_available_only": "omitted" if search_type == "r" else "absent",
+        "source_query_expression": (
+            "{term} AND entry_date_filed:[{start} TO {end}]"
+            if search_type == "r"
+            else None
+        ),
+        "source_query_terms": [term],
+        "source_search_window_start": "2026-06-30",
+        "source_search_window_end": "2026-07-15",
+    }
+    hit_set = []
+    for docket_id in docket_ids:
+        cluster_id = str(400 + int(docket_id))
+        fixture_hit = _opinion_hit(docket_id, cluster_id)
+        hit_set.append(
+            {
+                "docket_id": docket_id,
+                "source_hit": {
+                    "provider_hit_id": cluster_id,
+                    "query_term": term,
+                    "payload_sha256": _canonical_sha256(fixture_hit["payload"]),
+                },
+            }
+        )
+    return {
+        "source_query_commitment_sha256": _canonical_sha256(query_commitment),
+        "source_hit_set_sha256": _canonical_sha256(hit_set),
     }
 
 
