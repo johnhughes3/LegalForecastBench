@@ -104,6 +104,7 @@ from legalforecast.ingestion.courtlistener_case_dev_bridge import (
 )
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerAuthError,
+    CourtListenerBotChallengeError,
     CourtListenerClient,
     CourtListenerClientError,
     CourtListenerConfig,
@@ -397,6 +398,7 @@ __all__ = [
     "ControlledDocketMarkdownEntry",
     "CoreDocumentFilterResult",
     "CourtListenerAuthError",
+    "CourtListenerBotChallengeError",
     "CourtListenerBriefingCompleteness",
     "CourtListenerCaseDevBridgeError",
     "CourtListenerCaseDevBridgeResult",

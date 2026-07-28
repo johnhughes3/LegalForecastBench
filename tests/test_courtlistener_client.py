@@ -4,13 +4,15 @@ import io
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 
 import pytest
 from legalforecast.ingestion import (
     CourtListenerAuthError,
+    CourtListenerBotChallengeError,
     CourtListenerClient,
     CourtListenerClientError,
     CourtListenerConfig,
@@ -387,6 +389,111 @@ def test_courtlistener_rate_limit_retries_before_success() -> None:
     assert reservations == [("GET", "/dockets/123/"), ("GET", "/dockets/123/")]
 
 
+def test_courtlistener_rate_limit_honors_retry_after() -> None:
+    responses = iter(
+        (
+            CourtListenerHTTPResponse(
+                status_code=429,
+                payload={"detail": "too many requests"},
+                headers={"Retry-After": "7"},
+            ),
+            CourtListenerHTTPResponse(
+                status_code=200,
+                payload={"id": 123, "case_name": "Retried v. Fixture"},
+            ),
+        )
+    )
+    sleeps: list[float] = []
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=_CallableTransport(lambda: next(responses)),
+        max_retries=1,
+        retry_backoff_seconds=1.0,
+        sleep=sleeps.append,
+        jitter=lambda lower, upper: upper,
+    )
+
+    client.get_docket("123")
+
+    assert sleeps == [7.0]
+    assert client.request_count == 2
+
+
+def test_courtlistener_retry_backoff_grows_with_bounded_jitter() -> None:
+    responses = iter(
+        (
+            CourtListenerHTTPResponse(status_code=503, payload={}),
+            CourtListenerHTTPResponse(status_code=503, payload={}),
+            CourtListenerHTTPResponse(
+                status_code=200,
+                payload={"id": 123, "case_name": "Retried v. Fixture"},
+            ),
+        )
+    )
+    jitter_bounds: list[tuple[float, float]] = []
+    sleeps: list[float] = []
+
+    def upper_bound_jitter(lower: float, upper: float) -> float:
+        jitter_bounds.append((lower, upper))
+        return upper
+
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=_CallableTransport(lambda: next(responses)),
+        max_retries=2,
+        retry_backoff_seconds=2.0,
+        sleep=sleeps.append,
+        jitter=upper_bound_jitter,
+    )
+
+    client.get_docket("123")
+
+    assert jitter_bounds == [(0.0, 2.0), (0.0, 4.0)]
+    assert sleeps == [2.0, 4.0]
+
+
+def test_courtlistener_paces_after_blocking_reservation_callback() -> None:
+    responses = iter(
+        (
+            CourtListenerHTTPResponse(status_code=503, payload={}),
+            CourtListenerHTTPResponse(
+                status_code=200,
+                payload={"id": 123, "case_name": "Retried v. Fixture"},
+            ),
+        )
+    )
+    now = 0.0
+    reservations = 0
+    sleeps: list[float] = []
+
+    def reserve(_: str, __: str) -> None:
+        nonlocal now, reservations
+        reservations += 1
+        if reservations == 1:
+            now = 10.0
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleeps.append(seconds)
+        now += seconds
+
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=_CallableTransport(lambda: next(responses)),
+        max_retries=1,
+        retry_backoff_seconds=0.0,
+        inter_request_delay_seconds=1.0,
+        before_request=reserve,
+        sleep=sleep,
+        monotonic=lambda: now,
+    )
+
+    client.get_docket("123")
+
+    assert reservations == 2
+    assert sleeps == [1.0]
+
+
 def test_courtlistener_transport_timeout_retries_before_success() -> None:
     class TimeoutThenSuccess:
         def __init__(self) -> None:
@@ -466,6 +573,53 @@ def test_urllib_transport_classifies_invalid_success_body_as_retryable(
             headers={},
             timeout_seconds=1,
         )
+
+
+def test_urllib_transport_classifies_challenge_before_json_decode() -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener(
+        (b"<html><title>Attention Required! | Cloudflare</title></html>",)
+    )
+
+    with pytest.raises(CourtListenerBotChallengeError):
+        transport.request(
+            method="GET",
+            path="/search/",
+            params={"q": "motion to dismiss", "type": "r"},
+            headers={},
+            timeout_seconds=1,
+        )
+
+
+def test_urllib_transport_does_not_classify_marker_text_inside_valid_json() -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener(
+        (
+            json.dumps(
+                {
+                    "id": 1,
+                    "cluster": 2,
+                    "plain_text": "The exhibit refers to challenge-platform.",
+                }
+            ).encode(),
+        )
+    )
+
+    response = transport.request(
+        method="GET",
+        path="/opinions/1/",
+        params={},
+        headers={},
+        timeout_seconds=1,
+    )
+
+    assert response.payload["plain_text"] == (
+        "The exhibit refers to challenge-platform."
+    )
 
 
 def test_invalid_search_body_retries_and_reconciles_durable_attempts(
@@ -675,7 +829,7 @@ def test_authenticated_redirect_rejects_cross_host_before_forwarding_header() ->
         assert redirected is not None
         received_authorization.append(redirected.get_header("Authorization"))
 
-    with pytest.raises(CourtListenerClientError, match="redirects are disabled"):
+    with pytest.raises(CourtListenerClientError, match="same-origin HTTPS"):
         record_if_forwarded("https://evil.example/collect")
 
     assert received_authorization == []
@@ -698,26 +852,109 @@ def test_authenticated_redirect_policy_rejects_unsafe_target(target: str) -> Non
         headers={"Authorization": "Token sentinel-secret"},
     )
 
-    with pytest.raises(CourtListenerClientError, match="redirects are disabled"):
+    with pytest.raises(CourtListenerClientError, match="same-origin HTTPS"):
         handler.redirect_request(original, None, 302, "Found", {}, target)
 
 
-def test_authenticated_redirect_rejects_same_host_to_preserve_accounting() -> None:
-    handler = _RejectCourtListenerRedirectHandler()
-    original = urllib.request.Request(
-        "https://www.courtlistener.com/api/rest/v4/dockets/123/",
-        headers={"Authorization": "Token sentinel-secret"},
+def test_authenticated_redirect_follows_same_origin_with_separate_accounting() -> None:
+    responses = iter(
+        (
+            CourtListenerHTTPResponse(
+                status_code=302,
+                payload={},
+                headers={"Location": "/api/rest/v4/dockets/123/?canonical=1"},
+            ),
+            CourtListenerHTTPResponse(
+                status_code=200,
+                payload={"id": 123, "case_name": "Canonical v. Fixture"},
+            ),
+        )
+    )
+    requests: list[tuple[str, str, dict[str, object]]] = []
+
+    class RecordingTransport:
+        def request(
+            self,
+            *,
+            method: str,
+            path: str,
+            params: Mapping[str, Any],
+            headers: Mapping[str, str],
+            timeout_seconds: float,
+        ) -> CourtListenerHTTPResponse:
+            del headers, timeout_seconds
+            requests.append((method, path, dict(params)))
+            return next(responses)
+
+    reservations: list[tuple[str, str]] = []
+    client = CourtListenerClient(
+        config=CourtListenerConfig(api_token="sentinel-secret"),
+        transport=RecordingTransport(),
+        before_request=lambda method, path: reservations.append((method, path)),
     )
 
-    with pytest.raises(CourtListenerClientError, match="durable reservation"):
-        handler.redirect_request(
-            original,
-            None,
-            302,
-            "Found",
-            {},
-            "/api/rest/v4/dockets/123/?page=2",
+    docket = client.get_docket("123")
+
+    assert docket.case_name == "Canonical v. Fixture"
+    assert requests == [
+        ("GET", "/dockets/123/", {}),
+        ("GET", "/dockets/123/", {"canonical": "1"}),
+    ]
+    assert reservations == [
+        ("GET", "/dockets/123/"),
+        ("GET", "/dockets/123/"),
+    ]
+    assert client.request_count == 2
+
+
+def test_authenticated_redirect_treats_explicit_default_https_port_as_same_origin() -> (
+    None
+):
+    responses = iter(
+        (
+            CourtListenerHTTPResponse(
+                status_code=302,
+                payload={},
+                headers={
+                    "Location": (
+                        "https://www.courtlistener.com:443/api/rest/v4/"
+                        "dockets/123/?canonical=1"
+                    )
+                },
+            ),
+            CourtListenerHTTPResponse(
+                status_code=200,
+                payload={"id": 123, "case_name": "Canonical v. Fixture"},
+            ),
         )
+    )
+    client = CourtListenerClient(
+        config=CourtListenerConfig(api_token="sentinel-secret"),
+        transport=_CallableTransport(lambda: next(responses)),
+    )
+
+    assert client.get_docket("123").case_name == "Canonical v. Fixture"
+    assert client.request_count == 2
+
+
+def test_authenticated_redirect_rejects_cross_origin_before_second_request() -> None:
+    transport = _CallableTransport(
+        lambda: CourtListenerHTTPResponse(
+            status_code=302,
+            payload={},
+            headers={"Location": "https://evil.example/collect"},
+        )
+    )
+    client = CourtListenerClient(
+        config=CourtListenerConfig(api_token="sentinel-secret"),
+        transport=transport,
+    )
+
+    with pytest.raises(CourtListenerClientError, match="same-origin HTTPS"):
+        client.get_docket("123")
+
+    assert transport.request_count == 1
+    assert client.request_count == 1
 
 
 def test_courtlistener_page_extracts_cursor_from_next_url() -> None:
@@ -830,3 +1067,13 @@ class _RawSequenceOpener:
         if isinstance(response, BaseException):
             raise response
         return _RawResponse(response)
+
+
+class _CallableTransport:
+    def __init__(self, response: Callable[[], CourtListenerHTTPResponse]) -> None:
+        self._response = response
+        self.request_count = 0
+
+    def request(self, **_: object) -> CourtListenerHTTPResponse:
+        self.request_count += 1
+        return self._response()
