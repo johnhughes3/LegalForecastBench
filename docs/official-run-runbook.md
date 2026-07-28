@@ -1258,6 +1258,25 @@ A recovery is complete only when every expected matrix cell is present exactly o
 
 The preferred hierarchy is saturated CourtListener search → `batch-002 seed-direct-search` → authenticated `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-cohort --target-case-count 100`. CourtListener remains the source for decision results, docket reconstruction, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap, as a compatibility fallback when authenticated REST cannot supply the required surface; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
 
+### Supported Cycle Coordinator
+
+For a new cycle, record the ordered production acquisition commands in one canonical [`legalforecast.acquisition_cycle_config.v1`](schemas/acquisition-cycle-config-v1.md) file and use `acquisition run-cycle` as the supported status/resume entry point.
+The coordinator delegates to the existing commands in this runbook; it does not replace their flags, artifact verifiers, credentials, human approvals, provider authority, or budget enforcement.
+Commands that do not yet emit the common acquisition completion card remain explicit runbook steps rather than being guessed complete by the coordinator.
+Its default `--execute` mode advances provider-free stages only and reports the exact next command when it reaches a network, human, model-provider, or paid boundary.
+Evaluation, freeze, dispatch, and publication are outside its allowlist.
+
+```bash
+uv run legalforecast acquisition run-cycle \
+  --config <absolute-canonical-cycle-config.json> \
+  --state-root <absolute-cycle-orchestrator-root> \
+  --execute --json
+```
+
+Add only the boundary switch required for the next reviewed stage.
+In particular, `--allow-paid` also requires `--allow-network` and still cannot run without the existing approved purchase policy, initialized ledger, bounded attempt policy, broker policy, broker identity, and remaining budget.
+Every successful stage receives an immutable receipt bound to the exact config and completion run-card bytes, so rerunning the same command reauthenticates and skips it rather than reconstructing shell history.
+
 ### Credential Prerequisites
 
 The search and docket-HTML stages require Firecrawl, the optional-equivalent enrichment stage requires Case.dev, and the later CourtListener REST paid-gap bridge requires the CourtListener token:

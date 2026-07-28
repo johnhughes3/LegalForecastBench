@@ -9,6 +9,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [official-run-runbook.md](official-run-runbook.md): operator checklist for protected official cycles — freeze, dispatch, recovery, aggregation, and site rendering.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Acquisition systemd launcher](acquisition-systemd-launcher.md): fail-closed Infisical child-status propagation, downstream receipt requirements, and the provider-free transient-unit smoke.
+- [Acquisition cycle configuration](schemas/acquisition-cycle-config-v1.md): canonical acquisition-only stage plans, explicit provider/human/spend boundaries, and immutable resume receipts.
 - [Direct CourtListener discovery snapshots](schemas/courtlistener-discovery-snapshot-v1.md): hash-bound provider-page transcripts, provider-free saturated snapshot materialization, and the safe cycle-expansion sequence after screening-code changes.
 - [Opinion lead to RECAP docket resolution](schemas/opinion-recap-resolution-v1.md): resumable strict identity mapping, metadata-only opinion provenance, free Case.dev-first resolution, unrestricted CourtListener fallback, and source-bound saturated output.
 - [Provider cycle caps successor](schemas/provider-cycle-caps-successor-v1.md): provider-free derivation of the authority-enabled caps artifact from immutable legacy caps and a protected exact-table identity receipt.
