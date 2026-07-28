@@ -45,7 +45,7 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
     ):
         assert expected in launcher_docs
 
-    assert launcher_docs.count('env -i PATH="$PATH"') == 2
+    assert launcher_docs.count('env -i PATH="$PATH"') == 3
     assert "required=(MISTRAL_API_KEY)" in launcher_docs
     assert "required=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY)" in launcher_docs
     assert "forbidden=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY" in launcher_docs
@@ -61,3 +61,31 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
     assert "authoritative masked Infisical UI inventory" in runbook
     assert "zsh -dfc" in runbook
     assert "forbidden=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY" in runbook
+
+
+def test_acquisition_systemd_docs_require_exact_recap_fetch_client_view() -> None:
+    launcher_docs = (ROOT / "docs" / "acquisition-systemd-launcher.md").read_text(
+        encoding="utf-8"
+    )
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    path = "/agents/sandbox/legalforecastbench/recap-fetch-broker-client"
+    exact_names = (
+        "RECAP_FETCH_BROKER_URL",
+        "RECAP_FETCH_BROKER_MACHINE_ID",
+        "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK",
+        "RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON",
+        "RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256",
+    )
+
+    assert path in launcher_docs
+    assert path in runbook
+    for name in exact_names:
+        assert name in launcher_docs
+        assert name in runbook
+    assert "ordinary secret values" in launcher_docs
+    assert "only after the reviewed broker activation" in launcher_docs
+    assert "never dependent references" in launcher_docs
+    assert "never folder imports" in launcher_docs
+    assert "PACER_USERNAME PACER_PASSWORD" in launcher_docs
+    assert 'print -- "$name=present"' in launcher_docs
+    assert "purchase-missing-recap-fetch" in runbook

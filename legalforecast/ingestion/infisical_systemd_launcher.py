@@ -26,6 +26,7 @@ _ALLOWED_SANDBOX_PATHS: Final = frozenset(
         "/agents/sandbox/legalforecastbench-acquisition",
         "/agents/sandbox/legalforecastbench/parser",
         "/agents/sandbox/legalforecastbench/labeling",
+        "/agents/sandbox/legalforecastbench/recap-fetch-broker-client",
     }
 )
 
