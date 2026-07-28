@@ -23,6 +23,7 @@ from legalforecast.ingestion.opinion_backed_disposition import (
     fetch_and_validate_public_opinion,
     public_opinion_pdf_url,
     select_opinion_resolution_for_page,
+    validate_resolved_recap_identity,
     verbatim_mtd_disposition_excerpt,
 )
 
@@ -71,6 +72,37 @@ def test_public_opinion_pdf_url_normalizes_storage_path() -> None:
         public_opinion_pdf_url("pdf/2026/07/14/example_v._example.pdf")
         == "https://storage.courtlistener.com/pdf/2026/07/14/example_v._example.pdf"
     )
+
+
+def test_resolved_recap_identity_uses_resolver_caption_equivalence() -> None:
+    resolution = {
+        "resolved_recap": {
+            "docket_id": "71878956",
+            "court_id": "dcd",
+            "docket_number": "1:25-cv-03820",
+            "case_name": "Acme v. Smith",
+        }
+    }
+
+    validate_resolved_recap_identity(
+        resolution,
+        docket_id="71878956",
+        court_id="dcd",
+        docket_number="1:25-cv-03820",
+        case_name="Acme LLC v. Smith",
+    )
+
+    with pytest.raises(
+        OpinionBackedDispositionError,
+        match="case_name changed",
+    ):
+        validate_resolved_recap_identity(
+            resolution,
+            docket_id="71878956",
+            court_id="dcd",
+            docket_number="1:25-cv-03820",
+            case_name="Acme LLC v. Jones",
+        )
 
 
 @pytest.mark.parametrize(

@@ -19,7 +19,7 @@ import json
 import re
 import sqlite3
 import unicodedata
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
@@ -66,6 +66,14 @@ class OpinionRecapResolutionError(RuntimeError):
 
 class _CaseDevPaginationExhaustionUnproven(RuntimeError):
     """Signal that a full Case.dev page cannot support a uniqueness claim."""
+
+
+class _ProviderIdentityContradiction(RuntimeError):
+    """Signal contradictory normalized identity fields for one provider docket."""
+
+    def __init__(self, evidence: Mapping[str, object]) -> None:
+        super().__init__("provider returned contradictory docket identity")
+        self.evidence = evidence
 
 
 class _UnrepresentableSourceQuery(OpinionRecapResolutionError):
@@ -164,6 +172,12 @@ class _ResolutionJournal:
                 started_at TEXT NOT NULL,
                 completed_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS response_pages(
+                attempt_id INTEGER PRIMARY KEY
+                    REFERENCES request_attempts(attempt_id),
+                response_body BLOB NOT NULL,
+                response_sha256 TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS outcomes(
                 source_candidate_id TEXT PRIMARY KEY,
                 ordinal INTEGER NOT NULL UNIQUE,
@@ -233,6 +247,23 @@ class _ResolutionJournal:
         if attempt_id is None:
             raise OpinionRecapResolutionError("resolver request attempt ID is missing")
         return attempt_id
+
+    def record_response_page(
+        self,
+        attempt_id: int,
+        payload: Mapping[str, Any],
+    ) -> str:
+        response_body = _canonical_json(payload).encode("utf-8")
+        response_sha256 = hashlib.sha256(response_body).hexdigest()
+        self.connection.execute(
+            """
+            INSERT INTO response_pages(attempt_id, response_body, response_sha256)
+            VALUES(?, ?, ?)
+            """,
+            (attempt_id, response_body, response_sha256),
+        )
+        self.connection.commit()
+        return response_sha256
 
     def finish_request(
         self,
@@ -576,6 +607,18 @@ def _resolve_one_lead(
             client=courtlistener_client,
             max_pages=max_pages,
         )
+    except _ProviderIdentityContradiction as exc:
+        journal.commit_outcome(
+            source_candidate_id=lead.docket_id,
+            ordinal=ordinal,
+            state="excluded",
+            reason_code="provider_identity_contradiction",
+            evidence={
+                "provider": "courtlistener_rest",
+                **exc.evidence,
+            },
+        )
+        return
     except CourtListenerRequestBudgetExhausted:
         if firecrawl_resolver is None:
             raise
@@ -644,7 +687,7 @@ def _case_dev_results(
         except BaseException as exc:
             journal.finish_request(attempt, error=exc)
             raise
-        page_sha256 = _sha256_json(page.raw)
+        page_sha256 = journal.record_response_page(attempt, page.raw)
         journal.finish_request(attempt, response_sha256=page_sha256)
         payloads.append(page.raw)
         page_candidates = tuple(_candidate_from_case_dev(hit) for hit in page.items)
@@ -735,6 +778,11 @@ def _courtlistener_results(
         )
         try:
             page = client.search_raw(params, cursor=cursor)
+        except BaseException as exc:
+            journal.finish_request(attempt, error=exc)
+            raise
+        page_sha256 = journal.record_response_page(attempt, page.raw)
+        try:
             if "results" not in page.raw or not isinstance(page.raw["results"], list):
                 raise OpinionRecapResolutionError(
                     "CourtListener resolver response lacks explicit results"
@@ -744,9 +792,12 @@ def _courtlistener_results(
                     "CourtListener resolver response lacks explicit pagination proof"
                 )
         except BaseException as exc:
-            journal.finish_request(attempt, error=exc)
+            journal.finish_request(
+                attempt,
+                response_sha256=page_sha256,
+                error=exc,
+            )
             raise
-        page_sha256 = _sha256_json(page.raw)
         journal.finish_request(attempt, response_sha256=page_sha256)
         payloads.append(page.raw)
         candidates.extend(
@@ -1210,17 +1261,76 @@ def _provider_candidate(
 def _deduped_candidates(
     candidates: Sequence[_ProviderCandidate],
 ) -> tuple[_ProviderCandidate, ...]:
-    by_id: dict[str, _ProviderCandidate] = {}
+    by_id: dict[str, list[_ProviderCandidate]] = {}
     for candidate in candidates:
-        existing = by_id.get(candidate.docket_id)
-        if existing is not None and _canonical_json(existing.raw) != _canonical_json(
-            candidate.raw
-        ):
-            raise OpinionRecapResolutionError(
-                f"provider returned contradictory rows for docket {candidate.docket_id}"
-            )
-        by_id[candidate.docket_id] = candidate
-    return tuple(sorted(by_id.values(), key=lambda item: int(item.docket_id)))
+        by_id.setdefault(candidate.docket_id, []).append(candidate)
+    reconciled = (
+        _reconcile_provider_candidate_group(docket_id, group)
+        for docket_id, group in by_id.items()
+    )
+    return tuple(sorted(reconciled, key=lambda item: int(item.docket_id)))
+
+
+def _reconcile_provider_candidate_group(
+    docket_id: str,
+    candidates: Sequence[_ProviderCandidate],
+) -> _ProviderCandidate:
+    ordered = sorted(candidates, key=lambda item: _canonical_json(item.raw))
+    fields: dict[
+        str,
+        tuple[
+            Callable[[_ProviderCandidate], str | None],
+            Callable[[str | None], str],
+        ],
+    ] = {
+        "court_id": (
+            lambda candidate: candidate.court_id,
+            _normalize_identifier,
+        ),
+        "docket_number": (
+            lambda candidate: candidate.docket_number,
+            _normalize_docket,
+        ),
+        "case_name": (
+            lambda candidate: candidate.case_name,
+            _normalize_case_name,
+        ),
+    }
+    reconciled_values: dict[str, str | None] = {}
+    conflicts: dict[str, object] = {}
+    for field_name, (value_of, normalize) in fields.items():
+        observed: dict[str, set[str]] = {}
+        for candidate in ordered:
+            value = value_of(candidate)
+            normalized = normalize(value)
+            if value is not None and normalized:
+                observed.setdefault(normalized, set()).add(value)
+        if len(observed) > 1:
+            conflicts[field_name] = {
+                "normalized_values": sorted(observed),
+                "observed_values": sorted(
+                    value for values in observed.values() for value in values
+                ),
+            }
+        reconciled_values[field_name] = (
+            None
+            if not observed
+            else sorted(value for values in observed.values() for value in values)[0]
+        )
+    if conflicts:
+        raise _ProviderIdentityContradiction(
+            {
+                "docket_id": docket_id,
+                "identity_conflicts": conflicts,
+            }
+        )
+    return _ProviderCandidate(
+        docket_id=docket_id,
+        court_id=reconciled_values["court_id"],
+        docket_number=reconciled_values["docket_number"],
+        case_name=reconciled_values["case_name"],
+        raw=ordered[0].raw,
+    )
 
 
 def _normalize_identifier(value: str | None) -> str:
