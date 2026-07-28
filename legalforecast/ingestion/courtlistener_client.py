@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import time
 import urllib.error
@@ -11,6 +12,8 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Protocol, TypeVar, cast
 
@@ -38,6 +41,10 @@ class CourtListenerAuthError(CourtListenerClientError):
 
 class CourtListenerRateLimitError(CourtListenerClientError):
     """Raised for rate-limit responses."""
+
+
+class CourtListenerBotChallengeError(CourtListenerClientError):
+    """Raised only when a bounded response prefix contains challenge markers."""
 
 
 class CourtListenerServerError(CourtListenerClientError):
@@ -269,7 +276,7 @@ class CourtListenerOpinion:
 
 
 class _RejectCourtListenerRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Reject redirects so each reservation maps to one physical request."""
+    """Expose safe redirects to the client and reject unsafe hops immediately."""
 
     def redirect_request(
         self,
@@ -280,13 +287,15 @@ class _RejectCourtListenerRedirectHandler(urllib.request.HTTPRedirectHandler):
         headers: Any,
         newurl: str,
     ) -> urllib.request.Request | None:
-        """Fail before urllib can copy Authorization or send a second request."""
+        """Never follow automatically, so each hop receives its own reservation."""
 
-        del req, fp, code, msg, headers, newurl
-        raise CourtListenerClientError(
-            "CourtListener redirects are disabled so every physical request "
-            "has its own durable reservation"
-        )
+        del fp, code, msg, headers
+        target = urllib.parse.urljoin(req.full_url, newurl)
+        if not _same_origin_https(req.full_url, target):
+            raise CourtListenerClientError(
+                "CourtListener redirect target must remain same-origin HTTPS"
+            )
+        return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -457,6 +466,10 @@ class UrlLibCourtListenerTransport:
                 timeout=timeout_seconds,
             ) as response:
                 raw_body = response.read()
+                _raise_for_challenge_response(
+                    raw_body=raw_body,
+                    headers=dict(response.headers.items()),
+                )
                 return CourtListenerHTTPResponse(
                     status_code=response.status,
                     payload=_http_payload(
@@ -468,6 +481,11 @@ class UrlLibCourtListenerTransport:
                 )
         except urllib.error.HTTPError as exc:
             raw_body = exc.read()
+            response_headers = dict(exc.headers.items()) if exc.headers else {}
+            _raise_for_challenge_response(
+                raw_body=raw_body,
+                headers=response_headers,
+            )
             return CourtListenerHTTPResponse(
                 status_code=exc.code,
                 payload=_http_payload(
@@ -475,7 +493,7 @@ class UrlLibCourtListenerTransport:
                     raw_body=raw_body,
                     path=path,
                 ),
-                headers=dict(exc.headers.items()) if exc.headers else {},
+                headers=response_headers,
             )
         except (TimeoutError, urllib.error.URLError) as exc:
             reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
@@ -580,18 +598,46 @@ class CourtListenerClient:
         config: CourtListenerConfig | None = None,
         transport: CourtListenerTransport | None = None,
         max_retries: int = 2,
-        retry_backoff_seconds: float = 0.0,
+        retry_backoff_seconds: float | None = None,
+        inter_request_delay_seconds: float | None = None,
         before_request: Callable[[str, str], None] | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+        monotonic: Callable[[], float] = time.monotonic,
+        jitter: Callable[[float, float], float] = random.uniform,
     ) -> None:
         self.config = CourtListenerConfig.from_env() if config is None else config
+        live_transport = transport is None
         self.transport = (
             UrlLibCourtListenerTransport(self.config.base_url)
-            if transport is None
+            if live_transport
             else transport
         )
+        if max_retries < 0:
+            raise ValueError("max_retries cannot be negative")
         self.max_retries = max_retries
-        self.retry_backoff_seconds = retry_backoff_seconds
+        self.retry_backoff_seconds = (
+            1.0
+            if retry_backoff_seconds is None and live_transport
+            else 0.0
+            if retry_backoff_seconds is None
+            else retry_backoff_seconds
+        )
+        self.inter_request_delay_seconds = (
+            1.0
+            if inter_request_delay_seconds is None and live_transport
+            else 0.0
+            if inter_request_delay_seconds is None
+            else inter_request_delay_seconds
+        )
+        if self.retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds cannot be negative")
+        if self.inter_request_delay_seconds < 0:
+            raise ValueError("inter_request_delay_seconds cannot be negative")
         self.before_request = before_request
+        self._sleep = sleep
+        self._monotonic = monotonic
+        self._jitter = jitter
+        self._last_request_at: float | None = None
         self.request_count = 0
 
     def get_docket(self, docket_id: str) -> CourtListenerDocket:
@@ -721,11 +767,15 @@ class CourtListenerClient:
     ) -> Mapping[str, Any]:
         headers = self._headers()
         attempt = 0
+        redirect_count = 0
+        request_path = path
+        request_params = dict(params)
         while True:
             if self.before_request is not None:
                 # Reserve provider capacity before every physical attempt,
                 # including retries, so a crash cannot erase metered activity.
-                self.before_request(method, path)
+                self.before_request(method, request_path)
+            self._pace_request()
             # This is physical-attempt evidence, not successful-response evidence.
             # Increment only after any durable reservation succeeds, immediately
             # before handing control to the transport.
@@ -733,34 +783,73 @@ class CourtListenerClient:
             try:
                 response = self.transport.request(
                     method=method,
-                    path=path,
-                    params=params,
+                    path=request_path,
+                    params=request_params,
                     headers=headers,
                     timeout_seconds=self.config.timeout_seconds,
                 )
             except CourtListenerServerError:
                 if attempt < self.max_retries:
+                    self._sleep_before_retry(attempt, retry_after=None)
                     attempt += 1
-                    if self.retry_backoff_seconds:
-                        time.sleep(self.retry_backoff_seconds)
                     continue
                 raise
-            self._log_request(path, response.status_code)
+            self._log_request(request_path, response.status_code)
             if 200 <= response.status_code < 300:
                 return response.payload
+            if response.status_code in {301, 302, 303, 307, 308}:
+                if redirect_count >= 5:
+                    raise CourtListenerClientError(
+                        "CourtListener redirect limit exceeded"
+                    )
+                request_path, request_params = _redirect_request_target(
+                    base_url=self.config.base_url,
+                    current_path=request_path,
+                    current_params=request_params,
+                    response=response,
+                )
+                redirect_count += 1
+                continue
 
-            error = _error_for_response(response, path)
+            error = _error_for_response(response, request_path)
             if (
                 isinstance(
                     error, CourtListenerRateLimitError | CourtListenerServerError
                 )
                 and attempt < self.max_retries
             ):
+                self._sleep_before_retry(
+                    attempt,
+                    retry_after=(
+                        _retry_after_seconds(response.headers)
+                        if isinstance(error, CourtListenerRateLimitError)
+                        else None
+                    ),
+                )
                 attempt += 1
-                if self.retry_backoff_seconds:
-                    time.sleep(self.retry_backoff_seconds)
                 continue
             raise error
+
+    def _pace_request(self) -> None:
+        now = self._monotonic()
+        if self._last_request_at is not None:
+            remaining = self.inter_request_delay_seconds - (now - self._last_request_at)
+            if remaining > 0:
+                self._sleep(remaining)
+                now = self._monotonic()
+        self._last_request_at = now
+
+    def _sleep_before_retry(
+        self,
+        retry_index: int,
+        *,
+        retry_after: float | None,
+    ) -> None:
+        ceiling = self.retry_backoff_seconds * (2**retry_index)
+        backoff = self._jitter(0.0, ceiling) if ceiling else 0.0
+        delay = max(backoff, retry_after or 0.0)
+        if delay:
+            self._sleep(delay)
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
@@ -850,6 +939,115 @@ def _http_payload(
                 f"{status_code} and an invalid response body"
             )
         }
+
+
+_CHALLENGE_SCAN_LIMIT = 256_000
+_CHALLENGE_MARKERS = (
+    b"cf-chl-",
+    b"challenge-platform",
+    b"checking your browser before accessing",
+    b"attention required! | cloudflare",
+)
+
+
+def _raise_for_challenge_response(
+    *,
+    raw_body: bytes,
+    headers: Mapping[str, str],
+) -> None:
+    """Classify marker-proven challenge HTML before attempting JSON decode."""
+
+    bounded = raw_body[:_CHALLENGE_SCAN_LIMIT].lower()
+    content_type = (_header_value(headers, "Content-Type") or "").casefold()
+    stripped = bounded.lstrip()
+    is_html = content_type.startswith(
+        ("text/html", "application/xhtml+xml")
+    ) or stripped.startswith((b"<!doctype html", b"<html"))
+    if is_html and any(marker in bounded for marker in _CHALLENGE_MARKERS):
+        raise CourtListenerBotChallengeError(
+            "CourtListener returned confirmed bot-challenge HTML"
+        )
+
+
+def _same_origin_https(source_url: str, target_url: str) -> bool:
+    try:
+        source = urllib.parse.urlsplit(source_url)
+        target = urllib.parse.urlsplit(target_url)
+        return (
+            source.scheme == target.scheme == "https"
+            and source.hostname == target.hostname
+            and _effective_port(source) == _effective_port(target)
+            and target.username is None
+            and target.password is None
+        )
+    except ValueError:
+        return False
+
+
+def _effective_port(parsed: urllib.parse.SplitResult) -> int | None:
+    return parsed.port if parsed.port is not None else 443
+
+
+def _redirect_request_target(
+    *,
+    base_url: str,
+    current_path: str,
+    current_params: Mapping[str, Any],
+    response: CourtListenerHTTPResponse,
+) -> tuple[str, dict[str, Any]]:
+    location = _header_value(response.headers, "Location")
+    if location is None:
+        raise CourtListenerClientError(
+            "CourtListener redirect response is missing Location"
+        )
+    query = urllib.parse.urlencode(current_params)
+    current_url = f"{base_url.rstrip('/')}{current_path}"
+    if query:
+        current_url = f"{current_url}?{query}"
+    target_url = urllib.parse.urljoin(current_url, location)
+    if not _same_origin_https(current_url, target_url):
+        raise CourtListenerClientError(
+            "CourtListener redirect target must remain same-origin HTTPS"
+        )
+    base = urllib.parse.urlsplit(base_url)
+    target = urllib.parse.urlsplit(target_url)
+    base_path = base.path.rstrip("/")
+    if target.path != base_path and not target.path.startswith(f"{base_path}/"):
+        raise CourtListenerClientError(
+            "CourtListener redirect target escaped the configured API root"
+        )
+    relative_path = target.path[len(base_path) :] or "/"
+    pairs = urllib.parse.parse_qsl(target.query, keep_blank_values=True)
+    if len({key for key, _ in pairs}) != len(pairs):
+        raise CourtListenerClientError(
+            "CourtListener redirect target contains duplicate query parameters"
+        )
+    return relative_path, dict(pairs)
+
+
+def _header_value(headers: Mapping[str, str], name: str) -> str | None:
+    wanted = name.casefold()
+    for key, value in headers.items():
+        if key.casefold() == wanted and value.strip():
+            return value.strip()
+    return None
+
+
+def _retry_after_seconds(headers: Mapping[str, str]) -> float | None:
+    raw = _header_value(headers, "Retry-After")
+    if raw is None:
+        return None
+    try:
+        seconds = float(raw)
+    except ValueError:
+        try:
+            parsed = parsedate_to_datetime(raw)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        seconds = (parsed - datetime.now(UTC)).total_seconds()
+    return max(0.0, seconds)
 
 
 def _json_payload(raw_body: bytes, *, path: str) -> Mapping[str, Any]:
