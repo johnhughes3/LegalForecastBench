@@ -2034,7 +2034,14 @@ def test_discover_courtlistener_rejects_batch_limit_drift(
     changed_args = [*args]
     changed_args[changed_args.index(changed_flag) + 1] = changed_value
     assert main(changed_args) == 2
-    assert "batch config mismatch" in capsys.readouterr().err
+    expected_reason = "batch config mismatch"
+    assert expected_reason in capsys.readouterr().err
+    failure = _read_json(
+        tmp_path / "output" / "run-cards" / "discover-courtlistener.json"
+    )
+    assert failure["status"] == "failed"
+    assert expected_reason in failure["failure_reason"]
+    assert failure["paid_activity_executed"] is False
 
 
 def test_discover_courtlistener_invalid_limits_do_not_freeze_batch(
