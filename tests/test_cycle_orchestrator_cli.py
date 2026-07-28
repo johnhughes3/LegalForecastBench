@@ -4,6 +4,7 @@ import fcntl
 import json
 from pathlib import Path
 
+import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.cycle_orchestrator import (
@@ -135,6 +136,64 @@ def test_run_cycle_status_reports_provider_free_stage_as_ready(
     assert status["next_stage"]["id"] == "initialize"
     assert status["next_stage"]["boundary"] == "provider_free"
     assert not (tmp_path / "state").exists()
+
+
+def test_run_cycle_treats_bare_delegated_system_exit_as_success(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_card = tmp_path / "init-cycle.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "acquisition",
+            "run-cycle",
+            "--config",
+            str(config),
+            "--state-root",
+            str(tmp_path / "state"),
+            "--execute",
+            "--json",
+        ]
+    )
+
+    def delegated_main(_arguments: tuple[str, ...]) -> int:
+        run_card.write_bytes(
+            canonical_json_bytes(
+                {
+                    "schema_version": "legalforecast.acquisition_run_card.v1",
+                    "stage": "init-cycle",
+                    "status": "completed",
+                    "dry_run": False,
+                    "execute": True,
+                    "resume": True,
+                    "paid_activity_executed": False,
+                    "output_paths": [],
+                }
+            )
+        )
+        raise SystemExit
+
+    monkeypatch.setattr(cli, "main", delegated_main)
+
+    assert args.handler(args) == 0
 
 
 def test_run_cycle_executes_provider_free_stage_and_resumes_from_receipt(

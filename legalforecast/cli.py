@@ -16244,6 +16244,8 @@ def _cmd_acquisition_run_cycle(args: argparse.Namespace) -> int:
             try:
                 return main(("acquisition", command, *arguments))
             except SystemExit as exc:
+                if exc.code is None:
+                    return 0
                 return exc.code if isinstance(exc.code, int) else 2
 
     try:
