@@ -839,6 +839,30 @@ def test_docket_screen_tracks_actual_but_not_strict_habeas_case() -> None:
     assert "habeas_or_immigration_detention_posture" in screen.exclusion_reasons
 
 
+def test_docket_screen_does_not_treat_bondi_as_immigration_posture_alone() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "CASE MANAGEMENT ORDER denying Defendants' Motion to Dismiss.",
+            title=("Revier Technologies, Inc. v. U.S. Small Business Administration"),
+        ),
+        source_url=(
+            "https://www.courtlistener.com/docket/71920931/"
+            "revier-technologies-inc-v-us-small-business-administration/"
+        ),
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text=(
+            "Administrative Procedure Act; U.S. Government Defendant; "
+            "party: Pamela Bondi"
+        ),
+    )
+
+    assert screen.strict_clean is True
+    assert "habeas_or_immigration_detention_posture" not in screen.exclusion_reasons
+
+
 def test_docket_screen_excludes_social_security_merits_jop() -> None:
     page = parse_courtlistener_docket_html(
         _docket_html(

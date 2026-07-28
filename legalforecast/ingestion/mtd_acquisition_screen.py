@@ -1448,7 +1448,7 @@ def _strict_posture_exclusion_reasons(
     if re.search(
         r"\b(?:habeas|2254|2241|warden|prisoner|detention\s+center|"
         r"correctional\s+(?:institution|facility)|ice|removal\s+center|"
-        r"field\s+office\s+director|bondi|immigration\s+detention|"
+        r"field\s+office\s+director|immigration\s+detention|"
         r"petition\s+for\s+writ)\b|(?:^|\W)hc(?:\W|$)",
         lowered,
         re.I,
