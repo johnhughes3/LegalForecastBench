@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from collections.abc import Callable
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -104,8 +105,11 @@ class CourtListenerRequestBudget:
         deadline = self._monotonic_clock() + self.max_wait_seconds
         while True:
             remaining = max(0.0, deadline - self._monotonic_clock())
+            lock_timeout = (
+                _LOCK_RETRY_SECONDS if self.max_wait_seconds == 0 else remaining
+            )
             try:
-                with self._connect(timeout_seconds=remaining) as connection:
+                with closing(self._connect(timeout_seconds=lock_timeout)) as connection:
                     connection.execute("BEGIN IMMEDIATE")
                     if self.max_wait_seconds > 0 and self._monotonic_clock() > deadline:
                         connection.rollback()

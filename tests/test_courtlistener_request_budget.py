@@ -4,6 +4,8 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
+from typing import Any
 
 import pytest
 from legalforecast.ingestion.courtlistener_request_budget import (
@@ -116,6 +118,81 @@ def test_concurrent_process_analogues_cannot_overreserve(tmp_path: Path) -> None
 
     assert outcomes == ["exhausted", "reserved"]
     assert first.total_reservations() == 1
+
+
+def test_locked_contender_closes_before_the_winner_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "requests.sqlite3"
+    limits = CourtListenerRequestLimits(per_minute=1, per_hour=1, per_day=1)
+    winner = CourtListenerRequestBudget(path, limits=limits, max_wait_seconds=0)
+    contender = CourtListenerRequestBudget(path, limits=limits, max_wait_seconds=0)
+    winner_started = Event()
+    contender_released = Event()
+    contender_closed = Event()
+
+    class Cursor:
+        lastrowid = 1
+
+        def fetchone(self) -> tuple[int, None]:
+            return (0, None)
+
+    class SimulatedConnection:
+        def __init__(self, *, wins_lock: bool) -> None:
+            self.wins_lock = wins_lock
+
+        def __enter__(self) -> SimulatedConnection:
+            return self
+
+        def __exit__(self, *_args: Any) -> None:
+            if not self.wins_lock:
+                contender_released.set()
+
+        def execute(self, statement: str, *_args: Any) -> Cursor:
+            if statement == "BEGIN IMMEDIATE":
+                if self.wins_lock:
+                    winner_started.set()
+                else:
+                    assert winner_started.wait(timeout=1)
+                    raise sqlite3.OperationalError("database is locked")
+            return Cursor()
+
+        def commit(self) -> None:
+            assert contender_released.wait(timeout=1)
+            if not contender_closed.is_set():
+                raise sqlite3.OperationalError("database is locked")
+
+        def rollback(self) -> None:
+            return
+
+        def close(self) -> None:
+            if not self.wins_lock:
+                contender_closed.set()
+                contender_released.set()
+
+    def connect_winner(*, timeout_seconds: float = 30.0) -> SimulatedConnection:
+        assert timeout_seconds == pytest.approx(0.05)
+        return SimulatedConnection(wins_lock=True)
+
+    def connect_contender(*, timeout_seconds: float = 30.0) -> SimulatedConnection:
+        assert timeout_seconds == pytest.approx(0.05)
+        return SimulatedConnection(wins_lock=False)
+
+    monkeypatch.setattr(winner, "_connect", connect_winner)
+    monkeypatch.setattr(contender, "_connect", connect_contender)
+
+    def attempt(budget: CourtListenerRequestBudget) -> str:
+        try:
+            budget.reserve("GET", "/search/")
+        except CourtListenerRequestBudgetExhausted:
+            return "exhausted"
+        return "reserved"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = sorted(pool.map(attempt, (winner, contender)))
+
+    assert outcomes == ["exhausted", "reserved"]
+    assert contender_closed.is_set()
 
 
 def test_reservation_timestamp_is_sampled_after_writer_lock(tmp_path: Path) -> None:
