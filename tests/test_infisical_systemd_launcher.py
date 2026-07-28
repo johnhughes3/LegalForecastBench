@@ -258,7 +258,10 @@ def test_launcher_accepts_exact_recap_fetch_broker_client_path(
 
     assert status == 0
     payload = json.loads(receipt.read_text(encoding="utf-8"))
+    assert payload["schema"] == "legalforecast.infisical_systemd_launch.v1"
     assert payload["sandbox_path"] == (
         "/agents/sandbox/legalforecastbench/recap-fetch-broker-client"
     )
     assert payload["child_receipt_observed"] is True
+    assert payload["sandbox_exit_status"] == 0
+    assert payload["effective_exit_status"] == 0

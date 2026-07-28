@@ -12,11 +12,16 @@ An acquisition transient unit should have this shape:
 ```bash
 systemd-run --user --unit=<unique-unit-name> --property=Type=exec \
   --working-directory="$PWD" \
+  /usr/bin/env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
   uv run legalforecast-acquisition-systemd-run \
   --sandbox-path /agents/sandbox/legalforecastbench-acquisition \
   --receipt-output <durable-launch-receipt.json> \
   -- uv run legalforecast acquisition <subcommand> <frozen-arguments>
 ```
+
+The `/usr/bin/env -i` boundary is part of the transient unit's command, not merely a caller-side preflight.
+User service managers can retain imported environment variables, so every secret-bearing unit must clear that inherited environment before the launcher starts and restore only the explicit nonsecret allowlist shown above.
+The launcher and its sandbox child then inherit only that allowlist plus the stage settings injected by `infisical-agent-sandbox`.
 
 Use the dedicated `/agents/sandbox/legalforecastbench/parser` or `/agents/sandbox/legalforecastbench/labeling` path for those stages.
 Paid RECAP Fetch uses only `/agents/sandbox/legalforecastbench/recap-fetch-broker-client`.
