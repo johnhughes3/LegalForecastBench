@@ -820,7 +820,7 @@ def test_observe_enforces_frozen_decision_window_end(tmp_path: Path) -> None:
             "caseName": "Acme Corp v. Roe",
         },
     )
-    try:
+    with store:
         recon_client = _client(
             (
                 _docket_response(555),
@@ -877,8 +877,6 @@ def test_observe_enforces_frozen_decision_window_end(tmp_path: Path) -> None:
         assert observation.state == "excluded"
         assert observation.reason_code == "strict_clean_screen_failed"
         assert observation.evidence["decision_window_end"] == "2026-07-12"
-    finally:
-        store.close()
 
 
 # ---------------------------------------------------------------------------
