@@ -10,6 +10,7 @@ from legalforecast.ingestion.cycle_orchestrator import (
     COMMAND_BOUNDARIES,
     BoundaryPermissions,
     CycleOrchestratorError,
+    _cycle_lock,  # pyright: ignore[reportPrivateUsage]
     run_acquisition_cycle,
 )
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
@@ -693,6 +694,22 @@ def test_run_cycle_refuses_concurrent_owner_before_stage_execution(
     assert not run_card.exists()
 
 
+def test_cycle_lock_rejects_symlinked_state_root_before_creating_it(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(outside, target_is_directory=True)
+    state_root = linked / "state"
+
+    with pytest.raises(CycleOrchestratorError, match="must not contain symlinks"):
+        with _cycle_lock(state_root):
+            pytest.fail("unsafe state root acquired a cycle lock")
+
+    assert not (outside / "state").exists()
+
+
 def test_run_cycle_refuses_config_change_during_stage(
     tmp_path: Path,
 ) -> None:
@@ -782,6 +799,67 @@ def test_run_cycle_fails_closed_when_receipted_run_card_changes(
 
     assert main(command) == 2
     assert "receipted run card changed" in capsys.readouterr().err
+
+
+def test_run_cycle_fails_closed_when_stage_receipt_is_not_an_object(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "init-cycle.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+
+    def write_stage(_command: str, _arguments: tuple[str, ...]) -> int:
+        run_card.write_bytes(
+            canonical_json_bytes(
+                {
+                    "schema_version": "legalforecast.acquisition_run_card.v1",
+                    "stage": "init-cycle",
+                    "status": "completed",
+                    "dry_run": False,
+                    "execute": True,
+                    "resume": True,
+                    "paid_activity_executed": False,
+                    "output_paths": [],
+                }
+            )
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_stage,
+    )
+    receipt = state_root / "receipts" / "0000-initialize.json"
+    receipt.write_bytes(canonical_json_bytes(["not", "an", "object"]))
+
+    with pytest.raises(CycleOrchestratorError, match="must be a JSON object"):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=False,
+            permissions=BoundaryPermissions(),
+            executor=write_stage,
+        )
 
 
 def test_run_cycle_fails_closed_when_receipted_output_changes(

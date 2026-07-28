@@ -516,7 +516,10 @@ def _verify_receipt(
             f"stage receipt directory must not contain symlinks: {path.parent}"
         )
     payload = _read_canonical_json(path, label="stage receipt")
-    receipt = cast(Mapping[str, object], json.loads(payload))
+    raw_receipt = json.loads(payload)
+    if not isinstance(raw_receipt, Mapping):
+        raise CycleOrchestratorError("stage receipt must be a JSON object")
+    receipt = cast(Mapping[str, object], raw_receipt)
     expected_fields = {
         "schema_version",
         "config_sha256",
@@ -690,8 +693,8 @@ def _validate_state_root(path: Path) -> None:
 def _cycle_lock(state_root: Path) -> Generator[None]:
     """Serialize mutations and paid-boundary checks for one cycle state."""
 
-    state_root.mkdir(parents=True, exist_ok=True)
     _validate_state_root(state_root)
+    state_root.mkdir(parents=True, exist_ok=True)
     lock_path = state_root / ".run-cycle.lock"
     flags = os.O_RDWR | os.O_CREAT | os.O_CLOEXEC
     nofollow = getattr(os, "O_NOFOLLOW", None)
