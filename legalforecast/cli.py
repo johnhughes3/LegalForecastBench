@@ -20,6 +20,7 @@ import uuid
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from contextlib import redirect_stdout
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -292,6 +293,11 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     VerifiedCompleteSnapshot,
     cohort_reason_policy_taxonomy,
     verify_snapshot,
+)
+from legalforecast.ingestion.cycle_orchestrator import (
+    BoundaryPermissions,
+    CycleOrchestratorError,
+    run_acquisition_cycle,
 )
 from legalforecast.ingestion.decision_text_artifact import (
     CYCLE_1_ELIGIBILITY_ANCHOR,
@@ -1344,6 +1350,21 @@ def build_parser() -> argparse.ArgumentParser:
         dest="acquisition_command",
         metavar="COMMAND",
     )
+    acquisition_run_cycle = acquisition_subparsers.add_parser(
+        "run-cycle",
+        help=(
+            "Advance an immutable, receipt-backed acquisition-only cycle plan "
+            "until its next explicit authority boundary."
+        ),
+        description=(
+            "Inspect or advance a canonical acquisition cycle configuration by "
+            "delegating each stage to its existing acquisition command. The "
+            "default execution path is provider-free and stops before network, "
+            "human, model-provider, or paid work. This command can never invoke "
+            "evaluation, freeze, or dispatch."
+        ),
+    )
+    _add_acquisition_run_cycle_arguments(acquisition_run_cycle)
     acquisition_init_cycle = acquisition_subparsers.add_parser(
         "init-cycle",
         help=(
@@ -2417,6 +2438,65 @@ def _add_pilot_fallback_arguments(parser: argparse.ArgumentParser) -> None:
         help="Deterministic report timestamp, ISO 8601. Defaults to now.",
     )
     parser.set_defaults(handler=_cmd_pilot_fallback)
+
+
+def _add_acquisition_run_cycle_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="Canonical legalforecast.acquisition_cycle_config.v1 JSON file.",
+    )
+    parser.add_argument(
+        "--state-root",
+        type=Path,
+        required=True,
+        help=(
+            "Absolute root for immutable per-stage completion receipts. The "
+            "config SHA-256 is bound into every receipt."
+        ),
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help=(
+            "Advance permitted stages. Omit to authenticate receipts and report "
+            "the exact next command without changing acquisition state."
+        ),
+    )
+    parser.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Permit explicitly classified noncharging network stages.",
+    )
+    parser.add_argument(
+        "--allow-human",
+        action="store_true",
+        help="Permit an explicitly classified interactive or human-review stage.",
+    )
+    parser.add_argument(
+        "--allow-model-provider",
+        action="store_true",
+        help=(
+            "Permit parser or labeling-model stages; also requires "
+            "--allow-network. Existing provider authority remains mandatory."
+        ),
+    )
+    parser.add_argument(
+        "--allow-paid",
+        action="store_true",
+        help=(
+            "Permit the reviewed CourtListener RECAP Fetch purchase stage; also "
+            "requires --allow-network and every existing purchase-policy, ledger, "
+            "broker, and budget gate. Omitted by default."
+        ),
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the stable machine-readable cycle status object.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_run_cycle)
 
 
 def _add_acquisition_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -16140,6 +16220,67 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
         paid_activity_executed=False,
         extra=summary,
     )
+    return 0
+
+
+def _cmd_acquisition_run_cycle(args: argparse.Namespace) -> int:
+    """Inspect or advance a receipt-backed acquisition-only cycle."""
+
+    allow_network = cast(bool, args.allow_network)
+    allow_model_provider = cast(bool, args.allow_model_provider)
+    allow_paid = cast(bool, args.allow_paid)
+    if allow_model_provider and not allow_network:
+        raise CommandError("--allow-model-provider requires --allow-network")
+    if allow_paid and not allow_network:
+        raise CommandError("--allow-paid requires --allow-network")
+
+    def execute_existing_acquisition_stage(
+        command: str,
+        arguments: tuple[str, ...],
+    ) -> int:
+        # Keep the cycle status as the sole stdout record in JSON/piped mode while
+        # preserving stage logs and interactive prompts for the operator.
+        with redirect_stdout(sys.stderr):
+            try:
+                return main(("acquisition", command, *arguments))
+            except SystemExit as exc:
+                return exc.code if isinstance(exc.code, int) else 2
+
+    try:
+        status = run_acquisition_cycle(
+            config_path=cast(Path, args.config),
+            state_root=cast(Path, args.state_root),
+            execute=cast(bool, args.execute),
+            permissions=BoundaryPermissions(
+                network=allow_network,
+                human=cast(bool, args.allow_human),
+                model_provider=allow_model_provider,
+                paid=allow_paid,
+            ),
+            executor=execute_existing_acquisition_stage,
+        )
+    except CycleOrchestratorError as exc:
+        raise CommandError(str(exc)) from exc
+
+    if cast(bool, args.json) or not sys.stdout.isatty():
+        print(json.dumps(status, sort_keys=True))
+    else:
+        print(
+            f"cycle {status['cycle_id']}: {status['status']} "
+            f"({status['completed_stage_count']}/{status['stage_count']} stages)"
+        )
+        next_stage = status.get("next_stage")
+        if isinstance(next_stage, Mapping):
+            next_stage_record = cast(Mapping[str, object], next_stage)
+            invocation = next_stage_record.get("invocation")
+            if isinstance(invocation, Sequence) and not isinstance(
+                invocation, (str, bytes)
+            ):
+                invocation_items = cast(Sequence[object], invocation)
+                print("next: " + " ".join(str(item) for item in invocation_items))
+            boundary = next_stage_record.get("boundary")
+            if isinstance(boundary, str):
+                print(f"boundary: {boundary}")
     return 0
 
 
