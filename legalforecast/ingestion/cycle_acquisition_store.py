@@ -290,37 +290,87 @@ class CycleAcquisitionStore:
         self.path = Path(path)
         self._lock_path = Path(f"{self.path}.lock")
         self._read_only = read_only
-        if read_only:
+        self._bound_parent_fd = _duplicate_bound_parent_fd(self.path)
+        self._database_fd: int | None = None
+        if self._bound_parent_fd is not None:
+            try:
+                self._database_fd = _open_bound_regular_file(
+                    self._bound_parent_fd,
+                    self.path.name,
+                    label="cycle store",
+                    read_only=read_only,
+                )
+                self._lock_fd = _open_bound_regular_file(
+                    self._bound_parent_fd,
+                    self._lock_path.name,
+                    label="cycle store lock",
+                    read_only=read_only,
+                )
+            except BaseException:
+                self._close_open_file_descriptors()
+                raise
+        elif read_only:
             _require_existing_regular_file(self.path, "cycle store")
             _require_existing_regular_file(self._lock_path, "cycle store lock")
             lock_flags = os.O_RDONLY
+            self._lock_fd = os.open(self._lock_path, lock_flags, 0o600)
         else:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             lock_flags = os.O_RDWR | os.O_CREAT
-        self._lock_fd = os.open(self._lock_path, lock_flags, 0o600)
+            self._lock_fd = os.open(self._lock_path, lock_flags, 0o600)
         try:
             fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if self._bound_parent_fd is not None:
+                _require_bound_regular_file_current(
+                    self._bound_parent_fd,
+                    self._lock_path.name,
+                    self._lock_fd,
+                    label="cycle store lock",
+                )
         except BlockingIOError as error:
-            os.close(self._lock_fd)
+            self._close_open_file_descriptors()
             raise StoreLockedError(
                 f"cycle store is already locked: {self.path}"
             ) from error
+        except BaseException:
+            self._close_open_file_descriptors()
+            raise
         try:
+            connection_path = (
+                Path(f"/proc/self/fd/{self._database_fd}")
+                if self._database_fd is not None
+                else self.path
+            )
             if read_only:
                 wal_path = Path(f"{self.path}-wal")
-                if wal_path.exists() and wal_path.stat().st_size > 0:
+                if _read_only_wal_size(wal_path) > 0:
                     raise CycleAcquisitionStoreError(
                         "read-only cycle store has a nonempty WAL; refusing an "
                         "immutable view that depends on sidecar state"
                     )
+                connection_uri_path = (
+                    connection_path
+                    if self._database_fd is not None
+                    else connection_path.resolve()
+                )
                 self._connection = sqlite3.connect(
-                    f"{self.path.resolve().as_uri()}?mode=ro&immutable=1",
+                    f"{connection_uri_path.as_uri()}?mode=ro&immutable=1",
                     isolation_level=None,
                     uri=True,
                 )
             else:
                 _trim_torn_wal_tail(self.path)
-                self._connection = sqlite3.connect(self.path, isolation_level=None)
+                self._connection = sqlite3.connect(
+                    connection_path,
+                    isolation_level=None,
+                )
+            if self._bound_parent_fd is not None and self._database_fd is not None:
+                _require_bound_regular_file_current(
+                    self._bound_parent_fd,
+                    self.path.name,
+                    self._database_fd,
+                    label="cycle store",
+                )
             self._connection.row_factory = sqlite3.Row
             if read_only:
                 self._connection.execute("PRAGMA query_only=ON")
@@ -337,7 +387,10 @@ class CycleAcquisitionStore:
                     f"SQLite integrity check failed for {self.path}: {integrity!r}"
                 )
         except BaseException:
-            os.close(self._lock_fd)
+            connection = getattr(self, "_connection", None)
+            if connection is not None:
+                connection.close()
+            self._close_open_file_descriptors()
             raise
         self._closed = False
 
@@ -365,8 +418,15 @@ class CycleAcquisitionStore:
             return
         self._connection.close()
         fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
-        os.close(self._lock_fd)
+        self._close_open_file_descriptors()
         self._closed = True
+
+    def _close_open_file_descriptors(self) -> None:
+        for attribute in ("_lock_fd", "_database_fd", "_bound_parent_fd"):
+            descriptor = getattr(self, attribute, None)
+            if descriptor is not None:
+                os.close(descriptor)
+                setattr(self, attribute, None)
 
     @property
     def cycle_hash(self) -> str:
@@ -938,7 +998,9 @@ class CycleAcquisitionStore:
         """
 
         attempt = self.firecrawl_attempt(attempt_id)
-        destination_path = Path(destination).resolve()
+        configured_destination = Path(destination)
+        destination_path = configured_destination.resolve()
+        write_path = _bound_or_resolved_write_path(configured_destination)
         digest = hashlib.sha256(content).hexdigest()
         if validator is not None:
             validator(content)
@@ -969,8 +1031,11 @@ class CycleAcquisitionStore:
                     "artifact commitment"
                 )
             try:
-                existing_content = destination_path.read_bytes()
-            except OSError as error:
+                existing_content = _read_unique_regular_bytes(
+                    write_path,
+                    label="committed Firecrawl artifact",
+                )
+            except ImmutableArtifactError as error:
                 raise ImmutableArtifactError(
                     f"committed Firecrawl artifact is missing: {destination_path}"
                 ) from error
@@ -995,14 +1060,20 @@ class CycleAcquisitionStore:
             raise ImmutableArtifactError(
                 f"Firecrawl artifact path is already committed: {destination_path}"
             )
-        if destination_path.exists():
-            if destination_path.read_bytes() != content:
+        if write_path.exists() or write_path.is_symlink():
+            if (
+                _read_unique_regular_bytes(
+                    write_path,
+                    label="untracked Firecrawl artifact",
+                )
+                != content
+            ):
                 raise ImmutableArtifactError(
                     f"untracked Firecrawl artifact conflicts with content: "
                     f"{destination_path}"
                 )
         else:
-            _atomic_write_bytes(destination_path, content)
+            _atomic_write_bytes(write_path, content)
         committed = self.finalize_firecrawl_attempt(
             attempt_id,
             status="succeeded",
@@ -3067,6 +3138,99 @@ def _require_existing_regular_file(path: Path, label: str) -> None:
         )
 
 
+def _duplicate_bound_parent_fd(path: Path) -> int | None:
+    """Duplicate a direct ``/proc/self/fd/N/name`` parent binding."""
+
+    parent_parts = path.absolute().parent.parts
+    if len(parent_parts) != 5 or parent_parts[:4] != ("/", "proc", "self", "fd"):
+        return None
+    try:
+        source_fd = int(parent_parts[4])
+        descriptor = os.dup(source_fd)
+    except (OSError, ValueError) as exc:
+        raise CycleAcquisitionStoreError(
+            "cycle store has an invalid bound parent directory"
+        ) from exc
+    metadata = os.fstat(descriptor)
+    if not stat.S_ISDIR(metadata.st_mode):
+        os.close(descriptor)
+        raise CycleAcquisitionStoreError("cycle store bound parent must be a directory")
+    return descriptor
+
+
+def _open_bound_regular_file(
+    parent_fd: int,
+    name: str,
+    *,
+    label: str,
+    read_only: bool,
+) -> int:
+    """Open or exclusively create one regular child without following links."""
+
+    if not name or "/" in name or name in {".", ".."}:
+        raise CycleAcquisitionStoreError(f"{label} has an invalid child name")
+    access = os.O_RDONLY if read_only else os.O_RDWR
+    flags = access | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        descriptor = os.open(name, flags, dir_fd=parent_fd)
+    except FileNotFoundError:
+        if read_only:
+            raise CycleAcquisitionStoreError(f"{label} does not exist") from None
+        try:
+            descriptor = os.open(
+                name,
+                flags | os.O_CREAT | os.O_EXCL,
+                0o600,
+                dir_fd=parent_fd,
+            )
+        except OSError as exc:
+            raise CycleAcquisitionStoreError(
+                f"{label} cannot be created as a unique regular non-symlink file"
+            ) from exc
+        os.fsync(parent_fd)
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            f"{label} must be a unique regular non-symlink file"
+        ) from exc
+    try:
+        _require_bound_regular_file_current(
+            parent_fd,
+            name,
+            descriptor,
+            label=label,
+        )
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _require_bound_regular_file_current(
+    parent_fd: int,
+    name: str,
+    descriptor: int,
+    *,
+    label: str,
+) -> None:
+    opened = os.fstat(descriptor)
+    try:
+        named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            f"{label} changed while its file binding was active"
+        ) from exc
+    if (
+        not stat.S_ISREG(opened.st_mode)
+        or opened.st_nlink != 1
+        or not stat.S_ISREG(named.st_mode)
+        or named.st_nlink != 1
+        or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)
+    ):
+        raise CycleAcquisitionStoreError(
+            f"{label} must be a unique regular non-symlink file"
+        )
+
+
 def _verify_snapshot_reconciliation(path: Path) -> None:
     screened = _read_jsonl_records(path / "screened-cases.jsonl")
     exclusions = _read_jsonl_records(path / "exclusions.jsonl")
@@ -3506,6 +3670,24 @@ def _firecrawl_target_from_row(row: sqlite3.Row) -> FirecrawlTarget:
     )
 
 
+def _bound_or_resolved_write_path(path: Path) -> Path:
+    absolute = path.absolute()
+    if _is_bound_descriptor_path(absolute):
+        return absolute
+    return path.resolve()
+
+
+def _is_bound_descriptor_path(path: Path) -> bool:
+    parts = path.absolute().parts
+    return (
+        len(parts) >= 5
+        and parts[:4] == ("/", "proc", "self", "fd")
+        and parts[4].isascii()
+        and parts[4].isdigit()
+        and not any(component in {".", ".."} for component in parts[5:])
+    )
+
+
 def _atomic_write_bytes(destination: Path, content: bytes) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
@@ -3521,6 +3703,57 @@ def _atomic_write_bytes(destination: Path, content: bytes) -> None:
         _fsync_directory(destination.parent)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _read_unique_regular_bytes(path: Path, *, label: str) -> bytes:
+    descriptor: int | None = None
+    try:
+        before_path = path.lstat()
+        if not stat.S_ISREG(before_path.st_mode) or before_path.st_nlink != 1:
+            raise ImmutableArtifactError(
+                f"{label} must be a singly linked regular non-symlink file: {path}"
+            )
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+        )
+        before_fd = os.fstat(descriptor)
+        if (before_path.st_dev, before_path.st_ino) != (
+            before_fd.st_dev,
+            before_fd.st_ino,
+        ):
+            raise ImmutableArtifactError(f"{label} changed while opening: {path}")
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 1024 * 1024):
+            chunks.append(chunk)
+        after_fd = os.fstat(descriptor)
+        after_path = path.lstat()
+        stable_fields = (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_nlink",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
+        if any(
+            getattr(before_fd, field) != getattr(after_fd, field)
+            or getattr(before_fd, field) != getattr(after_path, field)
+            for field in stable_fields
+        ):
+            raise ImmutableArtifactError(f"{label} changed while reading: {path}")
+        payload = b"".join(chunks)
+        if len(payload) != after_fd.st_size:
+            raise ImmutableArtifactError(f"{label} changed while reading: {path}")
+        return payload
+    except OSError as exc:
+        raise ImmutableArtifactError(
+            f"{label} must be a singly linked regular non-symlink file: {path}"
+        ) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def _write_fsynced(path: Path, payload: bytes) -> None:
@@ -3554,29 +3787,118 @@ def _trim_torn_wal_tail(database: Path) -> None:
     """Trim only bytes that cannot form a complete SQLite WAL frame."""
 
     wal = Path(f"{database}-wal")
-    if not wal.exists():
+    descriptor: int | None = None
+    flags = os.O_RDWR | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        descriptor = os.open(wal, flags)
+    except FileNotFoundError:
         return
-    size = wal.stat().st_size
-    if size == 0:
-        return
-    if size < 32:
-        with wal.open("r+b") as handle:
-            handle.truncate(0)
-            handle.flush()
-            os.fsync(handle.fileno())
-        return
-    with wal.open("rb") as handle:
-        header = handle.read(32)
-    page_size = int.from_bytes(header[8:12], "big")
-    if page_size == 1:
-        page_size = 65_536
-    if page_size < 512 or page_size > 65_536 or page_size & (page_size - 1):
-        raise CycleAcquisitionStoreError("invalid SQLite WAL page size")
-    frame_size = 24 + page_size
-    complete_size = 32 + ((size - 32) // frame_size) * frame_size
-    if complete_size == size:
-        return
-    with wal.open("r+b") as handle:
-        handle.truncate(complete_size)
-        handle.flush()
-        os.fsync(handle.fileno())
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            "SQLite WAL sidecar must be a singly linked regular non-symlink file"
+        ) from exc
+    try:
+        before = os.fstat(descriptor)
+        named_before = os.stat(wal, follow_symlinks=False)
+        before_identity = _wal_stat_identity(before)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or before_identity != _wal_stat_identity(named_before)
+        ):
+            raise CycleAcquisitionStoreError(
+                "SQLite WAL sidecar must be a singly linked regular non-symlink file"
+            )
+        size = before.st_size
+        if size == 0:
+            return
+        if size < 32:
+            complete_size = 0
+        else:
+            header = os.pread(descriptor, 32, 0)
+            after_read = os.fstat(descriptor)
+            named_after_read = os.stat(wal, follow_symlinks=False)
+            if (
+                len(header) != 32
+                or before_identity != _wal_stat_identity(after_read)
+                or before_identity != _wal_stat_identity(named_after_read)
+            ):
+                raise CycleAcquisitionStoreError(
+                    "SQLite WAL sidecar changed while it was inspected"
+                )
+            page_size = int.from_bytes(header[8:12], "big")
+            if page_size == 1:
+                page_size = 65_536
+            if page_size < 512 or page_size > 65_536 or page_size & (page_size - 1):
+                raise CycleAcquisitionStoreError("invalid SQLite WAL page size")
+            frame_size = 24 + page_size
+            complete_size = 32 + ((size - 32) // frame_size) * frame_size
+        if complete_size == size:
+            return
+        os.ftruncate(descriptor, complete_size)
+        os.fsync(descriptor)
+        after = os.fstat(descriptor)
+        named_after = os.stat(wal, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(after.st_mode)
+            or after.st_nlink != 1
+            or (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
+            or _wal_stat_identity(after) != _wal_stat_identity(named_after)
+            or after.st_size != complete_size
+        ):
+            raise CycleAcquisitionStoreError(
+                "SQLite WAL sidecar changed while it was truncated"
+            )
+    except CycleAcquisitionStoreError:
+        raise
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            "SQLite WAL sidecar cannot be inspected safely"
+        ) from exc
+    finally:
+        os.close(descriptor)
+
+
+def _read_only_wal_size(wal: Path) -> int:
+    descriptor: int | None = None
+    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        descriptor = os.open(wal, flags)
+    except FileNotFoundError:
+        return 0
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            "SQLite WAL sidecar must be a singly linked regular non-symlink file"
+        ) from exc
+    try:
+        opened = os.fstat(descriptor)
+        named = os.stat(wal, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_nlink != 1
+            or _wal_stat_identity(opened) != _wal_stat_identity(named)
+        ):
+            raise CycleAcquisitionStoreError(
+                "SQLite WAL sidecar must be a singly linked regular non-symlink file"
+            )
+        return opened.st_size
+    except CycleAcquisitionStoreError:
+        raise
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            "SQLite WAL sidecar cannot be inspected safely"
+        ) from exc
+    finally:
+        os.close(descriptor)
+
+
+def _wal_stat_identity(metadata: os.stat_result) -> tuple[int, ...]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_nlink,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )

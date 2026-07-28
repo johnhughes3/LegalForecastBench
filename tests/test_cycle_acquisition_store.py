@@ -17,6 +17,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     PageReplayMismatchError,
     SnapshotVerificationError,
     StoreLockedError,
+    _is_bound_descriptor_path,
     cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
@@ -34,6 +35,26 @@ def _store(tmp_path: Path) -> CycleAcquisitionStore:
     store.ensure_cycle(POLICY)
     store.ensure_batch("batch-001", {"start": "2026-06-30", "page_size": 50})
     return store
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (Path("/proc/self/fd/7/cycle.sqlite3"), True),
+        (Path("/proc/self/fd/not-a-fd/cycle.sqlite3"), False),
+        (Path("/proc/self/fd/7/../../tmp/escaped.sqlite3"), False),
+    ],
+)
+def test_bound_store_path_requires_numeric_fd_without_traversal(
+    path: Path,
+    expected: bool,
+) -> None:
+    assert (
+        _is_bound_descriptor_path(  # pyright: ignore[reportPrivateUsage]
+            path
+        )
+        is expected
+    )
 
 
 def _hit(provider_hit_id: str, candidate_id: str) -> dict[str, object]:
@@ -93,6 +114,179 @@ def test_cycle_and_batch_config_identity_fail_closed(tmp_path: Path) -> None:
         with pytest.raises(ConfigMismatchError, match="batch-001"):
             store.ensure_batch("batch-001", {"page_size": 100})
         assert store.ensure_batch("batch-002", {"page_size": 100}) != digest
+
+
+@pytest.mark.parametrize("injected_name", ["cycle.sqlite3", "cycle.sqlite3.lock"])
+def test_bound_cycle_store_rejects_injected_database_or_lock_symlink(
+    tmp_path: Path,
+    injected_name: str,
+) -> None:
+    parent = tmp_path / "store"
+    outside = tmp_path / "outside"
+    parent.mkdir()
+    outside.mkdir()
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    try:
+        (parent / injected_name).symlink_to(outside / "escaped.sqlite3")
+        with pytest.raises(CycleAcquisitionStoreError, match="non-symlink"):
+            CycleAcquisitionStore(Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"))
+    finally:
+        os.close(parent_fd)
+
+    assert not (outside / "escaped.sqlite3").exists()
+
+
+def test_bound_cycle_store_rejects_wal_symlink_without_touching_target(
+    tmp_path: Path,
+) -> None:
+    parent = tmp_path / "store"
+    parent.mkdir()
+    outside = tmp_path / "outside-wal"
+    original = b"must remain unchanged"
+    outside.write_bytes(original)
+    (parent / "cycle.sqlite3-wal").symlink_to(outside)
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    try:
+        with pytest.raises(CycleAcquisitionStoreError, match="WAL sidecar"):
+            CycleAcquisitionStore(Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"))
+    finally:
+        os.close(parent_fd)
+
+    assert outside.read_bytes() == original
+    assert (parent / "cycle.sqlite3-wal").is_symlink()
+
+
+def test_bound_read_only_cycle_store_rejects_wal_symlink(
+    tmp_path: Path,
+) -> None:
+    parent = tmp_path / "store"
+    parent.mkdir()
+    database = parent / "cycle.sqlite3"
+    with CycleAcquisitionStore(database) as store:
+        store.ensure_cycle(POLICY)
+    wal = parent / "cycle.sqlite3-wal"
+    wal.unlink(missing_ok=True)
+    outside = tmp_path / "outside-read-only-wal"
+    original = b"outside WAL bytes"
+    outside.write_bytes(original)
+    wal.symlink_to(outside)
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    try:
+        with pytest.raises(CycleAcquisitionStoreError, match="WAL sidecar"):
+            CycleAcquisitionStore(
+                Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"),
+                read_only=True,
+            )
+    finally:
+        os.close(parent_fd)
+
+    assert outside.read_bytes() == original
+    assert wal.is_symlink()
+
+
+def test_bound_cycle_store_connects_through_pinned_database_descriptor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "store"
+    parent.mkdir()
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    real_connect = sqlite3.connect
+    connection_paths: list[str] = []
+
+    def recording_connect(
+        database: str | Path,
+        *,
+        isolation_level: None = None,
+        uri: bool = False,
+    ) -> sqlite3.Connection:
+        connection_paths.append(os.fspath(database))
+        return real_connect(database, isolation_level=isolation_level, uri=uri)
+
+    monkeypatch.setattr(sqlite3, "connect", recording_connect)
+    try:
+        with CycleAcquisitionStore(
+            Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3")
+        ) as store:
+            store.ensure_cycle(POLICY)
+            assert (parent / "cycle.sqlite3-wal").is_file()
+            assert (parent / "cycle.sqlite3-shm").is_file()
+        with CycleAcquisitionStore(
+            Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"),
+            read_only=True,
+        ) as store:
+            assert store.cycle_policy == POLICY
+    finally:
+        os.close(parent_fd)
+
+    assert len(connection_paths) == 2
+    assert connection_paths[0].startswith("/proc/self/fd/")
+    assert Path(connection_paths[0]).name.isdecimal()
+    assert connection_paths[1].startswith("file:///proc/self/fd/")
+    assert connection_paths[1].endswith("?mode=ro&immutable=1")
+
+
+def test_bound_cycle_store_rejects_entry_swap_after_pinned_database_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "store"
+    parent.mkdir()
+    outside_database = tmp_path / "outside.sqlite3"
+    with sqlite3.connect(outside_database) as connection:
+        connection.execute("CREATE TABLE outside_marker(value TEXT)")
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    real_connect = sqlite3.connect
+    opened_database_paths: list[str] = []
+
+    def swap_then_connect(
+        database: str | Path,
+        *,
+        isolation_level: None = None,
+        uri: bool = False,
+    ) -> sqlite3.Connection:
+        (parent / "cycle.sqlite3").rename(parent / "pinned.sqlite3")
+        (parent / "cycle.sqlite3").symlink_to(outside_database)
+        connection = real_connect(
+            database,
+            isolation_level=isolation_level,
+            uri=uri,
+        )
+        opened_database_paths.append(
+            str(connection.execute("PRAGMA database_list").fetchone()[2])
+        )
+        return connection
+
+    monkeypatch.setattr(sqlite3, "connect", swap_then_connect)
+    try:
+        with pytest.raises(
+            CycleAcquisitionStoreError,
+            match="unique regular non-symlink",
+        ):
+            CycleAcquisitionStore(Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"))
+    finally:
+        os.close(parent_fd)
+
+    assert opened_database_paths == [str(parent / "pinned.sqlite3")]
+    with real_connect(outside_database) as connection:
+        assert connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall() == [("outside_marker",)]
 
 
 def test_source_neutral_cycle_policy_upgrade_preserves_credit_authorizations(
@@ -504,6 +698,56 @@ def test_firecrawl_artifact_is_atomic_immutable_and_attempt_bound(
                 proxy_used="stealth",
                 target_http_status=200,
             )
+
+
+def test_firecrawl_artifact_write_stays_bound_to_open_directory(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_firecrawl_run(
+            "search-run",
+            batch_id="batch-001",
+            config={"purpose": "search"},
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+        store.ensure_firecrawl_target(
+            "search-run",
+            target_id="search-1",
+            target_kind="search",
+            source_url="https://www.courtlistener.com/?type=r&q=alpha",
+            ordinal=0,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "search-run",
+            target_id="search-1",
+            page_number=1,
+            request_url="https://www.courtlistener.com/?type=r&q=alpha",
+        )
+        pages = tmp_path / "pages"
+        pages.mkdir()
+        descriptor = os.open(
+            pages,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+        )
+        moved = tmp_path / "moved-pages"
+        try:
+            pages.rename(moved)
+            pages.mkdir()
+            committed = store.commit_firecrawl_artifact(
+                attempt.attempt_id,
+                Path(f"/proc/self/fd/{descriptor}") / "search-1.html",
+                b"<html>safe fixture</html>",
+                reported_credits=5,
+                proxy_used="stealth",
+                target_http_status=200,
+            )
+        finally:
+            os.close(descriptor)
+
+        assert committed.artifact_path == moved / "search-1.html"
+        assert (moved / "search-1.html").read_bytes() == (b"<html>safe fixture</html>")
+        assert list(pages.iterdir()) == []
 
 
 def test_store_holds_a_nonblocking_process_lifetime_lock(tmp_path: Path) -> None:

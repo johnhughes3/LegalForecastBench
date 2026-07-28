@@ -682,6 +682,21 @@ from legalforecast.ingestion.target_preparation_retarget import (
     verify_retarget_import_receipt,
     write_retarget_import_receipt,
 )
+from legalforecast.ingestion.target_public_gap_refresh import (
+    TargetPublicGapExecutionIdentity,
+    TargetPublicGapExecutionResult,
+    TargetPublicGapPlan,
+    TargetPublicGapRefreshError,
+    bind_target_public_gap_execution,
+    bind_verified_target_public_gap_downloads,
+    execute_target_public_gap_refresh,
+    plan_target_public_gaps,
+    preflight_target_public_gap_execution,
+    publish_target_public_gap_outputs,
+    publish_target_public_gap_plan,
+    require_target_public_gap_sources_unchanged,
+    verify_target_public_gap_plan,
+)
 from legalforecast.ingestion.terminal_subset_promotion import (
     TerminalSubsetPromotionError,
     read_pinned_terminal_selection_docket_ids,
@@ -1422,6 +1437,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_acquire_ranked_dockets_arguments(
         acquisition_acquire_ranked_dockets
+    )
+    acquisition_plan_target_public_gaps = acquisition_subparsers.add_parser(
+        "plan-target-public-gaps",
+        help="Freeze the exact provider-free target public-gap execution plan.",
+    )
+    _add_acquisition_plan_target_public_gaps_arguments(
+        acquisition_plan_target_public_gaps
+    )
+    acquisition_execute_target_public_gaps = acquisition_subparsers.add_parser(
+        "execute-target-public-gaps",
+        help="Execute one externally pinned target public-gap plan.",
+    )
+    _add_acquisition_execute_target_public_gaps_arguments(
+        acquisition_execute_target_public_gaps
     )
     acquisition_seal_ranked_dockets = acquisition_subparsers.add_parser(
         "seal-ranked-firecrawl-run",
@@ -5273,6 +5302,56 @@ def _add_acquisition_acquire_ranked_dockets_arguments(
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_acquire_ranked_dockets)
+
+
+def _add_target_public_gap_identity_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument("--target-cohort-root", type=Path, required=True)
+    parser.add_argument("--expected-target-run-card-sha256", required=True)
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--fresh-credit-cap", type=int, required=True)
+    parser.add_argument("--workers", type=int, choices=range(1, 11), default=10)
+    parser.add_argument("--max-pages-per-docket", type=int, default=10)
+    parser.add_argument("--firecrawl-mode", choices=("live", "fixture"), required=True)
+    parser.add_argument("--document-mode", choices=("live", "fixture"), required=True)
+    parser.add_argument("--max-attempts-per-page", type=int, default=3)
+    parser.add_argument("--provider-breaker-threshold", type=int, default=5)
+    parser.add_argument(
+        "--proxy",
+        choices=("basic", "auto", "enhanced"),
+        default="basic",
+    )
+    parser.add_argument("--force-browser", action="store_true")
+
+
+def _add_acquisition_plan_target_public_gaps_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_target_public_gap_identity_arguments(parser)
+    parser.add_argument("--plan-output", type=Path, required=True)
+    parser.add_argument("--raw-html-dir", type=Path, required=True)
+    parser.add_argument("--document-output-root", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_acquisition_plan_target_public_gaps)
+
+
+def _add_acquisition_execute_target_public_gaps_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_target_public_gap_identity_arguments(parser)
+    parser.add_argument("--plan", type=Path, required=True)
+    parser.add_argument("--expected-plan-sha256", required=True)
+    parser.add_argument("--firecrawl-fixture", type=Path)
+    parser.add_argument("--live-firecrawl", action="store_true")
+    parser.add_argument("--fixture-documents", type=Path)
+    parser.add_argument("--live-public-download", action="store_true")
+    parser.add_argument("--raw-html-dir", type=Path, required=True)
+    parser.add_argument("--document-output-root", type=Path, required=True)
+    parser.add_argument("--resume", action="store_true")
+    parser.set_defaults(handler=_cmd_acquisition_execute_target_public_gaps)
 
 
 def _add_acquisition_seal_ranked_dockets_arguments(
@@ -16038,6 +16117,11 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
         "firecrawl_metered_activity_executed": False,
         "pacer_paid_activity_requested": False,
         "pacer_paid_activity_executed": False,
+        "recap_fetch_authorized": False,
+        "document_purchase_authorized": False,
+        "model_calls_authorized": False,
+        "evaluation_authorized": False,
+        "freeze_or_dispatch_authorized": False,
         **asdict(projection.summary),
         **credit_summary,
     }
@@ -17889,6 +17973,282 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         extra=summary,
     )
     return 0
+
+
+def _target_public_gap_plan_from_args(
+    args: argparse.Namespace,
+) -> TargetPublicGapPlan:
+    output_root = cast(Path, args.output_root).absolute()
+    target_root = cast(Path, args.target_cohort_root)
+    raw_html_root = cast(Path, args.raw_html_dir)
+    document_root = cast(Path, args.document_output_root)
+    verified = verify_completed_target_cohort_projection_for_purchase_approval(
+        target_root
+    )
+    return plan_target_public_gaps(
+        verified_projection=verified,
+        target_cohort_root=target_root,
+        expected_target_run_card_sha256=cast(
+            str,
+            args.expected_target_run_card_sha256,
+        ),
+        fresh_credit_cap=cast(int, args.fresh_credit_cap),
+        workers=cast(int, args.workers),
+        max_pages_per_docket=cast(int, args.max_pages_per_docket),
+        execution_identity=TargetPublicGapExecutionIdentity(
+            output_root=output_root,
+            cycle_store_path=cast(Path, args.cycle_store),
+            raw_html_root=raw_html_root,
+            document_output_root=document_root,
+            batch_id=cast(str, args.batch_id),
+            run_id=cast(str, args.run_id),
+            firecrawl_mode=cast(str, args.firecrawl_mode),
+            document_mode=cast(str, args.document_mode),
+            firecrawl_proxy=cast(str, args.proxy),
+            force_browser=cast(bool, args.force_browser),
+            max_attempts_per_page=cast(int, args.max_attempts_per_page),
+            provider_breaker_threshold=cast(
+                int,
+                args.provider_breaker_threshold,
+            ),
+        ),
+    )
+
+
+def _cmd_acquisition_plan_target_public_gaps(args: argparse.Namespace) -> int:
+    try:
+        plan = _target_public_gap_plan_from_args(args)
+        plan_output = cast(Path, args.plan_output).absolute()
+        resolved_plan_output = plan_output.resolve(strict=False)
+        for label, path in (
+            ("target root", plan.target_cohort_root.resolve()),
+            ("final output root", plan.execution_identity.output_root.resolve()),
+            ("raw HTML root", plan.execution_identity.raw_html_root.resolve()),
+            (
+                "document output root",
+                plan.execution_identity.document_output_root.resolve(),
+            ),
+        ):
+            if (
+                resolved_plan_output == path
+                or resolved_plan_output.is_relative_to(path)
+                or path.is_relative_to(resolved_plan_output)
+            ):
+                raise TargetPublicGapRefreshError(f"plan output overlaps {label}")
+        publish_target_public_gap_plan(plan_output, plan)
+    except (CommandError, OSError, TargetPublicGapRefreshError) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int:
+    firecrawl_fixture = cast(Path | None, args.firecrawl_fixture)
+    live_firecrawl = cast(bool, args.live_firecrawl)
+    document_fixture = cast(Path | None, args.fixture_documents)
+    live_download = cast(bool, args.live_public_download)
+    if live_firecrawl != (cast(str, args.firecrawl_mode) == "live"):
+        raise CommandError("provider flags differ from plan-bound Firecrawl mode")
+    if live_download != (cast(str, args.document_mode) == "live"):
+        raise CommandError("provider flags differ from plan-bound document mode")
+    if live_firecrawl == (firecrawl_fixture is not None):
+        raise CommandError(
+            "execution requires exactly one of --live-firecrawl or --firecrawl-fixture"
+        )
+    if live_download == (document_fixture is not None):
+        raise CommandError(
+            "execution requires exactly one of --live-public-download or "
+            "--fixture-documents"
+        )
+    if firecrawl_fixture is not None and cast(int, args.workers) != 1:
+        raise CommandError("Firecrawl fixture execution requires --workers 1")
+    try:
+        plan = _target_public_gap_plan_from_args(args)
+        expected_plan_sha256 = cast(str, args.expected_plan_sha256)
+        verify_target_public_gap_plan(
+            cast(Path, args.plan),
+            expected_sha256=expected_plan_sha256,
+            reconstructed=plan,
+        )
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256=expected_plan_sha256,
+        )
+        require_target_public_gap_sources_unchanged(plan)
+    except (CommandError, OSError, TargetPublicGapRefreshError) as exc:
+        raise CommandError(str(exc)) from exc
+
+    def firecrawl_source_factory() -> FirecrawlCourtListenerHTMLSource:
+        firecrawl_config = (
+            FirecrawlConfig.from_env(
+                proxy=cast(FirecrawlProxy, args.proxy),
+                force_browser=cast(bool, args.force_browser),
+            )
+            if live_firecrawl
+            else FirecrawlConfig(
+                api_key="offline-fixture",
+                proxy=cast(FirecrawlProxy, args.proxy),
+                force_browser=cast(bool, args.force_browser),
+            )
+        )
+        return FirecrawlCourtListenerHTMLSource(
+            firecrawl_config,
+            **(
+                {"transport": _firecrawl_fixture_transport(firecrawl_fixture)}
+                if firecrawl_fixture is not None
+                else {}
+            ),
+        )
+
+    def document_source_factory() -> FreeDocumentSource:
+        return (
+            UrlLibFreeDocumentSource()
+            if live_download
+            else _fixture_free_document_source(cast(Path, document_fixture))
+        )
+
+    try:
+        with bind_target_public_gap_execution(plan) as binding:
+            execution = execute_target_public_gap_refresh(
+                plan=plan,
+                expected_plan_sha256=expected_plan_sha256,
+                firecrawl_source_factory=firecrawl_source_factory,
+                document_source_factory=document_source_factory,
+                allow_existing_downloads=cast(bool, args.resume),
+                execution_binding=binding,
+            )
+            binding.require_current(plan)
+            with bind_verified_target_public_gap_downloads(
+                execution_binding=binding,
+                requests=execution.refresh.download_requests,
+                downloads=execution.downloads,
+            ):
+                payloads = _target_public_gap_terminal_payloads(
+                    plan=plan,
+                    plan_path=cast(Path, args.plan),
+                    plan_sha256=expected_plan_sha256,
+                    execution=execution,
+                    live_firecrawl=live_firecrawl,
+                    live_download=live_download,
+                )
+                publish_target_public_gap_outputs(
+                    plan=plan,
+                    plan_sha256=expected_plan_sha256,
+                    payloads=payloads,
+                    execution_binding=binding,
+                )
+            binding.require_current(plan)
+            require_target_public_gap_sources_unchanged(plan)
+    except (
+        CycleAcquisitionStoreError,
+        FirecrawlError,
+        FreeDocumentDownloadError,
+        OSError,
+        TargetPublicGapRefreshError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _target_public_gap_terminal_payloads(
+    *,
+    plan: TargetPublicGapPlan,
+    plan_path: Path,
+    plan_sha256: str,
+    execution: TargetPublicGapExecutionResult,
+    live_firecrawl: bool,
+    live_download: bool,
+) -> Mapping[str, bytes]:
+    refresh = execution.refresh
+    core: dict[str, bytes] = {
+        "target-public-gap-outcomes.jsonl": _jsonl_bytes(execution.outcomes),
+        "target-public-gap-discovered-transitions.jsonl": _jsonl_bytes(
+            refresh.transitions
+        ),
+        "free-document-requests.jsonl": _jsonl_bytes(
+            request.to_record() for request in refresh.download_requests
+        ),
+        "free-document-downloads.jsonl": _jsonl_bytes(
+            record.to_record() for record in execution.downloads
+        ),
+    }
+    core_commitments = {
+        name: hashlib.sha256(payload).hexdigest()
+        for name, payload in sorted(core.items())
+    }
+    terminal_commitments = dict(execution.terminal_commitments)
+    if terminal_commitments.get("plan_sha256") != plan_sha256:
+        raise TargetPublicGapRefreshError(
+            "terminal commitments differ from the externally pinned plan"
+        )
+    no_authority = {
+        "pacer_authorized": False,
+        "recap_fetch_authorized": False,
+        "document_purchase_authorized": False,
+        "model_calls_authorized": False,
+        "evaluation_authorized": False,
+        "freeze_or_dispatch_authorized": False,
+    }
+    summary: JsonRecord = {
+        "schema_version": "legalforecast.target_public_gap_execution_summary.v1",
+        "plan_sha256": plan_sha256,
+        "terminal_commitments": terminal_commitments,
+        "output_commitments": core_commitments,
+        "provider_activity_requested": live_firecrawl or live_download,
+        "firecrawl_metered_activity_requested": live_firecrawl,
+        "public_download_activity_requested": live_download,
+        "purchased_document_count": 0,
+        "purchased_activity_requested": False,
+        "purchased_activity_executed": False,
+        "terminal_reconciliation": True,
+        **no_authority,
+    }
+    summary_bytes = _projection_json_bytes(summary)
+    core["target-public-gap-execution-summary.json"] = summary_bytes
+    committed_outputs = {
+        name: hashlib.sha256(payload).hexdigest()
+        for name, payload in sorted(core.items())
+    }
+    run_card: JsonRecord = {
+        "schema_version": "legalforecast.target_public_gap_execution_receipt.v1",
+        "stage": "execute-target-public-gaps",
+        "status": "completed",
+        "plan_path": str(plan_path.absolute()),
+        "plan_sha256": plan_sha256,
+        "execution_identity": dict(plan.execution_identity.to_record()),
+        "fresh_credit_cap": plan.fresh_credit_cap,
+        "input_paths": sorted(plan.source_artifact_commitments),
+        "source_artifact_commitments": dict(plan.source_artifact_commitments),
+        "output_paths": [
+            str(plan.execution_identity.output_root / name)
+            for name in sorted(
+                [
+                    *core,
+                    "run-cards/execute-target-public-gaps.json",
+                    "logs/execute-target-public-gaps.jsonl",
+                ]
+            )
+        ],
+        "output_commitments": committed_outputs,
+        "terminal_commitments": terminal_commitments,
+        "provider_activity_requested": live_firecrawl or live_download,
+        "purchased_document_count": 0,
+        "purchased_activity_requested": False,
+        "purchased_activity_executed": False,
+        **no_authority,
+    }
+    run_card_bytes = _projection_json_bytes(run_card)
+    core["run-cards/execute-target-public-gaps.json"] = run_card_bytes
+    core["logs/execute-target-public-gaps.jsonl"] = _jsonl_bytes(
+        (
+            {
+                "schema_version": ("legalforecast.target_public_gap_execution_log.v1"),
+                "event": "completed",
+                "plan_sha256": plan_sha256,
+                "run_card_sha256": hashlib.sha256(run_card_bytes).hexdigest(),
+            },
+        )
+    )
+    return core
 
 
 def _cmd_acquisition_seal_ranked_dockets(args: argparse.Namespace) -> int:
@@ -30439,6 +30799,9 @@ def _verify_materializer_projection(
         label="target projection artifact",
     )
     return {
+        "run_card": run_card,
+        "run_card_bytes": run_card_bytes,
+        "summary": summary,
         "summary_path": summary_path,
         "run_card_path": run_card_path,
         "selection_path": paths["target-cohort-selection.jsonl"],

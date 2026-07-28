@@ -13,6 +13,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlArtifactError,
     FirecrawlCircuitOpenError,
     FirecrawlTargetSpec,
+    _is_bound_path,
     is_retryable_target_accepted,
     load_successful_firecrawl_pages,
 )
@@ -56,6 +57,22 @@ class FixtureSource:
         if isinstance(response, BaseException):
             raise response
         return response
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (Path("/proc/self/fd/7"), True),
+        (Path("/proc/self/fd/7/pages/1.html"), True),
+        (Path("/proc/self/fd/not-a-fd/pages/1.html"), False),
+        (Path("/proc/self/fd/7/../../tmp/escaped.html"), False),
+    ],
+)
+def test_bound_artifact_path_requires_numeric_fd_without_traversal(
+    path: Path,
+    expected: bool,
+) -> None:
+    assert _is_bound_path(path) is expected  # pyright: ignore[reportPrivateUsage]
 
 
 class _ConcurrentSource:

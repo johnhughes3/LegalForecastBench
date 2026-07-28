@@ -47,6 +47,7 @@ from legalforecast.ingestion.firecrawl_docket_pagination import (
     CourtListenerDocketBundle,
     CourtListenerDocketPaginationError,
     canonical_courtlistener_docket_page_url,
+    canonical_positive_entry_number,
     may_stop_at_anchor_boundary,
     paginate_courtlistener_docket,
 )
@@ -1002,7 +1003,8 @@ def acquire_ranked_dockets(
     scheduler: BudgetedFirecrawlScheduler,
     limit: int,
     max_pages_per_docket: int,
-    decision_anchor: date,
+    decision_anchor: date | None,
+    required_entry_numbers_by_docket: (Mapping[str, frozenset[int]] | None) = None,
 ) -> BudgetedDocketAcquisitionResult:
     """Acquire docket pages in waves and expose no incomplete bundle.
 
@@ -1014,6 +1016,23 @@ def acquire_ranked_dockets(
     if max_pages_per_docket <= 0:
         raise BudgetedDocketAcquisitionError("max_pages_per_docket must be positive")
     ranked = ranked_docket_targets(records, limit=limit)
+    if required_entry_numbers_by_docket is not None:
+        ranked_docket_ids = {target.docket_id for target in ranked}
+        if set(required_entry_numbers_by_docket) != ranked_docket_ids:
+            raise BudgetedDocketAcquisitionError(
+                "required-entry docket set differs from ranked targets"
+            )
+        for docket_id, required in required_entry_numbers_by_docket.items():
+            if not required or any(
+                isinstance(number, bool) or number <= 0 for number in required
+            ):
+                raise BudgetedDocketAcquisitionError(
+                    f"required entries are invalid for docket: {docket_id}"
+                )
+    if decision_anchor is not None and required_entry_numbers_by_docket is not None:
+        raise BudgetedDocketAcquisitionError(
+            "decision anchor and required entries are mutually exclusive"
+        )
     active = {target.docket_id: target for target in ranked}
     pages: dict[str, dict[str, str]] = {target.docket_id: {} for target in ranked}
     failures_by_docket: dict[str, DocketAcquisitionFailure] = {}
@@ -1074,8 +1093,41 @@ def acquire_ranked_dockets(
                 )
                 del active[docket_id]
                 continue
-            if not parsed.has_next_page or may_stop_at_anchor_boundary(
-                observed, anchor=decision_anchor
+            observed_entry_numbers = {
+                entry_number
+                for observed_page in observed
+                for entry in observed_page.entries
+                if (entry_number := canonical_positive_entry_number(entry.entry_number))
+                is not None
+            }
+            required_entries = (
+                None
+                if required_entry_numbers_by_docket is None
+                else required_entry_numbers_by_docket[docket_id]
+            )
+            required_entries_observed = (
+                required_entries is not None
+                and required_entries.issubset(observed_entry_numbers)
+            )
+            if (
+                required_entries is not None
+                and not parsed.has_next_page
+                and not required_entries_observed
+            ):
+                failures_by_docket[docket_id] = _failure(
+                    target=_target,
+                    reason="docket_reconstruction_failed",
+                    stage="complete_docket_reconstruction",
+                    detail="required_entries_not_observed_before_exhaustion",
+                )
+                del active[docket_id]
+            elif (
+                not parsed.has_next_page
+                or required_entries_observed
+                or (
+                    decision_anchor is not None
+                    and may_stop_at_anchor_boundary(observed, anchor=decision_anchor)
+                )
             ):
                 del active[docket_id]
     for docket_id, target in active.items():
@@ -1097,6 +1149,11 @@ def acquire_ranked_dockets(
                 fetch=lambda url, cached=cached: cached[url],
                 max_pages=max_pages_per_docket,
                 decision_anchor=decision_anchor,
+                required_entry_numbers=(
+                    None
+                    if required_entry_numbers_by_docket is None
+                    else required_entry_numbers_by_docket[target.docket_id]
+                ),
             )
         except KeyError:
             failures_by_docket[target.docket_id] = _failure(
@@ -1122,12 +1179,12 @@ def acquire_ranked_dockets(
                 detail=f"invalid_docket_page_artifact:{exc}",
             )
             continue
-        if not bundle.complete_for_anchor_window:
+        if not bundle.complete_for_requested_window:
             failures_by_docket[target.docket_id] = _failure(
                 target=target,
                 reason="docket_reconstruction_failed",
                 stage="complete_docket_reconstruction",
-                detail="incomplete_anchor_window",
+                detail="incomplete_requested_window",
             )
             continue
         bundles.append(bundle)
@@ -1145,7 +1202,7 @@ def acquire_ranked_dockets(
 def render_complete_docket_html(bundle: CourtListenerDocketBundle) -> str:
     """Render a deterministic single-page screening view of a proven bundle."""
 
-    if not bundle.complete_for_anchor_window:
+    if not bundle.complete_for_requested_window:
         raise BudgetedDocketAcquisitionError("cannot render incomplete docket")
     rows: list[str] = []
     for entry in bundle.entries:

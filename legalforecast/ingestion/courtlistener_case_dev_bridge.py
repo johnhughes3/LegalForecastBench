@@ -934,6 +934,12 @@ def bridge_free_download_requests_from_selection(
             and document.get("is_sealed") is None
             and document.get("redaction_or_seal_status") == "public"
         )
+        public_plan_evidence_valid = (
+            restriction_evidence == ("courtlistener_public_download_record_checked",)
+            and document.get("is_sealed") is None
+            and document.get("is_private") is None
+            and document.get("redaction_or_seal_status") == "public"
+        )
         if (
             document.get("availability_status") != "available"
             or document.get("requires_paid_recovery") is not False
@@ -942,6 +948,7 @@ def bridge_free_download_requests_from_selection(
                 rest_public_evidence_valid
                 or rest_unknown_evidence_valid
                 or case_dev_evidence_valid
+                or public_plan_evidence_valid
             )
         ):
             raise CourtListenerCaseDevBridgeError(
