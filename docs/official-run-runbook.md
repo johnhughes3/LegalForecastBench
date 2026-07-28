@@ -2031,3 +2031,24 @@ Each command prints a machine-readable JSON summary to stdout (use `--summary-ou
 - `observe` tally: `considered` (candidates scanned), `skipped_already_observed` (resume skips), `observed` (fetched this pass), `eligible` (strict-clean accepted), `excluded_by_reason` (immutable/posture exclusions, with the underlying strict-screen reason surfaced as `strict_clean_screen_failed:<screen_reason>`), and `transient_by_reason` (retryable failures to re-run).
 - `seed-batch-001-leads`: `leads_selected`, `leads_seeded`, and `already_seeded`.
 - `seed-direct-search`: the same transfer counts plus `source_batch_digest` and `source_candidate_set_sha256`, which bind the REST batch to the exact saturated source pool.
+
+### Frozen priority-batch Firecrawl observation
+
+When authenticated CourtListener REST reconstruction is unavailable or its daily request budget is exhausted, `legalforecast batch-002 observe-firecrawl` may observe an exact unresolved subset of an already frozen direct-search priority tranche through Firecrawl:
+
+```bash
+uv run legalforecast batch-002 observe-firecrawl \
+  --cycle-store "$CYCLE_STORE" \
+  --batch-id "$PRIORITY_BATCH_ID" \
+  --run-id "$FIRECRAWL_OBSERVE_RUN_ID" \
+  --eligibility-anchor 2026-06-30 \
+  --raw-artifact-dir "$FIRECRAWL_RAW_DIR" \
+  --credit-cap 45000 \
+  --workers 10 \
+  --max-pages-per-docket 100 \
+  --live-firecrawl
+```
+
+Repeat `--candidate-id courtlistener-docket-N` to restrict a new run to exact batch candidates. Caller order does not rerank them. Reuse the identical run ID and arguments after an interruption that left provider attempts unused; the durable run restores its original candidate scope, replays committed successful artifacts, and skips terminal observations. If committed HTML later fails parser or complete-docket reconstruction, same-run replay cannot change those immutable bytes. Preserve the transient `retry_contract`, then recover that exact unresolved candidate under a fresh run ID and a distinct raw-artifact directory.
+
+This route changes only the docket-page transport. It preserves the frozen batch/order commitments and the canonical anchor, unbounded first-disposition, strict-screen, linkage, leakage, and exclusion-reason gates. A terminal outcome requires exhaustive docket history; an older-than-anchor page boundary is not sufficient because an unseen row could contain an earlier disposition or required linkage evidence. Incomplete pagination or ambiguous evidence remains transient and unresolved. Do not treat this route as PACER purchase authority, and do not use it to relax eligibility, freeze, dispatch, or evaluate models.
