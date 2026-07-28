@@ -116,6 +116,57 @@ def test_exact_successor_approval_records_replays_and_publishes(
         assert card["run_card"][field] is False
 
 
+def test_replacement_approval_preflights_both_outputs_before_writing(
+    tmp_path: Path,
+) -> None:
+    request = _request()
+    private_root = (tmp_path / "successor-private").resolve()
+    run_card = private_root / "run-cards" / "record-replacement-purchase-approval.json"
+    run_card.parent.mkdir(parents=True)
+    run_card.write_text("stale", encoding="utf-8")
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="replacement approval output already exists",
+    ):
+        record_replacement_purchase_approval(
+            request=request,
+            controlled_private_root=private_root,
+            decision="approve",
+            typed_confirmation=request.required_confirmation("approve"),
+            reviewer_id="John Hughes",
+            recorded_at_utc="2026-07-28T16:00:00Z",
+        )
+
+    assert not (private_root / "replacement-purchase-approval-checkpoint.json").exists()
+    assert run_card.read_text(encoding="utf-8") == "stale"
+
+
+def test_replacement_approval_rejects_symlinked_private_root_ancestor(
+    tmp_path: Path,
+) -> None:
+    request = _request()
+    redirected_root = tmp_path / "redirected"
+    redirected_root.mkdir()
+    private_root = tmp_path / "successor-private"
+    private_root.symlink_to(redirected_root, target_is_directory=True)
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="cannot be safely preflighted",
+    ):
+        record_replacement_purchase_approval(
+            request=request,
+            controlled_private_root=private_root,
+            decision="approve",
+            typed_confirmation=request.required_confirmation("approve"),
+            reviewer_id="John Hughes",
+            recorded_at_utc="2026-07-28T16:00:00Z",
+        )
+
+    assert list(redirected_root.iterdir()) == []
+
+
 def test_initial_or_arbitrary_authority_cannot_mint_successor() -> None:
     with pytest.raises(
         ReplacementPurchaseApprovalError,
@@ -184,6 +235,7 @@ def test_changed_exact_tranche_fails_private_replay(tmp_path: Path) -> None:
 def test_v2_replacement_requires_exact_successor_before_broker_authority(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     projection = build_completed_projection_fixture(
         tmp_path / "projection",
@@ -564,7 +616,18 @@ def test_v2_replacement_requires_exact_successor_before_broker_authority(
         "--acknowledge-pacer-fees",
         "--execute",
     ]
+    monkeypatch.setattr(
+        cli,
+        "CourtListenerRecapFetchClient",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("live RECAP Fetch client must not be reached")
+        ),
+    )
     assert cli.main(purchase_args) == 2
+    assert (
+        "--broker-policy is required for a live replacement purchase"
+        in capsys.readouterr().err
+    )
     tampered_broker_policy = tmp_path / "tampered-replacement-broker-policy.json"
     tampered_broker = json.loads(broker_policy_path.read_text(encoding="utf-8"))
     tampered_broker["allowed_documents"] = []

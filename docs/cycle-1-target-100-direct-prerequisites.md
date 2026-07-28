@@ -191,8 +191,17 @@ The protected Stage A unitizer must populate:
 - `$PRIVATE_ROOT/paid-labeling/provider-attempts.sqlite3`.
 
 The model key is `anthropic:claude-sonnet-4-6`.
-After the encrypted result is restored at those exact paths, resume `run-cycle` with the model-provider boundary enabled.
-Its identical `llm-unitize --execute --resume` replay must reconstruct the already settled journal attempt and create the coordinator receipt without rebilling; any prompt, registry, caps, journal, account, authority, or path identity mismatch fails closed.
+After the protected model-provider workflow restores the encrypted result at those exact paths, adopt that externally completed stage with:
+
+```zsh
+uv run legalforecast acquisition run-cycle \
+  --config "$artifact_root/acquisition-cycle.json" \
+  --state-root "$artifact_root/orchestrator" \
+  --adopt-next-completed --json
+```
+
+Do not combine `--adopt-next-completed` with `--execute`, `--allow-model-provider`, or any other authority flag.
+Adoption must successfully replay the settled `llm-unitize` attempt from the same journal and exact output root without rebilling; any prompt, registry, caps, journal, account, authority, or path identity mismatch fails closed.
 
 The immediately following protected structural-review baton must reuse that same journal and populate:
 
@@ -202,7 +211,8 @@ The immediately following protected structural-review baton must reuse that same
 - `$ARTIFACT_ROOT/16-stage-a-review/run-cards/llm-review-stage-a.json`.
 
 The reviewer key is `google:gemini-3.5-flash`.
-Again, run-cycle adopts only by successful settled-attempt replay; do not create another journal or change the output root.
+After the protected model-provider workflow restores the structural-review outputs, repeat the same `run-cycle --adopt-next-completed --json` invocation above without `--execute` or authority flags.
+The coordinator adopts only by successful settled-attempt replay; do not create another journal or change the output root.
 
 After John supplies Stage A adjudications and `apply-unitization-review` completes, run the two Stage B provider shards sequentially from the same journal, never in parallel:
 

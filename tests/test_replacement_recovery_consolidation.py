@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -283,7 +284,7 @@ def _prepare_fixture(
     return args, allowed_pairs
 
 
-def test_multi_tranche_consolidation_replays_all_successor_pairs(
+def test_multi_tranche_consolidation_scopes_each_authority_to_trailing_pairs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     successor_pairs = {("case-1", "doc-1"), ("case-2", "doc-2")}
@@ -300,7 +301,7 @@ def test_multi_tranche_consolidation_replays_all_successor_pairs(
         (row["candidate_id"], row["source_document_id"])
         for row in prepared.manifest_records
     } == expected
-    assert allowed_pairs == [successor_pairs, successor_pairs]
+    assert allowed_pairs == [{("case-2", "doc-2")}, set()]
     assert len(prepared.document_bytes) == 3
     assert cli._cmd_consolidate_replacement_recovery(args) == 0
     verified = cli._verify_materializer_consolidated_recovery(
@@ -316,7 +317,14 @@ def test_multi_tranche_consolidation_replays_all_successor_pairs(
     )
     assert verified["recovery_stage"] == "consolidate-replacement-recovery"
     assert len(verified["manifest_records"]) == 3
-    assert all(pairs == successor_pairs for pairs in allowed_pairs)
+    assert allowed_pairs == [
+        {("case-2", "doc-2")},
+        set(),
+        {("case-2", "doc-2")},
+        set(),
+        {("case-2", "doc-2")},
+        set(),
+    ]
 
 
 def test_consolidation_rejects_selected_purchased_document_absent_from_ledger(
@@ -333,6 +341,33 @@ def test_consolidation_rejects_selected_purchased_document_absent_from_ledger(
         match="target purchased manifest differs from final active ledger coverage",
     ):
         cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_recovery_index_translates_successor_directory_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    successor_directory = tmp_path / "successors"
+    successor_directory.mkdir()
+    original_iterdir = Path.iterdir
+
+    def fail_successor_iterdir(path: Path) -> Iterator[Path]:
+        if path == successor_directory:
+            raise OSError("successor directory unavailable")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_successor_iterdir)
+    args = argparse.Namespace(
+        output_root=tmp_path / "output",
+        index_output=None,
+        run_card_output=None,
+        initial_source=tmp_path / "initial.json",
+        successor_source=[successor_directory],
+        execute=False,
+        resume=False,
+    )
+
+    with pytest.raises(cli.CommandError, match="successor directory unavailable"):
+        cli._cmd_build_replacement_recovery_index(args)
 
 
 def test_consolidation_rejects_truncated_target_purchased_manifest(

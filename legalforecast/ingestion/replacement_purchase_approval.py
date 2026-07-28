@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -471,8 +472,11 @@ def record_replacement_purchase_approval(
         "run_card_sha256": _canonical_sha256(run_card_body),
     }
     run_card_path = root / "run-cards" / "record-replacement-purchase-approval.json"
+    run_card_bytes = _pretty_json(run_card)
+    for path in (checkpoint_path, run_card_path):
+        _preflight_private_once(path)
     _write_private_once(checkpoint_path, checkpoint_bytes)
-    _write_private_once(run_card_path, _pretty_json(run_card))
+    _write_private_once(run_card_path, run_card_bytes)
     return checkpoint_path, run_card_path
 
 
@@ -1057,27 +1061,144 @@ def _verify_result_identity(result: Mapping[str, object]) -> None:
 
 
 def _write_private_once(path: Path, payload: bytes) -> None:
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if path.is_symlink() or path.exists():
-        raise ReplacementPurchaseApprovalError(
-            f"replacement approval output already exists: {path}"
-        )
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags, 0o600)
+    """Publish through an anchored no-follow directory descriptor."""
+
     try:
-        with os.fdopen(descriptor, "wb", closefd=False) as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
+        directory_fd = _open_or_create_private_directory(path.parent)
+    except OSError as exc:
+        raise ReplacementPurchaseApprovalError(
+            f"replacement approval output cannot be safely published: {path}"
+        ) from exc
+    temporary_name = f".{path.name}.{secrets.token_hex(16)}.tmp"
+    temporary_created = False
+    try:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+        descriptor = os.open(temporary_name, flags, 0o600, dir_fd=directory_fd)
+        temporary_created = True
+        try:
+            view = memoryview(payload)
+            while view:
+                written = os.write(descriptor, view)
+                view = view[written:]
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        try:
+            os.link(
+                temporary_name,
+                path.name,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError as exc:
+            raise ReplacementPurchaseApprovalError(
+                f"replacement approval output already exists: {path}"
+            ) from exc
+        os.unlink(temporary_name, dir_fd=directory_fd)
+        temporary_created = False
+        os.fsync(directory_fd)
+        if _read_unique_regular_at(directory_fd, path.name) != payload:
+            raise ReplacementPurchaseApprovalError(
+                "replacement approval output changed during publication"
+            )
+    except OSError as exc:
+        raise ReplacementPurchaseApprovalError(
+            f"replacement approval output cannot be safely published: {path}"
+        ) from exc
+    finally:
+        if temporary_created:
+            try:
+                os.unlink(temporary_name, dir_fd=directory_fd)
+            except FileNotFoundError:
+                pass
+        os.close(directory_fd)
+
+
+def _preflight_private_once(path: Path) -> None:
+    """Reject any existing output before either approval artifact is written."""
+
+    try:
+        directory_fd = _open_or_create_private_directory(path.parent)
+    except OSError as exc:
+        raise ReplacementPurchaseApprovalError(
+            f"replacement approval output cannot be safely preflighted: {path}"
+        ) from exc
+    try:
+        try:
+            descriptor = os.open(
+                path.name,
+                os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+                dir_fd=directory_fd,
+            )
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise ReplacementPurchaseApprovalError(
+                f"replacement approval output cannot be safely preflighted: {path}"
+            ) from exc
+        else:
+            os.close(descriptor)
+            raise ReplacementPurchaseApprovalError(
+                f"replacement approval output already exists: {path}"
+            )
+    finally:
+        os.close(directory_fd)
+
+
+def _open_or_create_private_directory(path: Path) -> int:
+    if not path.is_absolute() or path != Path(os.path.abspath(path)):
+        raise ReplacementPurchaseApprovalError(
+            "replacement approval directory must be an absolute normalized path"
+        )
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    parts = path.parts
+    directory_fd = os.open(parts[0], flags)
+    try:
+        for component in parts[1:]:
+            try:
+                next_fd = os.open(component, flags, dir_fd=directory_fd)
+            except FileNotFoundError:
+                os.mkdir(component, 0o700, dir_fd=directory_fd)
+                next_fd = os.open(component, flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+        return directory_fd
+    except BaseException:
+        os.close(directory_fd)
+        raise
+
+
+def _read_unique_regular_at(directory_fd: int, name: str) -> bytes:
+    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC
+    descriptor = os.open(name, flags, dir_fd=directory_fd)
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise ReplacementPurchaseApprovalError(
+                "replacement approval output is not a unique regular file"
+            )
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 1024 * 1024):
+            chunks.append(chunk)
+        after = os.fstat(descriptor)
+        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mtime_ns,
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "replacement approval output changed while reading"
+            )
+        payload = b"".join(chunks)
+        if len(payload) != after.st_size:
+            raise ReplacementPurchaseApprovalError(
+                "replacement approval output changed while reading"
+            )
+        return payload
     finally:
         os.close(descriptor)
-    metadata = path.stat(follow_symlinks=False)
-    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-        raise ReplacementPurchaseApprovalError(
-            "replacement approval output is not a unique regular file"
-        )
 
 
 def _absolute_root(path: Path) -> Path:

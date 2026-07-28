@@ -12,6 +12,7 @@ from legalforecast.ingestion.cycle_orchestrator import (
     COMMAND_BOUNDARIES,
     BoundaryPermissions,
     CycleOrchestratorError,
+    _completion_card_view,  # pyright: ignore[reportPrivateUsage]
     _cycle_lock,  # pyright: ignore[reportPrivateUsage]
     run_acquisition_cycle,
 )
@@ -1880,6 +1881,58 @@ def test_run_cycle_receipts_closed_purchase_approval_run_card(
     assert status["status"] == "completed"
     assert status["completed_stage_count"] == 2
     assert (tmp_path / "state" / "receipts" / "0001-approve.json").is_file()
+
+
+@pytest.mark.parametrize(
+    ("approval_schema", "approval_stage"),
+    [
+        (
+            "legalforecast.purchase_approval_run_card.v1",
+            "record-purchase-approval",
+        ),
+        (
+            "legalforecast.replacement_purchase_approval_run_card.v1",
+            "record-replacement-purchase-approval",
+        ),
+    ],
+)
+def test_completion_card_view_rejects_non_approving_decision(
+    approval_schema: str,
+    approval_stage: str,
+) -> None:
+    body = {
+        "stage": approval_stage,
+        "status": "completed",
+        "decision": "reject",
+        "request_sha256": "a" * 64,
+        "checkpoint_sha256": "b" * 64,
+        "reviewer_id": "John Hughes",
+        "recorded_at_utc": "2026-07-28T00:00:00Z",
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "pacer_fee_acknowledged": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    body_bytes = json.dumps(
+        body,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+
+    with pytest.raises(
+        CycleOrchestratorError,
+        match="not an approving, activity-free decision",
+    ):
+        _completion_card_view(
+            {
+                "schema_version": approval_schema,
+                "run_card": body,
+                "run_card_sha256": hashlib.sha256(body_bytes).hexdigest(),
+            }
+        )
 
 
 def test_run_cycle_rejects_boundary_downgrade_for_paid_command(

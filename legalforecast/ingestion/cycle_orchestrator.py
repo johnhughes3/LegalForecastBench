@@ -922,14 +922,15 @@ def _completion_card_view(card: Mapping[str, object]) -> Mapping[str, object]:
     if card.get("run_card_sha256") != body_sha256:
         raise CycleOrchestratorError("purchase approval run card hash differs")
     if (
-        body.get("provider_activity_requested") is not False
+        body.get("decision") != "approve"
+        or body.get("provider_activity_requested") is not False
         or body.get("provider_activity_executed") is not False
         or body.get("pacer_fee_acknowledged") is not False
         or body.get("paid_activity_requested") is not False
         or body.get("paid_activity_executed") is not False
     ):
         raise CycleOrchestratorError(
-            "purchase approval run card reports unexpected activity"
+            "purchase approval run card is not an approving, activity-free decision"
         )
     return {
         **body,

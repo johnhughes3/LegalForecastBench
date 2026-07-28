@@ -133,15 +133,20 @@ def _build_recap_fetch_broker_policy(
         require_approved_case_dev_purchase_policy(
             purchase_policy, controlled_private_root=controlled_private_root
         )
-        replacement_mode = replacement_purchase_authority_artifact is not None
-        if replacement_mode != (
-            replacement_controlled_private_root is not None
-            and purchase_ledger_initialization_receipt_path is not None
-        ):
+        replacement_inputs_supplied = sum(
+            value is not None
+            for value in (
+                replacement_purchase_authority_artifact,
+                replacement_controlled_private_root,
+                purchase_ledger_initialization_receipt_path,
+            )
+        )
+        if replacement_inputs_supplied not in {0, 3}:
             raise ValueError(
                 "replacement authority, controlled private root, and purchase-ledger "
                 "initialization receipt must be supplied together"
             )
+        replacement_mode = replacement_inputs_supplied == 3
         if (
             purchase_policy.has_verified_approval
             and require_fresh_ledger_namespace
