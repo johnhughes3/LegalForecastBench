@@ -484,6 +484,55 @@ def test_fully_valid_target_unavailable_is_terminal_and_resumes_without_call(
         assert len(store.firecrawl_attempts("courtlistener-docket-html-v1")) == 1
 
 
+def test_nonfrozen_retryable_202_profile_is_not_retried(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        target_id = DurableBudgetedCourtListenerHTMLSource.target_id(_DOCKET_ID)
+        store.ensure_firecrawl_target(
+            "courtlistener-docket-html-v1",
+            target_id=target_id,
+            target_kind="docket",
+            source_url=_CANONICAL_URL,
+            ordinal=int(_DOCKET_ID),
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "courtlistener-docket-html-v1",
+            target_id=target_id,
+            page_number=1,
+            request_url=_CANONICAL_URL,
+        )
+        store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="target_error",
+            reported_credits=1,
+            proxy_used="stealth",
+            provider_http_status=200,
+            target_http_status=202,
+            failure_code="target_http_status_invalid",
+            failure_message="legacy accepted target response",
+            failure_transient=False,
+            failure_response_sha256="a" * 64,
+        )
+        store.set_firecrawl_target_status(
+            "courtlistener-docket-html-v1",
+            target_id,
+            "terminal_error",
+        )
+        transport = FirecrawlFixtureTransport([])
+        source = _adapter(
+            store=store,
+            raw_html_dir=tmp_path / "raw",
+            transport=transport,
+        )
+
+        with pytest.raises(FirecrawlArtifactError, match="did not produce"):
+            source.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+
+        assert transport.requests == []
+        assert len(store.firecrawl_attempts("courtlistener-docket-html-v1")) == 1
+
+
 def test_target_unavailable_requires_fully_validated_provider_metadata(
     tmp_path: Path,
 ) -> None:

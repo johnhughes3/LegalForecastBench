@@ -41,6 +41,34 @@ _TARGET_HTTP_202_BASE_COOLDOWN_SECONDS = 5.0
 _TARGET_HTTP_202_MAX_COOLDOWN_SECONDS = 60.0
 
 
+@dataclass(frozen=True, slots=True)
+class RetryableTarget202EvidenceProfile:
+    """Frozen proxy and credit evidence admitted for a retryable target 202."""
+
+    allowed_proxies: frozenset[str]
+    allowed_reported_credits: frozenset[int] | None
+
+    def accepts(self, *, proxy_used: str | None, reported_credits: int | None) -> bool:
+        return (
+            proxy_used in self.allowed_proxies
+            and reported_credits is not None
+            and (
+                self.allowed_reported_credits is None
+                or reported_credits in self.allowed_reported_credits
+            )
+        )
+
+
+GENERIC_RETRYABLE_TARGET_202_EVIDENCE_PROFILE = RetryableTarget202EvidenceProfile(
+    allowed_proxies=frozenset({"basic", "stealth"}),
+    allowed_reported_credits=None,
+)
+COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE = RetryableTarget202EvidenceProfile(
+    allowed_proxies=frozenset({"basic"}),
+    allowed_reported_credits=frozenset({0, 1}),
+)
+
+
 class FirecrawlCircuitOpenError(RuntimeError):
     """Raised after the configured number of consecutive provider 5xx errors."""
 
@@ -165,6 +193,9 @@ class BudgetedFirecrawlScheduler:
         semantic_failure_quarantine_dir: str | Path | None = None,
         terminalize_abandoned_authorizations: bool = False,
         sleeper: Callable[[float], None] = time.sleep,
+        retryable_target_202_evidence_profile: RetryableTarget202EvidenceProfile = (
+            GENERIC_RETRYABLE_TARGET_202_EVIDENCE_PROFILE
+        ),
     ) -> None:
         if not run_id.strip():
             raise ValueError("run_id must be nonempty")
@@ -187,6 +218,9 @@ class BudgetedFirecrawlScheduler:
         self.artifact_path_resolver = artifact_path_resolver
         self.terminalize_abandoned_authorizations = terminalize_abandoned_authorizations
         self.sleeper = sleeper
+        self.retryable_target_202_evidence_profile = (
+            retryable_target_202_evidence_profile
+        )
         self.semantic_failure_quarantine_dir = (
             _bound_or_resolved_path(Path(semantic_failure_quarantine_dir))
             if semantic_failure_quarantine_dir is not None
@@ -227,6 +261,7 @@ class BudgetedFirecrawlScheduler:
         recent_target_202_count = _recent_target_accepted_count(
             prior_attempts,
             window_size=self.max_workers,
+            evidence_profile=self.retryable_target_202_evidence_profile,
         )
         effective_workers = max(1, self.max_workers - recent_target_202_count)
         initial_effective_workers = effective_workers
@@ -244,7 +279,10 @@ class BudgetedFirecrawlScheduler:
             attempt.target_id
             for attempt in self.store.firecrawl_attempts(self.run_id)
             if attempt.failure_transient is False
-            and not is_retryable_target_accepted(attempt)
+            and not is_retryable_target_accepted(
+                attempt,
+                evidence_profile=self.retryable_target_202_evidence_profile,
+            )
         }
         for target in ordered:
             if target.target_id in succeeded:
@@ -856,7 +894,13 @@ def _integral_credits(value: float | None) -> int:
     return credits
 
 
-def is_retryable_target_accepted(attempt: FirecrawlAttempt) -> bool:
+def is_retryable_target_accepted(
+    attempt: FirecrawlAttempt,
+    *,
+    evidence_profile: RetryableTarget202EvidenceProfile = (
+        GENERIC_RETRYABLE_TARGET_202_EVIDENCE_PROFILE
+    ),
+) -> bool:
     """Recognize CourtListener 202 attempts, including legacy terminal records."""
 
     legacy_retryable = (
@@ -872,8 +916,10 @@ def is_retryable_target_accepted(attempt: FirecrawlAttempt) -> bool:
         and (legacy_retryable or current_retryable)
         and attempt.provider_http_status == 200
         and attempt.target_http_status == 202
-        and attempt.reported_credits is not None
-        and attempt.proxy_used in {"basic", "stealth"}
+        and evidence_profile.accepts(
+            proxy_used=attempt.proxy_used,
+            reported_credits=attempt.reported_credits,
+        )
         and attempt.failure_response_sha256 is not None
         and re.fullmatch(r"[0-9a-f]{64}", attempt.failure_response_sha256) is not None
         and attempt.artifact_path is None
@@ -886,6 +932,7 @@ def _recent_target_accepted_count(
     attempts: Sequence[FirecrawlAttempt],
     *,
     window_size: int,
+    evidence_profile: RetryableTarget202EvidenceProfile,
 ) -> int:
     """Count CourtListener 202s in the latest completed pressure window."""
 
@@ -901,7 +948,8 @@ def _recent_target_accepted_count(
         }
     )
     return sum(
-        is_retryable_target_accepted(attempt) for attempt in completed[-window_size:]
+        is_retryable_target_accepted(attempt, evidence_profile=evidence_profile)
+        for attempt in completed[-window_size:]
     )
 
 

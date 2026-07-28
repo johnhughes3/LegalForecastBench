@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from legalforecast.ingestion.budgeted_firecrawl import (
+    COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE,
     BudgetedFirecrawlScheduler,
     FirecrawlArtifactError,
     FirecrawlTargetSpec,
@@ -101,6 +102,9 @@ class DurableBudgetedCourtListenerHTMLSource:
             max_attempts=_MAX_ATTEMPTS_PER_TARGET,
             max_workers=1,
             terminalize_abandoned_authorizations=True,
+            retryable_target_202_evidence_profile=(
+                COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE
+            ),
         )
         result = scheduler.run((target,))
         if len(result.pages) == 1:
@@ -429,7 +433,10 @@ class DurableBudgetedCourtListenerHTMLSource:
                 attempt.status in {"provider_error", "transport_error"}
                 and attempt.failure_transient is True
             )
-            or is_retryable_target_accepted(attempt)
+            or is_retryable_target_accepted(
+                attempt,
+                evidence_profile=(COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE),
+            )
         ) and (
             attempt.artifact_path is None
             and attempt.artifact_sha256 is None
