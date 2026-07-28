@@ -1326,6 +1326,26 @@ def test_refresh_zero_successful_bundles_is_terminal_per_gap(
     assert result.download_requests == ()
 
 
+def test_refresh_with_zero_gaps_is_a_provider_free_noop(tmp_path: Path) -> None:
+    plan = replace(
+        _single_case_plan(tmp_path),
+        gaps=(),
+        ranked_records=(),
+        required_entry_numbers_by_docket={},
+        required_gap_document_ids=(),
+    )
+    scheduler = _Scheduler({})
+
+    result = refresh_target_public_gaps(plan=plan, scheduler=scheduler)
+
+    assert scheduler.waves == []
+    assert result.acquisition.bundles == ()
+    assert result.acquisition.failures == ()
+    assert result.transitions == ()
+    assert result.gap_failures == ()
+    assert result.download_requests == ()
+
+
 def test_downloads_terminalize_content_failure_but_not_transport_failure(
     tmp_path: Path,
 ) -> None:

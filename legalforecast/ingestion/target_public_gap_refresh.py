@@ -1253,13 +1253,21 @@ def refresh_target_public_gaps(
 ) -> TargetPublicGapRefreshResult:
     """Acquire exact rows, reuse public planning, and reconcile old/new identity."""
 
-    acquisition = acquire_ranked_dockets(
-        records=plan.ranked_records,
-        scheduler=cast(BudgetedFirecrawlScheduler, scheduler),
-        limit=len(plan.ranked_records),
-        max_pages_per_docket=plan.max_pages_per_docket,
-        decision_anchor=None,
-        required_entry_numbers_by_docket=plan.required_entry_numbers_by_docket,
+    acquisition = (
+        acquire_ranked_dockets(
+            records=plan.ranked_records,
+            scheduler=cast(BudgetedFirecrawlScheduler, scheduler),
+            limit=len(plan.ranked_records),
+            max_pages_per_docket=plan.max_pages_per_docket,
+            decision_anchor=None,
+            required_entry_numbers_by_docket=plan.required_entry_numbers_by_docket,
+        )
+        if plan.ranked_records
+        else BudgetedDocketAcquisitionResult(
+            bundles=(),
+            failures=(),
+            credit_summary={},
+        )
     )
     bundle_by_candidate = {bundle.docket_id: bundle for bundle in acquisition.bundles}
     selection_by_candidate = {
