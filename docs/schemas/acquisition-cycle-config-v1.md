@@ -35,6 +35,9 @@ Each stage has exactly:
 Every stage must include `--execute` and exactly one `--run-card-output` equal to `run_card`.
 `--no-resume` is forbidden.
 Paths and hashes passed to an underlying stage remain subject to that stage's stronger verification.
+The plan must contain at least one stage, and its first command must be `init-cycle`.
+That first stage must pass `--eligibility-anchor` equal to the top-level anchor; any later stage that passes the flag must use the same value.
+`prepare-target-cohort` and `finalize-corpus` must pass the top-level target count, and `prepare-target-100` is permitted only when `target_case_count` is exactly `100`.
 
 ## Boundaries
 

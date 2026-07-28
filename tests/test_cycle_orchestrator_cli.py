@@ -4,9 +4,8 @@ import fcntl
 import json
 from pathlib import Path
 
-import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import main
+from legalforecast.cli import build_parser, main
 from legalforecast.ingestion.cycle_orchestrator import (
     COMMAND_BOUNDARIES,
     BoundaryPermissions,
@@ -161,7 +160,7 @@ def test_run_cycle_treats_bare_delegated_system_exit_as_success(
             )
         ],
     )
-    args = cli.build_parser().parse_args(
+    args = build_parser().parse_args(
         [
             "acquisition",
             "run-cycle",
@@ -191,7 +190,7 @@ def test_run_cycle_treats_bare_delegated_system_exit_as_success(
         )
         raise SystemExit
 
-    monkeypatch.setattr(cli, "main", delegated_main)
+    monkeypatch.setattr("legalforecast.cli.main", delegated_main)
 
     assert args.handler(args) == 0
 
@@ -550,6 +549,99 @@ def test_run_cycle_binds_target_count_to_finalization_stage(
     assert "finalize-corpus target count differs" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    ("clean_count", "meets_target", "should_succeed"),
+    [(100, True, True), (99, True, False), (100, False, False)],
+)
+def test_run_cycle_verifies_completed_corpus_target(
+    tmp_path: Path,
+    clean_count: int,
+    meets_target: bool,
+    should_succeed: bool,
+) -> None:
+    init_card = tmp_path / "init-cycle.json"
+    final_card = tmp_path / "finalize-corpus.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(init_card),
+                    "--execute",
+                ],
+                run_card=init_card,
+            ),
+            _stage(
+                stage_id="finalize",
+                command="finalize-corpus",
+                boundary="provider_free",
+                arguments=[
+                    "--target-clean-cases",
+                    "100",
+                    "--run-card-output",
+                    str(final_card),
+                    "--execute",
+                ],
+                run_card=final_card,
+            ),
+        ],
+    )
+
+    def write_cards(command: str, _arguments: tuple[str, ...]) -> int:
+        card_path = init_card if command == "init-cycle" else final_card
+        card: dict[str, object] = {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": command,
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "resume": True,
+            "paid_activity_executed": False,
+            "output_paths": [],
+        }
+        if command == "finalize-corpus":
+            card.update(
+                {
+                    "target_clean_cases": 100,
+                    "clean_count": clean_count,
+                    "meets_target": meets_target,
+                }
+            )
+        card_path.write_bytes(canonical_json_bytes(card))
+        return 0
+
+    state_root = tmp_path / "state"
+    if should_succeed:
+        status = run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=True,
+            permissions=BoundaryPermissions(),
+            executor=write_cards,
+        )
+        assert status["corpus_target_verified"] is True
+        assert status["clean_case_count"] == 100
+    else:
+        with pytest.raises(
+            CycleOrchestratorError,
+            match="does not verify the configured target",
+        ):
+            run_acquisition_cycle(
+                config_path=config,
+                state_root=state_root,
+                execute=True,
+                permissions=BoundaryPermissions(),
+                executor=write_cards,
+            )
+        assert not (state_root / "receipts" / "0001-finalize.json").exists()
+
+
 def test_run_cycle_refuses_concurrent_owner_before_stage_execution(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -754,6 +846,125 @@ def test_run_cycle_fails_closed_when_receipted_output_changes(
         CycleOrchestratorError,
         match="stage receipt no longer matches cycle config",
     ):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=False,
+            permissions=BoundaryPermissions(),
+            executor=write_stage,
+        )
+
+
+def test_run_cycle_rejects_symlink_inside_output_directory(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "init-cycle.json"
+    output_directory = tmp_path / "output"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "document.txt").write_text("outside\n", encoding="utf-8")
+    output_directory.mkdir()
+    (output_directory / "escape").symlink_to(outside, target_is_directory=True)
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+
+    def write_stage(_command: str, _arguments: tuple[str, ...]) -> int:
+        run_card.write_bytes(
+            canonical_json_bytes(
+                {
+                    "schema_version": "legalforecast.acquisition_run_card.v1",
+                    "stage": "init-cycle",
+                    "status": "completed",
+                    "dry_run": False,
+                    "execute": True,
+                    "resume": True,
+                    "paid_activity_executed": False,
+                    "output_paths": [str(output_directory)],
+                }
+            )
+        )
+        return 0
+
+    with pytest.raises(CycleOrchestratorError, match="contains a symlink"):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=tmp_path / "state",
+            execute=True,
+            permissions=BoundaryPermissions(),
+            executor=write_stage,
+        )
+
+
+def test_run_cycle_rejects_symlinked_receipts_directory(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "init-cycle.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+
+    def write_stage(_command: str, _arguments: tuple[str, ...]) -> int:
+        run_card.write_bytes(
+            canonical_json_bytes(
+                {
+                    "schema_version": "legalforecast.acquisition_run_card.v1",
+                    "stage": "init-cycle",
+                    "status": "completed",
+                    "dry_run": False,
+                    "execute": True,
+                    "resume": True,
+                    "paid_activity_executed": False,
+                    "output_paths": [],
+                }
+            )
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_stage,
+    )
+    receipts = state_root / "receipts"
+    relocated = state_root / "receipts-relocated"
+    receipts.rename(relocated)
+    receipts.symlink_to(relocated, target_is_directory=True)
+
+    with pytest.raises(CycleOrchestratorError, match="must not contain symlinks"):
         run_acquisition_cycle(
             config_path=config,
             state_root=state_root,

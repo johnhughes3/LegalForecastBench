@@ -350,16 +350,14 @@ def _advance_cycle(
     clean_case_count: int | None = None
     if status == "completed" and corpus_finalization_planned:
         _, final_run_card = _verified_run_card(config.stages[-1])
-        raw_clean_count = final_run_card.get("clean_count")
-        if (
-            final_run_card.get("target_clean_cases") != config.target_case_count
-            or final_run_card.get("meets_target") is not True
-            or not isinstance(raw_clean_count, int)
-            or isinstance(raw_clean_count, bool)
-            or raw_clean_count < config.target_case_count
-        ):
-            raise CycleOrchestratorError(
-                "finalize-corpus run card does not verify the configured target"
+        raw_clean_count = _verified_corpus_target(
+            config=config,
+            stage=config.stages[-1],
+            run_card=final_run_card,
+        )
+        if raw_clean_count is None:
+            raise AssertionError(
+                "final cycle stage lost its corpus-finalization identity"
             )
         corpus_target_verified = True
         clean_case_count = raw_clean_count
@@ -507,6 +505,16 @@ def _verify_receipt(
     stage: CycleStage,
     index: int,
 ) -> str:
+    try:
+        receipt_parent = path.parent.resolve(strict=True)
+    except OSError as exc:
+        raise CycleOrchestratorError(
+            f"stage receipt directory is unavailable: {path.parent}"
+        ) from exc
+    if receipt_parent != path.parent.absolute():
+        raise CycleOrchestratorError(
+            f"stage receipt directory must not contain symlinks: {path.parent}"
+        )
     payload = _read_canonical_json(path, label="stage receipt")
     receipt = cast(Mapping[str, object], json.loads(payload))
     expected_fields = {
@@ -604,6 +612,7 @@ def _receipt_record(
 ) -> dict[str, object]:
     if run_card.get("stage") != stage.run_card_stage:
         raise CycleOrchestratorError(f"stage {stage.stage_id} run-card stage changed")
+    _verified_corpus_target(config=config, stage=stage, run_card=run_card)
     return {
         "schema_version": RECEIPT_SCHEMA_VERSION,
         "config_sha256": config.config_sha256,
@@ -619,6 +628,28 @@ def _receipt_record(
         "run_card_sha256": hashlib.sha256(run_card_payload).hexdigest(),
         "output_commitments": _output_commitments(run_card),
     }
+
+
+def _verified_corpus_target(
+    *,
+    config: AcquisitionCycleConfig,
+    stage: CycleStage,
+    run_card: Mapping[str, object],
+) -> int | None:
+    if stage.command != "finalize-corpus":
+        return None
+    clean_count = run_card.get("clean_count")
+    if (
+        run_card.get("target_clean_cases") != config.target_case_count
+        or run_card.get("meets_target") is not True
+        or not isinstance(clean_count, int)
+        or isinstance(clean_count, bool)
+        or clean_count < config.target_case_count
+    ):
+        raise CycleOrchestratorError(
+            "finalize-corpus run card does not verify the configured target"
+        )
+    return clean_count
 
 
 def _stage_status(
@@ -701,8 +732,12 @@ def _read_canonical_json(path: Path, *, label: str) -> bytes:
 
 def _write_immutable(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.parent.is_symlink():
-        raise CycleOrchestratorError("receipt directory must not be a symlink")
+    try:
+        receipt_parent = path.parent.resolve(strict=True)
+    except OSError as exc:
+        raise CycleOrchestratorError("receipt directory is unavailable") from exc
+    if receipt_parent != path.parent.absolute():
+        raise CycleOrchestratorError("receipt directory must not contain symlinks")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
     nofollow = getattr(os, "O_NOFOLLOW", None)
     if nofollow is None:
@@ -782,7 +817,8 @@ def _required_text_list(
     if not isinstance(value, list):
         raise CycleOrchestratorError(f"{field} must be a JSON list")
     return tuple(
-        _required_text({"value": item}, "value") for item in cast(list[object], value)
+        _required_text({f"{field}[{index}]": item}, f"{field}[{index}]")
+        for index, item in enumerate(cast(list[object], value))
     )
 
 
@@ -820,7 +856,7 @@ def _output_commitment(path: Path) -> dict[str, object]:
         )
     if absolute.suffix in {".sqlite", ".sqlite3", ".db"}:
         try:
-            metadata = absolute.stat()
+            metadata = absolute.lstat()
         except OSError as exc:
             raise CycleOrchestratorError(
                 f"mutable stage state is unavailable: {absolute}"
@@ -852,65 +888,198 @@ def _output_commitment(path: Path) -> dict[str, object]:
             "path": str(absolute),
             "kind": "directory",
             "tree_sha256": hashlib.sha256(canonical_json_bytes(tree)).hexdigest(),
-            "file_count": len(tree),
+            "entry_count": len(tree),
+            "file_count": sum(record["kind"] == "file" for record in tree),
         }
     raise CycleOrchestratorError(f"stage output is unavailable: {absolute}")
 
 
 def _directory_tree_commitment(root: Path) -> list[dict[str, object]]:
+    directory_fd = _open_directory_nofollow(root)
     try:
-        root_before = root.lstat()
-        descendants = sorted(root.rglob("*"))
-    except OSError as exc:
-        raise CycleOrchestratorError(
-            f"unable to inspect stage output directory: {root}"
-        ) from exc
-    records: list[dict[str, object]] = []
-    directory_snapshots = {root: root_before}
-    for path in descendants:
-        relative = path.relative_to(root).as_posix()
+        root_before = os.fstat(directory_fd)
+        records: list[dict[str, object]] = []
+        _walk_directory_at(
+            directory_fd,
+            relative_parent=Path(),
+            records=records,
+        )
+        root_after = os.fstat(directory_fd)
         try:
-            metadata = path.lstat()
+            root_named = root.lstat()
         except OSError as exc:
             raise CycleOrchestratorError(
-                f"stage output directory changed while being read: {path}"
+                f"stage output directory changed while being read: {root}"
             ) from exc
-        if stat.S_ISLNK(metadata.st_mode):
+        if not _same_output_identity(root_before, root_after, root_named):
             raise CycleOrchestratorError(
-                f"stage output directory contains a symlink: {path}"
+                f"stage output directory changed while being read: {root}"
             )
-        if stat.S_ISDIR(metadata.st_mode):
-            directory_snapshots[path] = metadata
-            continue
-        if not stat.S_ISREG(metadata.st_mode):
+        return records
+    finally:
+        os.close(directory_fd)
+
+
+def _open_directory_nofollow(path: Path) -> int:
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    if nofollow is None or directory is None:
+        raise CycleOrchestratorError(
+            "stage output authentication requires no-follow directory support"
+        )
+    flags = os.O_RDONLY | os.O_CLOEXEC | nofollow | directory
+    absolute = Path(os.path.abspath(path))
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(absolute.anchor, flags)
+        for component in absolute.parts[1:]:
+            next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = next_descriptor
+        return descriptor
+    except OSError as exc:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise CycleOrchestratorError(
+            f"unable to inspect stage output directory: {path}"
+        ) from exc
+
+
+def _walk_directory_at(
+    directory_fd: int,
+    *,
+    relative_parent: Path,
+    records: list[dict[str, object]],
+) -> None:
+    try:
+        with os.scandir(directory_fd) as iterator:
+            entries = sorted(iterator, key=lambda entry: entry.name)
+    except OSError as exc:
+        raise CycleOrchestratorError(
+            "unable to enumerate stage output directory"
+        ) from exc
+    directory_flags = (
+        os.O_RDONLY
+        | os.O_CLOEXEC
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_DIRECTORY", 0)
+    )
+    file_flags = (
+        os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0)
+    )
+    for entry in entries:
+        relative = relative_parent / entry.name
+        try:
+            named_before = os.stat(
+                entry.name,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except OSError as exc:
             raise CycleOrchestratorError(
-                f"stage output directory contains a non-file: {path}"
+                f"stage output directory changed while being read: {relative}"
+            ) from exc
+        if stat.S_ISLNK(named_before.st_mode):
+            raise CycleOrchestratorError(
+                f"stage output directory contains a symlink: {relative}"
+            )
+        if stat.S_ISDIR(named_before.st_mode):
+            try:
+                child_fd = os.open(
+                    entry.name,
+                    directory_flags,
+                    dir_fd=directory_fd,
+                )
+            except OSError as exc:
+                raise CycleOrchestratorError(
+                    f"stage output directory changed while being read: {relative}"
+                ) from exc
+            try:
+                opened = os.fstat(child_fd)
+                if not _same_output_identity(named_before, opened):
+                    raise CycleOrchestratorError(
+                        f"stage output directory changed while being read: {relative}"
+                    )
+                records.append({"path": relative.as_posix(), "kind": "directory"})
+                _walk_directory_at(
+                    child_fd,
+                    relative_parent=relative,
+                    records=records,
+                )
+                after = os.fstat(child_fd)
+                named_after = os.stat(
+                    entry.name,
+                    dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+                if not _same_output_identity(opened, after, named_after):
+                    raise CycleOrchestratorError(
+                        f"stage output directory changed while being read: {relative}"
+                    )
+            finally:
+                os.close(child_fd)
+            continue
+        if not stat.S_ISREG(named_before.st_mode):
+            raise CycleOrchestratorError(
+                f"stage output directory contains a non-file: {relative}"
             )
         try:
-            payload = read_unique_regular_file(path)
-        except (OSError, ReviewBundleError) as exc:
+            file_fd = os.open(entry.name, file_flags, dir_fd=directory_fd)
+        except OSError as exc:
             raise CycleOrchestratorError(
-                f"stage output directory contains an unsafe file: {path}"
+                f"stage output directory changed while being read: {relative}"
             ) from exc
+        try:
+            opened = os.fstat(file_fd)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or not _same_output_identity(named_before, opened)
+            ):
+                raise CycleOrchestratorError(
+                    f"stage output directory contains an unsafe file: {relative}"
+                )
+            chunks: list[bytes] = []
+            while chunk := os.read(file_fd, 1024 * 1024):
+                chunks.append(chunk)
+            payload = b"".join(chunks)
+            after = os.fstat(file_fd)
+            named_after = os.stat(
+                entry.name,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (
+                not _same_output_identity(opened, after, named_after)
+                or len(payload) != after.st_size
+            ):
+                raise CycleOrchestratorError(
+                    f"stage output file changed while being read: {relative}"
+                )
+        finally:
+            os.close(file_fd)
         records.append(
             {
-                "path": relative,
+                "path": relative.as_posix(),
+                "kind": "file",
                 "sha256": hashlib.sha256(payload).hexdigest(),
                 "byte_count": len(payload),
             }
         )
-    stable_fields = ("st_dev", "st_ino", "st_mode", "st_mtime_ns")
-    for directory, before in directory_snapshots.items():
-        try:
-            after = directory.lstat()
-        except OSError as exc:
-            raise CycleOrchestratorError(
-                f"stage output directory changed while being read: {directory}"
-            ) from exc
-        if any(
-            getattr(before, field) != getattr(after, field) for field in stable_fields
-        ):
-            raise CycleOrchestratorError(
-                f"stage output directory changed while being read: {directory}"
-            )
-    return records
+
+
+def _same_output_identity(*records: os.stat_result) -> bool:
+    fields = (
+        "st_dev",
+        "st_ino",
+        "st_mode",
+        "st_nlink",
+        "st_size",
+        "st_mtime_ns",
+        "st_ctime_ns",
+    )
+    first, *others = records
+    return all(
+        all(getattr(first, field) == getattr(other, field) for field in fields)
+        for other in others
+    )
