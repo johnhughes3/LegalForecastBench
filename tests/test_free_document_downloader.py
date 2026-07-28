@@ -47,6 +47,56 @@ def test_bound_download_root_requires_exact_numeric_fd(
     )
 
 
+def test_bound_resume_disabled_ignores_rebound_candidate_path(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "documents"
+    provider = root / "cand-1" / "courtlistener"
+    provider.mkdir(parents=True)
+    moved_candidate = tmp_path / "moved-candidate"
+    outside = tmp_path / "outside"
+    outside_provider = outside / "courtlistener"
+    outside_provider.mkdir(parents=True)
+    outside_payload = b"%PDF outside"
+    outside_document = outside_provider / "entry-1_doc-1.pdf"
+    outside_document.write_bytes(outside_payload)
+    root_fd = os.open(
+        root,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    provider_fd = os.open(
+        provider,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    try:
+        (root / "cand-1").rename(moved_candidate)
+        (root / "cand-1").symlink_to(outside, target_is_directory=True)
+        request = _request(
+            "doc-1",
+            docket_entry_number=1,
+            role=DocumentRole.COMPLAINT,
+            url="https://www.courtlistener.com/recap/doc-1.pdf",
+        )
+        records = download_free_docket_documents(
+            (request,),
+            output_root=Path(f"/proc/self/fd/{root_fd}"),
+            source=FixtureFreeDocumentSource({request.source_url: b"%PDF pinned"}),
+            allow_existing=False,
+            bound_output_directories={
+                "cand-1\0courtlistener\0doc-1": Path(f"/proc/self/fd/{provider_fd}")
+            },
+        )
+    finally:
+        os.close(provider_fd)
+        os.close(root_fd)
+
+    assert len(records) == 1
+    assert (moved_candidate / "courtlistener" / "entry-1_doc-1.pdf").read_bytes() == (
+        b"%PDF pinned"
+    )
+    assert outside_document.read_bytes() == outside_payload
+
+
 def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {

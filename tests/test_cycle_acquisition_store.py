@@ -162,6 +162,37 @@ def test_bound_cycle_store_rejects_wal_symlink_without_touching_target(
     assert (parent / "cycle.sqlite3-wal").is_symlink()
 
 
+def test_bound_read_only_cycle_store_rejects_wal_symlink(
+    tmp_path: Path,
+) -> None:
+    parent = tmp_path / "store"
+    parent.mkdir()
+    database = parent / "cycle.sqlite3"
+    with CycleAcquisitionStore(database) as store:
+        store.ensure_cycle(POLICY)
+    wal = parent / "cycle.sqlite3-wal"
+    wal.unlink(missing_ok=True)
+    outside = tmp_path / "outside-read-only-wal"
+    original = b"outside WAL bytes"
+    outside.write_bytes(original)
+    wal.symlink_to(outside)
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    try:
+        with pytest.raises(CycleAcquisitionStoreError, match="WAL sidecar"):
+            CycleAcquisitionStore(
+                Path(f"/proc/self/fd/{parent_fd}/cycle.sqlite3"),
+                read_only=True,
+            )
+    finally:
+        os.close(parent_fd)
+
+    assert outside.read_bytes() == original
+    assert wal.is_symlink()
+
+
 def test_bound_cycle_store_connects_through_pinned_database_descriptor(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

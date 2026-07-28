@@ -376,7 +376,7 @@ def download_free_docket_documents(
     _require_free_space(root, requests, source=source)
     checkpoint_path = root / ".download-checkpoint.jsonl"
     checkpoint = _read_checkpoint(checkpoint_path)
-    if not allow_existing:
+    if not allow_existing and not _is_bound_output_root(root):
         _reject_existing_outputs(requests, output_root=root)
     records: list[FreeDocumentDownloadRecord] = []
     for request in requests:
@@ -1395,13 +1395,8 @@ def _record_for_path(
 
 
 def _hash_path(path: Path) -> tuple[str, int]:
-    digest = hashlib.sha256()
-    byte_count = 0
-    with path.open("rb") as handle:
-        while chunk := handle.read(1024 * 1024):
-            digest.update(chunk)
-            byte_count += len(chunk)
-    return digest.hexdigest(), byte_count
+    payload = _read_stable_regular_file(path, label="downloaded document")
+    return hashlib.sha256(payload).hexdigest(), len(payload)
 
 
 def _read_checkpoint(path: Path) -> dict[str, FreeDocumentDownloadRecord]:

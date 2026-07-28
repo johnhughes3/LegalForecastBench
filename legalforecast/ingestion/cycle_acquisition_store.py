@@ -343,7 +343,7 @@ class CycleAcquisitionStore:
             )
             if read_only:
                 wal_path = Path(f"{self.path}-wal")
-                if wal_path.exists() and wal_path.stat().st_size > 0:
+                if _read_only_wal_size(wal_path) > 0:
                     raise CycleAcquisitionStoreError(
                         "read-only cycle store has a nonempty WAL; refusing an "
                         "immutable view that depends on sidecar state"
@@ -3849,6 +3849,39 @@ def _trim_torn_wal_tail(database: Path) -> None:
             raise CycleAcquisitionStoreError(
                 "SQLite WAL sidecar changed while it was truncated"
             )
+    except CycleAcquisitionStoreError:
+        raise
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            "SQLite WAL sidecar cannot be inspected safely"
+        ) from exc
+    finally:
+        os.close(descriptor)
+
+
+def _read_only_wal_size(wal: Path) -> int:
+    descriptor: int | None = None
+    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        descriptor = os.open(wal, flags)
+    except FileNotFoundError:
+        return 0
+    except OSError as exc:
+        raise CycleAcquisitionStoreError(
+            "SQLite WAL sidecar must be a singly linked regular non-symlink file"
+        ) from exc
+    try:
+        opened = os.fstat(descriptor)
+        named = os.stat(wal, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_nlink != 1
+            or _wal_stat_identity(opened) != _wal_stat_identity(named)
+        ):
+            raise CycleAcquisitionStoreError(
+                "SQLite WAL sidecar must be a singly linked regular non-symlink file"
+            )
+        return opened.st_size
     except CycleAcquisitionStoreError:
         raise
     except OSError as exc:
