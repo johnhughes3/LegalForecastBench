@@ -364,7 +364,7 @@ def test_v2_replacement_requires_exact_successor_before_broker_authority(
             {
                 "source_document_id": replacement_document,
                 "redaction_or_seal_status": "unknown",
-                "restriction_evidence": UNKNOWN_STATUS_EVIDENCE,
+                "restriction_evidence": list(UNKNOWN_STATUS_EVIDENCE),
                 "availability_status": "unavailable",
                 "requires_paid_recovery": True,
                 "is_available": False,

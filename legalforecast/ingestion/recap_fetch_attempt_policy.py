@@ -31,20 +31,32 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
 
 RECAP_FETCH_ATTEMPT_POLICY_VERSION = "legalforecast.recap_fetch_attempt_policy.v1"
 BOUNDED_FETCH_ATTEMPT_AUTHORITY = "bounded_fetch_attempt_only"
-UNKNOWN_STATUS_EVIDENCE = [
+UNKNOWN_STATUS_EVIDENCE = (
     "courtlistener_rest_docket_exact_match",
     "courtlistener_rest_docket_entry_exact_match",
     "courtlistener_rest_recap_document_exact_match",
     "courtlistener_rest_recap_document_is_available_false",
     "courtlistener_rest_recap_document_seal_status_unknown",
     "courtlistener_rest_no_positive_restriction_marker",
-]
+)
 
 _DOCUMENT_ID = re.compile(r"[1-9][0-9]*")
 
 
 class RecapFetchAttemptPolicyError(ValueError):
     """Raised when unknown-status evidence cannot grant attempt authority."""
+
+
+def is_exact_unknown_status_evidence(evidence: object) -> bool:
+    """Require the exact canonical evidence as a JSON-derived string array."""
+
+    if not isinstance(evidence, list):
+        return False
+    evidence_items = cast(list[object], evidence)
+    return (
+        all(isinstance(item, str) for item in evidence_items)
+        and tuple(evidence_items) == UNKNOWN_STATUS_EVIDENCE
+    )
 
 
 def generate_recap_fetch_attempt_policy(
@@ -411,7 +423,7 @@ def _is_explicit_unknown_attempt_candidate(document: Mapping[str, Any]) -> bool:
         and document.get("is_available") is False
         and document.get("availability_status") == "unavailable"
         and document.get("requires_paid_recovery") is True
-        and document.get("restriction_evidence") == UNKNOWN_STATUS_EVIDENCE
+        and is_exact_unknown_status_evidence(document.get("restriction_evidence"))
     )
     incomplete_private_status = (
         document.get("redaction_or_seal_status") == "public"

@@ -23,7 +23,9 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
 )
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
-from legalforecast.ingestion.recap_fetch_attempt_policy import UNKNOWN_STATUS_EVIDENCE
+from legalforecast.ingestion.recap_fetch_attempt_policy import (
+    is_exact_unknown_status_evidence,
+)
 from legalforecast.ingestion.recap_fetch_broker import (
     BrokerDefiniteRejection,
     BrokerOutcomeUnknown,
@@ -864,7 +866,7 @@ def _require_unknown_attempt_evidence(
         and metadata.get("is_available") is False
         and metadata.get("availability_status") == "unavailable"
         and metadata.get("requires_paid_recovery") is True
-        and metadata.get("restriction_evidence") == UNKNOWN_STATUS_EVIDENCE
+        and is_exact_unknown_status_evidence(metadata.get("restriction_evidence"))
     )
     incomplete_private_status = (
         metadata.get("redaction_or_seal_status") == "public"
