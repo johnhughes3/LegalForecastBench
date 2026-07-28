@@ -1039,10 +1039,11 @@ def _walk_directory_at(
                 raise CycleOrchestratorError(
                     f"stage output directory contains an unsafe file: {relative}"
                 )
-            chunks: list[bytes] = []
+            digest = hashlib.sha256()
+            byte_count = 0
             while chunk := os.read(file_fd, 1024 * 1024):
-                chunks.append(chunk)
-            payload = b"".join(chunks)
+                digest.update(chunk)
+                byte_count += len(chunk)
             after = os.fstat(file_fd)
             named_after = os.stat(
                 entry.name,
@@ -1051,7 +1052,7 @@ def _walk_directory_at(
             )
             if (
                 not _same_output_identity(opened, after, named_after)
-                or len(payload) != after.st_size
+                or byte_count != after.st_size
             ):
                 raise CycleOrchestratorError(
                     f"stage output file changed while being read: {relative}"
@@ -1062,8 +1063,8 @@ def _walk_directory_at(
             {
                 "path": relative.as_posix(),
                 "kind": "file",
-                "sha256": hashlib.sha256(payload).hexdigest(),
-                "byte_count": len(payload),
+                "sha256": digest.hexdigest(),
+                "byte_count": byte_count,
             }
         )
 
