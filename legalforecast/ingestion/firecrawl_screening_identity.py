@@ -62,6 +62,35 @@ SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS: Final = (
     "legalforecast/ingestion/screening_union_policy_rebind.py",
     "legalforecast/ingestion/strict_screen_evidence.py",
 )
+# Exact producer identity committed by the externally pinned final153 snapshot.
+# Later acquisition features and cycle-store hardening changed two monolithic
+# source files without changing that already-frozen policy-rebind result.
+COMPATIBLE_911371F_FINAL153_POLICY_REBIND_SOURCE_SHA256: Final[Mapping[str, str]] = {
+    "legalforecast/cli.py": (
+        "ff12809a8543f1e5d103f1f35abd49063fa5845ee10d05f790019fc977485f66"
+    ),
+    "legalforecast/ingestion/cycle_acquisition_store.py": (
+        "b41449acd68002b892f69faeced636a893ad9a643ba8f94bdcebc4cecbed928f"
+    ),
+    "legalforecast/ingestion/firecrawl_screening_identity.py": (
+        "153e6510b286782ded9ea17bc84507012c0aeb05e0015a8a06c329043c8bbadb"
+    ),
+    "legalforecast/ingestion/restricted_material.py": (
+        "e74b77e817675b58a18a7f4afbdff785ea5669564ccf95f9246023347dc1fbe2"
+    ),
+    "legalforecast/ingestion/screening_snapshot_union.py": (
+        "f9f31c3be0ad11c238777af1cc9a25ba4e0dcb9b305a6874f41e874cb9c1a653"
+    ),
+    "legalforecast/ingestion/screening_union_policy_rebind.py": (
+        "957685400417ed3a3ff0ef95939c72985d0d2281eab95cf48fb79c1b28ffc408"
+    ),
+    "legalforecast/ingestion/strict_screen_evidence.py": (
+        "f12ced3a1b92e5090ce00879ae626d05839a687f6ac4e8c3bbb54839586cc977"
+    ),
+}
+COMPATIBLE_911371F_FINAL153_POLICY_REBIND_SOURCE_MANIFEST_SHA256: Final = (
+    "8bb54b4ef12e90156725a8ec5e9162acb405ad0b637d8fc46d57ec4f2c83d1f1"
+)
 SOURCE_NEUTRAL_DIRECT_STAGE_KEYS: Final = frozenset(
     {
         "courtlistener_discovery_inputs",
@@ -289,6 +318,76 @@ COMPATIBLE_FINAL_V3_SOURCE_SHA256: Final[Mapping[str, str]] = {
     ),
     "legalforecast/ingestion/strict_screen_evidence.py": (
         "135663c6a0e666e440d3b269b7a608062799ae5830f06dfc810c99bdda4026f3"
+    ),
+    "legalforecast/selection/contamination_filters.py": (
+        "e1437bf64633071c06fa28bee618e8cc17e2a41ca929e9e3a1e8164e4048bde9"
+    ),
+    "legalforecast/selection/exclusion_ledger.py": (
+        "092dc50db5bd27ea924c61472841522a2bce03f9ae81115ed2aceb5d5a6a2915"
+    ),
+    "legalforecast/selection/motion_linkage.py": (
+        "a44d1bb198801cc99d3057d148527e31d6cd5ef6dbdfc0c13271f2cc97f8cfe2"
+    ),
+}
+
+# Exact generic screening identity from the same frozen 911371f producer.
+COMPATIBLE_911371F_FINAL153_SOURCE_MANIFEST_SHA256: Final = (
+    "f651ba73ebb0162f292be8b2d18adfd5397037c18ce93704bd67003a2e63be11"
+)
+COMPATIBLE_911371F_FINAL153_SOURCE_SHA256: Final[Mapping[str, str]] = {
+    "legalforecast/cli.py": (
+        "ff12809a8543f1e5d103f1f35abd49063fa5845ee10d05f790019fc977485f66"
+    ),
+    "legalforecast/ingestion/budgeted_docket_acquisition.py": (
+        "a11b91e5b9cef810ab88d6dde16bfe0dc4d77dbce798bf3e354261d34f8c10a9"
+    ),
+    "legalforecast/ingestion/case_dev_firecrawl.py": (
+        "4e3d1bf19c975264c185d1ef6e1c3132a43b72e91d2031b7e98ca93b028180b1"
+    ),
+    "legalforecast/ingestion/courtlistener_acquisition.py": (
+        "261ab270306634cdaf18520ed7bc5e39282ce4dac923c8bb2e307ebda8445394"
+    ),
+    "legalforecast/ingestion/courtlistener_client.py": (
+        "5afbee992368bd790db9eb118a08b895bfe01599f51d8f37885f3d0fcc31640c"
+    ),
+    "legalforecast/ingestion/courtlistener_dates.py": (
+        "2d22e446ea3cc721e9ee05eabfc3ecc72409c1a03e9f3161cfc9c7fb0c7e6721"
+    ),
+    "legalforecast/ingestion/courtlistener_web.py": (
+        "9a3afae7ba91ac07e1f1b99ff5cfa0afc82207dcc93e4f80723d9ec85cb66905"
+    ),
+    "legalforecast/ingestion/cycle_acquisition_store.py": (
+        "b41449acd68002b892f69faeced636a893ad9a643ba8f94bdcebc4cecbed928f"
+    ),
+    "legalforecast/ingestion/docket_sync.py": (
+        "0731149bd3d84bf6d87d6e59fbe2631555b4b345b3d0824ad01bb567bc80d33f"
+    ),
+    "legalforecast/ingestion/firecrawl_screening_identity.py": (
+        "153e6510b286782ded9ea17bc84507012c0aeb05e0015a8a06c329043c8bbadb"
+    ),
+    "legalforecast/ingestion/mtd_acquisition_screen.py": (
+        "72084326faa7f76afc6075556fd8ba6738df83189ce178100cb1a0eb50630e7e"
+    ),
+    "legalforecast/ingestion/operative_complaint.py": (
+        "aff85d1a327d3a7dc44f884d9bd833010ffe3fb32136d48153d4ccb48851a5eb"
+    ),
+    "legalforecast/ingestion/provenance.py": (
+        "fb67f7db133dd3382c12c37010485d321f9b0fab93d7fc9a2f617628d254ae14"
+    ),
+    "legalforecast/ingestion/recap_api_discovery.py": (
+        "ca6ed64c73939778dd1a30e3e018cb72e1866d7ba854c3e061807c9dcd9f8623"
+    ),
+    "legalforecast/ingestion/restricted_material.py": (
+        "e74b77e817675b58a18a7f4afbdff785ea5669564ccf95f9246023347dc1fbe2"
+    ),
+    "legalforecast/ingestion/screening_snapshot_union.py": (
+        "f9f31c3be0ad11c238777af1cc9a25ba4e0dcb9b305a6874f41e874cb9c1a653"
+    ),
+    "legalforecast/ingestion/snapshot_replay.py": (
+        "eb0c03115d606630d15bccad3cf29332313be41a854ea90e9c385bee549c088b"
+    ),
+    "legalforecast/ingestion/strict_screen_evidence.py": (
+        "f12ced3a1b92e5090ce00879ae626d05839a687f6ac4e8c3bbb54839586cc977"
     ),
     "legalforecast/selection/contamination_filters.py": (
         "e1437bf64633071c06fa28bee618e8cc17e2a41ca929e9e3a1e8164e4048bde9"
@@ -1303,9 +1402,17 @@ def validate_screening_union_policy_rebind_implementation(
         "source_sha256": normalized_sources,
         "manifest_sha256": manifest_sha256,
     }
-    if require_current and _canonical_commitment(normalized) != _canonical_commitment(
-        screening_union_policy_rebind_implementation()
-    ):
+    compatible_final153 = {
+        "schema_version": SCREENING_UNION_POLICY_REBIND_IMPLEMENTATION_SCHEMA,
+        "source_sha256": dict(COMPATIBLE_911371F_FINAL153_POLICY_REBIND_SOURCE_SHA256),
+        "manifest_sha256": (
+            COMPATIBLE_911371F_FINAL153_POLICY_REBIND_SOURCE_MANIFEST_SHA256
+        ),
+    }
+    if require_current and _canonical_commitment(normalized) not in {
+        _canonical_commitment(screening_union_policy_rebind_implementation()),
+        _canonical_commitment(compatible_final153),
+    }:
         raise FirecrawlScreeningIdentityError(
             "screening-union policy-rebind sources do not match current code"
         )
@@ -1416,6 +1523,10 @@ def validate_firecrawl_screening_implementation(
             (
                 COMPATIBLE_FINAL_V3_SOURCE_SHA256,
                 COMPATIBLE_FINAL_V3_SOURCE_MANIFEST_SHA256,
+            ),
+            (
+                COMPATIBLE_911371F_FINAL153_SOURCE_SHA256,
+                COMPATIBLE_911371F_FINAL153_SOURCE_MANIFEST_SHA256,
             ),
         )
     )

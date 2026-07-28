@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import shutil
 from collections.abc import Mapping
 from pathlib import Path
@@ -10,18 +11,50 @@ import pytest
 from legalforecast.ingestion.firecrawl_screening_identity import (
     COMPATIBLE_4D3BA85_SOURCE_MANIFEST_SHA256,
     COMPATIBLE_4D3BA85_SOURCE_SHA256,
+    COMPATIBLE_911371F_FINAL153_SOURCE_MANIFEST_SHA256,
+    COMPATIBLE_911371F_FINAL153_SOURCE_SHA256,
     COMPATIBLE_FINAL_V3_SOURCE_MANIFEST_SHA256,
     COMPATIBLE_FINAL_V3_SOURCE_SHA256,
     FIRECRAWL_SCREENING_IMPLEMENTATION_SCHEMA,
     FIRECRAWL_SCREENING_SOURCE_PATHS,
     LEGACY_32057DE_SOURCE_MANIFEST_SHA256,
     LEGACY_32057DE_SOURCE_SHA256,
+    SCREENING_UNION_POLICY_REBIND_IMPLEMENTATION_SCHEMA,
+    SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS,
     FirecrawlScreeningIdentityError,
     firecrawl_screening_implementation,
     require_snapshot_firecrawl_screening_implementation,
     snapshot_firecrawl_screening_source_count,
     source_manifest_sha256,
     validate_firecrawl_screening_implementation,
+    validate_screening_union_policy_rebind_implementation,
+)
+
+_FINAL153_REBIND_SOURCE_SHA256 = {
+    "legalforecast/cli.py": (
+        "ff12809a8543f1e5d103f1f35abd49063fa5845ee10d05f790019fc977485f66"
+    ),
+    "legalforecast/ingestion/cycle_acquisition_store.py": (
+        "b41449acd68002b892f69faeced636a893ad9a643ba8f94bdcebc4cecbed928f"
+    ),
+    "legalforecast/ingestion/firecrawl_screening_identity.py": (
+        "153e6510b286782ded9ea17bc84507012c0aeb05e0015a8a06c329043c8bbadb"
+    ),
+    "legalforecast/ingestion/restricted_material.py": (
+        "e74b77e817675b58a18a7f4afbdff785ea5669564ccf95f9246023347dc1fbe2"
+    ),
+    "legalforecast/ingestion/screening_snapshot_union.py": (
+        "f9f31c3be0ad11c238777af1cc9a25ba4e0dcb9b305a6874f41e874cb9c1a653"
+    ),
+    "legalforecast/ingestion/screening_union_policy_rebind.py": (
+        "957685400417ed3a3ff0ef95939c72985d0d2281eab95cf48fb79c1b28ffc408"
+    ),
+    "legalforecast/ingestion/strict_screen_evidence.py": (
+        "f12ced3a1b92e5090ce00879ae626d05839a687f6ac4e8c3bbb54839586cc977"
+    ),
+}
+_FINAL153_REBIND_MANIFEST_SHA256 = (
+    "8bb54b4ef12e90156725a8ec5e9162acb405ad0b637d8fc46d57ec4f2c83d1f1"
 )
 
 
@@ -88,6 +121,30 @@ def test_final_v3_screening_identity_remains_exactly_compatible() -> None:
     )
 
 
+def test_final153_screening_identity_remains_exactly_compatible() -> None:
+    assert set(COMPATIBLE_911371F_FINAL153_SOURCE_SHA256) == set(
+        FIRECRAWL_SCREENING_SOURCE_PATHS
+    )
+    assert (
+        source_manifest_sha256(COMPATIBLE_911371F_FINAL153_SOURCE_SHA256)
+        == COMPATIBLE_911371F_FINAL153_SOURCE_MANIFEST_SHA256
+        == "f651ba73ebb0162f292be8b2d18adfd5397037c18ce93704bd67003a2e63be11"
+    )
+    commitment = {
+        "schema_version": FIRECRAWL_SCREENING_IMPLEMENTATION_SCHEMA,
+        "source_sha256": dict(COMPATIBLE_911371F_FINAL153_SOURCE_SHA256),
+        "manifest_sha256": (COMPATIBLE_911371F_FINAL153_SOURCE_MANIFEST_SHA256),
+    }
+
+    assert (
+        validate_firecrawl_screening_implementation(
+            commitment,
+            require_current=True,
+        )
+        == commitment
+    )
+
+
 def test_current_commitment_has_exact_twenty_one_file_key_set() -> None:
     commitment = firecrawl_screening_implementation()
 
@@ -100,6 +157,67 @@ def test_current_commitment_has_exact_twenty_one_file_key_set() -> None:
             require_current=True,
         )
         == commitment
+    )
+
+
+def test_final153_policy_rebind_identity_remains_exactly_compatible() -> None:
+    commitment = _final153_rebind_commitment()
+
+    assert tuple(_FINAL153_REBIND_SOURCE_SHA256) == (
+        SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS
+    )
+    assert _policy_rebind_manifest_sha256(_FINAL153_REBIND_SOURCE_SHA256) == (
+        _FINAL153_REBIND_MANIFEST_SHA256
+    )
+    assert (
+        validate_screening_union_policy_rebind_implementation(
+            commitment,
+            require_current=True,
+        )
+        == commitment
+    )
+
+
+def test_unknown_policy_rebind_identity_still_fails_current_validation() -> None:
+    commitment = _final153_rebind_commitment()
+    sources = cast(dict[str, str], commitment["source_sha256"])
+    sources[SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS[0]] = "0" * 64
+    commitment["manifest_sha256"] = _policy_rebind_manifest_sha256(sources)
+
+    with pytest.raises(
+        FirecrawlScreeningIdentityError,
+        match="policy-rebind sources do not match current code",
+    ):
+        validate_screening_union_policy_rebind_implementation(
+            commitment,
+            require_current=True,
+        )
+
+
+def test_final153_policy_rebind_is_admitted_through_snapshot_validation() -> None:
+    implementation = firecrawl_screening_implementation()
+    manifest = _union_manifest(
+        (
+            {"courtlistener_rest_screen_inputs": {}},
+            {
+                "firecrawl_screen_inputs": {},
+                "firecrawl_screening_implementation": implementation,
+            },
+        ),
+        firecrawl_source_count=1,
+        implementation=implementation,
+    )
+    stage_commitments = cast(dict[str, object], manifest["stage_commitments"])
+    stage_commitments["screening_union_policy_rebind"] = {
+        "implementation": _final153_rebind_commitment()
+    }
+
+    assert (
+        snapshot_firecrawl_screening_source_count(
+            manifest,
+            require_current=True,
+        )
+        == 1
     )
 
 
@@ -397,3 +515,19 @@ def _sources(commitment: Mapping[str, object]) -> dict[str, str]:
     value = commitment["source_sha256"]
     assert isinstance(value, dict)
     return cast(dict[str, str], value)
+
+
+def _final153_rebind_commitment() -> dict[str, object]:
+    return {
+        "schema_version": SCREENING_UNION_POLICY_REBIND_IMPLEMENTATION_SCHEMA,
+        "source_sha256": dict(_FINAL153_REBIND_SOURCE_SHA256),
+        "manifest_sha256": _FINAL153_REBIND_MANIFEST_SHA256,
+    }
+
+
+def _policy_rebind_manifest_sha256(source_sha256: Mapping[str, str]) -> str:
+    payload = b"".join(
+        f"{path}\0{source_sha256[path]}\n".encode()
+        for path in SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS
+    )
+    return hashlib.sha256(payload).hexdigest()
