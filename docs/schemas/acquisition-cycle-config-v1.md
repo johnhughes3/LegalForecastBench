@@ -58,8 +58,10 @@ After a stage returns success, the coordinator reopens its run card through a no
 <state-root>/receipts/<zero-padded-index>-<stage-id>.json
 ```
 
-The canonical receipt binds the configuration SHA-256, stage index and identity, command arguments SHA-256, boundary, run-card path, run-card stage, and exact run-card SHA-256.
-On resume, the receipt and run card are both reauthenticated before the stage is skipped.
+The canonical receipt binds the configuration SHA-256, stage index and identity, command arguments SHA-256, boundary, run-card path, run-card stage, exact run-card SHA-256, and current output commitments.
+Regular output files and safe directory trees are content-hashed.
+The shared cycle SQLite store is recorded as mutable state because later acquisition stages legitimately extend it; its authoritative snapshots and final reconciliation remain enforced by the existing stage handlers.
+On resume, the receipt, run card, and committed immutable outputs are reauthenticated before the stage is skipped.
 An unreceipted run card is never silently adopted: the existing command must successfully replay under `--resume` before the coordinator creates its receipt.
 
 Status-only mode creates no state and returns the exact next invocation.

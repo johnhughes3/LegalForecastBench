@@ -381,7 +381,10 @@ def _advance_cycle(
         "corpus_finalization_planned": corpus_finalization_planned,
         "corpus_target_verified": corpus_target_verified,
         "clean_case_count": clean_case_count,
-        "next_stage": _stage_status(next_stage, "ready")
+        "next_stage": _stage_status(
+            next_stage,
+            "blocked" if status == "blocked" else "ready",
+        )
         if next_stage is not None
         else None,
         "stages": stage_statuses,
@@ -517,6 +520,7 @@ def _verify_receipt(
         "run_card_path",
         "run_card_stage",
         "run_card_sha256",
+        "output_commitments",
     }
     if set(receipt) != expected_fields:
         raise CycleOrchestratorError(f"stage receipt fields differ: {path}")
@@ -558,6 +562,11 @@ def _verified_run_card(stage: CycleStage) -> tuple[bytes, Mapping[str, object]]:
         )
     card = cast(Mapping[str, object], raw)
     schema_version = card.get("schema_version")
+    resume_evidence = card.get("resume")
+    resume_verified = resume_evidence is True or (
+        schema_version == "legalforecast.provenance_quarantine_clearance_run_card.v1"
+        and "resume" not in card
+    )
     if (
         not isinstance(schema_version, str)
         or not schema_version.startswith("legalforecast.")
@@ -565,7 +574,7 @@ def _verified_run_card(stage: CycleStage) -> tuple[bytes, Mapping[str, object]]:
         or card.get("status") != "completed"
         or card.get("dry_run") is not False
         or card.get("execute") is not True
-        or card.get("resume") is not True
+        or not resume_verified
     ):
         raise CycleOrchestratorError(
             f"stage {stage.stage_id} run card is not an executed completion"
@@ -608,6 +617,7 @@ def _receipt_record(
         "run_card_path": str(stage.run_card),
         "run_card_stage": stage.run_card_stage,
         "run_card_sha256": hashlib.sha256(run_card_payload).hexdigest(),
+        "output_commitments": _output_commitments(run_card),
     }
 
 
@@ -716,6 +726,8 @@ def _write_immutable(path: Path, payload: bytes) -> None:
         try:
             path.unlink()
         except OSError:
+            # Preserve the primary write/fsync failure if best-effort cleanup also
+            # loses a race or encounters a filesystem error.
             pass
         raise
 
@@ -727,6 +739,10 @@ def _require_exact_flag_value(
     expected: str,
     stage_id: str,
 ) -> None:
+    if any(argument.startswith(f"{flag}=") for argument in arguments):
+        raise CycleOrchestratorError(
+            f"stage {stage_id} must not use or repeat equals-form {flag}"
+        )
     indices = [index for index, value in enumerate(arguments) if value == flag]
     if len(indices) != 1 or indices[0] + 1 >= len(arguments):
         raise CycleOrchestratorError(
@@ -737,6 +753,8 @@ def _require_exact_flag_value(
 
 
 def _flag_values(arguments: Sequence[str], flag: str) -> tuple[str, ...]:
+    if any(argument.startswith(f"{flag}=") for argument in arguments):
+        raise CycleOrchestratorError(f"{flag} must not use or repeat equals form")
     values: list[str] = []
     for index, argument in enumerate(arguments):
         if argument != flag:
@@ -773,3 +791,126 @@ def _required_int(record: Mapping[str, object], field: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise CycleOrchestratorError(f"{field} must be an integer")
     return value
+
+
+def _output_commitments(run_card: Mapping[str, object]) -> list[dict[str, object]]:
+    raw_paths = run_card.get("output_paths")
+    if not isinstance(raw_paths, list):
+        raise CycleOrchestratorError("stage run card lacks output_paths")
+    paths = [
+        _required_text({"path": value}, "path")
+        for value in cast(list[object], raw_paths)
+    ]
+    if len(paths) != len(set(paths)):
+        raise CycleOrchestratorError("stage run card repeats an output path")
+    return [_output_commitment(Path(value)) for value in paths]
+
+
+def _output_commitment(path: Path) -> dict[str, object]:
+    absolute = Path(os.path.abspath(path))
+    try:
+        resolved = absolute.resolve(strict=True)
+    except OSError as exc:
+        raise CycleOrchestratorError(
+            f"stage output is unavailable: {absolute}"
+        ) from exc
+    if resolved != absolute:
+        raise CycleOrchestratorError(
+            f"stage output path must not contain symlinks: {absolute}"
+        )
+    if absolute.suffix in {".sqlite", ".sqlite3", ".db"}:
+        try:
+            metadata = absolute.stat()
+        except OSError as exc:
+            raise CycleOrchestratorError(
+                f"mutable stage state is unavailable: {absolute}"
+            ) from exc
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise CycleOrchestratorError(
+                f"mutable stage state must be a unique regular file: {absolute}"
+            )
+        return {
+            "path": str(absolute),
+            "kind": "mutable_state",
+        }
+    if absolute.is_file():
+        try:
+            payload = read_unique_regular_file(absolute)
+        except (OSError, ReviewBundleError) as exc:
+            raise CycleOrchestratorError(
+                f"stage output is not a safe regular file: {absolute}"
+            ) from exc
+        return {
+            "path": str(absolute),
+            "kind": "file",
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "byte_count": len(payload),
+        }
+    if absolute.is_dir():
+        tree = _directory_tree_commitment(absolute)
+        return {
+            "path": str(absolute),
+            "kind": "directory",
+            "tree_sha256": hashlib.sha256(canonical_json_bytes(tree)).hexdigest(),
+            "file_count": len(tree),
+        }
+    raise CycleOrchestratorError(f"stage output is unavailable: {absolute}")
+
+
+def _directory_tree_commitment(root: Path) -> list[dict[str, object]]:
+    try:
+        root_before = root.lstat()
+        descendants = sorted(root.rglob("*"))
+    except OSError as exc:
+        raise CycleOrchestratorError(
+            f"unable to inspect stage output directory: {root}"
+        ) from exc
+    records: list[dict[str, object]] = []
+    directory_snapshots = {root: root_before}
+    for path in descendants:
+        relative = path.relative_to(root).as_posix()
+        try:
+            metadata = path.lstat()
+        except OSError as exc:
+            raise CycleOrchestratorError(
+                f"stage output directory changed while being read: {path}"
+            ) from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise CycleOrchestratorError(
+                f"stage output directory contains a symlink: {path}"
+            )
+        if stat.S_ISDIR(metadata.st_mode):
+            directory_snapshots[path] = metadata
+            continue
+        if not stat.S_ISREG(metadata.st_mode):
+            raise CycleOrchestratorError(
+                f"stage output directory contains a non-file: {path}"
+            )
+        try:
+            payload = read_unique_regular_file(path)
+        except (OSError, ReviewBundleError) as exc:
+            raise CycleOrchestratorError(
+                f"stage output directory contains an unsafe file: {path}"
+            ) from exc
+        records.append(
+            {
+                "path": relative,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "byte_count": len(payload),
+            }
+        )
+    stable_fields = ("st_dev", "st_ino", "st_mode", "st_mtime_ns")
+    for directory, before in directory_snapshots.items():
+        try:
+            after = directory.lstat()
+        except OSError as exc:
+            raise CycleOrchestratorError(
+                f"stage output directory changed while being read: {directory}"
+            ) from exc
+        if any(
+            getattr(before, field) != getattr(after, field) for field in stable_fields
+        ):
+            raise CycleOrchestratorError(
+                f"stage output directory changed while being read: {directory}"
+            )
+    return records

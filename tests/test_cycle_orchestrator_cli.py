@@ -257,6 +257,7 @@ def test_run_cycle_stops_before_network_without_provider_activity(
     assert status["completed_stage_count"] == 1
     assert status["stop_reason"] == "network_boundary_not_authorized"
     assert status["next_stage"]["command"] == "discover-courtlistener"
+    assert status["next_stage"]["status"] == "blocked"
     assert not run_card.exists()
     assert not (tmp_path / "state" / "receipts" / "0001-discover.json").exists()
 
@@ -385,6 +386,50 @@ def test_run_cycle_binds_target_count_to_prepare_stage(
         == 2
     )
     assert "target count differs" in capsys.readouterr().err
+
+
+def test_run_cycle_rejects_equals_form_identity_override(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    run_card = tmp_path / "init" / "run-cards" / "init-cycle.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--output-root",
+                    str(tmp_path / "init"),
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--eligibility-anchor=2027-01-01",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "run-cycle",
+                "--config",
+                str(config),
+                "--state-root",
+                str(tmp_path / "state"),
+                "--json",
+            ]
+        )
+        == 2
+    )
+    assert "must not use or repeat equals form" in capsys.readouterr().err
 
 
 def test_run_cycle_binds_target_count_to_finalization_stage(
@@ -586,6 +631,148 @@ def test_run_cycle_fails_closed_when_receipted_run_card_changes(
 
     assert main(command) == 2
     assert "receipted run card changed" in capsys.readouterr().err
+
+
+def test_run_cycle_fails_closed_when_receipted_output_changes(
+    tmp_path: Path,
+) -> None:
+    stage_root = tmp_path / "stage"
+    run_card = stage_root / "run-cards" / "init-cycle.json"
+    output = stage_root / "cycle-identity.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--output-root",
+                    str(stage_root),
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+
+    def write_stage(_command: str, _arguments: tuple[str, ...]) -> int:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("original\n", encoding="utf-8")
+        run_card.parent.mkdir(parents=True, exist_ok=True)
+        run_card.write_bytes(
+            canonical_json_bytes(
+                {
+                    "schema_version": "legalforecast.acquisition_run_card.v1",
+                    "stage": "init-cycle",
+                    "status": "completed",
+                    "dry_run": False,
+                    "execute": True,
+                    "resume": True,
+                    "paid_activity_executed": False,
+                    "output_paths": [str(output)],
+                }
+            )
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    first = run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_stage,
+    )
+    assert first["status"] == "completed"
+
+    output.write_text("changed\n", encoding="utf-8")
+    with pytest.raises(
+        CycleOrchestratorError,
+        match="stage receipt no longer matches cycle config",
+    ):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=False,
+            permissions=BoundaryPermissions(),
+            executor=write_stage,
+        )
+
+
+def test_run_cycle_accepts_known_specialized_resume_card_without_resume_field(
+    tmp_path: Path,
+) -> None:
+    init_card = tmp_path / "init-cycle.json"
+    final_card = tmp_path / "finalize-provenance-quarantine.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(init_card),
+                    "--execute",
+                ],
+                run_card=init_card,
+            ),
+            _stage(
+                stage_id="finalize-disclosure",
+                command="finalize-provenance-quarantine",
+                boundary="provider_free",
+                arguments=[
+                    "--run-card-output",
+                    str(final_card),
+                    "--execute",
+                ],
+                run_card=final_card,
+            ),
+        ],
+    )
+
+    def write_cards(command: str, _arguments: tuple[str, ...]) -> int:
+        card_path = init_card if command == "init-cycle" else final_card
+        card_path.write_bytes(
+            canonical_json_bytes(
+                {
+                    "schema_version": (
+                        "legalforecast.acquisition_run_card.v1"
+                        if command == "init-cycle"
+                        else (
+                            "legalforecast.provenance_quarantine_clearance_run_card.v1"
+                        )
+                    ),
+                    "stage": command,
+                    "status": "completed",
+                    "dry_run": False,
+                    "execute": True,
+                    **({"resume": True} if command == "init-cycle" else {}),
+                    "paid_activity_executed": False,
+                    "output_paths": [],
+                }
+            )
+        )
+        return 0
+
+    status = run_acquisition_cycle(
+        config_path=config,
+        state_root=tmp_path / "state",
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_cards,
+    )
+
+    assert status["status"] == "completed"
+    assert status["completed_stage_count"] == 2
 
 
 def test_run_cycle_rejects_noncanonical_or_linked_config(
