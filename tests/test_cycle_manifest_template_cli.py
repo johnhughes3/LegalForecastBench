@@ -5,6 +5,7 @@ import json
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
 
 import legalforecast.ingestion.cycle_manifest_template as cycle_manifest_template
@@ -20,6 +21,10 @@ from legalforecast.labeling.provider_cycle_caps_materializer import (
     load_provider_cycle_caps_successor_policy,
 )
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps
+from legalforecast.protocol.policy_artifacts import (
+    generate_labeling_policy,
+    verify_labeling_policy,
+)
 
 
 def _template(root: str = "${ROOT}") -> dict[str, object]:
@@ -933,3 +938,89 @@ def test_checked_in_target_100_provider_caps_inputs_share_cycle_identity() -> No
     assert base.cycle_id == "cycle-1-target-100-2026-07-25"
     assert policy.cycle_id == base.cycle_id
     assert set(policy.provider_accounts) == set(base.providers)
+
+
+def test_checked_in_target_100_labeling_policy_shares_cycle_identity() -> None:
+    root = Path(__file__).parents[1]
+    cycle_id = "cycle-1-target-100-2026-07-25"
+    policy_path = root / "docs" / "labeling-policy.json"
+    registry_path = root / "model_registries" / "cycle-1-stage-b-judges-2026-07-12.json"
+    provider_caps_path = (
+        root
+        / "model_registries"
+        / "cycle-1-target-100-provider-caps-base-2026-07-28.json"
+    )
+
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    verify_labeling_policy(
+        policy,
+        judge_registry_path=registry_path,
+        expected_cycle_id=cycle_id,
+    )
+    expected = generate_labeling_policy(
+        cycle_id=cycle_id,
+        judge_registry_path=registry_path,
+        published_at=datetime(2026, 7, 28, 22, 58, 15, tzinfo=UTC),
+        threshold_source=(
+            "docs/schemas/evaluation-policy-artifacts-v1.md: "
+            "legalforecast.labeling_policy.v1 Cycle 1 audit thresholds "
+            "approved in docs/labeling-protocol.md"
+        ),
+    )
+    assert policy == expected
+    legacy = generate_labeling_policy(
+        cycle_id="cycle-1",
+        judge_registry_path=registry_path,
+        published_at=datetime(2026, 7, 15, 9, 41, 10, tzinfo=UTC),
+        threshold_source=(
+            "docs/schemas/evaluation-policy-artifacts-v1.md: "
+            "legalforecast.labeling_policy.v1 Cycle 1 audit thresholds "
+            "approved in docs/labeling-protocol.md"
+        ),
+    )
+    assert {
+        key: value
+        for key, value in policy["policy"].items()
+        if key not in {"cycle_id", "published_at"}
+    } == {
+        key: value
+        for key, value in legacy["policy"].items()
+        if key not in {"cycle_id", "published_at"}
+    }
+    policy_file_sha256 = hashlib.sha256(policy_path.read_bytes()).hexdigest()
+    assert policy_file_sha256 == (
+        "0dd6f10a4d8354334e4f0b5f14534573ebbe7e807e52497db5d424de30f4e2d0"
+    )
+    assert load_provider_cycle_caps(provider_caps_path).cycle_id == cycle_id
+    prerequisites = (
+        root / "docs" / "cycle-1-target-100-direct-prerequisites.md"
+    ).read_text(encoding="utf-8")
+    assert (
+        "| Labeling policy | `$REPO_ROOT/docs/labeling-policy.json` | "
+        f"`{policy_file_sha256}` |"
+    ) in prerequisites
+    assert f"--cycle-id {cycle_id}" in prerequisites
+
+    expected_argument = "${REPO_ROOT}/docs/labeling-policy.json"
+    expected_cycle_ids = {
+        "cycle-1-target-100.acquisition-cycle.template.json": cycle_id,
+        "cycle-1-target-100.replacement-corpus.template.json": (
+            f"{cycle_id}-replacement-corpus"
+        ),
+    }
+    for template_name, expected_cycle_id in expected_cycle_ids.items():
+        template = json.loads(
+            (root / "manifests" / template_name).read_text(encoding="utf-8")
+        )
+        assert template["config"]["cycle_id"] == expected_cycle_id
+        consumers = [
+            stage
+            for stage in template["config"]["stages"]
+            if "--labeling-policy" in stage["arguments"]
+        ]
+        assert consumers
+        assert all(
+            stage["arguments"][stage["arguments"].index("--labeling-policy") + 1]
+            == expected_argument
+            for stage in consumers
+        )
