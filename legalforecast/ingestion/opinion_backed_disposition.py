@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 import urllib.parse
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -199,7 +200,10 @@ def validate_resolved_recap_identity(
             raise OpinionBackedDispositionError(
                 f"live resolved RECAP {field_name} is missing"
             )
-        if _identity_text(expected[field_name]) != _identity_text(live_value):
+        normalize = (
+            _caption_identity_text if field_name == "case_name" else _identity_text
+        )
+        if normalize(expected[field_name]) != normalize(live_value):
             raise OpinionBackedDispositionError(
                 f"resolved RECAP {field_name} changed after resolution"
             )
@@ -703,6 +707,15 @@ def _required_text(record: Mapping[str, Any], field_name: str) -> str:
 
 def _identity_text(value: str) -> str:
     return "".join(character for character in value.casefold() if character.isalnum())
+
+
+def _caption_identity_text(value: str) -> str:
+    """Mirror the resolver's caption equivalence for live identity validation."""
+
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    tokens = re.findall(r"[a-z0-9]+", normalized)
+    ignored = {"llc", "inc", "corp", "corporation", "ltd", "pllc"}
+    return " ".join(token for token in tokens if token not in ignored)
 
 
 def _required_iso_date(record: Mapping[str, Any], field_name: str) -> date:

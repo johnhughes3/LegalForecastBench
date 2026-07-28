@@ -651,6 +651,175 @@ def test_courtlistener_fallback_omits_available_only_and_uses_similarity(
     assert "available_only" not in params
 
 
+def test_courtlistener_duplicate_document_hits_reconcile_by_docket_identity(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    params: dict[str, Any] = {
+        "type": "r",
+        "q": _BULLOCK_QUERY,
+        "order_by": "score desc",
+        "page_size": 20,
+    }
+    first = _courtlistener_recap_docket(
+        score=12.5,
+        snippet="First matching document",
+        recap_document_id=101,
+    )
+    second = _courtlistener_recap_docket(
+        score=8.25,
+        snippet="A different document from the same docket",
+        recap_document_id=202,
+    )
+    payload = {"results": [first, second], "next": None}
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=None,
+        courtlistener_client=_courtlistener(
+            RecordedCourtListenerResponse(
+                method="GET",
+                path="/search/",
+                params=params,
+                status_code=200,
+                payload=payload,
+            )
+        ),
+    )
+
+    assert summary.resolved == 1
+    connection = sqlite3.connect(tmp_path / "resolver.sqlite3")
+    try:
+        response_body, page_sha256, attempt_sha256 = connection.execute(
+            """
+            SELECT page.response_body, page.response_sha256, attempt.response_sha256
+            FROM response_pages AS page
+            JOIN request_attempts AS attempt USING(attempt_id)
+            """
+        ).fetchone()
+    finally:
+        connection.close()
+    expected_body = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode()
+    assert response_body == expected_body
+    assert page_sha256 == hashlib.sha256(expected_body).hexdigest()
+    assert attempt_sha256 == page_sha256
+
+
+def test_courtlistener_genuine_docket_identity_conflict_is_terminal_exclusion(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    params: dict[str, Any] = {
+        "type": "r",
+        "q": _BULLOCK_QUERY,
+        "order_by": "score desc",
+        "page_size": 20,
+    }
+    courtlistener = _courtlistener(
+        RecordedCourtListenerResponse(
+            method="GET",
+            path="/search/",
+            params=params,
+            status_code=200,
+            payload={
+                "results": [
+                    _courtlistener_recap_docket(case_name="Alpha v. Beta"),
+                    _courtlistener_recap_docket(case_name="Gamma v. Delta"),
+                ],
+                "next": None,
+            },
+        )
+    )
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=None,
+        courtlistener_client=courtlistener,
+    )
+
+    assert summary.excluded == 1
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    assert outcome["reason_code"] == "provider_identity_contradiction"
+    assert outcome["evidence"] == {
+        "docket_id": "71878956",
+        "provider": "courtlistener_rest",
+        "identity_conflicts": {
+            "case_name": {
+                "normalized_values": ["alpha v beta", "gamma v delta"],
+                "observed_values": ["Alpha v. Beta", "Gamma v. Delta"],
+            }
+        },
+    }
+
+
+def test_courtlistener_identity_conflict_does_not_abort_later_leads(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(
+        tmp_path,
+        _lead(),
+        _lead(opinion_docket_id="73614336", cluster_id="10927692"),
+    )
+    params: dict[str, Any] = {
+        "type": "r",
+        "q": _BULLOCK_QUERY,
+        "order_by": "score desc",
+        "page_size": 20,
+    }
+    courtlistener = _courtlistener(
+        RecordedCourtListenerResponse(
+            method="GET",
+            path="/search/",
+            params=params,
+            status_code=200,
+            payload={
+                "results": [
+                    _courtlistener_recap_docket(court_id="dcd"),
+                    _courtlistener_recap_docket(court_id="nysd"),
+                ],
+                "next": None,
+            },
+        ),
+        RecordedCourtListenerResponse(
+            method="GET",
+            path="/search/",
+            params=params,
+            status_code=200,
+            payload={"results": [_courtlistener_recap_docket()], "next": None},
+        ),
+    )
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=None,
+        courtlistener_client=courtlistener,
+    )
+
+    assert summary.excluded == 1
+    assert summary.resolved == 1
+    assert [
+        outcome["reason_code"]
+        for outcome in read_resolution_outcomes(tmp_path / "resolver.sqlite3")
+    ] == [
+        "provider_identity_contradiction",
+        "strict_recap_identity_resolved",
+    ]
+
+
 def test_case_dev_server_error_is_journaled_then_falls_back_to_courtlistener(
     tmp_path: Path,
 ) -> None:
