@@ -1,0 +1,40 @@
+{
+  "schema_version": "legalforecast.official_community_import_budget.v1",
+  "legacy_reverse_dependencies": [
+    {
+      "imported": "legalforecast.multiharness.cli",
+      "importer": "legalforecast.cli",
+      "reason": "The repository-level CLI remains the compatibility composition root until the community CLI is extracted."
+    },
+    {
+      "imported": "legalforecast.multiharness.community",
+      "importer": "legalforecast.publication.community_aggregate",
+      "reason": "The existing community publication adapter consumes the community submission contract."
+    },
+    {
+      "imported": "legalforecast.multiharness.reporting",
+      "importer": "legalforecast.publication.community_aggregate",
+      "reason": "The existing community publication adapter consumes the community report renderer."
+    },
+    {
+      "imported": "legalforecast.multiharness.spec",
+      "importer": "legalforecast.publication.community_aggregate",
+      "reason": "The existing community publication adapter consumes community schema types."
+    },
+    {
+      "imported": "legalforecast.multiharness.validation",
+      "importer": "legalforecast.publication.community_aggregate",
+      "reason": "The existing community publication adapter validates community records."
+    },
+    {
+      "imported": "legalforecast.multiharness.spec",
+      "importer": "legalforecast.publication.static_sites",
+      "reason": "The shared static-site renderer still accepts the community artifact record."
+    },
+    {
+      "imported": "legalforecast.multiharness.validation",
+      "importer": "legalforecast.publication.static_sites",
+      "reason": "The shared static-site renderer still validates the community bundle schema."
+    }
+  ]
+}
