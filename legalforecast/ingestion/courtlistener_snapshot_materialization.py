@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.budgeted_firecrawl import (
+    COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE,
     is_retryable_target_accepted,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -1021,12 +1022,11 @@ def _validate_transient_firecrawl_attempt(
 
 
 def _is_retryable_target_202_attempt(attempt: FirecrawlAttempt) -> bool:
-    """Apply the frozen basic-proxy snapshot profile to a generic accepted 202."""
+    """Apply the frozen CourtListener evidence profile to an accepted 202."""
 
-    return (
-        is_retryable_target_accepted(attempt)
-        and attempt.reported_credits in {0, 1}
-        and attempt.proxy_used == "basic"
+    return is_retryable_target_accepted(
+        attempt,
+        evidence_profile=COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE,
     )
 
 

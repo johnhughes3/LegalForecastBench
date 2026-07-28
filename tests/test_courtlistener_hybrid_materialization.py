@@ -148,7 +148,11 @@ def test_hybrid_retryable_target_202_then_success_materializes_exact_lineage(
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("proxy_used", "stealth"), ("reported_credits", 2)],
+    [
+        ("proxy_used", "stealth"),
+        ("proxy_used", "enhanced"),
+        ("reported_credits", 2),
+    ],
 )
 def test_hybrid_retryable_target_202_rejects_nonfrozen_source_profile(
     tmp_path: Path,

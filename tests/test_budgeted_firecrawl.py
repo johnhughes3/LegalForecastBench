@@ -9,6 +9,7 @@ from threading import Event, Lock, get_ident
 
 import pytest
 from legalforecast.ingestion.budgeted_firecrawl import (
+    COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE,
     BudgetedFirecrawlScheduler,
     FirecrawlArtifactError,
     FirecrawlCircuitOpenError,
@@ -772,6 +773,22 @@ def test_scheduler_resumes_legacy_terminal_202_and_interrupted_authorization(
         )
         legacy_record = store.firecrawl_attempt(accepted_attempt.attempt_id)
         assert is_retryable_target_accepted(legacy_record)
+        assert is_retryable_target_accepted(
+            replace(legacy_record, proxy_used="basic", reported_credits=1),
+            evidence_profile=COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE,
+        )
+        assert not is_retryable_target_accepted(
+            replace(legacy_record, proxy_used="stealth", reported_credits=1),
+            evidence_profile=COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE,
+        )
+        assert not is_retryable_target_accepted(
+            replace(legacy_record, proxy_used="enhanced", reported_credits=1),
+            evidence_profile=COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE,
+        )
+        assert not is_retryable_target_accepted(
+            replace(legacy_record, proxy_used="basic", reported_credits=2),
+            evidence_profile=COURTLISTENER_RETRYABLE_TARGET_202_EVIDENCE_PROFILE,
+        )
         assert not is_retryable_target_accepted(
             replace(legacy_record, failure_transient=True)
         )
