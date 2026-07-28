@@ -25,7 +25,8 @@ A `corpus` template is additionally rejected unless its last stage is `finalize-
 
 ## Publication
 
-The output directory must already exist, resolve without symlinks, and remain the same directory identity throughout publication; the output path must not already exist.
+The output directory must already exist, resolve without symlinks, and remain the same directory identity throughout publication.
+An existing output is accepted as an idempotent no-op only when its bytes match the rendered payload; an existing output with different bytes fails, and publication never replaces an output.
 The renderer validates the bytes before writing, opens the parent and new file through no-follow directory descriptors, publishes without replacement, fsyncs, and reopens the final unique regular file through the anchored directory descriptor.
 The JSON receipt printed to stdout records the template and output hashes, cycle identity, target, and stage count.
 

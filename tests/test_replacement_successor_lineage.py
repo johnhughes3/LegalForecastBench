@@ -68,6 +68,95 @@ def _fake_clearance(
     return clearance, card
 
 
+def test_successor_authority_pair_preflights_attempt_before_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authority_output = tmp_path / "authority.json"
+    attempt_output = tmp_path / "attempt-policy.json"
+    budget = _write_json(tmp_path / "budget.json", {"fixture": "budget"})
+    selection = _write_jsonl(tmp_path / "selection.jsonl", [{"fixture": "selection"}])
+    policy = _write_json(tmp_path / "policy.json", {})
+    cohort = _write_json(tmp_path / "cohort.json", {})
+    receipt = _write_json(tmp_path / "receipt.json", {})
+    args = argparse.Namespace(
+        authority_output=authority_output,
+        attempt_policy_output=attempt_output,
+        replacement_budget_plan=budget,
+        replacement_selection=selection,
+        initial_purchase_policy=policy,
+        cohort_policy=cohort,
+        initial_controlled_private_root=tmp_path / "initial-private",
+        controlled_private_root=tmp_path / "successor-private",
+        purchase_ledger_initialization_receipt=receipt,
+    )
+    monkeypatch.setattr(
+        cli,
+        "generate_replacement_purchase_authority",
+        lambda _approval: {"schema_version": "test.authority.v1"},
+    )
+    monkeypatch.setattr(cli, "_missing_core_budget_plan", lambda _artifact: object())
+    monkeypatch.setattr(
+        cli,
+        "generate_recap_fetch_attempt_policy",
+        lambda **_kwargs: {"schema_version": "test.attempt.v1"},
+    )
+    monkeypatch.setattr(
+        cli,
+        "preflight_recap_fetch_attempt_policy",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            cli.RecapFetchAttemptPolicyError(
+                "refusing to overwrite a different attempt policy"
+            )
+        ),
+    )
+
+    with pytest.raises(
+        cli.RecapFetchAttemptPolicyError,
+        match="refusing to overwrite a different attempt policy",
+    ):
+        cli._publish_recorded_replacement_successor_artifacts(args, object())
+
+    assert not authority_output.exists()
+    assert not attempt_output.exists()
+
+
+def test_cycle_stage_paths_accept_equals_joined_flags() -> None:
+    stage = SimpleNamespace(
+        stage_id="parse",
+        arguments=(
+            "--output-root=/controlled/parse",
+            "--manifest-output=/controlled/parse/exact.jsonl",
+        ),
+    )
+
+    assert cli._cycle_stage_path(stage, "--output-root") == Path("/controlled/parse")
+    assert cli._cycle_stage_path(stage, "--manifest-output") == Path(
+        "/controlled/parse/exact.jsonl"
+    )
+
+
+def test_rendered_argument_probe_does_not_leak_help_to_stdout(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = SimpleNamespace(
+        stages=(
+            SimpleNamespace(
+                stage_id="initialize",
+                command="init-cycle",
+                arguments=("--help",),
+            ),
+        )
+    )
+
+    with pytest.raises(
+        cli.CycleManifestTemplateError,
+        match="stage initialize arguments are invalid",
+    ):
+        cli._validate_rendered_cycle_arguments(config)
+
+    assert capsys.readouterr().out == ""
+
+
 def test_two_tranches_accumulate_clearance_without_hand_assembly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -1291,6 +1291,7 @@ uv run legalforecast acquisition run-cycle \
 
 Add only the boundary switch required for the next reviewed stage.
 One invocation executes at most one non-provider-free boundary stage and then stops for receipt review, even if the same switch would classify a later stage.
+The coordinator also stops after the provider-free `generate-recap-fetch-broker-policy` stage with `stop_reason: broker_policy_deployment_checkpoint_stage_completed`; deploy and verify that policy before a separate invocation may reach the paid stage.
 In particular, `--allow-paid` also requires `--allow-network` and still cannot run without the existing approved purchase policy, initialized ledger, bounded attempt policy, broker policy, broker identity, and remaining budget.
 Every successful stage receives an immutable receipt bound to the exact config and completion run-card bytes, so rerunning the same command reauthenticates and skips it rather than reconstructing shell history.
 
@@ -2136,6 +2137,11 @@ Only after that resolver succeeds may `materialize-cohort-documents` use `$quara
 
 If purchased-document clearance quarantines any selected candidate, do not continue with the initial `$launch_root`.
 Run the authenticated replacement loop in [the clearance-replacement schema](schemas/clearance-replacement-v1.md) until `plan-clearance-replacements` reports no additional replacement plan, then execute the checked-in `cycle-1-target-100.replacement-reprojection.template.json`.
+
+```bash
+replacement_root="$preparation_root/replacement"
+```
+
 The planner's `--active-selection-output` is the reprojection's only candidate input; `project-replacement-exact-100` must publish exactly 100 rows under `$replacement_root/01-projection`.
 Set `canonical_target_root="$replacement_root/01-projection"` after that authenticated reprojection succeeds.
 Render and execute `manifests/cycle-1-target-100.replacement-corpus.template.json` for the downstream continuation.

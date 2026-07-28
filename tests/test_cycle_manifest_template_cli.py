@@ -576,11 +576,14 @@ def test_checked_in_target_100_template_is_a_complete_acquisition_plan(
         / "01-provider-authority"
         / "provider-cycle-caps.json"
     )
+    provider_caps_consumers = [
+        stage for stage in config.stages if "--provider-cycle-caps" in stage.arguments
+    ]
+    assert provider_caps_consumers
     assert all(
         stage.arguments[stage.arguments.index("--provider-cycle-caps") + 1]
         == str(provider_caps_path)
-        for stage in config.stages
-        if "--provider-cycle-caps" in stage.arguments
+        for stage in provider_caps_consumers
     )
     assert "--target-clean-cases" in config.stages[-1].arguments
     target_index = config.stages[-1].arguments.index("--target-clean-cases")
@@ -859,6 +862,22 @@ def test_checked_in_replacement_corpus_continues_from_reprojected_exact_100(
             / "target-cohort-exclusions.jsonl"
         )
         not in final_exclusion_sources
+    )
+    replacement_private_root = assignments["PRIVATE_ROOT"] / "replacement"
+    private_label_and_adjudication_paths = [
+        Path(argument)
+        for stage in config.stages
+        for argument in (*stage.arguments, str(stage.run_card))
+        if Path(argument).is_relative_to(assignments["PRIVATE_ROOT"])
+        and (
+            "label-audit" in Path(argument).parts
+            or "adjudications" in Path(argument).parts
+        )
+    ]
+    assert private_label_and_adjudication_paths
+    assert all(
+        path.is_relative_to(replacement_private_root)
+        for path in private_label_and_adjudication_paths
     )
     forbidden_original_roots = {
         assignments["ARTIFACT_ROOT"] / stage

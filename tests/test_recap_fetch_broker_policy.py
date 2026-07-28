@@ -20,6 +20,8 @@ from legalforecast.ingestion.missing_core_budget import (
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     RecapFetchAttemptPolicyError,
     generate_recap_fetch_attempt_policy,
+    preflight_recap_fetch_attempt_policy,
+    write_recap_fetch_attempt_policy,
 )
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     RecapFetchBrokerPolicyError,
@@ -68,6 +70,31 @@ pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 
 
 _GOLDEN_ROOT = Path("tests/fixtures/recap_fetch_broker_policy")
+
+
+@pytest.mark.parametrize(
+    ("generator", "error"),
+    [
+        (generate_recap_fetch_attempt_policy, RecapFetchAttemptPolicyError),
+        (generate_recap_fetch_broker_policy, RecapFetchBrokerPolicyError),
+    ],
+)
+def test_replacement_inputs_must_be_supplied_all_or_none(
+    tmp_path: Path,
+    generator: Any,
+    error: type[ValueError],
+) -> None:
+    plan = _budget_plan()
+
+    with pytest.raises(error, match="must be supplied together"):
+        generator(
+            purchase_policy_artifact=_purchase_policy(),
+            cohort_policy_artifact=_cohort_policy(),
+            budget_plan=plan,
+            budget_plan_artifact=plan.to_record(),
+            selection_records=_selection(),
+            replacement_controlled_private_root=tmp_path,
+        )
 
 
 def test_golden_policy_is_hash_bound_and_excludes_unplanned_selection_docs() -> None:
@@ -365,6 +392,52 @@ def test_verified_attempt_policy_adds_all_incomplete_privacy_docs_to_union() -> 
         ("case-1", "123", "unknown_status_quarantine"),
         ("case-2", "456", "unknown_status_quarantine"),
     ]
+
+
+def test_attempt_policy_preflight_is_write_once_and_idempotent(
+    tmp_path: Path,
+) -> None:
+    selection = deepcopy(_selection())
+    selection[0]["documents"][0].update(
+        {
+            "redaction_or_seal_status": "unknown",
+            "restriction_evidence": [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_false",
+                "courtlistener_rest_recap_document_seal_status_unknown",
+                "courtlistener_rest_no_positive_restriction_marker",
+            ],
+            "is_sealed": None,
+            "is_private": None,
+            "is_available": False,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+        }
+    )
+    plan = _budget_plan()
+    attempt = generate_recap_fetch_attempt_policy(
+        purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
+        budget_plan=plan,
+        budget_plan_artifact=plan.to_record(),
+        selection_records=selection,
+    )
+    output = tmp_path / "attempt-policy.json"
+
+    assert preflight_recap_fetch_attempt_policy(output, attempt) == output
+    write_recap_fetch_attempt_policy(output, attempt)
+    original = output.read_bytes()
+    assert preflight_recap_fetch_attempt_policy(output, attempt) == output
+    write_recap_fetch_attempt_policy(output, attempt)
+    assert output.read_bytes() == original
+
+    different_output = tmp_path / "different-attempt-policy.json"
+    different_output.write_bytes(b"stale")
+    with pytest.raises(RecapFetchAttemptPolicyError, match="refusing to overwrite"):
+        preflight_recap_fetch_attempt_policy(different_output, attempt)
+    assert different_output.read_bytes() == b"stale"
 
 
 def test_attempt_policy_indexes_mixed_free_and_paid_document_id_shapes() -> None:

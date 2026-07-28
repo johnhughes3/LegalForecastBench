@@ -578,6 +578,7 @@ from legalforecast.ingestion.recap_api_discovery import (
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     RecapFetchAttemptPolicyError,
     generate_recap_fetch_attempt_policy,
+    preflight_recap_fetch_attempt_policy,
     verify_recap_fetch_attempt_policy,
     write_recap_fetch_attempt_policy,
 )
@@ -11874,87 +11875,19 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
     replacement_result: JsonRecord | None = None
     if replacement_result_path is not None:
         try:
-            replacement_result = _projection_json_object(
-                source_bytes["replacement_result"],
-                source=replacement_result_path,
-            )
-            replacement_policy_artifact = _projection_json_object(
-                source_bytes["replacement_replay_purchase_policy"],
-                source=source_paths["replacement_replay_purchase_policy"],
-            )
-            replacement_policy = verify_case_dev_purchase_policy(
-                replacement_policy_artifact
-            )
-            replacement_cohort_policy = _projection_json_object(
-                source_bytes["replacement_replay_cohort_policy"],
-                source=source_paths["replacement_replay_cohort_policy"],
-            )
-            replacement_frontier = _projection_json_object(
-                source_bytes["replacement_replay_frontier"],
-                source=source_paths["replacement_replay_frontier"],
-            )
-            replacement_clearance = _verify_replacement_clearance_evidence(
-                clearance_bytes=source_bytes["replacement_replay_purchased_clearance"],
-                clearance_path=source_paths["replacement_replay_purchased_clearance"],
-                run_card_bytes=source_bytes["replacement_replay_clearance_run_card"],
-                run_card_path=source_paths["replacement_replay_clearance_run_card"],
-            )
-            replacement_tranche_selection = _projection_jsonl_records(
-                source_bytes["replacement_replay_tranche_selection"],
-                source=source_paths["replacement_replay_tranche_selection"],
-            )
-            with CaseDevPurchaseJournal(
-                cast(
-                    Path,
-                    replacement_replay_arguments["replacement_replay_purchase_ledger"],
-                ).resolve(),
-                policy=replacement_policy,
+            replacement_result = _verify_replacement_projection_replay(
+                source_paths=source_paths,
+                source_bytes=source_bytes,
                 controlled_private_root=cast(
                     Path,
                     replacement_replay_arguments[
                         "replacement_replay_controlled_private_root"
                     ],
                 ),
-                initialization_receipt_path=cast(
+                purchase_ledger_path=cast(
                     Path,
-                    replacement_replay_arguments[
-                        "replacement_replay_purchase_ledger_initialization_receipt"
-                    ],
+                    replacement_replay_arguments["replacement_replay_purchase_ledger"],
                 ),
-            ) as journal:
-                replayed_plan = plan_clearance_replacements(
-                    cohort_policy_artifact=replacement_cohort_policy,
-                    purchase_policy_artifact=replacement_policy_artifact,
-                    frontier_artifact=replacement_frontier,
-                    purchase_journal=journal,
-                    purchased_clearance_records=replacement_clearance,
-                    clearance_run_card_sha256=_bytes_sha256(
-                        source_bytes["replacement_replay_clearance_run_card"]
-                    ),
-                    controlled_private_root=cast(
-                        Path,
-                        replacement_replay_arguments[
-                            "replacement_replay_controlled_private_root"
-                        ],
-                    ),
-                )
-            if replayed_plan.replacement_plan.case_plans:
-                raise ClearanceReplacementError(
-                    "replacement reprojection requires a terminal replacement plan"
-                )
-            replayed_result = bind_replacement_selection_outputs(
-                replayed_plan,
-                active_selection_sha256=_bytes_sha256(source_bytes["selection"]),
-                active_selection_count=len(replayed_plan.active_candidate_ids),
-                replacement_selection_sha256=_bytes_sha256(
-                    source_bytes["replacement_replay_tranche_selection"]
-                ),
-                replacement_selection_count=len(replacement_tranche_selection),
-            )
-            verify_bound_active_selection(
-                replacement_result,
-                active_selection_bytes=source_bytes["selection"],
-                replayed_result=replayed_result,
             )
         except (
             CaseDevPurchaseLedgerError,
@@ -17335,13 +17268,14 @@ def _validate_rendered_cycle_arguments(config: AcquisitionCycleConfig) -> None:
     parser = build_parser()
     for stage in config.stages:
         stderr = io.StringIO()
+        stdout = io.StringIO()
         try:
-            with redirect_stderr(stderr):
+            with redirect_stdout(stdout), redirect_stderr(stderr):
                 parsed = parser.parse_args(
                     ["acquisition", stage.command, *stage.arguments]
                 )
         except SystemExit as exc:
-            detail = stderr.getvalue().strip()
+            detail = (stderr.getvalue() or stdout.getvalue()).strip()
             raise CycleManifestTemplateError(
                 f"stage {stage.stage_id} arguments are invalid"
                 + (f": {detail}" if detail else "")
@@ -17432,8 +17366,13 @@ def _cmd_acquisition_run_cycle(args: argparse.Namespace) -> int:
 def _cycle_stage_flag_values(stage: CycleStage, flag: str) -> tuple[str, ...]:
     values: list[str] = []
     index = 0
+    joined_prefix = f"{flag}="
     while index < len(stage.arguments):
-        if stage.arguments[index] == flag:
+        argument = stage.arguments[index]
+        if argument.startswith(joined_prefix):
+            values.append(argument[len(joined_prefix) :])
+            index += 1
+        elif argument == flag:
             if index + 1 >= len(stage.arguments):
                 raise CycleOrchestratorError(
                     f"stage {stage.stage_id} {flag} has no value"
@@ -22644,9 +22583,15 @@ def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
                     "candidate selection contains duplicate candidate IDs"
                 )
             selection_by_candidate[candidate_id] = record
+        replacement_candidate_ids = tuple(
+            plan.candidate_id for plan in result.replacement_plan.case_plans
+        )
         if any(
             candidate_id not in selection_by_candidate
-            for candidate_id in result.active_candidate_ids
+            for candidate_id in (
+                *result.active_candidate_ids,
+                *replacement_candidate_ids,
+            )
         ):
             raise ClearanceReplacementError(
                 "active replacement candidates do not exactly reconcile selection"
@@ -22654,9 +22599,6 @@ def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
         active_selection = tuple(
             selection_by_candidate[candidate_id]
             for candidate_id in result.active_candidate_ids
-        )
-        replacement_candidate_ids = tuple(
-            plan.candidate_id for plan in result.replacement_plan.case_plans
         )
         replacement_selection = tuple(
             selection_by_candidate[candidate_id]
@@ -23691,34 +23633,36 @@ def _cmd_build_replacement_recovery_index(args: argparse.Namespace) -> int:
     configured_successors = tuple(
         path.absolute() for path in cast(Sequence[Path], args.successor_source)
     )
-    descriptor_directories = tuple(
-        path for path in configured_successors if path.is_dir()
-    )
-    successor_descriptors: list[Path] = []
-    for configured in configured_successors:
-        if configured.is_dir():
-            successor_descriptors.extend(
+    try:
+        descriptor_directories = tuple(
+            path for path in configured_successors if path.is_dir()
+        )
+        successor_descriptors: list[Path] = []
+        for configured in configured_successors:
+            if configured.is_dir():
+                successor_descriptors.extend(
+                    sorted(
+                        (
+                            path
+                            for path in configured.iterdir()
+                            if path.name.endswith(".json")
+                        ),
+                        key=lambda path: path.name,
+                    )
+                )
+            else:
+                successor_descriptors.append(configured)
+        descriptor_paths = (initial_descriptor, *successor_descriptors)
+        directory_inventories = {
+            directory: tuple(
                 sorted(
-                    (
-                        path
-                        for path in configured.iterdir()
-                        if path.name.endswith(".json")
-                    ),
-                    key=lambda path: path.name,
+                    path.name
+                    for path in directory.iterdir()
+                    if path.name.endswith(".json")
                 )
             )
-        else:
-            successor_descriptors.append(configured)
-    descriptor_paths = (initial_descriptor, *successor_descriptors)
-    directory_inventories = {
-        directory: tuple(
-            sorted(
-                path.name for path in directory.iterdir() if path.name.endswith(".json")
-            )
-        )
-        for directory in descriptor_directories
-    }
-    try:
+            for directory in descriptor_directories
+        }
         descriptor_bytes = {
             path: _read_singly_linked_regular_input(
                 path, label="replacement recovery source descriptor"
@@ -24022,8 +23966,11 @@ def _prepare_replacement_recovery_consolidation(
     resolved_by_key: dict[tuple[str, str], JsonRecord] = {}
     document_bytes: dict[str, bytes] = {}
     tranche_input_paths: list[Path] = []
+    approved_pairs_by_ordinal: dict[int, set[tuple[str, str]]] = {}
     all_approved_pairs: set[tuple[str, str]] = set()
     for tranche in sources[1:]:
+        ordinal = _required_int(tranche, "ordinal")
+        tranche_approved_pairs: set[tuple[str, str]] = set()
         budget_path = Path(_required_str(tranche, "replacement_budget_plan")).absolute()
         budget = _projection_json_object(
             _read_singly_linked_regular_input(
@@ -24056,7 +24003,14 @@ def _prepare_replacement_recovery_consolidation(
                     raise ValueError(
                         "replacement tranche index repeats an approved operation"
                     )
+                tranche_approved_pairs.add(pair)
                 all_approved_pairs.add(pair)
+        approved_pairs_by_ordinal[ordinal] = tranche_approved_pairs
+    trailing_pairs_by_ordinal: dict[int, set[tuple[str, str]]] = {}
+    trailing_pairs: set[tuple[str, str]] = set()
+    for ordinal in reversed(tuple(approved_pairs_by_ordinal)):
+        trailing_pairs_by_ordinal[ordinal] = set(trailing_pairs)
+        trailing_pairs.update(approved_pairs_by_ordinal[ordinal])
     for tranche in sources:
         kind = _required_str(tranche, "kind")
         paths = {
@@ -24130,7 +24084,9 @@ def _prepare_replacement_recovery_consolidation(
                 selection_bytes=tranche_selection_bytes,
                 purchase_ledger_path=ledger_path,
                 purchase_ledger_initialization_receipt_path=receipt_path,
-                allowed_additional_operation_pairs=all_approved_pairs,
+                allowed_additional_operation_pairs=trailing_pairs_by_ordinal[
+                    _required_int(tranche, "ordinal")
+                ],
             )
         resolved_records = (
             _projection_jsonl_records(
@@ -24342,8 +24298,71 @@ def _publish_recorded_replacement_successor_artifacts(
             Path, args.purchase_ledger_initialization_receipt
         ),
     )
-    _atomic_write_json(authority_output, authority)
+    _preflight_immutable_json_output(
+        authority_output,
+        authority,
+        label="replacement authority",
+    )
+    preflight_recap_fetch_attempt_policy(attempt_output, attempt)
+    _write_immutable_json(
+        authority_output,
+        authority,
+        label="replacement authority",
+    )
     write_recap_fetch_attempt_policy(attempt_output, attempt)
+
+
+def _preflight_immutable_json_output(
+    path: Path,
+    payload: Mapping[str, Any],
+    *,
+    label: str,
+) -> None:
+    expected = _projection_json_bytes(payload)
+    if path.is_symlink():
+        raise ValueError(f"{label} output is a symlink")
+    if not path.exists():
+        return
+    metadata = path.stat(follow_symlinks=False)
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise ValueError(f"{label} output must be a singly linked regular file")
+    if path.read_bytes() != expected:
+        raise ValueError(f"refusing to overwrite a different {label}")
+
+
+def _write_immutable_json(
+    path: Path,
+    payload: Mapping[str, Any],
+    *,
+    label: str,
+) -> None:
+    expected = _projection_json_bytes(payload)
+    _preflight_immutable_json_output(path, payload, label=label)
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(expected)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            _preflight_immutable_json_output(path, payload, label=label)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _cmd_record_replacement_purchase_approval(args: argparse.Namespace) -> int:

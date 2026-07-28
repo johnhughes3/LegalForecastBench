@@ -110,15 +110,20 @@ def _build_recap_fetch_attempt_policy(
         require_approved_case_dev_purchase_policy(
             purchase_policy, controlled_private_root=controlled_private_root
         )
-        replacement_mode = replacement_purchase_authority_artifact is not None
-        if replacement_mode != (
-            replacement_controlled_private_root is not None
-            and purchase_ledger_initialization_receipt_path is not None
-        ):
+        replacement_inputs_supplied = sum(
+            value is not None
+            for value in (
+                replacement_purchase_authority_artifact,
+                replacement_controlled_private_root,
+                purchase_ledger_initialization_receipt_path,
+            )
+        )
+        if replacement_inputs_supplied not in {0, 3}:
             raise ValueError(
                 "replacement authority, controlled private root, and purchase-ledger "
                 "initialization receipt must be supplied together"
             )
+        replacement_mode = replacement_inputs_supplied == 3
         if (
             purchase_policy.has_verified_approval
             and require_fresh_ledger_namespace
@@ -296,22 +301,11 @@ def write_recap_fetch_attempt_policy(
 ) -> Path:
     """Atomically publish a verified-shape artifact without replacing bytes."""
 
-    _verify_shape(artifact)
     target = Path(path)
-    payload = (json.dumps(artifact, indent=2, sort_keys=True) + "\n").encode()
+    payload = _attempt_policy_payload(artifact)
+    preflight_recap_fetch_attempt_policy(target, artifact)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.is_symlink():
-        raise RecapFetchAttemptPolicyError("attempt policy output is a symlink")
     if target.exists():
-        metadata = target.stat(follow_symlinks=False)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-            raise RecapFetchAttemptPolicyError(
-                "attempt policy output must be a singly linked regular file"
-            )
-        if target.read_bytes() != payload:
-            raise RecapFetchAttemptPolicyError(
-                "refusing to overwrite a different attempt policy"
-            )
         return target
     descriptor, temporary_name = tempfile.mkstemp(
         dir=target.parent, prefix=f".{target.name}.", suffix=".tmp"
@@ -336,6 +330,34 @@ def write_recap_fetch_attempt_policy(
     finally:
         temporary.unlink(missing_ok=True)
     return target
+
+
+def preflight_recap_fetch_attempt_policy(
+    path: str | Path, artifact: Mapping[str, object]
+) -> Path:
+    """Validate write-once attempt-policy state without changing the output."""
+
+    target = Path(path)
+    payload = _attempt_policy_payload(artifact)
+    if target.is_symlink():
+        raise RecapFetchAttemptPolicyError("attempt policy output is a symlink")
+    if not target.exists():
+        return target
+    metadata = target.stat(follow_symlinks=False)
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise RecapFetchAttemptPolicyError(
+            "attempt policy output must be a singly linked regular file"
+        )
+    if target.read_bytes() != payload:
+        raise RecapFetchAttemptPolicyError(
+            "refusing to overwrite a different attempt policy"
+        )
+    return target
+
+
+def _attempt_policy_payload(artifact: Mapping[str, object]) -> bytes:
+    _verify_shape(artifact)
+    return (json.dumps(artifact, indent=2, sort_keys=True) + "\n").encode()
 
 
 def _selection_index(
