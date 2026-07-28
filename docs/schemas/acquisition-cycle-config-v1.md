@@ -65,6 +65,7 @@ The canonical receipt binds the configuration SHA-256, stage index and identity,
 Regular output files and safe directory trees are content-hashed.
 The shared cycle SQLite store is recorded as mutable state because later acquisition stages legitimately extend it; its authoritative snapshots and final reconciliation remain enforced by the existing stage handlers.
 On resume, the receipt, run card, and committed immutable outputs are reauthenticated before the stage is skipped.
+Every `output_paths` entry in a completion card must be absolute so authentication is independent of the coordinator's working directory.
 An unreceipted run card is never silently adopted: the existing command must successfully replay under `--resume` before the coordinator creates its receipt.
 
 Status-only mode creates no state and returns the exact next invocation.

@@ -16238,8 +16238,8 @@ def _cmd_acquisition_run_cycle(args: argparse.Namespace) -> int:
         command: str,
         arguments: tuple[str, ...],
     ) -> int:
-        # Keep the cycle status as the sole stdout record in JSON/piped mode while
-        # preserving stage logs and interactive prompts for the operator.
+        # Keep the cycle status as the sole stdout record. Delegated output is
+        # consistently routed to stderr for both interactive and piped callers.
         with redirect_stdout(sys.stderr):
             try:
                 return main(("acquisition", command, *arguments))

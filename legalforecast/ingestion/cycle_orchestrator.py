@@ -843,7 +843,9 @@ def _output_commitments(run_card: Mapping[str, object]) -> list[dict[str, object
 
 
 def _output_commitment(path: Path) -> dict[str, object]:
-    absolute = Path(os.path.abspath(path))
+    if not path.is_absolute():
+        raise CycleOrchestratorError(f"stage output path must be absolute: {path}")
+    absolute = path
     try:
         resolved = absolute.resolve(strict=True)
     except OSError as exc:

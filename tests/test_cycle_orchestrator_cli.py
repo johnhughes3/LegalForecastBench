@@ -855,6 +855,56 @@ def test_run_cycle_fails_closed_when_receipted_output_changes(
         )
 
 
+def test_run_cycle_rejects_relative_output_path(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "init-cycle.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+
+    def write_stage(_command: str, _arguments: tuple[str, ...]) -> int:
+        run_card.write_bytes(
+            canonical_json_bytes(
+                {
+                    "schema_version": "legalforecast.acquisition_run_card.v1",
+                    "stage": "init-cycle",
+                    "status": "completed",
+                    "dry_run": False,
+                    "execute": True,
+                    "resume": True,
+                    "paid_activity_executed": False,
+                    "output_paths": ["relative-output.json"],
+                }
+            )
+        )
+        return 0
+
+    with pytest.raises(CycleOrchestratorError, match="must be absolute"):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=tmp_path / "state",
+            execute=True,
+            permissions=BoundaryPermissions(),
+            executor=write_stage,
+        )
+
+
 def test_run_cycle_rejects_symlink_inside_output_directory(
     tmp_path: Path,
 ) -> None:
