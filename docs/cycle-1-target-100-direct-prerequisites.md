@@ -66,7 +66,7 @@ The following exact checked-in inputs must exist before downstream model work:
 | Stage B judge registry | `$REPO_ROOT/model_registries/cycle-1-stage-b-judges-2026-07-12.json` | `5243b74bfdb2d3accc1a301f7c997b9520abc8586bbf944e22f67e2b263106a2` |
 | Target-cycle provider caps base | `$REPO_ROOT/model_registries/cycle-1-target-100-provider-caps-base-2026-07-28.json` | `71a0919b7e23a1b0dab7bca7233c9036f2e678f35760f78f98b4f2c37330eb74` |
 | Provider caps successor policy | `$REPO_ROOT/model_registries/cycle-1-target-100-provider-caps-successor-policy-2026-07-28.json` | `894b59465c44caa109197667f43495de1c93e0d22afdbbd9f5c6f95722d76ed6` |
-| Labeling policy | `$REPO_ROOT/docs/labeling-policy.json` | `80dc05cdf9ebece514899a60645cfd11c730a359af2bca50f8f122fade723004` |
+| Labeling policy | `$REPO_ROOT/docs/labeling-policy.json` | `0dd6f10a4d8354334e4f0b5f14534573ebbe7e807e52497db5d424de30f4e2d0` |
 | Cohort policy | `$REPO_ROOT/docs/cohort-policy-cycle-1-target-100-2026-07-25.json` | `5afa4d2368eca39719892bfd816c25a191f65c935ada3ca81e33e9af9861c6c8` |
 
 Verify the labeling policy before any Stage B provider call:
@@ -78,7 +78,7 @@ uv run legalforecast acquisition verify-labeling-policy \
   --cycle-id cycle-1-target-100-2026-07-25
 ```
 
-This artifact retains the already approved Cycle 1 publication timestamp, judge registry, audit thresholds, and threshold source while binding the exact target-cycle identity used by acquisition, provider caps, labeling, and finalization.
+This artifact records the target-cycle identity repair's publication timestamp while retaining the already approved Cycle 1 judge registry, audit thresholds, and threshold source.
 This is a mechanical identity repair before any Stage B label corpus exists, not a post-yield policy selection: every substantive policy field is unchanged, and the target-cycle identifier was already fixed by the acquisition config and cohort policy.
 
 The checked-in base is deliberately provider-free and cannot authorize a model call.

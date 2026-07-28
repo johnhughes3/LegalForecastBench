@@ -960,7 +960,7 @@ def test_checked_in_target_100_labeling_policy_shares_cycle_identity() -> None:
     expected = generate_labeling_policy(
         cycle_id=cycle_id,
         judge_registry_path=registry_path,
-        published_at=datetime(2026, 7, 15, 9, 41, 10, tzinfo=UTC),
+        published_at=datetime(2026, 7, 28, 22, 58, 15, tzinfo=UTC),
         threshold_source=(
             "docs/schemas/evaluation-policy-artifacts-v1.md: "
             "legalforecast.labeling_policy.v1 Cycle 1 audit thresholds "
@@ -979,11 +979,17 @@ def test_checked_in_target_100_labeling_policy_shares_cycle_identity() -> None:
         ),
     )
     assert {
-        key: value for key, value in policy["policy"].items() if key != "cycle_id"
-    } == {key: value for key, value in legacy["policy"].items() if key != "cycle_id"}
+        key: value
+        for key, value in policy["policy"].items()
+        if key not in {"cycle_id", "published_at"}
+    } == {
+        key: value
+        for key, value in legacy["policy"].items()
+        if key not in {"cycle_id", "published_at"}
+    }
     policy_file_sha256 = hashlib.sha256(policy_path.read_bytes()).hexdigest()
     assert policy_file_sha256 == (
-        "80dc05cdf9ebece514899a60645cfd11c730a359af2bca50f8f122fade723004"
+        "0dd6f10a4d8354334e4f0b5f14534573ebbe7e807e52497db5d424de30f4e2d0"
     )
     assert load_provider_cycle_caps(provider_caps_path).cycle_id == cycle_id
     prerequisites = (
@@ -996,15 +1002,17 @@ def test_checked_in_target_100_labeling_policy_shares_cycle_identity() -> None:
     assert f"--cycle-id {cycle_id}" in prerequisites
 
     expected_argument = "${REPO_ROOT}/docs/labeling-policy.json"
-    for template_name in (
-        "cycle-1-target-100.acquisition-cycle.template.json",
-        "cycle-1-target-100.replacement-corpus.template.json",
-    ):
+    expected_cycle_ids = {
+        "cycle-1-target-100.acquisition-cycle.template.json": cycle_id,
+        "cycle-1-target-100.replacement-corpus.template.json": (
+            f"{cycle_id}-replacement-corpus"
+        ),
+    }
+    for template_name, expected_cycle_id in expected_cycle_ids.items():
         template = json.loads(
             (root / "manifests" / template_name).read_text(encoding="utf-8")
         )
-        if template_name == "cycle-1-target-100.acquisition-cycle.template.json":
-            assert template["config"]["cycle_id"] == cycle_id
+        assert template["config"]["cycle_id"] == expected_cycle_id
         consumers = [
             stage
             for stage in template["config"]["stages"]
