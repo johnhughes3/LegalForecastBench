@@ -17,6 +17,12 @@ from urllib.parse import urlparse
 
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
+_EXPLICIT_MOTION_REFERENCE_RE = re.compile(
+    r"\b(?:re|regarding|opposition\s+to|motion|dkt\.?|docket|ecf\s+no\.?)"
+    r"\s*(?:#|no\.?)?\s*(?P<number>\d+)\b(?!\s*:|-)",
+    re.IGNORECASE,
+)
+
 
 class CourtListenerWebParseError(ValueError):
     """Raised when raw CourtListener HTML cannot be parsed as a docket page."""
@@ -105,6 +111,36 @@ class CourtListenerWebDocketEntry:
             "restriction_markers": list(self.restriction_markers),
             "documents": [document.to_record() for document in self.documents],
         }
+
+
+def explicit_motion_reference_numbers(
+    entry: CourtListenerWebDocketEntry,
+) -> frozenset[int]:
+    """Return standalone docket-entry numbers explicitly named by a brief.
+
+    ``docket`` is an accepted reference keyword because CourtListener rows use
+    it for entry references. A following colon or attached hyphen is rejected
+    so case numbers such as ``3:21-cv-00123`` and ``24-cv-00123`` cannot
+    masquerade as entries 3 and 24.
+    """
+
+    text = " ".join(entry.text.lower().split())
+    return frozenset(
+        int(match.group("number"))
+        for match in _EXPLICIT_MOTION_REFERENCE_RE.finditer(text)
+    )
+
+
+def brief_targets_motion(
+    entry: CourtListenerWebDocketEntry,
+    target_entries: tuple[int, ...],
+) -> bool:
+    """Return whether one brief targets the selected motion entries."""
+
+    explicit_references = explicit_motion_reference_numbers(entry)
+    if explicit_references:
+        return bool(explicit_references.intersection(target_entries))
+    return len(target_entries) <= 1
 
 
 @dataclass(frozen=True, slots=True)

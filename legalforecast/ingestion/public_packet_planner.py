@@ -21,6 +21,7 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
     CourtListenerWebDocument,
+    brief_targets_motion,
     is_substantive_mtd_opposition_entry,
     parse_courtlistener_docket_html,
 )
@@ -1051,7 +1052,7 @@ def _core_packet_restriction_reasons(
             _entry_is_before(entry, decision_floor)
             and entry.role is CourtListenerEntryRole.OPPOSITION
             and is_substantive_mtd_opposition_entry(entry)
-            and _brief_targets_motion(entry, target_entries)
+            and brief_targets_motion(entry, target_entries)
         ):
             required_role = "opposition"
         if required_role is None:
@@ -1150,7 +1151,7 @@ def _optional_brief_entries(
         for entry in page.entries
         if _entry_is_before(entry, before_entry)
         and _is_optional_brief_entry(entry)
-        and _brief_targets_motion(entry, target_entries)
+        and brief_targets_motion(entry, target_entries)
         and _best_free_document(entry, DocumentRole.REPLY) is not None
     )
 
@@ -1169,32 +1170,8 @@ def _required_opposition_entries(
         if _entry_is_before(entry, before_entry)
         and entry.role is CourtListenerEntryRole.OPPOSITION
         and is_substantive_mtd_opposition_entry(entry)
-        and _brief_targets_motion(entry, target_entries)
+        and brief_targets_motion(entry, target_entries)
     )
-
-
-def _brief_targets_motion(
-    entry: CourtListenerWebDocketEntry,
-    target_entries: tuple[int, ...],
-) -> bool:
-    explicit_references = _explicit_motion_reference_numbers(entry)
-    if explicit_references:
-        return bool(explicit_references.intersection(target_entries))
-    return len(target_entries) <= 1
-
-
-def _explicit_motion_reference_numbers(
-    entry: CourtListenerWebDocketEntry,
-) -> set[int]:
-    text = " ".join(entry.text.lower().split())
-    return {
-        int(match.group(1))
-        for match in re.finditer(
-            r"\b(?:re|regarding|opposition\s+to|motion|dkt\.?|ecf\s+no\.?)"
-            r"\s*(?:#|no\.?)?\s*(\d+)\b",
-            text,
-        )
-    }
 
 
 def _decision_entries(

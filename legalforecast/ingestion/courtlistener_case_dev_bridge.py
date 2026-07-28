@@ -34,6 +34,7 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
     CourtListenerWebDocument,
+    brief_targets_motion,
     is_substantive_mtd_opposition_entry,
     parse_courtlistener_docket_html,
 )
@@ -2187,7 +2188,7 @@ def _requested_paid_gap_entries(
                 if number < decision_floor
                 and entry.role is CourtListenerEntryRole.OPPOSITION
                 and is_substantive_mtd_opposition_entry(entry)
-                and _brief_targets_motion(entry, target_numbers)
+                and brief_targets_motion(entry, target_numbers)
             )
             if len(opposition) != 1:
                 raise CourtListenerCaseDevBridgeError(
@@ -2308,7 +2309,7 @@ def _bridge_documents(
                     entry is None
                     or number >= decision_floor
                     or not is_substantive_mtd_opposition_entry(entry)
-                    or not _brief_targets_motion(entry, target_numbers)
+                    or not brief_targets_motion(entry, target_numbers)
                 ):
                     raise CourtListenerCaseDevBridgeError(
                         f"opposition_entry_not_found: {number}"
@@ -2332,7 +2333,7 @@ def _bridge_documents(
                     if target_number < number < upper_bound
                     and entry.role is CourtListenerEntryRole.OPPOSITION
                     and is_substantive_mtd_opposition_entry(entry)
-                    and _brief_targets_motion(entry, target_numbers)
+                    and brief_targets_motion(entry, target_numbers)
                 )
                 if not linked:
                     raise CourtListenerCaseDevBridgeError(
@@ -2683,24 +2684,6 @@ def _entry_numbers(value: object) -> tuple[int, ...]:
         if number not in numbers:
             numbers.append(number)
     return tuple(numbers)
-
-
-def _brief_targets_motion(
-    entry: CourtListenerWebDocketEntry,
-    target_entries: tuple[int, ...],
-) -> bool:
-    text = " ".join(entry.text.lower().split())
-    explicit_references = {
-        int(match.group(1))
-        for match in re.finditer(
-            r"\b(?:re|regarding|opposition\s+to|motion|dkt\.?|docket|ecf\s+no\.?)"
-            r"\s*(?:#|no\.?)?\s*(\d+)\b",
-            text,
-        )
-    }
-    if explicit_references:
-        return bool(explicit_references.intersection(target_entries))
-    return len(target_entries) <= 1
 
 
 def _numbered_gap_entries(
