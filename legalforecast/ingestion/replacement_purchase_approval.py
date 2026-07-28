@@ -1111,6 +1111,7 @@ def _write_private_once(path: Path, payload: bytes) -> None:
             try:
                 os.unlink(temporary_name, dir_fd=directory_fd)
             except FileNotFoundError:
+                # Publication may already have removed the staging entry.
                 pass
         os.close(directory_fd)
 
