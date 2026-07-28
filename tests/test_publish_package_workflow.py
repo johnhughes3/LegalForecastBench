@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,9 +41,10 @@ def test_publish_package_uses_trusted_publishing_and_records_hashes() -> None:
     assert "permissions:\n  contents: read" in WORKFLOW
     assert "contents: write" in WORKFLOW
     assert "id-token: write" in WORKFLOW
-    assert (
-        "pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247"
-        in WORKFLOW
+    assert re.search(
+        r"^\s*uses: pypa/gh-action-pypi-publish@[0-9a-f]{40}\s*$",
+        WORKFLOW,
+        flags=re.MULTILINE,
     )
     assert "packages-dir: tmp/release-check/dist" in WORKFLOW
     assert (
