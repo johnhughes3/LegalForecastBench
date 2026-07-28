@@ -1,0 +1,12 @@
+{
+  "alterations": [
+    "Removed non-parser navigation, scripts, styles, metadata, and markup.",
+    "Replaced party names, docket prose, dates, document identifiers, and links with synthetic values.",
+    "Retained only the docket table, entry row, RECAP document card, PACER action class, and disabled pagination control."
+  ],
+  "capture_result": "HTTP 403; no response body retained. Structural excerpt was minimized from the repository's existing CourtListener parser contract after the one-time live read was blocked.",
+  "fetch_date": "2026-07-28",
+  "fixture_sha256": "1eb5bec40840987311c8ce95ae913038b96ef5ed013e66edf058278c63366d3e",
+  "raw_page_retained": false,
+  "source_url": "https://www.courtlistener.com/docket/70649963/"
+}

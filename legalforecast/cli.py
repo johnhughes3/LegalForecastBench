@@ -253,6 +253,9 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerServerError,
     CourtListenerUnavailableError,
 )
+from legalforecast.ingestion.courtlistener_live_html_source import (
+    ChallengeStoppingCourtListenerDocketHTMLSource,
+)
 from legalforecast.ingestion.courtlistener_opinion_discovery import (
     OPINION_MTD_SEARCH_TERMS,
     OpinionApiDiscoveryError,
@@ -25136,8 +25139,10 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                 )
                 raise CommandError(str(exc)) from exc
         else:
-            html_source = LiveCourtListenerDocketHTMLSource(
-                timeout_seconds=config.timeout_seconds
+            html_source = ChallengeStoppingCourtListenerDocketHTMLSource(
+                source=LiveCourtListenerDocketHTMLSource(
+                    timeout_seconds=config.timeout_seconds
+                )
             )
     else:
         assert fixture_path is not None
