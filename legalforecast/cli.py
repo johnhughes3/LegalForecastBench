@@ -3975,7 +3975,10 @@ def _add_batch_002_observe_firecrawl_arguments(
         "--eligibility-anchor",
         default=_BATCH_002_DEFAULT_ANCHOR,
         metavar="YYYY-MM-DD",
-        help="Must equal the frozen cycle eligibility anchor; default 2026-06-30.",
+        help=(
+            "Must equal the frozen cycle eligibility anchor; default "
+            f"{_BATCH_002_DEFAULT_ANCHOR}."
+        ),
     )
     parser.add_argument(
         "--candidate-id",

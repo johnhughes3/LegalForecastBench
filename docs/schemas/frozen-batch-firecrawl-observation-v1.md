@@ -10,7 +10,7 @@ The durable Firecrawl run configuration binds:
 - the frozen ranking-policy and deferred-frontier commitments;
 - the exact selected candidate set and its frozen traversal order;
 - the eligibility anchor and decision-window upper bound;
-- the raw artifact root, pagination ceiling, retry ceiling, circuit threshold, concurrency ceiling, proxy mode, browser mode, and worst-case credits per request; and
+- the raw artifact root, pagination ceiling, retry ceiling, circuit threshold, concurrency ceiling, proxy mode, browser mode, and worst-case credits per request;
 - the scheduler's target-HTTP pressure policy version; and
 - SHA-256 digests of the adapter, CourtListener HTML parser, docket paginator, docket screen, and metadata-screen source files.
 
