@@ -19,6 +19,7 @@ systemd-run --user --unit=<unique-unit-name> --property=Type=exec \
 ```
 
 Use the dedicated `/agents/sandbox/legalforecastbench/parser` or `/agents/sandbox/legalforecastbench/labeling` path for those stages.
+Paid RECAP Fetch uses only `/agents/sandbox/legalforecastbench/recap-fetch-broker-client`.
 These and `/agents/sandbox/legalforecastbench-acquisition` are the launcher's exact dedicated sandbox paths; every root, alias, parent, and unrelated path is rejected before the sandbox helper can run.
 The parser stage view must resolve exactly `MISTRAL_API_KEY`; the labeling stage view must resolve exactly `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY`.
 Configure those names as Infisical dependent secret references to the canonical values under `/agents/sandbox/legalforecastbench-acquisition` so credential rotation propagates without creating another stored value.
@@ -50,6 +51,42 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
 
 The sentinels are not a substitute for the complete masked UI inventory because their forbidden lists are intentionally finite.
 Do not broaden an Infisical path to make a unit start.
+
+The broker-client view is deliberately different from the dependent parser and labeling views.
+It contains exactly `RECAP_FETCH_BROKER_URL`, `RECAP_FETCH_BROKER_MACHINE_ID`, `RECAP_FETCH_BROKER_PRIVATE_KEY_JWK`, `RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON`, and `RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256` as ordinary secret values written only after the reviewed broker activation has produced and bound them.
+They are never dependent references and never folder imports.
+The private JWK authenticates only the bounded broker client; it is not a PACER credential.
+Raw `PACER_USERNAME`, `PACER_PASSWORD`, and `COURTLISTENER_API_TOKEN` remain broker-custodied and must never appear in this agent-readable view.
+Terraform owns only the empty folder; the activation-derived values must stay out of Git, Terraform state, command arguments, logs, and receipts.
+
+Before every paid RECAP Fetch launch, require an immutable successful activation/routing receipt and a complete masked Infisical UI inventory showing exactly those five ordinary-value names, imports disabled, and no other row.
+Close the write-capable provisioning session, then run this defense-in-depth name-only sentinel from an allowlisted empty caller environment.
+It prints only the five expected names with `present`, never a value:
+
+```bash
+env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
+  infisical-agent-sandbox run --env dev \
+  --path /agents/sandbox/legalforecastbench/recap-fetch-broker-client \
+  -- zsh -dfc '
+    required=(RECAP_FETCH_BROKER_URL RECAP_FETCH_BROKER_MACHINE_ID RECAP_FETCH_BROKER_PRIVATE_KEY_JWK RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256)
+    forbidden=(PACER_USERNAME PACER_PASSWORD COURTLISTENER_API_TOKEN RECAP_API_TOKEN CASE_DEV_API_KEY FIRECRAWL_API_KEY MISTRAL_API_KEY OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY)
+    typeset -A required_set
+    for name in $required; do
+      required_set[$name]=1
+      (( ${+parameters[$name]} )) && [[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }
+    done
+    for name in ${(k)parameters}; do
+      if [[ $name == RECAP_FETCH_BROKER_* ]] && (( ! ${+required_set[$name]} )); then
+        print -u2 -- "$name=unexpected"
+        exit 1
+      fi
+    done
+    for name in $forbidden; do (( ! ${+parameters[$name]} )) || { print -u2 -- "$name=unexpected"; exit 1; }; done
+    for name in $required; do print -- "$name=present"; done'
+```
+
+The masked inventory remains authoritative for every name, while the sentinel proves that the launch-time environment contains the five nonempty client settings, no extra `RECAP_FETCH_BROKER_*` setting, and none of the known raw provider or cross-stage credentials.
+Folder creation, a passing sentinel, or possession of a client JWK is not purchase authority; the frozen purchase, attempt, broker, ledger, budget, and explicit fee-acknowledgement gates still apply.
 
 Downstream launchers must require all of the following before consuming an acquisition output:
 

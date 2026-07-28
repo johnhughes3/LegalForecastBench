@@ -232,3 +232,33 @@ exit 99
     assert status == 64
     assert not receipt.exists()
     assert not marker.exists()
+
+
+def test_launcher_accepts_exact_recap_fetch_broker_client_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt = tmp_path / "launch-receipt.json"
+    sandbox = tmp_path / "infisical-agent-sandbox"
+    _write_masking_sandbox(sandbox)
+    monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
+
+    status = main(
+        [
+            "--sandbox-path",
+            "/agents/sandbox/legalforecastbench/recap-fetch-broker-client",
+            "--receipt-output",
+            str(receipt),
+            "--",
+            sys.executable,
+            "-c",
+            "raise SystemExit(0)",
+        ]
+    )
+
+    assert status == 0
+    payload = json.loads(receipt.read_text(encoding="utf-8"))
+    assert payload["sandbox_path"] == (
+        "/agents/sandbox/legalforecastbench/recap-fetch-broker-client"
+    )
+    assert payload["child_receipt_observed"] is True

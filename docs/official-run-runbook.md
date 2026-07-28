@@ -1984,8 +1984,22 @@ The receipt and immutable ledger singleton share a random initialization identit
 The allowlist accepts explicit-public proof or the exact current CourtListener REST paid-gap evidence contract.
 Case.dev may support noncharging search and docket enrichment, but its legacy paid-unknown evidence is never purchase authority.
 
+The broker client may run only through `/agents/sandbox/legalforecastbench/recap-fetch-broker-client`.
+Before the first or any resumed purchase, require the immutable successful broker activation and routing receipts, then perform the masked exact-inventory and closed-writer checks from [the acquisition systemd launcher](acquisition-systemd-launcher.md).
+The view must contain exactly `RECAP_FETCH_BROKER_URL`, `RECAP_FETCH_BROKER_MACHINE_ID`, `RECAP_FETCH_BROKER_PRIVATE_KEY_JWK`, `RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON`, and `RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256` as ordinary post-activation values.
+It must not use dependent references or folder imports, and it must not expose `PACER_USERNAME`, `PACER_PASSWORD`, `COURTLISTENER_API_TOKEN`, an acquisition/model credential, or any other name.
+Run the launcher's name-only sentinel and preserve its value-free output with the run evidence; a missing, empty, extra, pre-activation, imported, or referenced setting blocks `purchase-missing-recap-fetch`.
+
 ```bash
-uv run legalforecast acquisition purchase-missing-recap-fetch \
+broker_launch_receipt="$preparation_root/recap-fetch-broker-client-launch.json"
+systemd-run --user --wait --collect \
+  --unit=<unique-recap-fetch-purchase-unit> \
+  --property=Type=exec \
+  --working-directory="$PWD" \
+  uv run legalforecast-acquisition-systemd-run \
+  --sandbox-path /agents/sandbox/legalforecastbench/recap-fetch-broker-client \
+  --receipt-output "$broker_launch_receipt" \
+  -- uv run legalforecast acquisition purchase-missing-recap-fetch \
   --output-root "$preparation_root" \
   --budget-plan "$launch_root/missing-core-budget-plan.json" \
   --selection "$launch_root/target-cohort-selection.jsonl" \
@@ -2000,6 +2014,7 @@ uv run legalforecast acquisition purchase-missing-recap-fetch \
   --execute --resume
 ```
 
+Require systemd `Result=success` and `ExecMainStatus=0`, then verify the launch receipt has `child_receipt_observed=true`, `sandbox_exit_status=0`, and `effective_exit_status=0` before accepting the purchase command's own completed run card.
 Never substitute a Case.dev live purchase, a Case.dev fee-bearing docket refresh, or an implicit purchase inside preparation. The RECAP Fetch purchase stage may dispatch only IDs present in the generated broker policy and remains bounded by the verified purchase policy and broker-side budget controls.
 
 The purchase result is not parser- or packet-eligible. Recover every purchased unknown-status document through a fresh authenticated CourtListener detail check. This noncharging stage writes a URL-free quarantine manifest, fresh restriction evidence, the exact disclosure-review request queue, and a committed document tree. Do not hand-author the review requests or copy the PDFs into another recovery root:
