@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +42,22 @@ class _Transport:
         del timeout_seconds
         self.requests.append((method, url, body, dict(headers)))
         return self.responses.pop(0)
+
+
+class _RecordingEnvironment(Mapping[str, str]):
+    def __init__(self, values: Mapping[str, str]) -> None:
+        self._values = dict(values)
+        self.accessed_names: set[str] = set()
+
+    def __getitem__(self, name: str) -> str:
+        self.accessed_names.add(name)
+        return self._values[name]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
 
 
 def test_signs_exact_canonical_six_field_submission_and_nine_field_domain() -> None:
@@ -456,6 +472,28 @@ def test_env_lists_exact_missing_stage_scoped_credentials() -> None:
         match=r"RECAP_FETCH_BROKER_URL.*RECAP_FETCH_BROKER_MACHINE_ID.*RECAP_FETCH_BROKER_PRIVATE_KEY_JWK.*RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON.*RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256",
     ):
         RecapFetchBrokerConfig.from_env({})
+
+
+def test_env_consumes_exact_five_stage_scoped_credentials() -> None:
+    _, jwk = _key()
+    expected_config = _config(jwk)
+    values = {
+        "RECAP_FETCH_BROKER_URL": expected_config.broker_url,
+        "RECAP_FETCH_BROKER_MACHINE_ID": expected_config.machine_id,
+        "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK": expected_config.private_key_jwk,
+        "RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON": (
+            expected_config.identity_policy_json
+        ),
+        "RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256": (
+            expected_config.identity_policy_sha256
+        ),
+    }
+    environment = _RecordingEnvironment(values)
+
+    config = RecapFetchBrokerConfig.from_env(environment)
+
+    assert environment.accessed_names == set(values)
+    assert config.timeout_seconds == 30.0
 
 
 def test_identity_policy_digest_and_public_key_are_recomputed() -> None:
