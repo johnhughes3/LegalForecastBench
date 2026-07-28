@@ -2013,10 +2013,14 @@ Run the launcher's name-only sentinel and preserve its value-free output with th
 
 ```bash
 broker_launch_receipt="$preparation_root/recap-fetch-broker-client-launch.json"
-systemd-run --user --wait --collect \
-  --unit=<unique-recap-fetch-purchase-unit> \
+broker_unit_status="$preparation_root/recap-fetch-broker-client-systemd-status.txt"
+broker_unit="lfb-recap-fetch-purchase-$(date +%s)-$$"
+broker_systemd_run_status=0
+systemd-run --user --wait \
+  --unit="$broker_unit" \
   --property=Type=exec \
   --working-directory="$PWD" \
+  /usr/bin/env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
   uv run legalforecast-acquisition-systemd-run \
   --sandbox-path /agents/sandbox/legalforecastbench/recap-fetch-broker-client \
   --receipt-output "$broker_launch_receipt" \
@@ -2033,10 +2037,48 @@ systemd-run --user --wait --collect \
   --broker-policy "$broker_policy" \
   --request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3" \
   --live-purchase --acknowledge-pacer-fees \
-  --execute --resume
+  --execute --resume || broker_systemd_run_status=$?
+
+broker_result_show_status=0
+broker_result="$(
+  systemctl --user show "$broker_unit" --property=Result --value
+)" || broker_result_show_status=$?
+broker_exec_show_status=0
+broker_exec_main_status="$(
+  systemctl --user show "$broker_unit" --property=ExecMainStatus --value
+)" || broker_exec_show_status=$?
+{
+  printf 'Result=%s\n' "$broker_result"
+  printf 'ExecMainStatus=%s\n' "$broker_exec_main_status"
+} > "$broker_unit_status"
+broker_stop_status=0
+systemctl --user stop "$broker_unit" >/dev/null 2>&1 || broker_stop_status=$?
+broker_reset_status=0
+systemctl --user reset-failed "$broker_unit" >/dev/null 2>&1 \
+  || broker_reset_status=$?
+broker_load_state_show_status=0
+broker_load_state="$(
+  systemctl --user show "$broker_unit" --property=LoadState --value
+)" || broker_load_state_show_status=$?
+{
+  printf 'CleanupStopStatus=%s\n' "$broker_stop_status"
+  printf 'CleanupResetStatus=%s\n' "$broker_reset_status"
+  printf 'PostCleanupLoadState=%s\n' "$broker_load_state"
+} >> "$broker_unit_status"
+
+[[ "$broker_systemd_run_status" -eq 0 \
+  && "$broker_result_show_status" -eq 0 \
+  && "$broker_exec_show_status" -eq 0 \
+  && "$broker_load_state_show_status" -eq 0 \
+  && "$broker_load_state" == not-found \
+  && "$broker_result" == success \
+  && "$broker_exec_main_status" -eq 0 ]] || exit 1
 ```
 
-Require systemd `Result=success` and `ExecMainStatus=0`, then verify the launch receipt has `child_receipt_observed=true`, `sandbox_exit_status=0`, and `effective_exit_status=0` before accepting the purchase command's own completed run card.
+The in-unit `/usr/bin/env -i` boundary prevents variables retained by the user service manager from reaching the launcher or its children; do not replace it with a separate caller-side check.
+The unit deliberately omits `--collect`: preserve and require the captured systemd `Result=success` and `ExecMainStatus=0` evidence before stopping and resetting the unit.
+The cleanup statuses are diagnostic because systemd may automatically unload a successful inactive transient unit after its properties are read; a nonzero cleanup status is acceptable only when `systemctl show` already captured the required terminal evidence and the post-cleanup `LoadState=not-found` gate proves the unit is no longer loaded.
+Then verify the launch receipt has `child_receipt_observed=true`, `sandbox_exit_status=0`, and `effective_exit_status=0` before accepting the purchase command's own completed run card.
 Never substitute a Case.dev live purchase, a Case.dev fee-bearing docket refresh, or an implicit purchase inside preparation. The RECAP Fetch purchase stage may dispatch only IDs present in the generated broker policy and remains bounded by the verified purchase policy and broker-side budget controls.
 
 The purchase result is not parser- or packet-eligible. Recover every purchased unknown-status document through a fresh authenticated CourtListener detail check. This noncharging stage writes a URL-free quarantine manifest, fresh restriction evidence, the exact disclosure-review request queue, and a committed document tree. Do not hand-author the review requests or copy the PDFs into another recovery root:
