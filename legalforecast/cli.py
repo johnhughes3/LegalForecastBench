@@ -330,6 +330,7 @@ from legalforecast.ingestion.disclosure_clearance import (
     require_cleared_parse_requests,
     require_cleared_parser_records,
     safe_disclosure_document_path,
+    scan_disclosure_document,
     validate_review_receipt,
     verify_parse_request_bytes,
 )
@@ -538,6 +539,7 @@ from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan_v3,
     build_provenance_clearance_records,
     build_provider_free_quarantine_records_v3,
+    document_scanner_for_plan,
     exception_review_worksheet,
     exception_review_worksheet_v3,
     validate_exception_review_worksheet,
@@ -39572,6 +39574,26 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         document_snapshot = _capture_provenance_document_snapshot(
             manifest_records, document_root=document_root
         )
+        document_scanner = scan_disclosure_document
+        if cast(bool, args.resume):
+            scanner_source = plan_path if plan_path.is_file() else worksheet_path
+            if scanner_source.is_file():
+                frozen_scanner_artifact = _projection_json_object(
+                    _read_singly_linked_regular_input(
+                        scanner_source, label="scanner-version artifact"
+                    ),
+                    source=scanner_source,
+                )
+                document_scanner = document_scanner_for_plan(frozen_scanner_artifact)
+            else:
+                run_card_path, log_path = _disclosure_review_metadata_paths(
+                    args, output_root=output_root, stage=stage
+                )
+                if run_card_path.exists() or log_path.exists():
+                    raise ProvenanceClearanceError(
+                        "resume requires a frozen routing plan or exception worksheet "
+                        "to select the PDF scanner version"
+                    )
         plan = plan_builder(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=requests_path
@@ -39589,6 +39611,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             restriction_evidence_bytes=source_bytes["restriction_evidence"],
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
+            document_scanner=document_scanner,
         )
         worksheet = worksheet_builder(plan)
         inspection = build_exception_inspection_map(
@@ -39763,6 +39786,9 @@ def _cmd_acquisition_clear_provenance_disclosures(
         document_snapshot = _capture_provenance_document_snapshot(
             manifest_records, document_root=document_root
         )
+        frozen_plan = _projection_json_object(
+            source_bytes["routing_plan"], source=plan_path
+        )
         recomputed_plan = build_provenance_clearance_plan(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=requests_path
@@ -39780,6 +39806,7 @@ def _cmd_acquisition_clear_provenance_disclosures(
             restriction_evidence_bytes=source_bytes["restriction_evidence"],
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
+            document_scanner=document_scanner_for_plan(frozen_plan),
         )
         plan_bytes = canonical_json_bytes(recomputed_plan)
         if plan_bytes != source_bytes["routing_plan"]:
@@ -39960,6 +39987,9 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         document_snapshot = _capture_provenance_document_snapshot(
             manifest_records, document_root=document_root
         )
+        frozen_plan = _projection_json_object(
+            source_bytes["routing_plan"], source=plan_path
+        )
         recomputed_plan = build_provenance_clearance_plan_v3(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=requests_path
@@ -39977,6 +40007,7 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             restriction_evidence_bytes=source_bytes["restriction_evidence"],
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
+            document_scanner=document_scanner_for_plan(frozen_plan),
         )
         plan_bytes = canonical_json_bytes(recomputed_plan)
         if plan_bytes != source_bytes["routing_plan"]:
@@ -40518,7 +40549,9 @@ def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
                 validate_exception_review_worksheet(worksheet)
             )
         except ProvenanceClearanceError as exc:
-            raise CommandError("provenance exception worksheet is invalid") from exc
+            raise CommandError(
+                f"provenance exception worksheet is invalid: {exc}"
+            ) from exc
     else:
         typed_documents = cast(list[object], raw_documents)
     documents: dict[tuple[str, str], Mapping[str, Any]] = {}
@@ -42038,6 +42071,9 @@ def _verify_provenance_clearance_run_card(
             or document_count != len(tree)
         ):
             raise ProvenanceClearanceError("document-root commitment changed")
+        frozen_plan = _projection_json_object(
+            source_bytes["routing_plan"], source=paths["routing_plan"]
+        )
         plan = build_provenance_clearance_plan(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=paths["review_requests"]
@@ -42056,6 +42092,7 @@ def _verify_provenance_clearance_run_card(
             restriction_evidence_bytes=source_bytes["restriction_evidence"],
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
+            document_scanner=document_scanner_for_plan(frozen_plan),
         )
         plan_bytes = canonical_json_bytes(plan)
         if plan_bytes != source_bytes["routing_plan"]:
@@ -42309,6 +42346,9 @@ def _verify_provider_free_provenance_quarantine_run_card(
             or document_count != len(tree)
         ):
             raise ProvenanceClearanceError("document-root commitment changed")
+        frozen_plan = _projection_json_object(
+            source_bytes["routing_plan"], source=paths["routing_plan"]
+        )
         plan = build_provenance_clearance_plan_v3(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=paths["review_requests"]
@@ -42327,6 +42367,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
             restriction_evidence_bytes=source_bytes["restriction_evidence"],
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
+            document_scanner=document_scanner_for_plan(frozen_plan),
         )
         plan_bytes = canonical_json_bytes(plan)
         if plan_bytes != source_bytes["routing_plan"]:

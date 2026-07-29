@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 from legalforecast.ingestion.disclosure_clearance import (
+    PDF_SCAN_SCHEMA_VERSION,
+    PDF_SCAN_SCHEMA_VERSION_V1,
     DisclosureClearanceError,
     ReviewAuthority,
     build_clearance_records,
@@ -15,6 +17,7 @@ from legalforecast.ingestion.disclosure_clearance import (
     require_cleared_parse_requests,
     require_cleared_parser_records,
     scan_disclosure_document,
+    scan_disclosure_document_v1,
 )
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, NameObject
@@ -83,7 +86,7 @@ def test_image_only_pdf_is_quarantined(tmp_path: Path) -> None:
     assert record.status == "quarantined"
 
 
-def test_page_count_mismatch_records_complete_page_text_coverage() -> None:
+def test_page_scanner_records_complete_and_incomplete_page_text_coverage() -> None:
     complete = scan_disclosure_document(
         _multipage_pdf(("Motion memorandum", "Opposition memorandum"))
     )
@@ -92,8 +95,6 @@ def test_page_count_mismatch_records_complete_page_text_coverage() -> None:
     assert complete.unscanned_page_numbers == ()
     assert complete.coverage_status == "complete"
     assert complete.automated_markers == ()
-    assert "legacy_extraction_page_count_mismatch" in complete.diagnostics
-
     partial = scan_disclosure_document(_multipage_pdf(("Motion memorandum", "")))
     assert partial.text_scanned_page_numbers == (1,)
     assert partial.unscanned_page_numbers == (2,)
@@ -110,7 +111,98 @@ def test_page_scanner_covers_every_page_when_one_page_has_multiple_streams() -> 
     assert scan.unscanned_page_numbers == ()
     assert scan.coverage_status == "complete"
     assert scan.automated_markers == ()
-    assert "legacy_extraction_page_count_mismatch" in scan.diagnostics
+
+
+def test_page_scanner_does_not_repeat_legacy_extraction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_legacy_extraction(_data: bytes) -> object:
+        raise AssertionError("legacy extractor must not run")
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.disclosure_clearance."
+        "extract_pdf_text_with_ocr_fallback",
+        unexpected_legacy_extraction,
+    )
+
+    scan = scan_disclosure_document(_multipage_pdf(("Motion memorandum",)))
+
+    assert scan.coverage_status == "complete"
+    assert scan.automated_markers == ()
+
+
+def test_v1_scanner_replays_legacy_diagnostics_without_affecting_v2() -> None:
+    data = _multi_stream_pdf("Motion memorandum")
+
+    historical = scan_disclosure_document_v1(data)
+    current = scan_disclosure_document(data)
+
+    assert historical.schema_version == PDF_SCAN_SCHEMA_VERSION_V1
+    assert historical.method == "pypdf_page_text_v1"
+    assert "legacy_extraction_page_count_mismatch" in historical.diagnostics
+    assert current.schema_version == PDF_SCAN_SCHEMA_VERSION
+    assert current.method == "pypdf_page_text_v2"
+    assert not any(
+        value.startswith("legacy_extraction_") for value in current.diagnostics
+    )
+    assert historical.automated_markers == current.automated_markers == ()
+
+
+def test_page_scanner_fails_closed_on_encrypted_pdf(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class EncryptedReader:
+        is_encrypted = True
+
+        @property
+        def pages(self) -> object:
+            raise AssertionError("encrypted pages must not be read")
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.disclosure_clearance.PdfReader",
+        lambda *_args, **_kwargs: EncryptedReader(),
+    )
+
+    scan = scan_disclosure_document(b"encrypted")
+
+    assert scan.parsed_page_count == 0
+    assert scan.text_scanned_page_numbers == ()
+    assert scan.unscanned_page_numbers == ()
+    assert scan.coverage_status == "incomplete"
+    assert "pdf_encrypted" in scan.diagnostics
+    assert "extraction_page_coverage_incomplete" in scan.automated_markers
+
+
+def test_page_scanner_fails_closed_on_per_page_extraction_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class TextPage:
+        @staticmethod
+        def extract_text() -> str:
+            return "Motion memorandum"
+
+    class BrokenPage:
+        @staticmethod
+        def extract_text() -> str:
+            raise ValueError("synthetic page failure")
+
+    class PartialReader:
+        is_encrypted = False
+        pages = (TextPage(), BrokenPage())
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.disclosure_clearance.PdfReader",
+        lambda *_args, **_kwargs: PartialReader(),
+    )
+
+    scan = scan_disclosure_document(b"partial")
+
+    assert scan.parsed_page_count == 2
+    assert scan.text_scanned_page_numbers == (1,)
+    assert scan.unscanned_page_numbers == (2,)
+    assert scan.coverage_status == "incomplete"
+    assert "page_text_extraction_failed:2" in scan.diagnostics
+    assert "extraction_page_coverage_incomplete" in scan.automated_markers
 
 
 def test_page_scanner_fails_closed_on_parser_error(

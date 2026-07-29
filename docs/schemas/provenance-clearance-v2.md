@@ -12,9 +12,10 @@ It rejects symlinks, hard links, special files, changed bytes, malformed or sema
 The output schema is `legalforecast.disclosure_provenance_routing_plan.v2`.
 Each document embeds one closed `legalforecast.disclosure_pdf_scan.v1` record containing the parser method, parsed page count, disjoint text-scanned, reserved OCR-scanned, and unscanned page-number sets, coverage status, diagnostics, and substantive markers.
 The three page sets must be sorted, unique, pairwise disjoint, and exactly partition `1..parsed_page_count`.
-The v1 `pypdf_page_text_v1` scanner does not perform OCR, requires the OCR-scanned set and count to be empty, and treats every page without nonempty extracted text as unscanned.
+The current `legalforecast.disclosure_pdf_scan.v2` / `pypdf_page_text_v2` scanner does not perform OCR, requires the OCR-scanned set and count to be empty, and treats every page without nonempty extracted text as unscanned.
 Coverage is complete only when at least one page was parsed and the unscanned set is empty.
-A legacy content-stream/page-count mismatch is retained only as a diagnostic; it never proves coverage and never suppresses a substantive marker.
+The redundant legacy extractor is retired for new v2 scans; immutable v1 scans replay through `pypdf_page_text_v1`, whose historical content-stream/page-count mismatch remains diagnostic-only.
+That diagnostic never proves coverage or suppresses medical, SSN, mixed, or any other substantive or unknown marker.
 
 A document is `auto_clear` only when all of the following are true:
 

@@ -16,12 +16,14 @@ from legalforecast.ingestion.canonical_json import (
 )
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION,
+    PDF_SCAN_SCHEMA_VERSION_V1,
     ClearanceRecord,
     DisclosureClearanceError,
     DisclosurePdfScan,
     normalize_restriction_token,
     safe_disclosure_document_path,
     scan_disclosure_document,
+    scan_disclosure_document_v1,
 )
 from legalforecast.ingestion.disclosure_review_bundle import (
     ReviewBundleError,
@@ -192,7 +194,7 @@ def build_provenance_clearance_plan(
             }
         )
     auto_count = sum(row["route"] == "auto_clear" for row in documents)
-    return {
+    plan: dict[str, object] = {
         "schema_version": PLAN_SCHEMA_VERSION,
         "source_sha256": {
             "review_requests": hashlib.sha256(review_requests_bytes).hexdigest(),
@@ -210,6 +212,43 @@ def build_provenance_clearance_plan(
         "john_review_count": len(documents) - auto_count,
         "documents": documents,
     }
+    document_scanner_for_plan(plan)
+    return plan
+
+
+def document_scanner_for_plan(
+    plan: Mapping[str, object],
+) -> Callable[[bytes], DisclosurePdfScan]:
+    """Select the exact scanner needed to replay one immutable routing plan."""
+
+    raw_documents = plan.get("documents")
+    if not isinstance(raw_documents, list):
+        raise ProvenanceClearanceError(
+            "routing plan requires documents for scanner selection"
+        )
+    if not raw_documents:
+        return scan_disclosure_document
+    versions: set[tuple[object, object]] = set()
+    for raw_document in cast(list[object], raw_documents):
+        if not isinstance(raw_document, Mapping):
+            raise ProvenanceClearanceError(
+                "routing plan document is invalid for scanner selection"
+            )
+        document = cast(Mapping[str, object], raw_document)
+        scan = document.get("disclosure_pdf_scan")
+        if not isinstance(scan, Mapping):
+            raise ProvenanceClearanceError(
+                "routing plan lacks PDF scan for scanner selection"
+            )
+        typed_scan = cast(Mapping[str, object], scan)
+        versions.add((typed_scan.get("schema_version"), typed_scan.get("method")))
+    if versions == {(PDF_SCAN_SCHEMA_VERSION_V1, "pypdf_page_text_v1")}:
+        return scan_disclosure_document_v1
+    if versions == {(PDF_SCAN_SCHEMA_VERSION, "pypdf_page_text_v2")}:
+        return scan_disclosure_document
+    raise ProvenanceClearanceError(
+        "routing plan has unsupported or mixed PDF scanner versions"
+    )
 
 
 def exception_review_worksheet(plan: Mapping[str, object]) -> dict[str, object]:
@@ -270,7 +309,7 @@ def build_provenance_clearance_plan_v3(
             "human_clearance_permitted"
         )
         documents.append(document)
-    return {
+    plan: dict[str, object] = {
         "schema_version": PLAN_SCHEMA_VERSION_V3,
         "source_sha256": legacy["source_sha256"],
         "document_set_sha256": hashlib.sha256(
@@ -281,6 +320,8 @@ def build_provenance_clearance_plan_v3(
         "exception_review_count": legacy["john_review_count"],
         "documents": documents,
     }
+    document_scanner_for_plan(plan)
+    return plan
 
 
 def exception_review_worksheet_v3(
@@ -705,6 +746,7 @@ def _plan_documents(plan: Mapping[str, object]) -> list[Mapping[str, object]]:
         raise ProvenanceClearanceError(
             "routing plan documents are not canonically ordered"
         )
+    document_scanner_for_plan(plan)
     auto_count = sum(row.get("route") == "auto_clear" for row in documents)
     if (
         plan.get("document_count") != len(documents)
@@ -769,6 +811,7 @@ def _plan_documents_v3(plan: Mapping[str, object]) -> list[Mapping[str, object]]
         raise ProvenanceClearanceError(
             "routing plan documents are not canonically ordered"
         )
+    document_scanner_for_plan(plan)
     auto_count = sum(row.get("route") == "auto_clear" for row in documents)
     document_count = _nonnegative_int(plan, "document_count")
     declared_auto_count = _nonnegative_int(plan, "auto_clear_count")
@@ -912,16 +955,17 @@ def _validate_scan_record(scan: Mapping[str, object], *, key: tuple[str, str]) -
         "diagnostics",
         "automated_markers",
     }
-    if (
-        set(scan) != expected_fields
-        or scan.get("schema_version") != PDF_SCAN_SCHEMA_VERSION
-        or scan.get("method") != "pypdf_page_text_v1"
-    ):
+    scanner_identity = (scan.get("schema_version"), scan.get("method"))
+    supported_scanners = {
+        (PDF_SCAN_SCHEMA_VERSION_V1, "pypdf_page_text_v1"),
+        (PDF_SCAN_SCHEMA_VERSION, "pypdf_page_text_v2"),
+    }
+    if set(scan) != expected_fields or scanner_identity not in supported_scanners:
         raise ProvenanceClearanceError(f"invalid PDF scan shape: {key}")
     parsed_page_count = _nonnegative_int(scan, "parsed_page_count")
-    text_pages = _page_numbers(scan, "text_scanned_page_numbers")
-    ocr_pages = _page_numbers(scan, "ocr_scanned_page_numbers")
-    unscanned_pages = _page_numbers(scan, "unscanned_page_numbers")
+    text_pages = _page_numbers(scan, "text_scanned_page_numbers", key=key)
+    ocr_pages = _page_numbers(scan, "ocr_scanned_page_numbers", key=key)
+    unscanned_pages = _page_numbers(scan, "unscanned_page_numbers", key=key)
     text_page_count = _nonnegative_int(scan, "text_scanned_page_count")
     ocr_page_count = _nonnegative_int(scan, "ocr_scanned_page_count")
     if text_page_count != len(text_pages) or ocr_page_count != len(ocr_pages):
@@ -948,17 +992,21 @@ def _validate_scan_record(scan: Mapping[str, object], *, key: tuple[str, str]) -
             )
 
 
-def _page_numbers(record: Mapping[str, object], field: str) -> list[int]:
+def _page_numbers(
+    record: Mapping[str, object], field: str, *, key: tuple[str, str]
+) -> list[int]:
     value = record.get(field)
     if not isinstance(value, list):
-        raise ProvenanceClearanceError(f"{field} must be a list")
+        raise ProvenanceClearanceError(f"{field} must be a list: {key}")
     result: list[int] = []
     for item in cast(list[object], value):
         if not isinstance(item, int) or isinstance(item, bool) or item <= 0:
-            raise ProvenanceClearanceError(f"{field} must contain positive integers")
+            raise ProvenanceClearanceError(
+                f"{field} must contain positive integers: {key}"
+            )
         result.append(item)
     if result != sorted(set(result)):
-        raise ProvenanceClearanceError(f"{field} must be sorted and unique")
+        raise ProvenanceClearanceError(f"{field} must be sorted and unique: {key}")
     return result
 
 

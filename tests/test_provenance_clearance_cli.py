@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
@@ -11,8 +11,10 @@ import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.disclosure_clearance import (
+    PDF_SCAN_SCHEMA_VERSION_V1,
     DisclosureClearanceError,
     DisclosurePdfScan,
+    scan_disclosure_document_v1,
 )
 from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan as build_plan,
@@ -118,19 +120,49 @@ def _inputs(tmp_path: Path) -> dict[str, Path]:
     return paths
 
 
-def _complete_scan(_payload: bytes) -> DisclosurePdfScan:
+def _complete_scan(payload: bytes) -> DisclosurePdfScan:
     return DisclosurePdfScan(
         parsed_page_count=1,
         text_scanned_page_numbers=(1,),
         ocr_scanned_page_numbers=(),
         unscanned_page_numbers=(),
         coverage_status="complete",
-        diagnostics=("legacy_extraction_page_count_mismatch",),
-        automated_markers=(),
+        diagnostics=(),
+        automated_markers=("medical",) if payload == b"marker" else (),
     )
 
 
-def _install_document_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
+def _legacy_complete_scan(payload: bytes) -> DisclosurePdfScan:
+    current = _complete_scan(payload)
+    return DisclosurePdfScan(
+        parsed_page_count=current.parsed_page_count,
+        text_scanned_page_numbers=current.text_scanned_page_numbers,
+        ocr_scanned_page_numbers=current.ocr_scanned_page_numbers,
+        unscanned_page_numbers=current.unscanned_page_numbers,
+        coverage_status=current.coverage_status,
+        diagnostics=("legacy_extraction_page_count_mismatch",),
+        automated_markers=current.automated_markers,
+        schema_version=PDF_SCAN_SCHEMA_VERSION_V1,
+        method="pypdf_page_text_v1",
+    )
+
+
+def _install_document_scanner(
+    monkeypatch: pytest.MonkeyPatch, *, historical: bool = False
+) -> None:
+    if historical:
+        monkeypatch.setattr(
+            cli_module, "scan_disclosure_document", scan_disclosure_document_v1
+        )
+
+    def requested_fixture_scanner(
+        kwargs: Mapping[str, object],
+    ) -> Callable[[bytes], DisclosurePdfScan]:
+        requested = kwargs.get("document_scanner")
+        if historical and requested is scan_disclosure_document_v1:
+            return _legacy_complete_scan
+        return _complete_scan
+
     def deterministic_plan(
         review_requests: Sequence[Mapping[str, object]],
         download_manifest: Sequence[Mapping[str, object]],
@@ -139,6 +171,7 @@ def _install_document_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
         **kwargs: object,
     ) -> dict[str, object]:
         typed = kwargs
+        fixture_scanner = requested_fixture_scanner(cast(Mapping[str, object], typed))
         return build_plan(
             review_requests,
             download_manifest,
@@ -149,7 +182,7 @@ def _install_document_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
             download_manifest_bytes=cast(bytes, typed["download_manifest_bytes"]),
             restriction_evidence_bytes=cast(bytes, typed["restriction_evidence_bytes"]),
             case_relevance_bytes=cast(bytes, typed["case_relevance_bytes"]),
-            document_scanner=_complete_scan,
+            document_scanner=fixture_scanner,
         )
 
     monkeypatch.setattr(
@@ -164,6 +197,7 @@ def _install_document_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
         **kwargs: object,
     ) -> dict[str, object]:
         typed = kwargs
+        fixture_scanner = requested_fixture_scanner(cast(Mapping[str, object], typed))
         return build_plan_v3(
             review_requests,
             download_manifest,
@@ -174,7 +208,7 @@ def _install_document_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
             download_manifest_bytes=cast(bytes, typed["download_manifest_bytes"]),
             restriction_evidence_bytes=cast(bytes, typed["restriction_evidence_bytes"]),
             case_relevance_bytes=cast(bytes, typed["case_relevance_bytes"]),
-            document_scanner=_complete_scan,
+            document_scanner=fixture_scanner,
         )
 
     monkeypatch.setattr(
@@ -307,9 +341,9 @@ def test_provenance_planner_defaults_to_legacy_v2(
     assert worksheet["schema_version"] == (
         "legalforecast.disclosure_exception_worksheet.v2"
     )
-    assert plan["john_review_count"] == 1
+    assert plan["john_review_count"] == 2
     assert "exception_review_count" not in plan
-    assert run_card["john_review_count"] == 1
+    assert run_card["john_review_count"] == 2
     assert "exception_review_count" not in run_card
     assert "routing_plan_schema_version" not in run_card
     assert "exception_worksheet_schema_version" not in run_card
@@ -360,21 +394,27 @@ def test_provenance_planner_v3_emits_reviewer_neutral_artifacts_and_resumes(
     assert worksheet["schema_version"] == (
         "legalforecast.disclosure_exception_worksheet.v3"
     )
-    assert (plan["auto_clear_count"], plan["exception_review_count"]) == (2, 1)
+    assert (plan["auto_clear_count"], plan["exception_review_count"]) == (1, 2)
     assert "john_review_count" not in plan
     assert [row["route"] for row in plan["documents"]] == [
         "auto_clear",
-        "auto_clear",
+        "exception_review",
         "exception_review",
     ]
-    assert worksheet["document_count"] == 1
-    assert [row["route"] for row in worksheet["documents"]] == ["exception_review"]
+    assert worksheet["document_count"] == 2
+    assert [row["route"] for row in worksheet["documents"]] == [
+        "exception_review",
+        "exception_review",
+    ]
     inspection_rows = [
         json.loads(line)
         for line in output_paths[3].read_text(encoding="utf-8").splitlines()
     ]
-    assert [row["source_document_id"] for row in inspection_rows] == ["sealed"]
-    assert run_card["exception_review_count"] == 1
+    assert [row["source_document_id"] for row in inspection_rows] == [
+        "marker",
+        "sealed",
+    ]
+    assert run_card["exception_review_count"] == 2
     assert "john_review_count" not in run_card
     assert run_card["routing_plan_schema_version"] == plan["schema_version"]
     assert run_card["exception_worksheet_schema_version"] == worksheet["schema_version"]
@@ -421,15 +461,16 @@ def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
     rows = [json.loads(line) for line in clearance_path.read_text().splitlines()]
     by_id = {row["source_document_id"]: row for row in rows}
     assert by_id["auto"]["status"] == "cleared"
-    assert by_id["marker"]["status"] == "cleared"
+    assert by_id["marker"]["status"] == "quarantined"
     assert by_id["sealed"]["status"] == "quarantined"
+    assert by_id["marker"]["clearance_basis"] == ("provider_free_exception_quarantine")
     assert by_id["sealed"]["clearance_basis"] == ("provider_free_exception_quarantine")
     assert by_id["sealed"]["reviewer_id"] is None
     assert by_id["sealed"]["reviewed_at"] is None
     assert [
         json.loads(line)["source_document_id"]
         for line in quarantine_path.read_text().splitlines()
-    ] == ["sealed"]
+    ] == ["marker", "sealed"]
     run_card = json.loads(run_card_path.read_text())
     assert run_card["schema_version"] == (
         "legalforecast.provenance_quarantine_clearance_run_card.v1"
@@ -462,8 +503,8 @@ def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
             ).hexdigest()
         ),
         "cohort_policy_sha256": "sha256:" + "1" * 64,
-        "auto_clear_count": 2,
-        "exception_quarantine_count": 1,
+        "auto_clear_count": 1,
+        "exception_quarantine_count": 2,
         "human_or_model_override_permitted": False,
     }
     cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
@@ -519,7 +560,7 @@ def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
             3.0,
             "document-root commitment",
         ),
-        ("disposition_policy", "auto_clear_count", 2.0, "disposition policy"),
+        ("disposition_policy", "auto_clear_count", 1.0, "disposition policy"),
         (
             "disposition_policy",
             "exception_quarantine_count",
@@ -610,6 +651,38 @@ def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
             expected_restriction_path=paths["restrictions"],
         )
     run_card_path.write_bytes(snapshots[run_card_path][0])
+
+
+def test_provider_free_v3_finalizer_replays_v1_scanner_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch, historical=True)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    clearance_root = tmp_path / "historical-provider-free-clearance"
+
+    assert (
+        main(
+            _provider_free_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+            )
+        )
+        == 0
+    )
+
+    cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+        clearance_path=clearance_root / "disclosure-clearance.jsonl",
+        clearance_run_card_path=(
+            clearance_root / "run-cards/finalize-provenance-quarantine.json"
+        ),
+        expected_download_manifest_path=paths["manifest"],
+        expected_restriction_path=paths["restrictions"],
+    )
 
 
 @pytest.mark.parametrize(
@@ -815,7 +888,7 @@ def test_provenance_planner_resume_rejects_schema_version_change(
     for path in output_paths:
         path.unlink()
     assert main(_plan_command(paths, schema_version="v3", resume=True)) == 2
-    assert "completed resume metadata mismatch" in capsys.readouterr().err
+    assert "requires a frozen routing plan" in capsys.readouterr().err
     assert all(not path.exists() for path in output_paths)
     assert run_card_snapshot == (run_card.read_bytes(), run_card.stat().st_ino)
 
@@ -832,7 +905,7 @@ def test_provenance_planner_execute_rejects_opposite_schema_dry_run_card(
     run_card_snapshot = (run_card.read_bytes(), run_card.stat().st_ino)
 
     assert main(_plan_command(paths, schema_version="v3", resume=True)) == 2
-    assert "completed resume metadata mismatch" in capsys.readouterr().err
+    assert "requires a frozen routing plan" in capsys.readouterr().err
     assert not (paths["output"] / "disclosure-provenance-plan.json").exists()
     assert not (paths["output"] / "disclosure-exception-worksheet.json").exists()
     assert not (paths["private"] / "private-document-inspection-map.jsonl").exists()
@@ -927,7 +1000,7 @@ def test_provenance_planner_rejects_schema_change_from_completed_log_only(
     log_snapshot = (log.read_bytes(), log.stat().st_ino)
 
     assert main(_plan_command(paths, schema_version=target_schema, resume=True)) == 2
-    assert "completed resume log mismatch" in capsys.readouterr().err
+    assert "requires a frozen routing plan" in capsys.readouterr().err
     assert all(not path.exists() for path in output_paths)
     assert not run_card.exists()
     assert log_snapshot == (log.read_bytes(), log.stat().st_ino)
@@ -955,7 +1028,7 @@ def test_provenance_planner_rejects_malformed_matching_v3_run_card_before_writes
     run_card_snapshot = run_card.read_bytes()
 
     assert main(_plan_command(paths, schema_version="v3", resume=True)) == 2
-    assert "completed resume metadata mismatch" in capsys.readouterr().err
+    assert "requires a frozen routing plan" in capsys.readouterr().err
     assert all(not path.exists() for path in output_paths)
     assert run_card.read_bytes() == run_card_snapshot
 
@@ -984,14 +1057,14 @@ def test_provenance_planner_rejects_malformed_matching_v3_log_before_writes(
     log_snapshot = log.read_bytes()
 
     assert main(_plan_command(paths, schema_version="v3", resume=True)) == 2
-    assert "completed resume log mismatch" in capsys.readouterr().err
+    assert "requires a frozen routing plan" in capsys.readouterr().err
     assert all(not path.exists() for path in output_paths)
     assert not run_card.exists()
     assert log.read_bytes() == log_snapshot
 
 
 @pytest.mark.parametrize("schema_version", ("v2", "v3"))
-def test_provenance_planner_same_schema_log_only_resume_repairs_outputs(
+def test_provenance_planner_log_only_resume_fails_without_scanner_identity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     schema_version: str,
@@ -1006,16 +1079,51 @@ def test_provenance_planner_same_schema_log_only_resume_repairs_outputs(
         paths["output"] / "disclosure-exception-worksheet.json",
         paths["private"] / "private-document-inspection-map.jsonl",
     )
-    expected_payloads = {path: path.read_bytes() for path in output_paths}
     log_snapshot = (log.read_bytes(), log.stat().st_ino)
     run_card.unlink()
     for path in output_paths:
         path.unlink()
 
-    assert main(_plan_command(paths, schema_version=schema_version, resume=True)) == 0
-    assert {path: path.read_bytes() for path in output_paths} == expected_payloads
-    assert run_card.is_file()
+    assert main(_plan_command(paths, schema_version=schema_version, resume=True)) == 2
+    assert all(not path.exists() for path in output_paths)
+    assert not run_card.exists()
     assert log_snapshot == (log.read_bytes(), log.stat().st_ino)
+
+
+def test_provenance_planner_default_resume_allows_fresh_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    command = _plan_command(paths)
+    command.remove("--no-resume")
+
+    assert main(command) == 0
+    assert (paths["output"] / "disclosure-provenance-plan.json").is_file()
+
+
+@pytest.mark.parametrize("schema_version", ("v2", "v3"))
+def test_provenance_planner_resumes_immutable_v1_scan_plan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    schema_version: str,
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch, historical=True)
+    assert main(_plan_command(paths, schema_version=schema_version)) == 0
+    plan_path = paths["output"] / "disclosure-provenance-plan.json"
+    worksheet_path = paths["output"] / "disclosure-exception-worksheet.json"
+    snapshots = {
+        path: (path.read_bytes(), path.stat().st_ino)
+        for path in (plan_path, worksheet_path)
+    }
+
+    assert main(_plan_command(paths, schema_version=schema_version, resume=True)) == 0
+    assert snapshots == {
+        path: (path.read_bytes(), path.stat().st_ino)
+        for path in (plan_path, worksheet_path)
+    }
 
 
 def test_provenance_planner_and_interactive_exception_recorder(
@@ -1026,7 +1134,13 @@ def test_provenance_planner_and_interactive_exception_recorder(
     assert main(_plan_command(paths)) == 0
 
     plan = json.loads((paths["output"] / "disclosure-provenance-plan.json").read_text())
-    assert (plan["auto_clear_count"], plan["john_review_count"]) == (2, 1)
+    assert (plan["auto_clear_count"], plan["john_review_count"]) == (1, 2)
+    marker_plan = next(
+        row for row in plan["documents"] if row["source_document_id"] == "marker"
+    )
+    assert marker_plan["automated_markers"] == ["medical"]
+    assert marker_plan["route"] == "john_exception_review"
+    assert "automated_marker_present" in marker_plan["route_reasons"]
     run_card = json.loads(
         (paths["output"] / "run-cards/plan-disclosure-provenance.json").read_text()
     )
@@ -1044,7 +1158,7 @@ def test_provenance_planner_and_interactive_exception_recorder(
     }
     monkeypatch.setattr(cli_module.sys, "stdin", _TTY())
     digest_iterator = iter(digests.values())
-    decision_iterator = iter(("quarantined",))
+    decision_iterator = iter(("cleared", "quarantined"))
 
     def ordered_answer(prompt: str) -> str:
         if prompt.startswith("Type the full inspected"):
@@ -1076,7 +1190,7 @@ def test_provenance_planner_and_interactive_exception_recorder(
     )
     decisions = paths["private"] / "disclosure-review-decisions.jsonl"
     decision_rows = [json.loads(line) for line in decisions.read_text().splitlines()]
-    assert [row["status"] for row in decision_rows] == ["quarantined"]
+    assert [row["status"] for row in decision_rows] == ["cleared", "quarantined"]
     recorder_card = paths["private"] / (
         "metadata/run-cards/record-disclosure-review-decisions.json"
     )
@@ -1131,7 +1245,7 @@ def test_provenance_planner_and_interactive_exception_recorder(
     ]
     by_id = {row["source_document_id"]: row for row in clearance_rows}
     assert by_id["auto"]["clearance_basis"] == "affirmative_public_provenance"
-    assert by_id["marker"]["clearance_basis"] == "affirmative_public_provenance"
+    assert by_id["marker"]["clearance_basis"] == "john_exception_review"
     assert by_id["marker"]["status"] == "cleared"
     assert by_id["sealed"]["status"] == "quarantined"
     clearance_path = tmp_path / "clearance/disclosure-clearance.jsonl"
@@ -1172,6 +1286,48 @@ def test_provenance_planner_and_interactive_exception_recorder(
             clearance_run_card_path=clearance_card,
         )
     marker_path.write_bytes(marker_before)
+
+
+def test_recorder_reports_document_context_for_invalid_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths)) == 0
+    worksheet_path = paths["output"] / "disclosure-exception-worksheet.json"
+    worksheet = json.loads(worksheet_path.read_text())
+    worksheet["documents"][0]["disclosure_pdf_scan"]["text_scanned_page_numbers"] = (
+        "not-a-list"
+    )
+    worksheet_path.write_bytes(cli_module.canonical_json_bytes(worksheet))
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "record-disclosure-review-decisions",
+                "--review-worksheet",
+                str(worksheet_path),
+                "--private-inspection-map",
+                str(paths["private"] / "private-document-inspection-map.jsonl"),
+                "--reviewer-id",
+                "John Hughes",
+                "--controlled-private-store-root",
+                str(paths["private"]),
+                "--output-root",
+                str(paths["private"] / "metadata"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert (
+        "provenance exception worksheet is invalid: "
+        "text_scanned_page_numbers must be a list: ('case-a', 'marker')"
+        in capsys.readouterr().err
+    )
 
 
 def test_recorder_rejects_broad_private_root_and_public_outputs(

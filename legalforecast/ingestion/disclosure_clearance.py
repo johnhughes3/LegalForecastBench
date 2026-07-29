@@ -30,7 +30,8 @@ from legalforecast.ingestion.restricted_material import restricted_material_mark
 
 SCHEMA_VERSION = "legalforecast.disclosure_clearance.v1"
 REVIEW_RECEIPT_SCHEMA_VERSION = "legalforecast.disclosure_review_receipt.v2"
-PDF_SCAN_SCHEMA_VERSION = "legalforecast.disclosure_pdf_scan.v1"
+PDF_SCAN_SCHEMA_VERSION_V1 = "legalforecast.disclosure_pdf_scan.v1"
+PDF_SCAN_SCHEMA_VERSION = "legalforecast.disclosure_pdf_scan.v2"
 _CLEAR = "cleared"
 _QUARANTINED = "quarantined"
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
@@ -101,7 +102,7 @@ class DisclosurePdfScan:
     diagnostics: tuple[str, ...]
     automated_markers: tuple[str, ...]
     schema_version: str = PDF_SCAN_SCHEMA_VERSION
-    method: str = "pypdf_page_text_v1"
+    method: str = "pypdf_page_text_v2"
 
     def to_record(self) -> dict[str, object]:
         """Return the closed JSON representation embedded in routing plans."""
@@ -748,16 +749,33 @@ def disclosure_markers_for_text(text: str) -> tuple[str, ...]:
 
 
 def scan_disclosure_document(data: bytes) -> DisclosurePdfScan:
-    """Scan every parsed PDF page and return explicit, closed coverage evidence."""
+    """Scan every parsed PDF page once and return closed coverage evidence."""
+
+    return _scan_disclosure_document(data, include_legacy_diagnostics=False)
+
+
+def scan_disclosure_document_v1(data: bytes) -> DisclosurePdfScan:
+    """Replay the historical v1 scan, including its legacy diagnostics pass."""
+
+    return _scan_disclosure_document(data, include_legacy_diagnostics=True)
+
+
+def _scan_disclosure_document(
+    data: bytes, *, include_legacy_diagnostics: bool
+) -> DisclosurePdfScan:
+    """Build versioned page-coverage evidence from exact PDF bytes."""
 
     extraction = extract_disclosure_pdf_pages(data)
     diagnostics = set(extraction.diagnostics)
-    try:
-        legacy = extract_pdf_text_with_ocr_fallback(data)
-    except PDFExtractionError:
-        diagnostics.add("legacy_extraction_failed")
-    else:
-        diagnostics.update(f"legacy_extraction_{flag}" for flag in legacy.quality_flags)
+    if include_legacy_diagnostics:
+        try:
+            legacy = extract_pdf_text_with_ocr_fallback(data)
+        except PDFExtractionError:
+            diagnostics.add("legacy_extraction_failed")
+        else:
+            diagnostics.update(
+                f"legacy_extraction_{flag}" for flag in legacy.quality_flags
+            )
 
     text_pages = [page.page_number for page in extraction.pages]
     unscanned_pages = list(extraction.unscanned_page_numbers)
@@ -780,6 +798,14 @@ def scan_disclosure_document(data: bytes) -> DisclosurePdfScan:
         coverage_status="complete" if coverage_complete else "incomplete",
         diagnostics=tuple(sorted(diagnostics)),
         automated_markers=tuple(sorted(markers)),
+        schema_version=(
+            PDF_SCAN_SCHEMA_VERSION_V1
+            if include_legacy_diagnostics
+            else PDF_SCAN_SCHEMA_VERSION
+        ),
+        method=(
+            "pypdf_page_text_v1" if include_legacy_diagnostics else "pypdf_page_text_v2"
+        ),
     )
 
 
