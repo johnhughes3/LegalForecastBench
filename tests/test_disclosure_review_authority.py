@@ -131,6 +131,146 @@ def test_write_authority_is_immutable_and_idempotent(tmp_path: Path) -> None:
         )
 
 
+def test_write_authority_rejects_identical_symlink_target(tmp_path: Path) -> None:
+    artifact = _artifact()
+    outside = tmp_path / "outside.json"
+    outside.write_bytes(authority_artifact_bytes(artifact))
+    path = tmp_path / "authority.json"
+    path.symlink_to(outside)
+
+    with pytest.raises(DisclosureReviewAuthorityError, match="symlink"):
+        write_disclosure_review_authority(
+            path,
+            artifact,
+            expected_identity=_identity(),
+            reviewer_policy_bytes=_reviewer_policy(),
+        )
+
+    assert path.is_symlink()
+    assert outside.read_bytes() == authority_artifact_bytes(artifact)
+
+
+def test_write_authority_rejects_identical_hardlink_target(tmp_path: Path) -> None:
+    artifact = _artifact()
+    outside = tmp_path / "outside.json"
+    outside.write_bytes(authority_artifact_bytes(artifact))
+    path = tmp_path / "authority.json"
+    path.hardlink_to(outside)
+
+    with pytest.raises(DisclosureReviewAuthorityError, match="hardlink"):
+        write_disclosure_review_authority(
+            path,
+            artifact,
+            expected_identity=_identity(),
+            reviewer_policy_bytes=_reviewer_policy(),
+        )
+
+    assert path.stat().st_nlink == 2
+    assert outside.read_bytes() == authority_artifact_bytes(artifact)
+
+
+def test_write_authority_rejects_hardlink_added_while_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact = _artifact()
+    path = tmp_path / "authority.json"
+    path.write_bytes(authority_artifact_bytes(artifact))
+    alias = tmp_path / "alias.json"
+    original_read = os.read
+
+    def add_hardlink_then_read(descriptor: int, size: int) -> bytes:
+        if not alias.exists():
+            alias.hardlink_to(path)
+        return original_read(descriptor, size)
+
+    monkeypatch.setattr(os, "read", add_hardlink_then_read)
+
+    with pytest.raises(DisclosureReviewAuthorityError, match="changed"):
+        write_disclosure_review_authority(
+            path,
+            artifact,
+            expected_identity=_identity(),
+            reviewer_policy_bytes=_reviewer_policy(),
+        )
+
+    assert path.stat().st_nlink == 2
+
+
+def test_write_authority_rejects_path_replaced_while_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact = _artifact()
+    payload = authority_artifact_bytes(artifact)
+    path = tmp_path / "authority.json"
+    path.write_bytes(payload)
+    retained = tmp_path / "retained-original.json"
+    replacement = tmp_path / "replacement.json"
+    replacement.write_bytes(payload)
+    original_read = os.read
+    replaced = False
+
+    def replace_path_then_read(descriptor: int, size: int) -> bytes:
+        nonlocal replaced
+        if not replaced:
+            path.rename(retained)
+            replacement.rename(path)
+            replaced = True
+        return original_read(descriptor, size)
+
+    monkeypatch.setattr(os, "read", replace_path_then_read)
+
+    with pytest.raises(DisclosureReviewAuthorityError, match="changed"):
+        write_disclosure_review_authority(
+            path,
+            artifact,
+            expected_identity=_identity(),
+            reviewer_policy_bytes=_reviewer_policy(),
+        )
+
+    assert path.read_bytes() == payload
+    assert retained.read_bytes() == payload
+
+
+def test_write_authority_rejects_same_inode_changed_before_path_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact = _artifact()
+    payload = authority_artifact_bytes(artifact)
+    path = tmp_path / "authority.json"
+    path.write_bytes(payload)
+    changed_payload = b"X" + payload
+    original_stat = os.stat
+    changed = False
+
+    def change_then_stat(
+        stat_path: os.PathLike[str] | str | bytes,
+        *,
+        dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ) -> os.stat_result:
+        nonlocal changed
+        if (
+            os.fspath(stat_path) == os.fspath(path)
+            and not follow_symlinks
+            and not changed
+        ):
+            path.write_bytes(changed_payload)
+            changed = True
+        return original_stat(stat_path, dir_fd=dir_fd, follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(os, "stat", change_then_stat)
+
+    with pytest.raises(DisclosureReviewAuthorityError, match="changed"):
+        write_disclosure_review_authority(
+            path,
+            artifact,
+            expected_identity=_identity(),
+            reviewer_policy_bytes=_reviewer_policy(),
+        )
+
+    assert path.read_bytes() == changed_payload
+
+
 def test_write_authority_rejects_unexpected_identity(tmp_path: Path) -> None:
     unexpected_identity = DisclosureReviewAuthorityIdentity(
         cycle_id="unexpected-cycle",

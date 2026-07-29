@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import errno
 import fcntl
 import hashlib
 import json
@@ -189,8 +190,9 @@ def write_disclosure_review_authority(
     lock_fd = os.open(f"{target}.lock", os.O_RDWR | os.O_CREAT, 0o600)
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        if target.exists():
-            if target.read_bytes() != payload:
+        existing = _read_existing_authority(target)
+        if existing is not None:
+            if existing != payload:
                 raise DisclosureReviewAuthorityError(
                     "disclosure review authority already exists with different "
                     "immutable content"
@@ -199,6 +201,76 @@ def write_disclosure_review_authority(
         _atomic_write(target, payload)
     finally:
         os.close(lock_fd)
+
+
+def _read_existing_authority(target: Path) -> bytes | None:
+    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | os.O_NOFOLLOW
+    try:
+        descriptor = os.open(target, flags)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise DisclosureReviewAuthorityError(
+                "disclosure review authority path must not be a symlink"
+            ) from exc
+        raise
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode):
+            raise DisclosureReviewAuthorityError(
+                "disclosure review authority path must be a regular file"
+            )
+        if before.st_nlink != 1:
+            raise DisclosureReviewAuthorityError(
+                "disclosure review authority path must not be a hardlink"
+            )
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 1024 * 1024):
+            chunks.append(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(descriptor)
+        stable_fields = (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_nlink",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
+        if (
+            any(
+                getattr(before, field) != getattr(after, field)
+                for field in stable_fields
+            )
+            or len(payload) != after.st_size
+        ):
+            raise DisclosureReviewAuthorityError(
+                "disclosure review authority changed while being read"
+            )
+        named = os.stat(target, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(named.st_mode)
+            or named.st_nlink != 1
+            or any(
+                getattr(named, field) != getattr(after, field)
+                for field in stable_fields
+            )
+            or len(payload) != named.st_size
+        ):
+            raise DisclosureReviewAuthorityError(
+                "disclosure review authority path changed while being read"
+            )
+        return payload
+    except DisclosureReviewAuthorityError:
+        raise
+    except OSError as exc:
+        raise DisclosureReviewAuthorityError(
+            "disclosure review authority cannot be safely read"
+        ) from exc
+    finally:
+        os.close(descriptor)
 
 
 def disclosure_authority_identity_from_cohort_policy(
