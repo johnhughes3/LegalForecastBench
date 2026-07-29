@@ -146,6 +146,60 @@ def test_duplicate_and_conflicting_records_fail_closed() -> None:
         verify_packet_role_adjudications((accepted, rejected), (evidence,))
 
 
+def test_source_byte_count_bool_does_not_match_integer() -> None:
+    evidence = _evidence(source_byte_count=1)
+    record = _record(evidence)
+    record["source_byte_count"] = True
+    _rehash(record)
+
+    with pytest.raises(
+        PacketRoleAdjudicationError,
+        match="source_byte_count mismatch",
+    ):
+        verify_packet_role_adjudications((record,), (evidence,))
+
+
+def test_missing_or_duplicate_authenticated_evidence_fails_closed() -> None:
+    evidence = _evidence()
+
+    with pytest.raises(
+        PacketRoleAdjudicationError,
+        match="lacks authenticated evidence",
+    ):
+        verify_packet_role_adjudications(
+            (_record(evidence),),
+            (_evidence(candidate_id="other-candidate"),),
+        )
+    with pytest.raises(
+        PacketRoleAdjudicationError,
+        match="duplicate authenticated evidence",
+    ):
+        verify_packet_role_adjudications(
+            (_record(evidence),),
+            (evidence, evidence),
+        )
+
+
+def test_schema_drift_fails_closed() -> None:
+    evidence = _evidence()
+    unexpected_field = _record(evidence)
+    unexpected_field["extra"] = "not allowed"
+    with pytest.raises(
+        PacketRoleAdjudicationError,
+        match="fields do not match",
+    ):
+        verify_packet_role_adjudications((unexpected_field,), (evidence,))
+
+    unsupported = _record(evidence)
+    unsupported["schema_version"] = "legalforecast.packet_role_adjudication.v2"
+    _rehash(unsupported)
+    with pytest.raises(
+        PacketRoleAdjudicationError,
+        match="unsupported packet-role adjudication schema",
+    ):
+        verify_packet_role_adjudications((unsupported,), (evidence,))
+
+
 def test_record_self_hash_is_verified() -> None:
     evidence = _evidence()
     record = _record(evidence)
@@ -204,6 +258,7 @@ def _evidence(
     candidate_id: str = "courtlistener-docket-123",
     docket_id: str = "123",
     document_key: str = "123-entry-5-motion-to-dismiss-notice",
+    source_byte_count: int = 1234,
     ambiguous: bool = False,
     restriction_status: str = "public",
     restriction_markers: tuple[str, ...] = (),
@@ -213,7 +268,7 @@ def _evidence(
         docket_id=docket_id,
         document_key=document_key,
         source_pdf_sha256=_HASHES[0],
-        source_byte_count=1234,
+        source_byte_count=source_byte_count,
         parser_revision=EXPECTED_PARSER_REVISION,
         parser_manifest_sha256=_HASHES[1],
         parser_run_card_sha256=_HASHES[2],

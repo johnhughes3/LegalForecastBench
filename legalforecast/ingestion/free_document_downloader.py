@@ -1346,8 +1346,10 @@ def _require_request_commitment_shape(
         )
     if request.expected_sha256 is None:
         return
+    expected_sha256 = cast(object, request.expected_sha256)
     if (
-        re.fullmatch(r"[0-9a-f]{64}", request.expected_sha256) is None
+        not isinstance(expected_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
         or not isinstance(request.expected_byte_count, int)
         or isinstance(request.expected_byte_count, bool)
         or request.expected_byte_count <= 0

@@ -415,7 +415,11 @@ def _require_exact_commitments(
         "evidence_text_sha256": evidence.evidence_text_sha256,
     }
     for field_name, expected_value in expected.items():
-        if record.get(field_name) != expected_value:
+        actual_value = record.get(field_name)
+        if (
+            field_name == "source_byte_count"
+            and type(actual_value) is not type(expected_value)
+        ) or actual_value != expected_value:
             raise PacketRoleAdjudicationError(f"{field_name} mismatch")
 
 
