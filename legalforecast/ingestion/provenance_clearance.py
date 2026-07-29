@@ -11,6 +11,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import cast
 
+from legalforecast.ingestion.canonical_json import (
+    canonical_json_bytes as _canonical_json_bytes,
+)
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION,
     ClearanceRecord,
@@ -56,19 +59,11 @@ class ProvenanceClearanceError(ValueError):
 def canonical_json_bytes(value: object) -> bytes:
     """Serialize one artifact value in its canonical representation."""
 
-    try:
-        serialized = json.dumps(
-            value,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
-        )
-        return (serialized + "\n").encode("utf-8")
-    except (TypeError, UnicodeError, ValueError) as exc:
-        raise ProvenanceClearanceError(
-            "provenance artifact is not canonical JSON"
-        ) from exc
+    return _canonical_json_bytes(
+        value,
+        error_type=ProvenanceClearanceError,
+        error_message="provenance artifact is not canonical JSON",
+    )
 
 
 def build_provenance_clearance_plan(

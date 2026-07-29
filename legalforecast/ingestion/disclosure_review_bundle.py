@@ -21,6 +21,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
+from legalforecast.ingestion.canonical_json import (
+    canonical_json_bytes as _canonical_json_bytes,
+)
 from legalforecast.ingestion.disclosure_clearance import build_clearance_records
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthority,
@@ -184,17 +187,11 @@ class ReviewerPolicy:
 def canonical_json_bytes(value: object) -> bytes:
     """Return the one canonical byte representation used for signatures."""
 
-    try:
-        serialized = json.dumps(
-            value,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
-        )
-        return (serialized + "\n").encode("utf-8")
-    except (TypeError, UnicodeError, ValueError) as exc:
-        raise ReviewBundleError("review artifact is not canonical JSON") from exc
+    return _canonical_json_bytes(
+        value,
+        error_type=ReviewBundleError,
+        error_message="review artifact is not canonical JSON",
+    )
 
 
 def prepare_review_worksheet(
