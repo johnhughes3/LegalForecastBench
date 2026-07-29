@@ -30,9 +30,6 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     DirectSearchSeedSource,
     read_saturated_direct_search_leads,
 )
-from legalforecast.ingestion.rest_observation_policy_rebind import (
-    RestObservationPolicyRebindError,
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -594,7 +591,10 @@ def test_exact310_rebind_rejects_contract_tamper(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     plan = _plan(tmp_path, fixture)
     plan.contract_path.write_text(plan.contract_path.read_text() + " ")
-    with pytest.raises(RestObservationPolicyRebindError, match="SHA-256 mismatch"):
+    with pytest.raises(
+        rebind_module.RestObservationPolicyRebindError,
+        match="SHA-256 mismatch",
+    ):
         execute_exact310_terminal_rest_rebind(
             source_store_path=fixture.source_store,
             source_snapshot_path=fixture.source_snapshot,
@@ -695,6 +695,25 @@ def test_exact310_plan_rejects_target_source_schema_version_tamper(
     with pytest.raises(
         Exact310RestRebindError,
         match="target batch config does not match pinned setup authority",
+    ):
+        _plan(tmp_path, fixture)
+
+
+def test_exact310_plan_rejects_raw_target_config_digest_tamper(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    with sqlite3.connect(fixture.target_store) as connection:
+        connection.execute(
+            "UPDATE batches SET config_digest = ? WHERE batch_id = ?",
+            ("0" * 64, fixture.target_batch_id),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    with pytest.raises(
+        Exact310RestRebindError,
+        match="target batch config digest mismatch",
     ):
         _plan(tmp_path, fixture)
 
