@@ -12,6 +12,7 @@ from legalforecast.evals import (
     load_model_registry,
 )
 from legalforecast.evals.model_registry import (
+    LongContextSurcharge,
     ModelRegistryEntry,
     earliest_eligible_decision_date,
     latest_release_timestamp,
@@ -69,6 +70,53 @@ def test_model_registry_entry_round_trips_plan_fields() -> None:
     assert record["provider_training_cutoff"] == "2026-04-01"
     assert record["temperature"] == 0.0
     json.dumps(record)
+
+
+def test_model_registry_entry_round_trips_long_context_surcharge() -> None:
+    record = _registry_record()
+    record["long_context_surcharge"] = {
+        "threshold_input_tokens": 300_000,
+        "input_price_multiplier": 2.0,
+        "output_price_multiplier": 1.5,
+    }
+
+    entry = ModelRegistryEntry.from_record(record)
+
+    assert entry.long_context_surcharge == LongContextSurcharge(
+        threshold_input_tokens=300_000,
+        input_price_multiplier=2.0,
+        output_price_multiplier=1.5,
+    )
+    assert (
+        entry.to_record()["long_context_surcharge"] == record["long_context_surcharge"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    (
+        ("threshold_input_tokens", 0),
+        ("input_price_multiplier", 0.5),
+        ("input_price_multiplier", float("nan")),
+        ("output_price_multiplier", 0.5),
+        ("output_price_multiplier", float("inf")),
+    ),
+)
+def test_model_registry_rejects_invalid_long_context_surcharge(
+    field_name: str,
+    value: int | float,
+) -> None:
+    record = _registry_record()
+    surcharge = {
+        "threshold_input_tokens": 300_000,
+        "input_price_multiplier": 2.0,
+        "output_price_multiplier": 1.5,
+    }
+    surcharge[field_name] = value
+    record["long_context_surcharge"] = surcharge
+
+    with pytest.raises(ValueError, match=field_name):
+        ModelRegistryEntry.from_record(record)
 
 
 def test_model_registry_entry_hash_is_canonical() -> None:

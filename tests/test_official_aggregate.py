@@ -205,9 +205,11 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     assert packet_budget["by_ablation"]["full_packet"]["count"] == 1
     assert packet_budget["smallest_context_limit"] == 200_000
     assert packet_budget["smallest_prompt_input_token_budget"] == 195_904
-    assert packet_budget["long_context_surcharge_threshold_tokens"] == 272_000
+    assert packet_budget["long_context_surcharge_applicable"] is False
+    assert packet_budget["long_context_surcharge_threshold_tokens"] is None
     assert packet_budget["long_context_surcharge_packet_count"] == 0
     assert packet_budget["long_context_surcharge_packets"] == []
+    assert packet_budget["long_context_surcharge_model_keys"] == []
     assert packet_budget["registry_budgets"] == [
         {
             "context_limit": 200_000,
@@ -1044,6 +1046,7 @@ def test_official_aggregate_lists_long_context_surcharge_packets_in_run_card(
         tmp_path,
         ("fixture:solver",),
         context_limit=1_050_000,
+        long_context_surcharge_threshold=272_000,
     )
     labels_path = _write_labels(tmp_path)
     per_case_dir = tmp_path / "downloaded-artifacts"
@@ -1067,14 +1070,98 @@ def test_official_aggregate_lists_long_context_surcharge_packets_in_run_card(
 
     run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
     packet_budget = run_card["packet_token_budget"]
+    assert packet_budget["long_context_surcharge_applicable"] is True
+    assert packet_budget["long_context_surcharge_threshold_tokens"] == 272_000
+    assert packet_budget["long_context_surcharge_model_keys"] == ["fixture:solver"]
+    assert (
+        "not provider-reported billing usage"
+        in packet_budget["long_context_surcharge_basis"]
+    )
     assert packet_budget["long_context_surcharge_packet_count"] == 1
     assert packet_budget["long_context_surcharge_packets"] == [
         {
             "ablation": "full_packet",
             "case_id": "case-1",
             "estimated_input_tokens": 272_001,
+            "input_token_basis": "ceil(packet_size_bytes / 4)",
         }
     ]
+
+
+def test_official_aggregate_uses_declared_surcharge_threshold_and_token_basis(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(
+        tmp_path,
+        packet_size_bytes=4,
+        estimated_input_tokens=300_001,
+    )
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:solver",),
+        context_limit=1_050_000,
+        long_context_surcharge_threshold=300_000,
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(per_case_dir)
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
+            model_registry_path=registry_path,
+            allow_no_baselines=True,
+            ablation="full_packet",
+        )
+    )
+
+    packet_budget = json.loads(result.run_card_path.read_text())["packet_token_budget"]
+    assert packet_budget["long_context_surcharge_threshold_tokens"] == 300_000
+    assert packet_budget["long_context_surcharge_packets"] == [
+        {
+            "ablation": "full_packet",
+            "case_id": "case-1",
+            "estimated_input_tokens": 300_001,
+            "input_token_basis": "manifest:estimated_input_tokens",
+        }
+    ]
+
+
+def test_official_aggregate_marks_surcharge_not_applicable_without_registry(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(per_case_dir)
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
+            model_keys=("fixture:solver",),
+            allow_no_baselines=True,
+            ablation="full_packet",
+        )
+    )
+
+    packet_budget = json.loads(result.run_card_path.read_text())["packet_token_budget"]
+    assert packet_budget["long_context_surcharge_applicable"] is False
+    assert packet_budget["long_context_surcharge_threshold_tokens"] is None
+    assert packet_budget["long_context_surcharge_model_keys"] == []
 
 
 def test_official_aggregate_reports_repeat_sampling_variance(
@@ -1407,6 +1494,7 @@ def _write_run_input_manifest(
     include_baseline_features: bool = False,
     ablations: tuple[str, ...] = ("full_packet",),
     packet_size_bytes: int = 4_096,
+    estimated_input_tokens: int | None = None,
     labels_sha256: str | None = None,
     packet_hash_field: str | None = "sha256",
     packet_sha256: str = "a" * 64,
@@ -1422,6 +1510,8 @@ def _write_run_input_manifest(
         }
         if packet_hash_field is not None:
             packet_row[packet_hash_field] = packet_sha256
+        if estimated_input_tokens is not None:
+            packet_row["estimated_input_tokens"] = estimated_input_tokens
         if include_baseline_features:
             packet_row["candidate_id"] = "candidate-1"
             packet_row["baseline_features"] = [
@@ -1498,6 +1588,7 @@ def _write_model_registry(
     model_keys: tuple[str, ...],
     *,
     context_limit: int = 200_000,
+    long_context_surcharge_threshold: int | None = None,
 ) -> Path:
     registry_path = tmp_path / "model-registry.json"
     records: list[dict[str, Any]] = []
@@ -1526,6 +1617,12 @@ def _write_model_registry(
                 "known_cutoff_publicity_caveats": [],
             }
         )
+        if long_context_surcharge_threshold is not None:
+            records[-1]["long_context_surcharge"] = {
+                "threshold_input_tokens": long_context_surcharge_threshold,
+                "input_price_multiplier": 2.0,
+                "output_price_multiplier": 1.5,
+            }
     _write_json_list(registry_path, records)
     return registry_path
 

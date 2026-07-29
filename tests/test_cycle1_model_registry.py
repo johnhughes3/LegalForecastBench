@@ -78,6 +78,37 @@ def test_cycle_1_registry_records_provider_limits_and_current_prices() -> None:
         assert entry.top_p == 1
 
 
+def test_cycle_1_registry_structures_gpt_long_context_surcharge_terms() -> None:
+    registry = load_model_registry(CYCLE_1_REGISTRY)
+
+    assert {
+        entry.registry_key: (
+            entry.long_context_surcharge.threshold_input_tokens,
+            entry.long_context_surcharge.input_price_multiplier,
+            entry.long_context_surcharge.output_price_multiplier,
+        )
+        for entry in registry.entries
+        if entry.long_context_surcharge is not None
+    } == {
+        "openai:gpt-5.6-luna": (272_000, 2.0, 1.5),
+        "openai:gpt-5.6-sol": (272_000, 2.0, 1.5),
+        "openai:gpt-5.6-terra": (272_000, 2.0, 1.5),
+    }
+    assert registry.get("anthropic", "claude-sonnet-5").long_context_surcharge is None
+
+
+def test_cycle_1_registry_digest_matches_checked_in_acquisition_commitments() -> None:
+    registry_sha256 = hashlib.sha256(CYCLE_1_REGISTRY.read_bytes()).hexdigest()
+
+    for relative_path in (
+        "manifests/cycle-1-target-100.acquisition-cycle.template.json",
+        "manifests/cycle-1-target-100.quarantine-successor.template.json",
+        "manifests/cycle-1-target-100.replacement-corpus.template.json",
+        "docs/cycle-1-target-100-direct-prerequisites.md",
+    ):
+        assert registry_sha256 in (ROOT / relative_path).read_text(encoding="utf-8")
+
+
 def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
     tmp_path: Path,
     authenticated_downstream_fixture: Any,
