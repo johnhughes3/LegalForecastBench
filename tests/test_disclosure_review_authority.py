@@ -45,7 +45,11 @@ def _ssh_string(value: bytes) -> bytes:
     return len(value).to_bytes(4, "big") + value
 
 
-def _reviewer_policy(*, reviewer_id: str = "john-hughes") -> bytes:
+def _reviewer_policy(
+    *,
+    reviewer_id: str = "john-hughes",
+    controlled_store_uri_prefix: str = "private-store://legalforecast/cycle-1",
+) -> bytes:
     algorithm = b"sk-ssh-ed25519@openssh.com"
     public_key = b"K" * 32
     application = b"ssh:legalforecastbench"
@@ -56,7 +60,7 @@ def _reviewer_policy(*, reviewer_id: str = "john-hughes") -> bytes:
         "ssh_principal": "john-hughes",
         "ssh_public_key": f"{algorithm.decode()} {base64.b64encode(blob).decode()}",
         "identity_kind": "human_hardware",
-        "controlled_store_uri_prefix": "private-store://legalforecast/cycle-1",
+        "controlled_store_uri_prefix": controlled_store_uri_prefix,
         "signature_namespace": "legalforecast-disclosure-review-v1",
     }
     return (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
@@ -307,6 +311,20 @@ def test_generate_rejects_noncanonical_or_non_hardware_reviewer_policy() -> None
         generate_disclosure_review_authority(
             _identity(),
             (json.dumps(policy, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        )
+
+
+def test_generate_rejects_encoded_private_store_traversal() -> None:
+    with pytest.raises(
+        DisclosureReviewAuthorityError, match="controlled private-store"
+    ):
+        generate_disclosure_review_authority(
+            _identity(),
+            _reviewer_policy(
+                controlled_store_uri_prefix=(
+                    "private-store://legalforecast/reviews/%2e%2e/private"
+                )
+            ),
         )
 
 

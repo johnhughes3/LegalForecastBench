@@ -151,6 +151,40 @@ def test_substantive_marker_cannot_span_pdf_page_boundary() -> None:
     assert scan.automated_markers == ()
 
 
+@pytest.mark.parametrize(
+    ("marker", "whole_page_text", "split_pages"),
+    (
+        (
+            "dob",
+            "The date of birth: 01/01/1990",
+            ("The date", "of", "birth: 01/01/1990"),
+        ),
+        (
+            "minor",
+            "The child identified as A.B.",
+            ("The child", "identified as A.B."),
+        ),
+        (
+            "medical",
+            "The medical record is attached.",
+            ("The medical", "record is attached."),
+        ),
+    ),
+)
+def test_substantive_markers_do_not_combine_across_page_boundaries(
+    marker: str,
+    whole_page_text: str,
+    split_pages: tuple[str, ...],
+) -> None:
+    whole_page = scan_disclosure_document(_multipage_pdf((whole_page_text,)))
+    split = scan_disclosure_document(_multipage_pdf(split_pages))
+
+    assert whole_page.automated_markers == (marker,)
+    assert split.coverage_status == "complete"
+    assert split.text_scanned_page_numbers == tuple(range(1, len(split_pages) + 1))
+    assert split.automated_markers == ()
+
+
 def test_sealed_evidence_fails_closed_and_cleared_hash_is_recorded(
     tmp_path: Path,
 ) -> None:
@@ -478,14 +512,35 @@ def test_mixed_provenance_clearance_reaches_every_downstream_gate(
         [(str(row["candidate_id"]), "doc") for row in documents], clearances
     )
 
-    forged = dict(clearances[0])
-    forged["controlled_store_provenance"] = "https://example.com/recap.pdf"
-    with pytest.raises(DisclosureClearanceError, match="allowlisted public"):
-        require_cleared_documents(
-            documents,
-            document_root=tmp_path,
-            clearance_records=[forged, *clearances[1:]],
-        )
+    for invalid_public_provenance in (
+        "https://example.com/recap.pdf",
+        "https://storage.courtlistener.com:443/recap/example.pdf",
+        "https://storage.courtlistener.com:invalid/recap/example.pdf",
+        "https://storage.courtlistener.com/recap/../private/example.pdf",
+    ):
+        forged = dict(clearances[0])
+        forged["controlled_store_provenance"] = invalid_public_provenance
+        with pytest.raises(DisclosureClearanceError, match="allowlisted public"):
+            require_cleared_documents(
+                documents,
+                document_root=tmp_path,
+                clearance_records=[forged, *clearances[1:]],
+            )
+
+    for invalid_private_provenance in (
+        "private-store://",
+        "private-store://user@john/disclosure-exception-review",
+        "private-store://john:8443/disclosure-exception-review",
+        "private-store://john/reviews/../disclosure-exception-review",
+    ):
+        forged_exception = dict(clearances[2])
+        forged_exception["controlled_store_provenance"] = invalid_private_provenance
+        with pytest.raises(DisclosureClearanceError, match="controlled private store"):
+            require_cleared_documents(
+                documents,
+                document_root=tmp_path,
+                clearance_records=[*clearances[:2], forged_exception],
+            )
 
     for field, value in (
         ("restriction_status", "sealed"),

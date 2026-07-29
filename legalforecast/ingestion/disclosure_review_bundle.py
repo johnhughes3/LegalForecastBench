@@ -20,12 +20,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
-from urllib.parse import urlsplit
 
 from legalforecast.ingestion.disclosure_clearance import build_clearance_records
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthority,
 )
+from legalforecast.ingestion.disclosure_uri import is_canonical_private_store_uri
 
 WORKSHEET_SCHEMA_VERSION = "legalforecast.disclosure_review_worksheet.v1"
 POLICY_SCHEMA_VERSION = "legalforecast.disclosure_reviewer_policy.v1"
@@ -184,10 +184,17 @@ class ReviewerPolicy:
 def canonical_json_bytes(value: object) -> bytes:
     """Return the one canonical byte representation used for signatures."""
 
-    return (
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-        + "\n"
-    ).encode("utf-8")
+    try:
+        serialized = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        return (serialized + "\n").encode("utf-8")
+    except (TypeError, UnicodeError, ValueError) as exc:
+        raise ReviewBundleError("review artifact is not canonical JSON") from exc
 
 
 def prepare_review_worksheet(
@@ -1125,16 +1132,7 @@ def _digest(record: Mapping[str, object], field: str) -> str:
 
 
 def _require_private_store_uri(value: str) -> None:
-    parsed = urlsplit(value)
-    segments = parsed.path.strip("/").split("/") if parsed.path.strip("/") else []
-    if (
-        parsed.scheme != "private-store"
-        or not parsed.netloc
-        or parsed.query
-        or parsed.fragment
-        or "//" in parsed.path
-        or any(segment in {"", ".", ".."} for segment in segments)
-    ):
+    if not is_canonical_private_store_uri(value):
         raise ReviewBundleError(
             "review bundle requires controlled private-store provenance"
         )

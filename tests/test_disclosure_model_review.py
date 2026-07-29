@@ -640,6 +640,8 @@ def test_short_marker_page_can_supply_its_entire_text_as_support() -> None:
         "https://storage.courtlistener.com:8443/recap/a.pdf",
         "https://storage.courtlistener.com:bad/recap/a.pdf",
         "https://storage.courtlistener.com[/recap/a.pdf",
+        "https://storage.courtlistener.com/recap/../private/a.pdf",
+        "https://storage.courtlistener.com/recap/%2e%2e/private/a.pdf",
     ],
 )
 def test_prompt_rejects_noncanonical_courtlistener_url(source_url: str) -> None:

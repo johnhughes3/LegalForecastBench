@@ -28,6 +28,12 @@ def _json_bytes(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
+@pytest.mark.parametrize("value", (float("nan"), float("inf"), float("-inf"), "\ud800"))
+def test_canonical_json_rejects_noncanonical_values(value: object) -> None:
+    with pytest.raises(ReviewBundleError, match="canonical JSON"):
+        canonical_json_bytes({"value": value})
+
+
 def _fixture_inputs(
     tmp_path: Path,
 ) -> tuple[
@@ -385,3 +391,28 @@ def test_human_policy_requires_hardware_backed_key_without_exposing_key() -> Non
             expected_reviewer_policy_sha256=hashlib.sha256(policy_bytes).hexdigest(),
         )
     assert "AAAAC3" not in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "controlled_store_uri_prefix",
+    (
+        "private-store://user@cycle-1/reviews/",
+        "private-store://cycle-1:8443/reviews/",
+        "private-store://cycle-1:invalid/reviews/",
+        "private-store://cycle-1/reviews/../private/",
+    ),
+)
+def test_reviewer_policy_rejects_noncanonical_private_store_prefix(
+    tmp_path: Path,
+    controlled_store_uri_prefix: str,
+) -> None:
+    policy, _policy_bytes, _key_path = _service_policy(tmp_path)
+    policy["controlled_store_uri_prefix"] = controlled_store_uri_prefix
+    policy_bytes = _json_bytes(policy)
+
+    with pytest.raises(ReviewBundleError, match="controlled private-store"):
+        reviewer_policy_preflight(
+            policy_bytes,
+            expected_reviewer_policy_sha256=hashlib.sha256(policy_bytes).hexdigest(),
+            allow_test_service_identity=True,
+        )

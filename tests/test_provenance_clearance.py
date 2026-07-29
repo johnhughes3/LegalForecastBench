@@ -33,6 +33,12 @@ def _jsonl(rows: Sequence[Mapping[str, object]]) -> bytes:
     return b"".join(canonical_json_bytes(row) for row in rows)
 
 
+@pytest.mark.parametrize("value", (float("nan"), float("inf"), float("-inf"), "\ud800"))
+def test_canonical_json_rejects_noncanonical_values(value: object) -> None:
+    with pytest.raises(ProvenanceClearanceError, match="canonical JSON"):
+        canonical_json_bytes({"value": value})
+
+
 @dataclass(frozen=True, slots=True)
 class Inputs:
     document_root: Path
@@ -229,6 +235,50 @@ def test_plan_auto_clears_only_complete_marker_free_scans_after_public_gates(
         "restricted",
         "contradiction",
     }
+
+
+@pytest.mark.parametrize(
+    "source_url",
+    (
+        "https://storage.courtlistener.com:443/recap/case/public-safe.pdf",
+        "https://storage.courtlistener.com/recap/../private/public-safe.pdf",
+    ),
+)
+def test_plan_rejects_noncanonical_public_recap_provenance(
+    tmp_path: Path,
+    source_url: str,
+) -> None:
+    values = _inputs(tmp_path)
+    source = next(
+        row for row in values.manifest if row["source_document_id"] == "public-safe"
+    )
+    source["source_url"] = source_url
+    relevance_documents = cast(
+        list[dict[str, object]], values.relevance[0]["documents"]
+    )
+    visibility = next(
+        row for row in relevance_documents if row["source_document_id"] == "public-safe"
+    )
+    visibility["source_url_or_reference"] = source_url
+
+    plan = build_provenance_clearance_plan(
+        values.requests,
+        values.manifest,
+        values.restrictions,
+        values.relevance,
+        document_root=values.document_root,
+        review_requests_bytes=_jsonl(values.requests),
+        download_manifest_bytes=_jsonl(values.manifest),
+        restriction_evidence_bytes=_jsonl(values.restrictions),
+        case_relevance_bytes=_jsonl(values.relevance),
+        document_scanner=_scanner({}),
+    )
+
+    public_safe = next(
+        row for row in _documents(plan) if row["source_document_id"] == "public-safe"
+    )
+    assert public_safe["route"] == "john_exception_review"
+    assert "affirmative_public_provenance_unproven" in _route_reasons(public_safe)
 
 
 def test_incomplete_page_coverage_remains_review_routed(
