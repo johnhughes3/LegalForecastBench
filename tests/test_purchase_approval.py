@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import os
@@ -174,6 +175,39 @@ def test_approved_checkpoint_binds_exact_projection_and_generates_v2(
     assert approval["remaining_headroom_usd"] == "93.90"
     assert artifact["policy"]["per_document_reservation_usd"] == "3.05"
     assert policy.has_verified_approval is True
+
+
+def test_projection_verifier_import_error_uses_purchase_approval_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target_root, cohort_policy, fee_schedule = _projection_fixture(tmp_path)
+    original_import = builtins.__import__
+
+    def fail_cli_import(
+        name: str,
+        globals: dict[str, object] | None = None,
+        locals: dict[str, object] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "legalforecast.cli":
+            raise ImportError("simulated lazy import failure")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fail_cli_import)
+
+    with pytest.raises(
+        PurchaseApprovalError,
+        match="authenticated target projection verification failed: "
+        "simulated lazy import failure",
+    ):
+        build_purchase_approval_request(
+            target_cohort_root=target_root,
+            cohort_policy_path=cohort_policy,
+            fee_schedule_path=fee_schedule,
+            canonical_ledger_path=(tmp_path / "ledger.sqlite3").resolve(),
+        )
 
 
 @pytest.mark.parametrize("source", ["cohort", "fee"])

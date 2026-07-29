@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import json
 from copy import deepcopy
 from decimal import Decimal
@@ -122,6 +123,44 @@ def test_replacement_inputs_must_be_supplied_all_or_none(
             budget_plan_artifact=plan.to_record(),
             selection_records=_selection(),
             replacement_controlled_private_root=tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    ("generator", "error"),
+    [
+        (generate_recap_fetch_attempt_policy, RecapFetchAttemptPolicyError),
+        (generate_recap_fetch_broker_policy, RecapFetchBrokerPolicyError),
+    ],
+)
+def test_purchase_approval_import_error_uses_policy_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+    generator: Any,
+    error: type[ValueError],
+) -> None:
+    original_import = builtins.__import__
+
+    def fail_purchase_approval_import(
+        name: str,
+        globals: dict[str, object] | None = None,
+        locals: dict[str, object] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "legalforecast.ingestion.purchase_approval":
+            raise ImportError("simulated lazy import failure")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fail_purchase_approval_import)
+    plan = _budget_plan()
+
+    with pytest.raises(error, match="simulated lazy import failure"):
+        generator(
+            purchase_policy_artifact=_purchase_policy(),
+            cohort_policy_artifact=_cohort_policy(),
+            budget_plan=plan,
+            budget_plan_artifact=plan.to_record(),
+            selection_records=_selection(),
         )
 
 

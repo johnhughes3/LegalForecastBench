@@ -191,7 +191,7 @@ def _build_recap_fetch_broker_policy(
             purchase_policy,
             cohort_policy_artifact,
         )
-    except (OSError, ValueError) as exc:
+    except (ImportError, OSError, ValueError) as exc:
         raise RecapFetchBrokerPolicyError(str(exc)) from exc
 
     if broad_frontier_allowlist and purchase_policy.has_verified_approval:
