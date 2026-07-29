@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import stat
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-from legalforecast.ingestion.infisical_systemd_launcher import (
-    EXIT_MISSING_CHILD_RECEIPT,
-    main,
-)
+from legalforecast.ingestion import infisical_systemd_launcher as launcher
+
+EXIT_MISSING_CHILD_RECEIPT = launcher.EXIT_MISSING_CHILD_RECEIPT
+main = launcher.main
 
 
 def _write_masking_sandbox(
@@ -210,7 +211,7 @@ def test_launcher_rejects_broad_or_unapproved_sandbox_paths(
     sandbox = tmp_path / "infisical-agent-sandbox"
     sandbox.write_text(
         f"""#!/bin/bash
-printf invoked > {marker}
+printf invoked > {shlex.quote(str(marker))}
 exit 99
 """,
         encoding="utf-8",
@@ -232,6 +233,42 @@ exit 99
     assert status == 64
     assert not receipt.exists()
     assert not marker.exists()
+
+
+def test_launcher_help_describes_exact_sandbox_path_allowlist(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--help"])
+
+    assert exc_info.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "exact allowlisted Infisical path" in help_text
+    compact_help = "".join(help_text.split())
+    for sandbox_path in (
+        "/agents/sandbox/legalforecastbench-acquisition",
+        "/agents/sandbox/legalforecastbench/parser",
+        "/agents/sandbox/legalforecastbench/labeling",
+        "/agents/sandbox/legalforecastbench/recap-fetch-broker-client",
+    ):
+        assert sandbox_path in compact_help
+
+
+def test_atomic_write_cleanup_preserves_original_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_write(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("original write failure")
+
+    def fail_cleanup(*args: object, **kwargs: object) -> None:
+        raise OSError("cleanup failure")
+
+    monkeypatch.setattr(launcher.os, "fchmod", fail_write)
+    monkeypatch.setattr(launcher.Path, "unlink", fail_cleanup)
+
+    with pytest.raises(RuntimeError, match="original write failure"):
+        launcher._atomic_write_json(tmp_path / "receipt.json", {})
 
 
 def test_launcher_accepts_exact_recap_fetch_broker_client_path(

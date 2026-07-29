@@ -70,8 +70,12 @@ def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
         try:
             os.close(descriptor)
         except OSError:
+            # Preserve the original write failure; closing here is best-effort cleanup.
             pass
-        temporary_path.unlink(missing_ok=True)
+        try:
+            temporary_path.unlink(missing_ok=True)
+        except OSError:
+            pass
         raise
 
 
@@ -221,7 +225,13 @@ def _launcher_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--sandbox-path",
         required=True,
-        help="Narrow Infisical path at or below /agents/sandbox.",
+        help=(
+            "Use one exact allowlisted Infisical path: "
+            "/agents/sandbox/legalforecastbench-acquisition, "
+            "/agents/sandbox/legalforecastbench/parser, "
+            "/agents/sandbox/legalforecastbench/labeling, or "
+            "/agents/sandbox/legalforecastbench/recap-fetch-broker-client."
+        ),
     )
     parser.add_argument(
         "--receipt-output",
