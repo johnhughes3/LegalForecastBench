@@ -208,6 +208,36 @@ class DynamoDbProviderSpendAuthority:
             raise AuthorityIdentityMismatchError(
                 "DynamoDB authority table key schema differs from frozen contract"
             )
+        raw_attribute_definitions = table.get("AttributeDefinitions")
+        if not isinstance(raw_attribute_definitions, list):
+            raise AuthorityIdentityMismatchError(
+                "DynamoDB authority table key attribute definitions differ from "
+                "frozen contract"
+            )
+        attribute_definitions = cast(list[object], raw_attribute_definitions)
+        actual_attribute_definitions: dict[object, object] = {}
+        for raw_attribute in attribute_definitions:
+            if not isinstance(raw_attribute, Mapping):
+                raise AuthorityIdentityMismatchError(
+                    "DynamoDB authority table key attribute definitions differ from "
+                    "frozen contract"
+                )
+            attribute = cast(Mapping[object, object], raw_attribute)
+            name = attribute.get("AttributeName")
+            if name in actual_attribute_definitions:
+                raise AuthorityIdentityMismatchError(
+                    "DynamoDB authority table key attribute definitions differ from "
+                    "frozen contract"
+                )
+            actual_attribute_definitions[name] = attribute.get("AttributeType")
+        if any(
+            actual_attribute_definitions.get(name) != "S"
+            for name in ("authority_key", "record_key")
+        ):
+            raise AuthorityIdentityMismatchError(
+                "DynamoDB authority table key attribute definitions differ from "
+                "frozen contract"
+            )
 
     def authorize_attempt(
         self,

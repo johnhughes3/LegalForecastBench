@@ -633,7 +633,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             validate_only=args.validate_only,
         )
     except OfficialPaidLabelingJobError as exc:
-        parser.error(str(exc))
+        parser.exit(status=2, message=f"{parser.prog}: error: {exc}\n")
+        return 2
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised through protected workflow
