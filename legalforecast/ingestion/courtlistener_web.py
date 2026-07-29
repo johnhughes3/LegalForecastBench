@@ -19,7 +19,8 @@ from legalforecast.ingestion.restricted_material import restricted_material_mark
 
 _EXPLICIT_MOTION_REFERENCE_RE = re.compile(
     r"\b(?:re|regarding|opposition\s+to|motion|dkt\.?|docket|ecf\s+no\.?)"
-    r"\s*(?:#|no\.?)?\s*(?P<number>\d+)\b(?!\s*:|-)",
+    r"\s*(?:#|no\.?)?\s*(?P<number>\d+)\b"
+    r"(?!\s*:\s*\d{2,4}-[a-z]|-)",
     re.IGNORECASE,
 )
 

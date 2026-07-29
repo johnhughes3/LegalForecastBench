@@ -37,6 +37,22 @@ def test_docket_keyword_explicitly_targets_only_standalone_entry_number() -> Non
     assert brief_targets_motion(entry, (3, 43)) is False
 
 
+def test_colon_punctuation_after_entry_number_remains_an_explicit_reference() -> None:
+    for text in (
+        "Opposition re 42: Motion to Dismiss",
+        "Opposition re 42: 12(b)(6) Motion to Dismiss",
+    ):
+        entry = CourtListenerWebDocketEntry(
+            row_id="entry-50",
+            entry_number="50",
+            filed_at="Jan 10, 2026",
+            text=text,
+        )
+
+        assert explicit_motion_reference_numbers(entry) == frozenset({42})
+        assert brief_targets_motion(entry, (42, 43)) is True
+
+
 def test_case_number_does_not_target_same_numbered_motion() -> None:
     for case_number, leading_number in (
         ("3:21-cv-00123", 3),
