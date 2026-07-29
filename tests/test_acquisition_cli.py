@@ -3034,6 +3034,20 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
     document_root, materialization_card = _materialized_cli_unit_fixture(
         monkeypatch, tmp_path
     )
+    verify_materialized_lineage = cli._verify_materialized_downstream_lineage
+    materialization_verifications: list[object] = []
+
+    def count_materialization_verification(
+        **kwargs: object,
+    ) -> cli._VerifiedMaterializedDownstreamLineage:
+        materialization_verifications.append(kwargs)
+        return verify_materialized_lineage(**kwargs)
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_materialized_downstream_lineage",
+        count_materialization_verification,
+    )
 
     assert (
         main(
@@ -3071,6 +3085,7 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
         )
         == 0
     )
+    assert len(materialization_verifications) == 1
 
     packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
     assert packet_input["target_docket_entry_numbers"] == [33, 34]
@@ -3123,6 +3138,54 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
         "cand-1-complaint",
         "cand-1-mtd-memo",
     ]
+    assert len(materialization_verifications) == 2
+
+
+def test_materialization_lineage_stability_rejects_post_verification_changes(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "artifact.json"
+    artifact.write_bytes(b"original")
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    document = document_root / "document.md"
+    document.write_bytes(b"document")
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    verified = cli._VerifiedMaterializedDownstreamLineage(
+        paths=(artifact,),
+        artifact_bytes={str(artifact.resolve()): b"original"},
+        manifest_records=(),
+        clearance_records=(),
+        selection_records=(),
+        resolved_records=(),
+        document_tree={"document.md": b"document"},
+        fresh_ledger_namespace=ledger,
+    )
+
+    artifact.write_bytes(b"replacement")
+    with pytest.raises(cli.CommandError, match="artifact changed during execution"):
+        cli._require_materialized_downstream_lineage_unchanged(
+            verified,
+            document_root=document_root,
+        )
+
+    artifact.write_bytes(b"original")
+    (document_root / "added.md").write_bytes(b"added")
+    with pytest.raises(
+        cli.CommandError, match="document tree changed during execution"
+    ):
+        cli._require_materialized_downstream_lineage_unchanged(
+            verified,
+            document_root=document_root,
+        )
+
+    (document_root / "added.md").unlink()
+    ledger.write_bytes(b"initialized")
+    with pytest.raises(cli.CommandError, match="absent fresh ledger namespace"):
+        cli._require_materialized_downstream_lineage_unchanged(
+            verified,
+            document_root=document_root,
+        )
 
 
 def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
