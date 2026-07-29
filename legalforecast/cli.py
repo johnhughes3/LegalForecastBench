@@ -512,6 +512,7 @@ from legalforecast.ingestion.pacer_gap_append_rebase import (
 )
 from legalforecast.ingestion.packet_input_planner import plan_packet_build_inputs
 from legalforecast.ingestion.packet_role_adjudication import (
+    AuthenticatedPacketRoleEvidence,
     PacketRoleAdjudicationError,
     VerifiedPacketRoleAdjudications,
     authenticated_packet_role_evidence_from_record,
@@ -5934,6 +5935,32 @@ def _add_target_public_gap_identity_arguments(
     parser.add_argument("--force-browser", action="store_true")
 
 
+def _add_packet_role_adjudication_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--packet-role-adjudications",
+        type=Path,
+        help="Hash-pinned accepted or rejected packet-role adjudication JSONL.",
+    )
+    parser.add_argument(
+        "--expected-packet-role-adjudications-sha256",
+        help="Exact lowercase SHA-256 of --packet-role-adjudications.",
+    )
+    parser.add_argument(
+        "--authenticated-packet-role-evidence",
+        type=Path,
+        help=(
+            "Hash-pinned parser evidence JSONL whose records reference the exact "
+            "local source, parser, and evidence files."
+        ),
+    )
+    parser.add_argument(
+        "--expected-authenticated-packet-role-evidence-sha256",
+        help="Exact lowercase SHA-256 of --authenticated-packet-role-evidence.",
+    )
+
+
 def _add_acquisition_plan_target_public_gaps_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -5948,6 +5975,7 @@ def _add_acquisition_execute_target_public_gaps_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_target_public_gap_identity_arguments(parser)
+    _add_packet_role_adjudication_arguments(parser)
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--expected-plan-sha256", required=True)
     parser.add_argument("--firecrawl-fixture", type=Path)
@@ -6079,24 +6107,7 @@ def _add_acquisition_plan_public_downloads_arguments(
             "selected_entries records in the screened-cases JSONL."
         ),
     )
-    parser.add_argument(
-        "--packet-role-adjudications",
-        type=Path,
-        help="Hash-pinned accepted or rejected packet-role adjudication JSONL.",
-    )
-    parser.add_argument(
-        "--expected-packet-role-adjudications-sha256",
-        help="Exact lowercase SHA-256 of --packet-role-adjudications.",
-    )
-    parser.add_argument(
-        "--authenticated-packet-role-evidence",
-        type=Path,
-        help="Authenticated parser evidence JSONL for packet-role replay.",
-    )
-    parser.add_argument(
-        "--expected-authenticated-packet-role-evidence-sha256",
-        help="Exact lowercase SHA-256 of --authenticated-packet-role-evidence.",
-    )
+    _add_packet_role_adjudication_arguments(parser)
     parser.add_argument("--target-clean-cases", type=int, default=25)
     parser.add_argument(
         "--cost-per-missing-document-usd",
@@ -19563,6 +19574,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
         raise CommandError("Firecrawl fixture execution requires --workers 1")
     try:
         plan = _target_public_gap_plan_from_args(args)
+        role_adjudications = _verified_packet_role_adjudications_from_args(args)
         expected_plan_sha256 = cast(str, args.expected_plan_sha256)
         verify_target_public_gap_plan(
             cast(Path, args.plan),
@@ -19574,7 +19586,13 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
             expected_plan_sha256=expected_plan_sha256,
         )
         require_target_public_gap_sources_unchanged(plan)
-    except (CommandError, OSError, TargetPublicGapRefreshError) as exc:
+    except (
+        CommandError,
+        OSError,
+        PacketRoleAdjudicationError,
+        ReviewBundleError,
+        TargetPublicGapRefreshError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
 
     def firecrawl_source_factory() -> FirecrawlCourtListenerHTMLSource:
@@ -19614,6 +19632,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                 firecrawl_source_factory=firecrawl_source_factory,
                 document_source_factory=document_source_factory,
                 allow_existing_downloads=cast(bool, args.resume),
+                role_adjudications=role_adjudications,
                 execution_binding=binding,
             )
             binding.require_current(plan)
@@ -27442,6 +27461,7 @@ def _cmd_acquisition_plan_public_downloads(
         CommandError,
         OSError,
         PacketRoleAdjudicationError,
+        ReviewBundleError,
         SnapshotVerificationError,
         ScreeningSnapshotUnionError,
         FirecrawlScreeningIdentityError,
@@ -27626,10 +27646,222 @@ def _verified_packet_role_adjudications_from_args(
         label="authenticated packet-role evidence",
     )
     evidence = tuple(
-        authenticated_packet_role_evidence_from_record(record)
+        _authenticated_packet_role_evidence_from_local_record(
+            record,
+            evidence_root=cast(Path, evidence_path).parent,
+        )
         for record in evidence_records
     )
     return verify_packet_role_adjudications(adjudication_records, evidence)
+
+
+def _authenticated_packet_role_evidence_from_local_record(
+    raw_record: Mapping[str, object],
+    *,
+    evidence_root: Path,
+) -> AuthenticatedPacketRoleEvidence:
+    record = dict(raw_record)
+    artifact_fields = (
+        ("source_pdf_path", "source_pdf_sha256"),
+        ("parser_manifest_path", "parser_manifest_sha256"),
+        ("parser_run_card_path", "parser_run_card_sha256"),
+        ("parser_record_path", "parser_record_sha256"),
+        ("evidence_text_path", "evidence_text_sha256"),
+    )
+    artifact_paths: dict[str, Path] = {}
+    for path_field, _ in artifact_fields:
+        raw_path = record.pop(path_field, None)
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            raise CommandError(
+                f"authenticated packet-role evidence requires {path_field}"
+            )
+        path = Path(raw_path)
+        artifact_paths[path_field] = (
+            path if path.is_absolute() else evidence_root / path
+        )
+    evidence = authenticated_packet_role_evidence_from_record(record)
+    artifact_payloads: dict[str, bytes] = {}
+    for path_field, commitment_field in artifact_fields:
+        payload = read_unique_regular_file(artifact_paths[path_field])
+        artifact_payloads[path_field] = payload
+        if hashlib.sha256(payload).hexdigest() != getattr(
+            evidence,
+            commitment_field,
+        ):
+            raise CommandError(f"{commitment_field} mismatch")
+        if (
+            path_field == "source_pdf_path"
+            and len(payload) != evidence.source_byte_count
+        ):
+            raise CommandError("source_byte_count mismatch")
+    _validate_packet_role_parser_lineage(
+        evidence,
+        artifact_paths=artifact_paths,
+        artifact_payloads=artifact_payloads,
+    )
+    return evidence
+
+
+def _validate_packet_role_parser_lineage(
+    evidence: AuthenticatedPacketRoleEvidence,
+    *,
+    artifact_paths: Mapping[str, Path],
+    artifact_payloads: Mapping[str, bytes],
+) -> None:
+    run_card = _projection_json_object(
+        artifact_payloads["parser_run_card_path"],
+        source=artifact_paths["parser_run_card_path"],
+    )
+    execution = run_card.get("parser_execution")
+    if not isinstance(execution, Mapping):
+        raise CommandError(
+            "packet-role evidence lacks an executed pinned live-Mistral run card"
+        )
+    execution_record = cast(Mapping[str, object], execution)
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "parse-documents"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+        or execution_record.get("mode") != "live_mistral"
+        or execution_record.get("engine") != "mistral"
+        or execution_record.get("parser_revision") != EXPECTED_PARSER_REVISION
+        or execution_record.get("fixture_markdown") is not False
+    ):
+        raise CommandError(
+            "packet-role evidence lacks an executed pinned live-Mistral run card"
+        )
+    outputs = run_card.get("output_commitments")
+    if not isinstance(outputs, Mapping):
+        raise CommandError("packet-role parser run card lacks output commitments")
+    output_commitments = cast(Mapping[str, object], outputs)
+    _require_packet_role_file_commitment(
+        output_commitments.get("parser_manifest"),
+        expected_path=artifact_paths["parser_manifest_path"],
+        expected_payload=artifact_payloads["parser_manifest_path"],
+        label="parser manifest",
+    )
+    sources = run_card.get("source_commitments")
+    if not isinstance(sources, Mapping):
+        raise CommandError("packet-role parser run card lacks source commitments")
+    source_commitments = cast(Mapping[str, object], sources)
+    request_commitment = source_commitments.get("requests")
+    if not isinstance(request_commitment, Mapping):
+        raise CommandError("packet-role parser run card lacks requests commitment")
+    request_commitment_record = cast(Mapping[str, object], request_commitment)
+    request_path_raw = request_commitment_record.get("path")
+    if not isinstance(request_path_raw, str) or not request_path_raw.strip():
+        raise CommandError("packet-role parser requests path is invalid")
+    request_path = Path(request_path_raw)
+    request_payload = read_unique_regular_file(request_path)
+    _require_packet_role_file_commitment(
+        request_commitment_record,
+        expected_path=request_path,
+        expected_payload=request_payload,
+        label="parser requests",
+    )
+    requests = _packet_role_jsonl_records(request_payload, label="parser requests")
+    matching_requests = [
+        request
+        for request in requests
+        if request.get("candidate_id") == evidence.candidate_id
+        and request.get("source_document_id") == evidence.document_key
+    ]
+    if len(matching_requests) != 1:
+        raise CommandError("packet-role evidence lacks one authenticated parse request")
+    request = matching_requests[0]
+    if (
+        Path(_required_str(request, "input_path")).resolve()
+        != artifact_paths["source_pdf_path"].resolve()
+        or str(request.get("expected_sha256", "")).removeprefix("sha256:")
+        != evidence.source_pdf_sha256
+        or type(request.get("expected_byte_count")) is not int
+        or request.get("expected_byte_count") != evidence.source_byte_count
+    ):
+        raise CommandError("packet-role parse request source commitment mismatch")
+
+    parser_record = _projection_json_object(
+        artifact_payloads["parser_record_path"],
+        source=artifact_paths["parser_record_path"],
+    )
+    manifest_records = _packet_role_jsonl_records(
+        artifact_payloads["parser_manifest_path"],
+        label="parser manifest",
+    )
+    if sum(record == parser_record for record in manifest_records) != 1:
+        raise CommandError(
+            "packet-role parser record is not uniquely committed by the manifest"
+        )
+    parser_config = parser_record.get("parser_config")
+    extracted_text = parser_record.get("extracted_text")
+    if not isinstance(parser_config, Mapping) or not isinstance(
+        extracted_text, Mapping
+    ):
+        raise CommandError(
+            "packet-role parser record differs from authenticated evidence"
+        )
+    parser_config_record = cast(Mapping[str, object], parser_config)
+    extracted_text_record = cast(Mapping[str, object], extracted_text)
+    if (
+        parser_record.get("candidate_id") != evidence.candidate_id
+        or parser_record.get("source_document_id") != evidence.document_key
+        or parser_record.get("status") != "succeeded"
+        or str(parser_record.get("source_sha256", "")).removeprefix("sha256:")
+        != evidence.source_pdf_sha256
+        or type(parser_record.get("source_byte_count")) is not int
+        or parser_record.get("source_byte_count") != evidence.source_byte_count
+        or parser_record.get("quality_flags") != []
+        or parser_config_record.get("parser_revision") != EXPECTED_PARSER_REVISION
+        or parser_config_record.get("expected_parser_revision")
+        != EXPECTED_PARSER_REVISION
+        or extracted_text_record.get("source_document_id") != evidence.document_key
+    ):
+        raise CommandError(
+            "packet-role parser record differs from authenticated evidence"
+        )
+
+
+def _require_packet_role_file_commitment(
+    raw_commitment: object,
+    *,
+    expected_path: Path,
+    expected_payload: bytes,
+    label: str,
+) -> None:
+    if not isinstance(raw_commitment, Mapping):
+        raise CommandError(f"packet-role run card lacks {label} commitment")
+    commitment = cast(Mapping[str, object], raw_commitment)
+    digest = hashlib.sha256(expected_payload).hexdigest()
+    if (
+        commitment.get("path") != str(expected_path.resolve())
+        or str(commitment.get("sha256", "")).removeprefix("sha256:") != digest
+    ):
+        raise CommandError(f"packet-role {label} commitment mismatch")
+
+
+def _packet_role_jsonl_records(
+    payload: bytes,
+    *,
+    label: str,
+) -> tuple[Mapping[str, object], ...]:
+    records: list[Mapping[str, object]] = []
+    try:
+        text = payload.decode("utf-8")
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            value = json.loads(line)
+            if not isinstance(value, Mapping):
+                raise CommandError(f"{label} contains a non-object record")
+            records.append(cast(Mapping[str, object], value))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CommandError(f"{label} is not valid JSONL") from exc
+    if not records:
+        raise CommandError(f"{label} has no records")
+    return tuple(records)
 
 
 def _cmd_acquisition_fetch_firecrawl(args: argparse.Namespace) -> int:
