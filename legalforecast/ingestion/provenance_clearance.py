@@ -10,7 +10,6 @@ from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import cast
-from urllib.parse import urlsplit
 
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION,
@@ -25,6 +24,7 @@ from legalforecast.ingestion.disclosure_review_bundle import (
     ReviewBundleError,
     read_unique_regular_file,
 )
+from legalforecast.ingestion.disclosure_uri import is_allowlisted_public_recap_uri
 
 PLAN_SCHEMA_VERSION = "legalforecast.disclosure_provenance_routing_plan.v2"
 WORKSHEET_SCHEMA_VERSION = "legalforecast.disclosure_exception_worksheet.v2"
@@ -56,10 +56,19 @@ class ProvenanceClearanceError(ValueError):
 def canonical_json_bytes(value: object) -> bytes:
     """Serialize one artifact value in its canonical representation."""
 
-    return (
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-        + "\n"
-    ).encode("utf-8")
+    try:
+        serialized = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        return (serialized + "\n").encode("utf-8")
+    except (TypeError, UnicodeError, ValueError) as exc:
+        raise ProvenanceClearanceError(
+            "provenance artifact is not canonical JSON"
+        ) from exc
 
 
 def build_provenance_clearance_plan(
@@ -970,21 +979,7 @@ def _affirmative_public_provenance(
         or visibility.get("source_url_or_reference") != source.get("source_url")
     ):
         return False
-    try:
-        parsed = urlsplit(_required_text(source, "source_url"))
-        port = parsed.port
-    except ValueError:
-        return False
-    if (
-        parsed.scheme != "https"
-        or parsed.hostname != "storage.courtlistener.com"
-        or port is not None
-        or not parsed.path.startswith("/recap/")
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.query
-        or parsed.fragment
-    ):
+    if not is_allowlisted_public_recap_uri(_required_text(source, "source_url")):
         return False
     evidence = frozenset(_text_set(restriction, "restriction_evidence"))
     status = restriction.get("restriction_status")

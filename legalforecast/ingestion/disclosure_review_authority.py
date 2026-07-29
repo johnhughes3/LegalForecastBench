@@ -23,12 +23,12 @@ from datetime import date
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, cast
-from urllib.parse import urlsplit
 
 from legalforecast.ingestion.cohort_policy import (
     CohortPolicyError,
     verify_cohort_policy,
 )
+from legalforecast.ingestion.disclosure_uri import is_canonical_private_store_uri
 
 AUTHORITY_SCHEMA_VERSION = "legalforecast.disclosure_review_authority.v1"
 REVIEWER_POLICY_SCHEMA_VERSION = "legalforecast.disclosure_reviewer_policy.v1"
@@ -614,19 +614,7 @@ def _text(value: object, label: str) -> str:
 
 
 def _require_private_store_uri(value: str) -> None:
-    parsed = urlsplit(value)
-    segments = parsed.path.strip("/").split("/") if parsed.path.strip("/") else []
-    if (
-        parsed.scheme != "private-store"
-        or not parsed.netloc
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.port is not None
-        or parsed.query
-        or parsed.fragment
-        or "//" in parsed.path
-        or any(segment in {"", ".", ".."} for segment in segments)
-    ):
+    if not is_canonical_private_store_uri(value):
         raise DisclosureReviewAuthorityError(
             "reviewer policy requires a controlled private-store URI prefix"
         )

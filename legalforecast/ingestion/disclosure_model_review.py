@@ -8,7 +8,6 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
-from urllib.parse import urlsplit
 
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
@@ -20,6 +19,7 @@ from legalforecast.ingestion.disclosure_clearance import (
     extract_disclosure_pdf_pages,
     normalize_restriction_token,
 )
+from legalforecast.ingestion.disclosure_uri import is_allowlisted_public_recap_uri
 
 PROMPT_SCHEMA_VERSION = "legalforecast.disclosure_model_review_prompt.v1"
 RESPONSE_SCHEMA_VERSION = "legalforecast.disclosure_model_review_response.v1"
@@ -644,21 +644,7 @@ def _affirmative_courtlistener_provenance(
     source_url = document.get("source_url")
     if not isinstance(source_url, str):
         return False
-    try:
-        parsed = urlsplit(source_url)
-        port = parsed.port
-    except ValueError:
-        return False
-    if (
-        parsed.scheme != "https"
-        or parsed.hostname != "storage.courtlistener.com"
-        or port is not None
-        or not parsed.path.startswith("/recap/")
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.query
-        or parsed.fragment
-    ):
+    if not is_allowlisted_public_recap_uri(source_url):
         return False
     evidence = frozenset(_text_list(document.get("restriction_evidence")))
     status = document.get("restriction_status")

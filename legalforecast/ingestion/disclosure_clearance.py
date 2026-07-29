@@ -12,7 +12,6 @@ from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from pathlib import Path
 from typing import cast
-from urllib.parse import urlsplit
 
 from pypdf import PdfReader
 
@@ -22,6 +21,10 @@ from legalforecast.extraction.pdf_text import (
 )
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthority,
+)
+from legalforecast.ingestion.disclosure_uri import (
+    is_allowlisted_public_recap_uri,
+    is_canonical_private_store_uri,
 )
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
@@ -558,15 +561,8 @@ def _require_clearance_provenance(
             raise DisclosureClearanceError(
                 f"automatic clearance lacks public source provenance: {key}"
             )
-        parsed = urlsplit(provenance)
         if (
-            parsed.scheme != "https"
-            or parsed.hostname != "storage.courtlistener.com"
-            or not parsed.path.startswith("/recap/")
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.query
-            or parsed.fragment
+            not is_allowlisted_public_recap_uri(provenance)
             or row.get("free_or_purchased") != "free"
         ):
             raise DisclosureClearanceError(
@@ -584,7 +580,7 @@ def _require_clearance_provenance(
     provenance = _optional_str(row, "controlled_store_provenance")
     if reviewed_at is None or reviewer_id is None or provenance is None:
         raise DisclosureClearanceError(f"clearance lacks review provenance: {key}")
-    if not provenance.startswith("private-store://"):
+    if not is_canonical_private_store_uri(provenance):
         raise DisclosureClearanceError(
             f"clearance provenance is not from the controlled private store: {key}"
         )
