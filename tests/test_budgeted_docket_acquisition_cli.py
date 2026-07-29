@@ -8,7 +8,6 @@ from pathlib import Path
 
 import legalforecast.cli as cli_module
 import pytest
-from legalforecast.cli import main
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
     authenticated_handoff_parent_batch_id,
@@ -151,7 +150,7 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
         )
 
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "acquire-ranked-firecrawl-dockets",
@@ -183,7 +182,7 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
     fetch_exclusions = output / "firecrawl-docket-exclusions.jsonl"
     snapshot_root = output / "snapshots"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "screen-firecrawl-dockets",
@@ -225,7 +224,7 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
     }
     planner_root = output / "planner"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "plan-public-downloads",
@@ -294,7 +293,7 @@ def test_ranked_budgeted_cli_dry_run_does_not_mutate_cycle_store(
     _write_jsonl(fixture_path, [])
 
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "acquire-ranked-firecrawl-dockets",
@@ -344,7 +343,7 @@ def test_ranked_budgeted_cli_rejects_source_bound_input_without_authenticated_ca
     fixture_path = tmp_path / "unused.jsonl"
     _write_jsonl(fixture_path, [])
 
-    result = main(
+    result = cli_module.main(
         [
             "acquisition",
             "acquire-ranked-firecrawl-dockets",
@@ -388,7 +387,7 @@ def test_ranked_budgeted_cli_cannot_bypass_card_by_stripping_source_lineage(
     fixture_path = tmp_path / "unused.jsonl"
     _write_jsonl(fixture_path, [])
 
-    result = main(
+    result = cli_module.main(
         [
             "acquisition",
             "acquire-ranked-firecrawl-dockets",
@@ -428,7 +427,7 @@ def test_ranked_budgeted_cli_rejects_concurrent_fixture_workers(
     _write_jsonl(fixture_path, [])
 
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "acquire-ranked-firecrawl-dockets",
@@ -574,7 +573,7 @@ def test_seal_ranked_firecrawl_cli_projects_exact_unresolved_without_source_writ
         "--execute",
     ]
 
-    assert main(seal_args) == 0
+    assert cli_module.main(seal_args) == 0
 
     assert (output / "firecrawl-docket-successes.jsonl").read_bytes() == b""
     assert (output / "firecrawl-docket-exclusions.jsonl").read_bytes() == b""
@@ -607,7 +606,7 @@ def test_seal_ranked_firecrawl_cli_projects_exact_unresolved_without_source_writ
     overlap_args.extend(
         ["--successes-output", str(source_raw_root / "forbidden.jsonl")]
     )
-    assert main(overlap_args) == 2
+    assert cli_module.main(overlap_args) == 2
     assert list(source_raw_root.rglob("*")) == []
     assert not rejected_output.exists()
 
@@ -882,7 +881,7 @@ def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
 
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture-key")
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "acquire-ranked-firecrawl-dockets",
@@ -911,7 +910,7 @@ def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
         == 2
     )
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "acquire-ranked-firecrawl-dockets",
@@ -942,7 +941,7 @@ def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
         == 2
     )
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "acquire-ranked-firecrawl-dockets",
