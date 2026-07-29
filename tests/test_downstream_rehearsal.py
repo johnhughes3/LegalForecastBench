@@ -24,6 +24,7 @@ from legalforecast.ingestion.downstream_rehearsal import (
     RESPONSE_FIXTURE_SCHEMA_VERSION,
     DeterministicModelFixtureTransport,
     DownstreamRehearsalError,
+    LoadedDeterministicResponseFixtures,
     fixture_provider_environ,
     load_deterministic_response_fixtures,
     run_fixture_stage_a,
@@ -413,6 +414,9 @@ def test_exact_100_public_fixture_chain_reaches_fixture_only_finalization(
         )
         == 0
     )
+    assert all(
+        path.read_bytes() == content for path, content in published_bytes.items()
+    )
 
     purchase_card = json.loads(fixture["purchase_card"].read_text())
     assert purchase_card["paid_activity_requested"] is False
@@ -468,6 +472,111 @@ def test_exact_100_public_fixture_chain_reaches_fixture_only_finalization(
     assert corpus["official_eligible"] is False
     assert corpus["provider_journal_created"] is False
     assert corpus["provider_billing_usd"] == "0.00"
+
+
+def test_full_chain_pins_each_new_stage_card_before_the_next_stage(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    original_review = cli_module.run_fixture_structural_review
+
+    def replace_card_during_next_stage(*args: Any, **kwargs: Any) -> Any:
+        stage_card_path = (
+            fixture["output_root"] / "run-cards" / "rehearsal-stage-a-unitize.json"
+        )
+        stage_card = json.loads(stage_card_path.read_text(encoding="utf-8"))
+        stage_card["coherent_replacement"] = True
+        _write_json(stage_card_path, stage_card)
+        _recommit_fixture_artifact_sidecar(stage_card_path)
+        return original_review(*args, **kwargs)
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_fixture_structural_review",
+        replace_card_during_next_stage,
+    )
+
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 2
+
+    assert (
+        "fixture rehearsal prior stage card changed: rehearsal-stage-a-unitize"
+        in capsys.readouterr().err
+    )
+    assert not (fixture["output_root"] / "rehearsal-final-summary.json").exists()
+
+
+def test_full_chain_rechecks_its_last_stage_card_before_summary(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    original_require_unchanged = LoadedDeterministicResponseFixtures.require_unchanged
+
+    def replace_last_card(
+        response_fixtures: LoadedDeterministicResponseFixtures,
+    ) -> None:
+        original_require_unchanged(response_fixtures)
+        stage_card_path = (
+            fixture["output_root"] / "run-cards" / "rehearsal-build-packets.json"
+        )
+        stage_card = json.loads(stage_card_path.read_text(encoding="utf-8"))
+        stage_card["coherent_replacement"] = True
+        _write_json(stage_card_path, stage_card)
+        _recommit_fixture_artifact_sidecar(stage_card_path)
+
+    monkeypatch.setattr(
+        LoadedDeterministicResponseFixtures,
+        "require_unchanged",
+        replace_last_card,
+    )
+
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 2
+
+    assert (
+        "fixture rehearsal stage card changed: rehearsal-build-packets"
+        in capsys.readouterr().err
+    )
+    assert not (fixture["output_root"] / "rehearsal-final-summary.json").exists()
+
+
+def test_explicit_stage_pins_configured_run_card_output(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    custom_card = tmp_path / "custom-run-cards" / "decision-texts.json"
+    command = _rehearsal_command(fixture, target_count=1)
+    command[1] = "rehearsal-build-decision-texts"
+    command.extend(("--run-card-output", str(custom_card)))
+
+    assert cli_module.main(command) == 0
+
+    assert custom_card.is_file()
+    assert Path(str(custom_card) + ".fixture-artifact.json").is_file()
+    assert not (
+        fixture["output_root"] / "run-cards" / "rehearsal-build-decision-texts.json"
+    ).exists()
 
 
 @pytest.mark.parametrize("prior_stage_index", range(len(REHEARSAL_STAGE_COMMANDS) - 1))
