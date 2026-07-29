@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from legalforecast import cli
 from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.labeling import official_paid_job
 from legalforecast.labeling.official_paid_job import (
     OfficialPaidLabelingJobError,
     _within_root,
@@ -16,6 +17,54 @@ from pytest import MonkeyPatch
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE_SHA = "a" * 40
+
+
+def test_main_has_explicit_error_return_when_parser_exit_returns(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    def reject_job(**kwargs: object) -> int:
+        raise OfficialPaidLabelingJobError("invalid sealed job")
+
+    exit_calls: list[tuple[int, str | None]] = []
+
+    def record_exit(
+        parser: object,
+        status: int = 0,
+        message: str | None = None,
+    ) -> None:
+        exit_calls.append((status, message))
+
+    monkeypatch.setattr(
+        official_paid_job,
+        "run_official_paid_labeling_job",
+        reject_job,
+    )
+    monkeypatch.setattr("argparse.ArgumentParser.exit", record_exit)
+
+    status = official_paid_job.main(
+        [
+            "--job-manifest",
+            str(tmp_path / "manifest.json"),
+            "--job-root",
+            str(tmp_path),
+            "--release-sha",
+            RELEASE_SHA,
+            "--stage",
+            "llm-unitize",
+            "--provider",
+            "anthropic",
+            "--expected-provider-account-alias",
+            "anthropic-primary",
+        ]
+    )
+
+    assert status == 2
+    assert len(exit_calls) == 1
+    exit_status, message = exit_calls[0]
+    assert exit_status == 2
+    assert message is not None
+    assert message.endswith(": error: invalid sealed job\n")
 
 
 def _write_json(path: Path, value: object) -> None:

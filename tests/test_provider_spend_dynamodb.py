@@ -56,6 +56,10 @@ class InMemoryDynamoRunner:
             {"AttributeName": "authority_key", "KeyType": "HASH"},
             {"AttributeName": "record_key", "KeyType": "RANGE"},
         ]
+        self.attribute_definitions: list[dict[str, str]] = [
+            {"AttributeName": "authority_key", "AttributeType": "S"},
+            {"AttributeName": "record_key", "AttributeType": "S"},
+        ]
 
     def __call__(
         self,
@@ -76,6 +80,7 @@ class InMemoryDynamoRunner:
                 "Table": {
                     "TableArn": self.table_arn,
                     "KeySchema": self.key_schema,
+                    "AttributeDefinitions": self.attribute_definitions,
                 }
             }
         if operation == "get-item":
@@ -417,6 +422,23 @@ def test_constructor_rejects_different_table_arn_or_key_schema() -> None:
     wrong_keys.key_schema = [{"AttributeName": "authority_key", "KeyType": "HASH"}]
     with pytest.raises(AuthorityIdentityMismatchError, match="key schema"):
         _authority(wrong_keys)
+
+
+def test_constructor_rejects_non_string_key_attribute_type() -> None:
+    wrong_type = InMemoryDynamoRunner()
+    wrong_type.attribute_definitions[1]["AttributeType"] = "N"
+
+    with pytest.raises(AuthorityIdentityMismatchError, match="attribute definitions"):
+        _authority(wrong_type)
+
+
+def test_constructor_allows_additional_index_attribute_definitions() -> None:
+    with_index = InMemoryDynamoRunner()
+    with_index.attribute_definitions.append(
+        {"AttributeName": "secondary_index_key", "AttributeType": "N"}
+    )
+
+    _authority(with_index)
 
 
 def test_labeling_and_eval_share_the_same_cycle_provider_account_ledger() -> None:
