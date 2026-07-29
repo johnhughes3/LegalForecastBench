@@ -61,6 +61,13 @@ def _systemd_properties(unit_name: str) -> dict[str, str]:
     )
 
 
+def _path_with_prepend(directory: Path) -> str:
+    inherited_entries = os.environ.get("PATH", "").split(os.pathsep)
+    return os.pathsep.join(
+        [str(directory), *(entry for entry in inherited_entries if entry)]
+    )
+
+
 def _run_case(
     *,
     temporary_root: Path,
@@ -69,7 +76,7 @@ def _run_case(
 ) -> dict[str, object]:
     unit_name = f"lfb-infisical-status-{child_status}-{uuid.uuid4().hex[:12]}"
     receipt_path = temporary_root / f"launcher-{child_status}.json"
-    path = f"{masking_sandbox.parent}:{os.environ['PATH']}"
+    path = _path_with_prepend(masking_sandbox.parent)
     launcher = shutil.which("legalforecast-acquisition-systemd-run")
     if launcher is None:
         raise RuntimeError(
