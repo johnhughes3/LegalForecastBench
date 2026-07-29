@@ -67,12 +67,18 @@ def test_tool_protocol_snapshots_caller_owned_payloads_recursively() -> None:
         status="succeeded",
         output=response_output,
     )
+    encoded_request = encode_tool_message(request)
+    encoded_response = encode_tool_message(response)
 
     request_arguments["late"] = {1: "lossy key"}
     request_options["encoding"] = "latin-1"
     response_output["late"] = {2: "lossy key"}
     response_row["text"] = "mutated"
 
+    assert encode_tool_message(request) == encoded_request
+    assert encode_tool_message(response) == encoded_response
+    assert decode_tool_request(encoded_request) == request
+    assert decode_tool_response(encoded_response) == response
     assert request.to_record()["arguments"] == {"options": {"encoding": "utf-8"}}
     assert response.to_record()["output"] == {"rows": [{"text": "fixture"}]}
 
