@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import unquote_to_bytes, urlsplit
+from urllib.parse import SplitResult, unquote_to_bytes, urlsplit
 
 _INVALID_PERCENT_ESCAPE = re.compile(r"%(?![0-9A-Fa-f]{2})")
 
@@ -18,6 +18,16 @@ def _is_valid_utf8(value: str) -> bool:
     except UnicodeEncodeError:
         return False
     return True
+
+
+def _validated_urlsplit(value: str) -> tuple[SplitResult, int | None] | None:
+    if not _is_valid_utf8(value) or _has_control_character(value) or "\\" in value:
+        return None
+    try:
+        parsed = urlsplit(value)
+        return parsed, parsed.port
+    except ValueError:
+        return None
 
 
 def _has_canonical_path(value: str) -> bool:
@@ -52,13 +62,10 @@ def _has_canonical_path(value: str) -> bool:
 def is_allowlisted_public_recap_uri(value: str) -> bool:
     """Return whether *value* is a canonical public RECAP storage URI."""
 
-    if not _is_valid_utf8(value) or _has_control_character(value) or "\\" in value:
+    parsed_uri = _validated_urlsplit(value)
+    if parsed_uri is None:
         return False
-    try:
-        parsed = urlsplit(value)
-        port = parsed.port
-    except ValueError:
-        return False
+    parsed, port = parsed_uri
     return (
         parsed.scheme == "https"
         and parsed.hostname == "storage.courtlistener.com"
@@ -76,13 +83,10 @@ def is_allowlisted_public_recap_uri(value: str) -> bool:
 def is_canonical_private_store_uri(value: str) -> bool:
     """Return whether *value* has canonical controlled-store URI structure."""
 
-    if not _is_valid_utf8(value) or _has_control_character(value) or "\\" in value:
+    parsed_uri = _validated_urlsplit(value)
+    if parsed_uri is None:
         return False
-    try:
-        parsed = urlsplit(value)
-        port = parsed.port
-    except ValueError:
-        return False
+    parsed, port = parsed_uri
     return (
         parsed.scheme == "private-store"
         and bool(parsed.netloc)

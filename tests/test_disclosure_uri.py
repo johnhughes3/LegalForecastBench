@@ -2,9 +2,23 @@ from __future__ import annotations
 
 import pytest
 from legalforecast.ingestion.disclosure_uri import (
+    _validated_urlsplit,
     is_allowlisted_public_recap_uri,
     is_canonical_private_store_uri,
 )
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "https://example.test/\npath",
+        "https://example.test/path\\segment",
+        "https://example.test:\ud800/path",
+        "https://example.test:invalid/path",
+    ),
+)
+def test_validated_urlsplit_rejects_shared_invalid_preamble(value: str) -> None:
+    assert _validated_urlsplit(value) is None
 
 
 @pytest.mark.parametrize(
