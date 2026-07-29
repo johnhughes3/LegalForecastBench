@@ -1,0 +1,1093 @@
+{
+  "policy": {
+    "allowed_documents": [
+      {
+        "case_id": "66996622",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "242345077",
+        "selection_document_sha256": "01be869ee737f07e3be44efe65de0019f33502db264619b6ac7a8e754d0636b0"
+      },
+      {
+        "case_id": "66996622",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "454216559",
+        "selection_document_sha256": "74be244e096fac4966ccc2f78b707bd6abf6b37a093812f47cfd8c52c7379cc5"
+      },
+      {
+        "case_id": "68016573",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "422817156",
+        "selection_document_sha256": "5734c01b21b4346ddab4fb9d522595ded01ca8eafd62df742a44ddf16a6c03f9"
+      },
+      {
+        "case_id": "68016573",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "426672086",
+        "selection_document_sha256": "f84a8131e704b40bd0b5fbc812e7678426fcc60bb3e40ad2a43895a71713dae2"
+      },
+      {
+        "case_id": "68468414",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "417113375",
+        "selection_document_sha256": "11110f8b6383796422847af146a15b025df5105ac7da5866b484c054cc023c11"
+      },
+      {
+        "case_id": "68468414",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "473319480",
+        "selection_document_sha256": "23b363225ae877ddee9cd57439f73f6701ea7ef1bd6143f324ad6c5d02c80df8"
+      },
+      {
+        "case_id": "68941639",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "415525415",
+        "selection_document_sha256": "7ecda48ad9b3e2efd4fd9ee8c8928ffa27af627025857dc855da5421950e4a27"
+      },
+      {
+        "case_id": "68941639",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484681541",
+        "selection_document_sha256": "91f3183d857f05c9b99b76bd7bd3e02e9de21675e5906f44d5a37fd9abe75941"
+      },
+      {
+        "case_id": "68966872",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "406359324",
+        "selection_document_sha256": "b063de604385faf97d5b9afb587f88442117b207fe2a0df044f33b279be6f15e"
+      },
+      {
+        "case_id": "68966872",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "465995145",
+        "selection_document_sha256": "191b16bcdd1c10f71e6ccba37030fa89588fc10b8584da0fd1020cf0db1dff73"
+      },
+      {
+        "case_id": "69040771",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "414852104",
+        "selection_document_sha256": "f2c96101689cf5ffc70c9b49aae37fd4127bc9f69ea605de94d9587b60cc5e75"
+      },
+      {
+        "case_id": "69040771",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "422066798",
+        "selection_document_sha256": "b1e7ca6ce5ea2412a051cde8eed6444c3cb9130e7f792ec2b260f2a41b523b9a"
+      },
+      {
+        "case_id": "69066691",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "457119911",
+        "selection_document_sha256": "b569bee1e7244f7603a424b89cf56f261e5511b66bb371be6146f37f2e469479"
+      },
+      {
+        "case_id": "69066691",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "464691688",
+        "selection_document_sha256": "d6cb9a7ef41f3233ffbbf64473f004ff5e4fb7744d79fdd0e7e6a9b5f176c5d8"
+      },
+      {
+        "case_id": "69466572",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "423965250",
+        "selection_document_sha256": "f8bb1e793b377ede9fc977e9ef2d74fd2ed91fa1da896523b8d402963d3dfb4b"
+      },
+      {
+        "case_id": "69466572",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "457180788",
+        "selection_document_sha256": "1797a1810fa37f92bdf62def3f94f286dee39e1af6b40a5a323c2cbcbe324c89"
+      },
+      {
+        "case_id": "69496922",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484521668",
+        "selection_document_sha256": "2f746c484701e5fb144d64ce0394c40aee485d0da0ade376896563ac84940ae7"
+      },
+      {
+        "case_id": "69496922",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484663915",
+        "selection_document_sha256": "ed884ca1daa49c1351914d960eb3b0899887dc025f62ab2a6e651082dc978bf9"
+      },
+      {
+        "case_id": "69570756",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "449456830",
+        "selection_document_sha256": "4f2195b0a6fa33f7b703141e9dbf431a5c0e469ecaa234337a4e52b56384f3dd"
+      },
+      {
+        "case_id": "69581167",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "445339777",
+        "selection_document_sha256": "61a54ec72c93587a1367459936f3457e111fcaa3652f3c21c1c124d885d06d63"
+      },
+      {
+        "case_id": "69581167",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "463129654",
+        "selection_document_sha256": "db22a31764a328bbb65854b348e24b7d7340314306aec2e961b638fa16387c8f"
+      },
+      {
+        "case_id": "69657935",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "461390889",
+        "selection_document_sha256": "690c461856f783dc1587a81e610569727d6825a96da31eae5838e0169ed69151"
+      },
+      {
+        "case_id": "69736298",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "481364212",
+        "selection_document_sha256": "f015258e1760f1ffcca70c4101cbaba2fc4a2697023e51eecafeb63f03a147ba"
+      },
+      {
+        "case_id": "69736298",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485714828",
+        "selection_document_sha256": "b820ef8c85b6b07bb6cd0134cf17ce0c98485e4a100761690dfa973539c088a3"
+      },
+      {
+        "case_id": "69830319",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "435024835",
+        "selection_document_sha256": "c42f5b5e8584b7a0e71c850cbbf961d6b883785a91038e0228f9bb07ac3c9f21"
+      },
+      {
+        "case_id": "69830319",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456795799",
+        "selection_document_sha256": "f8bcfd12eebef25aac9149593ff46ced2966e58395584fe425ff95525276aae6"
+      },
+      {
+        "case_id": "69924694",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "437133759",
+        "selection_document_sha256": "847620d4a77764017439ae8dd5842f4106f73db499f0611ecd7d2225a8383b0f"
+      },
+      {
+        "case_id": "69924694",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456201599",
+        "selection_document_sha256": "0260d28e5bf702755a3edec77acf243c09a5c95a9c9e29f0d425c7ff35f1db1f"
+      },
+      {
+        "case_id": "69945573",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "446079944",
+        "selection_document_sha256": "ea15eb36c19541eb4dea233145e7bc2593cc127d8c9c5ea432da4d602110d859"
+      },
+      {
+        "case_id": "69945573",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "450053213",
+        "selection_document_sha256": "c3d561fd9b22bb3510f83ff70c97d345c5bd9fc160381d2011b6db43a0660891"
+      },
+      {
+        "case_id": "70274894",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "454369080",
+        "selection_document_sha256": "4450c60c35160035be84617ec3fb5ff3e2daaa570d8bb72b4c08d9791ae8fa4d"
+      },
+      {
+        "case_id": "70274894",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "462745642",
+        "selection_document_sha256": "5922deccc3060dd84998100f27c39d699cfda9244f017b0bc0792cb2dffead9a"
+      },
+      {
+        "case_id": "70308595",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "443855896",
+        "selection_document_sha256": "e29cf3aa5c1f6c9b9686316a5c5fc230dfacf04312885f43250b631816807cd4"
+      },
+      {
+        "case_id": "70310251",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "442643260",
+        "selection_document_sha256": "64d51a9145c69b7495c88edc1caca21548f22908281ccbdf284189b15930d911"
+      },
+      {
+        "case_id": "70310251",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "468158052",
+        "selection_document_sha256": "49ddbbc462f987fbdf2bbebba798a7e41c7e2b9601a041aff352cb7bd9ab49ac"
+      },
+      {
+        "case_id": "70350490",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "440532404",
+        "selection_document_sha256": "d5762d26887e311009b23777e3ce339c8d1b2aa5e40d31ca887f8f89f3a4cde6"
+      },
+      {
+        "case_id": "70350490",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "452578490",
+        "selection_document_sha256": "3000445d4eda428bd4ae78a430202f43c39b4156bbaacf72b5bbc8569d569fe9"
+      },
+      {
+        "case_id": "70499417",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "442231168",
+        "selection_document_sha256": "48a5ca6cc7a664dbb3c3248d88dedd28c9bf460f1e62a01693feb3823fa72031"
+      },
+      {
+        "case_id": "70499417",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "462200265",
+        "selection_document_sha256": "b802f27826390c0e7b93d0caade9ceca5bed3ca588bc7791b880562b13953649"
+      },
+      {
+        "case_id": "70561752",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "442977150",
+        "selection_document_sha256": "97659867a54be341707edd6c993d62aed900761251699033a7f2d6be8db933e9"
+      },
+      {
+        "case_id": "70561752",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456063217",
+        "selection_document_sha256": "032d473f4411dafa91b96d21a480d21889a94ce295a1bae8cf13971976ea8d69"
+      },
+      {
+        "case_id": "70571896",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "474693052",
+        "selection_document_sha256": "0fd9bb7c7e5692f735a4e15a277d47da5a4b1ce3774e70fb3fdaae37376ba6f2"
+      },
+      {
+        "case_id": "70571896",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "476089143",
+        "selection_document_sha256": "d550ea4d7c93359cfb8dc80380a849b73d329a10c0ae8cb64338d269bb391e29"
+      },
+      {
+        "case_id": "70573340",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "464034292",
+        "selection_document_sha256": "89bbdec3fb95a33a6b7ff2ce3f5e5f9dc1dd0329adaf2411e9985e7cecbd6f4a"
+      },
+      {
+        "case_id": "70671768",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "455259055",
+        "selection_document_sha256": "99619a7b977efdbad50d648b979b4211e9144020a6c44250a0c4363a59d8ce63"
+      },
+      {
+        "case_id": "70671768",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "478351347",
+        "selection_document_sha256": "c422b016b4be915fd943a0012920c25515337c641f98f2017b9323dd0108cb95"
+      },
+      {
+        "case_id": "70751199",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "457112903",
+        "selection_document_sha256": "90010dffbc1506093622775d89edd51678fab73118a1254c252fc67e64efb8a0"
+      },
+      {
+        "case_id": "70754103",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "446233549",
+        "selection_document_sha256": "793f333b8bd842b2bbeb94c913962cf9a8d7b77050d4edc111ef13b896b3b409"
+      },
+      {
+        "case_id": "70754103",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "451175144",
+        "selection_document_sha256": "ef557189b65026269c5d532f6c4b4c41a9c9a4b846f9cf4c9c930bab351eb449"
+      },
+      {
+        "case_id": "70945218",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "481058407",
+        "selection_document_sha256": "dd4c1f4794e91803182431cf6b0b7a57a79076f86667858345d3b40dcba4c7bb"
+      },
+      {
+        "case_id": "71033614",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "454697368",
+        "selection_document_sha256": "faba7a18ce27d97d33358c0e61d6249d59c694f1f7df663179e92e85dd281fd6"
+      },
+      {
+        "case_id": "71033614",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456173521",
+        "selection_document_sha256": "2d7459b1e10d85415101aefcf59f4341d8ce41d3fcc1fdec5a5b1358e565ee5c"
+      },
+      {
+        "case_id": "71099966",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "448958394",
+        "selection_document_sha256": "f6819a03d35a675a0d938f0ea15f47e5e35a341eb2a72789e9d3d9aaa554a25b"
+      },
+      {
+        "case_id": "71099966",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "459922945",
+        "selection_document_sha256": "80e291b1bf6ca7a1dd06a468cc1270fcf837c65f0386b693475347733a8c5b39"
+      },
+      {
+        "case_id": "71148626",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456066168",
+        "selection_document_sha256": "5e6ea857fc3182dfe384e8f697ae71ede00dbc048fea0c35c287fd276bd8bfec"
+      },
+      {
+        "case_id": "71169233",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "462590245",
+        "selection_document_sha256": "8e4a17478f2c138199d33ccf17f598e6ab81056cd66ab7323ecc7386fd5226b2"
+      },
+      {
+        "case_id": "71169233",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "466945125",
+        "selection_document_sha256": "7db36a491d70c0ee08687107d2e16c03ee5b7e81daa6158ca58db7230b206718"
+      },
+      {
+        "case_id": "71193182",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "450161791",
+        "selection_document_sha256": "27beb7935e0a9f00582136aa29171c2849b1349152868ae63f41ed92056f49e6"
+      },
+      {
+        "case_id": "71193182",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456604681",
+        "selection_document_sha256": "99ac9605388a646be3d8816eade5c988eadcee550738033985d6b04e0ab4edd1"
+      },
+      {
+        "case_id": "71194192",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "457277512",
+        "selection_document_sha256": "83860507d3bec03d6c236399638227c06477034a697cda34be6d2c3fae073c6c"
+      },
+      {
+        "case_id": "71194192",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "463345690",
+        "selection_document_sha256": "07b11952356e2779702215df89e56a160f9b6ada58f1b8a1ae1b5fdd59ef67e3"
+      },
+      {
+        "case_id": "71212565",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "450479488",
+        "selection_document_sha256": "07f6d486c8e09ca0d4530daa8eea335ca85d19dcfc2e9c6b6beb9cb4b6cb2279"
+      },
+      {
+        "case_id": "71212565",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "464907693",
+        "selection_document_sha256": "31373ea018d9f67331d49a2ae7dc01a0578b1e6eb69e3a9c495751e1a6acdb6f"
+      },
+      {
+        "case_id": "71212701",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "450744041",
+        "selection_document_sha256": "f1376bef67748486bf6b1b91ae67d271cce8d941af3add1f66f4f077aa952169"
+      },
+      {
+        "case_id": "71212701",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456214159",
+        "selection_document_sha256": "9b9d4e98d009355a948630f2e728e5c2243dc6fdb49069f98bc80bd76777eca4"
+      },
+      {
+        "case_id": "71221919",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "450618801",
+        "selection_document_sha256": "67e76e4e430df1879abbeed34a2f685deb988e7aefab5e7e9f24b1403aa8cb6c"
+      },
+      {
+        "case_id": "71221919",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "458835799",
+        "selection_document_sha256": "397217b5f0ebe0ea8bb9cc928f04d49e6af7e9b7abd32dcd8b4609f47b704a2f"
+      },
+      {
+        "case_id": "71280017",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485151015",
+        "selection_document_sha256": "7fc28b4f078c8bb3ef84312ff810ade662fa7420f6bad80a38e1336e5d317e99"
+      },
+      {
+        "case_id": "71280017",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485151032",
+        "selection_document_sha256": "23c73dfc8b65bd36ec138bb1412714013edc9183c98ae2ca72e8e0c99100ac32"
+      },
+      {
+        "case_id": "71396055",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "454136485",
+        "selection_document_sha256": "dd11d578f7c4428c10bfe139c33cd11a58d73b284e4be4b9f1301b32b8c316e9"
+      },
+      {
+        "case_id": "71396055",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456214357",
+        "selection_document_sha256": "bf864993a9847616d65fd58de0a643b771ea2b3e6745ba841dd8ad41be45c55e"
+      },
+      {
+        "case_id": "71396055",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "458603936",
+        "selection_document_sha256": "c911dfc3ef91aa1e710592e0be461c451645099bd114140a9f5cbd9c18515edc"
+      },
+      {
+        "case_id": "71421175",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "453677141",
+        "selection_document_sha256": "d464cfe976832444a2c1401104d77afd0b391fb35cf8195bf45f66d64706fb02"
+      },
+      {
+        "case_id": "71421175",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "486280921",
+        "selection_document_sha256": "1ad2ef592d1764fe77d4b3036eedfef3781edcf125efb95d576eb0e96665978b"
+      },
+      {
+        "case_id": "71421175",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "486280923",
+        "selection_document_sha256": "a7db5e9449e3ef4ba70a112a519f8c09547103e6693467d1707ae44547d8e414"
+      },
+      {
+        "case_id": "71491497",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "454632085",
+        "selection_document_sha256": "07a5dd3dd16ff42c31bf0f87d1c2e855492439215af37658d86bb188cf937e55"
+      },
+      {
+        "case_id": "71491497",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "463576567",
+        "selection_document_sha256": "e6eaa5b06ced5161c30c271fc626fac1bf2c2fc272723d5c05551f5979aa30c9"
+      },
+      {
+        "case_id": "71528266",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "464641444",
+        "selection_document_sha256": "b9a4a7f661f9dd443dc4e1989a671463f19fa0ce0729be25451fe9475ebffa63"
+      },
+      {
+        "case_id": "71581615",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "462286196",
+        "selection_document_sha256": "c1421fdfe7ed8cda83fdb8f991de44f248750800bb03e3fcdf16bd3dcdae1615"
+      },
+      {
+        "case_id": "71581615",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "476963723",
+        "selection_document_sha256": "b27e327ed1f5df0017451f78dff5e582496dda215ae77d576b8b53d4362d69ce"
+      },
+      {
+        "case_id": "71648352",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "469702866",
+        "selection_document_sha256": "208c609bc0d5b6b685154e6a704be09634c819c249ba7ac1239e047cf333f2ec"
+      },
+      {
+        "case_id": "71721272",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "477802438",
+        "selection_document_sha256": "f159365c0c830b8363ff4eb56162d933fe3229b210cc66b3e74a7de17e5bfaff"
+      },
+      {
+        "case_id": "71721272",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484851630",
+        "selection_document_sha256": "44220b4c62926f44e03c6679f7f1e511a9ecb65a19256ebf0e208a9e2929e106"
+      },
+      {
+        "case_id": "71721468",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "456292034",
+        "selection_document_sha256": "b8304f07d787fb55d6b66a97705c60e86538c118a0f9f2e997fef193a5ec6ae7"
+      },
+      {
+        "case_id": "71721468",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "463477073",
+        "selection_document_sha256": "11ff9f5cc6280657023936ba635a03dcc42b439aa03ffc830e72c7569e5511b6"
+      },
+      {
+        "case_id": "71843630",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "462058314",
+        "selection_document_sha256": "6a0638a9cf7a513be043a35f87365e820a006ba6011fb1aac75bb49c973389e0"
+      },
+      {
+        "case_id": "71843630",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "463476981",
+        "selection_document_sha256": "9356973b980f5aed9339180c0d62a823a09fb2ba6c3454e65e971d8682006b2b"
+      },
+      {
+        "case_id": "71899546",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "482317183",
+        "selection_document_sha256": "b980c3ca767defc88568b5efe32f79350143d9a019a1134ccf5708065ac7a64d"
+      },
+      {
+        "case_id": "71899546",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "482317212",
+        "selection_document_sha256": "1bd5394c1509de37baf0d603870d8ebbb9b6aff1bc44d4e95460c3814770f57f"
+      },
+      {
+        "case_id": "71924713",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "469505259",
+        "selection_document_sha256": "7756b645631fcda83ba7fb09671779026ca1b040964ba5e2ace722b251478bec"
+      },
+      {
+        "case_id": "71924713",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "473176179",
+        "selection_document_sha256": "3ecf9f4f0829dda082a8f59fae492e3a9da66998b84169f3ccc61f36e78aa8a6"
+      },
+      {
+        "case_id": "71924713",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "486882394",
+        "selection_document_sha256": "fc07446a54e07d40d98f98fe256d398038e3a3465918349da7ac1e6b4d30047a"
+      },
+      {
+        "case_id": "71933397",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "467097940",
+        "selection_document_sha256": "1296f06e5e364e533a76fbe9ee5da19d02a766a7efe3a44a9b06b063d020d1ab"
+      },
+      {
+        "case_id": "71933397",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "486077666",
+        "selection_document_sha256": "83d85da8b64970b6d5aaecf38e74420e49ba58e2121f379b77cbf58a626d7d60"
+      },
+      {
+        "case_id": "71939934",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "460415708",
+        "selection_document_sha256": "8aea1f530c678e29a3f46a7f5d8be9c88718d65250ff69d3ad14ce382e4757d8"
+      },
+      {
+        "case_id": "71939934",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "470174074",
+        "selection_document_sha256": "a7a6d3d808724def7757f0fd458ab740da2e6be2c039fde3671562fb6f407eb4"
+      },
+      {
+        "case_id": "71942225",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479627643",
+        "selection_document_sha256": "257f7df0dcb9aebfb9480cae9564d76eca6974aefa7f1c55512da5e8570c4d38"
+      },
+      {
+        "case_id": "71942225",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "487196517",
+        "selection_document_sha256": "baa2a18a67bb99d45bd6fb1287664e744440d2360b4b5be4ba42dde410f13472"
+      },
+      {
+        "case_id": "71946889",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "460489535",
+        "selection_document_sha256": "a80511977970442045863105a59fe34bb85cfa50e54c97c1bfaf1560ca1e6408"
+      },
+      {
+        "case_id": "71946889",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "469036268",
+        "selection_document_sha256": "008e7ed23a2d6cf1d93585fc98418c56a3bafad6c603efc509d31019a3e142d4"
+      },
+      {
+        "case_id": "71954764",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "466513105",
+        "selection_document_sha256": "64f7be5e9a9f34f005c1415c7f9eafcfedab5f31f1c65679b9df418eada8741e"
+      },
+      {
+        "case_id": "71985792",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "475181725",
+        "selection_document_sha256": "5c54ecefcb6ab542a3dd8103de377f3d093855edcfc280752d4382ca3975b226"
+      },
+      {
+        "case_id": "71985792",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479298944",
+        "selection_document_sha256": "cf1ac4c7238500c0c3d72cea655c7c354afc025d848adfcb4be654b4687ef4ab"
+      },
+      {
+        "case_id": "72001561",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "461064575",
+        "selection_document_sha256": "3dd6c4c5f59e4ae6dceea58b26070317ba19e4ac4574bd37bc92d1b1e1beb0c2"
+      },
+      {
+        "case_id": "72001561",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "466999143",
+        "selection_document_sha256": "4299cbef1512db3abeb81bf04ddbfb03cb367ff28f812fc1af03f5347749a075"
+      },
+      {
+        "case_id": "72016262",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "461514234",
+        "selection_document_sha256": "9f53a0bb9c249ebfb79ac081ab0df34429669cd17a4e048d22370bd3c28c2421"
+      },
+      {
+        "case_id": "72016262",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "465731973",
+        "selection_document_sha256": "dc264d59050ea63e185d9c908bff515ac06ccde908e7111d13b152b2dd1feff2"
+      },
+      {
+        "case_id": "72025962",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "477166800",
+        "selection_document_sha256": "16f1425932dd7aedac181158a931bdbfee74e5d7edc0907c3dde8d68ebf66fb2"
+      },
+      {
+        "case_id": "72025962",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "477166831",
+        "selection_document_sha256": "3ace6cbd52d9ca3b40eba6f63524d05a80868e1163806d662f312e7dfcc05afa"
+      },
+      {
+        "case_id": "72038409",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "462015989",
+        "selection_document_sha256": "d9357ea9227054ae8e0297db2fad1f37d7f8ef79f928d664db3044bf1e71646b"
+      },
+      {
+        "case_id": "72038409",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "472327610",
+        "selection_document_sha256": "9fe86524cd3e08bd7f5387a104ca3b0abf47d3b3fc5559efd22e1cc676407f69"
+      },
+      {
+        "case_id": "72045293",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "480277409",
+        "selection_document_sha256": "c7f6a8e1d2dbd8055eaa8e11fcc8381d8b65ae265f831e5d8bfd167471d2dada"
+      },
+      {
+        "case_id": "72045293",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "480277412",
+        "selection_document_sha256": "f74fbf4c3bb952c8f958de226b7e0b7327e800a4cc317a8e815fb80b5b090bae"
+      },
+      {
+        "case_id": "72045293",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484966686",
+        "selection_document_sha256": "f35b8c7ac50e8637119bd0fa671624a04b0abec1add52906daca8824aae4ddbb"
+      },
+      {
+        "case_id": "72045680",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "462187977",
+        "selection_document_sha256": "b3c496f4753aa464ca418905b738a7f606a22b0c3983030c7f833091e695cc6e"
+      },
+      {
+        "case_id": "72045680",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "471320472",
+        "selection_document_sha256": "f76fbebbaee7d210eae9be8650b0f706425d94289169e3295b2e8d90e5d7e555"
+      },
+      {
+        "case_id": "72064904",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "462678636",
+        "selection_document_sha256": "a20126b570f99638c78ea0a7b89df6b4546d679805e66a4b842ab1078f572bf7"
+      },
+      {
+        "case_id": "72064904",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "468336694",
+        "selection_document_sha256": "dd3351b92c45dcb2ac97e4c070ceda2a54c09819685ce4992976766a1dae3f9a"
+      },
+      {
+        "case_id": "72089650",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485219456",
+        "selection_document_sha256": "46a7d8fff1c20ea5ae5c43e7b903ebcea9e19a509b2e51876364663d31f0b33d"
+      },
+      {
+        "case_id": "72089650",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485219463",
+        "selection_document_sha256": "3c7890871f280711c02afc44372417607518a8f81ba819d6debd0813e3dcc692"
+      },
+      {
+        "case_id": "72089650",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485219472",
+        "selection_document_sha256": "6a8a3f7b20ff97ee6baacc09a0026b09bce34ee14df7ee27f02511afa638a1e3"
+      },
+      {
+        "case_id": "72116161",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "466092546",
+        "selection_document_sha256": "85f8f0e500f62f80cd81a50bcc61d1f762dc91665171275d3ede5af70f85ff64"
+      },
+      {
+        "case_id": "72116161",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479398908",
+        "selection_document_sha256": "79e62ff66819f4fd0dc3f2ba7a556b09134047f1abd9b75db3f6342be55d100d"
+      },
+      {
+        "case_id": "72116574",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "464373753",
+        "selection_document_sha256": "ebb084340ca21a9a79ddefc7548ecd3f926b3d8d95fc00ef066526a92ff064f3"
+      },
+      {
+        "case_id": "72116574",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "474523765",
+        "selection_document_sha256": "b07e9d4fac0acbab8a58710befcdeccdc2542ae87c3726779db837e80dd1ac19"
+      },
+      {
+        "case_id": "72192698",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479287074",
+        "selection_document_sha256": "1df18752a7cfa103e281db32ab6379270dc19bcfd9e6f735c7ebf5259590a1f8"
+      },
+      {
+        "case_id": "72192698",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485754024",
+        "selection_document_sha256": "2e6f99935b0c038cf0812ae5dec081d61e316323a83104aebb2ff60f9906f519"
+      },
+      {
+        "case_id": "72197684",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "469526094",
+        "selection_document_sha256": "cf3821b980ea837ee8d45c27264e0a246dadbceb99a1f8e130b62d6e790a2742"
+      },
+      {
+        "case_id": "72197684",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "486279203",
+        "selection_document_sha256": "a83b96fd3378f8ed060fc56d03139726246c4ee3c1f934ac6d258cfebd3a56e0"
+      },
+      {
+        "case_id": "72213663",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "471669300",
+        "selection_document_sha256": "a4d56be92397338e2cd8a2696802842d40b821bb054f9774eba66b6886784630"
+      },
+      {
+        "case_id": "72242510",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "474653745",
+        "selection_document_sha256": "17e56af2702da13313e7ccd5c1a1bec580c18215df0de22b82012d517da919f3"
+      },
+      {
+        "case_id": "72261437",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "472315556",
+        "selection_document_sha256": "31ed7a28c9a78b5dd4979bee536b71f593438cc8dbfb8e550a9e2d777e21b4f3"
+      },
+      {
+        "case_id": "72270301",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "468614730",
+        "selection_document_sha256": "00c13fd818023f5a98e0bf9037850911ff208947ac85b30dcac97db053b7664b"
+      },
+      {
+        "case_id": "72270301",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "478193908",
+        "selection_document_sha256": "cd219eb66806effdd42076a2d46c859793e040d33b09cc56c014e63a681663f3"
+      },
+      {
+        "case_id": "72288139",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "469045191",
+        "selection_document_sha256": "f12b190b99c7b3285fd36a987d00318d0fef039e768d24d4b92e611fdffc0dc1"
+      },
+      {
+        "case_id": "72288139",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484511282",
+        "selection_document_sha256": "d99bc07e86231cd8311c5b5724813fad4a56492bc35e560b69954de9cc7643c7"
+      },
+      {
+        "case_id": "72309777",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "477064712",
+        "selection_document_sha256": "3272f23c4ff1143e1b3976d6a3e1dbc5423a548597c14a9e60ce4bfd1faf401a"
+      },
+      {
+        "case_id": "72313974",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "472731761",
+        "selection_document_sha256": "dccd65ac335a88578a60456ab4885e3e715bd06e97df99cc9e8c6b3a071f697d"
+      },
+      {
+        "case_id": "72329372",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "478080139",
+        "selection_document_sha256": "19fe51177821fd10e7f7d6761b1f339ee0f83e49079113dfe303fac739c9c665"
+      },
+      {
+        "case_id": "72329372",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485300810",
+        "selection_document_sha256": "527ee356ec6613d4fe3041ce8dd0d952582f8c2990d098558fa9f76a0047e9a6"
+      },
+      {
+        "case_id": "72332229",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "475889034",
+        "selection_document_sha256": "4afc5850b58fd72329c243d1f700d59f1544ae1a12a38b7cbabd5a69d52753d7"
+      },
+      {
+        "case_id": "72352103",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485055374",
+        "selection_document_sha256": "fefd86c1f40c5f96a0468a3fd9d2a5633990712b07d983b1cad018070aeaf115"
+      },
+      {
+        "case_id": "72352103",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485055395",
+        "selection_document_sha256": "24a992ab264b6cb2551eb47f753800d97e1819faf2de20d8577766489cbea834"
+      },
+      {
+        "case_id": "72370778",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "472107370",
+        "selection_document_sha256": "3a48a1019f1185933191bc35f9b0ff8b87858d4af5b89351aa7e60a62782d32d"
+      },
+      {
+        "case_id": "72370778",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479343511",
+        "selection_document_sha256": "de7d1826b365bc29b8920d27873c01ac94490e62cbfb4903791ff773cfbe5751"
+      },
+      {
+        "case_id": "72449171",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "471866646",
+        "selection_document_sha256": "8e0877f7987dc175a604344e40547424e86c35dc9e546462caab6cdbdc4a559d"
+      },
+      {
+        "case_id": "72449171",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "480673755",
+        "selection_document_sha256": "5531b8d2f1ec4faee23818802d64640c60ecf0d02e370a6150ec026bc08f6de3"
+      },
+      {
+        "case_id": "72493808",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "472173146",
+        "selection_document_sha256": "01789235d75b29c0479c918dc02742d1f835cfffdc18c404c090dc2202ebfceb"
+      },
+      {
+        "case_id": "72493808",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "477666185",
+        "selection_document_sha256": "03c882db4a72cf6e070ced3bca9a020d281b3bfc7a868e994bc24fe8b5c81448"
+      },
+      {
+        "case_id": "72493808",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479209035",
+        "selection_document_sha256": "dec0ea92a29a8da1c8366557513e7bb90ad184dceceec11361e3e42114ea8c78"
+      },
+      {
+        "case_id": "72502147",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "475332871",
+        "selection_document_sha256": "b6d1b72bc41b1200e704e8b9b1d6f607857b5875236e8f5549d2577684e9fed1"
+      },
+      {
+        "case_id": "72505500",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "472593824",
+        "selection_document_sha256": "6bb605c2116b0a4c6a5a565e7a3d7d735945c6b89e01facb636ee1ce984635c6"
+      },
+      {
+        "case_id": "72505500",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "473397014",
+        "selection_document_sha256": "bb79d8c99f6d96e80f19512bd15ad74c70b952dc2cc7c651a47aabc1b209c84b"
+      },
+      {
+        "case_id": "72516208",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "476771834",
+        "selection_document_sha256": "bb3bf0c42263866f1a37cbb4368df37536dc3b64c222d93f63fa6e2c9758cc2c"
+      },
+      {
+        "case_id": "72516208",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "480190959",
+        "selection_document_sha256": "8db21ee6a7a9f82c66290e5732a263fae829fbb0e9f7c24172143966b798d7ef"
+      },
+      {
+        "case_id": "73000896",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479474646",
+        "selection_document_sha256": "46a50f16c1718c905f85f64c9687bfb94c46b33c1e3e2cf19b9e9d132d48f862"
+      },
+      {
+        "case_id": "73000896",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "483774810",
+        "selection_document_sha256": "88b3773dae88d7bd6a2547aed094cea09698b70b5d2e2f9297db708d73b42dde"
+      },
+      {
+        "case_id": "73049396",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "473696884",
+        "selection_document_sha256": "f0669c896a459d7462369d49c360a7e5bd284bbd5ea6516d1e2d939134cbbcc4"
+      },
+      {
+        "case_id": "73049396",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "477825677",
+        "selection_document_sha256": "ca642a42bfb3fc430157ab5cf49463f05ea3e1b873b4481cc14759917b04a8e5"
+      },
+      {
+        "case_id": "73149878",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "474852814",
+        "selection_document_sha256": "3f2adb4225cd5b98499e06bde88c1d210eb150ec9d2766f5b4444f321ce2b0b5"
+      },
+      {
+        "case_id": "73149878",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "480374384",
+        "selection_document_sha256": "bc86e1e09516e033bb060cec13b2c9c26a81fc0ce738b35faf3e1c6bafcfd50d"
+      },
+      {
+        "case_id": "73150723",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "477224876",
+        "selection_document_sha256": "689cb909e3c58f02cf76151cc573bf07796d7b740afc1e4e30dcab5da47a6583"
+      },
+      {
+        "case_id": "73150723",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "478237400",
+        "selection_document_sha256": "182d1517c701cb81fa5f5ba72ddceb5a524045d7ef9db1bdd4d13f27e9e46f81"
+      },
+      {
+        "case_id": "73150723",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479413995",
+        "selection_document_sha256": "a4822896f8cb3b8984b72f599d17ca7e161921400a8009a1b51af223d194c1e8"
+      },
+      {
+        "case_id": "73157701",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "475023639",
+        "selection_document_sha256": "5bffc1e94c8a0717f68596f46f39a488bf371ef5823e41ea6e8ed3ef5178afa1"
+      },
+      {
+        "case_id": "73157701",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "478847451",
+        "selection_document_sha256": "fff41a0444d8872b1739f5002b099a58330a77ad2a3550d1f0d240c21662b72a"
+      },
+      {
+        "case_id": "73163391",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "475159005",
+        "selection_document_sha256": "1cced7d3daff145bc09d139b0451cf01ec85fd126e9f2d8980729a6d6b0ae137"
+      },
+      {
+        "case_id": "73163391",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "481288288",
+        "selection_document_sha256": "e4df06abe9e8cfd06bedd948dd2e83aa3b9efda5365ff0a102af1c52ff2ec862"
+      },
+      {
+        "case_id": "73183894",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "475670129",
+        "selection_document_sha256": "401a3baf7d4f2a6cdf376788369d2ddce1594e2401c7731ea1e68a8b3457098e"
+      },
+      {
+        "case_id": "73183894",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "479359970",
+        "selection_document_sha256": "f0244f3c13267381fe9a4a80376caf6762a2c372df173f78ce2de39e23d314e5"
+      },
+      {
+        "case_id": "73209444",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484605475",
+        "selection_document_sha256": "c8ee479268f7ad5c0f80af8d1eba64e5589ed7ef0aa7ac6cd3344e1db049012e"
+      },
+      {
+        "case_id": "73215717",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "476434946",
+        "selection_document_sha256": "ee7194c8505fd56d9eca4c28395231aabfb5dba96de480a727b751c92620f965"
+      },
+      {
+        "case_id": "73215717",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "480200602",
+        "selection_document_sha256": "6db51bd3af60411a96ce6f6ffcd3a94c716e1f87dd17f3c4d65e823145c967e2"
+      },
+      {
+        "case_id": "73302794",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "478406686",
+        "selection_document_sha256": "c0e77b2deaa6a5cc6c8c995333b4ad5e368f8e022d3eb7319a861f116212c097"
+      },
+      {
+        "case_id": "73302794",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484293904",
+        "selection_document_sha256": "e0072836e3edfd08b45ff0eda36b0b9448bf179c72a4bc3fe7e91308076cbdf2"
+      },
+      {
+        "case_id": "73325674",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "478848947",
+        "selection_document_sha256": "f8d029ae74cc1c011a96aa8090651dbab926c61a9a6727f197f484b06c6c7f02"
+      },
+      {
+        "case_id": "73325674",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "484465903",
+        "selection_document_sha256": "cc66f3a245889ba7276fe84c69b49d889065eac7f46b4641ba7b6638ba1ad721"
+      },
+      {
+        "case_id": "73569789",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485140622",
+        "selection_document_sha256": "71c68df365949e6b9a6b5093b9e98879333c0f2ecb1b61dcaf43d9c9dbfcd6b9"
+      },
+      {
+        "case_id": "73569789",
+        "evidence_class": "unknown_status_quarantine",
+        "recap_document": "485236605",
+        "selection_document_sha256": "4d3c09e1179706ec0b23542793b5a49f43884beaab8906cc2b2f776eb9a722fc"
+      }
+    ],
+    "authority": "bounded_fetch_attempt_only",
+    "budget_plan_sha256": "8524dab31d473262d539b01e88a28fb77fbc4d7a2b10bdf16644de4f5da3569e",
+    "cohort_policy_sha256": "76c98406536e38fede7a1a72b60af731088fae04888b9662b1d3ed37538a7207",
+    "cycle_cap_usd": "567.30",
+    "cycle_id": "cycle-1-target-100-2026-07-25",
+    "opening_committed_spend_usd": "0.00",
+    "per_case_cap_usd": "73.20",
+    "planned_reserved_usd": "545.95",
+    "purchase_policy_sha256": "df4b4f60895415ef7720d163e41f26a3ae94ef7ef384a2e77a1b9de942fcd04e",
+    "reservation_usd": "3.05",
+    "selection_sha256": "4df9601d7a22f9fc725b120576b76a43b325a2eaad0adf4def195833257918e7"
+  },
+  "policy_sha256": "af8da702f3b3925478835de715f92b78facb0f2742dbc69a849a868ca8224e81",
+  "schema_version": "legalforecast.recap_fetch_attempt_policy.v1"
+}
