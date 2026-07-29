@@ -1491,7 +1491,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             clearance_records=tuple(_read_records(paths["disclosure_clearance"])),
             selection_records=tuple(_read_records(paths["selection"])),
             resolved_records=tuple(_read_records(resolved_path)),
-            document_tree={},
+            document_tree=cli._materializer_tree_snapshot(quarantine_root),
         )
 
     monkeypatch.setattr(

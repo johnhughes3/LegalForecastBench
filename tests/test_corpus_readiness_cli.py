@@ -310,6 +310,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
     )
     snapshot_manifest = snapshot_fixture.manifest_path
     _stub_verified_preparation(monkeypatch, snapshot_fixture, target_case_count=1)
+    materialization_verifications: list[object] = []
     lineage_args = _finalize_lineage_args(
         monkeypatch,
         inputs,
@@ -317,6 +318,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
         clearance=inputs / "clearance.jsonl",
         packet_input=inputs / "packet-input.jsonl",
         packets=inputs / "packets.jsonl",
+        verification_calls=materialization_verifications,
     )
 
     assert (
@@ -403,6 +405,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
         )
         == 0
     )
+    assert len(materialization_verifications) == 1
 
     ledger = _read_jsonl(output_root / "complete-exclusion-ledger.jsonl")
     assert len(ledger) == 1
@@ -743,6 +746,7 @@ def _finalize_lineage_args(
     clearance: Path,
     packet_input: Path,
     packets: Path,
+    verification_calls: list[object] | None = None,
 ) -> list[str]:
     """Supply exact packet cards while isolating the canonical materializer fixture."""
 
@@ -756,10 +760,32 @@ def _finalize_lineage_args(
         _write_jsonl(raw_artifacts_manifest, [])
     materialization_card = inputs / "materialization-run-card.json"
     materialization_card.write_text("{}\n", encoding="utf-8")
+
+    def verify_materialized_lineage(
+        **kwargs: object,
+    ) -> cli._VerifiedMaterializedDownstreamLineage:
+        if verification_calls is not None:
+            verification_calls.append(kwargs)
+        return cli._VerifiedMaterializedDownstreamLineage(
+            paths=(materialization_card,),
+            artifact_bytes={},
+            manifest_records=(),
+            clearance_records=(),
+            selection_records=(),
+            resolved_records=(),
+            document_tree={},
+        )
+
     monkeypatch.setattr(
         cli,
-        "_verify_optional_finalize_materialization",
-        lambda **kwargs: (Path(kwargs["materialization_card_path"]),),
+        "_verify_materialized_downstream_lineage",
+        verify_materialized_lineage,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "_require_consistent_materialization_markers",
+        lambda *_args: True,
     )
     # This synthetic fixture intentionally replaces the full materialization
     # verifier so readiness invariants can be tested in isolation. Dedicated
@@ -768,19 +794,6 @@ def _finalize_lineage_args(
         cli,
         "_preflight_materialization_purchase_runtime",
         lambda _args: None,
-    )
-    monkeypatch.setattr(
-        cli,
-        "_verify_materialized_downstream_lineage",
-        lambda **_kwargs: cli._VerifiedMaterializedDownstreamLineage(
-            paths=(materialization_card,),
-            artifact_bytes={},
-            manifest_records=(),
-            clearance_records=(),
-            selection_records=(),
-            resolved_records=(),
-            document_tree={},
-        ),
     )
     monkeypatch.setattr(
         cli,

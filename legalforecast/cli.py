@@ -550,6 +550,7 @@ from legalforecast.ingestion.purchase_approval import (
     build_purchase_approval_request,
     generate_approved_purchase_policy,
     record_purchase_approval,
+    require_fresh_purchase_ledger_namespace,
     resume_purchase_approval_recording,
     verify_purchase_approval,
 )
@@ -36495,6 +36496,7 @@ class _VerifiedMaterializedDownstreamLineage:
     selection_records: tuple[Mapping[str, Any], ...]
     resolved_records: tuple[Mapping[str, Any], ...]
     document_tree: Mapping[str, bytes]
+    fresh_ledger_namespace: Path | None = None
 
     def __len__(self) -> int:
         return len(self.paths)
@@ -36510,6 +36512,29 @@ class _VerifiedMaterializedDownstreamLineage:
 
     def __iter__(self) -> Iterator[Path]:
         return iter(self.paths)
+
+
+def _require_materialized_downstream_lineage_unchanged(
+    verified: _VerifiedMaterializedDownstreamLineage,
+    *,
+    document_root: Path,
+) -> None:
+    """Recheck captured bytes without replaying materialization authority."""
+
+    _require_snapshot_unchanged(
+        {
+            Path(raw_path): payload
+            for raw_path, payload in verified.artifact_bytes.items()
+        },
+        label="materialization downstream lineage artifact",
+    )
+    if _materializer_tree_snapshot(document_root) != verified.document_tree:
+        raise CommandError("materialization document tree changed during execution")
+    if verified.fresh_ledger_namespace is not None:
+        try:
+            require_fresh_purchase_ledger_namespace(verified.fresh_ledger_namespace)
+        except (OSError, PurchaseApprovalError, ValueError) as exc:
+            raise CommandError(str(exc)) from exc
 
 
 def _verify_materialized_downstream_lineage(
@@ -36751,6 +36776,7 @@ def _verify_materialized_downstream_lineage(
             selection_records=selection_records,
             resolved_records=(),
             document_tree=document_tree_snapshot,
+            fresh_ledger_namespace=ledger_path.resolve(),
         )
     if authority_mode is not None:
         raise CommandError("unsupported materialization authority mode")
@@ -37226,8 +37252,7 @@ def _verify_optional_finalize_materialization(
     download_manifest_path: Path | None,
     materialization_card_path: Path | None,
     document_root: Path | None,
-    controlled_private_root: Path | None = None,
-    initialization_receipt_path: Path | None = None,
+    verified_materialization: _VerifiedMaterializedDownstreamLineage | None,
 ) -> _VerifiedMaterializedDownstreamLineage | tuple[Path, ...]:
     options = (download_manifest_path, materialization_card_path, document_root)
     if any(path is not None for path in options) and not all(
@@ -37238,17 +37263,12 @@ def _verify_optional_finalize_materialization(
             "--materialization-run-card, and --document-root together"
         )
     if all(path is not None for path in options):
-        manifest = cast(Path, download_manifest_path)
-        card = cast(Path, materialization_card_path)
-        root = cast(Path, document_root)
-        verified = _verify_materialized_downstream_lineage(
-            run_card_path=card,
-            manifest_path=manifest,
-            clearance_path=clearance_path,
-            document_root=root,
-            selection_path=selection_path,
-            controlled_private_root=controlled_private_root,
-            initialization_receipt_path=initialization_receipt_path,
+        if verified_materialization is None:
+            raise AssertionError("finalize materialization lineage was not verified")
+        verified = verified_materialization
+        _require_materialized_downstream_lineage_unchanged(
+            verified,
+            document_root=cast(Path, document_root),
         )
         if not _require_consistent_materialization_markers(
             verified.manifest_records, verified.clearance_records
@@ -48927,8 +48947,9 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
     prospective_document_root = cast(Path | None, args.document_root) or (
         prospective_output_root / "documents" / "free"
     )
+    materialization_lineage: _VerifiedMaterializedDownstreamLineage | None = None
     if materialization_card_path is not None:
-        _verify_materialized_downstream_lineage(
+        materialization_lineage = _verify_materialized_downstream_lineage(
             run_card_path=materialization_card_path,
             manifest_path=download_manifest_path,
             clearance_path=clearance_path,
@@ -48991,19 +49012,12 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         if raw_artifacts_manifest_path is not None
         else None
     )
-    materialization_card_path = cast(Path | None, args.materialization_run_card)
-    materialization_lineage: _VerifiedMaterializedDownstreamLineage | None = None
     if materialization_card_path is not None:
-        materialization_lineage = _verify_materialized_downstream_lineage(
-            run_card_path=materialization_card_path,
-            manifest_path=download_manifest_path,
-            clearance_path=clearance_path,
+        if materialization_lineage is None:
+            raise AssertionError("materialization lineage was not verified")
+        _require_materialized_downstream_lineage_unchanged(
+            materialization_lineage,
             document_root=document_root,
-            selection_path=selection_path,
-            controlled_private_root=cast(Path | None, args.controlled_private_root),
-            initialization_receipt_path=cast(
-                Path | None, args.purchase_ledger_initialization_receipt
-            ),
         )
         records = list(materialization_lineage.selection_records)
         download_records = list(materialization_lineage.manifest_records)
@@ -49423,6 +49437,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
 def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
     _preflight_materialization_purchase_runtime(args)
     early_materialization_card = cast(Path | None, args.materialization_run_card)
+    verified_materialization: _VerifiedMaterializedDownstreamLineage | None = None
     if not _acquisition_dry_run(args) and early_materialization_card is None:
         raise CommandError("executed packet build requires --materialization-run-card")
     if early_materialization_card is not None:
@@ -49443,7 +49458,7 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
                 "materialized packet build requires selection, manifest, clearance, "
                 "and document root"
             )
-        _verify_materialized_downstream_lineage(
+        verified_materialization = _verify_materialized_downstream_lineage(
             run_card_path=early_materialization_card,
             manifest_path=cast(Path, early_manifest),
             clearance_path=cast(Path, early_clearance),
@@ -49589,16 +49604,11 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             typed_markdown_root,
             typed_materialization_card,
         ) = typed_paths
-        verified_materialization = _verify_materialized_downstream_lineage(
-            run_card_path=typed_materialization_card,
-            manifest_path=typed_manifest,
-            clearance_path=typed_clearance,
+        if verified_materialization is None:
+            raise AssertionError("materialization lineage was not verified")
+        _require_materialized_downstream_lineage_unchanged(
+            verified_materialization,
             document_root=typed_document_root,
-            selection_path=typed_selection,
-            controlled_private_root=cast(Path | None, args.controlled_private_root),
-            initialization_receipt_path=cast(
-                Path | None, args.purchase_ledger_initialization_receipt
-            ),
         )
         verified_lineage_paths = verified_materialization.paths
         materialization_card_payload = verified_materialization.artifact_bytes[
@@ -51253,6 +51263,7 @@ def _validate_packet_build_run_card(
 def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     _preflight_materialization_purchase_runtime(args)
     early_materialization_card = cast(Path | None, args.materialization_run_card)
+    verified_materialization: _VerifiedMaterializedDownstreamLineage | None = None
     if not _acquisition_dry_run(args) and early_materialization_card is None:
         raise CommandError("executed finalization requires --materialization-run-card")
     if early_materialization_card is not None:
@@ -51263,7 +51274,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 "materialized finalization requires --download-manifest and "
                 "--document-root"
             )
-        _verify_materialized_downstream_lineage(
+        verified_materialization = _verify_materialized_downstream_lineage(
             run_card_path=early_materialization_card,
             manifest_path=early_manifest,
             clearance_path=cast(Path, args.disclosure_clearance),
@@ -51474,10 +51485,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         download_manifest_path=download_manifest_path,
         materialization_card_path=materialization_card_path,
         document_root=materialized_document_root,
-        controlled_private_root=cast(Path | None, args.controlled_private_root),
-        initialization_receipt_path=cast(
-            Path | None, args.purchase_ledger_initialization_receipt
-        ),
+        verified_materialization=verified_materialization,
     )
     input_paths = (*input_paths, *materialization_paths[1:])
     packet_plan_replay: _PacketPlannerReplay | None = None
