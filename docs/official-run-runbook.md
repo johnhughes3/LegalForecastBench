@@ -1,6 +1,8 @@
 # Official Run Runbook
 
 This is the operator checklist for `.github/workflows/run-benchmark.yaml` and the provider-free `.github/workflows/fan-in-publish.yaml` on the current `main` branch. Shard dispatches run isolated provider cells and finalize one immutable receipt per workflow attempt. Fan-in selects accepted receipts, reads only their exact committed S3 versions, derives cadence counts from frozen artifacts, delegates Cartesian completeness to `official_aggregate`, and publishes only the verified public directory.
+Angle-bracket values such as `<cycle_id>` are placeholders, not literal shell input. Replace every such value before running a command.
+The paired flags `--llm-unitization-run-card` / `--llm-unitize-run-card` and `--llm-review-stage-a-run-card` / `--stage-a-review-run-card` intentionally name the same authenticated card when both appear in one command. Substitute the same exact path for each pair; the different flag names describe validation roles, not different artifacts.
 
 ## Acquisition Downstream Preflight
 
