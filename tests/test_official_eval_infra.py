@@ -276,6 +276,7 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
         "CreateCycleClosure",
         "ReadCanonicalPublication",
         "CreateCanonicalPublication",
+        "ListCurrentPerCaseVersions",
         "ListFanInNamespaces",
     }
     assert statements["ReadExactPerCaseVersions"] == {
@@ -344,6 +345,17 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
                     "reports/*/multi-ablation/*",
                     "shard-receipts/*",
                 ]
+            }
+        },
+    }
+    assert statements["ListCurrentPerCaseVersions"] == {
+        "Sid": "ListCurrentPerCaseVersions",
+        "Effect": "Allow",
+        "Action": "s3:ListBucketVersions",
+        "Resource": RESULTS_BUCKET_ARN,
+        "Condition": {
+            "StringLike": {
+                "s3:prefix": "per-case/*",
             }
         },
     }
