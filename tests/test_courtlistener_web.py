@@ -1,16 +1,57 @@
 from __future__ import annotations
 
+from legalforecast.ingestion import (
+    courtlistener_case_dev_bridge,
+    public_packet_planner,
+)
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
     CourtListenerWebDocketEntry,
     CourtListenerWebDocument,
     CourtListenerWebParseError,
+    brief_targets_motion,
     classify_courtlistener_entry_role,
     estimate_briefing_completeness,
+    explicit_motion_reference_numbers,
     parse_courtlistener_docket_html,
     rank_cheapest_complete_candidates,
     starts_with_dispositive_motion,
 )
+
+
+def test_planner_and_bridge_share_motion_targeting_helper() -> None:
+    assert public_packet_planner.brief_targets_motion is brief_targets_motion
+    assert courtlistener_case_dev_bridge.brief_targets_motion is brief_targets_motion
+
+
+def test_docket_keyword_explicitly_targets_only_standalone_entry_number() -> None:
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-50",
+        entry_number="50",
+        filed_at="Jan 10, 2026",
+        text=("Opposition regarding docket 42 in Civil Action No. 3:21-cv-00123"),
+    )
+
+    assert explicit_motion_reference_numbers(entry) == frozenset({42})
+    assert brief_targets_motion(entry, (42, 43)) is True
+    assert brief_targets_motion(entry, (3, 43)) is False
+
+
+def test_case_number_does_not_target_same_numbered_motion() -> None:
+    for case_number, leading_number in (
+        ("3:21-cv-00123", 3),
+        ("24-cv-00123", 24),
+    ):
+        entry = CourtListenerWebDocketEntry(
+            row_id="entry-50",
+            entry_number="50",
+            filed_at="Jan 10, 2026",
+            text=f"Opposition filed in docket {case_number}",
+        )
+
+        assert explicit_motion_reference_numbers(entry) == frozenset()
+        assert brief_targets_motion(entry, (leading_number, 42)) is False
+        assert brief_targets_motion(entry, (leading_number,)) is True
 
 
 def test_duplicated_metadata_prefix_does_not_let_proposed_order_mask_mtd() -> None:
