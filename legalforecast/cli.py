@@ -511,6 +511,12 @@ from legalforecast.ingestion.pacer_gap_append_rebase import (
     verify_screened_case_projection,
 )
 from legalforecast.ingestion.packet_input_planner import plan_packet_build_inputs
+from legalforecast.ingestion.packet_role_adjudication import (
+    PacketRoleAdjudicationError,
+    VerifiedPacketRoleAdjudications,
+    authenticated_packet_role_evidence_from_record,
+    verify_packet_role_adjudications,
+)
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
     CasePacketSchema,
@@ -6072,6 +6078,24 @@ def _add_acquisition_plan_public_downloads_arguments(
             "If saved raw docket HTML is missing, plan from embedded "
             "selected_entries records in the screened-cases JSONL."
         ),
+    )
+    parser.add_argument(
+        "--packet-role-adjudications",
+        type=Path,
+        help="Hash-pinned accepted or rejected packet-role adjudication JSONL.",
+    )
+    parser.add_argument(
+        "--expected-packet-role-adjudications-sha256",
+        help="Exact lowercase SHA-256 of --packet-role-adjudications.",
+    )
+    parser.add_argument(
+        "--authenticated-packet-role-evidence",
+        type=Path,
+        help="Authenticated parser evidence JSONL for packet-role replay.",
+    )
+    parser.add_argument(
+        "--expected-authenticated-packet-role-evidence-sha256",
+        help="Exact lowercase SHA-256 of --authenticated-packet-role-evidence.",
     )
     parser.add_argument("--target-clean-cases", type=int, default=25)
     parser.add_argument(
@@ -27413,8 +27437,11 @@ def _cmd_acquisition_plan_public_downloads(
                 use_embedded_entries=cast(bool, args.use_embedded_entries),
             )
         )
+        role_adjudications = _verified_packet_role_adjudications_from_args(args)
     except (
         CommandError,
+        OSError,
+        PacketRoleAdjudicationError,
         SnapshotVerificationError,
         ScreeningSnapshotUnionError,
         FirecrawlScreeningIdentityError,
@@ -27444,6 +27471,7 @@ def _cmd_acquisition_plan_public_downloads(
         use_embedded_entries=cast(bool, args.use_embedded_entries),
         cost_per_missing_document_usd=cast(Decimal, args.cost_per_missing_document_usd),
         max_case_mix_share=cast(Decimal | None, args.max_case_mix_share),
+        role_adjudications=role_adjudications,
     )
     summary = {
         **plan.summary_record(),
@@ -27479,6 +27507,9 @@ def _cmd_acquisition_plan_public_downloads(
             "sha256:" + authenticated_raw_html_manifest_sha256
             if authenticated_raw_html_manifest_sha256 is not None
             else None
+        ),
+        "packet_role_adjudication_commitment_sha256": (
+            None if role_adjudications is None else role_adjudications.commitment_sha256
         ),
     }
     _write_json(summary_path, summary)
@@ -27521,6 +27552,8 @@ def _cmd_acquisition_plan_public_downloads(
                 screened_cases_path,
                 requested_raw_html_dir,
                 raw_html_manifest_path,
+                cast(Path | None, args.packet_role_adjudications),
+                cast(Path | None, args.authenticated_packet_role_evidence),
             )
             if path is not None
         ),
@@ -27545,6 +27578,58 @@ def _cmd_acquisition_plan_public_downloads(
         },
     )
     return 0
+
+
+def _verified_packet_role_adjudications_from_args(
+    args: argparse.Namespace,
+) -> VerifiedPacketRoleAdjudications | None:
+    adjudications_path = cast(Path | None, args.packet_role_adjudications)
+    adjudications_sha256 = cast(
+        str | None,
+        args.expected_packet_role_adjudications_sha256,
+    )
+    evidence_path = cast(Path | None, args.authenticated_packet_role_evidence)
+    evidence_sha256 = cast(
+        str | None,
+        args.expected_authenticated_packet_role_evidence_sha256,
+    )
+    supplied = (
+        adjudications_path,
+        adjudications_sha256,
+        evidence_path,
+        evidence_sha256,
+    )
+    if all(value is None for value in supplied):
+        return None
+    if any(value is None for value in supplied):
+        raise CommandError(
+            "packet-role adjudication replay requires both JSONL paths and both "
+            "expected SHA-256 commitments"
+        )
+    adjudications_payload = read_unique_regular_file(cast(Path, adjudications_path))
+    evidence_payload = read_unique_regular_file(cast(Path, evidence_path))
+    for label, payload, expected in (
+        ("packet-role adjudications", adjudications_payload, adjudications_sha256),
+        ("authenticated packet-role evidence", evidence_payload, evidence_sha256),
+    ):
+        if (
+            not isinstance(expected, str)
+            or hashlib.sha256(payload).hexdigest() != expected
+        ):
+            raise CommandError(f"{label} SHA-256 mismatch")
+    adjudication_records = _read_jsonl_payload(
+        adjudications_payload,
+        label="packet-role adjudications",
+    )
+    evidence_records = _read_jsonl_payload(
+        evidence_payload,
+        label="authenticated packet-role evidence",
+    )
+    evidence = tuple(
+        authenticated_packet_role_evidence_from_record(record)
+        for record in evidence_records
+    )
+    return verify_packet_role_adjudications(adjudication_records, evidence)
 
 
 def _cmd_acquisition_fetch_firecrawl(args: argparse.Namespace) -> int:
@@ -53320,6 +53405,8 @@ def _free_document_download_request(
         document_role=DocumentRole(_required_str(record, "document_role")),
         source_url=_required_str(record, "source_url"),
         file_extension=extension,
+        expected_sha256=_optional_str(record, "expected_sha256"),
+        expected_byte_count=_optional_int(record, "expected_byte_count"),
     )
 
 

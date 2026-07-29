@@ -6,7 +6,7 @@ import os
 import urllib.request
 from email.message import Message
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast.ingestion.free_document_downloader import (
@@ -137,6 +137,60 @@ def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path: Path) ->
         "https://www.courtlistener.com/recap/doc-1.pdf",
         "https://www.courtlistener.com/recap/doc-34.pdf",
     )
+
+
+def test_authenticated_request_rejects_different_downloaded_bytes(
+    tmp_path: Path,
+) -> None:
+    content = b"%PDF different"
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": content}
+    )
+    request = FreeDocumentDownloadRequest(
+        candidate_id="cand-1",
+        source_provider="courtlistener",
+        source_document_id="doc-1",
+        docket_entry_number=1,
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        source_url="https://www.courtlistener.com/recap/doc-1.pdf",
+        expected_sha256="1" * 64,
+        expected_byte_count=len(content),
+    )
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="differ from the authenticated request commitment",
+    ):
+        download_free_docket_documents((request,), output_root=tmp_path, source=source)
+
+    assert not (tmp_path / "cand-1/courtlistener/entry-1_doc-1.pdf").exists()
+    assert not (tmp_path / ".download-checkpoint.jsonl").exists()
+
+
+def test_authenticated_request_rejects_non_string_sha_before_fetch(
+    tmp_path: Path,
+) -> None:
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF content"}
+    )
+    request = FreeDocumentDownloadRequest(
+        candidate_id="cand-1",
+        source_provider="courtlistener",
+        source_document_id="doc-1",
+        docket_entry_number=1,
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        source_url="https://www.courtlistener.com/recap/doc-1.pdf",
+        expected_sha256=cast(str, 123),
+        expected_byte_count=12,
+    )
+
+    with pytest.raises(
+        FreeDocumentDownloadError,
+        match="lowercase SHA-256 and positive byte count",
+    ):
+        download_free_docket_documents((request,), output_root=tmp_path, source=source)
+
+    assert source.requested_urls == ()
 
 
 def test_downloader_resumes_existing_documents_without_refetch(tmp_path: Path) -> None:

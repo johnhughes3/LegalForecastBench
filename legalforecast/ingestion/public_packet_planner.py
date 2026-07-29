@@ -34,6 +34,10 @@ from legalforecast.ingestion.operative_complaint import (
     select_operative_complaint_document,
     select_operative_complaint_entry,
 )
+from legalforecast.ingestion.packet_role_adjudication import (
+    VerifiedPacketRoleAdjudication,
+    VerifiedPacketRoleAdjudications,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import (
     contains_prospective_hearing_sanction_warning,
@@ -59,6 +63,10 @@ class PublicPacketDocumentPlan:
     description: str
     model_visible: bool
     contains_target_outcome: bool
+    role_adjudication_sha256: str | None = None
+    source_pdf_sha256: str | None = None
+    source_byte_count: int | None = None
+    restriction_status: str = "public"
 
     def to_download_request(self) -> FreeDocumentDownloadRequest:
         return FreeDocumentDownloadRequest(
@@ -69,10 +77,12 @@ class PublicPacketDocumentPlan:
             document_role=self.document_role,
             source_url=self.source_url,
             file_extension="pdf",
+            expected_sha256=self.source_pdf_sha256,
+            expected_byte_count=self.source_byte_count,
         )
 
     def to_record(self) -> dict[str, Any]:
-        return {
+        record: dict[str, Any] = {
             "candidate_id": self.candidate_id,
             "source_document_id": self.source_document_id,
             "docket_entry_number": self.docket_entry_number,
@@ -81,11 +91,16 @@ class PublicPacketDocumentPlan:
             "description": self.description,
             "model_visible": self.model_visible,
             "contains_target_outcome": self.contains_target_outcome,
-            "redaction_or_seal_status": "public",
+            "redaction_or_seal_status": self.restriction_status,
             "restriction_evidence": ["courtlistener_public_download_record_checked"],
             "is_sealed": None,
             "is_private": None,
+            "role_adjudication_sha256": self.role_adjudication_sha256,
         }
+        if self.source_pdf_sha256 is not None:
+            record["source_pdf_sha256"] = self.source_pdf_sha256
+            record["source_byte_count"] = self.source_byte_count
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,6 +275,7 @@ def plan_public_packet_downloads(
     use_embedded_entries: bool = False,
     cost_per_missing_document_usd: Decimal | str = DEFAULT_PURCHASE_COST_USD,
     max_case_mix_share: Decimal | str | float | None = None,
+    role_adjudications: VerifiedPacketRoleAdjudications | None = None,
 ) -> PublicPacketDownloadPlan:
     """Select public/free packet candidates and emit document download requests."""
 
@@ -320,6 +336,7 @@ def plan_public_packet_downloads(
             allow_inferred_target_mtd=allow_inferred_target_mtd,
             use_embedded_entries=use_embedded_entries,
             cost_per_missing_document=unit_cost,
+            role_adjudications=role_adjudications,
         )
         evaluated_plans.append(plan)
     candidate_plans, selection_optimizer = _select_lowest_cost_candidates(
@@ -355,6 +372,7 @@ def _candidate_plan(
     allow_inferred_target_mtd: bool,
     use_embedded_entries: bool,
     cost_per_missing_document: Decimal,
+    role_adjudications: VerifiedPacketRoleAdjudications | None,
 ) -> PublicPacketCandidatePlan:
     candidate = _mapping(record, "candidate")
     metadata = _mapping(candidate, "metadata")
@@ -472,10 +490,12 @@ def _candidate_plan(
         )
     documents, reasons, required_count, free_required_count = _documents_for_candidate(
         candidate_id,
+        case_id=_optional_str(metadata, "case_id") or candidate_id,
         page=page,
         target_entries=target_entries,
         decision_entries=decision_entries,
         allow_inferred_target_mtd=allow_inferred_target_mtd,
+        role_adjudications=role_adjudications,
     )
     missing_required_count = required_count - free_required_count
     return PublicPacketCandidatePlan(
@@ -510,10 +530,12 @@ def _candidate_plan(
 def _documents_for_candidate(
     candidate_id: str,
     *,
+    case_id: str,
     page: CourtListenerWebDocketPage,
     target_entries: tuple[int, ...],
     decision_entries: tuple[int, ...],
     allow_inferred_target_mtd: bool,
+    role_adjudications: VerifiedPacketRoleAdjudications | None,
 ) -> tuple[tuple[PublicPacketDocumentPlan, ...], tuple[str, ...], int, int]:
     decision_floor = min(decision_entries) if decision_entries else _max_entry(page)
     complaint_floor = min(target_entries) if target_entries else decision_floor
@@ -564,6 +586,13 @@ def _documents_for_candidate(
         reasons.append("no_free_target_mtd_document")
     has_free_mtd_memorandum = any(
         _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
+        or _accepted_mtd_memorandum_adjudication(
+            candidate_id=candidate_id,
+            case_id=case_id,
+            entry=entry,
+            role_adjudications=role_adjudications,
+        )
+        is not None
         for entry in target_mtd_entries
     )
     if not has_free_mtd_memorandum:
@@ -602,12 +631,11 @@ def _documents_for_candidate(
     if complaint_plan is not None:
         documents.append(complaint_plan)
     documents.extend(
-        _document_plan(
+        _mtd_document_plan(
             candidate_id,
-            entry,
-            role=_mtd_role(entry),
-            model_visible=True,
-            contains_target_outcome=False,
+            case_id=case_id,
+            entry=entry,
+            role_adjudications=role_adjudications,
         )
         for entry in target_mtd_entries
     )
@@ -1202,25 +1230,111 @@ def _document_plan(
     role: DocumentRole,
     model_visible: bool,
     contains_target_outcome: bool,
+    role_adjudication: VerifiedPacketRoleAdjudication | None = None,
 ) -> PublicPacketDocumentPlan:
-    document = _best_free_document(entry, role)
+    document = (
+        _best_free_document(entry, DocumentRole.MTD_NOTICE)
+        if role_adjudication is not None
+        else _best_free_document(entry, role)
+    )
     if document is None:
         raise ValueError(f"entry has no free document for role: {role.value}")
-    entry_number = _entry_number(entry)
     source_document_id = (
-        f"{candidate_id}-entry-{entry.entry_number or 'unknown'}-{role.value}".replace(
-            "_", "-"
-        )
+        role_adjudication.document_key
+        if role_adjudication is not None
+        else _source_document_id(candidate_id, entry, role)
     )
     return PublicPacketDocumentPlan(
         candidate_id=candidate_id,
         source_document_id=source_document_id,
-        docket_entry_number=entry_number,
+        docket_entry_number=_entry_number(entry),
         document_role=role,
         source_url=document.href or "",
         description=document.description,
         model_visible=model_visible,
         contains_target_outcome=contains_target_outcome,
+        role_adjudication_sha256=(
+            None if role_adjudication is None else role_adjudication.record_sha256
+        ),
+        source_pdf_sha256=(
+            None if role_adjudication is None else role_adjudication.source_pdf_sha256
+        ),
+        source_byte_count=(
+            None if role_adjudication is None else role_adjudication.source_byte_count
+        ),
+        restriction_status=(
+            "public"
+            if role_adjudication is None
+            else role_adjudication.restriction_status
+        ),
+    )
+
+
+def _mtd_document_plan(
+    candidate_id: str,
+    *,
+    case_id: str,
+    entry: CourtListenerWebDocketEntry,
+    role_adjudications: VerifiedPacketRoleAdjudications | None,
+) -> PublicPacketDocumentPlan:
+    has_free_memorandum = (
+        _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
+    )
+    adjudication = (
+        None
+        if has_free_memorandum
+        else _accepted_mtd_memorandum_adjudication(
+            candidate_id=candidate_id,
+            case_id=case_id,
+            entry=entry,
+            role_adjudications=role_adjudications,
+        )
+    )
+    role = (
+        DocumentRole.MTD_MEMORANDUM
+        if (has_free_memorandum or adjudication is not None)
+        else DocumentRole.MTD_NOTICE
+    )
+    return _document_plan(
+        candidate_id,
+        entry,
+        role=role,
+        model_visible=True,
+        contains_target_outcome=False,
+        role_adjudication=adjudication,
+    )
+
+
+def _accepted_mtd_memorandum_adjudication(
+    *,
+    candidate_id: str,
+    case_id: str,
+    entry: CourtListenerWebDocketEntry,
+    role_adjudications: VerifiedPacketRoleAdjudications | None,
+) -> VerifiedPacketRoleAdjudication | None:
+    if (
+        role_adjudications is None
+        or entry.restricted
+        or _best_free_document(entry, DocumentRole.MTD_NOTICE) is None
+    ):
+        return None
+    document_key = _source_document_id(candidate_id, entry, DocumentRole.MTD_NOTICE)
+    return role_adjudications.accepted_combined_mtd_memorandum(
+        candidate_id=case_id,
+        docket_id=candidate_id,
+        document_key=document_key,
+    )
+
+
+def _source_document_id(
+    candidate_id: str,
+    entry: CourtListenerWebDocketEntry,
+    role: DocumentRole,
+) -> str:
+    return (
+        f"{candidate_id}-entry-{entry.entry_number or 'unknown'}-{role.value}".replace(
+            "_", "-"
+        )
     )
 
 
@@ -1351,14 +1465,6 @@ def _first_written_disposition_date(
     except ValueError:
         return value, "first_written_mtd_disposition_date_invalid"
     return value, None
-
-
-def _mtd_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:
-    return (
-        DocumentRole.MTD_MEMORANDUM
-        if _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
-        else DocumentRole.MTD_NOTICE
-    )
 
 
 def _brief_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:

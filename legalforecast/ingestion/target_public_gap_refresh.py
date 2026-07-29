@@ -46,6 +46,9 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentSource,
     download_free_docket_documents,
 )
+from legalforecast.ingestion.packet_role_adjudication import (
+    VerifiedPacketRoleAdjudications,
+)
 from legalforecast.ingestion.provenance_clearance import canonical_json_bytes
 from legalforecast.ingestion.public_packet_planner import (
     PublicPacketCandidatePlan,
@@ -1250,6 +1253,7 @@ def refresh_target_public_gaps(
     *,
     plan: TargetPublicGapPlan,
     scheduler: TargetPublicGapScheduler,
+    role_adjudications: VerifiedPacketRoleAdjudications | None = None,
 ) -> TargetPublicGapRefreshResult:
     """Acquire exact rows, reuse public planning, and reconcile old/new identity."""
 
@@ -1287,6 +1291,7 @@ def refresh_target_public_gaps(
                 for candidate_id, bundle in bundle_by_candidate.items()
             },
             target_clean_cases=len(screened_records),
+            role_adjudications=role_adjudications,
         )
         planned_by_candidate = {
             candidate.candidate_id: candidate for candidate in planner.candidate_plans
@@ -1397,6 +1402,7 @@ def execute_target_public_gap_refresh(
     firecrawl_source_factory: Callable[[], FirecrawlCourtListenerHTMLSource],
     document_source_factory: Callable[[], FreeDocumentSource],
     allow_existing_downloads: bool,
+    role_adjudications: VerifiedPacketRoleAdjudications | None = None,
     execution_binding: TargetPublicGapExecutionBinding | None = None,
 ) -> TargetPublicGapExecutionResult:
     """Execute after exact authority through the canonical acquisition stages."""
@@ -1421,6 +1427,7 @@ def execute_target_public_gap_refresh(
                 firecrawl_source_factory=firecrawl_source_factory,
                 document_source_factory=document_source_factory,
                 allow_existing_downloads=allow_existing_downloads,
+                role_adjudications=role_adjudications,
                 execution_binding=binding,
             )
     execution_binding.require_current(plan)
@@ -1502,6 +1509,7 @@ def execute_target_public_gap_refresh(
         require_target_public_gap_sources_unchanged(plan)
         refresh = refresh_target_public_gaps(
             plan=plan,
+            role_adjudications=role_adjudications,
             scheduler=BudgetedFirecrawlScheduler(
                 store=store,
                 source=firecrawl_source,

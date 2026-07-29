@@ -281,9 +281,11 @@ class FreeDocumentDownloadRequest:
     document_role: DocumentRole
     source_url: str
     file_extension: str = "pdf"
+    expected_sha256: str | None = None
+    expected_byte_count: int | None = None
 
     def to_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "candidate_id": self.candidate_id,
             "source_provider": self.source_provider,
             "source_document_id": self.source_document_id,
@@ -292,6 +294,10 @@ class FreeDocumentDownloadRequest:
             "source_url": self.source_url,
             "file_extension": self.file_extension,
         }
+        if self.expected_sha256 is not None:
+            record["expected_sha256"] = self.expected_sha256
+            record["expected_byte_count"] = self.expected_byte_count
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -1220,6 +1226,7 @@ def _download_one(
     expected: FreeDocumentDownloadRecord | None,
     bound_output_directory: Path | None = None,
 ) -> FreeDocumentDownloadRecord:
+    _require_request_commitment_shape(request)
     _validate_public_document_url(request.source_url)
     canonical_output_path = _document_output_path(output_root, request)
     output_path = (
@@ -1259,10 +1266,11 @@ def _download_one(
                 "existing document artifact differs from its download checkpoint: "
                 f"{canonical_output_path.relative_to(output_root).as_posix()}"
             )
+        _require_request_byte_commitment(request, expected)
         return expected
     if isinstance(source, UrlLibFreeDocumentSource):
-        fetch = _stream_live_document(source, request.source_url, output_path)
-        return _record_for_path(
+        fetch = _stream_live_document(source, request, output_path)
+        record = _record_for_path(
             request,
             output_root=output_root,
             output_path=output_path,
@@ -1270,6 +1278,8 @@ def _download_one(
             fetch=fetch,
             reused_existing=False,
         )
+        _require_request_byte_commitment(request, record)
+        return record
     fetch = source.fetch(request.source_url)
     if not fetch.content:
         raise FreeDocumentDownloadError(
@@ -1281,9 +1291,14 @@ def _download_one(
         raise FreeDocumentDownloadError(
             f"free public PDF is missing PDF magic: {request.source_url}"
         )
+    _require_request_content_commitment(
+        request,
+        digest=hashlib.sha256(fetch.content).hexdigest(),
+        byte_count=len(fetch.content),
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write(output_path, fetch.content)
-    return _record_for_content(
+    record = _record_for_content(
         request,
         output_root=output_root,
         canonical_output_path=canonical_output_path,
@@ -1291,10 +1306,64 @@ def _download_one(
         fetch=fetch,
         reused_existing=False,
     )
+    _require_request_byte_commitment(request, record)
+    return record
+
+
+def _require_request_byte_commitment(
+    request: FreeDocumentDownloadRequest,
+    record: FreeDocumentDownloadRecord,
+) -> None:
+    _require_request_content_commitment(
+        request,
+        digest=record.sha256,
+        byte_count=record.byte_count,
+    )
+
+
+def _require_request_content_commitment(
+    request: FreeDocumentDownloadRequest,
+    *,
+    digest: str,
+    byte_count: int,
+) -> None:
+    _require_request_commitment_shape(request)
+    if request.expected_sha256 is None:
+        return
+    if digest != request.expected_sha256 or byte_count != request.expected_byte_count:
+        raise FreeDocumentDownloadError(
+            "downloaded document bytes differ from the authenticated request "
+            f"commitment: {request.candidate_id}/{request.source_document_id}"
+        )
+
+
+def _require_request_commitment_shape(
+    request: FreeDocumentDownloadRequest,
+) -> None:
+    if (request.expected_sha256 is None) != (request.expected_byte_count is None):
+        raise FreeDocumentDownloadError(
+            "expected document SHA-256 and byte count must be supplied together"
+        )
+    if request.expected_sha256 is None:
+        return
+    expected_sha256 = cast(object, request.expected_sha256)
+    if (
+        not isinstance(expected_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
+        or not isinstance(request.expected_byte_count, int)
+        or isinstance(request.expected_byte_count, bool)
+        or request.expected_byte_count <= 0
+    ):
+        raise FreeDocumentDownloadError(
+            "expected document commitment must contain a lowercase SHA-256 and "
+            "positive byte count"
+        )
 
 
 def _stream_live_document(
-    source: UrlLibFreeDocumentSource, source_url: str, output_path: Path
+    source: UrlLibFreeDocumentSource,
+    request: FreeDocumentDownloadRequest,
+    output_path: Path,
 ) -> FreeDocumentFetch:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
@@ -1303,7 +1372,13 @@ def _stream_live_document(
     os.close(descriptor)
     temporary = Path(temporary_name)
     try:
-        fetch = source.fetch_to(source_url, temporary)
+        fetch = source.fetch_to(request.source_url, temporary)
+        digest, byte_count = _hash_path(temporary)
+        _require_request_content_commitment(
+            request,
+            digest=digest,
+            byte_count=byte_count,
+        )
         os.replace(temporary, output_path)
         _fsync_directory(output_path.parent)
         return fetch
