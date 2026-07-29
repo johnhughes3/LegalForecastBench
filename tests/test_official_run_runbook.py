@@ -851,9 +851,12 @@ def test_disclosure_review_runbook_uses_provenance_first_contract() -> None:
     assert "descriptor-stable manifest commitments" in section
     assert "complete page-level text coverage" in section
     assert "disjoint text-scanned, OCR-scanned, and unscanned page sets" in section
+    assert "`pypdf_page_text_v2` scanner" in section
     assert "requires the reserved OCR-scanned set to be empty" in section
-    assert "content-stream/page-count mismatch is only a diagnostic" in section
-    assert "incomplete coverage, `medical`" in section
+    assert "redundant legacy extractor is retired for new v2 scans" in section
+    assert "immutable v1 scans replay through their historical scanner" in section
+    assert "content-stream/page-count mismatch remains diagnostic-only" in section
+    assert "Incomplete coverage, `medical`, SSN, mixed" in section
     assert "preflight-disclosure-review-signer" not in section
     assert "build-disclosure-review-bundle" not in section
     assert "seal-disclosure-review-bundle" not in section

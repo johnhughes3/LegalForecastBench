@@ -2,18 +2,26 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import pytest
-from legalforecast.ingestion.disclosure_clearance import DisclosurePdfScan
+from legalforecast.ingestion.disclosure_clearance import (
+    PDF_SCAN_SCHEMA_VERSION,
+    PDF_SCAN_SCHEMA_VERSION_V1,
+    DisclosurePdfScan,
+    scan_disclosure_document,
+    scan_disclosure_document_v1,
+)
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
     build_provenance_clearance_plan,
     build_provenance_clearance_records,
     canonical_json_bytes,
+    document_scanner_for_plan,
     exception_review_worksheet,
     validate_exception_review_worksheet,
 )
@@ -356,6 +364,99 @@ def test_closed_exception_worksheet_rejects_nested_scan_drift(tmp_path: Path) ->
 
     with pytest.raises(ProvenanceClearanceError, match="PDF scan"):
         validate_exception_review_worksheet(worksheet)
+
+
+def test_scan_page_validation_error_identifies_document(tmp_path: Path) -> None:
+    plan = _plan(tmp_path)
+    documents = cast(list[dict[str, object]], plan["documents"])
+    document = documents[0]
+    key = (document["candidate_id"], document["source_document_id"])
+    scan = cast(dict[str, object], document["disclosure_pdf_scan"])
+    scan["text_scanned_page_numbers"] = "not-a-list"
+
+    with pytest.raises(
+        ProvenanceClearanceError,
+        match=rf"text_scanned_page_numbers must be a list: {re.escape(str(key))}",
+    ):
+        exception_review_worksheet(plan)
+
+
+def test_immutable_plan_selects_its_versioned_scanner(tmp_path: Path) -> None:
+    current = _plan(tmp_path)
+    assert document_scanner_for_plan(current) is scan_disclosure_document
+
+    historical = cast(dict[str, object], json.loads(json.dumps(current)))
+    historical_documents = cast(list[dict[str, object]], historical["documents"])
+    for document in historical_documents:
+        scan = cast(dict[str, object], document["disclosure_pdf_scan"])
+        scan["schema_version"] = PDF_SCAN_SCHEMA_VERSION_V1
+        scan["method"] = "pypdf_page_text_v1"
+    assert document_scanner_for_plan(historical) is scan_disclosure_document_v1
+
+    mixed = cast(dict[str, object], json.loads(json.dumps(historical)))
+    mixed_documents = cast(list[dict[str, object]], mixed["documents"])
+    mixed_scan = cast(dict[str, object], mixed_documents[0]["disclosure_pdf_scan"])
+    mixed_scan["schema_version"] = PDF_SCAN_SCHEMA_VERSION
+    mixed_scan["method"] = "pypdf_page_text_v2"
+    with pytest.raises(ProvenanceClearanceError, match="mixed PDF scanner versions"):
+        document_scanner_for_plan(mixed)
+    with pytest.raises(ProvenanceClearanceError, match="mixed PDF scanner versions"):
+        exception_review_worksheet(mixed)
+
+
+def test_empty_plan_uses_current_scanner_and_builds_empty_worksheet(
+    tmp_path: Path,
+) -> None:
+    plan = build_provenance_clearance_plan(
+        [],
+        [],
+        [],
+        [],
+        document_root=tmp_path,
+        review_requests_bytes=b"",
+        download_manifest_bytes=b"",
+        restriction_evidence_bytes=b"",
+        case_relevance_bytes=b"",
+    )
+
+    assert document_scanner_for_plan(plan) is scan_disclosure_document
+    assert exception_review_worksheet(plan)["documents"] == []
+
+
+def test_builder_rejects_stateful_mixed_scanner_output(tmp_path: Path) -> None:
+    inputs = _inputs(tmp_path)
+    current = _complete_scan()
+    historical = DisclosurePdfScan(
+        parsed_page_count=1,
+        text_scanned_page_numbers=(1,),
+        ocr_scanned_page_numbers=(),
+        unscanned_page_numbers=(),
+        coverage_status="complete",
+        diagnostics=(),
+        automated_markers=(),
+        schema_version=PDF_SCAN_SCHEMA_VERSION_V1,
+        method="pypdf_page_text_v1",
+    )
+    calls = 0
+
+    def stateful_scanner(_: bytes) -> DisclosurePdfScan:
+        nonlocal calls
+        calls += 1
+        return current if calls == 1 else historical
+
+    with pytest.raises(ProvenanceClearanceError, match="mixed PDF scanner versions"):
+        build_provenance_clearance_plan(
+            inputs.requests,
+            inputs.manifest,
+            inputs.restrictions,
+            inputs.relevance,
+            document_root=inputs.document_root,
+            review_requests_bytes=_jsonl(inputs.requests),
+            download_manifest_bytes=_jsonl(inputs.manifest),
+            restriction_evidence_bytes=_jsonl(inputs.restrictions),
+            case_relevance_bytes=_jsonl(inputs.relevance),
+            document_scanner=stateful_scanner,
+        )
 
 
 def test_closed_plan_rejects_marker_route_bypass(tmp_path: Path) -> None:

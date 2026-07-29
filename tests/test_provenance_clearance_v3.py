@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from legalforecast.ingestion.disclosure_clearance import DisclosurePdfScan
+from legalforecast.ingestion.disclosure_clearance import (
+    PDF_SCAN_SCHEMA_VERSION_V1,
+    DisclosurePdfScan,
+)
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
     build_provenance_clearance_plan,
@@ -116,6 +119,43 @@ def _plan(tmp_path: Path) -> dict[str, object]:
         case_relevance_bytes=_jsonl(relevance),
         document_scanner=lambda _: scan,
     )
+
+
+def test_v3_plan_rejects_mixed_scanner_versions(tmp_path: Path) -> None:
+    plan = _plan(tmp_path)
+    documents = cast(list[dict[str, object]], plan["documents"])
+    second = deepcopy(documents[0])
+    second["candidate_id"] = "case-b"
+    second["source_document_id"] = "entry-2"
+    second["local_path"] = "case-b/entry-2.pdf"
+    scan = cast(dict[str, object], second["disclosure_pdf_scan"])
+    scan["schema_version"] = PDF_SCAN_SCHEMA_VERSION_V1
+    scan["method"] = "pypdf_page_text_v1"
+    documents.append(second)
+    plan["document_count"] = 2
+    plan["exception_review_count"] = 2
+    plan["document_set_sha256"] = hashlib.sha256(
+        canonical_json_bytes(documents)
+    ).hexdigest()
+
+    with pytest.raises(ProvenanceClearanceError, match="mixed PDF scanner versions"):
+        exception_review_worksheet_v3(plan)
+
+
+def test_empty_v3_plan_builds_empty_worksheet(tmp_path: Path) -> None:
+    plan = build_provenance_clearance_plan_v3(
+        [],
+        [],
+        [],
+        [],
+        document_root=tmp_path,
+        review_requests_bytes=b"",
+        download_manifest_bytes=b"",
+        restriction_evidence_bytes=b"",
+        case_relevance_bytes=b"",
+    )
+
+    assert exception_review_worksheet_v3(plan)["documents"] == []
 
 
 def test_v3_plan_and_worksheet_use_generic_vocabulary_and_exact_binding(
