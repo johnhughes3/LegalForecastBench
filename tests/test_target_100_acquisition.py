@@ -11,9 +11,6 @@ import legalforecast.cli as cli
 import legalforecast.ingestion.resolved_post_recovery as resolved_module
 import pytest
 from legalforecast.cli import main
-from legalforecast.ingestion.case_dev_purchase import (
-    generate_case_dev_purchase_policy,
-)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.disclosure_review_authority import (
     disclosure_authority_identity_from_cohort_policy,
@@ -4349,42 +4346,6 @@ def _write_authenticated_reviews(
         policy_pin=signed["reviewer_policy_sha256"],
         cohort_policy=cohort_policy,
     )
-
-
-def _purchase_policies(tmp_path: Path) -> tuple[Path, Path, Path]:
-    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
-    decisions = cli._fixture_cohort_policy_decisions()
-    decisions["purchase_policy"] = {
-        "rule": "buy_cheapest_complete",
-        "cycle_budget_usd": "2250.00",
-        "max_per_case_usd": "73.20",
-        "reservation_headroom_required": True,
-    }
-    cohort = cli.generate_cohort_policy(decisions)
-    cohort_path = tmp_path / "cohort-policy.json"
-    cohort_path.write_text(json.dumps(cohort, sort_keys=True))
-    purchase = generate_case_dev_purchase_policy(
-        {
-            "cycle_id": "cycle-1",
-            "cohort_policy_sha256": cohort["policy_sha256"],
-            "canonical_ledger_path": str(ledger),
-            "hard_cap_usd": "2250.00",
-            "opening_committed_spend_usd": "0.00",
-            "opening_case_committed_spend_usd": {},
-            "max_per_case_usd": "73.20",
-            "per_document_reservation_usd": "3.05",
-            "fee_schedule": {
-                "source_citation": "https://www.courtlistener.com/help/coverage/recap/",
-                "verified_at_utc": "2026-07-14T00:00:00Z",
-                "includes_pacer_fees": True,
-                "includes_service_fees": True,
-                "includes_rounding": True,
-            },
-        }
-    )
-    purchase_path = tmp_path / "purchase-policy.json"
-    purchase_path.write_text(json.dumps(purchase, sort_keys=True))
-    return purchase_path, cohort_path, ledger
 
 
 def _purchase_fixtures(

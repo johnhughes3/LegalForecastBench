@@ -81,6 +81,8 @@ from tests.disclosure_review_fixtures import (
 from tests.purchase_approval_fixtures import (
     LEGACY_V1_BYPASS_MODULES,
     allow_historical_v1_algorithm_fixtures,
+    build_approved_purchase_fixture,
+    build_completed_projection_fixture,
 )
 from tests.test_target_100_acquisition import (
     _snapshot_manifest_sha256,
@@ -101,7 +103,10 @@ def _unit_projection_authority(
 ) -> None:
     """Unit fixtures exercise replay below; CLI integration covers full lineage."""
 
-    if request.node.name == "test_real_authenticated_exact_100_with_15_omitted":
+    if request.node.name in {
+        "test_projection_swap_after_authoritative_verifier_uses_captured_bytes",
+        "test_real_authenticated_exact_100_with_15_omitted",
+    }:
         return
 
     def captured_projection(root: Path) -> dict[str, object]:
@@ -729,7 +734,16 @@ def test_authoritative_projection_lineage_verifier_cannot_be_bypassed(
 def test_projection_swap_after_authoritative_verifier_uses_captured_bytes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    target_root, cohort_policy, fee_schedule = _projection_fixture(tmp_path)
+    target_root = build_completed_projection_fixture(
+        tmp_path / "authenticated-projection",
+        monkeypatch=monkeypatch,
+    ).root
+    approval = build_approved_purchase_fixture(
+        tmp_path / "authority",
+        target_cohort_root=target_root,
+    )
+    cohort_policy = approval.cohort_policy
+    fee_schedule = approval.cohort_policy.parent / "fee-schedule.json"
     selection_path = target_root / "target-cohort-selection.jsonl"
     original_bytes = selection_path.read_bytes()
     authoritative = cli.verify_completed_target_cohort_projection_for_purchase_approval
