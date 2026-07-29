@@ -70,6 +70,10 @@ def test_runbook_documents_attempt_bound_seal_and_publication_commit() -> None:
         in (runbook)
     )
     assert "prefix-conditioned `s3:ListBucket` authority" in runbook
+    assert (
+        "prefix-conditioned `s3:ListBucketVersions` authority only for "
+        "`per-case/<cycle_id>/`"
+    ) in runbook
     assert "exact-key ListObjectsV2 probe before GetObject" in runbook
     assert "malformed listing, or unexpected key fails closed" in runbook
     assert (

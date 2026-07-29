@@ -70,6 +70,17 @@
       }
     },
     {
+      "Sid": "ListCurrentPerCaseVersions",
+      "Effect": "Allow",
+      "Action": "s3:ListBucketVersions",
+      "Resource": "${results_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "per-case/*"
+        }
+      }
+    },
+    {
       "Sid": "ListFanInNamespaces",
       "Effect": "Allow",
       "Action": "s3:ListBucket",

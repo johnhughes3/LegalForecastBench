@@ -1114,12 +1114,11 @@ def _discover_receipts(root: str, cycle_id: str) -> tuple[ReceiptArtifact, ...]:
 def _discover_current_union_objects(root: str, cycle_id: str) -> dict[str, str]:
     prefix = f"per-case/{cycle_id}/"
     if root.startswith("s3://"):
-        return {
-            _normalize_uri(_join_root(root, key)): _head_s3_version(
-                _join_root(root, key)
-            )
-            for key in _list_s3_keys(root, prefix)
-        }
+        first = _list_current_s3_versions(root, prefix)
+        second = _list_current_s3_versions(root, prefix)
+        if first != second:
+            raise FanInError("S3 current union changed during inventory")
+        return first
     directory = Path(root) / prefix
     if not directory.is_dir():
         return {}
@@ -1174,26 +1173,98 @@ def _list_s3_keys(root: str, prefix: str) -> tuple[str, ...]:
     return tuple(sorted(keys))
 
 
-def _head_s3_version(uri: str) -> str:
-    parsed = urlparse(uri)
-    payload = _run_aws_json(
-        [
+def _list_current_s3_versions(root: str, prefix: str) -> dict[str, str]:
+    """List one stable view of current live VersionIds below an S3 prefix."""
+
+    parsed = urlparse(root.rstrip("/"))
+    if parsed.scheme != "s3" or not parsed.netloc:
+        raise FanInError(f"invalid S3 root: {root}")
+    root_prefix = unquote(parsed.path.lstrip("/"))
+    full_prefix = "/".join(value for value in (root_prefix, prefix) if value)
+    expected_root = root_prefix.rstrip("/") + "/" if root_prefix else ""
+    records: set[tuple[str, str]] = set()
+    seen_keys: set[str] = set()
+    latest: dict[str, tuple[str, str]] = {}
+    markers: tuple[str, str] | None = None
+    seen_markers: set[tuple[str, str]] = set()
+
+    while True:
+        command = [
             "aws",
             "s3api",
-            "head-object",
+            "list-object-versions",
             "--bucket",
             parsed.netloc,
-            "--key",
-            unquote(parsed.path.lstrip("/")),
+            "--prefix",
+            full_prefix,
+            "--no-paginate",
             "--output",
             "json",
-        ],
-        "S3 object version verification",
-    )
-    version = _required_str(payload, "VersionId")
-    if version == "null":
-        raise FanInError(f"S3 object has no durable VersionId: {uri}")
-    return version
+        ]
+        if markers is not None:
+            command.extend(
+                (
+                    "--key-marker",
+                    markers[0],
+                    "--version-id-marker",
+                    markers[1],
+                )
+            )
+        payload = _run_aws_json(command, "S3 object version inventory")
+        for field, kind in (("Versions", "version"), ("DeleteMarkers", "delete")):
+            raw_records = payload.get(field, [])
+            if not isinstance(raw_records, list):
+                raise FanInError(f"S3 version response {field} must be an array")
+            for raw in cast(list[object], raw_records):
+                record = _mapping(raw, f"S3 {kind} record")
+                key = _required_str(record, "Key")
+                if not key.startswith(full_prefix):
+                    raise FanInError("S3 version listing escaped configured prefix")
+                if expected_root:
+                    if not key.startswith(expected_root):
+                        raise FanInError("S3 version listing escaped configured root")
+                version_id = _required_str(record, "VersionId")
+                is_latest = record.get("IsLatest")
+                if not isinstance(is_latest, bool):
+                    raise FanInError("S3 version record IsLatest must be Boolean")
+                if kind == "version" and is_latest and version_id == "null":
+                    raise FanInError("S3 current object has a nondurable VersionId")
+                identity = (key, version_id)
+                if identity in records:
+                    raise FanInError(
+                        "S3 version inventory contains duplicate version record"
+                    )
+                records.add(identity)
+                seen_keys.add(key)
+                if is_latest:
+                    if key in latest:
+                        raise FanInError(
+                            "S3 version inventory contains multiple latest records"
+                        )
+                    latest[key] = (kind, version_id)
+
+        truncated = payload.get("IsTruncated")
+        if not isinstance(truncated, bool):
+            raise FanInError("S3 version response IsTruncated must be Boolean")
+        if not truncated:
+            break
+        next_markers = (
+            _required_str(payload, "NextKeyMarker"),
+            _required_str(payload, "NextVersionIdMarker"),
+        )
+        if next_markers in seen_markers:
+            raise FanInError("S3 version inventory pagination markers did not advance")
+        seen_markers.add(next_markers)
+        markers = next_markers
+
+    missing_latest = seen_keys.difference(latest)
+    if missing_latest:
+        raise FanInError("S3 version inventory contains a key without a latest record")
+    return {
+        _normalize_uri(_join_root(root, key[len(expected_root) :])): version_id
+        for key, (kind, version_id) in latest.items()
+        if kind == "version"
+    }
 
 
 def _read_exact_object(uri: str, version_id: str) -> bytes:

@@ -883,35 +883,264 @@ def test_s3_publication_rejects_a_conflicting_object(
     assert "reports/cycle-1/multi-ablation/.publication-complete.json" not in stored
 
 
-def test_s3_version_lookup_uses_one_s3api_subcommand(
+def test_s3_current_union_inventory_uses_bulk_version_pages(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     commands: list[list[str]] = []
+    pages = [
+        {
+            "Versions": [
+                {
+                    "Key": "reports/per-case/cycle-1/a.jsonl",
+                    "VersionId": "null",
+                    "IsLatest": False,
+                },
+                {
+                    "Key": "reports/per-case/cycle-1/a.jsonl",
+                    "VersionId": "a-current",
+                    "IsLatest": True,
+                },
+                {
+                    "Key": "reports/per-case/cycle-1/b.jsonl",
+                    "VersionId": "b-current",
+                    "IsLatest": True,
+                },
+            ],
+            "DeleteMarkers": [],
+            "IsTruncated": True,
+            "NextKeyMarker": "reports/per-case/cycle-1/b.jsonl",
+            "NextVersionIdMarker": "b-current",
+        },
+        {
+            "Versions": [
+                {
+                    "Key": "reports/per-case/cycle-1/c.jsonl",
+                    "VersionId": "c-old",
+                    "IsLatest": False,
+                }
+            ],
+            "DeleteMarkers": [
+                {
+                    "Key": "reports/per-case/cycle-1/c.jsonl",
+                    "VersionId": "c-delete",
+                    "IsLatest": True,
+                }
+            ],
+            "IsTruncated": False,
+        },
+    ]
 
     def fake_run(command: list[str], **_kwargs: Any) -> SimpleNamespace:
         commands.append(command)
         return SimpleNamespace(
-            returncode=0, stdout='{"VersionId": "version-1"}', stderr=""
+            returncode=0,
+            stdout=json.dumps(pages[(len(commands) - 1) % len(pages)]),
+            stderr="",
         )
 
     monkeypatch.setattr(shard_fan_in.subprocess, "run", fake_run)
 
-    assert (
-        shard_fan_in._head_s3_version("s3://results/per-case/cycle-1/x") == "version-1"
+    inventory_sha256 = shard_fan_in.current_union_inventory_sha256(
+        "s3://results/reports",
+        "cycle-1",
     )
-    assert commands == [
-        [
-            "aws",
-            "s3api",
-            "head-object",
-            "--bucket",
-            "results",
-            "--key",
-            "per-case/cycle-1/x",
-            "--output",
-            "json",
-        ]
+
+    assert (
+        inventory_sha256
+        == "93ba0c375b9140491bb426b83b04a890481a14831aa10a9e3fb86f6107dcc284"
+    )
+    assert len(commands) == 4
+    assert all(
+        command[1:3] == ["s3api", "list-object-versions"] for command in commands
+    )
+    assert all("head-object" not in command for command in commands)
+    assert commands[0][commands[0].index("--prefix") + 1] == (
+        "reports/per-case/cycle-1/"
+    )
+    assert "--key-marker" not in commands[0]
+    assert commands[1][-4:] == [
+        "--key-marker",
+        "reports/per-case/cycle-1/b.jsonl",
+        "--version-id-marker",
+        "b-current",
     ]
+
+
+def test_s3_current_union_inventory_rejects_duplicate_version_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    duplicate = {
+        "Key": "per-case/cycle-1/a.jsonl",
+        "VersionId": "version-a",
+        "IsLatest": True,
+    }
+    payload = {
+        "Versions": [duplicate, duplicate],
+        "DeleteMarkers": [],
+        "IsTruncated": False,
+    }
+    monkeypatch.setattr(
+        shard_fan_in.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        ),
+    )
+
+    with pytest.raises(shard_fan_in.FanInError, match="duplicate version record"):
+        shard_fan_in.current_union_inventory_sha256("s3://results", "cycle-1")
+
+
+def test_s3_current_union_inventory_rejects_conflicting_latest_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "Versions": [
+            {
+                "Key": "per-case/cycle-1/a.jsonl",
+                "VersionId": "version-a",
+                "IsLatest": True,
+            },
+            {
+                "Key": "per-case/cycle-1/a.jsonl",
+                "VersionId": "version-b",
+                "IsLatest": True,
+            },
+        ],
+        "DeleteMarkers": [],
+        "IsTruncated": False,
+    }
+    monkeypatch.setattr(
+        shard_fan_in.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        ),
+    )
+
+    with pytest.raises(shard_fan_in.FanInError, match="multiple latest records"):
+        shard_fan_in.current_union_inventory_sha256("s3://results", "cycle-1")
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            {"Versions": {}, "DeleteMarkers": [], "IsTruncated": False},
+            "Versions must be an array",
+        ),
+        (
+            {
+                "Versions": [
+                    {
+                        "Key": "per-case/cycle-1/a.jsonl",
+                        "VersionId": "version-a",
+                        "IsLatest": "true",
+                    }
+                ],
+                "DeleteMarkers": [],
+                "IsTruncated": False,
+            },
+            "IsLatest must be Boolean",
+        ),
+        (
+            {
+                "Versions": [
+                    {
+                        "Key": "per-case/cycle-1/a.jsonl",
+                        "VersionId": "null",
+                        "IsLatest": True,
+                    }
+                ],
+                "DeleteMarkers": [],
+                "IsTruncated": False,
+            },
+            "nondurable VersionId",
+        ),
+        (
+            {
+                "Versions": [],
+                "DeleteMarkers": [],
+                "IsTruncated": True,
+                "NextKeyMarker": "per-case/cycle-1/a.jsonl",
+            },
+            "NextVersionIdMarker",
+        ),
+    ],
+)
+def test_s3_current_union_inventory_rejects_malformed_responses(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: dict[str, object],
+    message: str,
+) -> None:
+    monkeypatch.setattr(
+        shard_fan_in.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        ),
+    )
+
+    with pytest.raises(shard_fan_in.FanInError, match=message):
+        shard_fan_in.current_union_inventory_sha256("s3://results", "cycle-1")
+
+
+def test_s3_current_union_inventory_rejects_concurrent_listing_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def fake_run(_command: list[str], **_kwargs: Any) -> SimpleNamespace:
+        nonlocal calls
+        calls += 1
+        payload = {
+            "Versions": [
+                {
+                    "Key": "per-case/cycle-1/a.jsonl",
+                    "VersionId": f"version-{calls}",
+                    "IsLatest": True,
+                }
+            ],
+            "DeleteMarkers": [],
+            "IsTruncated": False,
+        }
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    monkeypatch.setattr(shard_fan_in.subprocess, "run", fake_run)
+
+    with pytest.raises(shard_fan_in.FanInError, match="changed during inventory"):
+        shard_fan_in.current_union_inventory_sha256("s3://results", "cycle-1")
+
+
+def test_local_current_union_inventory_remains_content_addressed(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "results"
+    first = root / "per-case/cycle-1/a.jsonl"
+    second = root / "per-case/cycle-1/nested/b.jsonl"
+    first.parent.mkdir(parents=True)
+    second.parent.mkdir(parents=True)
+    first.write_bytes(b"first\n")
+    second.write_bytes(b"second\n")
+
+    assert shard_fan_in.current_union_inventory_sha256(
+        str(root), "cycle-1"
+    ) == shard_fan_in._union_inventory_sha256(
+        {
+            str(first.resolve()): hashlib.sha256(b"first\n").hexdigest(),
+            str(second.resolve()): hashlib.sha256(b"second\n").hexdigest(),
+        }
+    )
 
 
 def test_verified_materialization_delegates_to_official_cartesian_oracle(
