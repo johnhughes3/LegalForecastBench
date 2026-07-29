@@ -1,0 +1,732 @@
+{
+  "allowed_documents": [
+    {
+      "case_id": "66996622",
+      "recap_document": "242345077"
+    },
+    {
+      "case_id": "66996622",
+      "recap_document": "454216559"
+    },
+    {
+      "case_id": "68016573",
+      "recap_document": "422817156"
+    },
+    {
+      "case_id": "68016573",
+      "recap_document": "426672086"
+    },
+    {
+      "case_id": "68468414",
+      "recap_document": "417113375"
+    },
+    {
+      "case_id": "68468414",
+      "recap_document": "473319480"
+    },
+    {
+      "case_id": "68941639",
+      "recap_document": "415525415"
+    },
+    {
+      "case_id": "68941639",
+      "recap_document": "484681541"
+    },
+    {
+      "case_id": "68966872",
+      "recap_document": "406359324"
+    },
+    {
+      "case_id": "68966872",
+      "recap_document": "465995145"
+    },
+    {
+      "case_id": "69040771",
+      "recap_document": "414852104"
+    },
+    {
+      "case_id": "69040771",
+      "recap_document": "422066798"
+    },
+    {
+      "case_id": "69066691",
+      "recap_document": "457119911"
+    },
+    {
+      "case_id": "69066691",
+      "recap_document": "464691688"
+    },
+    {
+      "case_id": "69466572",
+      "recap_document": "423965250"
+    },
+    {
+      "case_id": "69466572",
+      "recap_document": "457180788"
+    },
+    {
+      "case_id": "69496922",
+      "recap_document": "484521668"
+    },
+    {
+      "case_id": "69496922",
+      "recap_document": "484663915"
+    },
+    {
+      "case_id": "69570756",
+      "recap_document": "449456830"
+    },
+    {
+      "case_id": "69581167",
+      "recap_document": "445339777"
+    },
+    {
+      "case_id": "69581167",
+      "recap_document": "463129654"
+    },
+    {
+      "case_id": "69657935",
+      "recap_document": "461390889"
+    },
+    {
+      "case_id": "69736298",
+      "recap_document": "481364212"
+    },
+    {
+      "case_id": "69736298",
+      "recap_document": "485714828"
+    },
+    {
+      "case_id": "69830319",
+      "recap_document": "435024835"
+    },
+    {
+      "case_id": "69830319",
+      "recap_document": "456795799"
+    },
+    {
+      "case_id": "69924694",
+      "recap_document": "437133759"
+    },
+    {
+      "case_id": "69924694",
+      "recap_document": "456201599"
+    },
+    {
+      "case_id": "69945573",
+      "recap_document": "446079944"
+    },
+    {
+      "case_id": "69945573",
+      "recap_document": "450053213"
+    },
+    {
+      "case_id": "70274894",
+      "recap_document": "454369080"
+    },
+    {
+      "case_id": "70274894",
+      "recap_document": "462745642"
+    },
+    {
+      "case_id": "70308595",
+      "recap_document": "443855896"
+    },
+    {
+      "case_id": "70310251",
+      "recap_document": "442643260"
+    },
+    {
+      "case_id": "70310251",
+      "recap_document": "468158052"
+    },
+    {
+      "case_id": "70350490",
+      "recap_document": "440532404"
+    },
+    {
+      "case_id": "70350490",
+      "recap_document": "452578490"
+    },
+    {
+      "case_id": "70499417",
+      "recap_document": "442231168"
+    },
+    {
+      "case_id": "70499417",
+      "recap_document": "462200265"
+    },
+    {
+      "case_id": "70561752",
+      "recap_document": "442977150"
+    },
+    {
+      "case_id": "70561752",
+      "recap_document": "456063217"
+    },
+    {
+      "case_id": "70571896",
+      "recap_document": "474693052"
+    },
+    {
+      "case_id": "70571896",
+      "recap_document": "476089143"
+    },
+    {
+      "case_id": "70573340",
+      "recap_document": "464034292"
+    },
+    {
+      "case_id": "70671768",
+      "recap_document": "455259055"
+    },
+    {
+      "case_id": "70671768",
+      "recap_document": "478351347"
+    },
+    {
+      "case_id": "70751199",
+      "recap_document": "457112903"
+    },
+    {
+      "case_id": "70754103",
+      "recap_document": "446233549"
+    },
+    {
+      "case_id": "70754103",
+      "recap_document": "451175144"
+    },
+    {
+      "case_id": "70945218",
+      "recap_document": "481058407"
+    },
+    {
+      "case_id": "71033614",
+      "recap_document": "454697368"
+    },
+    {
+      "case_id": "71033614",
+      "recap_document": "456173521"
+    },
+    {
+      "case_id": "71099966",
+      "recap_document": "448958394"
+    },
+    {
+      "case_id": "71099966",
+      "recap_document": "459922945"
+    },
+    {
+      "case_id": "71148626",
+      "recap_document": "456066168"
+    },
+    {
+      "case_id": "71169233",
+      "recap_document": "462590245"
+    },
+    {
+      "case_id": "71169233",
+      "recap_document": "466945125"
+    },
+    {
+      "case_id": "71193182",
+      "recap_document": "450161791"
+    },
+    {
+      "case_id": "71193182",
+      "recap_document": "456604681"
+    },
+    {
+      "case_id": "71194192",
+      "recap_document": "457277512"
+    },
+    {
+      "case_id": "71194192",
+      "recap_document": "463345690"
+    },
+    {
+      "case_id": "71212565",
+      "recap_document": "450479488"
+    },
+    {
+      "case_id": "71212565",
+      "recap_document": "464907693"
+    },
+    {
+      "case_id": "71212701",
+      "recap_document": "450744041"
+    },
+    {
+      "case_id": "71212701",
+      "recap_document": "456214159"
+    },
+    {
+      "case_id": "71221919",
+      "recap_document": "450618801"
+    },
+    {
+      "case_id": "71221919",
+      "recap_document": "458835799"
+    },
+    {
+      "case_id": "71280017",
+      "recap_document": "485151015"
+    },
+    {
+      "case_id": "71280017",
+      "recap_document": "485151032"
+    },
+    {
+      "case_id": "71396055",
+      "recap_document": "454136485"
+    },
+    {
+      "case_id": "71396055",
+      "recap_document": "456214357"
+    },
+    {
+      "case_id": "71396055",
+      "recap_document": "458603936"
+    },
+    {
+      "case_id": "71421175",
+      "recap_document": "453677141"
+    },
+    {
+      "case_id": "71421175",
+      "recap_document": "486280921"
+    },
+    {
+      "case_id": "71421175",
+      "recap_document": "486280923"
+    },
+    {
+      "case_id": "71491497",
+      "recap_document": "454632085"
+    },
+    {
+      "case_id": "71491497",
+      "recap_document": "463576567"
+    },
+    {
+      "case_id": "71528266",
+      "recap_document": "464641444"
+    },
+    {
+      "case_id": "71581615",
+      "recap_document": "462286196"
+    },
+    {
+      "case_id": "71581615",
+      "recap_document": "476963723"
+    },
+    {
+      "case_id": "71648352",
+      "recap_document": "469702866"
+    },
+    {
+      "case_id": "71721272",
+      "recap_document": "477802438"
+    },
+    {
+      "case_id": "71721272",
+      "recap_document": "484851630"
+    },
+    {
+      "case_id": "71721468",
+      "recap_document": "456292034"
+    },
+    {
+      "case_id": "71721468",
+      "recap_document": "463477073"
+    },
+    {
+      "case_id": "71843630",
+      "recap_document": "462058314"
+    },
+    {
+      "case_id": "71843630",
+      "recap_document": "463476981"
+    },
+    {
+      "case_id": "71899546",
+      "recap_document": "482317183"
+    },
+    {
+      "case_id": "71899546",
+      "recap_document": "482317212"
+    },
+    {
+      "case_id": "71924713",
+      "recap_document": "469505259"
+    },
+    {
+      "case_id": "71924713",
+      "recap_document": "473176179"
+    },
+    {
+      "case_id": "71924713",
+      "recap_document": "486882394"
+    },
+    {
+      "case_id": "71933397",
+      "recap_document": "467097940"
+    },
+    {
+      "case_id": "71933397",
+      "recap_document": "486077666"
+    },
+    {
+      "case_id": "71939934",
+      "recap_document": "460415708"
+    },
+    {
+      "case_id": "71939934",
+      "recap_document": "470174074"
+    },
+    {
+      "case_id": "71942225",
+      "recap_document": "479627643"
+    },
+    {
+      "case_id": "71942225",
+      "recap_document": "487196517"
+    },
+    {
+      "case_id": "71946889",
+      "recap_document": "460489535"
+    },
+    {
+      "case_id": "71946889",
+      "recap_document": "469036268"
+    },
+    {
+      "case_id": "71954764",
+      "recap_document": "466513105"
+    },
+    {
+      "case_id": "71985792",
+      "recap_document": "475181725"
+    },
+    {
+      "case_id": "71985792",
+      "recap_document": "479298944"
+    },
+    {
+      "case_id": "72001561",
+      "recap_document": "461064575"
+    },
+    {
+      "case_id": "72001561",
+      "recap_document": "466999143"
+    },
+    {
+      "case_id": "72016262",
+      "recap_document": "461514234"
+    },
+    {
+      "case_id": "72016262",
+      "recap_document": "465731973"
+    },
+    {
+      "case_id": "72025962",
+      "recap_document": "477166800"
+    },
+    {
+      "case_id": "72025962",
+      "recap_document": "477166831"
+    },
+    {
+      "case_id": "72038409",
+      "recap_document": "462015989"
+    },
+    {
+      "case_id": "72038409",
+      "recap_document": "472327610"
+    },
+    {
+      "case_id": "72045293",
+      "recap_document": "480277409"
+    },
+    {
+      "case_id": "72045293",
+      "recap_document": "480277412"
+    },
+    {
+      "case_id": "72045293",
+      "recap_document": "484966686"
+    },
+    {
+      "case_id": "72045680",
+      "recap_document": "462187977"
+    },
+    {
+      "case_id": "72045680",
+      "recap_document": "471320472"
+    },
+    {
+      "case_id": "72064904",
+      "recap_document": "462678636"
+    },
+    {
+      "case_id": "72064904",
+      "recap_document": "468336694"
+    },
+    {
+      "case_id": "72089650",
+      "recap_document": "485219456"
+    },
+    {
+      "case_id": "72089650",
+      "recap_document": "485219463"
+    },
+    {
+      "case_id": "72089650",
+      "recap_document": "485219472"
+    },
+    {
+      "case_id": "72116161",
+      "recap_document": "466092546"
+    },
+    {
+      "case_id": "72116161",
+      "recap_document": "479398908"
+    },
+    {
+      "case_id": "72116574",
+      "recap_document": "464373753"
+    },
+    {
+      "case_id": "72116574",
+      "recap_document": "474523765"
+    },
+    {
+      "case_id": "72192698",
+      "recap_document": "479287074"
+    },
+    {
+      "case_id": "72192698",
+      "recap_document": "485754024"
+    },
+    {
+      "case_id": "72197684",
+      "recap_document": "469526094"
+    },
+    {
+      "case_id": "72197684",
+      "recap_document": "486279203"
+    },
+    {
+      "case_id": "72213663",
+      "recap_document": "471669300"
+    },
+    {
+      "case_id": "72242510",
+      "recap_document": "474653745"
+    },
+    {
+      "case_id": "72261437",
+      "recap_document": "472315556"
+    },
+    {
+      "case_id": "72270301",
+      "recap_document": "468614730"
+    },
+    {
+      "case_id": "72270301",
+      "recap_document": "478193908"
+    },
+    {
+      "case_id": "72288139",
+      "recap_document": "469045191"
+    },
+    {
+      "case_id": "72288139",
+      "recap_document": "484511282"
+    },
+    {
+      "case_id": "72309777",
+      "recap_document": "477064712"
+    },
+    {
+      "case_id": "72313974",
+      "recap_document": "472731761"
+    },
+    {
+      "case_id": "72329372",
+      "recap_document": "478080139"
+    },
+    {
+      "case_id": "72329372",
+      "recap_document": "485300810"
+    },
+    {
+      "case_id": "72332229",
+      "recap_document": "475889034"
+    },
+    {
+      "case_id": "72352103",
+      "recap_document": "485055374"
+    },
+    {
+      "case_id": "72352103",
+      "recap_document": "485055395"
+    },
+    {
+      "case_id": "72370778",
+      "recap_document": "472107370"
+    },
+    {
+      "case_id": "72370778",
+      "recap_document": "479343511"
+    },
+    {
+      "case_id": "72449171",
+      "recap_document": "471866646"
+    },
+    {
+      "case_id": "72449171",
+      "recap_document": "480673755"
+    },
+    {
+      "case_id": "72493808",
+      "recap_document": "472173146"
+    },
+    {
+      "case_id": "72493808",
+      "recap_document": "477666185"
+    },
+    {
+      "case_id": "72493808",
+      "recap_document": "479209035"
+    },
+    {
+      "case_id": "72502147",
+      "recap_document": "475332871"
+    },
+    {
+      "case_id": "72505500",
+      "recap_document": "472593824"
+    },
+    {
+      "case_id": "72505500",
+      "recap_document": "473397014"
+    },
+    {
+      "case_id": "72516208",
+      "recap_document": "476771834"
+    },
+    {
+      "case_id": "72516208",
+      "recap_document": "480190959"
+    },
+    {
+      "case_id": "73000896",
+      "recap_document": "479474646"
+    },
+    {
+      "case_id": "73000896",
+      "recap_document": "483774810"
+    },
+    {
+      "case_id": "73049396",
+      "recap_document": "473696884"
+    },
+    {
+      "case_id": "73049396",
+      "recap_document": "477825677"
+    },
+    {
+      "case_id": "73149878",
+      "recap_document": "474852814"
+    },
+    {
+      "case_id": "73149878",
+      "recap_document": "480374384"
+    },
+    {
+      "case_id": "73150723",
+      "recap_document": "477224876"
+    },
+    {
+      "case_id": "73150723",
+      "recap_document": "478237400"
+    },
+    {
+      "case_id": "73150723",
+      "recap_document": "479413995"
+    },
+    {
+      "case_id": "73157701",
+      "recap_document": "475023639"
+    },
+    {
+      "case_id": "73157701",
+      "recap_document": "478847451"
+    },
+    {
+      "case_id": "73163391",
+      "recap_document": "475159005"
+    },
+    {
+      "case_id": "73163391",
+      "recap_document": "481288288"
+    },
+    {
+      "case_id": "73183894",
+      "recap_document": "475670129"
+    },
+    {
+      "case_id": "73183894",
+      "recap_document": "479359970"
+    },
+    {
+      "case_id": "73209444",
+      "recap_document": "484605475"
+    },
+    {
+      "case_id": "73215717",
+      "recap_document": "476434946"
+    },
+    {
+      "case_id": "73215717",
+      "recap_document": "480200602"
+    },
+    {
+      "case_id": "73302794",
+      "recap_document": "478406686"
+    },
+    {
+      "case_id": "73302794",
+      "recap_document": "484293904"
+    },
+    {
+      "case_id": "73325674",
+      "recap_document": "478848947"
+    },
+    {
+      "case_id": "73325674",
+      "recap_document": "484465903"
+    },
+    {
+      "case_id": "73569789",
+      "recap_document": "485140622"
+    },
+    {
+      "case_id": "73569789",
+      "recap_document": "485236605"
+    }
+  ],
+  "attempt_policy": {
+    "policy_sha256": "af8da702f3b3925478835de715f92b78facb0f2742dbc69a849a868ca8224e81",
+    "status": "verified-artifact"
+  },
+  "cycle_cap_usd": "567.30",
+  "cycle_id": "cycle-1-target-100-2026-07-25",
+  "opening_case_committed_spend_usd": {},
+  "opening_committed_spend_usd": "0.00",
+  "per_case_cap_usd": "73.20",
+  "purchase_policy_sha256": "df4b4f60895415ef7720d163e41f26a3ae94ef7ef384a2e77a1b9de942fcd04e",
+  "reservation_usd": "3.05",
+  "version": "courtlistener-recap-fetch-policy-v1"
+}
