@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import json
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
@@ -792,6 +792,7 @@ def _valid_terminal_payloads(
     *,
     tmp_path: Path,
     plan_sha256: str = "1" * 64,
+    packet_role_replay: Mapping[str, object] | None = None,
 ) -> dict[str, bytes]:
     refresh = refresh_target_public_gaps(
         plan=plan,
@@ -825,6 +826,7 @@ def _valid_terminal_payloads(
         execution=execution,
         live_firecrawl=False,
         live_download=False,
+        packet_role_replay=packet_role_replay,
     )
     return dict(payloads)
 
@@ -1380,6 +1382,67 @@ def test_execute_cli_loads_and_passes_packet_role_replay(
         "decision-old",
     }
     assert not refresh.gap_failures
+
+
+def test_terminal_receipt_binds_packet_role_replay_authority(
+    tmp_path: Path,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    role_adjudications = _target_gap_role_adjudications()
+    adjudications_path = (tmp_path / "adjudications.jsonl").absolute()
+    evidence_path = (tmp_path / "evidence.jsonl").absolute()
+    args = argparse.Namespace(
+        packet_role_adjudications=adjudications_path,
+        expected_packet_role_adjudications_sha256="3" * 64,
+        authenticated_packet_role_evidence=evidence_path,
+        expected_authenticated_packet_role_evidence_sha256="4" * 64,
+    )
+    replay_receipt = cli._packet_role_replay_receipt_from_args(  # pyright: ignore[reportPrivateUsage]
+        args,
+        role_adjudications,
+    )
+    assert replay_receipt is not None
+    payloads = _valid_terminal_payloads(
+        plan,
+        tmp_path=tmp_path,
+        packet_role_replay=replay_receipt,
+    )
+    execution_receipt = cast(
+        dict[str, object],
+        json.loads(payloads["run-cards/execute-target-public-gaps.json"]),
+    )
+
+    assert replay_receipt == {
+        "input_paths": sorted((str(adjudications_path), str(evidence_path))),
+        "source_artifact_commitments": {
+            str(adjudications_path): "3" * 64,
+            str(evidence_path): "4" * 64,
+        },
+        "verified_replay_commitment_sha256": (role_adjudications.commitment_sha256),
+    }
+    assert execution_receipt["packet_role_replay"] == replay_receipt
+    publish_target_public_gap_outputs(
+        plan=plan,
+        plan_sha256="1" * 64,
+        payloads=payloads,
+    )
+    preflight_target_public_gap_execution(
+        plan,
+        expected_plan_sha256="1" * 64,
+        packet_role_replay=replay_receipt,
+    )
+    with pytest.raises(ValueError, match="invalid closed schema"):
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256="1" * 64,
+        )
+    changed_replay = {**replay_receipt, "verified_replay_commitment_sha256": "5" * 64}
+    with pytest.raises(ValueError, match="differs from current execution"):
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256="1" * 64,
+            packet_role_replay=changed_replay,
+        )
 
 
 def test_execute_cli_parser_exposes_packet_role_replay_inputs(tmp_path: Path) -> None:

@@ -739,6 +739,7 @@ def preflight_target_public_gap_execution(
     plan: TargetPublicGapPlan,
     *,
     expected_plan_sha256: str | None = None,
+    packet_role_replay: Mapping[str, object] | None = None,
 ) -> None:
     """Validate every writable namespace before provider construction."""
 
@@ -764,6 +765,7 @@ def preflight_target_public_gap_execution(
         _verify_completed_output_for_plan(
             plan,
             expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
         )
     for label, path, is_tree in writable:
         _reject_symlink_components(path, label=label)
@@ -1403,6 +1405,7 @@ def execute_target_public_gap_refresh(
     document_source_factory: Callable[[], FreeDocumentSource],
     allow_existing_downloads: bool,
     role_adjudications: VerifiedPacketRoleAdjudications | None = None,
+    packet_role_replay: Mapping[str, object] | None = None,
     execution_binding: TargetPublicGapExecutionBinding | None = None,
 ) -> TargetPublicGapExecutionResult:
     """Execute after exact authority through the canonical acquisition stages."""
@@ -1417,6 +1420,7 @@ def execute_target_public_gap_refresh(
     preflight_target_public_gap_execution(
         plan,
         expected_plan_sha256=expected_plan_sha256,
+        packet_role_replay=packet_role_replay,
     )
     require_target_public_gap_sources_unchanged(plan)
     if execution_binding is None:
@@ -1428,12 +1432,14 @@ def execute_target_public_gap_refresh(
                 document_source_factory=document_source_factory,
                 allow_existing_downloads=allow_existing_downloads,
                 role_adjudications=role_adjudications,
+                packet_role_replay=packet_role_replay,
                 execution_binding=binding,
             )
     execution_binding.require_current(plan)
     preflight_target_public_gap_execution(
         plan,
         expected_plan_sha256=expected_plan_sha256,
+        packet_role_replay=packet_role_replay,
     )
     require_target_public_gap_sources_unchanged(plan)
     if plan.execution_identity.output_root.exists():
@@ -1504,6 +1510,7 @@ def execute_target_public_gap_refresh(
         preflight_target_public_gap_execution(
             plan,
             expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
         )
         execution_binding.require_current(plan)
         require_target_public_gap_sources_unchanged(plan)
@@ -2504,6 +2511,7 @@ def _verify_completed_output_for_plan(
     plan: TargetPublicGapPlan,
     *,
     expected_plan_sha256: str,
+    packet_role_replay: Mapping[str, object] | None,
 ) -> None:
     if _SHA256.fullmatch(expected_plan_sha256) is None:
         raise TargetPublicGapRefreshError("plan SHA-256 is invalid")
@@ -2533,7 +2541,10 @@ def _verify_completed_output_for_plan(
     run_card = cast(Mapping[str, object], loaded_run_card)
     summary = cast(Mapping[str, object], loaded_summary)
     log = cast(Mapping[str, object], loaded_log)
-    if set(run_card) != set(_TARGET_PUBLIC_GAP_RECEIPT_FIELDS):
+    expected_receipt_fields = set(_TARGET_PUBLIC_GAP_RECEIPT_FIELDS)
+    if packet_role_replay is not None:
+        expected_receipt_fields.add("packet_role_replay")
+    if set(run_card) != expected_receipt_fields:
         raise TargetPublicGapRefreshError(
             "preexisting final output receipt has an invalid closed schema"
         )
@@ -2564,6 +2575,10 @@ def _verify_completed_output_for_plan(
         or run_card.get("input_paths") != sorted(plan.source_artifact_commitments)
         or run_card.get("source_artifact_commitments")
         != plan.source_artifact_commitments
+        or (
+            packet_role_replay is not None
+            and run_card.get("packet_role_replay") != packet_role_replay
+        )
         or run_card.get("purchased_document_count") != 0
         or not isinstance(run_card.get("provider_activity_requested"), bool)
         or any(

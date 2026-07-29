@@ -19575,6 +19575,10 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
     try:
         plan = _target_public_gap_plan_from_args(args)
         role_adjudications = _verified_packet_role_adjudications_from_args(args)
+        packet_role_replay = _packet_role_replay_receipt_from_args(
+            args,
+            role_adjudications,
+        )
         expected_plan_sha256 = cast(str, args.expected_plan_sha256)
         verify_target_public_gap_plan(
             cast(Path, args.plan),
@@ -19584,6 +19588,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
         preflight_target_public_gap_execution(
             plan,
             expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
         )
         require_target_public_gap_sources_unchanged(plan)
     except (
@@ -19633,6 +19638,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                 document_source_factory=document_source_factory,
                 allow_existing_downloads=cast(bool, args.resume),
                 role_adjudications=role_adjudications,
+                packet_role_replay=packet_role_replay,
                 execution_binding=binding,
             )
             binding.require_current(plan)
@@ -19648,6 +19654,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                     execution=execution,
                     live_firecrawl=live_firecrawl,
                     live_download=live_download,
+                    packet_role_replay=packet_role_replay,
                 )
                 publish_target_public_gap_outputs(
                     plan=plan,
@@ -19676,6 +19683,7 @@ def _target_public_gap_terminal_payloads(
     execution: TargetPublicGapExecutionResult,
     live_firecrawl: bool,
     live_download: bool,
+    packet_role_replay: Mapping[str, object] | None = None,
 ) -> Mapping[str, bytes]:
     refresh = execution.refresh
     core: dict[str, bytes] = {
@@ -19755,6 +19763,8 @@ def _target_public_gap_terminal_payloads(
         "purchased_activity_executed": False,
         **no_authority,
     }
+    if packet_role_replay is not None:
+        run_card["packet_role_replay"] = dict(packet_role_replay)
     run_card_bytes = _projection_json_bytes(run_card)
     core["run-cards/execute-target-public-gaps.json"] = run_card_bytes
     core["logs/execute-target-public-gaps.jsonl"] = _jsonl_bytes(
@@ -27655,6 +27665,33 @@ def _verified_packet_role_adjudications_from_args(
     return verify_packet_role_adjudications(adjudication_records, evidence)
 
 
+def _packet_role_replay_receipt_from_args(
+    args: argparse.Namespace,
+    adjudications: VerifiedPacketRoleAdjudications | None,
+) -> JsonRecord | None:
+    if adjudications is None:
+        return None
+    adjudications_path = cast(Path, args.packet_role_adjudications).absolute()
+    evidence_path = cast(Path, args.authenticated_packet_role_evidence).absolute()
+    source_artifact_commitments = {
+        str(adjudications_path): cast(
+            str,
+            args.expected_packet_role_adjudications_sha256,
+        ),
+        str(evidence_path): cast(
+            str,
+            args.expected_authenticated_packet_role_evidence_sha256,
+        ),
+    }
+    return {
+        "input_paths": sorted(source_artifact_commitments),
+        "source_artifact_commitments": dict(
+            sorted(source_artifact_commitments.items())
+        ),
+        "verified_replay_commitment_sha256": adjudications.commitment_sha256,
+    }
+
+
 def _authenticated_packet_role_evidence_from_local_record(
     raw_record: Mapping[str, object],
     *,
@@ -27756,12 +27793,16 @@ def _validate_packet_role_parser_lineage(
     if not isinstance(request_path_raw, str) or not request_path_raw.strip():
         raise CommandError("packet-role parser requests path is invalid")
     request_path = Path(request_path_raw)
+    request_commitment_base = artifact_paths["parser_run_card_path"].parent
+    if not request_path.is_absolute():
+        request_path = request_commitment_base / request_path
     request_payload = read_unique_regular_file(request_path)
     _require_packet_role_file_commitment(
         request_commitment_record,
         expected_path=request_path,
         expected_payload=request_payload,
         label="parser requests",
+        relative_to=request_commitment_base,
     )
     requests = _packet_role_jsonl_records(request_payload, label="parser requests")
     matching_requests = [
@@ -27805,6 +27846,16 @@ def _validate_packet_role_parser_lineage(
         )
     parser_config_record = cast(Mapping[str, object], parser_config)
     extracted_text_record = cast(Mapping[str, object], extracted_text)
+    markdown_path_raw = parser_record.get("markdown_path")
+    if not isinstance(markdown_path_raw, str) or not markdown_path_raw.strip():
+        raise CommandError(
+            "packet-role parser record differs from authenticated evidence"
+        )
+    markdown_path = Path(markdown_path_raw)
+    if not markdown_path.is_absolute():
+        markdown_path = artifact_paths["parser_manifest_path"].parent / markdown_path
+    markdown_payload = read_unique_regular_file(markdown_path)
+    evidence_text_payload = artifact_payloads["evidence_text_path"]
     if (
         parser_record.get("candidate_id") != evidence.candidate_id
         or parser_record.get("source_document_id") != evidence.document_key
@@ -27818,9 +27869,18 @@ def _validate_packet_role_parser_lineage(
         or parser_config_record.get("expected_parser_revision")
         != EXPECTED_PARSER_REVISION
         or extracted_text_record.get("source_document_id") != evidence.document_key
+        or str(extracted_text_record.get("text_sha256", "")).removeprefix("sha256:")
+        != hashlib.sha256(markdown_payload).hexdigest()
     ):
         raise CommandError(
             "packet-role parser record differs from authenticated evidence"
+        )
+    if (
+        not evidence_text_payload.strip()
+        or evidence_text_payload not in markdown_payload
+    ):
+        raise CommandError(
+            "packet-role evidence text is not present in authenticated parser Markdown"
         )
 
 
@@ -27830,13 +27890,20 @@ def _require_packet_role_file_commitment(
     expected_path: Path,
     expected_payload: bytes,
     label: str,
+    relative_to: Path | None = None,
 ) -> None:
     if not isinstance(raw_commitment, Mapping):
         raise CommandError(f"packet-role run card lacks {label} commitment")
     commitment = cast(Mapping[str, object], raw_commitment)
     digest = hashlib.sha256(expected_payload).hexdigest()
+    committed_path_raw = commitment.get("path")
+    if not isinstance(committed_path_raw, str) or not committed_path_raw.strip():
+        raise CommandError(f"packet-role {label} commitment mismatch")
+    committed_path = Path(committed_path_raw)
+    if not committed_path.is_absolute() and relative_to is not None:
+        committed_path = relative_to / committed_path
     if (
-        commitment.get("path") != str(expected_path.resolve())
+        committed_path.resolve() != expected_path.resolve()
         or str(commitment.get("sha256", "")).removeprefix("sha256:") != digest
     ):
         raise CommandError(f"packet-role {label} commitment mismatch")

@@ -259,6 +259,29 @@ def test_cli_loads_hash_pinned_packet_role_replay(tmp_path: Path) -> None:
     assert verified.records[0].identity == evidence.identity
 
 
+def test_cli_resolves_relative_request_commitment_from_run_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence, evidence_record = _cli_evidence(tmp_path)
+    run_card_path = tmp_path / str(evidence_record["parser_run_card_path"])
+    run_card = json.loads(run_card_path.read_text())
+    run_card["source_commitments"]["requests"]["path"] = "parse-requests.jsonl"
+    run_card_payload = (json.dumps(run_card, sort_keys=True) + "\n").encode()
+    run_card_path.write_bytes(run_card_payload)
+    run_card_sha256 = hashlib.sha256(run_card_payload).hexdigest()
+    evidence_record["parser_run_card_sha256"] = run_card_sha256
+    evidence = replace(evidence, parser_run_card_sha256=run_card_sha256)
+    other_cwd = tmp_path / "other-cwd"
+    other_cwd.mkdir()
+    monkeypatch.chdir(other_cwd)
+
+    verified = _load_cli_replay(tmp_path, evidence, evidence_record)
+
+    assert verified is not None
+    assert verified.records[0].identity == evidence.identity
+
+
 @pytest.mark.parametrize(
     ("artifact_field", "commitment_field"),
     (
@@ -346,6 +369,38 @@ def test_cli_rejects_hash_pinned_fixture_parser_run_card(tmp_path: Path) -> None
         _load_cli_replay(tmp_path, evidence, evidence_record)
 
 
+def test_cli_rejects_self_consistent_evidence_absent_from_parser_markdown(
+    tmp_path: Path,
+) -> None:
+    evidence, evidence_record = _cli_evidence(tmp_path)
+    evidence_text_path = tmp_path / str(evidence_record["evidence_text_path"])
+    fabricated_payload = b"Fabricated points and authorities.\n"
+    evidence_text_path.write_bytes(fabricated_payload)
+    fabricated_sha256 = hashlib.sha256(fabricated_payload).hexdigest()
+    evidence_record["evidence_text_sha256"] = fabricated_sha256
+    evidence = replace(evidence, evidence_text_sha256=fabricated_sha256)
+
+    with pytest.raises(
+        cli.CommandError,
+        match="evidence text is not present in authenticated parser Markdown",
+    ):
+        _load_cli_replay(tmp_path, evidence, evidence_record)
+
+
+def test_cli_rejects_parser_markdown_digest_mismatch(tmp_path: Path) -> None:
+    evidence, evidence_record = _cli_evidence(tmp_path)
+    (tmp_path / "parsed.md").write_text(
+        "Substantive points and authorities.\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        cli.CommandError,
+        match="parser record differs from authenticated evidence",
+    ):
+        _load_cli_replay(tmp_path, evidence, evidence_record)
+
+
 def _evidence(
     *,
     candidate_id: str = "courtlistener-docket-123",
@@ -408,6 +463,7 @@ def _cli_evidence(
         b"Substantive points and authorities.\n\nAdditional parsed text.\n"
     )
     evidence_text_payload = b"Substantive points and authorities.\n"
+    markdown_path = tmp_path / "parsed.md"
     source_sha256 = hashlib.sha256(source_payload).hexdigest()
     request = {
         "candidate_id": candidate_id,
@@ -417,12 +473,13 @@ def _cli_evidence(
         "expected_byte_count": len(source_payload),
     }
     requests_payload = (json.dumps(request, sort_keys=True) + "\n").encode()
-    parser_record = {
+    parser_record: dict[str, object] = {
         "candidate_id": candidate_id,
         "source_document_id": document_key,
         "status": "succeeded",
         "source_sha256": source_sha256,
         "source_byte_count": len(source_payload),
+        "markdown_path": str(markdown_path),
         "quality_flags": [],
         "parser_config": {
             "parser_revision": EXPECTED_PARSER_REVISION,
@@ -474,6 +531,7 @@ def _cli_evidence(
     }
     for filename, payload in artifacts.items():
         (tmp_path / filename).write_bytes(payload)
+    markdown_path.write_bytes(parsed_text_payload)
     requests_path.write_bytes(requests_payload)
     evidence = AuthenticatedPacketRoleEvidence(
         candidate_id=candidate_id,
