@@ -36,6 +36,16 @@ class FreeDocumentDownloadError(RuntimeError):
     """Raised when a free document cannot be retrieved or stored."""
 
 
+def prefixed_sha256(digest: str) -> str:
+    """Return one canonical checkpoint digest from lowercase SHA-256 hex."""
+
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise FreeDocumentDownloadError(
+            "checkpoint digest must be lowercase SHA-256 hex"
+        )
+    return f"sha256:{digest}"
+
+
 @dataclass(frozen=True, slots=True)
 class FreeDocumentFetch:
     """Bytes and retry facts returned by a free-document source."""
@@ -647,7 +657,7 @@ def verified_checkpoint_projection_sha256(
             )
         seen.add(key)
         projected.append(record)
-    return "sha256:" + hashlib.sha256(_checkpoint_payload(projected)).hexdigest()
+    return prefixed_sha256(hashlib.sha256(_checkpoint_payload(projected)).hexdigest())
 
 
 def _verify_completed_checkpoint_documents(

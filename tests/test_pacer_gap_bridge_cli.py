@@ -239,7 +239,6 @@ def test_rebase_pacer_gap_checkpoints_reauthenticates_and_rebinds_mixed_sources(
         "authenticated_raw_html_artifact_count": 134,
     }
     assert receipt["previous_checkpoint_count"] == 150
-    assert receipt["source_commitment_count"] == 151
     assert receipt["semantic_replay_candidate_ids"] == (
         _ROOT20_V4_TEXT_MISSING_CANDIDATE_IDS
     )

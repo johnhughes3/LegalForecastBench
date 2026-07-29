@@ -144,8 +144,9 @@ def test_retarget_cli_help_and_stop_after_constraints(
     tmp_path: Path,
     capsys: CaptureFixture[str],
 ) -> None:
-    with pytest.raises(SystemExit, match="0"):
+    with pytest.raises(SystemExit) as excinfo:
         cli.main(["acquisition", "prepare-target-cohort", "--help"])
+    assert excinfo.value.code == 0
     help_text = capsys.readouterr().out
     assert "--retarget-source-preparation-root" in help_text
     assert "--stop-after {retarget-import}" in help_text
@@ -745,12 +746,24 @@ def test_retarget_reuse_checkpoint_commitments_are_rederived_from_bytes(
     destination_checkpoint.write_bytes(
         checkpoint_payload((*imported_records, appended_record))
     )
+    source_digest = hashlib.sha256(source_checkpoint.read_bytes()).hexdigest()
+    destination_projection_digest = hashlib.sha256(
+        checkpoint_payload(imported_records)
+    ).hexdigest()
+    commitments = cli._retarget_checkpoint_commitments(
+        source_checkpoint_sha256=source_digest,
+        destination_checkpoint_sha256=destination_projection_digest,
+    )
+    assert commitments == {
+        "source_checkpoint_sha256": f"sha256:{source_digest}",
+        "destination_checkpoint_sha256": f"sha256:{destination_projection_digest}",
+    }
+    assert (
+        cli._path_sha256(source_checkpoint) == commitments["source_checkpoint_sha256"]
+    )
     receipt: dict[str, object] = {
-        "source_checkpoint_sha256": cli._path_sha256(source_checkpoint),
+        **commitments,
         "source_checkpoint_record_count": 2,
-        "destination_checkpoint_sha256": (
-            "sha256:" + hashlib.sha256(checkpoint_payload(imported_records)).hexdigest()
-        ),
     }
 
     cli._verify_retarget_reuse_checkpoint_commitments(

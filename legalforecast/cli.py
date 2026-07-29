@@ -453,6 +453,7 @@ from legalforecast.ingestion.free_document_downloader import (
     UrlLibFreeDocumentSource,
     download_free_docket_documents,
     is_free_document_dry_run_manifest,
+    prefixed_sha256,
     reuse_authenticated_free_documents,
     verified_checkpoint_projection_sha256,
     verify_completed_free_document_manifest,
@@ -15727,6 +15728,19 @@ def _require_retarget_public_plan_success(command: Target100StageCommand) -> Non
         raise CommandError("retarget import public-plan stage failed")
 
 
+def _retarget_checkpoint_commitments(
+    *,
+    source_checkpoint_sha256: str,
+    destination_checkpoint_sha256: str,
+) -> dict[str, str]:
+    """Publish checkpoint commitments with one canonical digest prefix."""
+
+    return {
+        "source_checkpoint_sha256": prefixed_sha256(source_checkpoint_sha256),
+        "destination_checkpoint_sha256": prefixed_sha256(destination_checkpoint_sha256),
+    }
+
+
 def _execute_target_retarget_import(
     *,
     args: argparse.Namespace,
@@ -15819,11 +15833,11 @@ def _execute_target_retarget_import(
         "schema_version": "legalforecast.target_retarget_document_reuse.v1",
         "source_preparation_root": str(source.root),
         "destination_document_root": str(destination_document_root.resolve()),
-        "source_checkpoint_sha256": ("sha256:" + reuse.source_checkpoint_sha256),
-        "source_checkpoint_record_count": reuse.source_checkpoint_record_count,
-        "destination_checkpoint_sha256": (
-            "sha256:" + reuse.destination_checkpoint_sha256
+        **_retarget_checkpoint_commitments(
+            source_checkpoint_sha256=reuse.source_checkpoint_sha256,
+            destination_checkpoint_sha256=reuse.destination_checkpoint_sha256,
         ),
+        "source_checkpoint_record_count": reuse.source_checkpoint_record_count,
         "imported_record_count": len(reuse.records),
         "stage_02_record_count": stage_02_count,
         "imported_manifest_sha256": _bytes_sha256(imported_manifest_payload),
@@ -16171,7 +16185,7 @@ def _verify_retarget_public_plan_matches_source(
 
 
 def _path_sha256(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    return prefixed_sha256(hashlib.sha256(path.read_bytes()).hexdigest())
 
 
 def _replacement_source_commitments(
@@ -16607,7 +16621,7 @@ def _verify_retarget_reuse_checkpoint_commitments(
     destination_document_root: Path,
     imported_records: tuple[FreeDocumentDownloadRecord, ...],
 ) -> None:
-    """Re-derive reuse checkpoint provenance from the committed bytes."""
+    """Verify source bytes and the canonical imported destination projection."""
 
     source_checkpoint = source_document_root / ".download-checkpoint.jsonl"
     destination_checkpoint = destination_document_root / ".download-checkpoint.jsonl"
