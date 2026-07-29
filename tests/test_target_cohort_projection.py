@@ -127,6 +127,142 @@ def test_projection_selects_exact_cheapest_post_clearance_cohort() -> None:
     assert projection.summary["selected_candidate_ids_sha256"].startswith("sha256:")
 
 
+def test_projection_emits_order_independent_output_blind_ranked_reserve() -> None:
+    candidate_ids = ("case-a", "case-b", "case-c", "case-d", "case-e")
+    missing_counts = {
+        "case-a": 1,
+        "case-b": 0,
+        "case-c": 2,
+        "case-d": 1,
+        "case-e": 3,
+    }
+    selections = [_selection(candidate_id) for candidate_id in candidate_ids]
+    relevance = [
+        _relevance(candidate_id, missing_count=missing_counts[candidate_id])
+        for candidate_id in candidate_ids
+    ]
+    downloads = [
+        _download(candidate_id, f"{candidate_id}-complaint")
+        for candidate_id in candidate_ids
+    ]
+    clearance = [
+        _clearance(candidate_id, f"{candidate_id}-complaint")
+        for candidate_id in candidate_ids
+    ]
+
+    first = project_target_cohort(
+        selections=selections,
+        case_relevance=relevance,
+        download_manifest=downloads,
+        clearance_records=clearance,
+        target_case_count=2,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="100.00",
+        max_missing_core_documents_per_case=24,
+    )
+    reordered = project_target_cohort(
+        selections=list(reversed(selections)),
+        case_relevance=list(reversed(relevance)),
+        download_manifest=list(reversed(downloads)),
+        clearance_records=list(reversed(clearance)),
+        target_case_count=2,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="100.00",
+        max_missing_core_documents_per_case=24,
+    )
+
+    assert first == reordered
+    assert first.selected_candidate_ids == ("case-b", "case-a")
+    assert [row["candidate_id"] for row in first.ranked_reserve] == [
+        "case-d",
+        "case-c",
+        "case-e",
+    ]
+    assert [row["reserve_rank"] for row in first.ranked_reserve] == [1, 2, 3]
+    assert [row["frontier_rank"] for row in first.ranked_reserve] == [3, 4, 5]
+    assert first.summary["ranked_reserve_case_count"] == 3
+    assert first.summary["source_pool_sha256"].startswith("sha256:")
+    assert first.summary["ranked_reserve_sha256"].startswith("sha256:")
+    assert first.summary["ranking_policy"] == {
+        "attributes": [
+            "missing_core_document_count",
+            "estimated_cost_usd",
+            "candidate_id",
+        ],
+        "output_blind": True,
+        "tie_breaker": "candidate_id",
+    }
+
+    output_tainted_selections = [dict(record) for record in selections]
+    output_tainted_relevance = [dict(record) for record in relevance]
+    for index, record in enumerate(output_tainted_selections):
+        record["benchmark_output"] = {"score": index / 10}
+    for index, record in enumerate(output_tainted_relevance):
+        record["evaluator_output"] = {"winner": index % 2 == 0}
+    output_tainted = project_target_cohort(
+        selections=output_tainted_selections,
+        case_relevance=output_tainted_relevance,
+        download_manifest=downloads,
+        clearance_records=clearance,
+        target_case_count=2,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="100.00",
+        max_missing_core_documents_per_case=24,
+    )
+    assert output_tainted.selected_candidate_ids == first.selected_candidate_ids
+    assert output_tainted.ranked_reserve == first.ranked_reserve
+
+
+def test_projection_freezes_exact_100_and_ranked_reserve() -> None:
+    candidate_ids = tuple(f"case-{index:03d}" for index in range(103))
+    projection = project_target_cohort(
+        selections=[_selection(candidate_id) for candidate_id in candidate_ids],
+        case_relevance=[
+            _relevance(candidate_id, missing_count=index % 4)
+            for index, candidate_id in enumerate(candidate_ids)
+        ],
+        download_manifest=[
+            _download(candidate_id, f"{candidate_id}-complaint")
+            for candidate_id in candidate_ids
+        ],
+        clearance_records=[
+            _clearance(candidate_id, f"{candidate_id}-complaint")
+            for candidate_id in candidate_ids
+        ],
+        target_case_count=100,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="1000.00",
+        max_missing_core_documents_per_case=24,
+    )
+
+    assert len(projection.selected_candidate_ids) == 100
+    assert len(projection.ranked_reserve) == 3
+    assert set(projection.selected_candidate_ids).isdisjoint(
+        row["candidate_id"] for row in projection.ranked_reserve
+    )
+    assert projection.summary["eligibility_anchor"] == "2026-06-30"
+
+
+def test_projection_rejects_pre_anchor_candidate() -> None:
+    selection = _selection("case-a")
+    selection["decision_date"] = "2026-06-29"
+
+    with pytest.raises(
+        TargetCohortProjectionError,
+        match="decision date precedes the 2026-06-30 eligibility anchor",
+    ):
+        project_target_cohort(
+            selections=[selection],
+            case_relevance=[_relevance("case-a", missing_count=0)],
+            download_manifest=[_download("case-a", "case-a-complaint")],
+            clearance_records=[_clearance("case-a", "case-a-complaint")],
+            target_case_count=1,
+            cost_per_document_usd="3.05",
+            max_projected_budget_usd="100.00",
+            max_missing_core_documents_per_case=24,
+        )
+
+
 def test_projection_accepts_only_well_formed_provenance_clearance() -> None:
     candidate_id = "case-a"
     document_id = "case-a-complaint"
@@ -811,6 +947,7 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
     ]
     summary = json.loads((output_root / "target-cohort-projection.json").read_text())
     assert summary["selected_case_count"] == 2
+    assert summary["ranked_reserve_case_count"] == 1
     assert summary["next_stage"] == "generate-recap-fetch-broker-policy"
     assert summary["input_commitments"]
     assert summary["output_commitments"]
@@ -834,6 +971,7 @@ def test_projection_cli_binds_sources_and_limits_parse_planning(
         output_root / "core-filter-results.jsonl",
         output_root / "target-cohort-exclusions.jsonl",
         output_root / "missing-core-budget-plan.json",
+        output_root / "target-cohort-ranked-reserve.jsonl",
         output_root / "run-cards/project-target-cohort.json",
         output_root / "logs/project-target-cohort.jsonl",
     )

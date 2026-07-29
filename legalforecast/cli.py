@@ -12007,6 +12007,9 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
         output_root / "missing-core-budget-plan.json": _projection_json_bytes(
             projection.budget_plan.to_record()
         ),
+        output_root / "target-cohort-ranked-reserve.jsonl": (
+            _projection_jsonl_bytes(projection.ranked_reserve)
+        ),
     }
     summary = dict(projection.summary)
     summary.update(
@@ -12995,6 +12998,7 @@ def _retained_extension_output_paths(output_root: Path) -> tuple[Path, ...]:
     )
     incremental_names = (
         "target-cohort-selection.jsonl",
+        "target-cohort-ranked-reserve.jsonl",
         "case-relevance.jsonl",
         "document-downloads-merged.jsonl",
         "free-document-downloads.jsonl",
@@ -34367,6 +34371,9 @@ def _verify_materializer_projection(
         ),
         "missing-core-budget-plan.json": _projection_json_bytes(
             reproduced.budget_plan.to_record()
+        ),
+        "target-cohort-ranked-reserve.jsonl": _projection_jsonl_bytes(
+            reproduced.ranked_reserve
         ),
     }
     for name, payload in reproduced_outputs.items():
