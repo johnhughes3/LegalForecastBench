@@ -42,11 +42,76 @@ terraform -chdir=infra/official-eval import aws_s3_bucket_server_side_encryption
 terraform -chdir=infra/official-eval import aws_s3_bucket_server_side_encryption_configuration.results "$LFB_RESULTS_BUCKET"
 terraform -chdir=infra/official-eval import aws_s3_bucket_versioning.packet "$LFB_PACKET_BUCKET"
 terraform -chdir=infra/official-eval import aws_s3_bucket_versioning.results "$LFB_RESULTS_BUCKET"
-terraform -chdir=infra/official-eval import aws_s3_bucket_lifecycle_configuration.packet "$LFB_PACKET_BUCKET"
-terraform -chdir=infra/official-eval import aws_s3_bucket_lifecycle_configuration.results "$LFB_RESULTS_BUCKET"
-terraform -chdir=infra/official-eval import aws_s3_bucket_policy.packet "$LFB_PACKET_BUCKET"
-terraform -chdir=infra/official-eval import aws_s3_bucket_policy.results "$LFB_RESULTS_BUCKET"
 ```
+
+Before importing lifecycle or bucket-policy subresources, capture their live state in a protected directory outside the checkout. Run the inventory and its conditional imports in one Bash session:
+
+```bash
+set -euo pipefail
+inventory_dir="${LFB_OFFICIAL_EVAL_INVENTORY_DIR:?set a protected directory outside the checkout}"
+install -d -m 0700 "$inventory_dir"
+
+inventory_s3_subresource() {
+  local operation="$1"
+  local bucket="$2"
+  local output_path="$3"
+  local absent_code="$4"
+  local presence_variable="$5"
+  local error_path="${output_path}.stderr"
+
+  if aws s3api "$operation" --bucket "$bucket" \
+    --output json --no-cli-pager >"$output_path" 2>"$error_path"; then
+    if [[ ! -s "$output_path" ]]; then
+      echo "empty AWS inventory response for $operation on $bucket" >&2
+      return 1
+    fi
+    rm -f "$error_path"
+    printf -v "$presence_variable" '%s' true
+    return 0
+  fi
+  if grep -Fq "($absent_code)" "$error_path"; then
+    rm -f "$output_path" "$error_path"
+    printf -v "$presence_variable" '%s' false
+    return 0
+  fi
+  cat "$error_path" >&2
+  return 1
+}
+
+inventory_s3_subresource get-bucket-lifecycle-configuration \
+  "$LFB_PACKET_BUCKET" "$inventory_dir/packet-lifecycle.json" \
+  NoSuchLifecycleConfiguration packet_lifecycle_exists
+inventory_s3_subresource get-bucket-lifecycle-configuration \
+  "$LFB_RESULTS_BUCKET" "$inventory_dir/results-lifecycle.json" \
+  NoSuchLifecycleConfiguration results_lifecycle_exists
+inventory_s3_subresource get-bucket-policy \
+  "$LFB_PACKET_BUCKET" "$inventory_dir/packet-policy.json" \
+  NoSuchBucketPolicy packet_policy_exists
+inventory_s3_subresource get-bucket-policy \
+  "$LFB_RESULTS_BUCKET" "$inventory_dir/results-policy.json" \
+  NoSuchBucketPolicy results_policy_exists
+
+if [[ "$packet_lifecycle_exists" == true ]]; then
+  terraform -chdir=infra/official-eval import \
+    aws_s3_bucket_lifecycle_configuration.packet "$LFB_PACKET_BUCKET"
+fi
+if [[ "$results_lifecycle_exists" == true ]]; then
+  terraform -chdir=infra/official-eval import \
+    aws_s3_bucket_lifecycle_configuration.results "$LFB_RESULTS_BUCKET"
+fi
+if [[ "$packet_policy_exists" == true ]]; then
+  terraform -chdir=infra/official-eval import \
+    aws_s3_bucket_policy.packet "$LFB_PACKET_BUCKET"
+fi
+if [[ "$results_policy_exists" == true ]]; then
+  terraform -chdir=infra/official-eval import \
+    aws_s3_bucket_policy.results "$LFB_RESULTS_BUCKET"
+fi
+```
+
+Successful inventory responses remain as JSON for plan review. `NoSuchLifecycleConfiguration` or `NoSuchBucketPolicy` marks only that exact subresource as absent and skips only its corresponding import. Any other AWS CLI error stops reconciliation; do not suppress errors or continue with an incomplete inventory.
+
+Reconcile every pre-existing lifecycle rule and bucket-policy statement into this Terraform configuration before saving a plan. Both S3 APIs are full-replacement surfaces, so an acceptable first-apply plan must preserve every intended live rule and statement and show no unintended deletion.
 
 Import existing IAM roles and inline policies, or choose reviewed new role names after an account inventory; never guess whether those names are already managed elsewhere. If the default role names already exist, the exact IAM imports are:
 
@@ -72,7 +137,7 @@ The cell job is the only official-evaluation principal that may reserve and sett
 
 ## Optional Bedrock runtime decision
 
-`enable_bedrock_runtime` defaults to `false`. With that default, leave `LFB_ANTHROPIC_RUNTIME` unset (or configured for the separately reviewed direct Anthropic API path), keep `bedrock_direct_foundation_model_arns` empty, and keep `bedrock_geographic_inference_profiles` empty. The live value of `LFB_ANTHROPIC_RUNTIME` could not be read during this review, so this root does not guess it and no illustrative ARN is a live recommendation.
+`enable_bedrock_runtime` defaults to `false`. With that default, leave `LFB_ANTHROPIC_RUNTIME` unset (or configured for the separately reviewed direct Anthropic API path), keep `bedrock_direct_foundation_model_arns` empty, and keep `bedrock_geographic_inference_profiles` empty. This root never infers the protected `LFB_ANTHROPIC_RUNTIME` value; verify it through the approved operator path before provisioning or enabling Bedrock. No illustrative ARN is a live recommendation.
 
 To use the workflow's `bedrock`, `aws-bedrock`, or `aws_bedrock` runtime, first review the protected cell environment's runtime and `LFB_ANTHROPIC_BEDROCK_MODEL_ID`, then set `enable_bedrock_runtime = true` and select exactly one reviewed authority shape for that model ID:
 
@@ -93,6 +158,6 @@ terraform -chdir=infra/official-eval validate
 uv run pytest -q tests/test_official_eval_infra.py
 ```
 
-As observed on 2026-07-24, the repository environments are only `copilot`, `legalforecastbench-official-eval`, and `pypi`; the fan-in environment does not yet exist (GET returned 404), and the official environment's variables and secrets—including `LFB_ANTHROPIC_RUNTIME`—could not be verified (GET returned 403). A human-approved server-side step must create `legalforecastbench-official-eval-fan-in`, protect both official environments for `main`, ensure the fan-in environment has no provider secrets, and set `LFB_GITHUB_PACKET_READ_ROLE_ARN`, `LFB_GITHUB_FAN_IN_ROLE_ARN`, and `LFB_PROVIDER_AUTHORITY_TABLE` from the reviewed applied outputs. The cell environment must either leave Bedrock disabled and use the reviewed direct Anthropic path, or enable it only with the exact structured direct-model or geographic-profile contract described above.
+Before live acceptance, verify that both `legalforecastbench-official-eval` and `legalforecastbench-official-eval-fan-in` exist as protected GitHub environments for `main`. Ensure the fan-in environment has no provider secrets, and set `LFB_GITHUB_PACKET_READ_ROLE_ARN`, `LFB_GITHUB_FAN_IN_ROLE_ARN`, and `LFB_PROVIDER_AUTHORITY_TABLE` from the reviewed applied outputs through the human-approved server-side configuration path. Verify the cell environment's `LFB_ANTHROPIC_RUNTIME`: it must either leave Bedrock disabled and use the reviewed direct Anthropic path, or enable Bedrock only with the exact structured direct-model or geographic-profile contract described above.
 
-The existing S3 validation runs predate this two-role boundary, and `fan-in-publish.yaml` has never run. The validation workflow now exercises both roles' positive read/list contracts and actual denied operations without a session-policy overlay; denied writes target only `reports/security-negative-controls/`. This is code evidence, not live acceptance. After provisioning, the validation must be dispatched from `main`, followed by a provider-free fan-in verification dispatch from `main`. Passing local workflow tests, Terraform validation, or an unapplied plan is not evidence that AWS, GitHub environments, or live OIDC claims satisfy the contract.
+The validation workflow exercises both roles' positive read/list contracts and actual denied operations without a session-policy overlay; denied writes target only `reports/security-negative-controls/`. This is code evidence, not live acceptance. After provisioning, dispatch the validation from `main`, followed by a provider-free fan-in verification dispatch from `main`. Passing local workflow tests, Terraform validation, or an unapplied plan is not evidence that AWS, GitHub environments, or live OIDC claims satisfy the contract.

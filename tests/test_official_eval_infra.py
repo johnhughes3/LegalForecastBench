@@ -899,7 +899,53 @@ def test_docs_record_unapplied_import_remote_state_and_live_acceptance_boundarie
     ):
         assert required in combined
 
-    assert "fan-in environment does not yet exist" in combined
-    assert "code validation is not live acceptance" in combined
-    assert "has never run" in combined
+    for required in (
+        "get-bucket-lifecycle-configuration",
+        "get-bucket-policy",
+        "full-replacement surfaces",
+        "no unintended deletion",
+        "Before live acceptance",
+        "both `legalforecastbench-official-eval` and "
+        "`legalforecastbench-official-eval-fan-in`",
+        "fan-in environment has no provider secrets",
+        "LFB_OFFICIAL_EVAL_INVENTORY_DIR",
+        "set -euo pipefail",
+        "NoSuchLifecycleConfiguration",
+        "NoSuchBucketPolicy",
+        "Any other AWS CLI error stops reconciliation",
+        "Successful inventory responses remain as JSON",
+        "--output json --no-cli-pager",
+        'grep -Fq "($absent_code)"',
+        'cat "$error_path" >&2',
+    ):
+        assert required in readme
+
+    inventories_complete_index = readme.index(
+        "NoSuchBucketPolicy results_policy_exists"
+    )
+    for presence_variable, terraform_resource in (
+        (
+            "packet_lifecycle_exists",
+            "aws_s3_bucket_lifecycle_configuration.packet",
+        ),
+        (
+            "results_lifecycle_exists",
+            "aws_s3_bucket_lifecycle_configuration.results",
+        ),
+        ("packet_policy_exists", "aws_s3_bucket_policy.packet"),
+        ("results_policy_exists", "aws_s3_bucket_policy.results"),
+    ):
+        assert f'if [[ "${presence_variable}" == true ]]' in readme
+        assert inventories_complete_index < readme.index(terraform_resource)
+
+    assert "code validation is not live acceptance" in readme
+    for dated_observation in (
+        "As observed on ",
+        "GET returned 403",
+        "GET returned 404",
+        "does not yet exist",
+        "has never run",
+        "during this review",
+    ):
+        assert dated_observation not in combined
     assert "five environments" not in combined
