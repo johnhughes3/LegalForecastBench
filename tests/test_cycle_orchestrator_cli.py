@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Protocol
 
 import pytest
-from legalforecast.cli import build_parser, main
+from legalforecast.cli import main
 from legalforecast.ingestion.cycle_orchestrator import (
     COMMAND_BOUNDARIES,
     BoundaryPermissions,
@@ -18,6 +18,8 @@ from legalforecast.ingestion.cycle_orchestrator import (
 )
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
+
+TARGET_CASE_COUNT = 100
 
 
 class _CompletionFactory(Protocol):
@@ -42,7 +44,7 @@ def _write_config(
         "schema_version": "legalforecast.acquisition_cycle_config.v1",
         "cycle_id": "cycle-next",
         "eligibility_anchor": "2026-06-30",
-        "target_case_count": 100,
+        "target_case_count": TARGET_CASE_COUNT,
         "stages": stages,
     }
     path.write_bytes(canonical_json_bytes(payload))
@@ -648,9 +650,15 @@ def test_run_cycle_status_reports_provider_free_stage_as_ready(
     assert not (tmp_path / "state").exists()
 
 
-def test_run_cycle_treats_bare_delegated_system_exit_as_success(
+@pytest.mark.parametrize(
+    ("exit_code", "expected_status"),
+    [(None, 0), (0, 0), (1, 2)],
+)
+def test_run_cycle_preserves_delegated_system_exit_boundary(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    exit_code: int | None,
+    expected_status: int,
 ) -> None:
     run_card = tmp_path / "init-cycle.json"
     config = _write_config(
@@ -671,18 +679,6 @@ def test_run_cycle_treats_bare_delegated_system_exit_as_success(
             )
         ],
     )
-    args = build_parser().parse_args(
-        [
-            "acquisition",
-            "run-cycle",
-            "--config",
-            str(config),
-            "--state-root",
-            str(tmp_path / "state"),
-            "--execute",
-            "--json",
-        ]
-    )
 
     def delegated_main(_arguments: tuple[str, ...]) -> int:
         run_card.write_bytes(
@@ -699,11 +695,25 @@ def test_run_cycle_treats_bare_delegated_system_exit_as_success(
                 }
             )
         )
-        raise SystemExit
+        raise SystemExit(exit_code)
 
     monkeypatch.setattr("legalforecast.cli.main", delegated_main)
 
-    assert args.handler(args) == 0
+    assert (
+        main(
+            [
+                "acquisition",
+                "run-cycle",
+                "--config",
+                str(config),
+                "--state-root",
+                str(tmp_path / "state"),
+                "--execute",
+                "--json",
+            ]
+        )
+        == expected_status
+    )
 
 
 def test_run_cycle_executes_provider_free_stage_and_resumes_from_receipt(
@@ -2166,7 +2176,11 @@ def test_run_cycle_binds_target_count_to_finalization_stage(
 
 @pytest.mark.parametrize(
     ("clean_count", "meets_target", "should_succeed"),
-    [(100, True, True), (99, True, False), (100, False, False)],
+    [
+        (TARGET_CASE_COUNT, True, True),
+        (TARGET_CASE_COUNT - 1, True, False),
+        (TARGET_CASE_COUNT, False, False),
+    ],
 )
 def test_run_cycle_verifies_completed_corpus_target(
     tmp_path: Path,
@@ -2198,7 +2212,7 @@ def test_run_cycle_verifies_completed_corpus_target(
                 boundary="provider_free",
                 arguments=[
                     "--target-clean-cases",
-                    "100",
+                    str(TARGET_CASE_COUNT),
                     "--run-card-output",
                     str(final_card),
                     "--execute",
@@ -2223,7 +2237,7 @@ def test_run_cycle_verifies_completed_corpus_target(
         if command == "finalize-corpus":
             card.update(
                 {
-                    "target_clean_cases": 100,
+                    "target_clean_cases": TARGET_CASE_COUNT,
                     "clean_count": clean_count,
                     "meets_target": meets_target,
                 }
@@ -2241,7 +2255,8 @@ def test_run_cycle_verifies_completed_corpus_target(
             executor=write_cards,
         )
         assert status["corpus_target_verified"] is True
-        assert status["clean_case_count"] == 100
+        assert status["clean_case_count"] == TARGET_CASE_COUNT
+        assert (state_root / "receipts" / "0001-finalize.json").exists()
     else:
         with pytest.raises(
             CycleOrchestratorError,
@@ -2604,7 +2619,6 @@ def test_run_cycle_rejects_symlink_inside_output_directory(
     output_directory = tmp_path / "output"
     outside = tmp_path / "outside"
     outside.mkdir()
-    (outside / "document.txt").write_text("outside\n", encoding="utf-8")
     output_directory.mkdir()
     (output_directory / "escape").symlink_to(outside, target_is_directory=True)
     config = _write_config(
