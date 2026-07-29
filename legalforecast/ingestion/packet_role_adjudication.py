@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import cast
 
@@ -58,6 +58,7 @@ _RECORD_FIELDS = frozenset(
 )
 
 PacketRoleIdentity = tuple[str, str, str]
+_VERIFICATION_SEAL = object()
 
 
 class PacketRoleAdjudicationError(ValueError):
@@ -122,7 +123,7 @@ class AuthenticatedPacketRoleEvidence:
         return (self.candidate_id, self.docket_id, self.document_key)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class VerifiedPacketRoleAdjudication:
     """One adjudication whose commitments match authenticated evidence."""
 
@@ -144,6 +145,7 @@ class VerifiedPacketRoleAdjudication:
     restriction_markers: tuple[str, ...]
     notes: str
     record_sha256: str
+    _verification_seal: object = field(repr=False, compare=False)
 
     @property
     def identity(self) -> PacketRoleIdentity:
@@ -177,12 +179,13 @@ class VerifiedPacketRoleAdjudication:
         }
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class VerifiedPacketRoleAdjudications:
     """Deterministic lookup produced only after exact evidence replay."""
 
     records: tuple[VerifiedPacketRoleAdjudication, ...]
     commitment_sha256: str
+    _verification_seal: object = field(repr=False, compare=False)
 
     def accepted_combined_mtd_memorandum(
         self,
@@ -367,37 +370,66 @@ def verify_packet_role_adjudications(
                     "restricted material cannot authorize packet-role promotion"
                 )
 
-        verified.append(
-            VerifiedPacketRoleAdjudication(
-                candidate_id=identity[0],
-                docket_id=identity[1],
-                document_key=identity[2],
-                source_pdf_sha256=evidence.source_pdf_sha256,
-                source_byte_count=evidence.source_byte_count,
-                parser_revision=evidence.parser_revision,
-                parser_manifest_sha256=evidence.parser_manifest_sha256,
-                parser_run_card_sha256=evidence.parser_run_card_sha256,
-                parser_record_sha256=evidence.parser_record_sha256,
-                evidence_kind=evidence.evidence_kind,
-                evidence_text_sha256=evidence.evidence_text_sha256,
-                adjudicator=adjudicator,
-                disposition=disposition,
-                ambiguous=evidence.ambiguous,
-                restriction_status=evidence.restriction_status,
-                restriction_markers=evidence.restriction_markers,
-                notes=notes,
-                record_sha256=expected_record_sha256,
-            )
-        )
+        verified_record = object.__new__(VerifiedPacketRoleAdjudication)
+        for field_name, value in (
+            ("candidate_id", identity[0]),
+            ("docket_id", identity[1]),
+            ("document_key", identity[2]),
+            ("source_pdf_sha256", evidence.source_pdf_sha256),
+            ("source_byte_count", evidence.source_byte_count),
+            ("parser_revision", evidence.parser_revision),
+            ("parser_manifest_sha256", evidence.parser_manifest_sha256),
+            ("parser_run_card_sha256", evidence.parser_run_card_sha256),
+            ("parser_record_sha256", evidence.parser_record_sha256),
+            ("evidence_kind", evidence.evidence_kind),
+            ("evidence_text_sha256", evidence.evidence_text_sha256),
+            ("adjudicator", adjudicator),
+            ("disposition", disposition),
+            ("ambiguous", evidence.ambiguous),
+            ("restriction_status", evidence.restriction_status),
+            ("restriction_markers", evidence.restriction_markers),
+            ("notes", notes),
+            ("record_sha256", expected_record_sha256),
+            ("_verification_seal", _VERIFICATION_SEAL),
+        ):
+            object.__setattr__(verified_record, field_name, value)
+        verified.append(verified_record)
 
     ordered = tuple(sorted(verified, key=lambda item: item.identity))
     commitment = hashlib.sha256(
         _canonical_json_bytes([record.to_record() for record in ordered])
     ).hexdigest()
-    return VerifiedPacketRoleAdjudications(
-        records=ordered,
-        commitment_sha256=commitment,
-    )
+    result = object.__new__(VerifiedPacketRoleAdjudications)
+    object.__setattr__(result, "records", ordered)
+    object.__setattr__(result, "commitment_sha256", commitment)
+    object.__setattr__(result, "_verification_seal", _VERIFICATION_SEAL)
+    return result
+
+
+def require_verified_packet_role_adjudications(
+    adjudications: VerifiedPacketRoleAdjudications,
+) -> None:
+    """Reject authority objects that were not produced by exact replay."""
+
+    if (
+        type(adjudications) is not VerifiedPacketRoleAdjudications
+        or getattr(adjudications, "_verification_seal", None) is not _VERIFICATION_SEAL
+        or any(
+            type(record) is not VerifiedPacketRoleAdjudication
+            or getattr(record, "_verification_seal", None) is not _VERIFICATION_SEAL
+            for record in adjudications.records
+        )
+    ):
+        raise PacketRoleAdjudicationError(
+            "packet-role adjudications were not produced by verified replay"
+        )
+    expected_commitment = hashlib.sha256(
+        _canonical_json_bytes([record.to_record() for record in adjudications.records])
+    ).hexdigest()
+    if adjudications.commitment_sha256 != expected_commitment:
+        raise PacketRoleAdjudicationError(
+            "verified packet-role adjudication commitment changed"
+        )
 
 
 def _require_exact_commitments(
@@ -480,5 +512,6 @@ __all__ = [
     "authenticated_packet_role_evidence_from_record",
     "build_packet_role_adjudication_record",
     "packet_role_adjudication_record_sha256",
+    "require_verified_packet_role_adjudications",
     "verify_packet_role_adjudications",
 ]

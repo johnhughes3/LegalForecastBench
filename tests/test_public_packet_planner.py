@@ -10,6 +10,7 @@ import pytest
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.packet_role_adjudication import (
     AuthenticatedPacketRoleEvidence,
+    PacketRoleAdjudicationError,
     PacketRoleDisposition,
     VerifiedPacketRoleAdjudications,
     build_packet_role_adjudication_record,
@@ -316,6 +317,30 @@ def test_verified_role_adjudication_promotes_exact_bare_notice_document(
         motion_record["role_adjudication_sha256"]
         == adjudications.records[0].record_sha256
     )
+
+
+def test_planner_rejects_packet_role_authority_not_minted_by_replay(
+    tmp_path: Path,
+) -> None:
+    forged = object.__new__(VerifiedPacketRoleAdjudications)
+    object.__setattr__(forged, "records", ())
+    object.__setattr__(
+        forged,
+        "commitment_sha256",
+        "76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71",
+    )
+
+    with pytest.raises(
+        PacketRoleAdjudicationError,
+        match="not produced by verified replay",
+    ):
+        plan_public_packet_downloads(
+            (_screened_case_with_embedded_entries(),),
+            raw_html_dir=tmp_path / "unused",
+            target_clean_cases=1,
+            use_embedded_entries=True,
+            role_adjudications=forged,
+        )
 
 
 def test_verified_role_adjudication_preserves_redacted_restriction_status(

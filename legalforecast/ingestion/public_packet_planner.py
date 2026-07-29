@@ -37,6 +37,7 @@ from legalforecast.ingestion.operative_complaint import (
 from legalforecast.ingestion.packet_role_adjudication import (
     VerifiedPacketRoleAdjudication,
     VerifiedPacketRoleAdjudications,
+    require_verified_packet_role_adjudications,
 )
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import (
@@ -281,6 +282,8 @@ def plan_public_packet_downloads(
 
     if target_clean_cases <= 0:
         raise ValueError("target_clean_cases must be positive")
+    if role_adjudications is not None:
+        require_verified_packet_role_adjudications(role_adjudications)
     raw_source_count = sum(
         source is not None
         for source in (

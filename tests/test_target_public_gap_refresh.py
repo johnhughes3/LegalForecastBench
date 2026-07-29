@@ -4,7 +4,8 @@ import argparse
 import hashlib
 import json
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Never, cast
@@ -26,6 +27,14 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadError,
     FreeDocumentFetch,
     download_free_docket_documents,
+)
+from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
+from legalforecast.ingestion.packet_role_adjudication import (
+    AuthenticatedPacketRoleEvidence,
+    PacketRoleDisposition,
+    VerifiedPacketRoleAdjudications,
+    build_packet_role_adjudication_record,
+    verify_packet_role_adjudications,
 )
 from legalforecast.ingestion.target_public_gap_refresh import (
     TargetPublicGapExecutionIdentity,
@@ -783,6 +792,7 @@ def _valid_terminal_payloads(
     *,
     tmp_path: Path,
     plan_sha256: str = "1" * 64,
+    packet_role_replay: Mapping[str, object] | None = None,
 ) -> dict[str, bytes]:
     refresh = refresh_target_public_gaps(
         plan=plan,
@@ -816,6 +826,7 @@ def _valid_terminal_payloads(
         execution=execution,
         live_firecrawl=False,
         live_download=False,
+        packet_role_replay=packet_role_replay,
     )
     return dict(payloads)
 
@@ -1288,6 +1299,200 @@ def test_execute_mode_validation_precedes_any_plan_or_output_write(
     assert not output_root.exists()
 
 
+def test_execute_cli_loads_and_passes_packet_role_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    role_adjudications = _target_gap_role_adjudications()
+    captured: dict[str, object] = {}
+    args = argparse.Namespace(
+        firecrawl_fixture=tmp_path / "firecrawl.jsonl",
+        live_firecrawl=False,
+        fixture_documents=tmp_path / "documents.json",
+        live_public_download=False,
+        firecrawl_mode="fixture",
+        document_mode="fixture",
+        workers=1,
+        output_root=tmp_path / "output",
+        target_cohort_root=tmp_path / "target",
+        expected_target_run_card_sha256="1" * 64,
+        cycle_store=tmp_path / "cycle.sqlite3",
+        batch_id="batch",
+        run_id="run",
+        fresh_credit_cap=500,
+        max_pages_per_docket=10,
+        max_attempts_per_page=3,
+        provider_breaker_threshold=5,
+        proxy="basic",
+        force_browser=False,
+        plan=tmp_path / "plan.json",
+        expected_plan_sha256="2" * 64,
+        raw_html_dir=tmp_path / "raw",
+        document_output_root=tmp_path / "documents",
+        resume=False,
+        packet_role_adjudications=tmp_path / "adjudications.jsonl",
+        expected_packet_role_adjudications_sha256="3" * 64,
+        authenticated_packet_role_evidence=tmp_path / "evidence.jsonl",
+        expected_authenticated_packet_role_evidence_sha256="4" * 64,
+    )
+    monkeypatch.setattr(cli, "_target_public_gap_plan_from_args", lambda _: plan)
+    monkeypatch.setattr(
+        cli,
+        "_verified_packet_role_adjudications_from_args",
+        lambda _: role_adjudications,
+    )
+    monkeypatch.setattr(cli, "verify_target_public_gap_plan", lambda *a, **k: None)
+    monkeypatch.setattr(
+        cli,
+        "preflight_target_public_gap_execution",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "require_target_public_gap_sources_unchanged",
+        lambda _: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "bind_target_public_gap_execution",
+        lambda _: nullcontext(cast(Any, object())),
+    )
+
+    def stop_after_capture(**kwargs: object) -> Never:
+        captured.update(kwargs)
+        captured["refresh"] = refresh_target_public_gaps(
+            plan=cast(TargetPublicGapPlan, kwargs["plan"]),
+            scheduler=_Scheduler(
+                {("70000000", 1): _bare_notice_public_docket_html("70000000")}
+            ),
+            role_adjudications=role_adjudications,
+        )
+        raise target_gap_module.TargetPublicGapRefreshError("captured replay")
+
+    monkeypatch.setattr(cli, "execute_target_public_gap_refresh", stop_after_capture)
+
+    with pytest.raises(cli.CommandError, match="captured replay"):
+        cli._cmd_acquisition_execute_target_public_gaps(args)  # pyright: ignore[reportPrivateUsage]
+
+    assert captured["role_adjudications"] is role_adjudications
+    refresh = cast(target_gap_module.TargetPublicGapRefreshResult, captured["refresh"])
+    assert {transition["source_document_id"] for transition in refresh.transitions} == {
+        "mtd-old",
+        "decision-old",
+    }
+    assert not refresh.gap_failures
+
+
+def test_terminal_receipt_binds_packet_role_replay_authority(
+    tmp_path: Path,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    role_adjudications = _target_gap_role_adjudications()
+    adjudications_path = (tmp_path / "adjudications.jsonl").absolute()
+    evidence_path = (tmp_path / "evidence.jsonl").absolute()
+    args = argparse.Namespace(
+        packet_role_adjudications=adjudications_path,
+        expected_packet_role_adjudications_sha256="3" * 64,
+        authenticated_packet_role_evidence=evidence_path,
+        expected_authenticated_packet_role_evidence_sha256="4" * 64,
+    )
+    replay_receipt = cli._packet_role_replay_receipt_from_args(  # pyright: ignore[reportPrivateUsage]
+        args,
+        role_adjudications,
+    )
+    assert replay_receipt is not None
+    payloads = _valid_terminal_payloads(
+        plan,
+        tmp_path=tmp_path,
+        packet_role_replay=replay_receipt,
+    )
+    execution_receipt = cast(
+        dict[str, object],
+        json.loads(payloads["run-cards/execute-target-public-gaps.json"]),
+    )
+
+    assert replay_receipt == {
+        "input_paths": sorted((str(adjudications_path), str(evidence_path))),
+        "source_artifact_commitments": {
+            str(adjudications_path): "3" * 64,
+            str(evidence_path): "4" * 64,
+        },
+        "verified_replay_commitment_sha256": (role_adjudications.commitment_sha256),
+    }
+    assert execution_receipt["packet_role_replay"] == replay_receipt
+    publish_target_public_gap_outputs(
+        plan=plan,
+        plan_sha256="1" * 64,
+        payloads=payloads,
+    )
+    preflight_target_public_gap_execution(
+        plan,
+        expected_plan_sha256="1" * 64,
+        packet_role_replay=replay_receipt,
+    )
+    with pytest.raises(ValueError, match="invalid closed schema"):
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256="1" * 64,
+        )
+    changed_replay = {**replay_receipt, "verified_replay_commitment_sha256": "5" * 64}
+    with pytest.raises(ValueError, match="differs from current execution"):
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256="1" * 64,
+            packet_role_replay=changed_replay,
+        )
+
+
+def test_execute_cli_parser_exposes_packet_role_replay_inputs(tmp_path: Path) -> None:
+    args = cli.build_parser().parse_args(
+        [
+            "acquisition",
+            "execute-target-public-gaps",
+            "--output-root",
+            str(tmp_path / "output"),
+            "--target-cohort-root",
+            str(tmp_path / "target"),
+            "--expected-target-run-card-sha256",
+            "1" * 64,
+            "--cycle-store",
+            str(tmp_path / "cycle.sqlite3"),
+            "--batch-id",
+            "batch",
+            "--run-id",
+            "run",
+            "--fresh-credit-cap",
+            "500",
+            "--firecrawl-mode",
+            "fixture",
+            "--document-mode",
+            "fixture",
+            "--plan",
+            str(tmp_path / "plan.json"),
+            "--expected-plan-sha256",
+            "2" * 64,
+            "--raw-html-dir",
+            str(tmp_path / "raw"),
+            "--document-output-root",
+            str(tmp_path / "documents"),
+            "--packet-role-adjudications",
+            str(tmp_path / "adjudications.jsonl"),
+            "--expected-packet-role-adjudications-sha256",
+            "3" * 64,
+            "--authenticated-packet-role-evidence",
+            str(tmp_path / "evidence.jsonl"),
+            "--expected-authenticated-packet-role-evidence-sha256",
+            "4" * 64,
+        ]
+    )
+
+    assert args.packet_role_adjudications == tmp_path / "adjudications.jsonl"
+    assert args.expected_packet_role_adjudications_sha256 == "3" * 64
+    assert args.authenticated_packet_role_evidence == tmp_path / "evidence.jsonl"
+    assert args.expected_authenticated_packet_role_evidence_sha256 == "4" * 64
+
+
 @pytest.mark.parametrize(
     "marker",
     ["Document is sealed.", "Document is private and restricted."],
@@ -1704,6 +1909,38 @@ def _public_docket_html(docket_id: str) -> str:
         '<a rel="next" href="?order_by=desc&amp;page=2">Next</a>'
         "</body></html>"
     )
+
+
+def _bare_notice_public_docket_html(docket_id: str) -> str:
+    return _public_docket_html(docket_id).replace(
+        "Motion to Dismiss Memorandum in Support",
+        "Dismiss",
+    )
+
+
+def _target_gap_role_adjudications() -> VerifiedPacketRoleAdjudications:
+    evidence = AuthenticatedPacketRoleEvidence(
+        candidate_id="70000000",
+        docket_id="70000000",
+        document_key="70000000-entry-2-motion-to-dismiss-notice",
+        source_pdf_sha256="1" * 64,
+        source_byte_count=1234,
+        parser_revision=EXPECTED_PARSER_REVISION,
+        parser_manifest_sha256="2" * 64,
+        parser_run_card_sha256="3" * 64,
+        parser_record_sha256="4" * 64,
+        evidence_kind="excerpt",
+        evidence_text_sha256="5" * 64,
+        ambiguous=False,
+        restriction_status="public",
+    )
+    record = build_packet_role_adjudication_record(
+        evidence,
+        adjudicator="John Hughes",
+        disposition=PacketRoleDisposition.ACCEPT_COMBINED_MTD_MEMORANDUM,
+        notes="The exact parsed PDF includes substantive points and authorities.",
+    )
+    return verify_packet_role_adjudications((record,), (evidence,))
 
 
 class _Scheduler:
