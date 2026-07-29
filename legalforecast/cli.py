@@ -43668,6 +43668,10 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         ) from exc
     verified_stage_card_sha256: dict[str, str] = {}
 
+    def pin_completed_stage_card(stage: str, default_path: Path) -> None:
+        stage_card_path = _acquisition_path(args, "run_card_output", default_path)
+        verified_stage_card_sha256[stage] = _path_sha256(stage_card_path)
+
     selections = verified_materialization.selection_records
     candidate_ids = tuple(_required_str(row, "candidate_id") for row in selections)
     if len(candidate_ids) != target_count or len(set(candidate_ids)) != target_count:
@@ -43975,6 +43979,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             record_count=len(decision_records),
             prior_stage=None,
         )
+        pin_completed_stage_card(decision_stage, decision_stage_card_path)
     if target_stage == "decision-texts":
         require_rehearsal_inputs_unchanged()
         return 0
@@ -44050,6 +44055,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             ),
             expected_prior_stage_record_count=len(decision_records),
         )
+        pin_completed_stage_card(unitize_stage, unitize_stage_card_path)
     if target_stage == "stage-a-unitize":
         require_rehearsal_inputs_unchanged()
         return 0
@@ -44122,6 +44128,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             ),
             expected_prior_stage_record_count=len(raw_prediction_units),
         )
+        pin_completed_stage_card(review_stage, review_stage_card_path)
     if target_stage == "stage-a-review":
         require_rehearsal_inputs_unchanged()
         return 0
@@ -44170,6 +44177,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
                 structural_flags_path
             ),
         )
+        pin_completed_stage_card(apply_a_stage, apply_a_stage_card_path)
     if target_stage == "stage-a-apply":
         require_rehearsal_inputs_unchanged()
         return 0
@@ -44261,6 +44269,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             ),
             expected_prior_stage_record_count=len(finalized_units),
         )
+        pin_completed_stage_card(label_stage, label_stage_card_path)
     if target_stage == "stage-b-label":
         require_rehearsal_inputs_unchanged()
         return 0
@@ -44313,6 +44322,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             ),
             expected_prior_stage_record_count=len(label_records),
         )
+        pin_completed_stage_card(apply_b_stage, apply_b_stage_card_path)
     if target_stage == "stage-b-apply":
         require_rehearsal_inputs_unchanged()
         return 0
@@ -44375,6 +44385,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             ),
             expected_prior_stage_record_count=len(label_records),
         )
+        pin_completed_stage_card(packet_plan_stage, packet_plan_stage_card_path)
     if target_stage == "packet-plan":
         require_rehearsal_inputs_unchanged()
         return 0
@@ -44440,6 +44451,8 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         ),
         expected_prior_stage_record_count=len(packet_build_records),
     )
+    packet_stage_card_path = output_root / "run-cards" / f"{packet_stage}.json"
+    pin_completed_stage_card(packet_stage, packet_stage_card_path)
     summary_path = output_root / "rehearsal-final-summary.json"
     unit_count = sum(
         len(_required_record_sequence(row, "prediction_units"))
@@ -44466,7 +44479,9 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         _fixture_rehearsal_sidecar_path(stage_card) for stage_card in stage_cards
     )
     all_output_paths: list[Path] = []
-    for stage_card in stage_cards:
+    for stage_name, stage_card in zip(stage_names, stage_cards, strict=True):
+        if verified_stage_card_sha256.get(stage_name) != _path_sha256(stage_card):
+            raise CommandError(f"fixture rehearsal stage card changed: {stage_name}")
         stage_card_payload = _read_json_object(stage_card)
         all_output_paths.extend(
             Path(str(value))
