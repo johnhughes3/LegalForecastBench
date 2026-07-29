@@ -20,23 +20,9 @@ from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.public_packet_planner import (
     plan_public_packet_downloads,
 )
+from tests.restriction_fixtures import PUBLIC_HEARING_SANCTION_BOILERPLATE
 
 _REPLY_URL = "https://www.courtlistener.com/docket/123/10/example/"
-_PUBLIC_HEARING_SANCTION_BOILERPLATE = (
-    "MINUTE entry before the Honorable Jorge L. Alonso: Telephonic motion hearing "
-    "held. For the reasons stated on the record, Defendants' Motion to dismiss [45] "
-    "is denied as moot. Telephonic Status hearing previously set for 7/30/26 is "
-    "stricken and reset to 8/25/2026 at 9:30 a.m. The parties are directed to file "
-    "a joint status report by 8/21/26. Members of the public and media will be able "
-    "to call in to listen to this hearing. The call-in number is 650-479-3207 and "
-    "the access code is 1804010308. Persons granted remote access to proceedings "
-    "are reminded of the general prohibition against photographing, recording, and "
-    "rebroadcasting of court proceedings. Violation of these prohibitions may "
-    "result in sanctions, including removal of court issued media credentials, "
-    "restricted entry to future hearings, denial of entry to future hearings, or "
-    "any other sanctions deemed necessary by the Court. Notice mailed by Judge's "
-    "staff (lf, )"
-)
 
 
 def test_public_packet_planner_selects_free_core_packet_documents(
@@ -696,7 +682,7 @@ def test_public_packet_planner_reproves_61568804_hearing_boilerplate(
             "row_id": "entry-50",
             "entry_number": "50",
             "filed_at": "July 22, 2026",
-            "text": _PUBLIC_HEARING_SANCTION_BOILERPLATE,
+            "text": PUBLIC_HEARING_SANCTION_BOILERPLATE,
             "restriction_markers": ["text_restrictedentry"],
         }
     )
@@ -725,6 +711,7 @@ def test_public_packet_planner_reproves_61568804_hearing_boilerplate(
     [selected] = plan.selected_cases
     assert selected.candidate_id == "61568804"
     assert plan.final_exclusions == ()
+    assert len(plan.download_requests) == 3
     assert any(
         request.source_url.endswith("gov.uscourts.ilnd.409147.50.0.pdf")
         for request in plan.download_requests
@@ -759,11 +746,11 @@ def test_public_packet_planner_reproves_61568804_hearing_boilerplate(
         "entry to future hearings.",
         "Violation may result in sanctions, including restricted entry to future "
         "hearings, even though that restriction is already in force.",
-        _PUBLIC_HEARING_SANCTION_BOILERPLATE.replace(
+        PUBLIC_HEARING_SANCTION_BOILERPLATE.replace(
             "Court. Notice",
             "Court and now imposed. Notice",
         ),
-        _PUBLIC_HEARING_SANCTION_BOILERPLATE.replace(
+        PUBLIC_HEARING_SANCTION_BOILERPLATE.replace(
             "Court. Notice",
             "Court, which has already imposed this restriction. Notice",
         ),
@@ -798,7 +785,7 @@ def test_document_marker_is_not_reconciled_from_entry_boilerplate(
     target = cast(list[dict[str, Any]], record["selected_entries"])[1]
     [document] = cast(list[dict[str, Any]], target["documents"])
     document["restriction_markers"] = ["text_restrictedentry"]
-    document["text"] = _PUBLIC_HEARING_SANCTION_BOILERPLATE
+    document["text"] = PUBLIC_HEARING_SANCTION_BOILERPLATE
 
     plan = plan_public_packet_downloads(
         (record,),
