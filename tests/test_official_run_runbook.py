@@ -16,20 +16,66 @@ from legalforecast.cli import build_parser, main
 from legalforecast.protocol.freeze import REQUIRED_FREEZE_ARTIFACTS, build_arg_parser
 
 ROOT = Path(__file__).resolve().parents[1]
+POSITIONAL_FREEZE_PREFIX = "uv run legalforecast freeze <cycle_id>"
 
 
 def test_documented_freeze_command_parses_against_real_cli() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
-    command = _extract_bash_command(runbook, "uv run legalforecast freeze ")
+    command = _extract_bash_command(runbook, POSITIONAL_FREEZE_PREFIX)
     argv = shlex.split(command.replace("\\\n", " "))
 
     assert argv[:4] == ["uv", "run", "legalforecast", "freeze"]
     assert "--cycle-id" not in argv
+    assert "--bundle-output" in argv
 
     args = build_arg_parser().parse_args(argv[4:])
     assert args.cycle_id == "<cycle_id>"
+    assert args.bundle_output == "manifests/<cycle_id>.freeze.json"
     for artifact_name in REQUIRED_FREEZE_ARTIFACTS:
         assert getattr(args, artifact_name.value)
+
+
+def test_freeze_command_selector_is_independent_of_block_order() -> None:
+    reordered = """```bash
+uv run legalforecast freeze amend <cycle_id>
+```
+```bash
+uv run legalforecast freeze <cycle_id> --bundle-output <bundle.json>
+```"""
+
+    assert _extract_bash_command(reordered, POSITIONAL_FREEZE_PREFIX).startswith(
+        POSITIONAL_FREEZE_PREFIX
+    )
+
+
+def test_runbook_uses_explicit_non_literal_placeholder_convention() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    assert (
+        "Angle-bracket values such as `<cycle_id>` are placeholders, not literal "
+        "shell input."
+    ) in runbook
+    assert "Replace every such value before running a command." in runbook
+
+
+def test_runbook_run_card_aliases_share_authenticated_artifact_paths() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    pairs = re.findall(
+        r"(?m)^\s*(--[a-z0-9-]*run-card)\s+(<[^>\s]+>)",
+        runbook,
+    )
+    expected = {
+        "--llm-unitization-run-card": "<llm-unitize-run-card.json>",
+        "--llm-unitize-run-card": "<llm-unitize-run-card.json>",
+        "--llm-review-stage-a-run-card": "<llm-review-stage-a-run-card.json>",
+        "--stage-a-review-run-card": "<llm-review-stage-a-run-card.json>",
+    }
+
+    for flag, placeholder in expected.items():
+        assert {value for name, value in pairs if name == flag} == {placeholder}
+    assert (
+        "Substitute the same exact path for each pair; the different flag names "
+        "describe validation roles, not different artifacts."
+    ) in runbook
 
 
 def _documented_command_block(runbook: str, command: str) -> str:
