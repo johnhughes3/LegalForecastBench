@@ -27,7 +27,7 @@ Use the dedicated `/agents/sandbox/legalforecastbench/parser` or `/agents/sandbo
 Paid RECAP Fetch uses only `/agents/sandbox/legalforecastbench/recap-fetch-broker-client`.
 These and `/agents/sandbox/legalforecastbench-acquisition` are the launcher's exact dedicated sandbox paths; every root, alias, parent, and unrelated path is rejected before the sandbox helper can run.
 The parser stage view must resolve exactly `MISTRAL_API_KEY`; the labeling stage view must resolve exactly `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY`.
-Configure those names as Infisical dependent secret references to the canonical values under `/agents/sandbox/legalforecastbench-acquisition` so credential rotation propagates without creating another stored value.
+Configure those names as Infisical dependent-secret references to the canonical values under `/agents/sandbox/legalforecastbench-acquisition` so credential rotation propagates without creating another stored value.
 Reference resolution requires the sandbox identity to read both the stage view and the referenced canonical secret; the reviewed `/agents/sandbox/**` read grant covers both, and must not be broadened to compensate for a broken reference.
 Do not copy credential values.
 Do not enable folder imports: an import would expose acquisition and unrelated provider credentials to the stage process.

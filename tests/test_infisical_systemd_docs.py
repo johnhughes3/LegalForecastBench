@@ -5,6 +5,53 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 
+REQUIRED_LOOP = (
+    "for name in $required; do (( ${+parameters[$name]} )) && "
+    '[[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done'
+)
+FORBIDDEN_LOOP = (
+    "for name in $forbidden; do (( ! ${+parameters[$name]} )) || "
+    '{ print -u2 -- "$name=unexpected"; exit 1; }; done'
+)
+
+
+def _stage_sentinel(
+    docs: str, path: str
+) -> tuple[tuple[str, ...], tuple[str, ...], str, str]:
+    stage_section = docs.split(f"--path {path}", 1)[1]
+    arrays = re.search(
+        r"required=\((?P<required>[^)]*)\)\n"
+        r"    forbidden=\((?P<forbidden>[^)]*)\)",
+        stage_section,
+    )
+    loops = re.search(
+        r"    (?P<required_loop>for name in \$required;[^\n]+?; done)\n"
+        r"    (?P<forbidden_loop>for name in \$forbidden;[^\n]+?; done)",
+        stage_section,
+    )
+    assert arrays is not None
+    assert loops is not None
+    return (
+        tuple(arrays.group("required").split()),
+        tuple(arrays.group("forbidden").split()),
+        loops.group("required_loop"),
+        loops.group("forbidden_loop"),
+    )
+
+
+def _stage_key_arrays(docs: str, path: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    stage_section = docs.split(f"--path {path}", 1)[1]
+    match = re.search(
+        r"required=\((?P<required>[^)]*)\)\n"
+        r"    forbidden=\((?P<forbidden>[^)]*)\)",
+        stage_section,
+    )
+    assert match is not None
+    return (
+        tuple(match.group("required").split()),
+        tuple(match.group("forbidden").split()),
+    )
+
 
 def test_acquisition_systemd_docs_require_status_and_receipt_gates() -> None:
     docs = (ROOT / "docs" / "acquisition-systemd-launcher.md").read_text(
@@ -36,12 +83,12 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
         encoding="utf-8"
     )
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    labeling_keys = "`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY`"
 
     for expected in (
         "parser stage view must resolve exactly `MISTRAL_API_KEY`",
-        "labeling stage view must resolve exactly `OPENAI_API_KEY`, "
-        "`ANTHROPIC_API_KEY`, and `GEMINI_API_KEY`",
-        "dependent secret references",
+        f"labeling stage view must resolve exactly {labeling_keys}",
+        "dependent-secret references",
         "canonical values under `/agents/sandbox/legalforecastbench-acquisition`",
         "read both the stage view and the referenced canonical secret",
         "Do not copy credential values",
@@ -52,21 +99,72 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
         assert expected in launcher_docs
 
     assert launcher_docs.count('env -i PATH="$PATH"') == 4
-    assert "required=(MISTRAL_API_KEY)" in launcher_docs
-    assert "required=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY)" in launcher_docs
-    assert "forbidden=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY" in launcher_docs
-    assert "forbidden=(MISTRAL_API_KEY CASE_DEV_API_KEY" in launcher_docs
-    required_loop = (
-        "for name in $required; do (( ${+parameters[$name]} )) && "
-        '[[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done'
+    parser_sentinel = _stage_sentinel(
+        launcher_docs, "/agents/sandbox/legalforecastbench/parser"
     )
-    assert launcher_docs.count(required_loop) == 2
-    assert required_loop in runbook
-    assert "dependent secret reference" in runbook
+    assert parser_sentinel == (
+        ("MISTRAL_API_KEY",),
+        (
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GEMINI_API_KEY",
+            "CASE_DEV_API_KEY",
+            "COURTLISTENER_API_TOKEN",
+            "RECAP_API_TOKEN",
+            "FIRECRAWL_API_KEY",
+            "PACER_USERNAME",
+            "PACER_PASSWORD",
+        ),
+        REQUIRED_LOOP,
+        FORBIDDEN_LOOP,
+    )
+    assert _stage_sentinel(
+        launcher_docs, "/agents/sandbox/legalforecastbench/labeling"
+    ) == (
+        ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"),
+        (
+            "MISTRAL_API_KEY",
+            "CASE_DEV_API_KEY",
+            "COURTLISTENER_API_TOKEN",
+            "RECAP_API_TOKEN",
+            "FIRECRAWL_API_KEY",
+            "PACER_USERNAME",
+            "PACER_PASSWORD",
+        ),
+        REQUIRED_LOOP,
+        FORBIDDEN_LOOP,
+    )
+    assert (
+        _stage_sentinel(runbook, "/agents/sandbox/legalforecastbench/parser")
+        == parser_sentinel
+    )
+    assert _stage_key_arrays(
+        launcher_docs, "/agents/sandbox/legalforecastbench/recap-fetch-broker-client"
+    ) == (
+        (
+            "RECAP_FETCH_BROKER_URL",
+            "RECAP_FETCH_BROKER_MACHINE_ID",
+            "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK",
+            "RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON",
+            "RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256",
+        ),
+        (
+            "PACER_USERNAME",
+            "PACER_PASSWORD",
+            "COURTLISTENER_API_TOKEN",
+            "RECAP_API_TOKEN",
+            "CASE_DEV_API_KEY",
+            "FIRECRAWL_API_KEY",
+            "MISTRAL_API_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GEMINI_API_KEY",
+        ),
+    )
+    assert "dependent-secret reference" in runbook
     assert "acquisition-systemd-launcher.md" in runbook
     assert "authoritative masked Infisical UI inventory" in runbook
     assert "zsh -dfc" in runbook
-    assert "forbidden=(OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY" in runbook
 
 
 def test_acquisition_systemd_docs_require_exact_recap_fetch_client_view() -> None:
