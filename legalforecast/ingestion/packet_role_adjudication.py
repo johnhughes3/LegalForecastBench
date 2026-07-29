@@ -15,6 +15,24 @@ from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVI
 PACKET_ROLE_ADJUDICATION_SCHEMA = "legalforecast.packet_role_adjudication.v1"
 _EVIDENCE_KINDS = frozenset({"title", "excerpt"})
 _NON_RESTRICTED_STATUSES = frozenset({"public", "redacted"})
+_EVIDENCE_FIELDS = frozenset(
+    {
+        "candidate_id",
+        "docket_id",
+        "document_key",
+        "source_pdf_sha256",
+        "source_byte_count",
+        "parser_revision",
+        "parser_manifest_sha256",
+        "parser_run_card_sha256",
+        "parser_record_sha256",
+        "evidence_kind",
+        "evidence_text_sha256",
+        "ambiguous",
+        "restriction_status",
+        "restriction_markers",
+    }
+)
 _RECORD_FIELDS = frozenset(
     {
         "schema_version",
@@ -182,6 +200,44 @@ class VerifiedPacketRoleAdjudications:
             ),
             None,
         )
+
+
+def authenticated_packet_role_evidence_from_record(
+    raw_record: Mapping[str, object],
+) -> AuthenticatedPacketRoleEvidence:
+    """Parse one strict authenticated-evidence JSON record."""
+
+    record = dict(raw_record)
+    if frozenset(record) != _EVIDENCE_FIELDS:
+        raise PacketRoleAdjudicationError(
+            "authenticated packet-role evidence fields do not match the v1 schema"
+        )
+    source_byte_count = record["source_byte_count"]
+    ambiguous = record["ambiguous"]
+    if (
+        not isinstance(source_byte_count, int)
+        or isinstance(source_byte_count, bool)
+        or not isinstance(ambiguous, bool)
+    ):
+        raise PacketRoleAdjudicationError(
+            "authenticated packet-role evidence has invalid scalar types"
+        )
+    return AuthenticatedPacketRoleEvidence(
+        candidate_id=_required_text(record, "candidate_id"),
+        docket_id=_required_text(record, "docket_id"),
+        document_key=_required_text(record, "document_key"),
+        source_pdf_sha256=_required_text(record, "source_pdf_sha256"),
+        source_byte_count=source_byte_count,
+        parser_revision=_required_text(record, "parser_revision"),
+        parser_manifest_sha256=_required_text(record, "parser_manifest_sha256"),
+        parser_run_card_sha256=_required_text(record, "parser_run_card_sha256"),
+        parser_record_sha256=_required_text(record, "parser_record_sha256"),
+        evidence_kind=_required_text(record, "evidence_kind"),
+        evidence_text_sha256=_required_text(record, "evidence_text_sha256"),
+        ambiguous=ambiguous,
+        restriction_status=_required_text(record, "restriction_status"),
+        restriction_markers=_required_text_sequence(record, "restriction_markers"),
+    )
 
 
 def build_packet_role_adjudication_record(
@@ -417,6 +473,7 @@ __all__ = [
     "PacketRoleDisposition",
     "VerifiedPacketRoleAdjudication",
     "VerifiedPacketRoleAdjudications",
+    "authenticated_packet_role_evidence_from_record",
     "build_packet_role_adjudication_record",
     "packet_role_adjudication_record_sha256",
     "verify_packet_role_adjudications",

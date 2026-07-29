@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import argparse
+import hashlib
+import json
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
+from legalforecast import cli
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.packet_role_adjudication import (
     AuthenticatedPacketRoleEvidence,
@@ -55,19 +60,25 @@ def test_verified_accepted_record_is_deterministic_and_generic() -> None:
 
 
 @pytest.mark.parametrize(
-    "field",
+    ("field", "mismatched_value"),
     (
-        "source_pdf_sha256",
-        "parser_manifest_sha256",
-        "parser_run_card_sha256",
-        "parser_record_sha256",
-        "evidence_text_sha256",
+        ("source_pdf_sha256", "f" * 64),
+        ("source_byte_count", 9999),
+        ("parser_revision", "different-parser-revision"),
+        ("parser_manifest_sha256", "f" * 64),
+        ("parser_run_card_sha256", "f" * 64),
+        ("parser_record_sha256", "f" * 64),
+        ("evidence_kind", "title"),
+        ("evidence_text_sha256", "f" * 64),
     ),
 )
-def test_hash_mismatch_fails_closed(field: str) -> None:
+def test_commitment_mismatch_fails_closed(
+    field: str,
+    mismatched_value: object,
+) -> None:
     evidence = _evidence()
     record = _record(evidence)
-    record[field] = "f" * 64
+    record[field] = mismatched_value
     _rehash(record)
 
     with pytest.raises(PacketRoleAdjudicationError, match=f"{field} mismatch"):
@@ -142,6 +153,50 @@ def test_record_self_hash_is_verified() -> None:
 
     with pytest.raises(PacketRoleAdjudicationError, match="record_sha256 mismatch"):
         verify_packet_role_adjudications((record,), (evidence,))
+
+
+def test_cli_loads_hash_pinned_packet_role_replay(tmp_path: Path) -> None:
+    evidence = _evidence()
+    evidence_record = {
+        "candidate_id": evidence.candidate_id,
+        "docket_id": evidence.docket_id,
+        "document_key": evidence.document_key,
+        "source_pdf_sha256": evidence.source_pdf_sha256,
+        "source_byte_count": evidence.source_byte_count,
+        "parser_revision": evidence.parser_revision,
+        "parser_manifest_sha256": evidence.parser_manifest_sha256,
+        "parser_run_card_sha256": evidence.parser_run_card_sha256,
+        "parser_record_sha256": evidence.parser_record_sha256,
+        "evidence_kind": evidence.evidence_kind,
+        "evidence_text_sha256": evidence.evidence_text_sha256,
+        "ambiguous": evidence.ambiguous,
+        "restriction_status": evidence.restriction_status,
+        "restriction_markers": list(evidence.restriction_markers),
+    }
+    adjudications_payload = (
+        json.dumps(_record(evidence), sort_keys=True) + "\n"
+    ).encode()
+    evidence_payload = (json.dumps(evidence_record, sort_keys=True) + "\n").encode()
+    adjudications_path = tmp_path / "adjudications.jsonl"
+    evidence_path = tmp_path / "evidence.jsonl"
+    adjudications_path.write_bytes(adjudications_payload)
+    evidence_path.write_bytes(evidence_payload)
+
+    verified = cli._verified_packet_role_adjudications_from_args(  # pyright: ignore[reportPrivateUsage]
+        argparse.Namespace(
+            packet_role_adjudications=adjudications_path,
+            expected_packet_role_adjudications_sha256=hashlib.sha256(
+                adjudications_payload
+            ).hexdigest(),
+            authenticated_packet_role_evidence=evidence_path,
+            expected_authenticated_packet_role_evidence_sha256=hashlib.sha256(
+                evidence_payload
+            ).hexdigest(),
+        )
+    )
+
+    assert verified is not None
+    assert verified.records[0].identity == evidence.identity
 
 
 def _evidence(

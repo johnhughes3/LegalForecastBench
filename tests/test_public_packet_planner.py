@@ -297,6 +297,16 @@ def test_verified_role_adjudication_promotes_exact_bare_notice_document(
     assert motion.document_role is DocumentRole.MTD_MEMORANDUM
     assert motion.source_document_id == "123-entry-5-motion-to-dismiss-notice"
     assert motion.role_adjudication_sha256 == adjudications.records[0].record_sha256
+    assert motion.source_pdf_sha256 == adjudications.records[0].source_pdf_sha256
+    assert motion.source_byte_count == adjudications.records[0].source_byte_count
+    assert motion.restriction_status == "public"
+    [request] = [
+        request
+        for request in plan.download_requests
+        if request.docket_entry_number == 5
+    ]
+    assert request.expected_sha256 == adjudications.records[0].source_pdf_sha256
+    assert request.expected_byte_count == adjudications.records[0].source_byte_count
     [motion_record] = [
         document
         for document in candidate.to_record()["documents"]
@@ -306,6 +316,66 @@ def test_verified_role_adjudication_promotes_exact_bare_notice_document(
         motion_record["role_adjudication_sha256"]
         == adjudications.records[0].record_sha256
     )
+
+
+def test_verified_role_adjudication_preserves_redacted_restriction_status(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = "5 MOTION to Dismiss filed by Defendant."
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+        role_adjudications=_verified_role_adjudications(restriction_status="redacted"),
+    )
+
+    [candidate] = plan.selected_cases
+    [motion] = [
+        document
+        for document in candidate.to_record()["documents"]
+        if document["docket_entry_number"] == 5
+    ]
+    assert motion["redaction_or_seal_status"] == "redacted"
+
+
+def test_verified_role_adjudication_does_not_override_free_memorandum(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = "5 MOTION to Dismiss filed by Defendant."
+    documents = cast(list[dict[str, Any]], target["documents"])
+    documents[0]["description"] = "Dismiss"
+    documents.append(
+        {
+            **documents[0],
+            "description": "Memorandum of Points and Authorities",
+            "href": "https://storage.courtlistener.com/recap/memorandum.pdf",
+        }
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+        role_adjudications=_verified_role_adjudications(),
+    )
+
+    [candidate] = plan.selected_cases
+    [motion] = [
+        document
+        for document in candidate.documents
+        if document.docket_entry_number == 5
+    ]
+    assert motion.document_role is DocumentRole.MTD_MEMORANDUM
+    assert motion.source_url.endswith("/memorandum.pdf")
+    assert motion.role_adjudication_sha256 is None
 
 
 def test_verified_rejection_keeps_bare_notice_gap(tmp_path: Path) -> None:
@@ -1942,6 +2012,7 @@ def _verified_role_adjudications(
     disposition: PacketRoleDisposition = (
         PacketRoleDisposition.ACCEPT_COMBINED_MTD_MEMORANDUM
     ),
+    restriction_status: str = "public",
 ) -> VerifiedPacketRoleAdjudications:
     evidence = AuthenticatedPacketRoleEvidence(
         candidate_id="123",
@@ -1956,7 +2027,7 @@ def _verified_role_adjudications(
         evidence_kind="excerpt",
         evidence_text_sha256="5" * 64,
         ambiguous=False,
-        restriction_status="public",
+        restriction_status=restriction_status,
     )
     record = build_packet_role_adjudication_record(
         evidence,

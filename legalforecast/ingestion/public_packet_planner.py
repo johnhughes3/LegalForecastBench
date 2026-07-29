@@ -64,6 +64,9 @@ class PublicPacketDocumentPlan:
     model_visible: bool
     contains_target_outcome: bool
     role_adjudication_sha256: str | None = None
+    source_pdf_sha256: str | None = None
+    source_byte_count: int | None = None
+    restriction_status: str = "public"
 
     def to_download_request(self) -> FreeDocumentDownloadRequest:
         return FreeDocumentDownloadRequest(
@@ -74,6 +77,8 @@ class PublicPacketDocumentPlan:
             document_role=self.document_role,
             source_url=self.source_url,
             file_extension="pdf",
+            expected_sha256=self.source_pdf_sha256,
+            expected_byte_count=self.source_byte_count,
         )
 
     def to_record(self) -> dict[str, Any]:
@@ -86,13 +91,15 @@ class PublicPacketDocumentPlan:
             "description": self.description,
             "model_visible": self.model_visible,
             "contains_target_outcome": self.contains_target_outcome,
-            "redaction_or_seal_status": "public",
+            "redaction_or_seal_status": self.restriction_status,
             "restriction_evidence": ["courtlistener_public_download_record_checked"],
             "is_sealed": None,
             "is_private": None,
+            "role_adjudication_sha256": self.role_adjudication_sha256,
         }
-        if self.role_adjudication_sha256 is not None:
-            record["role_adjudication_sha256"] = self.role_adjudication_sha256
+        if self.source_pdf_sha256 is not None:
+            record["source_pdf_sha256"] = self.source_pdf_sha256
+            record["source_byte_count"] = self.source_byte_count
         return record
 
 
@@ -1249,6 +1256,17 @@ def _document_plan(
         role_adjudication_sha256=(
             None if role_adjudication is None else role_adjudication.record_sha256
         ),
+        source_pdf_sha256=(
+            None if role_adjudication is None else role_adjudication.source_pdf_sha256
+        ),
+        source_byte_count=(
+            None if role_adjudication is None else role_adjudication.source_byte_count
+        ),
+        restriction_status=(
+            "public"
+            if role_adjudication is None
+            else role_adjudication.restriction_status
+        ),
     )
 
 
@@ -1259,18 +1277,22 @@ def _mtd_document_plan(
     entry: CourtListenerWebDocketEntry,
     role_adjudications: VerifiedPacketRoleAdjudications | None,
 ) -> PublicPacketDocumentPlan:
-    adjudication = _accepted_mtd_memorandum_adjudication(
-        candidate_id=candidate_id,
-        case_id=case_id,
-        entry=entry,
-        role_adjudications=role_adjudications,
+    has_free_memorandum = (
+        _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
+    )
+    adjudication = (
+        None
+        if has_free_memorandum
+        else _accepted_mtd_memorandum_adjudication(
+            candidate_id=candidate_id,
+            case_id=case_id,
+            entry=entry,
+            role_adjudications=role_adjudications,
+        )
     )
     role = (
         DocumentRole.MTD_MEMORANDUM
-        if (
-            _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
-            or adjudication is not None
-        )
+        if (has_free_memorandum or adjudication is not None)
         else DocumentRole.MTD_NOTICE
     )
     return _document_plan(
