@@ -81,6 +81,7 @@ _REQUIRED_OUTPUT_NAMES = frozenset(
 _PROJECTION_OUTPUT_NAMES = frozenset(
     {
         "target-cohort-selection.jsonl",
+        "target-cohort-ranked-reserve.jsonl",
         "case-relevance.jsonl",
         "free-document-downloads.jsonl",
         "purchased-document-downloads.jsonl",
@@ -706,6 +707,7 @@ def _replay_projection_semantics(
     manifest = tuple(reproduced.download_manifest)
     expected = {
         "target-cohort-selection.jsonl": _jsonl_bytes(reproduced.selections),
+        "target-cohort-ranked-reserve.jsonl": _jsonl_bytes(reproduced.ranked_reserve),
         "case-relevance.jsonl": _jsonl_bytes(reproduced.case_relevance),
         "free-document-downloads.jsonl": _jsonl_bytes(
             row for row in manifest if row.get("free_or_purchased") == "free"

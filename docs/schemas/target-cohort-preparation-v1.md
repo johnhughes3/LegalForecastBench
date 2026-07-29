@@ -44,6 +44,26 @@ A downstream extension must verify the actual completed clearance run card again
 
 The preparation summary binds the frontier file bytes and candidate count, and the generic stage commitments include the frontier so mutation, deletion, or injection makes resume fail.
 
+## Exact launch projection and reserve
+
+`project-target-cohort` replays the frozen preparation and authenticated disclosure-clearance commitments before selecting the launch cohort.
+
+For Cycle 1 it requires every resolved-pool `decision_date` to be canonical ISO 8601 and on or after `2026-06-30`.
+
+The command ranks only pre-output acquisition attributes: missing-core-document count, its deterministic estimated cost, and `candidate_id` as the final tie breaker.
+
+Benchmark responses, evaluator scores, labels, and other post-exposure outputs are not ranking inputs.
+
+The first `target_case_count` rows become `target-cohort-selection.jsonl`.
+
+Every remaining completable row is emitted in the same deterministic order as `target-cohort-ranked-reserve.jsonl`, with contiguous reserve and full-frontier ranks, the committed decision date, and the exact missing-document identities, roles, count, and estimated cost used for ranking.
+
+The projection summary commits the order-independent frozen source pool, selected candidate sequence, ranked reserve sequence and bytes, ranking policy, eligibility anchor, budget plan, and every emitted output.
+
+Reordering otherwise identical input records therefore preserves the projection and reserve bytes, while any source-byte change remains visible in the run card's path-bound input commitments.
+
+The reserve does not authorize replacement, purchase, packet construction, freeze, dispatch, or evaluation.
+
 ## Compatibility command
 
 `prepare-target-100` remains the exact-100 compatibility command.

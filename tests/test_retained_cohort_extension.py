@@ -196,6 +196,7 @@ def test_extension_rejects_cross_candidate_purchase_document_identity() -> None:
     relevance[100]["documents"][1]["source_document_id"] = "case-000-mtd"
     full["case-relevance.jsonl"] = _jsonl_bytes(relevance)
     inputs["full_pool_artifacts"] = full
+    _rebuild_base(inputs)
 
     with pytest.raises(
         RetainedCohortExtensionError,
@@ -1169,6 +1170,7 @@ def _inputs(
 def _base_artifacts(projection: Any) -> dict[str, bytes]:
     records: dict[str, bytes] = {
         "target-cohort-selection.jsonl": _jsonl_bytes(projection.selections),
+        "target-cohort-ranked-reserve.jsonl": _jsonl_bytes(projection.ranked_reserve),
         "case-relevance.jsonl": _jsonl_bytes(projection.case_relevance),
         "document-downloads-merged.jsonl": _jsonl_bytes(projection.download_manifest),
         "disclosure-clearance.jsonl": _jsonl_bytes(projection.clearance_records),

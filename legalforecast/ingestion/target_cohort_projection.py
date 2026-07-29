@@ -6,11 +6,15 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, cast
 
 from legalforecast.ingestion.core_document_filter import (
     CoreDocumentFilterResult,
     filter_core_documents,
+)
+from legalforecast.ingestion.decision_text_artifact import (
+    CYCLE_1_ELIGIBILITY_ANCHOR,
 )
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
@@ -19,6 +23,7 @@ from legalforecast.ingestion.disclosure_clearance import (
 from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
     plan_missing_core_document_budget,
+    rank_missing_core_document_plans,
 )
 from legalforecast.selection.exclusion_ledger import (
     ExclusionLedgerEntry,
@@ -28,6 +33,15 @@ from legalforecast.selection.exclusion_ledger import (
 JsonRecord = dict[str, Any]
 _PUBLIC_RESTRICTION_STATUSES = frozenset({"public", "redacted"})
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
+_RANKING_POLICY: JsonRecord = {
+    "attributes": [
+        "missing_core_document_count",
+        "estimated_cost_usd",
+        "candidate_id",
+    ],
+    "output_blind": True,
+    "tie_breaker": "candidate_id",
+}
 
 
 class TargetCohortProjectionError(ValueError):
@@ -46,6 +60,7 @@ class TargetCohortProjection:
     restriction_evidence: tuple[JsonRecord, ...]
     core_filter_results: tuple[CoreDocumentFilterResult, ...]
     budget_plan: MissingCoreBudgetPlan
+    ranked_reserve: tuple[JsonRecord, ...]
     exclusions: tuple[JsonRecord, ...]
     summary: JsonRecord
 
@@ -80,6 +95,7 @@ def project_target_cohort(
             raise TargetCohortProjectionError(
                 f"resolved-pool selection is not selected: {candidate_id}"
             )
+        _require_eligible_decision_date(selection, candidate_id=candidate_id)
 
     manifest_index = _unique_document_index(download_manifest, label="manifest")
     clearance_index = _unique_document_index(
@@ -190,6 +206,59 @@ def project_target_cohort(
     exact_filter_results = tuple(
         filter_result_index[candidate_id] for candidate_id in selected_ids
     )
+    ranked_plans = tuple(
+        plan
+        for plan in rank_missing_core_document_plans(
+            filter_results,
+            dry_run=False,
+            max_missing_core_documents_per_case=max_missing_core_documents_per_case,
+            cost_per_document_usd=cost_per_document_usd,
+        )
+        if not plan.exclusion_reasons
+    )
+    if tuple(plan.candidate_id for plan in ranked_plans[:target_case_count]) != (
+        selected_ids
+    ):
+        raise TargetCohortProjectionError(
+            "selected cohort is not the deterministic output-blind frontier prefix"
+        )
+    ranked_reserve = tuple(
+        {
+            "schema_version": "legalforecast.target_cohort_ranked_reserve.v1",
+            "reserve_rank": reserve_rank,
+            "frontier_rank": target_case_count + reserve_rank,
+            "candidate_id": plan.candidate_id,
+            "case_id": _optional_str(
+                selection_index[plan.candidate_id],
+                "case_id",
+            )
+            or plan.candidate_id,
+            "court": _optional_str(selection_index[plan.candidate_id], "court"),
+            "decision_date": _required_str(
+                selection_index[plan.candidate_id],
+                "decision_date",
+            ),
+            "missing_core_document_count": plan.missing_core_document_count,
+            "missing_core_roles": list(plan.missing_core_roles),
+            "purchase_document_ids": list(plan.purchase_document_ids),
+            "estimated_cost_usd": plan.estimated_cost_usd,
+            "ranking_key": [
+                plan.missing_core_document_count,
+                plan.estimated_cost_usd,
+                plan.candidate_id,
+            ],
+        }
+        for reserve_rank, plan in enumerate(
+            ranked_plans[target_case_count:],
+            start=1,
+        )
+    )
+    if tuple(row["candidate_id"] for row in ranked_reserve) != (
+        budget_plan.omitted_candidate_ids
+    ):
+        raise TargetCohortProjectionError(
+            "ranked reserve differs from the omitted deterministic frontier"
+        )
     exact_restrictions = restriction_evidence_from_case_relevance(
         exact_relevance,
         document_keys=frozenset(_document_key(row) for row in exact_manifest),
@@ -217,8 +286,33 @@ def project_target_cohort(
         "post_clearance_case_count": len(eligible_relevance),
         "quarantined_case_count": len(quarantined),
         "selected_case_count": len(selected_ids),
+        "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
         "excluded_case_count": len(exclusion_records),
+        "source_pool_sha256": _canonical_sha256(
+            {
+                "selections": [
+                    selection_index[candidate_id]
+                    for candidate_id in sorted(selection_index)
+                ],
+                "case_relevance": [
+                    relevance_index[candidate_id]
+                    for candidate_id in sorted(relevance_index)
+                ],
+                "download_manifest": [
+                    manifest_index[key] for key in sorted(manifest_index)
+                ],
+                "clearance_records": [
+                    clearance_index[key] for key in sorted(clearance_index)
+                ],
+            }
+        ),
         "selected_candidate_ids_sha256": _canonical_sha256(list(selected_ids)),
+        "ranked_reserve_case_count": len(ranked_reserve),
+        "ranked_reserve_candidate_ids_sha256": _canonical_sha256(
+            [row["candidate_id"] for row in ranked_reserve]
+        ),
+        "ranked_reserve_sha256": _canonical_sha256(ranked_reserve),
+        "ranking_policy": dict(_RANKING_POLICY),
         "budget_plan_sha256": _canonical_sha256(budget_record),
         "total_missing_core_documents": budget_plan.total_missing_core_documents,
         "total_estimated_cost_usd": budget_plan.total_estimated_cost_usd,
@@ -236,6 +330,7 @@ def project_target_cohort(
             "restriction_evidence": exact_restrictions,
             "core_filter_results": [row.to_record() for row in exact_filter_results],
             "budget_plan": budget_record,
+            "ranked_reserve": ranked_reserve,
             "exclusions": exclusion_records,
         }
     )
@@ -248,9 +343,32 @@ def project_target_cohort(
         restriction_evidence=exact_restrictions,
         core_filter_results=exact_filter_results,
         budget_plan=budget_plan,
+        ranked_reserve=ranked_reserve,
         exclusions=exclusion_records,
         summary=summary,
     )
+
+
+def _require_eligible_decision_date(
+    selection: Mapping[str, Any],
+    *,
+    candidate_id: str,
+) -> date:
+    raw = _required_str(selection, "decision_date")
+    try:
+        parsed = date.fromisoformat(raw)
+    except ValueError as exc:
+        raise TargetCohortProjectionError(
+            f"invalid decision_date for {candidate_id}"
+        ) from exc
+    if parsed.isoformat() != raw:
+        raise TargetCohortProjectionError(f"invalid decision_date for {candidate_id}")
+    if parsed < CYCLE_1_ELIGIBILITY_ANCHOR:
+        raise TargetCohortProjectionError(
+            f"candidate {candidate_id} decision date precedes the "
+            f"{CYCLE_1_ELIGIBILITY_ANCHOR.isoformat()} eligibility anchor"
+        )
+    return parsed
 
 
 def _unique_candidate_index(

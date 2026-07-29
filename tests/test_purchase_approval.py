@@ -2633,6 +2633,7 @@ def _projection_fixture(
     manifest = tuple(projection.download_manifest)
     output_payloads: dict[str, bytes] = {
         "target-cohort-selection.jsonl": _jsonl_bytes(projection.selections),
+        "target-cohort-ranked-reserve.jsonl": _jsonl_bytes(projection.ranked_reserve),
         "case-relevance.jsonl": _jsonl_bytes(projection.case_relevance),
         "free-document-downloads.jsonl": _jsonl_bytes(
             [row for row in manifest if row.get("free_or_purchased") == "free"]

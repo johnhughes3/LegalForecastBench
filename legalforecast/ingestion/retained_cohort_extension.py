@@ -54,6 +54,7 @@ BASE_PROJECTION_ARTIFACT_NAMES = (
     "free-document-downloads.jsonl",
     "purchased-document-downloads.jsonl",
     "missing-core-budget-plan.json",
+    "target-cohort-ranked-reserve.jsonl",
     "target-cohort-projection.json",
 )
 
@@ -742,6 +743,27 @@ def _verify_base_projection(
     parsed["target-cohort-exclusions.jsonl"] = _jsonl_records(
         artifacts["target-cohort-exclusions.jsonl"], source="base exclusions"
     )
+    parsed["target-cohort-ranked-reserve.jsonl"] = _jsonl_records(
+        artifacts["target-cohort-ranked-reserve.jsonl"],
+        source="base ranked reserve",
+    )
+    reserve = parsed["target-cohort-ranked-reserve.jsonl"]
+    reserve_ids = tuple(_required_str(row, "candidate_id") for row in reserve)
+    if (
+        len(reserve_ids) != len(set(reserve_ids))
+        or set(reserve_ids) & set(candidate_ids)
+        or summary.get("ranked_reserve_case_count") != len(reserve_ids)
+        or summary.get("ranked_reserve_candidate_ids_sha256")
+        != _canonical_sha256(list(reserve_ids))
+        or summary.get("ranked_reserve_sha256") != _canonical_sha256(reserve)
+        or [row.get("reserve_rank") for row in reserve]
+        != list(range(1, len(reserve) + 1))
+        or [row.get("frontier_rank") for row in reserve]
+        != list(range(BASE_CASE_COUNT + 1, BASE_CASE_COUNT + len(reserve) + 1))
+    ):
+        raise RetainedCohortExtensionError(
+            "base ranked reserve commitment is inconsistent"
+        )
     for name in (
         "case-relevance.jsonl",
         "core-filter-results.jsonl",
@@ -883,6 +905,8 @@ def _verify_base_is_exact_full_pool_subset(
         or [row.to_record() for row in validated.core_filter_results]
         != parsed["core-filter-results.jsonl"]
         or list(validated.exclusions) != parsed["target-cohort-exclusions.jsonl"]
+        or list(validated.ranked_reserve)
+        != parsed["target-cohort-ranked-reserve.jsonl"]
     ):
         raise RetainedCohortExtensionError(
             "base projection artifacts do not reproduce from the frozen inputs"
@@ -974,6 +998,7 @@ def _projection_payloads(projection: Any) -> dict[str, bytes]:
         "missing-core-budget-plan.json": _json_bytes(
             projection.budget_plan.to_record()
         ),
+        "target-cohort-ranked-reserve.jsonl": _jsonl_bytes(projection.ranked_reserve),
         "target-cohort-projection.json": _json_bytes(projection.summary),
     }
 
