@@ -417,7 +417,14 @@ def test_private_interactive_recorder_requires_hash_and_batch_confirmation(
     assert len(decisions[0]["batch_confirmation_sha256"]) == 64
     assert sum("Batch summary:" in output for output in stderr_before_prompt) == 1
     assert "Batch summary:" in stderr_before_prompt[-1]
-    assert re.fullmatch(r"Type exactly 'CONFIRM 2 2 0 [0-9a-f]{64}': ", prompts[-1])
+    confirmation_prompt = re.fullmatch(
+        r"Type exactly 'CONFIRM 2 2 0 (?P<sha256>[0-9a-f]{64})': ",
+        prompts[-1],
+    )
+    assert confirmation_prompt is not None
+    assert (
+        confirmation_prompt.group("sha256") == decisions[0]["batch_confirmation_sha256"]
+    )
 
 
 def test_disclosure_review_schema_documents_final_only_batch_summary() -> None:
