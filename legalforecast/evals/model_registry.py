@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -17,6 +18,35 @@ from legalforecast.selection import ModelRunMetadata, TrainingCutoffStatus
 class ToolPolicy(StrEnum):
     NO_TOOLS = "no_tools"
     CONTROLLED_DOCKET_TOOL_ONLY = "controlled_docket_tool_only"
+
+
+@dataclass(frozen=True, slots=True)
+class LongContextSurcharge:
+    """Provider-declared token threshold and price multipliers."""
+
+    threshold_input_tokens: int
+    input_price_multiplier: float
+    output_price_multiplier: float
+
+    def __post_init__(self) -> None:
+        _require_positive_int(self.threshold_input_tokens, "threshold_input_tokens")
+        _require_at_least_one(self.input_price_multiplier, "input_price_multiplier")
+        _require_at_least_one(self.output_price_multiplier, "output_price_multiplier")
+
+    def to_record(self) -> dict[str, int | float]:
+        return {
+            "threshold_input_tokens": self.threshold_input_tokens,
+            "input_price_multiplier": self.input_price_multiplier,
+            "output_price_multiplier": self.output_price_multiplier,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> LongContextSurcharge:
+        return cls(
+            threshold_input_tokens=_required_int(record, "threshold_input_tokens"),
+            input_price_multiplier=_required_number(record, "input_price_multiplier"),
+            output_price_multiplier=_required_number(record, "output_price_multiplier"),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +72,7 @@ class ModelRegistryEntry:
     release_timestamp_source: str | None = None
     provider_training_cutoff: date | None = None
     known_cutoff_publicity_caveats: tuple[str, ...] = ()
+    long_context_surcharge: LongContextSurcharge | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.provider, "provider")
@@ -93,7 +124,7 @@ class ModelRegistryEntry:
         )
 
     def to_record(self) -> dict[str, Any]:
-        return {
+        record: dict[str, Any] = {
             "provider": self.provider,
             "model_id": self.model_id,
             "display_name": self.display_name,
@@ -124,6 +155,9 @@ class ModelRegistryEntry:
             "output_token_price": self.output_token_price,
             "known_cutoff_publicity_caveats": list(self.known_cutoff_publicity_caveats),
         }
+        if self.long_context_surcharge is not None:
+            record["long_context_surcharge"] = self.long_context_surcharge.to_record()
+        return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> ModelRegistryEntry:
@@ -153,6 +187,7 @@ class ModelRegistryEntry:
             known_cutoff_publicity_caveats=_optional_string_tuple(
                 record, "known_cutoff_publicity_caveats"
             ),
+            long_context_surcharge=_optional_long_context_surcharge(record),
         )
 
 
@@ -357,6 +392,17 @@ def _optional_string_tuple(
     return tuple(cast(list[str], items))
 
 
+def _optional_long_context_surcharge(
+    record: Mapping[str, Any],
+) -> LongContextSurcharge | None:
+    value = record.get("long_context_surcharge")
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("long_context_surcharge must be an object")
+    return LongContextSurcharge.from_record(cast(Mapping[str, Any], value))
+
+
 def _parse_datetime(value: str, field_name: str) -> datetime:
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     return _require_aware(parsed, field_name)
@@ -385,6 +431,11 @@ def _require_non_negative(value: float, field_name: str) -> None:
 def _require_positive_int(value: int, field_name: str) -> None:
     if value <= 0:
         raise ValueError(f"{field_name} must be positive")
+
+
+def _require_at_least_one(value: float, field_name: str) -> None:
+    if not math.isfinite(value) or value < 1:
+        raise ValueError(f"{field_name} must be finite and at least 1")
 
 
 def _require_between(

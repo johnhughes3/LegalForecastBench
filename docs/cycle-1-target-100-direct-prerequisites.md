@@ -61,7 +61,7 @@ The following exact checked-in inputs must exist before downstream model work:
 
 | Input | Required path | SHA-256 |
 |---|---|---|
-| Evaluated late-June registry | `$REPO_ROOT/model_registries/cycle-1-2026-06-30.json` | `fe4df0edc1e81d3d53fa0e24114df8faadab4229fcf7d8e575a4592d3d40659f` |
+| Evaluated late-June registry | `$REPO_ROOT/model_registries/cycle-1-2026-06-30.json` | `960c4783826e365d01229fd0199b1c767144ad2275de1c4cfe981f25f4159f2e` |
 | Stage A registry | `$REPO_ROOT/model_registries/cycle-1-labeling-2026-07-12.json` | `e24b0a235936de4b0870fd6b688fabbd4901ccd3a8378a826c4a287a26c1aba0` |
 | Stage B judge registry | `$REPO_ROOT/model_registries/cycle-1-stage-b-judges-2026-07-12.json` | `5243b74bfdb2d3accc1a301f7c997b9520abc8586bbf944e22f67e2b263106a2` |
 | Target-cycle provider caps base | `$REPO_ROOT/model_registries/cycle-1-target-100-provider-caps-base-2026-07-28.json` | `71a0919b7e23a1b0dab7bca7233c9036f2e678f35760f78f98b4f2c37330eb74` |

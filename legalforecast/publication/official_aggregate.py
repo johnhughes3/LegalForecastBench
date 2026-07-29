@@ -93,9 +93,11 @@ _PACKET_TOKEN_FIELDS = (
 )
 _PACKET_SIZE_FIELDS = ("packet_size_bytes", "size_bytes")
 _TOKEN_ESTIMATE_BYTES_PER_TOKEN = 4
-_LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS = 272_000
 _PACKET_TOKEN_ESTIMATOR = (
     "manifest input/prompt token counts; fallback ceil(packet_size_bytes / 4)"
+)
+_LONG_CONTEXT_SURCHARGE_BASIS = (
+    f"{_PACKET_TOKEN_ESTIMATOR}; estimate only, not provider-reported billing usage"
 )
 _TEMPERATURE_ZERO_RATIONALE = (
     "Official runs set registry temperature to 0 to reduce avoidable sampling "
@@ -255,7 +257,11 @@ def aggregate_official_results(
     )
     packet_token_budget = _packet_token_budget_record(
         expected_packet_rows,
-        registry_entries=registry_entries,
+        registry_entries=tuple(
+            entry
+            for entry in registry_entries
+            if entry.registry_key in expected_model_keys
+        ),
     )
     expected_rows = _expected_output_rows(
         expected_packet_rows,
@@ -1300,14 +1306,17 @@ def _packet_token_budget_record(
     *,
     registry_entries: Sequence[ModelRegistryEntry],
 ) -> JsonRecord:
-    packet_tokens = [
-        {
-            "case_id": case_id,
-            "ablation": ablation,
-            "estimated_input_tokens": _packet_input_tokens(row),
-        }
-        for (case_id, ablation), row in sorted(expected_packet_rows.items())
-    ]
+    packet_tokens: list[JsonRecord] = []
+    for (case_id, ablation), row in sorted(expected_packet_rows.items()):
+        estimated_input_tokens, input_token_basis = _packet_input_tokens(row)
+        packet_tokens.append(
+            {
+                "case_id": case_id,
+                "ablation": ablation,
+                "estimated_input_tokens": estimated_input_tokens,
+                "input_token_basis": input_token_basis,
+            }
+        )
     if not packet_tokens:
         raise OfficialAggregationError("packet token reporting requires model packets")
 
@@ -1336,12 +1345,26 @@ def _packet_token_budget_record(
                 f"{over_budget}"
             )
 
-    long_context_surcharge_packets = [
-        packet
-        for packet in packet_tokens
-        if _required_int(packet, "estimated_input_tokens")
-        > _LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS
+    surcharge_entries = [
+        entry for entry in registry_entries if entry.long_context_surcharge is not None
     ]
+    surcharge_terms = {entry.long_context_surcharge for entry in surcharge_entries}
+    if len(surcharge_terms) > 1:
+        raise OfficialAggregationError(
+            "evaluated registry entries declare incompatible long-context "
+            "surcharge terms"
+        )
+    surcharge = next(iter(surcharge_terms), None)
+    long_context_surcharge_packets = (
+        [
+            packet
+            for packet in packet_tokens
+            if _required_int(packet, "estimated_input_tokens")
+            > surcharge.threshold_input_tokens
+        ]
+        if surcharge is not None
+        else []
+    )
 
     return {
         "estimator": _PACKET_TOKEN_ESTIMATOR,
@@ -1352,8 +1375,21 @@ def _packet_token_budget_record(
             else None
         ),
         "smallest_prompt_input_token_budget": smallest_prompt_budget,
+        "long_context_surcharge_applicable": surcharge is not None,
+        "long_context_surcharge_model_keys": [
+            entry.registry_key for entry in surcharge_entries
+        ],
         "long_context_surcharge_threshold_tokens": (
-            _LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS
+            surcharge.threshold_input_tokens if surcharge is not None else None
+        ),
+        "long_context_surcharge_input_price_multiplier": (
+            surcharge.input_price_multiplier if surcharge is not None else None
+        ),
+        "long_context_surcharge_output_price_multiplier": (
+            surcharge.output_price_multiplier if surcharge is not None else None
+        ),
+        "long_context_surcharge_basis": (
+            _LONG_CONTEXT_SURCHARGE_BASIS if surcharge is not None else None
         ),
         "long_context_surcharge_packet_count": len(long_context_surcharge_packets),
         "long_context_surcharge_packets": long_context_surcharge_packets,
@@ -1391,15 +1427,18 @@ def _temperature_policy_record(
     }
 
 
-def _packet_input_tokens(row: Mapping[str, Any]) -> int:
+def _packet_input_tokens(row: Mapping[str, Any]) -> tuple[int, str]:
     for field_name in _PACKET_TOKEN_FIELDS:
         value = _optional_nonnegative_int(row, field_name)
         if value is not None:
-            return value
+            return value, f"manifest:{field_name}"
     for field_name in _PACKET_SIZE_FIELDS:
         size_bytes = _optional_nonnegative_int(row, field_name)
         if size_bytes is not None:
-            return math.ceil(size_bytes / _TOKEN_ESTIMATE_BYTES_PER_TOKEN)
+            return (
+                math.ceil(size_bytes / _TOKEN_ESTIMATE_BYTES_PER_TOKEN),
+                f"ceil({field_name} / {_TOKEN_ESTIMATE_BYTES_PER_TOKEN})",
+            )
     raise OfficialAggregationError(
         "run-input model_packets rows require packet token counts or packet_size_bytes "
         "for packet budget reporting"

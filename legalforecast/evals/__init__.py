@@ -21,6 +21,7 @@ from legalforecast.evals.live_model_solver import (
     LiveModelSolverError,
 )
 from legalforecast.evals.model_registry import (
+    LongContextSurcharge,
     ModelRegistry,
     ModelRegistryEntry,
     ToolPolicy,
@@ -43,6 +44,7 @@ __all__ = [
     "LiveModelResponseError",
     "LiveModelSolver",
     "LiveModelSolverError",
+    "LongContextSurcharge",
     "ModelRegistry",
     "ModelRegistryEntry",
     "OfflineMockSolver",
