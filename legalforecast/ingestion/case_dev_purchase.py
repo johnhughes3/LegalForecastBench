@@ -1445,6 +1445,14 @@ def _bind_purchase_ledger_policy(
 ) -> str | None:
     expected = _purchase_ledger_policy_identity(policy)
     if insert:
+        columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(purchase_ledger)")
+        }
+        if "initialization_id" not in columns:
+            raise CaseDevPurchaseLedgerError(
+                "legacy purchase journal schema is not adoptable"
+            )
         existing = connection.execute(
             "SELECT initialization_id FROM purchase_ledger WHERE singleton=1"
         ).fetchone()

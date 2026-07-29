@@ -349,7 +349,7 @@ def _build_purchase_approval_request(
         verified_projection = (
             verify_completed_target_cohort_projection_for_purchase_approval(root)
         )
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
         raise PurchaseApprovalError(
             f"authenticated target projection verification failed: {exc}"
         ) from exc

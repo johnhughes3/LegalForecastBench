@@ -191,7 +191,7 @@ def _build_recap_fetch_attempt_policy(
             per_case_cap_usd=purchase_policy.max_per_case_usd,
             broad_frontier_allowlist=False,
         )
-    except (OSError, ValueError) as exc:
+    except (ImportError, OSError, ValueError) as exc:
         raise RecapFetchAttemptPolicyError(str(exc)) from exc
     if budget_plan.dry_run:
         raise RecapFetchAttemptPolicyError(

@@ -511,6 +511,34 @@ def test_nonempty_legacy_ledger_migrates_after_operations_and_preserves_cap(
         assert journal._connection.execute("PRAGMA user_version").fetchone()[0] == 2
 
 
+def test_allow_create_rejects_legacy_ledger_with_domain_error(tmp_path: Path) -> None:
+    ledger = (tmp_path / "legacy.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    connection = sqlite3.connect(ledger)
+    connection.execute(
+        """
+        CREATE TABLE purchase_ledger (
+            singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+            cycle_id TEXT NOT NULL,
+            cohort_policy_sha256 TEXT NOT NULL,
+            purchase_policy_sha256 TEXT NOT NULL,
+            canonical_ledger_path TEXT NOT NULL,
+            hard_cap_usd TEXT NOT NULL,
+            opening_committed_spend_usd TEXT NOT NULL,
+            max_per_case_usd TEXT NOT NULL,
+            per_document_reservation_usd TEXT NOT NULL
+        )
+        """
+    )
+    connection.close()
+
+    with pytest.raises(
+        CaseDevPurchaseLedgerError,
+        match="legacy purchase journal schema is not adoptable",
+    ):
+        CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True)
+
+
 def test_crash_after_post_leaves_submitted_and_resume_requires_reconciliation(
     tmp_path: Path,
 ) -> None:
