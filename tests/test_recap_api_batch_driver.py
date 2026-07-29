@@ -1848,6 +1848,101 @@ def _priority_novel_source(
     )
 
 
+@pytest.mark.parametrize(
+    ("value", "escaped"),
+    (
+        ("東京", r"\u6771\u4eac"),
+        ("😀", r"\ud83d\ude00"),
+        ("مرحبا", r"\u0645\u0631\u062d\u0628\u0627"),
+    ),
+)
+def test_canonical_record_hash_uses_stable_ascii_json(
+    value: str,
+    escaped: str,
+) -> None:
+    record = {"label": value}
+    canonical_json = json.dumps(
+        record,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
+    expected = hashlib.sha256(canonical_json.encode()).hexdigest()
+
+    assert canonical_json.isascii()
+    assert escaped in canonical_json
+    assert recap_api_batch_driver._canonical_record_sha256(record) == expected
+    assert recap_api_batch_driver._canonical_record_sha256(record) == expected
+
+
+def test_canonical_record_hash_preserves_ascii_fixture() -> None:
+    assert (
+        recap_api_batch_driver._canonical_record_sha256({"label": "ASCII only"})
+        == "50b1a6a7bea0bf7b8a63e5e3c504b83ded8276180f33d149f2fcdc5bf2cd8b08"
+    )
+
+
+def test_priority_tranche_hashes_non_ascii_source_lineage(tmp_path: Path) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    lineage = dict(source.source_lineage_commitments or {})
+    lineage.pop("source_lineage_commitment_sha256")
+    lineage["review_note"] = "東京 😀 مرحبا"
+    expected = recap_api_batch_driver.direct_search_record_sha256(lineage)
+    source = replace(
+        source,
+        source_lineage_commitments={
+            **lineage,
+            "source_lineage_commitment_sha256": expected,
+        },
+    )
+
+    with CycleAcquisitionStore(path) as store:
+        result = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-non-ascii-lineage",
+            source=source,
+            tranche_size=1,
+        )
+
+    assert result.frontier["source_lineage_commitments"] == lineage
+    assert result.frontier["source_lineage_commitment_sha256"] == expected
+
+
+def test_priority_tranche_hashes_non_ascii_reused_observation(tmp_path: Path) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = _priority_novel_source(tmp_path, path)
+    candidate_id = "courtlistener-docket-200"
+    with CycleAcquisitionStore(path) as store:
+        store.record_observation(
+            candidate_id,
+            batch_id=source.source_batch_id,
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={
+                "candidate_id": candidate_id,
+                "case_name": "東京 😀 مرحبا",
+                "screen": {"eligible": True},
+            },
+            observed_at="2026-07-24T13:55:00+00:00",
+        )
+        result = materialize_direct_search_priority_tranche(
+            store,
+            batch_id="priority-non-ascii-reuse",
+            source=source,
+            tranche_size=1,
+        )
+
+    commitments = result.frontier["reused_observation_commitments"]
+    assert result.reused_observation_commitment_sha256 == (
+        recap_api_batch_driver._canonical_record_sha256(
+            {"reused_observation_commitments": commitments}
+        )
+    )
+    assert "東京 😀 مرحبا" in json.dumps(commitments, ensure_ascii=False)
+
+
 def test_priority_tranches_rank_only_and_preserve_exact_deferred_frontier(
     tmp_path: Path,
 ) -> None:

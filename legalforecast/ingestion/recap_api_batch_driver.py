@@ -2573,6 +2573,8 @@ def seed_novel_direct_search_leads(
 
 
 def _canonical_record_sha256(record: Mapping[str, object]) -> str:
+    """Hash sorted, compact, ASCII-escaped JSON while rejecting NaN values."""
+
     return hashlib.sha256(
         json.dumps(
             dict(record),
