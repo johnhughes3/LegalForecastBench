@@ -10,6 +10,8 @@ All content commitments use canonical prefixed lowercase `sha256:` digests. Eval
 
 The raw result commitment does not publish raw private evaluator output. Receipts must not contain rubric text, private paths, criterion reasoning, prompts, transcripts, or credentials.
 
+Opaque measurement, attempt, nonce, key, and clock identifiers use bounded path-free syntax. Judge identities use a constrained `provider/model` form with an optional immutable suffix. Evaluator repositories are canonical HTTPS URLs without user information, ports, queries, fragments, or traversal. Serialized specs and receipts also pass the shared public-record validator.
+
 ## Accounting semantics
 
 Every token dimension is either a non-negative integer or `null` with an allowlisted public-safe reason code. A known zero is distinct from an unknown value. Input, output, cache-read, cache-write, reasoning, and authoritative total evaluation tokens remain separate. Counters are provider-native; the bound token-accounting policy defines inclusion relationships, so this layer performs no arithmetic inference or double counting.

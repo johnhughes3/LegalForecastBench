@@ -11,9 +11,15 @@ from collections.abc import Callable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Self, cast
+from urllib.parse import urlsplit
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+from legalforecast.multiharness.validation import (
+    MultiHarnessValidationError,
+    validate_public_record,
+)
 
 EVALUATION_SPEC_SCHEMA_VERSION = "legalforecast.multiharness.evaluation_spec.v1"
 EVALUATION_RECEIPT_SCHEMA_VERSION = "legalforecast.multiharness.evaluation_receipt.v1"
@@ -22,6 +28,11 @@ EVALUATION_SIGNATURE_DOMAIN = b"LegalForecastBench EvaluationReceipt v1\x00"
 _GIT_SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
 _MEDIA_TYPE_RE = re.compile(r"[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+\Z")
 _SAFE_CODE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}\Z")
+_OPAQUE_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}\Z")
+_JUDGE_ID_RE = re.compile(
+    r"[a-z0-9][a-z0-9._+-]{0,63}/[a-z0-9][a-z0-9._+-]{0,127}"
+    r"(?:@[A-Za-z0-9][A-Za-z0-9._+-]{0,127})?\Z"
+)
 _UNKNOWN_REASONS = frozenset(
     {
         "not_reported",
@@ -269,12 +280,14 @@ class CostMeasurement:
                 raise ValueError(
                     "unknown_reason must be null when amount_microusd is known"
                 )
-            if self.basis == "estimated_from_pricing_snapshot":
-                _require_digest(
-                    self.pricing_snapshot_sha256,
-                    "pricing_snapshot_sha256",
+            if (
+                self.basis == "estimated_from_pricing_snapshot"
+                and self.pricing_snapshot_sha256 is None
+            ):
+                raise ValueError(
+                    "pricing_snapshot_sha256 is required for estimated cost"
                 )
-            elif self.pricing_snapshot_sha256 is not None:
+            if self.pricing_snapshot_sha256 is not None:
                 _require_digest(
                     self.pricing_snapshot_sha256,
                     "pricing_snapshot_sha256",
@@ -327,7 +340,7 @@ class MonotonicTiming:
     summed_call_elapsed_ns: int
 
     def __post_init__(self) -> None:
-        _require_non_empty(self.clock_id, "clock_id")
+        _require_opaque_id(self.clock_id, "clock_id")
         started = _parse_utc(self.started_at_utc, "started_at_utc")
         ended = _parse_utc(self.ended_at_utc, "ended_at_utc")
         if ended < started:
@@ -416,12 +429,11 @@ class EvaluationSpec:
     def __post_init__(self) -> None:
         if self.schema_version != EVALUATION_SPEC_SCHEMA_VERSION:
             raise ValueError("unsupported evaluation spec schema_version")
-        for name in (
-            "evaluation_id",
-            "evaluator_repository",
-            "judge_requested_identity",
-        ):
-            _require_non_empty(cast(str, getattr(self, name)), name)
+        _require_opaque_id(self.evaluation_id, "evaluation_id")
+        _require_evaluator_repository(self.evaluator_repository)
+        _require_judge_identity(
+            self.judge_requested_identity, "judge_requested_identity"
+        )
         for name in (
             "deliverable_manifest_sha256",
             "deliverable_tree_sha256",
@@ -449,6 +461,7 @@ class EvaluationSpec:
         _require_git_sha(self.evaluator_tree, "evaluator_tree")
         if self.spec_sha256 != _record_sha256(self._content_record()):
             raise ValueError("spec_sha256 does not match evaluation spec content")
+        _require_public_record(self.to_record(), "evaluation spec")
 
     def _content_record(self) -> dict[str, object]:
         return {
@@ -531,11 +544,13 @@ class EvaluationReceipt:
             "measurement_id",
             "evaluation_attempt_id",
             "attempt_nonce",
-            "judge_requested_identity",
-            "judge_resolved_identity",
             "issuer_key_id",
         ):
-            _require_non_empty(cast(str, getattr(self, name)), name)
+            _require_opaque_id(cast(str, getattr(self, name)), name)
+        _require_judge_identity(
+            self.judge_requested_identity, "judge_requested_identity"
+        )
+        _require_judge_identity(self.judge_resolved_identity, "judge_resolved_identity")
         for name in (
             "evaluation_spec_sha256",
             "deliverable_manifest_sha256",
@@ -566,6 +581,7 @@ class EvaluationReceipt:
         if self.receipt_sha256 != _record_sha256(self._content_record()):
             raise ValueError("receipt_sha256 does not match evaluation receipt content")
         _decode_signature(self.signature)
+        _require_public_record(self.to_record(), "evaluation receipt")
 
     def _content_record(self) -> dict[str, object]:
         return {
@@ -622,13 +638,39 @@ class EvaluationReceipt:
         return cls(**values)
 
 
-def build_evaluation_spec(**fields: object) -> EvaluationSpec:
+def build_evaluation_spec(
+    *,
+    evaluation_id: str,
+    deliverable_manifest_sha256: str,
+    deliverable_tree_sha256: str,
+    task_sha256: str,
+    run_sha256: str,
+    config_sha256: str,
+    evaluator_repository: str,
+    evaluator_commit: str,
+    evaluator_tree: str,
+    evaluator_file_manifest_sha256: str,
+    evaluator_image_digest: str,
+    wrapper_sha256: str,
+    private_material_sha256: str,
+    rubric_sha256: str,
+    criteria_sha256: str,
+    aggregation_sha256: str,
+    judge_requested_identity: str,
+    judge_settings_sha256: str,
+    judge_prompt_sha256: str,
+    judge_output_schema_sha256: str,
+    runtime_policy_sha256: str,
+    egress_policy_sha256: str,
+    resource_policy_sha256: str,
+    token_accounting_policy_sha256: str,
+) -> EvaluationSpec:
     """Build a content-addressed pre-execution evaluation specification."""
 
+    fields: dict[str, object] = dict(locals())
     content = {"schema_version": EVALUATION_SPEC_SCHEMA_VERSION, **fields}
     return EvaluationSpec(
-        **cast(dict[str, Any], fields),
-        spec_sha256=_record_sha256(content),
+        **cast(dict[str, Any], fields), spec_sha256=_record_sha256(content)
     )
 
 
@@ -857,7 +899,10 @@ def verify_raw_evaluation_result(
 ) -> None:
     """Verify exact raw-result bytes without parsing or exposing their content."""
 
-    canonical_receipt = EvaluationReceipt.from_record(receipt.to_record())
+    try:
+        canonical_receipt = EvaluationReceipt.from_record(receipt.to_record())
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise EvaluationBindingError(str(exc)) from exc
     if canonical_receipt.raw_result_media_type != expected_media_type:
         raise EvaluationBindingError(
             "raw_result_media_type does not match expected binding"
@@ -878,11 +923,40 @@ def verify_evaluation_result(
     raw_result: bytes,
     *,
     expected_media_type: str,
-    **verification: Any,
+    spec: EvaluationSpec,
+    expected_spec_sha256: str,
+    expected_deliverable_manifest_sha256: str,
+    expected_runtime_policy_sha256: str,
+    expected_issuer_policy_sha256: str,
+    expected_issuer_key_id: str,
+    issuer_public_key: Ed25519PublicKey,
+    expected_measurement_id: str,
+    expected_evaluation_attempt_id: str,
+    expected_attempt_nonce: str,
+    expected_repeat_index: int,
+    seen_measurement_ids: Set[str] | None = None,
+    seen_attempt_nonces: Set[str] | None = None,
+    occupied_repeat_slots: Set[tuple[str, int]] | None = None,
 ) -> EvaluationReceipt:
     """Verify receipt bindings/signature and then exact opaque result bytes."""
 
-    canonical = verify_evaluation_receipt(receipt, **verification)
+    canonical = verify_evaluation_receipt(
+        receipt,
+        spec=spec,
+        expected_spec_sha256=expected_spec_sha256,
+        expected_deliverable_manifest_sha256=expected_deliverable_manifest_sha256,
+        expected_runtime_policy_sha256=expected_runtime_policy_sha256,
+        expected_issuer_policy_sha256=expected_issuer_policy_sha256,
+        expected_issuer_key_id=expected_issuer_key_id,
+        issuer_public_key=issuer_public_key,
+        expected_measurement_id=expected_measurement_id,
+        expected_evaluation_attempt_id=expected_evaluation_attempt_id,
+        expected_attempt_nonce=expected_attempt_nonce,
+        expected_repeat_index=expected_repeat_index,
+        seen_measurement_ids=seen_measurement_ids,
+        seen_attempt_nonces=seen_attempt_nonces,
+        occupied_repeat_slots=occupied_repeat_slots,
+    )
     verify_raw_evaluation_result(
         canonical, raw_result, expected_media_type=expected_media_type
     )
@@ -944,6 +1018,59 @@ def _require_exact_fields(
 def _require_non_empty(value: object, field_name: str) -> None:
     if not isinstance(value, str) or _SAFE_CODE_RE.fullmatch(value) is None:
         raise ValueError(f"{field_name} must be a bounded public-safe code")
+
+
+def _require_opaque_id(value: object, field_name: str) -> str:
+    if not isinstance(value, str) or _OPAQUE_ID_RE.fullmatch(value) is None:
+        raise ValueError(f"{field_name} must be a bounded opaque identifier")
+    return value
+
+
+def _require_judge_identity(value: object, field_name: str) -> str:
+    if not isinstance(value, str) or _JUDGE_ID_RE.fullmatch(value) is None:
+        raise ValueError(f"{field_name} must be a public-safe provider/model identity")
+    return value
+
+
+def _require_evaluator_repository(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("evaluator_repository must be a canonical HTTPS URL")
+    parsed = urlsplit(value)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("evaluator_repository has an invalid port") from exc
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or port is not None
+        or parsed.query
+        or parsed.fragment
+        or parsed.path in {"", "/"}
+    ):
+        raise ValueError("evaluator_repository must be a canonical public HTTPS URL")
+    segments = parsed.path.removeprefix("/").split("/")
+    if any(
+        not segment
+        or segment in {".", ".."}
+        or re.fullmatch(r"[A-Za-z0-9._-]{1,100}", segment) is None
+        for segment in segments
+    ):
+        raise ValueError("evaluator_repository contains an unsafe path")
+    normalized_path = "/".join(segments)
+    canonical = f"https://{parsed.hostname.lower()}/{normalized_path}"
+    if value != canonical:
+        raise ValueError("evaluator_repository must use canonical HTTPS form")
+    return value
+
+
+def _require_public_record(record: Mapping[str, object], field_name: str) -> None:
+    try:
+        validate_public_record(record, field_name)
+    except MultiHarnessValidationError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _require_unknown_reason(value: object) -> None:

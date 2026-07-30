@@ -23,6 +23,7 @@ from legalforecast.multiharness.evaluation import (
     build_evaluation_spec,
     criteria_commitment_sha256,
     verify_evaluation_receipt,
+    verify_evaluation_result,
     verify_raw_evaluation_result,
 )
 
@@ -263,6 +264,25 @@ def test_raw_result_verification_binds_exact_opaque_bytes_size_and_media() -> No
         RAW_RESULT_BYTES,
         expected_media_type="application/json",
     )
+    assert (
+        verify_evaluation_result(
+            receipt,
+            RAW_RESULT_BYTES,
+            expected_media_type="application/json",
+            spec=_spec(),
+            expected_spec_sha256=_spec().spec_sha256,
+            expected_deliverable_manifest_sha256=DELIVERABLE,
+            expected_runtime_policy_sha256=POLICY,
+            expected_issuer_policy_sha256=ISSUER_POLICY,
+            expected_issuer_key_id="evaluation-key-2026-07",
+            issuer_public_key=PRIVATE_KEY.public_key(),
+            expected_measurement_id=receipt.measurement_id,
+            expected_evaluation_attempt_id=receipt.evaluation_attempt_id,
+            expected_attempt_nonce=receipt.attempt_nonce,
+            expected_repeat_index=receipt.repeat_index,
+        )
+        == receipt
+    )
     with pytest.raises(EvaluationBindingError, match="size"):
         verify_raw_evaluation_result(
             receipt,
@@ -448,6 +468,24 @@ def test_public_codes_reject_prose_paths_and_secret_like_reason_text() -> None:
         replace(_usage(), source="../../private")
     with pytest.raises(ValueError, match="public-safe"):
         TokenCount(None, "provider error: secret=abc")
+
+
+def test_field_specific_public_identifiers_reject_credentials_and_paths() -> None:
+    with pytest.raises(ValueError, match="public HTTPS"):
+        replace(
+            _spec(),
+            evaluator_repository="https://user:password@private.example/repo/project",
+        )
+    with pytest.raises(ValueError, match="opaque"):
+        replace(_receipt(), measurement_id="private/secrets/key")
+    with pytest.raises(ValueError, match="provider/model"):
+        replace(_spec(), judge_requested_identity="password:hunter2")
+
+
+def test_canonical_repository_and_judge_identity_are_accepted() -> None:
+    spec = _spec()
+    assert spec.evaluator_repository == "https://github.com/harveyai/harvey-labs"
+    assert spec.judge_requested_identity == "anthropic/claude-sonnet-4-6"
 
 
 def test_unknown_fields_and_noncanonical_digests_fail_closed() -> None:
