@@ -168,11 +168,6 @@ def test_runner_executes_live_tool_adapter_and_records_receipt_commitment(
     task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
     monkeypatch.setattr(
         runner_module,
-        "validate_live_container_policy",
-        lambda _policy: None,
-    )
-    monkeypatch.setattr(
-        runner_module,
         "_preflight_live_container",
         lambda _policy: None,
     )
@@ -214,6 +209,62 @@ def test_runner_executes_live_tool_adapter_and_records_receipt_commitment(
     assert live_plan["policy"] == config.sandbox_policy.to_record()
     assert live_plan["output"]["mode"] == "bounded_tmpfs"
     assert adapter.ordinary_run_called is False
+
+
+def test_runner_clears_live_receipt_after_post_run_rejection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _LiveToolAdapter()
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    monkeypatch.setattr(
+        runner_module, "_preflight_live_container", lambda _policy: None
+    )
+    monkeypatch.setattr(runner_module, "ContainerToolSession", _FakeToolSession)
+    original_validate = runner_module.validate_no_secret_values
+
+    def reject_run_result(
+        value: object,
+        secret_values: tuple[str, ...],
+        context: str,
+    ) -> None:
+        if context == "run result":
+            raise ValueError("forced post-run rejection")
+        original_validate(value, secret_values, context)
+
+    monkeypatch.setattr(
+        runner_module,
+        "validate_no_secret_values",
+        reject_run_result,
+    )
+    config = MultiHarnessRunConfig(
+        task_index=_task_index(task),
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(
+                adapter_id=adapter.manifest.adapter_id,
+                model_key="fixture-model",
+            ),
+        ),
+        sandbox_policy=replace(
+            _sandbox(),
+            image="sha256:" + "b" * 64,
+            uid_gid="65532:65532",
+        ),
+        output_dir=tmp_path / "run",
+        container_execution="live_tools",
+        incomplete_run_policy="record_failure",
+    )
+
+    run = run_multi_harness(config)
+
+    row = run.rows[0]
+    assert row.result.status == "failed"
+    assert row.container_receipt_sha256 is None
+    assert row.to_record()["container_execution"] == {
+        "mode": "live_tools",
+        "status": "failed",
+    }
 
 
 def test_runner_preflights_live_backend_before_adapter_capabilities(

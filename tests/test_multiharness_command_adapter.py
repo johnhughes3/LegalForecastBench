@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import signal
@@ -214,6 +215,29 @@ def test_command_adapter_run_with_tools_uses_duplex_jsonl_protocol(
     assert (workspace / "private-logs" / "run-with-tools-stderr.log").read_text(
         encoding="utf-8"
     ).strip() == "PRIVATE_DIAGNOSTIC"
+
+
+def test_tool_exchange_reaps_child_after_stdout_eof(tmp_path: Path) -> None:
+    process = subprocess.Popen(
+        (
+            sys.executable,
+            "-c",
+            "import os, time; os.close(1); time.sleep(0.05)",
+        ),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+
+    command_adapter_module._exchange_tool_messages(
+        process,
+        io.BytesIO(),
+        _RecordingToolExecutor(),
+        tmp_path,
+        1,
+    )
+
+    assert process.returncode == 0
 
 
 def test_command_adapter_run_with_tools_requires_advertised_protocol(
@@ -1004,8 +1028,10 @@ def _write_tool_adapter_script(
                 "args = parser.parse_args()",
                 "if args.command == 'capabilities':",
                 "    payload = {",
-                "      'schema_version': "
-                "'legalforecast.multiharness.adapter_capabilities.v1',",
+                (
+                    "      'schema_version': "
+                    "'legalforecast.multiharness.adapter_capabilities.v1',"
+                ),
                 "      'adapter_id': 'fixture-adapter',",
                 "      'adapter_version': '0.1.0',",
                 "      'supported_families': ['legalforecast_mtd'],",

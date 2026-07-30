@@ -28,6 +28,7 @@ from legalforecast.multiharness.spec import (
     RUN_RESULT_SCHEMA_VERSION,
     SANDBOX_POLICY_SCHEMA_VERSION,
     TASK_SCHEMA_VERSION,
+    TOOL_REQUEST_SCHEMA_VERSION,
     ContributorCredit,
 )
 from legalforecast.multiharness.validation import MultiHarnessValidationError
@@ -302,7 +303,9 @@ def test_package_revalidates_successful_live_container_receipt(
     _mark_first_row_live(run_dir, receipt_sha256=SHA1)
     calls: list[Path] = []
 
-    def _validate(receipt_path: Path, **_: object) -> str:
+    def _validate(*args: object, **kwargs: object) -> str:
+        receipt_path = kwargs.get("receipt_path", args[0] if args else None)
+        assert isinstance(receipt_path, Path)
         calls.append(receipt_path)
         return SHA1
 
@@ -323,6 +326,29 @@ def test_package_revalidates_successful_live_container_receipt(
         / "tool-container"
         / "execution-receipt.json"
     ]
+
+
+def test_package_accepts_current_container_compatibility_fields(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    compatibility_path = run_dir / "run-compatibility.json"
+    compatibility = _read_json(compatibility_path)
+    compatibility["run_config"]["container_execution"] = "plan_only"
+    compatibility["adapter_capabilities"][0]["tool_protocol_version"] = (
+        TOOL_REQUEST_SCHEMA_VERSION
+    )
+    _write_json(compatibility_path, compatibility)
+    manifest_path = run_dir / "run-manifest.json"
+    manifest = _read_json(manifest_path)
+    manifest["run_compatibility_sha256"] = _record_sha256(compatibility)
+    _write_json(manifest_path, manifest)
+
+    package = package_community_submission(
+        _package_config(run_dir, tmp_path / "submission-package")
+    )
+
+    assert package.manifest.run_summary.row_count == 1
 
 
 def test_package_rejects_mismatched_live_container_receipt(

@@ -132,8 +132,12 @@ def test_rootless_container_negative_controls_and_cleanup(
         assert response.status == "succeeded"
         assert response.output["effective_uid"] == 65532
         assert response.output["network_denied"] is True
-        assert response.output["home_read_denied"] is True
-        assert response.output["runtime_socket_read_denied"] is True
+        assert response.output["home_probe"] == "permission_denied"
+        assert response.output["runtime_socket_probes"] == {
+            "/run/docker.sock": "absent",
+            "/run/podman/podman.sock": "absent",
+            "/var/run/docker.sock": "absent",
+        }
         assert response.output["rootfs_write_denied"] is True
         assert response.output["tmpfs_write_succeeded"] is True
         assert response.output["scoped_output_write_succeeded"] is True

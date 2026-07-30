@@ -6,12 +6,6 @@ from pathlib import Path
 
 import legalforecast.multiharness.host_environment as host_environment_module
 import pytest
-from legalforecast.multiharness.host_environment import (
-    HostEnvironmentError,
-    build_container_backend_environment,
-    require_local_pinned_container_image,
-    require_rootless_container_daemon,
-)
 
 
 def test_container_backend_environment_omits_provider_and_home_values(
@@ -31,7 +25,7 @@ def test_container_backend_environment_omits_provider_and_home_values(
         monkeypatch.setenv("OPENAI_API_KEY", "must-not-reach-backend")
         monkeypatch.setenv("HOME", "/private/operator-home")
 
-        environment = build_container_backend_environment()
+        environment = host_environment_module.build_container_backend_environment()
     finally:
         backend_socket.close()
 
@@ -52,8 +46,11 @@ def test_container_backend_environment_rejects_remote_docker_host(
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime_directory))
     monkeypatch.setenv("DOCKER_HOST", "tcp://container-host.example:2376")
 
-    with pytest.raises(HostEnvironmentError, match="local Unix socket"):
-        build_container_backend_environment()
+    with pytest.raises(
+        host_environment_module.HostEnvironmentError,
+        match="local Unix socket",
+    ):
+        host_environment_module.build_container_backend_environment()
 
 
 def test_container_backend_environment_rejects_symlinked_runtime_directory(
@@ -67,8 +64,10 @@ def test_container_backend_environment_rejects_symlinked_runtime_directory(
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(linked))
     monkeypatch.delenv("DOCKER_HOST", raising=False)
 
-    with pytest.raises(HostEnvironmentError, match="non-symlink"):
-        build_container_backend_environment()
+    with pytest.raises(
+        host_environment_module.HostEnvironmentError, match="non-symlink"
+    ):
+        host_environment_module.build_container_backend_environment()
 
 
 def test_container_backend_environment_rejects_writable_runtime_directory(
@@ -81,8 +80,11 @@ def test_container_backend_environment_rejects_writable_runtime_directory(
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime_directory))
     monkeypatch.delenv("DOCKER_HOST", raising=False)
 
-    with pytest.raises(HostEnvironmentError, match="group or world writable"):
-        build_container_backend_environment()
+    with pytest.raises(
+        host_environment_module.HostEnvironmentError,
+        match="group or world writable",
+    ):
+        host_environment_module.build_container_backend_environment()
 
 
 @pytest.mark.parametrize(
@@ -107,7 +109,11 @@ def test_rootless_backend_preflight_is_value_free(
 
     monkeypatch.setattr(host_environment_module.subprocess, "run", _run)
 
-    require_rootless_container_daemon(Path("/usr/bin/true"), backend, {"PATH": ""})
+    host_environment_module.require_rootless_container_daemon(
+        Path("/usr/bin/true"),
+        backend,
+        {"PATH": ""},
+    )
 
     assert calls
     assert all("secret" not in argument.lower() for argument in calls[0])
@@ -127,8 +133,8 @@ def test_rootless_backend_preflight_rejects_rootful_daemon(
         ),
     )
 
-    with pytest.raises(HostEnvironmentError, match="rootless"):
-        require_rootless_container_daemon(
+    with pytest.raises(host_environment_module.HostEnvironmentError, match="rootless"):
+        host_environment_module.require_rootless_container_daemon(
             Path("/usr/bin/true"),
             "docker",
             {"PATH": ""},
@@ -150,14 +156,17 @@ def test_local_pinned_image_preflight_checks_exact_image_id(
         ),
     )
 
-    require_local_pinned_container_image(
+    host_environment_module.require_local_pinned_container_image(
         Path("/usr/bin/true"),
         expected,
         {"PATH": ""},
     )
 
-    with pytest.raises(HostEnvironmentError, match="does not match"):
-        require_local_pinned_container_image(
+    with pytest.raises(
+        host_environment_module.HostEnvironmentError,
+        match="does not match",
+    ):
+        host_environment_module.require_local_pinned_container_image(
             Path("/usr/bin/true"),
             "sha256:" + "b" * 64,
             {"PATH": ""},

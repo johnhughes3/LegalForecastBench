@@ -713,10 +713,22 @@ def _validate_local_run_provenance(
                     "model_configs",
                     "sandbox_policy",
                     "incomplete_run_policy",
+                    *(
+                        ("container_execution",)
+                        if "container_execution" in compatibility_run_config
+                        else ()
+                    ),
                 }
             ),
             "run_compatibility.run_config",
         )
+        container_execution = (
+            optional_str(compatibility_run_config, "container_execution") or "plan_only"
+        )
+        if container_execution not in {"plan_only", "live_tools"}:
+            raise ValueError(
+                "container_execution must be one of: live_tools, plan_only"
+            )
         task_index = require_mapping(compatibility_run_config, "task_index")
         _require_exact_fields(
             task_index,
@@ -832,6 +844,11 @@ def _validate_local_run_provenance(
                         "supported_scoring_modes",
                         "supports_sandbox_policy",
                         "capabilities_sha256",
+                        *(
+                            ("tool_protocol_version",)
+                            if "tool_protocol_version" in capability_record
+                            else ()
+                        ),
                     }
                 ),
                 "run_compatibility.adapter_capability",

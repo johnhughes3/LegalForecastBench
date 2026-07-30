@@ -107,21 +107,27 @@ def _negative_control() -> dict[str, Any]:
     else:
         connection.close()
 
-    try:
-        tuple(Path("/root").iterdir())
-    except OSError:
-        home_read_denied = True
+    home_path = Path("/root")
+    if not home_path.exists():
+        home_probe = "absent"
     else:
-        home_read_denied = False
+        try:
+            tuple(home_path.iterdir())
+        except PermissionError:
+            home_probe = "permission_denied"
+        except OSError:
+            home_probe = "other_error"
+        else:
+            home_probe = "readable"
 
-    runtime_socket_read_denied = not any(
-        path.exists()
+    runtime_socket_probes = {
+        str(path): _path_probe(path)
         for path in (
             Path("/var/run/docker.sock"),
             Path("/run/docker.sock"),
             Path("/run/podman/podman.sock"),
         )
-    )
+    }
 
     try:
         Path("/rootfs-write-probe").write_text("unexpected", encoding="utf-8")
@@ -143,7 +149,7 @@ def _negative_control() -> dict[str, Any]:
     return {
         "background_child_pid": child.pid,
         "effective_uid": os.geteuid(),
-        "home_read_denied": home_read_denied,
+        "home_probe": home_probe,
         "network_denied": network_denied,
         "provider_env_names": sorted(
             name
@@ -151,10 +157,22 @@ def _negative_control() -> dict[str, Any]:
             if name.endswith("_API_KEY") or name.endswith("_TOKEN")
         ),
         "rootfs_write_denied": rootfs_write_denied,
-        "runtime_socket_read_denied": runtime_socket_read_denied,
+        "runtime_socket_probes": runtime_socket_probes,
         "scoped_output_write_succeeded": output_canary.is_file(),
         "tmpfs_write_succeeded": Path("/tmp/negative-control.tmp").is_file(),
     }
+
+
+def _path_probe(path: Path) -> str:
+    if not path.exists():
+        return "absent"
+    try:
+        path.read_bytes()
+    except PermissionError:
+        return "permission_denied"
+    except OSError:
+        return "other_error"
+    return "readable"
 
 
 if __name__ == "__main__":

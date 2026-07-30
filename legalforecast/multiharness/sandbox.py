@@ -227,10 +227,13 @@ def build_live_container_plan(
     pids_limit = policy.pids_limit
     memory_limit = policy.memory_limit
     cpu_limit = policy.cpu_limit
-    assert uid_gid is not None
-    assert pids_limit is not None
-    assert memory_limit is not None
-    assert cpu_limit is not None
+    if (
+        uid_gid is None
+        or pids_limit is None
+        or memory_limit is None
+        or cpu_limit is None
+    ):
+        raise ValueError("live policy is missing mandatory isolation limits")
 
     argv = (
         str(resolved_backend),
@@ -356,8 +359,9 @@ def validate_container_backend_path(path: Path) -> Path:
             "container backend executable must have trusted ownership and mode"
         )
     current = Path(resolved.anchor)
-    for part in resolved.parts[1:-1]:
-        current /= part
+    for part in ("", *resolved.parts[1:-1]):
+        if part:
+            current /= part
         parent_metadata = current.stat()
         if (
             parent_metadata.st_uid not in allowed_owners

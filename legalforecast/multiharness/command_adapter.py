@@ -570,7 +570,7 @@ def _exchange_tool_messages(
     try:
         with selectors.DefaultSelector() as selector:
             selector.register(stdout, selectors.EVENT_READ)
-            while stdout_open or process.poll() is None:
+            while stdout_open or response_buffer:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise subprocess.TimeoutExpired(process.args, timeout_seconds)

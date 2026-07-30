@@ -29,6 +29,7 @@ from legalforecast.multiharness.tool_protocol import (
     decode_tool_request,
     encode_tool_message,
 )
+from legalforecast.multiharness.validation import MultiHarnessValidationError
 
 SHA256 = "sha256:" + "a" * 64
 CONTAINER_ID = "e" * 64
@@ -357,6 +358,28 @@ def test_abort_propagates_unconfirmed_cleanup(
 
     with pytest.raises(ContainerRuntimeError, match="cleanup"):
         session.abort()
+
+
+def test_exchange_cleanup_failure_preserves_malformed_response_cause(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = _run_request()
+    process = _FakeProcess(lambda _: b"not-json\n")
+    _install_fake_backend(monkeypatch, process)
+    session = ContainerToolSession(request.sandbox_policy, request, tmp_path)
+    monkeypatch.setattr(
+        "legalforecast.multiharness.container_runtime._session_container_ids",
+        lambda _backend, _name, _token, _environment: None,
+    )
+
+    with pytest.raises(ContainerRuntimeError, match="cleanup") as exc_info:
+        session.execute(
+            ToolRequest(request_id="tool-1", operation="read_text"),
+            tmp_path,
+        )
+
+    assert isinstance(exc_info.value.__cause__, MultiHarnessValidationError)
 
 
 def test_resume_validation_rejects_tampering_and_binding_mismatch(

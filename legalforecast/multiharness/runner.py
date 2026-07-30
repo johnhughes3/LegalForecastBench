@@ -460,6 +460,7 @@ class _MultiHarnessRunner:
                 "run result",
             )
         except Exception as exc:
+            container_receipt_sha256 = None
             if self.config.incomplete_run_policy == "fail_fast":
                 try:
                     (plan.workspace / "result.json").unlink(missing_ok=True)

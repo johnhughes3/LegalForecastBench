@@ -67,22 +67,29 @@ class ContainerRuntimeError(RuntimeError):
 
 class _Process(Protocol):
     @property
-    def stdin(self) -> IO[bytes] | None: ...
+    def stdin(self) -> IO[bytes] | None:
+        raise NotImplementedError
 
     @property
-    def stdout(self) -> IO[bytes] | None: ...
+    def stdout(self) -> IO[bytes] | None:
+        raise NotImplementedError
 
     @property
-    def stderr(self) -> IO[bytes] | None: ...
+    def stderr(self) -> IO[bytes] | None:
+        raise NotImplementedError
 
     @property
-    def returncode(self) -> int | None: ...
+    def returncode(self) -> int | None:
+        raise NotImplementedError
 
-    def wait(self, timeout: float | None = None) -> int: ...
+    def wait(self, timeout: float | None = None) -> int:
+        raise NotImplementedError
 
-    def terminate(self) -> None: ...
+    def terminate(self) -> None:
+        raise NotImplementedError
 
-    def kill(self) -> None: ...
+    def kill(self) -> None:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,8 +243,11 @@ class ContainerToolSession(ToolExecutor):
         stdin = process.stdin
         stdout = process.stdout
         if stdin is None or stdout is None:
-            self.abort()
-            raise ContainerRuntimeError("container tool process pipes are unavailable")
+            error = ContainerRuntimeError(
+                "container tool process pipes are unavailable"
+            )
+            self._abort_preserving(error)
+            raise error
         encoded_request = encode_tool_message(request)
         try:
             stdin.write(encoded_request)
@@ -246,21 +256,24 @@ class ContainerToolSession(ToolExecutor):
                 stdout, self._policy.timeout_seconds
             )
         except TimeoutError as exc:
-            self.abort()
+            self._abort_preserving(exc)
             raise ContainerRuntimeError("container tool response timed out") from exc
         except (BrokenPipeError, OSError) as exc:
-            self.abort()
+            self._abort_preserving(exc)
             raise ContainerRuntimeError("container tool exchange failed") from exc
         try:
             response = decode_tool_response(encoded_response)
         except MultiHarnessValidationError as exc:
-            self.abort()
+            self._abort_preserving(exc)
             raise ContainerRuntimeError(
                 "container returned a malformed response"
             ) from exc
         if response.request_id != request.request_id:
-            self.abort()
-            raise ContainerRuntimeError("container response request id does not match")
+            error = ContainerRuntimeError(
+                "container response request id does not match"
+            )
+            self._abort_preserving(error)
+            raise error
         self._transcript.update(_frame_commitment(encoded_request, encoded_response))
         self._exchange_count += 1
         if response.status == "succeeded":
@@ -332,6 +345,12 @@ class ContainerToolSession(ToolExecutor):
         self._closed = True
         if not cleanup_confirmed:
             raise ContainerRuntimeError("container cleanup could not be confirmed")
+
+    def _abort_preserving(self, cause: BaseException) -> None:
+        try:
+            self.abort()
+        except ContainerRuntimeError as cleanup_error:
+            raise cleanup_error from cause
 
     def _stage_canonical_task(self) -> None:
         private_logs = self._workspace / "private-logs"
