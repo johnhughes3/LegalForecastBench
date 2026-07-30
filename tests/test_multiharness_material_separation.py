@@ -295,6 +295,43 @@ def test_access_canaries_reject_encoded_and_traversing_runtime_paths(
         access.read_bytes("/workspace/input/../private.txt")
 
 
+def test_access_sources_remain_anchored_after_working_directory_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    document = _write(source_root / "document.txt", b"solver")
+    private = _write(source_root / "private.txt", b"private")
+    monkeypatch.chdir(tmp_path)
+    separated = materialize_separated_task(
+        _task(
+            (
+                _artifact("document", document, source_root),
+                _artifact("private", private, source_root),
+            )
+        ),
+        source_root=Path("source"),
+        solver_root=Path("solver"),
+        evaluator_private_root=Path("evaluator-private"),
+        layout=MaterialSeparationLayout(
+            layout_id="anchored.v1",
+            solver_artifacts=(TaskArtifactProjection("document", "document.txt"),),
+            evaluator_private_artifacts=(
+                TaskArtifactProjection("private", "private.txt"),
+            ),
+        ),
+    )
+    other_directory = tmp_path / "other"
+    other_directory.mkdir()
+    monkeypatch.chdir(other_directory)
+
+    assert separated.solver_root.is_absolute()
+    assert (
+        solver_material_access(separated).read_bytes("/workspace/input/document.txt")
+        == b"solver"
+    )
+
+
 def _task(artifacts: tuple[ArtifactRecord, ...]) -> CanonicalTask:
     return CanonicalTask(
         task_id="harvey_lab:fixture/task",

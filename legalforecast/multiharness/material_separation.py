@@ -134,6 +134,10 @@ class SeparatedTaskMaterialization:
     separation_sha256: str
 
     def __post_init__(self) -> None:
+        if not self.solver_root.is_absolute() or not (
+            self.evaluator_private_root.is_absolute()
+        ):
+            raise ValueError("material roots must be absolute")
         _require_disjoint_roots(self.solver_root, self.evaluator_private_root)
         if self.solver_manifest.plane != "solver":
             raise ValueError("solver_manifest must describe the solver plane")
@@ -180,6 +184,8 @@ class ReadOnlyMaterialMount:
     manifest_sha256: str
 
     def __post_init__(self) -> None:
+        if not self.source.is_absolute():
+            raise ValueError("material mount source must be absolute")
         expected_targets = {
             "solver_input": SOLVER_INPUT_TARGET,
             "sealed_deliverable": EVALUATOR_DELIVERABLE_TARGET,
@@ -263,14 +269,16 @@ def materialize_separated_task(
     Failures can leave partial fresh roots for coordinated caller cleanup.
     """
 
-    _require_disjoint_roots(solver_root, evaluator_private_root)
+    normalized_solver_root = _normalized_root(solver_root)
+    normalized_private_root = _normalized_root(evaluator_private_root)
+    _require_disjoint_roots(normalized_solver_root, normalized_private_root)
     _require_complete_classification(task, layout)
     solver_ids = tuple(item.artifact_id for item in layout.solver_artifacts)
     private_ids = tuple(item.artifact_id for item in layout.evaluator_private_artifacts)
     solver_materialization = materialize_task(
         task,
         source_root=source_root,
-        destination_root=solver_root,
+        destination_root=normalized_solver_root,
         layout=TaskMaterializationLayout(
             layout_id=layout.layout_id,
             solver_artifacts=layout.solver_artifacts,
@@ -281,7 +289,7 @@ def materialize_separated_task(
     private_materialization = materialize_task(
         task,
         source_root=source_root,
-        destination_root=evaluator_private_root,
+        destination_root=normalized_private_root,
         layout=TaskMaterializationLayout(
             layout_id=layout.layout_id,
             solver_artifacts=layout.evaluator_private_artifacts,
@@ -295,23 +303,23 @@ def materialize_separated_task(
         private_materialization,
     )
     _seal_read_only_tree(
-        solver_root,
+        normalized_solver_root,
         directory_mode=0o555,
         file_mode=0o444,
     )
     _seal_read_only_tree(
-        evaluator_private_root,
+        normalized_private_root,
         directory_mode=0o500,
         file_mode=0o400,
     )
-    _verify_material_plane(solver_root, solver_manifest)
-    _verify_material_plane(evaluator_private_root, private_manifest)
+    _verify_material_plane(normalized_solver_root, solver_manifest)
+    _verify_material_plane(normalized_private_root, private_manifest)
     separation_sha256 = _record_sha256(
         _separation_content(solver_manifest, private_manifest)
     )
     return SeparatedTaskMaterialization(
-        solver_root=solver_root,
-        evaluator_private_root=evaluator_private_root,
+        solver_root=normalized_solver_root,
+        evaluator_private_root=normalized_private_root,
         solver_manifest=solver_manifest,
         evaluator_private_manifest=private_manifest,
         separation_sha256=separation_sha256,
@@ -357,10 +365,11 @@ def evaluator_material_access(
     """Expose only a sealed deliverable and private inputs to the evaluator."""
 
     validate_sha256(sealed_deliverable_sha256, "sealed_deliverable_sha256")
+    normalized_deliverable_root = _normalized_root(sealed_deliverable_root)
     _require_pairwise_disjoint(
         materialization.solver_root,
         materialization.evaluator_private_root,
-        sealed_deliverable_root,
+        normalized_deliverable_root,
     )
     _verify_material_plane(
         materialization.solver_root,
@@ -370,13 +379,13 @@ def evaluator_material_access(
         materialization.evaluator_private_root,
         materialization.evaluator_private_manifest,
     )
-    _verify_read_only_tree(sealed_deliverable_root, "sealed deliverable")
+    _verify_read_only_tree(normalized_deliverable_root, "sealed deliverable")
     return MaterialAccessPlan(
         role="evaluator",
         mounts=(
             ReadOnlyMaterialMount(
                 purpose="sealed_deliverable",
-                source=sealed_deliverable_root,
+                source=normalized_deliverable_root,
                 target=EVALUATOR_DELIVERABLE_TARGET,
                 manifest_sha256=sealed_deliverable_sha256,
             ),
