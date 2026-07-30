@@ -448,6 +448,7 @@ def _open_relative_file(
                 try:
                     os.mkdir(part, mode=0o700, dir_fd=current_fd)
                 except FileExistsError:
+                    # Another materializer may have created this directory first.
                     pass
             next_fd = os.open(part, _directory_flags(), dir_fd=current_fd)
             os.close(current_fd)
