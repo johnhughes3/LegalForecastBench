@@ -297,6 +297,79 @@ def test_materialization_anchors_source_parent_during_symlink_swap(
     assert (tmp_path / "workspace" / "output.txt").read_bytes() == b"trusted"
 
 
+def test_materialization_rejects_symlink_in_source_root_ancestor(
+    tmp_path: Path,
+) -> None:
+    real_parent = tmp_path / "real-parent"
+    source_root = real_parent / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    task = _task((_artifact("input", source, source_root),))
+
+    with pytest.raises(TaskMaterializationError, match="source root"):
+        materialize_task(
+            task,
+            source_root=linked_parent / "source",
+            destination_root=tmp_path / "workspace",
+            layout=TaskMaterializationLayout(
+                layout_id="source-root-ancestor.v1",
+                solver_artifacts=(TaskArtifactProjection("input", "output.txt"),),
+            ),
+        )
+
+    assert not (tmp_path / "workspace").exists()
+
+
+def test_materialization_fails_closed_on_destination_root_parent_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    destination_parent = tmp_path / "destination-parent"
+    destination_parent.mkdir()
+    destination_root = destination_parent / "workspace"
+    moved_parent = tmp_path / "destination-parent-owned"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    marker = _write(outside / "keep.txt", b"keep")
+    original_mkdir = os.mkdir
+    swapped = False
+
+    def swap_parent_before_root_creation(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> None:
+        nonlocal swapped
+        if not swapped and (
+            Path(path) == destination_root
+            or (path == destination_root.name and dir_fd is not None)
+        ):
+            swapped = True
+            destination_parent.rename(moved_parent)
+            destination_parent.symlink_to(outside, target_is_directory=True)
+        original_mkdir(path, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "mkdir", swap_parent_before_root_creation)
+
+    with pytest.raises(TaskMaterializationError, match="destination parent changed"):
+        materialize_task(
+            _task((_artifact("input", source, source_root),)),
+            source_root=source_root,
+            destination_root=destination_root,
+            layout=TaskMaterializationLayout(
+                layout_id="destination-root-race.v1",
+                solver_artifacts=(TaskArtifactProjection("input", "output.txt"),),
+            ),
+        )
+
+    assert marker.read_bytes() == b"keep"
+    assert not (outside / "workspace").exists()
+
+
 def test_materialization_fails_closed_on_destination_parent_swap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -349,6 +422,99 @@ def test_materialization_fails_closed_on_destination_parent_swap(
 
     assert marker.read_bytes() == b"keep"
     assert not (outside / "output.txt").exists()
+    assert not destination_root.exists()
+
+
+def test_materialization_rejects_replaced_destination_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    destination_root = tmp_path / "workspace"
+    original_open = os.open
+    swapped = False
+
+    def replace_directory_before_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal swapped
+        if path == "nested" and dir_fd is not None and not swapped:
+            swapped = True
+            (destination_root / "nested").rename(destination_root / "nested-owned")
+            replacement = destination_root / "nested"
+            replacement.mkdir()
+            _write(replacement / "injected.txt", b"not in the manifest")
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", replace_directory_before_open)
+
+    with pytest.raises(TaskMaterializationError, match="directory changed"):
+        materialize_task(
+            _task((_artifact("input", source, source_root),)),
+            source_root=source_root,
+            destination_root=destination_root,
+            layout=TaskMaterializationLayout(
+                layout_id="destination-directory-race.v1",
+                solver_artifacts=(
+                    TaskArtifactProjection("input", "nested/output.txt"),
+                ),
+            ),
+        )
+
+    assert not destination_root.exists()
+
+
+def test_materialization_final_seal_rejects_unmanifested_destination_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    destination_root = tmp_path / "workspace"
+    original_verify = materialization_module._verify_destination_identity
+    injected = False
+
+    def inject_then_verify(
+        root_fd: int,
+        relative_path: str,
+        expected_stat: os.stat_result,
+        expected_sha256: str,
+        expected_size: int,
+    ) -> None:
+        nonlocal injected
+        if not injected:
+            injected = True
+            _write(destination_root / "injected.txt", b"not in the manifest")
+        original_verify(
+            root_fd,
+            relative_path,
+            expected_stat,
+            expected_sha256,
+            expected_size,
+        )
+
+    monkeypatch.setattr(
+        materialization_module,
+        "_verify_destination_identity",
+        inject_then_verify,
+    )
+
+    with pytest.raises(TaskMaterializationError, match="unexpected or missing"):
+        materialize_task(
+            _task((_artifact("input", source, source_root),)),
+            source_root=source_root,
+            destination_root=destination_root,
+            layout=TaskMaterializationLayout(
+                layout_id="final-tree-seal.v1",
+                solver_artifacts=(TaskArtifactProjection("input", "output.txt"),),
+            ),
+        )
+
     assert not destination_root.exists()
 
 

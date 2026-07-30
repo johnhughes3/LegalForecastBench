@@ -150,22 +150,72 @@ def materialize_task(
         raise TaskMaterializationError(
             "solver-visible task exceeds the materialization file-count limit"
         )
-    if destination_root.exists() or destination_root.is_symlink():
+    destination_name = destination_root.name
+    if not destination_name or destination_name in {".", ".."}:
         raise TaskMaterializationError(
-            "materialization destination must be a fresh, absent path"
+            "materialization destination must name a fresh child directory"
         )
-    _validate_existing_directory_chain(destination_root.parent)
 
-    destination_root.mkdir(mode=0o700)
-    destination_root_fd = _open_directory(
-        destination_root,
-        "materialization destination root",
+    source_root_fd = _open_directory_path(
+        source_root,
+        "materialization source root",
     )
-    destination_root_stat = os.fstat(destination_root_fd)
+    destination_parent_fd: int | None = None
+    destination_root_fd: int | None = None
+    destination_parent_stat: os.stat_result | None = None
+    destination_root_stat: os.stat_result | None = None
     entries: list[MaterializedArtifact] = []
     destination_identities: list[tuple[str, os.stat_result, str, int]] = []
+    destination_directory_identities: dict[str, os.stat_result] = {}
     total_size = 0
     try:
+        destination_parent_fd = _open_directory_path(
+            destination_root.parent,
+            "materialization destination parent",
+        )
+        destination_parent_stat = os.fstat(destination_parent_fd)
+        if not _path_matches_stat(
+            destination_root.parent,
+            destination_parent_stat,
+        ):
+            raise TaskMaterializationError(
+                "materialization destination parent changed before root creation"
+            )
+        try:
+            os.stat(
+                destination_name,
+                dir_fd=destination_parent_fd,
+                follow_symlinks=False,
+            )
+        except FileNotFoundError:
+            pass
+        else:
+            raise TaskMaterializationError(
+                "materialization destination must be a fresh, absent path"
+            )
+        os.mkdir(destination_name, mode=0o700, dir_fd=destination_parent_fd)
+        destination_root_stat = _directory_stat_at(
+            destination_parent_fd,
+            destination_name,
+            "materialization destination root",
+        )
+        destination_root_fd = os.open(
+            destination_name,
+            _directory_flags(),
+            dir_fd=destination_parent_fd,
+        )
+        if not _same_file(os.fstat(destination_root_fd), destination_root_stat):
+            raise TaskMaterializationError(
+                "materialization destination root changed during creation"
+            )
+        if not _path_matches_stat(
+            destination_root.parent,
+            destination_parent_stat,
+        ):
+            raise TaskMaterializationError(
+                "materialization destination parent changed during root creation"
+            )
+
         for projection in projections:
             artifact = artifacts[projection.artifact_id]
             source_path = _decoded_safe_path(artifact.path, "artifact source path")
@@ -173,7 +223,7 @@ def materialize_task(
                 projection.destination_path,
                 "artifact destination path",
             )
-            source_fd = _open_source_fd(source_root, source_path)
+            source_fd = _open_source_fd(source_root_fd, source_path)
             destination_fd: int | None = None
             try:
                 source_size = os.fstat(source_fd).st_size
@@ -190,6 +240,7 @@ def materialize_task(
                 destination_fd = _open_destination_fd(
                     destination_root_fd,
                     destination_path,
+                    destination_directory_identities,
                 )
                 digest, copied_size = _copy_verified(
                     source_fd,
@@ -222,7 +273,18 @@ def materialize_task(
                     size_bytes=copied_size,
                 )
             )
-        if not _path_matches_stat(destination_root, destination_root_stat):
+        if not _path_matches_stat(
+            destination_root.parent,
+            destination_parent_stat,
+        ):
+            raise TaskMaterializationError(
+                "materialization destination parent changed during copying"
+            )
+        if not _path_at_matches_stat(
+            destination_parent_fd,
+            destination_name,
+            destination_root_stat,
+        ):
             raise TaskMaterializationError(
                 "materialization destination root changed during copying"
             )
@@ -239,11 +301,25 @@ def materialize_task(
                 expected_sha256,
                 expected_size,
             )
+        _verify_destination_tree(
+            destination_root_fd,
+            destination_identities,
+            destination_directory_identities,
+        )
     except Exception:
-        _remove_owned_destination(destination_root, destination_root_stat)
+        if destination_parent_fd is not None and destination_root_stat is not None:
+            _remove_owned_destination_at(
+                destination_parent_fd,
+                destination_name,
+                destination_root_stat,
+            )
         raise
     finally:
-        os.close(destination_root_fd)
+        if destination_root_fd is not None:
+            os.close(destination_root_fd)
+        if destination_parent_fd is not None:
+            os.close(destination_parent_fd)
+        os.close(source_root_fd)
 
     ordered_entries = tuple(sorted(entries, key=lambda item: item.artifact_id))
     private_ids = tuple(sorted(layout.evaluator_private_artifact_ids))
@@ -358,22 +434,159 @@ def _decoded_safe_path(value: str, field_name: str) -> str:
         raise TaskMaterializationError(str(exc)) from exc
 
 
-def _validate_existing_directory_chain(path: Path) -> None:
-    for candidate in (path, *path.parents):
+def _open_directory_path(path: Path, field_name: str) -> int:
+    """Open every path component without following symlinks."""
+
+    absolute_path = path if path.is_absolute() else Path.cwd() / path
+    parts = absolute_path.parts
+    current_fd = _open_directory(Path(parts[0]), field_name)
+    try:
+        for part in parts[1:]:
+            try:
+                next_fd = os.open(part, _directory_flags(), dir_fd=current_fd)
+            except OSError as exc:
+                raise TaskMaterializationError(
+                    f"{field_name} must not contain symlinks or non-directories"
+                ) from exc
+            os.close(current_fd)
+            current_fd = next_fd
+        return current_fd
+    except Exception:
+        os.close(current_fd)
+        raise
+
+
+def _directory_stat_at(parent_fd: int, name: str, field_name: str) -> os.stat_result:
+    """Return one no-follow child-directory identity."""
+
+    try:
+        child_stat = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except OSError as exc:
+        raise TaskMaterializationError(f"{field_name} changed during creation") from exc
+    if not stat.S_ISDIR(child_stat.st_mode):
+        raise TaskMaterializationError(f"{field_name} changed during creation")
+    return child_stat
+
+
+def _path_at_matches_stat(
+    parent_fd: int,
+    name: str,
+    expected_stat: os.stat_result,
+) -> bool:
+    try:
+        actual_stat = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except OSError:
+        return False
+    return _same_file(actual_stat, expected_stat)
+
+
+def _verify_destination_tree(
+    root_fd: int,
+    file_identities: list[tuple[str, os.stat_result, str, int]],
+    directory_identities: dict[str, os.stat_result],
+) -> None:
+    """Seal the complete destination tree, including the absence of extra files."""
+
+    expected_files = {
+        path: (expected_stat, expected_sha256, expected_size)
+        for path, expected_stat, expected_sha256, expected_size in file_identities
+    }
+    _verify_destination_directory(
+        root_fd,
+        prefix="",
+        expected_files=expected_files,
+        expected_directories=directory_identities,
+    )
+
+
+def _verify_destination_directory(
+    directory_fd: int,
+    *,
+    prefix: str,
+    expected_files: dict[str, tuple[os.stat_result, str, int]],
+    expected_directories: dict[str, os.stat_result],
+) -> None:
+    expected_names: set[str] = set()
+    for path in (*expected_files, *expected_directories):
+        if prefix:
+            prefix_with_separator = f"{prefix}/"
+            if not path.startswith(prefix_with_separator):
+                continue
+            relative = path.removeprefix(prefix_with_separator)
+        else:
+            relative = path
+        if "/" not in relative:
+            expected_names.add(relative)
+    try:
+        actual_names = set(os.listdir(directory_fd))
+    except OSError as exc:
+        raise TaskMaterializationError(
+            "could not seal the materialized destination tree"
+        ) from exc
+    if actual_names != expected_names:
+        raise TaskMaterializationError(
+            "materialized destination tree contains unexpected or missing paths"
+        )
+
+    for name in sorted(expected_names):
+        relative_path = f"{prefix}/{name}" if prefix else name
+        expected_directory_stat = expected_directories.get(relative_path)
+        if expected_directory_stat is not None:
+            try:
+                child_fd = os.open(name, _directory_flags(), dir_fd=directory_fd)
+            except OSError as exc:
+                raise TaskMaterializationError(
+                    f"materialized destination directory changed: {relative_path}"
+                ) from exc
+            try:
+                if not _same_file(os.fstat(child_fd), expected_directory_stat):
+                    raise TaskMaterializationError(
+                        f"materialized destination directory changed: {relative_path}"
+                    )
+                _verify_destination_directory(
+                    child_fd,
+                    prefix=relative_path,
+                    expected_files=expected_files,
+                    expected_directories=expected_directories,
+                )
+            finally:
+                os.close(child_fd)
+            continue
+
+        expected_file = expected_files.get(relative_path)
+        if expected_file is None:
+            raise TaskMaterializationError(
+                f"materialized destination path is unclassified: {relative_path}"
+            )
+        expected_stat, expected_sha256, expected_size = expected_file
         try:
-            candidate_stat = candidate.lstat()
+            file_fd = os.open(name, _source_file_flags(), dir_fd=directory_fd)
         except OSError as exc:
             raise TaskMaterializationError(
-                "materialization destination parent must already exist"
+                f"materialized destination file changed: {relative_path}"
             ) from exc
-        if stat.S_ISLNK(candidate_stat.st_mode):
-            raise TaskMaterializationError(
-                "materialization destination parent must not contain a symlink"
-            )
-        if not stat.S_ISDIR(candidate_stat.st_mode):
-            raise TaskMaterializationError(
-                "materialization destination parent must be a directory"
-            )
+        try:
+            actual_stat = os.fstat(file_fd)
+            if (
+                not stat.S_ISREG(actual_stat.st_mode)
+                or actual_stat.st_nlink != 1
+                or not _same_file(actual_stat, expected_stat)
+            ):
+                raise TaskMaterializationError(
+                    f"materialized destination file changed: {relative_path}"
+                )
+            digest = hashlib.sha256()
+            size_bytes = 0
+            with os.fdopen(file_fd, "rb", closefd=False) as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+                    size_bytes += len(chunk)
+            if digest.hexdigest() != expected_sha256 or size_bytes != expected_size:
+                raise TaskMaterializationError(
+                    f"materialized destination bytes changed: {relative_path}"
+                )
+        finally:
+            os.close(file_fd)
 
 
 def _copy_verified(
@@ -418,20 +631,25 @@ def _copy_verified(
     return actual_digest, size_bytes
 
 
-def _open_source_fd(source_root: Path, relative_path: str) -> int:
-    root_fd = _open_directory(source_root, "materialization source root")
-    try:
-        return _open_relative_file(
-            root_fd,
-            relative_path,
-            destination=False,
-        )
-    finally:
-        os.close(root_fd)
+def _open_source_fd(source_root_fd: int, relative_path: str) -> int:
+    return _open_relative_file(
+        source_root_fd,
+        relative_path,
+        destination=False,
+    )
 
 
-def _open_destination_fd(root_fd: int, relative_path: str) -> int:
-    return _open_relative_file(root_fd, relative_path, destination=True)
+def _open_destination_fd(
+    root_fd: int,
+    relative_path: str,
+    directory_identities: dict[str, os.stat_result],
+) -> int:
+    return _open_relative_file(
+        root_fd,
+        relative_path,
+        destination=True,
+        directory_identities=directory_identities,
+    )
 
 
 def _open_relative_file(
@@ -439,18 +657,44 @@ def _open_relative_file(
     relative_path: str,
     *,
     destination: bool,
+    directory_identities: dict[str, os.stat_result] | None = None,
 ) -> int:
     parts = PurePosixPath(relative_path).parts
     current_fd = os.dup(root_fd)
+    traversed_parts: list[str] = []
     try:
         for part in parts[:-1]:
+            traversed_parts.append(part)
+            traversed_path = "/".join(traversed_parts)
             if destination:
-                try:
-                    os.mkdir(part, mode=0o700, dir_fd=current_fd)
-                except FileExistsError:
-                    # Another materializer may have created this directory first.
-                    pass
-            next_fd = os.open(part, _directory_flags(), dir_fd=current_fd)
+                if directory_identities is None:
+                    raise AssertionError(
+                        "destination directory identities are required"
+                    )
+                expected_stat = directory_identities.get(traversed_path)
+                if expected_stat is None:
+                    try:
+                        os.mkdir(part, mode=0o700, dir_fd=current_fd)
+                    except FileExistsError as exc:
+                        raise TaskMaterializationError(
+                            "materialization destination directory appeared "
+                            f"unexpectedly: {traversed_path}"
+                        ) from exc
+                    expected_stat = _directory_stat_at(
+                        current_fd,
+                        part,
+                        "materialization destination directory",
+                    )
+                next_fd = os.open(part, _directory_flags(), dir_fd=current_fd)
+                if not _same_file(os.fstat(next_fd), expected_stat):
+                    os.close(next_fd)
+                    raise TaskMaterializationError(
+                        "materialization destination directory changed during "
+                        f"creation: {traversed_path}"
+                    )
+                directory_identities[traversed_path] = expected_stat
+            else:
+                next_fd = os.open(part, _directory_flags(), dir_fd=current_fd)
             os.close(current_fd)
             current_fd = next_fd
         flags = _destination_file_flags() if destination else _source_file_flags()
@@ -554,12 +798,17 @@ def _same_file(left: os.stat_result, right: os.stat_result) -> bool:
     return left.st_dev == right.st_dev and left.st_ino == right.st_ino
 
 
-def _remove_owned_destination(
-    destination_root: Path,
+def _remove_owned_destination_at(
+    destination_parent_fd: int,
+    destination_name: str,
     expected_stat: os.stat_result,
 ) -> None:
-    if _path_matches_stat(destination_root, expected_stat):
-        shutil.rmtree(destination_root)
+    if _path_at_matches_stat(
+        destination_parent_fd,
+        destination_name,
+        expected_stat,
+    ):
+        shutil.rmtree(destination_name, dir_fd=destination_parent_fd)
 
 
 def _require_unique(values: tuple[str, ...], field_name: str) -> None:
