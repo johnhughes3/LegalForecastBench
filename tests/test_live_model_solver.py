@@ -723,10 +723,17 @@ def test_solver_does_not_retry_nonrecoverable_credit_failures() -> None:
 
 
 def test_solver_creates_attempt_handler_per_harness_request_and_settles() -> None:
-    handler = _RecordingAttemptHandler()
     first_request = _request("first prompt")
     second_request = _request("second prompt")
     observed_requests: list[object] = []
+    handlers: list[_RecordingAttemptHandler] = []
+
+    def make_handler(item: object) -> _RecordingAttemptHandler:
+        observed_requests.append(item)
+        handler = _RecordingAttemptHandler()
+        handlers.append(handler)
+        return handler
+
     solver = LiveModelSolver(
         registry_entry=_registry_entry("openai", "gpt-test"),
         transport=_FixtureTransport(
@@ -737,17 +744,19 @@ def test_solver_creates_attempt_handler_per_harness_request_and_settles() -> Non
             }
         ),
         environ={"OPENAI_API_KEY": "openai-secret"},
-        attempt_handler_factory=lambda item: observed_requests.append(item) or handler,
+        attempt_handler_factory=make_handler,
     )
 
     solver.solve(first_request)
     solver.solve(second_request)
 
     assert observed_requests == [first_request, second_request]
-    assert handler.events[0] == ("run", 1)
-    assert handler.events[1][:4] == ("settle", 41, 1000, 250)
-    assert handler.events[2] == ("run", 1)
-    assert handler.events[3][:4] == ("settle", 41, 1000, 250)
+    assert len(handlers) == 2
+    assert handlers[0] is not handlers[1]
+    assert handlers[0].events[0] == ("run", 1)
+    assert handlers[0].events[1][:4] == ("settle", 41, 1000, 250)
+    assert handlers[1].events[0] == ("run", 1)
+    assert handlers[1].events[1][:4] == ("settle", 41, 1000, 250)
 
 
 def test_malformed_response_marks_authorized_attempt_ambiguous() -> None:
