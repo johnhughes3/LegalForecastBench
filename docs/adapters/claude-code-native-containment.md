@@ -1,4 +1,4 @@
-# Claude Code 2.1.218 Host-Specific Native Containment Feasibility
+# Claude Code 2.1.220 Host-Specific Native Containment Feasibility
 
 Status: the probe and test sources are present in the repository. No evidence receipt or fixture is present, and this revision claims no successful capture. The probe must receive independent source review and sudo-gate approval before capture. GitHub issue `#196` remains open.
 
@@ -18,16 +18,18 @@ Issue `#196` records earlier Claude Code observations, but the pending capture t
 
 | Field | Pinned value |
 | --- | --- |
-| Executable | `/work/.local/share/claude/versions/2.1.218` |
-| Version | `2.1.218 (Claude Code)` |
-| Executable SHA-256 | `e12071751a9336b8af1012c103358ff04ac18f9aaff4a738cff7ba5cdfaf63f2` |
-| Probe source SHA-256 approved for capture | `e5ce86ea5f0127f7e10678adc9dd1b533061c3b15b0515260a9155b6c85f6f5a` |
-| Future fixture | `tests/fixtures/claude_native_containment/claude-code-native-containment-2.1.218.json` |
+| Executable projection | `/opt/legalforecastbench/claude-code/pinned/claude` |
+| Version | `2.1.220 (Claude Code)` |
+| Executable SHA-256 | `674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863` |
+| Probe source SHA-256 approved for capture | Pending fresh independent review |
+| Future fixture | `tests/fixtures/claude_native_containment/claude-code-native-containment-2.1.220.json` |
 | Model label used by the local stub | `claude-sonnet-4-6` |
 | Required provider requests | `0` |
 | Required benchmark task bytes | `0` |
 
-There is no fixture directory or fixture at the future path yet. The probe-source row above records the exact independently approved committed source. Version, executable hash, or approved probe-source drift must stop capture before Claude enters the native loop.
+There is no fixture directory or fixture at the future path yet. The 2026-07-30 repin from 2.1.218 to the installed 2.1.220 binary invalidated the earlier probe-source approval and any receipt for the earlier binary. Version, executable hash, or approved probe-source drift must stop capture before Claude enters the native loop.
+
+Before review or capture, the operator must prepare the fixed executable projection outside this repository. The local installation source and projection mechanism are deliberately excluded from repository content and containment evidence. The projection is acceptable only when its observed version and SHA-256 exactly match the portable pins above; there is no environment-variable or ambient-path fallback.
 
 ## Proposed zero-spend native-loop method
 
@@ -89,8 +91,8 @@ git diff origin/main...HEAD -- \
   scripts/probe_claude_code_native_containment.py \
   tests/test_claude_code_native_containment.py
 sha256sum scripts/probe_claude_code_native_containment.py
-sha256sum /work/.local/share/claude/versions/2.1.218
-/work/.local/share/claude/versions/2.1.218 --version
+sha256sum /opt/legalforecastbench/claude-code/pinned/claude
+/opt/legalforecastbench/claude-code/pinned/claude --version
 ```
 
 The expected executable observations are the version and hash in the pin table above. The source hash was recorded only after the implementation bytes were committed, frozen, and independently approved. The operator preflight, sudo-gate staged-file attestation, inner staged/copy equality check, and post-capture `probe.source_sha256` must all match the approved digest.
@@ -104,7 +106,7 @@ set -euo pipefail
 umask 077
 
 probe_path="$(realpath scripts/probe_claude_code_native_containment.py)"
-approved_probe_sha256="e5ce86ea5f0127f7e10678adc9dd1b533061c3b15b0515260a9155b6c85f6f5a"
+approved_probe_sha256="INSERT_FRESH_INDEPENDENTLY_APPROVED_SHA256"
 [[ "${approved_probe_sha256}" =~ ^[0-9a-f]{64}$ ]] || {
   echo "capture forbidden: insert the independently approved probe SHA-256" >&2
   exit 1
@@ -117,11 +119,11 @@ observed_probe_sha256="$(sha256sum -- "${probe_path}" | cut -d' ' -f1)"
 
 capture_path="$(
   mktemp --tmpdir=/tmp --suffix=.json \
-    claude-code-native-containment-2.1.218.XXXXXX
+    claude-code-native-containment-2.1.220.XXXXXX
 )"
 chmod 0600 "${capture_path}"
 if ! sudo-request \
-  --reason "LegalForecastBench issue #196: capture reviewed zero-provider-spend Claude 2.1.218 whole-process containment evidence" \
+  --reason "LegalForecastBench issue #196: capture reviewed zero-provider-spend Claude 2.1.220 whole-process containment evidence" \
   -- /usr/bin/python3 "${probe_path}" >"${capture_path}"; then
   rm -f -- "${capture_path}"
   exit 1
@@ -155,4 +157,4 @@ uv run pytest -q tests/test_claude_code_native_containment.py
 
 A later cross-capture replay is a separate gate. It is allowed only after an approved fixture exists and only after the probe and tests define an explicitly reviewed stable projection for every intentionally run-specific field. Do not use the environment-variable replay or claim semantic equivalence while that projection is absent or incomplete. Any eventual projection must enumerate the permitted differences; it is not permission to ignore other drift.
 
-Only an independently reviewed receipt that satisfies the full contract may be copied to `tests/fixtures/claude_native_containment/claude-code-native-containment-2.1.218.json`. Until then, the fixture is absent, the candidate is not passing evidence, and issue `#196` remains open.
+Only an independently reviewed receipt that satisfies the full contract may be copied to `tests/fixtures/claude_native_containment/claude-code-native-containment-2.1.220.json`. Until then, the fixture is absent, the candidate is not passing evidence, and issue `#196` remains open.
