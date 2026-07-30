@@ -144,7 +144,8 @@ def materialize_task(
     The source root, destination parent, and workspace require exclusive
     coordination from other same-UID processes during this call. Checks reject
     mutations they observe; the returned manifest does not make the workspace
-    immutable after this function returns.
+    immutable after this function returns. On failure, a partial workspace may
+    remain and must be removed under the same exclusive coordination before retry.
     """
 
     applied_limits = limits or MaterializationLimits()
