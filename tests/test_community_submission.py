@@ -28,6 +28,7 @@ from legalforecast.multiharness.spec import (
     RUN_RESULT_SCHEMA_VERSION,
     SANDBOX_POLICY_SCHEMA_VERSION,
     TASK_SCHEMA_VERSION,
+    TOOL_REQUEST_SCHEMA_VERSION,
     ContributorCredit,
 )
 from legalforecast.multiharness.validation import MultiHarnessValidationError
@@ -294,6 +295,104 @@ def test_package_group_id_is_independent_of_partial_selection_hash(
     )
 
 
+def test_package_revalidates_successful_live_container_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _mark_first_row_live(run_dir, receipt_sha256=SHA1)
+    calls: list[Path] = []
+
+    def _validate(*args: object, **kwargs: object) -> str:
+        receipt_path = kwargs.get("receipt_path", args[0] if args else None)
+        assert isinstance(receipt_path, Path)
+        calls.append(receipt_path)
+        return SHA1
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.community.validate_container_resume",
+        _validate,
+    )
+
+    package_community_submission(
+        _package_config(run_dir, tmp_path / "submission-package")
+    )
+
+    assert calls == [
+        run_dir
+        / "rows"
+        / "row-1"
+        / "private-logs"
+        / "tool-container"
+        / "execution-receipt.json"
+    ]
+
+
+def test_package_accepts_current_container_compatibility_fields(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    compatibility_path = run_dir / "run-compatibility.json"
+    compatibility = _read_json(compatibility_path)
+    compatibility["run_config"]["container_execution"] = "live_tools"
+    compatibility["adapter_capabilities"][0]["tool_protocol_version"] = (
+        TOOL_REQUEST_SCHEMA_VERSION
+    )
+    _write_json(compatibility_path, compatibility)
+    manifest_path = run_dir / "run-manifest.json"
+    manifest = _read_json(manifest_path)
+    manifest["run_compatibility_sha256"] = _record_sha256(compatibility)
+    _write_json(manifest_path, manifest)
+
+    package = package_community_submission(
+        _package_config(run_dir, tmp_path / "submission-package")
+    )
+
+    assert package.manifest.run_summary.row_count == 1
+
+
+@pytest.mark.parametrize("tool_protocol_version", (None, "unsupported.v0"))
+def test_package_rejects_live_compatibility_without_current_tool_protocol(
+    tmp_path: Path,
+    tool_protocol_version: str | None,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    compatibility_path = run_dir / "run-compatibility.json"
+    compatibility = _read_json(compatibility_path)
+    compatibility["run_config"]["container_execution"] = "live_tools"
+    if tool_protocol_version is not None:
+        compatibility["adapter_capabilities"][0]["tool_protocol_version"] = (
+            tool_protocol_version
+        )
+    _write_json(compatibility_path, compatibility)
+    manifest_path = run_dir / "run-manifest.json"
+    manifest = _read_json(manifest_path)
+    manifest["run_compatibility_sha256"] = _record_sha256(compatibility)
+    _write_json(manifest_path, manifest)
+
+    with pytest.raises(ValueError, match="live_tools requires every adapter"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "submission-package")
+        )
+
+
+def test_package_rejects_mismatched_live_container_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _mark_first_row_live(run_dir, receipt_sha256=SHA1)
+    monkeypatch.setattr(
+        "legalforecast.multiharness.community.validate_container_resume",
+        lambda *_args, **_kwargs: SHA2,
+    )
+
+    with pytest.raises(ValueError, match="receipt commitment"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "submission-package")
+        )
+
+
 def test_package_scrubs_lfb_raw_output_from_public_submission(
     tmp_path: Path,
 ) -> None:
@@ -426,6 +525,21 @@ def _package_config(run_dir: Path, output_dir: Path) -> CommunityPackageConfig:
         ),
         attestations=tuple(sorted(REQUIRED_ATTESTATIONS)),
         conformance_report_path=run_dir / "conformance-report.json",
+    )
+
+
+def _mark_first_row_live(run_dir: Path, *, receipt_sha256: str) -> None:
+    rows = _read_jsonl(run_dir / "row-results.jsonl")
+    rows[0]["container_execution"] = {
+        "mode": "live_tools",
+        "status": "succeeded",
+        "receipt_sha256": receipt_sha256,
+    }
+    _write_jsonl(run_dir / "row-results.jsonl", rows)
+    canonical_result = _read_jsonl(run_dir / "canonical-runs.jsonl")[0]
+    _write_json(
+        run_dir / "rows" / "row-1" / "result.json",
+        canonical_result,
     )
 
 

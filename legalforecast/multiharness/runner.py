@@ -17,19 +17,31 @@ from legalforecast._json_io import (
 )
 from legalforecast.evals.inspect_task import HarnessSolver
 from legalforecast.evals.packet_builder import ModelPacket
-from legalforecast.multiharness.adapters import HarnessAdapter
+from legalforecast.multiharness.adapters import HarnessAdapter, LiveToolAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
+from legalforecast.multiharness.container_runtime import (
+    ContainerRuntimeError,
+    ContainerToolSession,
+    validate_container_resume,
+)
 from legalforecast.multiharness.host_environment import (
+    build_container_backend_environment,
+    require_local_pinned_container_image,
     require_provider_environment_values,
+    require_rootless_container_daemon,
 )
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
 from legalforecast.multiharness.sandbox import (
     PROVIDER_EGRESS_HOST_ONLY,
     build_container_plan,
+    live_container_public_plan,
+    resolve_container_backend,
+    validate_live_container_policy,
 )
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
 from legalforecast.multiharness.spec import (
     RUN_COMPATIBILITY_SCHEMA_VERSION,
+    TOOL_REQUEST_SCHEMA_VERSION,
     AdapterCapabilities,
     AdapterManifest,
     ArtifactRecord,
@@ -46,6 +58,7 @@ from legalforecast.multiharness.validation import (
 )
 
 INCOMPLETE_RUN_POLICIES = frozenset({"record_failure", "fail_fast"})
+CONTAINER_EXECUTION_MODES = frozenset({"plan_only", "live_tools"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +99,7 @@ class MultiHarnessRunConfig:
     max_parallelism: int = 1
     resume: bool = False
     incomplete_run_policy: str = "record_failure"
+    container_execution: str = "plan_only"
 
     def __post_init__(self) -> None:
         if not self.adapters:
@@ -98,6 +112,9 @@ class MultiHarnessRunConfig:
         if self.incomplete_run_policy not in INCOMPLETE_RUN_POLICIES:
             allowed = ", ".join(sorted(INCOMPLETE_RUN_POLICIES))
             raise ValueError(f"incomplete_run_policy must be one of: {allowed}")
+        if self.container_execution not in CONTAINER_EXECUTION_MODES:
+            allowed = ", ".join(sorted(CONTAINER_EXECUTION_MODES))
+            raise ValueError(f"container_execution must be one of: {allowed}")
         validate_provider_environment_scope(
             sandbox_policy=self.sandbox_policy,
             adapter_count=len(self.adapters),
@@ -124,6 +141,7 @@ class MultiHarnessRunConfig:
             "run_id": self.run_id,
             "max_parallelism": self.max_parallelism,
             "incomplete_run_policy": self.incomplete_run_policy,
+            "container_execution": self.container_execution,
         }
 
 
@@ -140,8 +158,24 @@ class MultiHarnessRunRow:
     workspace: Path
     resumed: bool = False
     lfb_record: Mapping[str, Any] | None = None
+    container_execution: str = "plan_only"
+    container_receipt_sha256: str | None = None
 
     def to_record(self) -> dict[str, Any]:
+        container_record: dict[str, Any] = {
+            "mode": self.container_execution,
+            "status": (
+                "not_run"
+                if self.container_execution == "plan_only"
+                else (
+                    "succeeded"
+                    if self.container_receipt_sha256 is not None
+                    else "failed"
+                )
+            ),
+        }
+        if self.container_receipt_sha256 is not None:
+            container_record["receipt_sha256"] = self.container_receipt_sha256
         return {
             "row_id": self.row_id,
             "task_id": self.task.task_id,
@@ -156,6 +190,7 @@ class MultiHarnessRunRow:
             "status": self.result.status,
             "workspace": self.workspace.as_posix(),
             "resumed": self.resumed,
+            "container_execution": container_record,
         }
 
 
@@ -214,6 +249,9 @@ class _MultiHarnessRunner:
 
     def run(self) -> MultiHarnessRun:
         (self.config.output_dir / "artifact-index.json").unlink(missing_ok=True)
+        if self.config.container_execution == "live_tools":
+            validate_live_container_policy(self.config.sandbox_policy)
+            _preflight_live_container(self.config.sandbox_policy)
         provider_values = require_provider_environment_values(
             self.config.sandbox_policy.allowed_provider_env_vars
         )
@@ -301,6 +339,17 @@ class _MultiHarnessRunner:
                 tuple(provider_values.values()),
                 "adapter capabilities",
             )
+            if self.config.container_execution == "live_tools":
+                if value.tool_protocol_version != TOOL_REQUEST_SCHEMA_VERSION:
+                    raise ValueError(
+                        "live tool container requires adapter tool protocol "
+                        f"{TOOL_REQUEST_SCHEMA_VERSION}"
+                    )
+                if not isinstance(adapter, LiveToolAdapter):
+                    raise ValueError(
+                        "adapter advertises the live tool protocol but does not "
+                        "implement run_with_tools"
+                    )
             capabilities[adapter_id] = value
             write_json_object(
                 workspace / "adapter-capabilities.json",
@@ -385,18 +434,23 @@ class _MultiHarnessRunner:
 
         resumed = False
         lfb_record: Mapping[str, Any] | None = None
+        container_receipt_sha256: str | None = None
         try:
             resumed_result = self._resume_result(plan)
             write_json_object(plan.workspace / "request.json", plan.request.to_record())
             write_json_object(
                 plan.workspace / "sandbox.plan.json",
-                build_container_plan(plan.request.sandbox_policy).to_record(),
+                (
+                    live_container_public_plan(plan.request.sandbox_policy)
+                    if self.config.container_execution == "live_tools"
+                    else build_container_plan(plan.request.sandbox_policy).to_record()
+                ),
             )
             if resumed_result is not None:
-                result, lfb_record = resumed_result
+                result, lfb_record, container_receipt_sha256 = resumed_result
                 resumed = True
             else:
-                result, lfb_record = self._run_adapter(plan)
+                result, lfb_record, container_receipt_sha256 = self._run_adapter(plan)
             provider_values = require_provider_environment_values(
                 plan.request.sandbox_policy.allowed_provider_env_vars
             )
@@ -406,6 +460,7 @@ class _MultiHarnessRunner:
                 "run result",
             )
         except Exception as exc:
+            container_receipt_sha256 = None
             if self.config.incomplete_run_policy == "fail_fast":
                 try:
                     (plan.workspace / "result.json").unlink(missing_ok=True)
@@ -427,12 +482,14 @@ class _MultiHarnessRunner:
             workspace=plan.workspace,
             resumed=resumed,
             lfb_record=lfb_record,
+            container_execution=self.config.container_execution,
+            container_receipt_sha256=container_receipt_sha256,
         )
 
     def _resume_result(
         self,
         plan: _RowPlan,
-    ) -> tuple[RunResult, Mapping[str, Any] | None] | None:
+    ) -> tuple[RunResult, Mapping[str, Any] | None, str | None] | None:
         if not self.config.resume:
             return None
         request_path = plan.workspace / "request.json"
@@ -458,15 +515,66 @@ class _MultiHarnessRunner:
             return None
         if result.request_id != plan.request.request_id or result.status != "succeeded":
             return None
+        container_receipt_sha256: str | None = None
+        if self.config.container_execution == "live_tools":
+            try:
+                container_receipt_sha256 = validate_container_resume(
+                    plan.workspace
+                    / "private-logs"
+                    / "tool-container"
+                    / "execution-receipt.json",
+                    request=plan.request,
+                    result=result,
+                    policy=plan.request.sandbox_policy,
+                )
+            except (OSError, ValueError, ContainerRuntimeError):
+                return None
         lfb_record_path = plan.workspace / "lfb-inspect-record.json"
         if lfb_record_path.is_file():
-            return result, _read_json(lfb_record_path, "lfb inspect record")
-        return result, None
+            return (
+                result,
+                _read_json(lfb_record_path, "lfb inspect record"),
+                container_receipt_sha256,
+            )
+        return result, None, container_receipt_sha256
 
     def _run_adapter(
         self,
         plan: _RowPlan,
-    ) -> tuple[RunResult, Mapping[str, Any] | None]:
+    ) -> tuple[RunResult, Mapping[str, Any] | None, str | None]:
+        if self.config.container_execution == "live_tools":
+            session = ContainerToolSession(
+                policy=plan.request.sandbox_policy,
+                run_request=plan.request,
+                workspace=plan.workspace,
+            )
+            try:
+                result = cast(LiveToolAdapter, plan.adapter).run_with_tools(
+                    plan.request,
+                    plan.workspace,
+                    session,
+                )
+                if result.request_id != plan.request.request_id:
+                    raise ValueError("run result request_id does not match request")
+                provider_values = require_provider_environment_values(
+                    plan.request.sandbox_policy.allowed_provider_env_vars
+                )
+                validate_public_record(result.to_record(), "live run result")
+                validate_no_secret_values(
+                    result.to_record(),
+                    tuple(provider_values.values()),
+                    "live run result",
+                )
+                receipt = session.finalize(result)
+                receipt_sha256 = receipt.receipt_sha256
+            except BaseException as exc:
+                try:
+                    session.abort()
+                except ContainerRuntimeError as cleanup_error:
+                    raise cleanup_error from exc
+                raise
+            write_json_object(plan.workspace / "result.json", result.to_record())
+            return result, None, receipt_sha256
         if isinstance(plan.adapter, LfbNativeAdapter):
             projected = self._run_lfb_native(plan)
             result = projected.result
@@ -481,11 +589,11 @@ class _MultiHarnessRunner:
             )
             write_json_object(plan.workspace / "result.json", result.to_record())
             write_json_object(plan.workspace / "lfb-inspect-record.json", lfb_record)
-            return result, lfb_record
+            return result, lfb_record, None
         result = plan.adapter.run(plan.request, plan.workspace)
         if result.request_id != plan.request.request_id:
             raise ValueError("run result request_id does not match request")
-        return result, None
+        return result, None, None
 
     def _run_lfb_native(self, plan: _RowPlan) -> AdapterRunResult:
         packet = plan.model_config.lfb_packet
@@ -558,6 +666,23 @@ def _ordered_adapters(adapters: Sequence[HarnessAdapter]) -> tuple[HarnessAdapte
                 adapter.manifest.adapter_version,
             ),
         )
+    )
+
+
+def _preflight_live_container(policy: SandboxPolicy) -> None:
+    """Prove the rootless daemon and exact local image before any adapter starts."""
+
+    environment = build_container_backend_environment()
+    backend_path = resolve_container_backend(policy)
+    require_rootless_container_daemon(
+        backend_path,
+        policy.backend,
+        environment,
+    )
+    require_local_pinned_container_image(
+        backend_path,
+        policy.image,
+        environment,
     )
 
 
@@ -794,6 +919,7 @@ def _run_compatibility_record(
                 ),
             },
             "incomplete_run_policy": config.incomplete_run_policy,
+            "container_execution": config.container_execution,
         },
         "adapter_capabilities": [
             capabilities[adapter_id].to_record() for adapter_id in sorted(capabilities)

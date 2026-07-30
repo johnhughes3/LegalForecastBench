@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.conformance import run_adapter_conformance
+from legalforecast.multiharness.spec import TOOL_REQUEST_SCHEMA_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 LQ_AI_MANIFEST = ROOT / "examples" / "adapters" / "lq-ai" / "adapter-manifest.json"
@@ -143,10 +146,43 @@ def test_provider_runtime_baselines_record_api_auth_assumptions(
         assert "provider_terms_assumption" in public_summary
 
 
+def test_only_openai_fixture_baseline_advertises_live_tool_protocol(
+    tmp_path: Path,
+) -> None:
+    openai = CommandAdapter.from_manifest_file(
+        OPENAI_RESPONSES_MANIFEST,
+        timeout_seconds=30,
+    ).capabilities(tmp_path / "openai")
+    claude = CommandAdapter.from_manifest_file(
+        CLAUDE_AGENT_SDK_MANIFEST,
+        timeout_seconds=30,
+    ).capabilities(tmp_path / "claude")
+
+    assert openai.tool_protocol_version == TOOL_REQUEST_SCHEMA_VERSION
+    assert claude.tool_protocol_version is None
+    expected_semantics = {
+        "adapter_id": "openai-responses-fixture-baseline",
+        "adapter_version": "0.1.0",
+        "supported_families": ["legalforecast_mtd", "harvey_lab"],
+        "supported_scoring_modes": ["lfb_brier", "lab_native"],
+        "supports_sandbox_policy": True,
+        "profile": "openai-responses",
+        "tool_protocol_version": TOOL_REQUEST_SCHEMA_VERSION,
+    }
+    encoded = json.dumps(
+        expected_semantics,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    assert openai.capabilities_sha256 == (
+        "sha256:" + hashlib.sha256(encoded).hexdigest()
+    )
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     import json
 
-    record = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(record, dict):
+    decoded = cast(object, json.loads(path.read_text(encoding="utf-8")))
+    if not isinstance(decoded, dict):
         raise AssertionError(f"{path} must contain a JSON object")
-    return record
+    return cast(dict[str, Any], decoded)

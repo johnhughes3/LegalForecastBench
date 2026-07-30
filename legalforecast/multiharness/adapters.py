@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
@@ -12,6 +12,7 @@ from legalforecast.multiharness.spec import (
     RunRequest,
     RunResult,
 )
+from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 
 
 class AdapterError(RuntimeError):
@@ -48,3 +49,25 @@ class HarnessAdapter(Protocol):
     def run(self, request: RunRequest, workspace: Path) -> RunResult:
         """Run one request and return a validated canonical result."""
         raise NotImplementedError("adapter execution is provided by implementations")
+
+
+class ToolExecutor(Protocol):
+    """Host-owned executor for one validated live tool request."""
+
+    def execute(self, request: ToolRequest, workspace: Path) -> ToolResponse:
+        """Execute one tool operation without exposing host provider credentials."""
+        raise NotImplementedError("tool execution is provided by implementations")
+
+
+@runtime_checkable
+class LiveToolAdapter(HarnessAdapter, Protocol):
+    """Adapter that can exchange live tool calls with a host-owned executor."""
+
+    def run_with_tools(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        tool_executor: ToolExecutor,
+    ) -> RunResult:
+        """Run one request using a bounded host-owned tool RPC channel."""
+        raise NotImplementedError("live tool execution is provided by implementations")

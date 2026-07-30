@@ -173,6 +173,62 @@ def test_multiharness_run_dry_run_does_not_invoke_adapter(tmp_path: Path) -> Non
     assert not (output_dir / "adapter-capabilities").exists()
 
 
+def test_multiharness_live_tool_dry_run_requires_container_without_invoking_it(
+    tmp_path: Path,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    task_index = tmp_path / "task-index.json"
+    manifest = _adapter_manifest(
+        tmp_path / "bad-manifest.json",
+        command=("definitely-not-a-real-adapter",),
+    )
+    output_dir = tmp_path / "dry-run"
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "harvey-lab",
+                "--lab-root",
+                str(lab_root),
+                "--output",
+                str(task_index),
+            ]
+        )
+        == 0
+    )
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(task_index),
+                "--adapter-manifest",
+                str(manifest),
+                "--model-key",
+                "fixture-model",
+                "--output-dir",
+                str(output_dir),
+                "--sandbox-image",
+                "sha256:" + "a" * 64,
+                "--live-tool-container",
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
+
+    plan = _read_json(output_dir / "run-plan.json")
+    assert plan["container_invocation"] == "required"
+    assert plan["adapter_invocation"] == "skipped"
+    assert plan["sandbox_policy"]["uid_gid"] == "65532:65532"
+    assert not (output_dir / "adapter-capabilities").exists()
+
+
 def test_multiharness_run_dry_run_rejects_provider_env_without_egress(
     tmp_path: Path,
     capsys: CaptureFixture[str],
