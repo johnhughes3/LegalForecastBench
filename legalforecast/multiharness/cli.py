@@ -41,6 +41,8 @@ from legalforecast.multiharness.sandbox import (
 )
 from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import (
+    HOST_PROCESS_CONTAINMENT_MODES,
+    POSIX_PROCESS_GROUP_CONTAINMENT,
     AdapterManifest,
     ContributorCredit,
     TaskIndex,
@@ -184,6 +186,15 @@ def add_multiharness_parser(subparsers: Any) -> None:
     run.add_argument("--sandbox-image", default="python:3.12-slim")
     run.add_argument("--sandbox-policy-id", default="multiharness-cli")
     run.add_argument("--sandbox-timeout-seconds", type=int, default=300)
+    run.add_argument(
+        "--host-process-containment",
+        choices=tuple(sorted(HOST_PROCESS_CONTAINMENT_MODES)),
+        default=POSIX_PROCESS_GROUP_CONTAINMENT,
+        help=(
+            "Required containment for the host command adapter. The systemd "
+            "scope/cgroup-v2 mode fails closed when unavailable."
+        ),
+    )
     run.add_argument(
         "--live-tool-container",
         action="store_true",
@@ -811,6 +822,10 @@ def _sandbox_policy_from_args(args: argparse.Namespace):
         network_policy=network_policy,
         uid_gid="65532:65532" if cast(bool, args.live_tool_container) else None,
         allowed_provider_env_vars=provider_env_vars,
+        host_process_containment=_required_str_arg(
+            args,
+            "host_process_containment",
+        ),
     )
 
 

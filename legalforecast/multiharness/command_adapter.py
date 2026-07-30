@@ -29,7 +29,22 @@ from legalforecast.multiharness.host_environment import (
     build_host_subprocess_environment,
     require_provider_environment_values,
 )
+from legalforecast.multiharness.process_containment import (
+    ProcessContainmentError,
+    ProcessContainmentEvidence,
+    ProcessContainmentHandle,
+    abandon_prepared_containment,
+    cleanup_process_containment,
+    containment_launcher_environment,
+    establish_process_containment,
+    launch_failure_evidence,
+    preflight_process_containment,
+    prepare_contained_command,
+    release_contained_command,
+)
 from legalforecast.multiharness.spec import (
+    LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+    POSIX_PROCESS_GROUP_CONTAINMENT,
     TOOL_REQUEST_SCHEMA_VERSION,
     AdapterCapabilities,
     AdapterManifest,
@@ -63,6 +78,7 @@ class CommandExecutionLog:
     stdout_path: Path
     stderr_path: Path
     returncode: int | None
+    containment: ProcessContainmentEvidence
     status: str = "completed"
     stdout_truncated: bool = False
     stderr_truncated: bool = False
@@ -71,7 +87,7 @@ class CommandExecutionLog:
 
     def to_private_record(self) -> dict[str, Any]:
         return {
-            "schema_version": "legalforecast.multiharness.command_execution_log.v1",
+            "schema_version": "legalforecast.multiharness.command_execution_log.v2",
             "phase": self.phase,
             "status": self.status,
             "stdout_path": self.stdout_path.as_posix(),
@@ -81,7 +97,16 @@ class CommandExecutionLog:
             "stderr_truncated": self.stderr_truncated,
             "termination_requested": self.termination_requested,
             "forced_kill": self.forced_kill,
+            "containment": self.containment.to_private_record(),
         }
+
+
+@dataclass(slots=True)
+class _ContainedProcessOwnership:
+    """Caller-visible ownership before cancellation can cross the return boundary."""
+
+    process: subprocess.Popen[bytes] | None = None
+    handle: ProcessContainmentHandle | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,13 +144,19 @@ class CommandAdapter:
             max_private_log_bytes=max_private_log_bytes,
         )
 
-    def capabilities(self, workspace: Path) -> AdapterCapabilities:
+    def capabilities(
+        self,
+        workspace: Path,
+        *,
+        host_process_containment: str = POSIX_PROCESS_GROUP_CONTAINMENT,
+    ) -> AdapterCapabilities:
         output_path = workspace / "adapter-capabilities.json"
         output_path.unlink(missing_ok=True)
         self._invoke(
             "capabilities",
             ("capabilities", "--output", str(output_path)),
             workspace=workspace,
+            host_process_containment=host_process_containment,
         )
         capabilities = AdapterCapabilities.from_record(
             _read_command_json(output_path, "adapter capabilities")
@@ -139,7 +170,14 @@ class CommandAdapter:
         return capabilities
 
     def prepare(self, request: RunRequest, workspace: Path) -> AdapterPreparation:
-        capabilities = self.capabilities(workspace)
+        requested_containment = request.sandbox_policy.host_process_containment
+        if requested_containment == POSIX_PROCESS_GROUP_CONTAINMENT:
+            capabilities = self.capabilities(workspace)
+        else:
+            capabilities = self.capabilities(
+                workspace,
+                host_process_containment=requested_containment,
+            )
         if request.adapter.adapter_id != self.manifest.adapter_id:
             raise CommandAdapterError("run request adapter ID does not match manifest")
         if request.adapter.adapter_version != self.manifest.adapter_version:
@@ -184,6 +222,7 @@ class CommandAdapter:
             allowed_provider_env_vars=(
                 request.sandbox_policy.allowed_provider_env_vars
             ),
+            host_process_containment=(request.sandbox_policy.host_process_containment),
         )
         result = RunResult.from_record(
             _read_command_json(private_output_path, "run result")
@@ -276,34 +315,56 @@ class CommandAdapter:
         stderr_path = private_logs / f"{phase}-stderr.log"
         execution_path = private_logs / f"{phase}-execution.json"
         argv = (*self._resolved_command(), *args)
-        try:
-            environment = build_host_subprocess_environment(
-                private_logs,
-                request.sandbox_policy.allowed_provider_env_vars,
-            )
-        except HostEnvironmentError as exc:
-            raise CommandAdapterError(str(exc)) from exc
+        requested_containment = request.sandbox_policy.host_process_containment
 
         status = "launch_failed"
         returncode: int | None = None
-        termination_requested = False
-        forced_kill = False
+        containment = launch_failure_evidence(requested_containment)
         pending_error: BaseException | None = None
         with (
+            _deferred_command_cancellation_signal_handlers() as lifecycle_deferred,
             tempfile.TemporaryFile(mode="w+b", dir=private_logs) as stdout_handle,
             tempfile.TemporaryFile(mode="w+b", dir=private_logs) as stderr_handle,
         ):
+            ownership = _ContainedProcessOwnership()
             try:
-                process = subprocess.Popen(
-                    argv,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=stderr_handle,
-                    env=environment,
-                    start_new_session=True,
-                )
-            except OSError as exc:
+                with _command_cancellation_signal_handlers():
+                    _launch_contained_adapter(
+                        argv,
+                        ownership=ownership,
+                        requested=requested_containment,
+                        private_logs=private_logs,
+                        allowed_provider_env_vars=(
+                            request.sandbox_policy.allowed_provider_env_vars
+                        ),
+                        runtime_max_seconds=(
+                            self.timeout_seconds
+                            + (2 * self.termination_grace_seconds)
+                            + 5
+                        ),
+                        termination_grace_seconds=self.termination_grace_seconds,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=stderr_handle,
+                    )
+                assert ownership.process is not None
+                assert ownership.handle is not None
+                process = ownership.process
+                containment_handle = ownership.handle
+            except _ContainedLaunchError as exc:
+                pending_error = exc.public_error
+                containment = exc.evidence
+                status = exc.status
+            except (KeyboardInterrupt, _CommandCancellationSignal) as exc:
+                status = "cancelled"
                 pending_error = exc
+                if ownership.process is not None and ownership.handle is not None:
+                    with _deferred_command_cancellation_signal_handlers():
+                        containment = _cleanup_contained_process(
+                            ownership.handle,
+                            ownership.process,
+                            self.termination_grace_seconds,
+                        )
             else:
                 try:
                     with _command_cancellation_signal_handlers():
@@ -316,34 +377,35 @@ class CommandAdapter:
                         )
                 except subprocess.TimeoutExpired:
                     status = "timed_out"
-                    termination_requested, forced_kill = _terminate_process_group(
-                        process,
-                        self.termination_grace_seconds,
-                    )
                 except (KeyboardInterrupt, _CommandCancellationSignal) as exc:
                     status = "cancelled"
                     pending_error = exc
-                    termination_requested, forced_kill = _terminate_process_group(
-                        process,
-                        self.termination_grace_seconds,
-                    )
                 except Exception as exc:
                     status = "exception"
                     pending_error = exc
-                    termination_requested, forced_kill = _terminate_process_group(
-                        process,
-                        self.termination_grace_seconds,
-                    )
                 else:
                     returncode = process.returncode
                     status = "completed" if returncode == 0 else "failed"
-                    termination_requested, forced_kill = _terminate_process_group(
+                with _deferred_command_cancellation_signal_handlers() as deferred:
+                    containment = _cleanup_contained_process(
+                        containment_handle,
                         process,
                         self.termination_grace_seconds,
                     )
-                    if returncode == 0 and (termination_requested or forced_kill):
-                        status = "process_group_cleanup_requested"
+                if deferred.received:
+                    status = "cancelled"
+                    pending_error = _CommandCancellationSignal()
                 returncode = process.returncode
+                if (
+                    status == "completed"
+                    and returncode == 0
+                    and containment.cleanup_requested
+                ):
+                    status = (
+                        "process_group_cleanup_requested"
+                        if requested_containment == POSIX_PROCESS_GROUP_CONTAINMENT
+                        else "descendant_cleanup_requested"
+                    )
 
             stdout_content, stdout_truncated = _bounded_private_log(
                 stdout_handle,
@@ -353,46 +415,44 @@ class CommandAdapter:
                 stderr_handle,
                 self.max_private_log_bytes,
             )
-
-        _write_private_bytes(stdout_path, stdout_content)
-        _write_private_bytes(stderr_path, stderr_content)
-        execution = CommandExecutionLog(
-            phase=phase,
-            stdout_path=stdout_path,
-            stderr_path=stderr_path,
-            returncode=returncode,
-            status=status,
-            stdout_truncated=stdout_truncated,
-            stderr_truncated=stderr_truncated,
-            termination_requested=termination_requested,
-            forced_kill=forced_kill,
+            if lifecycle_deferred.received:
+                status = "cancelled"
+                pending_error = _CommandCancellationSignal()
+            _write_private_bytes(stdout_path, stdout_content)
+            _write_private_bytes(stderr_path, stderr_content)
+            execution = CommandExecutionLog(
+                phase=phase,
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                returncode=returncode,
+                containment=containment,
+                status=status,
+                stdout_truncated=stdout_truncated,
+                stderr_truncated=stderr_truncated,
+                termination_requested=containment.termination_requested,
+                forced_kill=containment.forced_kill,
+            )
+            _write_private_record(execution_path, execution.to_private_record())
+        if lifecycle_deferred.received and execution.status != "cancelled":
+            pending_error = _CommandCancellationSignal()
+            execution = CommandExecutionLog(
+                phase=execution.phase,
+                stdout_path=execution.stdout_path,
+                stderr_path=execution.stderr_path,
+                returncode=execution.returncode,
+                containment=execution.containment,
+                status="cancelled",
+                stdout_truncated=execution.stdout_truncated,
+                stderr_truncated=execution.stderr_truncated,
+                termination_requested=execution.termination_requested,
+                forced_kill=execution.forced_kill,
+            )
+            _write_private_record(execution_path, execution.to_private_record())
+        _raise_for_execution(
+            execution,
+            pending_error=pending_error,
+            timeout_seconds=self.timeout_seconds,
         )
-        _write_private_record(execution_path, execution.to_private_record())
-
-        if status == "timed_out":
-            raise CommandAdapterError(
-                f"command adapter {phase} timed out after {self.timeout_seconds}s"
-            )
-        if status == "cancelled":
-            raise CommandAdapterError(f"command adapter {phase} was cancelled") from (
-                pending_error
-            )
-        if isinstance(pending_error, CommandAdapterError):
-            raise pending_error
-        if pending_error is not None:
-            raise CommandAdapterError(
-                f"command adapter {phase} could not complete; see private logs"
-            ) from pending_error
-        if status == "process_group_cleanup_requested":
-            raise CommandAdapterError(
-                f"command adapter {phase} left processes in its original process "
-                "group; group-scoped cleanup was requested; see private logs"
-            )
-        if returncode != 0:
-            raise CommandAdapterError(
-                f"command adapter {phase} failed with exit code "
-                f"{returncode}; see private logs"
-            )
         return execution
 
     def _invoke(
@@ -402,6 +462,7 @@ class CommandAdapter:
         *,
         workspace: Path,
         allowed_provider_env_vars: Sequence[str] = (),
+        host_process_containment: str = POSIX_PROCESS_GROUP_CONTAINMENT,
     ) -> CommandExecutionLog:
         self._validate_execution_settings()
         workspace.mkdir(parents=True, exist_ok=True)
@@ -411,68 +472,88 @@ class CommandAdapter:
         stderr_path = private_logs / f"{phase}-stderr.log"
         execution_path = private_logs / f"{phase}-execution.json"
         argv = (*self._resolved_command(), *args)
-        try:
-            environment = build_host_subprocess_environment(
-                private_logs,
-                allowed_provider_env_vars,
-            )
-        except HostEnvironmentError as exc:
-            raise CommandAdapterError(str(exc)) from exc
 
         status = "launch_failed"
         returncode: int | None = None
-        termination_requested = False
-        forced_kill = False
+        containment = launch_failure_evidence(host_process_containment)
         pending_error: BaseException | None = None
         with (
+            _deferred_command_cancellation_signal_handlers() as lifecycle_deferred,
             tempfile.TemporaryFile(mode="w+b", dir=private_logs) as stdout_handle,
             tempfile.TemporaryFile(mode="w+b", dir=private_logs) as stderr_handle,
         ):
+            ownership = _ContainedProcessOwnership()
             try:
-                process = subprocess.Popen(
-                    argv,
-                    stdin=subprocess.DEVNULL,
-                    stdout=stdout_handle,
-                    stderr=stderr_handle,
-                    env=environment,
-                    start_new_session=True,
-                )
-            except OSError as exc:
+                with _command_cancellation_signal_handlers():
+                    _launch_contained_adapter(
+                        argv,
+                        ownership=ownership,
+                        requested=host_process_containment,
+                        private_logs=private_logs,
+                        allowed_provider_env_vars=allowed_provider_env_vars,
+                        runtime_max_seconds=(
+                            self.timeout_seconds
+                            + (2 * self.termination_grace_seconds)
+                            + 5
+                        ),
+                        termination_grace_seconds=self.termination_grace_seconds,
+                        stdin=subprocess.DEVNULL,
+                        stdout=stdout_handle,
+                        stderr=stderr_handle,
+                    )
+                assert ownership.process is not None
+                assert ownership.handle is not None
+                process = ownership.process
+                containment_handle = ownership.handle
+            except _ContainedLaunchError as exc:
+                pending_error = exc.public_error
+                containment = exc.evidence
+                status = exc.status
+            except (KeyboardInterrupt, _CommandCancellationSignal) as exc:
+                status = "cancelled"
                 pending_error = exc
+                if ownership.process is not None and ownership.handle is not None:
+                    with _deferred_command_cancellation_signal_handlers():
+                        containment = _cleanup_contained_process(
+                            ownership.handle,
+                            ownership.process,
+                            self.termination_grace_seconds,
+                        )
             else:
                 try:
                     with _command_cancellation_signal_handlers():
                         process.wait(timeout=self.timeout_seconds)
                 except subprocess.TimeoutExpired:
                     status = "timed_out"
-                    termination_requested, forced_kill = _terminate_process_group(
-                        process,
-                        self.termination_grace_seconds,
-                    )
                 except (KeyboardInterrupt, _CommandCancellationSignal) as exc:
                     status = "cancelled"
                     pending_error = exc
-                    termination_requested, forced_kill = _terminate_process_group(
-                        process,
-                        self.termination_grace_seconds,
-                    )
                 except Exception as exc:
                     status = "exception"
                     pending_error = exc
-                    termination_requested, forced_kill = _terminate_process_group(
-                        process,
-                        self.termination_grace_seconds,
-                    )
                 else:
                     returncode = process.returncode
                     status = "completed" if returncode == 0 else "failed"
-                    termination_requested, forced_kill = _terminate_process_group(
+                with _deferred_command_cancellation_signal_handlers() as deferred:
+                    containment = _cleanup_contained_process(
+                        containment_handle,
                         process,
                         self.termination_grace_seconds,
                     )
-                    if returncode == 0 and (termination_requested or forced_kill):
-                        status = "process_group_cleanup_requested"
+                if deferred.received:
+                    status = "cancelled"
+                    pending_error = _CommandCancellationSignal()
                 returncode = process.returncode
+                if (
+                    status == "completed"
+                    and returncode == 0
+                    and containment.cleanup_requested
+                ):
+                    status = (
+                        "process_group_cleanup_requested"
+                        if host_process_containment == POSIX_PROCESS_GROUP_CONTAINMENT
+                        else "descendant_cleanup_requested"
+                    )
 
             stdout_content, stdout_truncated = _bounded_private_log(
                 stdout_handle,
@@ -482,44 +563,44 @@ class CommandAdapter:
                 stderr_handle,
                 self.max_private_log_bytes,
             )
-
-        _write_private_bytes(stdout_path, stdout_content)
-        _write_private_bytes(stderr_path, stderr_content)
-        execution = CommandExecutionLog(
-            phase=phase,
-            stdout_path=stdout_path,
-            stderr_path=stderr_path,
-            returncode=returncode,
-            status=status,
-            stdout_truncated=stdout_truncated,
-            stderr_truncated=stderr_truncated,
-            termination_requested=termination_requested,
-            forced_kill=forced_kill,
+            if lifecycle_deferred.received:
+                status = "cancelled"
+                pending_error = _CommandCancellationSignal()
+            _write_private_bytes(stdout_path, stdout_content)
+            _write_private_bytes(stderr_path, stderr_content)
+            execution = CommandExecutionLog(
+                phase=phase,
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                returncode=returncode,
+                containment=containment,
+                status=status,
+                stdout_truncated=stdout_truncated,
+                stderr_truncated=stderr_truncated,
+                termination_requested=containment.termination_requested,
+                forced_kill=containment.forced_kill,
+            )
+            _write_private_record(execution_path, execution.to_private_record())
+        if lifecycle_deferred.received and execution.status != "cancelled":
+            pending_error = _CommandCancellationSignal()
+            execution = CommandExecutionLog(
+                phase=execution.phase,
+                stdout_path=execution.stdout_path,
+                stderr_path=execution.stderr_path,
+                returncode=execution.returncode,
+                containment=execution.containment,
+                status="cancelled",
+                stdout_truncated=execution.stdout_truncated,
+                stderr_truncated=execution.stderr_truncated,
+                termination_requested=execution.termination_requested,
+                forced_kill=execution.forced_kill,
+            )
+            _write_private_record(execution_path, execution.to_private_record())
+        _raise_for_execution(
+            execution,
+            pending_error=pending_error,
+            timeout_seconds=self.timeout_seconds,
         )
-        _write_private_record(execution_path, execution.to_private_record())
-
-        if status == "timed_out":
-            raise CommandAdapterError(
-                f"command adapter {phase} timed out after {self.timeout_seconds}s"
-            )
-        if status == "cancelled":
-            raise CommandAdapterError(f"command adapter {phase} was cancelled") from (
-                pending_error
-            )
-        if pending_error is not None:
-            raise CommandAdapterError(
-                f"command adapter {phase} could not complete; see private logs"
-            ) from pending_error
-        if status == "process_group_cleanup_requested":
-            raise CommandAdapterError(
-                f"command adapter {phase} left processes in its original process "
-                "group; group-scoped cleanup was requested; see private logs"
-            )
-        if returncode != 0:
-            raise CommandAdapterError(
-                f"command adapter {phase} failed with exit code "
-                f"{returncode}; see private logs"
-            )
         return execution
 
     def _validate_execution_settings(self) -> None:
@@ -543,6 +624,312 @@ class CommandAdapter:
             resolved = self.base_dir / executable
             return (str(resolved), *command[1:])
         return command
+
+
+class _ContainedLaunchError(Exception):
+    """Internal launch failure carrying truthful private evidence."""
+
+    def __init__(
+        self,
+        public_error: CommandAdapterError,
+        evidence: ProcessContainmentEvidence,
+        *,
+        status: str = "launch_failed",
+    ) -> None:
+        super().__init__(str(public_error))
+        self.public_error = public_error
+        self.evidence = evidence
+        self.status = status
+
+
+def _launch_contained_adapter(
+    argv: tuple[str, ...],
+    *,
+    ownership: _ContainedProcessOwnership,
+    requested: str,
+    private_logs: Path,
+    allowed_provider_env_vars: Sequence[str],
+    runtime_max_seconds: float,
+    termination_grace_seconds: float,
+    stdin: Any,
+    stdout: Any,
+    stderr: Any,
+) -> None:
+    try:
+        preflight_process_containment(requested)
+        deferred_provider_environment = requested == LINUX_SYSTEMD_SCOPE_CONTAINMENT
+        environment = build_host_subprocess_environment(
+            private_logs,
+            () if deferred_provider_environment else allowed_provider_env_vars,
+        )
+        environment.update(containment_launcher_environment(requested))
+        prepared = prepare_contained_command(
+            requested,
+            argv,
+            private_logs=private_logs,
+            runtime_max_seconds=runtime_max_seconds,
+        )
+    except ProcessContainmentError as exc:
+        raise _ContainedLaunchError(
+            CommandAdapterError(
+                "required host process containment was unavailable before "
+                f"adapter launch: {exc}"
+            ),
+            launch_failure_evidence(
+                requested,
+                establishment=exc.establishment,
+            ),
+        ) from exc
+    except HostEnvironmentError as exc:
+        raise _ContainedLaunchError(
+            CommandAdapterError(str(exc)),
+            launch_failure_evidence(requested),
+        ) from exc
+    except (KeyboardInterrupt, _CommandCancellationSignal) as exc:
+        raise _ContainedLaunchError(
+            CommandAdapterError("command adapter launch was cancelled"),
+            launch_failure_evidence(requested),
+            status="cancelled",
+        ) from exc
+
+    process: subprocess.Popen[bytes] | None = None
+    handle: ProcessContainmentHandle | None = None
+    try:
+        process = subprocess.Popen(
+            prepared.argv,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            env=environment,
+            start_new_session=True,
+        )
+        handle = ProcessContainmentHandle(
+            requested=requested,
+            unit_name=prepared.unit_name,
+        )
+        handle = establish_process_containment(prepared, process, handle)
+        if deferred_provider_environment:
+            provider_environment = require_provider_environment_values(
+                allowed_provider_env_vars
+            )
+            release_contained_command(handle, provider_environment)
+        ownership.process = process
+        ownership.handle = handle
+    except OSError as exc:
+        if process is None:
+            abandon_prepared_containment(prepared)
+            evidence = launch_failure_evidence(requested)
+        elif handle is None or handle.cgroup_fd is None:
+            abandon_prepared_containment(prepared)
+            _discard_partial_containment_handle(handle)
+            _stop_unreleased_direct_child(process, termination_grace_seconds)
+            evidence = _unverified_launch_cleanup_evidence(
+                requested,
+                unit_name=prepared.unit_name,
+            )
+        else:
+            with _deferred_command_cancellation_signal_handlers():
+                evidence = _cleanup_contained_process(
+                    handle,
+                    process,
+                    termination_grace_seconds,
+                )
+        raise _ContainedLaunchError(
+            CommandAdapterError("command adapter could not complete; see private logs"),
+            evidence,
+        ) from exc
+    except (
+        HostEnvironmentError,
+        ProcessContainmentError,
+        KeyboardInterrupt,
+        _CommandCancellationSignal,
+    ) as exc:
+        if handle is None or (
+            requested == LINUX_SYSTEMD_SCOPE_CONTAINMENT and handle.cgroup_fd is None
+        ):
+            abandon_prepared_containment(prepared)
+            _discard_partial_containment_handle(handle)
+            if process is not None:
+                _stop_unreleased_direct_child(process, termination_grace_seconds)
+            if process is None:
+                evidence = launch_failure_evidence(
+                    requested,
+                    establishment=(
+                        exc.establishment
+                        if isinstance(exc, ProcessContainmentError)
+                        else "failed"
+                    ),
+                )
+            else:
+                evidence = _unverified_launch_cleanup_evidence(
+                    requested,
+                    unit_name=prepared.unit_name,
+                )
+        else:
+            assert process is not None
+            with _deferred_command_cancellation_signal_handlers():
+                evidence = _cleanup_contained_process(
+                    handle,
+                    process,
+                    termination_grace_seconds,
+                )
+        if isinstance(exc, (KeyboardInterrupt, _CommandCancellationSignal)):
+            public_error = CommandAdapterError("command adapter launch was cancelled")
+            status = "cancelled"
+        elif isinstance(exc, HostEnvironmentError):
+            public_error = CommandAdapterError(str(exc))
+            status = "launch_failed"
+        else:
+            public_error = CommandAdapterError(
+                "required host process containment failed before adapter "
+                f"execution: {exc}"
+            )
+            status = "launch_failed"
+        raise _ContainedLaunchError(
+            public_error,
+            evidence,
+            status=status,
+        ) from exc
+    return None
+
+
+def _discard_partial_containment_handle(
+    handle: ProcessContainmentHandle | None,
+) -> None:
+    if handle is None:
+        return
+    if handle.control is not None:
+        handle.control.close()
+        handle.control = None
+    if handle.gate_pidfd is not None:
+        os.close(handle.gate_pidfd)
+        handle.gate_pidfd = None
+    if handle.cgroup_fd is not None:
+        os.close(handle.cgroup_fd)
+        handle.cgroup_fd = None
+
+
+def _unverified_launch_cleanup_evidence(
+    requested: str,
+    *,
+    unit_name: str | None,
+) -> ProcessContainmentEvidence:
+    mechanism = (
+        "systemd_user_scope_cgroup_v2"
+        if requested == LINUX_SYSTEMD_SCOPE_CONTAINMENT
+        else "posix_process_group"
+    )
+    return ProcessContainmentEvidence(
+        requested=requested,
+        establishment="failed",
+        mechanism=mechanism,
+        cleanup_requested=True,
+        termination_requested=True,
+        cleanup_outcome="incomplete",
+        populated_after_cleanup=None,
+        unit_name=unit_name,
+    )
+
+
+def _stop_unreleased_direct_child(
+    process: subprocess.Popen[bytes],
+    grace_seconds: float,
+) -> None:
+    if process.poll() is not None:
+        return
+    try:
+        process.terminate()
+    except ProcessLookupError:
+        return
+    try:
+        process.wait(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+        except ProcessLookupError:
+            return
+        try:
+            process.wait(timeout=grace_seconds)
+        except subprocess.TimeoutExpired:
+            # RuntimeMaxSec remains the final backstop for a stuck launcher.
+            return
+
+
+def _cleanup_contained_process(
+    handle: ProcessContainmentHandle,
+    process: subprocess.Popen[bytes],
+    grace_seconds: float,
+) -> ProcessContainmentEvidence:
+    try:
+        return cleanup_process_containment(handle, process, grace_seconds)
+    except (OSError, ProcessContainmentError):
+        mechanism = (
+            "systemd_user_scope_cgroup_v2"
+            if handle.requested == LINUX_SYSTEMD_SCOPE_CONTAINMENT
+            else "posix_process_group"
+        )
+        return ProcessContainmentEvidence(
+            requested=handle.requested,
+            establishment="established",
+            mechanism=mechanism,
+            cleanup_requested=True,
+            cleanup_outcome="incomplete",
+            populated_after_cleanup=None,
+            unit_name=handle.unit_name,
+            invocation_id=handle.invocation_id,
+            control_group=handle.control_group,
+        )
+
+
+def _raise_for_execution(
+    execution: CommandExecutionLog,
+    *,
+    pending_error: BaseException | None,
+    timeout_seconds: float,
+) -> None:
+    phase = execution.phase
+    containment = execution.containment
+    cleanup_detail = (
+        ""
+        if containment.cleanup_outcome in {"not_required", "succeeded"}
+        else f"; containment cleanup was {containment.cleanup_outcome}"
+    )
+    if execution.status == "timed_out":
+        raise CommandAdapterError(
+            f"command adapter {phase} timed out after "
+            f"{timeout_seconds}s{cleanup_detail}"
+        )
+    if execution.status == "cancelled":
+        raise CommandAdapterError(
+            f"command adapter {phase} was cancelled{cleanup_detail}"
+        ) from pending_error
+    if cleanup_detail:
+        raise CommandAdapterError(
+            f"command adapter {phase}{cleanup_detail}; see private logs"
+        ) from pending_error
+    if isinstance(pending_error, CommandAdapterError):
+        raise pending_error
+    if pending_error is not None:
+        raise CommandAdapterError(
+            f"command adapter {phase} could not complete; see private logs"
+        ) from pending_error
+    if execution.status in {
+        "descendant_cleanup_requested",
+        "process_group_cleanup_requested",
+    }:
+        if containment.requested == POSIX_PROCESS_GROUP_CONTAINMENT:
+            detail = "its original process group; group-scoped"
+        else:
+            detail = "its verified control group; descendant"
+        raise CommandAdapterError(
+            f"command adapter {phase} left processes in {detail} cleanup was "
+            "requested; see private logs"
+        )
+    if execution.returncode != 0:
+        raise CommandAdapterError(
+            f"command adapter {phase} failed with exit code "
+            f"{execution.returncode}; see private logs"
+        )
 
 
 def _exchange_tool_messages(
@@ -713,6 +1100,13 @@ class _CommandCancellationSignal(BaseException):
     """Internal interruption raised while a command-adapter subprocess is active."""
 
 
+@dataclass(slots=True)
+class _DeferredCommandCancellation:
+    """Cancellation observed while exact-identity cleanup must finish."""
+
+    received: bool = False
+
+
 def _raise_command_cancellation_signal(
     requested_signal: int,
     frame: FrameType | None,
@@ -727,85 +1121,49 @@ def _command_cancellation_signal_handlers() -> Generator[None, None, None]:
         yield
         return
 
-    previous_handler = signal.getsignal(signal.SIGTERM)
-    signal.signal(signal.SIGTERM, _raise_command_cancellation_signal)
+    watched = (signal.SIGINT, signal.SIGTERM)
+    previous_handlers = {
+        requested_signal: signal.getsignal(requested_signal)
+        for requested_signal in watched
+    }
+    for requested_signal in watched:
+        signal.signal(requested_signal, _raise_command_cancellation_signal)
     try:
         yield
     finally:
-        signal.signal(signal.SIGTERM, previous_handler)
+        for requested_signal, previous_handler in previous_handlers.items():
+            signal.signal(requested_signal, previous_handler)
 
 
-def _terminate_process_group(
-    process: subprocess.Popen[bytes],
-    grace_seconds: float,
-) -> tuple[bool, bool]:
-    """Best-effort cleanup of the adapter leader's original process group.
+@contextmanager
+def _deferred_command_cancellation_signal_handlers() -> Generator[
+    _DeferredCommandCancellation, None, None
+]:
+    state = _DeferredCommandCancellation()
+    if threading.current_thread() is not threading.main_thread():
+        yield state
+        return
 
-    Descendants that create a new session or process group are outside this
-    helper's scope. The returned booleans report whether SIGTERM and SIGKILL
-    were delivered to the original group, not whether every descendant stopped.
-    """
-    process_group_id = process.pid
-    if not _process_group_exists(process_group_id):
-        process.poll()
-        if process.returncode is None:
-            try:
-                process.wait(timeout=grace_seconds)
-            except subprocess.TimeoutExpired:
-                return False, False
-        return False, False
+    watched = (signal.SIGINT, signal.SIGTERM)
+    previous_handlers = {
+        requested_signal: signal.getsignal(requested_signal)
+        for requested_signal in watched
+    }
 
-    termination_requested = _signal_process_group(process_group_id, signal.SIGTERM)
-    if _wait_for_process_group_exit(process, process_group_id, grace_seconds):
-        return termination_requested, False
+    def record_cancellation(
+        requested_signal: int,
+        frame: FrameType | None,
+    ) -> None:
+        del requested_signal, frame
+        state.received = True
 
-    forced_kill = _signal_process_group(process_group_id, signal.SIGKILL)
-    _wait_for_process_group_exit(process, process_group_id, grace_seconds)
-    if process.poll() is None:
-        try:
-            process.kill()
-        except (ProcessLookupError, PermissionError):
-            pass  # The leader exited or is no longer signalable; preserve the receipt.
+    for requested_signal in watched:
+        signal.signal(requested_signal, record_cancellation)
     try:
-        process.wait(timeout=grace_seconds)
-    except subprocess.TimeoutExpired:
-        return termination_requested, forced_kill
-    return termination_requested, forced_kill
-
-
-def _wait_for_process_group_exit(
-    process: subprocess.Popen[bytes],
-    process_group_id: int,
-    timeout_seconds: float,
-) -> bool:
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        process.poll()
-        if not _process_group_exists(process_group_id):
-            return True
-        time.sleep(min(0.01, timeout_seconds))
-    process.poll()
-    return not _process_group_exists(process_group_id)
-
-
-def _process_group_exists(process_group_id: int) -> bool:
-    try:
-        os.killpg(process_group_id, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
-def _signal_process_group(
-    process_group_id: int, requested_signal: signal.Signals
-) -> bool:
-    try:
-        os.killpg(process_group_id, requested_signal)
-    except (ProcessLookupError, PermissionError):
-        return False
-    return True
+        yield state
+    finally:
+        for requested_signal, previous_handler in previous_handlers.items():
+            signal.signal(requested_signal, previous_handler)
 
 
 def _bounded_private_log(

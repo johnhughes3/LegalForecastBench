@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 from legalforecast.multiharness import (
+    LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+    POSIX_PROCESS_GROUP_CONTAINMENT,
     SCHEMA_VERSIONS,
     AdapterCapabilities,
     AdapterManifest,
@@ -125,6 +127,38 @@ def test_adapter_and_run_records_round_trip() -> None:
     legacy_manifest = manifest.to_record()
     legacy_manifest.pop("run_compatibility_sha256")
     assert RunManifest.from_record(legacy_manifest).run_compatibility_sha256 is None
+
+
+def test_sandbox_process_containment_is_bound_and_legacy_defaults_weaker() -> None:
+    policy = SandboxPolicy(
+        policy_id="whole-process",
+        backend="host-command",
+        image="none",
+        network_policy="provider_egress_host_only",
+        timeout_seconds=60,
+        host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+    )
+
+    record = policy.to_record()
+    assert record["host_process_containment"] == LINUX_SYSTEMD_SCOPE_CONTAINMENT
+    assert SandboxPolicy.from_record(record) == policy
+
+    record.pop("host_process_containment")
+    legacy_policy = SandboxPolicy.from_record(record)
+    assert legacy_policy.host_process_containment == POSIX_PROCESS_GROUP_CONTAINMENT
+    assert legacy_policy.to_record() == record
+
+
+def test_sandbox_rejects_unknown_process_containment_mode() -> None:
+    with pytest.raises(ValueError, match="host_process_containment"):
+        SandboxPolicy(
+            policy_id="invalid",
+            backend="host-command",
+            image="none",
+            network_policy="provider_egress_host_only",
+            timeout_seconds=60,
+            host_process_containment="automatic-fallback",
+        )
 
 
 def test_conformance_submission_and_aggregate_round_trip() -> None:

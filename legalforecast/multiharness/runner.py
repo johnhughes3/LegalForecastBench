@@ -19,6 +19,7 @@ from legalforecast.evals.inspect_task import HarnessSolver
 from legalforecast.evals.packet_builder import ModelPacket
 from legalforecast.multiharness.adapters import HarnessAdapter, LiveToolAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
+from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.container_runtime import (
     ContainerRuntimeError,
     ContainerToolSession,
@@ -31,6 +32,9 @@ from legalforecast.multiharness.host_environment import (
     require_rootless_container_daemon,
 )
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
+from legalforecast.multiharness.process_containment import (
+    preflight_process_containment,
+)
 from legalforecast.multiharness.sandbox import (
     PROVIDER_EGRESS_HOST_ONLY,
     build_container_plan,
@@ -40,6 +44,7 @@ from legalforecast.multiharness.sandbox import (
 )
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
 from legalforecast.multiharness.spec import (
+    POSIX_PROCESS_GROUP_CONTAINMENT,
     RUN_COMPATIBILITY_SCHEMA_VERSION,
     TOOL_REQUEST_SCHEMA_VERSION,
     AdapterCapabilities,
@@ -252,6 +257,22 @@ class _MultiHarnessRunner:
         if self.config.container_execution == "live_tools":
             validate_live_container_policy(self.config.sandbox_policy)
             _preflight_live_container(self.config.sandbox_policy)
+        adapters = _ordered_adapters(self.config.adapters)
+        requested_containment = self.config.sandbox_policy.host_process_containment
+        if requested_containment != POSIX_PROCESS_GROUP_CONTAINMENT:
+            unsupported = tuple(
+                adapter.manifest.adapter_id
+                for adapter in adapters
+                if not isinstance(adapter, (CommandAdapter, LfbNativeAdapter))
+            )
+            if unsupported:
+                formatted = ", ".join(unsupported)
+                raise ValueError(
+                    "strong host process containment is unsupported for "
+                    f"adapters: {formatted}"
+                )
+            if any(isinstance(adapter, CommandAdapter) for adapter in adapters):
+                preflight_process_containment(requested_containment)
         provider_values = require_provider_environment_values(
             self.config.sandbox_policy.allowed_provider_env_vars
         )
@@ -259,7 +280,6 @@ class _MultiHarnessRunner:
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         build_container_plan(self.config.sandbox_policy)
         selection = self.config.selection.select(self.config.task_index)
-        adapters = _ordered_adapters(self.config.adapters)
         capabilities = self._load_capabilities(adapters)
         row_plans = self._build_row_plans(selection, adapters, capabilities)
         run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
@@ -326,7 +346,19 @@ class _MultiHarnessRunner:
             workspace = (
                 self.config.output_dir / "adapter-capabilities" / _slug(adapter_id)
             )
-            value = adapter.capabilities(workspace)
+            if isinstance(adapter, CommandAdapter):
+                requested_containment = (
+                    self.config.sandbox_policy.host_process_containment
+                )
+                if requested_containment == POSIX_PROCESS_GROUP_CONTAINMENT:
+                    value = adapter.capabilities(workspace)
+                else:
+                    value = adapter.capabilities(
+                        workspace,
+                        host_process_containment=requested_containment,
+                    )
+            else:
+                value = adapter.capabilities(workspace)
             if value.adapter_id != adapter.manifest.adapter_id:
                 raise ValueError("adapter capabilities ID does not match manifest")
             if value.adapter_version != adapter.manifest.adapter_version:

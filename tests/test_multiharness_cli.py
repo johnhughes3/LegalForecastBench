@@ -161,6 +161,8 @@ def test_multiharness_run_dry_run_does_not_invoke_adapter(tmp_path: Path) -> Non
                 "fixture-model",
                 "--output-dir",
                 str(output_dir),
+                "--host-process-containment",
+                "linux_systemd_scope_cgroup_v2.v1",
                 "--dry-run",
             ]
         )
@@ -170,6 +172,9 @@ def test_multiharness_run_dry_run_does_not_invoke_adapter(tmp_path: Path) -> Non
     plan = _read_json(output_dir / "run-plan.json")
     assert plan["adapter_invocation"] == "skipped"
     assert plan["container_invocation"] == "skipped"
+    assert plan["sandbox_policy"]["host_process_containment"] == (
+        "linux_systemd_scope_cgroup_v2.v1"
+    )
     assert not (output_dir / "adapter-capabilities").exists()
 
 

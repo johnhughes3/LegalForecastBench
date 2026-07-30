@@ -9,14 +9,26 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.multiharness import command_adapter as command_adapter_module
+from legalforecast.multiharness import (
+    process_containment as process_containment_module,
+)
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterError,
+    CommandExecutionLog,
+)
+from legalforecast.multiharness.process_containment import (
+    ProcessContainmentError,
+    ProcessContainmentEvidence,
+    ProcessContainmentHandle,
+    preflight_process_containment,
 )
 from legalforecast.multiharness.spec import (
+    LINUX_SYSTEMD_SCOPE_CONTAINMENT,
     AdapterManifest,
     CanonicalTask,
     ContributorCredit,
@@ -229,7 +241,7 @@ def test_tool_exchange_reaps_child_after_stdout_eof(tmp_path: Path) -> None:
         stderr=subprocess.DEVNULL,
     )
 
-    command_adapter_module._exchange_tool_messages(
+    command_adapter_module._exchange_tool_messages(  # pyright: ignore[reportPrivateUsage]
         process,
         io.BytesIO(),
         _RecordingToolExecutor(),
@@ -553,7 +565,7 @@ def test_timeout_kills_ignored_signal_child_and_grandchild_and_bounds_logs(
         "\n...[truncated by LegalForecastBench]...\n"
     )
     assert _execution_receipt(workspace) == {
-        "schema_version": "legalforecast.multiharness.command_execution_log.v1",
+        "schema_version": "legalforecast.multiharness.command_execution_log.v2",
         "phase": "capabilities",
         "status": "timed_out",
         "returncode": -signal.SIGKILL,
@@ -565,6 +577,19 @@ def test_timeout_kills_ignored_signal_child_and_grandchild_and_bounds_logs(
         "stderr_truncated": False,
         "termination_requested": True,
         "forced_kill": True,
+        "containment": {
+            "requested": "posix_process_group.v1",
+            "establishment": "established",
+            "mechanism": "posix_process_group",
+            "cleanup_requested": True,
+            "termination_requested": True,
+            "forced_kill": True,
+            "cleanup_outcome": "succeeded",
+            "populated_after_cleanup": False,
+            "unit_name": None,
+            "invocation_id": None,
+            "control_group": None,
+        },
     }
 
 
@@ -663,6 +688,384 @@ def test_zero_exit_with_surviving_same_group_descendants_fails_closed(
     assert receipt["status"] == "process_group_cleanup_requested"
     assert receipt["returncode"] == 0
     assert receipt["termination_requested"] is True
+
+
+@pytest.mark.parametrize(
+    ("behavior", "error_pattern", "expected_status"),
+    [
+        ("exit_zero", "verified control group", "descendant_cleanup_requested"),
+        ("crash", "exit code 23", "failed"),
+        ("sleep", "timed out", "timed_out"),
+    ],
+)
+def test_systemd_scope_cleans_setsid_descendants_for_terminal_outcomes(
+    tmp_path: Path,
+    behavior: str,
+    error_pattern: str,
+    expected_status: str,
+) -> None:
+    _require_systemd_scope()
+    script, pid_dir = _write_process_tree_script(
+        tmp_path,
+        behavior=behavior,
+        setsid_descendants=True,
+    )
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=0.5 if behavior == "sleep" else 2,
+        termination_grace_seconds=0.05,
+    )
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match=error_pattern):
+        adapter.capabilities(
+            workspace,
+            host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+        )
+
+    _assert_process_tree_stopped(pid_dir)
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == expected_status
+    containment = cast(dict[str, object], receipt["containment"])
+    assert containment["requested"] == LINUX_SYSTEMD_SCOPE_CONTAINMENT
+    assert containment["establishment"] == "established"
+    assert containment["cleanup_requested"] is True
+    assert containment["cleanup_outcome"] == "succeeded"
+    assert containment["populated_after_cleanup"] is False
+    unit_name = containment["unit_name"]
+    invocation_id = containment["invocation_id"]
+    control_group = containment["control_group"]
+    assert isinstance(unit_name, str)
+    assert isinstance(invocation_id, str)
+    assert isinstance(control_group, str)
+    assert unit_name.startswith("lfb-command-")
+    assert len(invocation_id) == 32
+    assert control_group.endswith(unit_name)
+
+
+def test_systemd_scope_cancellation_cleans_setsid_descendants(
+    tmp_path: Path,
+) -> None:
+    _require_systemd_scope()
+    script, pid_dir = _write_process_tree_script(
+        tmp_path,
+        behavior="sleep",
+        setsid_descendants=True,
+    )
+    manifest_path = _write_manifest(
+        tmp_path,
+        command=(sys.executable, str(script)),
+    )
+    workspace = tmp_path / "workspace"
+    driver = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "\n".join(
+                [
+                    "from pathlib import Path",
+                    "from legalforecast.multiharness.command_adapter import (",
+                    "    CommandAdapter, CommandAdapterError,",
+                    ")",
+                    "from legalforecast.multiharness.spec import (",
+                    "    LINUX_SYSTEMD_SCOPE_CONTAINMENT,",
+                    ")",
+                    "adapter = CommandAdapter.from_manifest_file(",
+                    f"    Path({str(manifest_path)!r}),",
+                    "    timeout_seconds=10,",
+                    "    termination_grace_seconds=0.05,",
+                    ")",
+                    "try:",
+                    "    adapter.capabilities(",
+                    f"        Path({str(workspace)!r}),",
+                    "        host_process_containment=(",
+                    "            LINUX_SYSTEMD_SCOPE_CONTAINMENT",
+                    "        ),",
+                    "    )",
+                    "except CommandAdapterError as exc:",
+                    "    print(str(exc))",
+                    "    raise SystemExit(0 if 'was cancelled' in str(exc) else 3)",
+                    "raise SystemExit(4)",
+                ]
+            ),
+        ],
+        cwd=Path.cwd(),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        _wait_for_process_tree_start(pid_dir)
+        os.kill(driver.pid, signal.SIGTERM)
+        stdout, stderr = driver.communicate(timeout=5)
+    finally:
+        if driver.poll() is None:
+            driver.kill()
+            driver.wait(timeout=2)
+
+    assert driver.returncode == 0, (stdout, stderr)
+    assert stdout.strip() == "command adapter capabilities was cancelled"
+    assert stderr == ""
+    _assert_process_tree_stopped(pid_dir)
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "cancelled"
+    containment = cast(dict[str, object], receipt["containment"])
+    assert containment["cleanup_outcome"] == "succeeded"
+    assert containment["populated_after_cleanup"] is False
+
+
+def test_required_systemd_scope_fails_before_adapter_or_provider_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    marker = tmp_path / "adapter-started"
+    script = _write_adapter_script(tmp_path, start_marker=marker)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    request = _run_request(
+        adapter.manifest,
+        allowed_provider_env_vars=("UNAVAILABLE_PROVIDER_KEY",),
+        host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+    )
+
+    def reject_preflight(requested: str) -> None:
+        assert requested == LINUX_SYSTEMD_SCOPE_CONTAINMENT
+        raise ProcessContainmentError(
+            "fixture unavailable",
+            establishment="unsupported",
+        )
+
+    monkeypatch.setattr(
+        command_adapter_module,
+        "preflight_process_containment",
+        reject_preflight,
+    )
+
+    with pytest.raises(
+        CommandAdapterError,
+        match="unavailable before adapter launch",
+    ):
+        adapter.run(request, tmp_path / "workspace")
+
+    assert not marker.exists()
+    receipt = _execution_receipt(tmp_path / "workspace")
+    containment = cast(dict[str, object], receipt["containment"])
+    assert containment["establishment"] == "unsupported"
+    assert containment["cleanup_outcome"] == "not_required"
+
+
+def test_systemd_scope_cancellation_before_gate_release_cleans_without_exec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _require_systemd_scope()
+    marker = tmp_path / "adapter-started"
+    script = _write_adapter_script(tmp_path, start_marker=marker)
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        termination_grace_seconds=0.05,
+    )
+    cancellation_type = cast(
+        type[BaseException],
+        getattr(  # noqa: B009 - test exercises the private signal sentinel by design
+            command_adapter_module,
+            "_CommandCancellationSignal",
+        ),
+    )
+
+    def cancel_release(handle: object, environment: object) -> None:
+        del handle, environment
+        raise cancellation_type()
+
+    monkeypatch.setattr(
+        command_adapter_module,
+        "release_contained_command",
+        cancel_release,
+    )
+
+    with pytest.raises(CommandAdapterError, match="was cancelled"):
+        adapter.capabilities(
+            tmp_path / "workspace",
+            host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+        )
+
+    assert not marker.exists()
+    receipt = _execution_receipt(tmp_path / "workspace")
+    assert receipt["status"] == "cancelled"
+    containment = cast(dict[str, object], receipt["containment"])
+    assert containment["cleanup_outcome"] == "succeeded"
+    assert containment["populated_after_cleanup"] is False
+
+
+def test_systemd_scope_defers_repeated_cancellation_during_cleanup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _require_systemd_scope()
+    script, pid_dir = _write_process_tree_script(
+        tmp_path,
+        behavior="exit_zero",
+        setsid_descendants=True,
+    )
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=2,
+        termination_grace_seconds=0.05,
+    )
+    workspace = tmp_path / "workspace"
+    original_cleanup = command_adapter_module._cleanup_contained_process  # pyright: ignore[reportPrivateUsage]
+
+    def cancel_during_cleanup(
+        handle: ProcessContainmentHandle,
+        process: subprocess.Popen[bytes],
+        grace_seconds: float,
+    ) -> ProcessContainmentEvidence:
+        os.kill(os.getpid(), signal.SIGTERM)
+        os.kill(os.getpid(), signal.SIGTERM)
+        return original_cleanup(handle, process, grace_seconds)
+
+    monkeypatch.setattr(
+        command_adapter_module,
+        "_cleanup_contained_process",
+        cancel_during_cleanup,
+    )
+
+    with pytest.raises(CommandAdapterError, match="was cancelled"):
+        adapter.capabilities(
+            workspace,
+            host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+        )
+
+    _assert_process_tree_stopped(pid_dir)
+    receipt = _execution_receipt(workspace)
+    assert receipt["status"] == "cancelled"
+    containment = cast(dict[str, object], receipt["containment"])
+    assert containment["cleanup_outcome"] == "succeeded"
+    assert containment["populated_after_cleanup"] is False
+
+
+def test_systemd_scope_rejects_gate_outside_attested_cgroup_before_exec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _require_systemd_scope()
+    marker = tmp_path / "adapter-started"
+    script = tmp_path / "gated-adapter.py"
+    script.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import argparse, json, pathlib",
+                f"pathlib.Path({str(marker)!r}).write_text('started')",
+                "parser = argparse.ArgumentParser()",
+                "sub = parser.add_subparsers(dest='command', required=True)",
+                "cap = sub.add_parser('capabilities')",
+                "cap.add_argument('--output', required=True)",
+                "args = parser.parse_args()",
+                "pathlib.Path(args.output).write_text(json.dumps({",
+                (
+                    "  'schema_version': "
+                    "'legalforecast.multiharness.adapter_capabilities.v1',"
+                ),
+                "  'adapter_id': 'fixture-adapter',",
+                "  'adapter_version': '0.1.0',",
+                "  'supported_families': ['legalforecast_mtd'],",
+                "  'supported_scoring_modes': ['lfb_brier'],",
+                "  'supports_sandbox_policy': True,",
+                f"  'capabilities_sha256': {SHA256!r},",
+                "}))",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+    )
+
+    def reject_membership(process_id: int, control_group: str) -> None:
+        del process_id, control_group
+        raise ProcessContainmentError(
+            "fixture gate membership mismatch",
+        )
+
+    monkeypatch.setattr(
+        process_containment_module,
+        "_require_exact_process_cgroup",
+        reject_membership,
+    )
+
+    with pytest.raises(
+        CommandAdapterError,
+        match="failed before adapter execution",
+    ):
+        adapter.capabilities(
+            tmp_path / "workspace",
+            host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+        )
+
+    assert not marker.exists()
+    receipt = _execution_receipt(tmp_path / "workspace")
+    containment = cast(dict[str, object], receipt["containment"])
+    assert containment["cleanup_requested"] is True
+    assert containment["cleanup_outcome"] == "succeeded"
+    assert containment["populated_after_cleanup"] is False
+
+
+def test_systemd_scope_preserves_duplex_protocol_and_defers_provider_values(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _require_systemd_scope()
+    secret_value = "provider-secret-must-not-reach-systemd-run"
+    monkeypatch.setenv("FIXTURE_PROVIDER_KEY", secret_value)
+    script = _write_tool_adapter_script(tmp_path)
+    manifest = _manifest(command=(sys.executable, str(script)))
+    adapter = CommandAdapter(manifest=manifest)
+    request = _run_request(
+        manifest,
+        allowed_provider_env_vars=("FIXTURE_PROVIDER_KEY",),
+        host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+    )
+    original_popen = command_adapter_module.subprocess.Popen
+    observed_launcher_environments: list[dict[str, str]] = []
+    observed_launcher_argv: list[tuple[str, ...]] = []
+
+    def observe_popen(
+        args: tuple[str, ...],
+        **kwargs: object,
+    ) -> subprocess.Popen[bytes]:
+        if args and Path(args[0]).name == "systemd-run":
+            environment = kwargs.get("env")
+            assert isinstance(environment, dict)
+            observed_launcher_environments.append(cast(dict[str, str], environment))
+            observed_launcher_argv.append(args)
+        return original_popen(args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(command_adapter_module.subprocess, "Popen", observe_popen)
+
+    result = adapter.run_with_tools(
+        request,
+        tmp_path / "workspace",
+        _RecordingToolExecutor(),
+    )
+
+    assert result.status == "succeeded"
+    assert observed_launcher_environments
+    assert all(
+        "FIXTURE_PROVIDER_KEY" not in environment
+        and secret_value not in environment.values()
+        for environment in observed_launcher_environments
+    )
+    assert all(
+        secret_value not in argument
+        for argv in observed_launcher_argv
+        for argument in argv
+    )
+    stderr = (
+        tmp_path / "workspace" / "private-logs" / "run-with-tools-stderr.log"
+    ).read_text(encoding="utf-8")
+    assert stderr.strip() == "PRIVATE_DIAGNOSTIC"
 
 
 @pytest.mark.parametrize("cancellation_signal", [signal.SIGINT, signal.SIGTERM])
@@ -846,6 +1249,42 @@ def test_launch_failure_writes_sanitized_typed_receipt(tmp_path: Path) -> None:
     assert receipt["forced_kill"] is False
 
 
+@pytest.mark.parametrize(
+    ("status", "message"),
+    [
+        ("cancelled", "was cancelled; containment cleanup was incomplete"),
+        ("timed_out", "timed out after 3s; containment cleanup was incomplete"),
+    ],
+)
+def test_terminal_status_retains_incomplete_cleanup_detail(
+    tmp_path: Path,
+    status: str,
+    message: str,
+) -> None:
+    execution = CommandExecutionLog(
+        phase="capabilities",
+        stdout_path=tmp_path / "stdout.log",
+        stderr_path=tmp_path / "stderr.log",
+        returncode=None,
+        containment=ProcessContainmentEvidence(
+            requested=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+            establishment="failed",
+            mechanism="systemd_user_scope_cgroup_v2",
+            cleanup_requested=True,
+            cleanup_outcome="incomplete",
+            populated_after_cleanup=None,
+        ),
+        status=status,
+    )
+
+    with pytest.raises(CommandAdapterError, match=message):
+        command_adapter_module._raise_for_execution(  # pyright: ignore[reportPrivateUsage]
+            execution,
+            pending_error=None,
+            timeout_seconds=3,
+        )
+
+
 def test_private_execution_logs_reject_planted_symlinks(tmp_path: Path) -> None:
     script = _write_adapter_script(tmp_path)
     adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
@@ -894,6 +1333,7 @@ def _write_adapter_script(
     capture_environment: bool = False,
     public_summary_env_name: str | None = None,
     capabilities_once: bool = False,
+    start_marker: Path | None = None,
 ) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     script = root / "fixture_adapter.py"
@@ -909,10 +1349,13 @@ def _write_adapter_script(
                 f"CAPTURE_ENVIRONMENT = {capture_environment!r}",
                 f"PUBLIC_SUMMARY_ENV_NAME = {public_summary_env_name!r}",
                 f"CAPABILITIES_ONCE = {capabilities_once!r}",
+                f"START_MARKER = {str(start_marker) if start_marker else None!r}",
                 f"SHA256 = {SHA256!r}",
                 f"OTHER_SHA256 = {OTHER_SHA256!r}",
                 "CAP_SCHEMA = 'legalforecast.multiharness.adapter_capabilities.v1'",
                 "RESULT_SCHEMA = 'legalforecast.multiharness.run_result.v1'",
+                "if START_MARKER:",
+                "    pathlib.Path(START_MARKER).write_text('started')",
                 "if SLEEP_SECONDS:",
                 "    time.sleep(SLEEP_SECONDS)",
                 "parser = argparse.ArgumentParser()",
@@ -1063,8 +1506,15 @@ def _write_tool_adapter_script(
                 "        print('not-json', flush=True)",
                 "        raise SystemExit()",
                 "    if MODE == 'pipelined':",
+                "        second_request = dict(tool_request)",
+                "        second_request['request_id'] = 'tool-2'",
+                "        sys.stdout.write(",
+                "            json.dumps(tool_request) + '\\n' +",
+                "            json.dumps(second_request) + '\\n'",
+                "        )",
+                "        sys.stdout.flush()",
+                "    else:",
                 "        print(json.dumps(tool_request), flush=True)",
-                "    print(json.dumps(tool_request), flush=True)",
                 "    response = json.loads(sys.stdin.readline())",
                 "    if MODE == 'duplicate':",
                 "        print(json.dumps(tool_request), flush=True)",
@@ -1102,6 +1552,7 @@ def _write_process_tree_script(
     *,
     behavior: str,
     output_bytes: int = 0,
+    setsid_descendants: bool = False,
 ) -> tuple[Path, Path]:
     root.mkdir(parents=True, exist_ok=True)
     pid_dir = root / "process-tree-pids"
@@ -1123,7 +1574,10 @@ def _write_process_tree_script(
             f"pathlib.Path({str(pid_dir / 'child.pid')!r}).write_text(",
             "    str(os.getpid()), encoding='utf-8'",
             ")",
-            f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}])",
+            (
+                f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}], "
+                f"start_new_session={setsid_descendants!r})"
+            ),
             "time.sleep(60)",
         ]
     )
@@ -1141,7 +1595,10 @@ def _write_process_tree_script(
                 "    str(os.getpid()), encoding='utf-8'",
                 ")",
                 "signal.signal(signal.SIGTERM, signal.SIG_IGN)",
-                f"subprocess.Popen([sys.executable, '-c', {child_code!r}])",
+                (
+                    f"subprocess.Popen([sys.executable, '-c', {child_code!r}], "
+                    f"start_new_session={setsid_descendants!r})"
+                ),
                 "for _ in range(200):",
                 "    if (PID_DIR / 'child.pid').is_file() and (",
                 "        PID_DIR / 'grandchild.pid'",
@@ -1235,6 +1692,7 @@ def _run_request(
     manifest: AdapterManifest,
     *,
     allowed_provider_env_vars: tuple[str, ...] = (),
+    host_process_containment: str = "posix_process_group.v1",
 ) -> RunRequest:
     return RunRequest(
         request_id="request-1",
@@ -1257,6 +1715,14 @@ def _run_request(
             timeout_seconds=30,
             working_directory="/workspace",
             allowed_provider_env_vars=allowed_provider_env_vars,
+            host_process_containment=host_process_containment,
         ),
         request_sha256=OTHER_SHA256,
     )
+
+
+def _require_systemd_scope() -> None:
+    try:
+        preflight_process_containment(LINUX_SYSTEMD_SCOPE_CONTAINMENT)
+    except ProcessContainmentError as exc:
+        pytest.skip(f"systemd scope containment is unavailable: {exc}")

@@ -63,6 +63,14 @@ TASK_FAMILIES = frozenset({"legalforecast_mtd", "harvey_lab", "contract_only"})
 SCORING_MODES = frozenset({"lfb_brier", "lab_native", "contract_only"})
 RUN_RESULT_STATUSES = frozenset({"succeeded", "failed", "skipped"})
 CONFORMANCE_STATUSES = frozenset({"passed", "failed", "warning"})
+POSIX_PROCESS_GROUP_CONTAINMENT = "posix_process_group.v1"
+LINUX_SYSTEMD_SCOPE_CONTAINMENT = "linux_systemd_scope_cgroup_v2.v1"
+HOST_PROCESS_CONTAINMENT_MODES = frozenset(
+    {
+        POSIX_PROCESS_GROUP_CONTAINMENT,
+        LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,6 +358,7 @@ class SandboxPolicy:
     memory_limit: str | None = None
     cpu_limit: str | None = None
     allowed_provider_env_vars: tuple[str, ...] = ()
+    host_process_containment: str = POSIX_PROCESS_GROUP_CONTAINMENT
     policy_sha256: str | None = None
 
     def __post_init__(self) -> None:
@@ -376,6 +385,11 @@ class SandboxPolicy:
             self.allowed_provider_env_vars,
             "allowed_provider_env_vars",
         )
+        _require_member(
+            self.host_process_containment,
+            HOST_PROCESS_CONTAINMENT_MODES,
+            "host_process_containment",
+        )
         if self.policy_sha256 is not None:
             validate_sha256(self.policy_sha256, "policy_sha256")
 
@@ -397,6 +411,8 @@ class SandboxPolicy:
             "cpu_limit": self.cpu_limit,
             "allowed_provider_env_vars": list(self.allowed_provider_env_vars),
         }
+        if self.host_process_containment != POSIX_PROCESS_GROUP_CONTAINMENT:
+            record["host_process_containment"] = self.host_process_containment
         if self.policy_sha256 is not None:
             record["policy_sha256"] = self.policy_sha256
         return record
@@ -427,6 +443,10 @@ class SandboxPolicy:
             allowed_provider_env_vars=_str_tuple(
                 optional_sequence(record, "allowed_provider_env_vars") or (),
                 "allowed_provider_env_vars",
+            ),
+            host_process_containment=(
+                optional_str(record, "host_process_containment")
+                or POSIX_PROCESS_GROUP_CONTAINMENT
             ),
             policy_sha256=optional_str(record, "policy_sha256"),
         )

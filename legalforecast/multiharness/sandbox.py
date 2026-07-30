@@ -11,7 +11,10 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from legalforecast.multiharness.spec import SandboxPolicy
+from legalforecast.multiharness.spec import (
+    POSIX_PROCESS_GROUP_CONTAINMENT,
+    SandboxPolicy,
+)
 
 BACKEND_DOCKER = "docker"
 BACKEND_PODMAN = "podman"
@@ -89,6 +92,7 @@ def sandbox_policy(
     memory_limit: str | None = "2g",
     cpu_limit: str | None = "1",
     allowed_provider_env_vars: tuple[str, ...] = (),
+    host_process_containment: str = POSIX_PROCESS_GROUP_CONTAINMENT,
 ) -> SandboxPolicy:
     """Build a serializable sandbox policy from typed mount objects."""
 
@@ -107,6 +111,7 @@ def sandbox_policy(
         memory_limit=memory_limit,
         cpu_limit=cpu_limit,
         allowed_provider_env_vars=allowed_provider_env_vars,
+        host_process_containment=host_process_containment,
     )
 
 
