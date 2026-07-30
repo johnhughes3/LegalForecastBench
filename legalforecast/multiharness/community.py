@@ -23,6 +23,7 @@ from legalforecast.multiharness.container_runtime import validate_container_resu
 from legalforecast.multiharness.spec import (
     RUN_COMPATIBILITY_SCHEMA_VERSION,
     SCORING_MODES,
+    TOOL_REQUEST_SCHEMA_VERSION,
     AdapterCapabilities,
     ArtifactRecord,
     ConformanceReport,
@@ -857,6 +858,14 @@ def _validate_local_run_provenance(
                 AdapterCapabilities.from_record(capability_record)
             )
         parsed_capabilities = tuple(parsed_capabilities_list)
+        if container_execution == "live_tools" and any(
+            capability.tool_protocol_version != TOOL_REQUEST_SCHEMA_VERSION
+            for capability in parsed_capabilities
+        ):
+            raise ValueError(
+                "live_tools requires every adapter capability to declare "
+                f"tool_protocol_version {TOOL_REQUEST_SCHEMA_VERSION}"
+            )
         capability_keys = {
             (capability.adapter_id, capability.adapter_version)
             for capability in parsed_capabilities

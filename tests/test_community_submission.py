@@ -334,7 +334,7 @@ def test_package_accepts_current_container_compatibility_fields(
     run_dir = _write_run_dir(tmp_path)
     compatibility_path = run_dir / "run-compatibility.json"
     compatibility = _read_json(compatibility_path)
-    compatibility["run_config"]["container_execution"] = "plan_only"
+    compatibility["run_config"]["container_execution"] = "live_tools"
     compatibility["adapter_capabilities"][0]["tool_protocol_version"] = (
         TOOL_REQUEST_SCHEMA_VERSION
     )
@@ -349,6 +349,31 @@ def test_package_accepts_current_container_compatibility_fields(
     )
 
     assert package.manifest.run_summary.row_count == 1
+
+
+@pytest.mark.parametrize("tool_protocol_version", (None, "unsupported.v0"))
+def test_package_rejects_live_compatibility_without_current_tool_protocol(
+    tmp_path: Path,
+    tool_protocol_version: str | None,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    compatibility_path = run_dir / "run-compatibility.json"
+    compatibility = _read_json(compatibility_path)
+    compatibility["run_config"]["container_execution"] = "live_tools"
+    if tool_protocol_version is not None:
+        compatibility["adapter_capabilities"][0]["tool_protocol_version"] = (
+            tool_protocol_version
+        )
+    _write_json(compatibility_path, compatibility)
+    manifest_path = run_dir / "run-manifest.json"
+    manifest = _read_json(manifest_path)
+    manifest["run_compatibility_sha256"] = _record_sha256(compatibility)
+    _write_json(manifest_path, manifest)
+
+    with pytest.raises(ValueError, match="live_tools requires every adapter"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "submission-package")
+        )
 
 
 def test_package_rejects_mismatched_live_container_receipt(
