@@ -26,6 +26,8 @@ The package command writes `submission.json`, `public-summary.json`, `conformanc
 
 Checked-in examples live under `community/submissions/2026/`. They cover the first-class LQ.AI, Hermes Agent, OpenClaw, OpenAI Responses, and Claude Agent SDK fixture adapters. These are no-network community examples, not official LegalForecastBench results.
 
+A plan-only `sandbox.plan.json` is not container-execution evidence. A submission claiming live tool isolation must use the explicit live-tool mode and retain a valid private execution receipt for every successful row. The package command revalidates each private receipt against the exact request and result before publishing only its receipt commitment; submitters must still preserve the private receipt for review. Provider credentials stay in the host adapter and must never appear in the tool container, receipt, transcripts, or public artifacts.
+
 Validate before opening a pull request:
 
 ```bash

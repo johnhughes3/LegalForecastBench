@@ -6,6 +6,7 @@ import signal
 import subprocess
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -21,9 +22,25 @@ from legalforecast.multiharness.spec import (
     RunRequest,
     SandboxPolicy,
 )
+from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 
 SHA256 = "sha256:" + "a" * 64
 OTHER_SHA256 = "sha256:" + "b" * 64
+
+
+@dataclass
+class _RecordingToolExecutor:
+    response_request_id: str | None = None
+    requests: list[ToolRequest] = field(default_factory=lambda: list[ToolRequest]())
+
+    def execute(self, request: ToolRequest, workspace: Path) -> ToolResponse:
+        assert workspace.is_dir()
+        self.requests.append(request)
+        return ToolResponse(
+            request_id=self.response_request_id or request.request_id,
+            status="succeeded",
+            output={"answer": 42},
+        )
 
 
 def test_manifest_file_validation_and_capabilities_loading(tmp_path: Path) -> None:
@@ -40,6 +57,21 @@ def test_manifest_file_validation_and_capabilities_loading(tmp_path: Path) -> No
     assert receipt["returncode"] == 0
     assert receipt["termination_requested"] is False
     assert receipt["forced_kill"] is False
+
+
+def test_capabilities_rejects_stale_output_when_probe_writes_only_once(
+    tmp_path: Path,
+) -> None:
+    script = _write_adapter_script(tmp_path, capabilities_once=True)
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+    )
+    workspace = tmp_path / "workspace"
+
+    assert adapter.capabilities(workspace).adapter_id == "fixture-adapter"
+
+    with pytest.raises(CommandAdapterError, match="was not written"):
+        adapter.capabilities(workspace)
 
 
 def test_permission_denied_group_cleanup_preserves_success_receipt(
@@ -153,6 +185,139 @@ def test_command_adapter_run_invocation_and_private_log_handling(
     assert (workspace / "request.json").is_file()
     assert (workspace / "result.json").is_file()
     assert (workspace / "private-logs" / "run-result.raw.json").is_file()
+
+
+def test_command_adapter_run_with_tools_uses_duplex_jsonl_protocol(
+    tmp_path: Path,
+) -> None:
+    script = _write_tool_adapter_script(tmp_path)
+    manifest = _manifest(command=(sys.executable, str(script)))
+    adapter = CommandAdapter(manifest=manifest)
+    executor = _RecordingToolExecutor()
+    workspace = tmp_path / "workspace"
+
+    result = adapter.run_with_tools(
+        _run_request(manifest),
+        workspace,
+        executor,
+    )
+
+    assert result.status == "succeeded"
+    assert [request.request_id for request in executor.requests] == ["tool-1"]
+    assert executor.requests[0].operation == "extract"
+    assert result.public_summary == {"summary": "tool answer: 42"}
+    assert (
+        (workspace / "private-logs" / "run-with-tools-stdout.log")
+        .read_text(encoding="utf-8")
+        .startswith("{")
+    )
+    assert (workspace / "private-logs" / "run-with-tools-stderr.log").read_text(
+        encoding="utf-8"
+    ).strip() == "PRIVATE_DIAGNOSTIC"
+
+
+def test_command_adapter_run_with_tools_requires_advertised_protocol(
+    tmp_path: Path,
+) -> None:
+    script = _write_tool_adapter_script(tmp_path, advertise_tools=False)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match="does not advertise tool protocol"):
+        adapter.run_with_tools(
+            _run_request(adapter.manifest),
+            workspace,
+            _RecordingToolExecutor(),
+        )
+
+    assert not (workspace / "private-logs" / "run-with-tools-execution.json").exists()
+
+
+@pytest.mark.parametrize("mode", ["malformed", "duplicate"])
+def test_command_adapter_run_with_tools_rejects_invalid_request_stream(
+    tmp_path: Path,
+    mode: str,
+) -> None:
+    script = _write_tool_adapter_script(tmp_path, mode=mode)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+
+    with pytest.raises(CommandAdapterError, match="tool request stream"):
+        adapter.run_with_tools(
+            _run_request(adapter.manifest),
+            tmp_path / "workspace",
+            _RecordingToolExecutor(),
+        )
+
+
+def test_command_adapter_run_with_tools_rejects_pipelined_requests(
+    tmp_path: Path,
+) -> None:
+    script = _write_tool_adapter_script(tmp_path, mode="pipelined")
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    executor = _RecordingToolExecutor()
+
+    with pytest.raises(CommandAdapterError, match="pipelined"):
+        adapter.run_with_tools(
+            _run_request(adapter.manifest),
+            tmp_path / "workspace",
+            executor,
+        )
+
+    assert len(executor.requests) == 1
+
+
+def test_command_adapter_run_with_tools_caps_total_exchanges(tmp_path: Path) -> None:
+    script = _write_tool_adapter_script(tmp_path, mode="too-many")
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    executor = _RecordingToolExecutor()
+
+    with pytest.raises(CommandAdapterError, match="exchange limit"):
+        adapter.run_with_tools(
+            _run_request(adapter.manifest),
+            tmp_path / "workspace",
+            executor,
+        )
+
+    assert len(executor.requests) == 256
+
+
+def test_command_adapter_run_with_tools_rejects_mismatched_response_id(
+    tmp_path: Path,
+) -> None:
+    script = _write_tool_adapter_script(tmp_path)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+
+    with pytest.raises(CommandAdapterError, match="response request_id"):
+        adapter.run_with_tools(
+            _run_request(adapter.manifest),
+            tmp_path / "workspace",
+            _RecordingToolExecutor(response_request_id="wrong-request"),
+        )
+
+
+def test_command_adapter_run_with_tools_enforces_deadline(tmp_path: Path) -> None:
+    script = _write_tool_adapter_script(tmp_path, mode="sleep")
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+        timeout_seconds=0.05,
+        termination_grace_seconds=0.1,
+    )
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(CommandAdapterError, match="timed out"):
+        adapter.run_with_tools(
+            _run_request(adapter.manifest),
+            workspace,
+            _RecordingToolExecutor(),
+        )
+
+    receipt = json.loads(
+        (workspace / "private-logs" / "run-with-tools-execution.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert receipt["status"] == "timed_out"
+    assert receipt["termination_requested"] is True
 
 
 def test_command_adapter_run_uses_declared_provider_environment_allowlist(
@@ -704,6 +869,7 @@ def _write_adapter_script(
     fail: bool = False,
     capture_environment: bool = False,
     public_summary_env_name: str | None = None,
+    capabilities_once: bool = False,
 ) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     script = root / "fixture_adapter.py"
@@ -718,6 +884,7 @@ def _write_adapter_script(
                 f"FAIL = {fail!r}",
                 f"CAPTURE_ENVIRONMENT = {capture_environment!r}",
                 f"PUBLIC_SUMMARY_ENV_NAME = {public_summary_env_name!r}",
+                f"CAPABILITIES_ONCE = {capabilities_once!r}",
                 f"SHA256 = {SHA256!r}",
                 f"OTHER_SHA256 = {OTHER_SHA256!r}",
                 "CAP_SCHEMA = 'legalforecast.multiharness.adapter_capabilities.v1'",
@@ -737,6 +904,11 @@ def _write_adapter_script(
                 "    print('SECRET_STDERR', file=sys.stderr)",
                 "    raise SystemExit(2)",
                 "if args.command == 'capabilities':",
+                "    once_path = pathlib.Path(args.output).with_suffix('.once')",
+                "    if CAPABILITIES_ONCE and once_path.exists():",
+                "        raise SystemExit()",
+                "    if CAPABILITIES_ONCE:",
+                "        once_path.write_text('written', encoding='utf-8')",
                 "    if CAPTURE_ENVIRONMENT:",
                 "        private_logs = pathlib.Path(args.output).parent",
                 "        private_logs /= 'private-logs'",
@@ -795,6 +967,102 @@ def _write_adapter_script(
                 "    print('SECRET_STDOUT')",
                 "    with open(args.output, 'w', encoding='utf-8') as handle:",
                 "        handle.write(json.dumps(payload))",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return script
+
+
+def _write_tool_adapter_script(
+    root: Path,
+    *,
+    mode: str = "valid",
+    advertise_tools: bool = True,
+) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    script = root / "tool_fixture_adapter.py"
+    script.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import argparse, json, pathlib, sys, time",
+                f"MODE = {mode!r}",
+                f"ADVERTISE_TOOLS = {advertise_tools!r}",
+                f"SHA256 = {SHA256!r}",
+                f"OTHER_SHA256 = {OTHER_SHA256!r}",
+                "parser = argparse.ArgumentParser()",
+                "sub = parser.add_subparsers(dest='command', required=True)",
+                "cap = sub.add_parser('capabilities')",
+                "cap.add_argument('--output', required=True)",
+                "for name in ('run', 'run-with-tools'):",
+                "    run = sub.add_parser(name)",
+                "    run.add_argument('--request', required=True)",
+                "    run.add_argument('--output', required=True)",
+                "    run.add_argument('--workspace', required=True)",
+                "args = parser.parse_args()",
+                "if args.command == 'capabilities':",
+                "    payload = {",
+                "      'schema_version': "
+                "'legalforecast.multiharness.adapter_capabilities.v1',",
+                "      'adapter_id': 'fixture-adapter',",
+                "      'adapter_version': '0.1.0',",
+                "      'supported_families': ['legalforecast_mtd'],",
+                "      'supported_scoring_modes': ['lfb_brier'],",
+                "      'supports_sandbox_policy': True,",
+                "      'capabilities_sha256': SHA256,",
+                "    }",
+                "    if ADVERTISE_TOOLS:",
+                "        payload['tool_protocol_version'] = (",
+                "            'legalforecast.multiharness.tool_request.v1'",
+                "        )",
+                "    pathlib.Path(args.output).write_text(",
+                "        json.dumps(payload), encoding='utf-8'",
+                "    )",
+                "    raise SystemExit()",
+                "request = json.loads(pathlib.Path(args.request).read_text())",
+                "if args.command == 'run-with-tools':",
+                "    if MODE == 'sleep':",
+                "        time.sleep(60)",
+                "    print('PRIVATE_DIAGNOSTIC', file=sys.stderr, flush=True)",
+                "    tool_request = {",
+                "      'schema_version': 'legalforecast.multiharness.tool_request.v1',",
+                "      'request_id': 'tool-1',",
+                "      'operation': 'extract',",
+                "      'arguments': {'page': 3},",
+                "      'input_paths': ['inputs/case.pdf'],",
+                "    }",
+                "    if MODE == 'malformed':",
+                "        print('not-json', flush=True)",
+                "        raise SystemExit()",
+                "    if MODE == 'pipelined':",
+                "        print(json.dumps(tool_request), flush=True)",
+                "    print(json.dumps(tool_request), flush=True)",
+                "    response = json.loads(sys.stdin.readline())",
+                "    if MODE == 'duplicate':",
+                "        print(json.dumps(tool_request), flush=True)",
+                "        sys.stdin.readline()",
+                "    if MODE == 'too-many':",
+                "        for index in range(1, 257):",
+                "            tool_request['request_id'] = f'tool-{index + 1}'",
+                "            print(json.dumps(tool_request), flush=True)",
+                "            json.loads(sys.stdin.readline())",
+                "    answer = response['output']['answer']",
+                "else:",
+                "    answer = 'unused'",
+                "payload = {",
+                "  'schema_version': 'legalforecast.multiharness.run_result.v1',",
+                "  'result_id': 'result-1',",
+                "  'request_id': request['request_id'],",
+                "  'status': 'succeeded',",
+                "  'result_sha256': OTHER_SHA256,",
+                "  'artifacts': [],",
+                "  'public_summary': {'summary': f'tool answer: {answer}'},",
+                "}",
+                "pathlib.Path(args.output).write_text(",
+                "    json.dumps(payload), encoding='utf-8'",
+                ")",
             ]
         ),
         encoding="utf-8",

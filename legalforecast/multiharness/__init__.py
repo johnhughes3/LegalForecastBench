@@ -4,6 +4,8 @@ from legalforecast.multiharness.adapters import (
     AdapterError,
     AdapterPreparation,
     HarnessAdapter,
+    LiveToolAdapter,
+    ToolExecutor,
 )
 from legalforecast.multiharness.artifacts import (
     AdapterRunResult,
@@ -42,6 +44,13 @@ from legalforecast.multiharness.conformance import (
     ConformanceRun,
     run_adapter_conformance,
 )
+from legalforecast.multiharness.container_runtime import (
+    CONTAINER_RECEIPT_SCHEMA_VERSION,
+    ContainerExecutionReceipt,
+    ContainerRuntimeError,
+    ContainerToolSession,
+    validate_container_resume,
+)
 from legalforecast.multiharness.harvey_lab_adapter import (
     HARVEY_LAB_ADAPTER_ID,
     HARVEY_LAB_ADAPTER_VERSION,
@@ -77,8 +86,11 @@ from legalforecast.multiharness.sandbox import (
     ContainerRuntimePlan,
     SandboxMount,
     build_container_plan,
+    build_live_container_plan,
+    live_container_public_plan,
     require_container_backend,
     sandbox_policy,
+    validate_live_container_policy,
 )
 from legalforecast.multiharness.selection import (
     ComparisonGroup,
@@ -145,6 +157,7 @@ __all__ = [
     "COMMUNITY_SUBMISSION_MANIFEST_SCHEMA_VERSION",
     "COMMUNITY_SUBMISSION_SCHEMA_VERSION",
     "CONFORMANCE_REPORT_SCHEMA_VERSION",
+    "CONTAINER_RECEIPT_SCHEMA_VERSION",
     "HARVEY_LAB_ADAPTER_ID",
     "HARVEY_LAB_ADAPTER_VERSION",
     "INCOMPLETE_RUN_POLICIES",
@@ -186,7 +199,10 @@ __all__ = [
     "ComparisonGroup",
     "ConformanceReport",
     "ConformanceRun",
+    "ContainerExecutionReceipt",
+    "ContainerRuntimeError",
     "ContainerRuntimePlan",
+    "ContainerToolSession",
     "ContributorCredit",
     "HarnessAdapter",
     "HarveyLabCliAdapter",
@@ -197,6 +213,7 @@ __all__ = [
     "LfbNativeAdapterError",
     "LfbNativeFixtureRun",
     "LfbTaskLoader",
+    "LiveToolAdapter",
     "ModelConfig",
     "MultiHarnessRun",
     "MultiHarnessRunConfig",
@@ -209,9 +226,11 @@ __all__ = [
     "SelectionResult",
     "TaskIndex",
     "TaskSelection",
+    "ToolExecutor",
     "ToolRequest",
     "ToolResponse",
     "build_container_plan",
+    "build_live_container_plan",
     "community_model_id",
     "decode_tool_request",
     "decode_tool_response",
@@ -219,6 +238,7 @@ __all__ = [
     "harvey_lab_manifest",
     "lfb_native_capabilities",
     "lfb_native_manifest",
+    "live_container_public_plan",
     "normalize_lab_scores",
     "package_community_submission",
     "project_lfb_adapter_record",
@@ -226,6 +246,8 @@ __all__ = [
     "run_adapter_conformance",
     "run_multi_harness",
     "sandbox_policy",
+    "validate_container_resume",
+    "validate_live_container_policy",
     "validate_submission_file",
     "validate_submission_manifest",
 ]

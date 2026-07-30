@@ -19,6 +19,7 @@ from legalforecast._json_io import (
     write_json_object,
     write_jsonl_objects,
 )
+from legalforecast.multiharness.container_runtime import validate_container_resume
 from legalforecast.multiharness.spec import (
     RUN_COMPATIBILITY_SCHEMA_VERSION,
     SCORING_MODES,
@@ -27,6 +28,8 @@ from legalforecast.multiharness.spec import (
     ConformanceReport,
     ContributorCredit,
     RunManifest,
+    RunRequest,
+    RunResult,
 )
 from legalforecast.multiharness.validation import (
     MultiHarnessValidationError,
@@ -480,6 +483,7 @@ def package_community_submission(
     rows = _read_jsonl(row_results_source, "row results")
     if not rows:
         raise ValueError("row-results.jsonl must contain at least one row")
+    _validate_live_run_receipts(config.run_dir, rows)
     conformance_source = config.conformance_report_path or (
         config.run_dir / "conformance-report.json"
     )
@@ -561,6 +565,43 @@ def package_community_submission(
         artifact_manifest_path=artifact_manifest_path,
         submission_path=submission_path,
     )
+
+
+def _validate_live_run_receipts(
+    run_dir: Path,
+    rows: Sequence[Mapping[str, Any]],
+) -> None:
+    """Revalidate private live receipts before publishing their commitments."""
+
+    for row in rows:
+        execution = optional_mapping(row, "container_execution")
+        if execution is None or optional_str(execution, "mode") != "live_tools":
+            continue
+        if require_str(row, "status") != "succeeded":
+            continue
+        if require_str(execution, "status") != "succeeded":
+            raise ValueError("successful live row has no successful container receipt")
+        expected_receipt = require_str(execution, "receipt_sha256")
+        validate_sha256(expected_receipt, "container_execution.receipt_sha256")
+        row_id = require_str(row, "row_id")
+        validate_safe_relative_path(row_id, "row_id")
+        row_dir = run_dir / "rows" / row_id
+        request = RunRequest.from_record(
+            _read_json(row_dir / "request.json", "live row request")
+        )
+        result = RunResult.from_record(
+            _read_json(row_dir / "result.json", "live row result")
+        )
+        actual_receipt = validate_container_resume(
+            row_dir / "private-logs" / "tool-container" / "execution-receipt.json",
+            request=request,
+            result=result,
+            policy=request.sandbox_policy,
+        )
+        if actual_receipt != expected_receipt:
+            raise ValueError(
+                "container receipt commitment does not match successful live row"
+            )
 
 
 def validate_submission_file(path: Path) -> CommunitySubmissionManifest:

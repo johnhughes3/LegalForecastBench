@@ -22,6 +22,8 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
+from legalforecast.multiharness import runner as runner_module
+from legalforecast.multiharness.adapters import AdapterPreparation, ToolExecutor
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterError,
@@ -41,13 +43,17 @@ from legalforecast.multiharness.sandbox import (
 )
 from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import (
+    TOOL_REQUEST_SCHEMA_VERSION,
     AdapterCapabilities,
     AdapterManifest,
     CanonicalTask,
     ContributorCredit,
+    RunRequest,
+    RunResult,
     TaskIndex,
 )
 from legalforecast.multiharness.task_loaders import LfbTaskLoader
+from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     PredictionUnit,
@@ -152,6 +158,129 @@ def test_runner_resumes_matching_request_hash(tmp_path: Path) -> None:
     assert (first.rows[0].workspace / "run-count.txt").read_text(
         encoding="utf-8"
     ) == "1"
+
+
+def test_runner_executes_live_tool_adapter_and_records_receipt_commitment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _LiveToolAdapter()
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    monkeypatch.setattr(
+        runner_module,
+        "validate_live_container_policy",
+        lambda _policy: None,
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "_preflight_live_container",
+        lambda _policy: None,
+    )
+    monkeypatch.setattr(runner_module, "ContainerToolSession", _FakeToolSession)
+    config = MultiHarnessRunConfig(
+        task_index=_task_index(task),
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(
+                adapter_id=adapter.manifest.adapter_id,
+                model_key="fixture-model",
+            ),
+        ),
+        sandbox_policy=replace(
+            _sandbox(),
+            image="sha256:" + "b" * 64,
+            uid_gid="65532:65532",
+        ),
+        output_dir=tmp_path / "run",
+        container_execution="live_tools",
+    )
+
+    run = run_multi_harness(config)
+
+    row = run.rows[0]
+    assert row.result.status == "succeeded"
+    assert row.container_receipt_sha256 == "sha256:" + "c" * 64
+    assert row.to_record()["container_execution"] == {
+        "mode": "live_tools",
+        "status": "succeeded",
+        "receipt_sha256": "sha256:" + "c" * 64,
+    }
+    live_plan = json.loads(
+        (row.workspace / "sandbox.plan.json").read_text(encoding="utf-8")
+    )
+    assert live_plan["schema_version"] == (
+        "legalforecast.multiharness.live_container_plan.v1"
+    )
+    assert live_plan["policy"] == config.sandbox_policy.to_record()
+    assert live_plan["output"]["mode"] == "bounded_tmpfs"
+    assert adapter.ordinary_run_called is False
+
+
+def test_runner_preflights_live_backend_before_adapter_capabilities(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _LiveToolAdapter()
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+
+    def _fail_preflight(_policy: object) -> None:
+        raise HostEnvironmentError("pinned image unavailable")
+
+    monkeypatch.setattr(
+        runner_module,
+        "_preflight_live_container",
+        _fail_preflight,
+    )
+    config = MultiHarnessRunConfig(
+        task_index=_task_index(task),
+        adapters=(adapter,),
+        model_configs=(ModelConfig(model_key="fixture-model"),),
+        sandbox_policy=replace(
+            _sandbox(),
+            image="sha256:" + "b" * 64,
+            uid_gid="65532:65532",
+        ),
+        output_dir=tmp_path / "run",
+        container_execution="live_tools",
+    )
+
+    with pytest.raises(HostEnvironmentError, match="pinned image unavailable"):
+        run_multi_harness(config)
+
+    assert adapter.capabilities_called is False
+
+
+def test_runner_rejects_live_mode_for_adapter_without_tool_protocol(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _ProviderValueErrorAdapter("ordinary run must not execute")
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    monkeypatch.setattr(
+        runner_module,
+        "validate_live_container_policy",
+        lambda _policy: None,
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "_preflight_live_container",
+        lambda _policy: None,
+    )
+    config = MultiHarnessRunConfig(
+        task_index=_task_index(task),
+        adapters=(adapter,),
+        model_configs=(ModelConfig(model_key="fixture-model"),),
+        sandbox_policy=replace(
+            _sandbox(),
+            image="sha256:" + "b" * 64,
+            uid_gid="65532:65532",
+        ),
+        output_dir=tmp_path / "run",
+        container_execution="live_tools",
+    )
+
+    with pytest.raises(ValueError, match="requires adapter tool protocol"):
+        run_multi_harness(config)
 
 
 def test_runner_does_not_resume_result_containing_provider_secret(
@@ -865,6 +994,97 @@ class _ProviderValueErrorAdapter:
 
     def run(self, _request: object, _workspace: Path) -> object:
         raise RuntimeError(self.secret)
+
+
+class _LiveToolAdapter:
+    def __init__(self) -> None:
+        self.ordinary_run_called = False
+        self.capabilities_called = False
+        self.manifest = AdapterManifest(
+            adapter_id="live-tool-fixture",
+            display_name="Live Tool Fixture",
+            adapter_version="0.1.0",
+            command=("live-tool-fixture",),
+        )
+
+    def capabilities(self, _workspace: Path) -> AdapterCapabilities:
+        self.capabilities_called = True
+        return AdapterCapabilities(
+            adapter_id=self.manifest.adapter_id,
+            adapter_version=self.manifest.adapter_version,
+            supported_families=("legalforecast_mtd",),
+            supported_scoring_modes=("lfb_brier",),
+            capabilities_sha256=SHA256,
+            tool_protocol_version=TOOL_REQUEST_SCHEMA_VERSION,
+        )
+
+    def run(self, _request: RunRequest, _workspace: Path) -> RunResult:
+        self.ordinary_run_called = True
+        raise AssertionError("ordinary run path must not execute in live mode")
+
+    def prepare(
+        self,
+        _request: RunRequest,
+        workspace: Path,
+    ) -> AdapterPreparation:
+        return AdapterPreparation(
+            manifest=self.manifest,
+            capabilities=self.capabilities(workspace),
+            workspace=workspace,
+        )
+
+    def run_with_tools(
+        self,
+        request: RunRequest,
+        _workspace: Path,
+        tools: ToolExecutor,
+    ) -> RunResult:
+        response = tools.execute(
+            ToolRequest(
+                request_id="tool-1",
+                operation="read_text",
+                input_paths=("task.json",),
+            ),
+            _workspace,
+        )
+        assert response.status == "succeeded"
+        return RunResult(
+            result_id=f"{request.request_id}:result",
+            request_id=request.request_id,
+            status="succeeded",
+            result_sha256="sha256:" + "b" * 64,
+        )
+
+
+class _FakeToolSession:
+    def __init__(
+        self,
+        *,
+        policy: object,
+        run_request: RunRequest,
+        workspace: Path,
+    ) -> None:
+        del policy, run_request, workspace
+        self.aborted = False
+
+    def execute(self, request: ToolRequest, workspace: Path) -> ToolResponse:
+        assert workspace.is_dir()
+        return ToolResponse(
+            request_id=request.request_id,
+            status="succeeded",
+            output={"read": True},
+        )
+
+    def finalize(self, result: RunResult) -> object:
+        assert result.status == "succeeded"
+        return type(
+            "FakeReceipt",
+            (),
+            {"receipt_sha256": "sha256:" + "c" * 64},
+        )()
+
+    def abort(self) -> None:
+        self.aborted = True
 
 
 def _task_index(task: CanonicalTask) -> TaskIndex:

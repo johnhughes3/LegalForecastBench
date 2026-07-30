@@ -8,10 +8,12 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 SCHEMA_CAPABILITIES = "legalforecast.multiharness.adapter_capabilities.v1"
 SCHEMA_RESULT = "legalforecast.multiharness.run_result.v1"
+SCHEMA_TOOL_REQUEST = "legalforecast.multiharness.tool_request.v1"
+SCHEMA_TOOL_RESPONSE = "legalforecast.multiharness.tool_response.v1"
 
 PROFILE_RECORDS: dict[str, dict[str, Any]] = {
     "lq-ai": {
@@ -140,29 +142,40 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--output", type=Path, required=True)
     run.add_argument("--workspace", type=Path, required=True)
 
+    run_with_tools = subparsers.add_parser("run-with-tools")
+    run_with_tools.add_argument("--request", type=Path, required=True)
+    run_with_tools.add_argument("--output", type=Path, required=True)
+    run_with_tools.add_argument("--workspace", type=Path, required=True)
+
     args = parser.parse_args(argv)
     profile = PROFILE_RECORDS[str(args.profile)]
     if args.phase == "capabilities":
-        _write_json(
-            args.output,
-            {
-                "schema_version": SCHEMA_CAPABILITIES,
-                "adapter_id": profile["adapter_id"],
-                "adapter_version": profile["adapter_version"],
-                "supported_families": ["legalforecast_mtd", "harvey_lab"],
-                "supported_scoring_modes": ["lfb_brier", "lab_native"],
-                "supports_sandbox_policy": True,
-                "capabilities_sha256": _record_sha256(
-                    {
-                        "adapter_id": profile["adapter_id"],
-                        "adapter_version": profile["adapter_version"],
-                        "profile": args.profile,
-                    }
-                ),
-            },
+        tool_protocol_version = (
+            SCHEMA_TOOL_REQUEST if args.profile == "openai-responses" else None
         )
+        capability_semantics: dict[str, Any] = {
+            "adapter_id": profile["adapter_id"],
+            "adapter_version": profile["adapter_version"],
+            "supported_families": ["legalforecast_mtd", "harvey_lab"],
+            "supported_scoring_modes": ["lfb_brier", "lab_native"],
+            "supports_sandbox_policy": True,
+            "profile": args.profile,
+            "tool_protocol_version": tool_protocol_version,
+        }
+        record: dict[str, Any] = {
+            "schema_version": SCHEMA_CAPABILITIES,
+            "adapter_id": capability_semantics["adapter_id"],
+            "adapter_version": capability_semantics["adapter_version"],
+            "supported_families": capability_semantics["supported_families"],
+            "supported_scoring_modes": capability_semantics["supported_scoring_modes"],
+            "supports_sandbox_policy": capability_semantics["supports_sandbox_policy"],
+            "capabilities_sha256": _record_sha256(capability_semantics),
+        }
+        if tool_protocol_version is not None:
+            record["tool_protocol_version"] = tool_protocol_version
+        _write_json(args.output, record)
         return 0
-    if args.phase == "run":
+    if args.phase in {"run", "run-with-tools"}:
         request = _read_json(args.request)
         request_id = _required_str(request, "request_id")
         task = _required_mapping(request, "task")
@@ -176,6 +189,31 @@ def main(argv: list[str] | None = None) -> int:
                 "sandbox_policy_id": _required_str(sandbox_policy, "policy_id"),
             }
         )
+        if args.phase == "run-with-tools":
+            if args.profile != "openai-responses":
+                raise ValueError("live tools are supported only by openai-responses")
+            tool_request = {
+                "schema_version": SCHEMA_TOOL_REQUEST,
+                "request_id": f"{request_id}:read-task",
+                "operation": "read_text",
+                "arguments": {"encoding": "utf-8"},
+                "input_paths": ["task.json"],
+            }
+            sys.stdout.write(
+                json.dumps(tool_request, sort_keys=True, separators=(",", ":")) + "\n"
+            )
+            sys.stdout.flush()
+            decoded_response = cast(object, json.loads(sys.stdin.readline()))
+            if not isinstance(decoded_response, dict):
+                raise ValueError("tool response must be a JSON object")
+            response = cast(dict[str, Any], decoded_response)
+            if response.get("schema_version") != SCHEMA_TOOL_RESPONSE:
+                raise ValueError("tool response schema does not match")
+            if response.get("request_id") != tool_request["request_id"]:
+                raise ValueError("tool response request_id does not match")
+            if response.get("status") != "succeeded":
+                raise ValueError("tool request failed")
+            public_summary["tool_response_sha256"] = _record_sha256(response)
         _write_json(
             args.output,
             {
@@ -193,10 +231,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    record = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(record, dict):
+    decoded = cast(object, json.loads(path.read_text(encoding="utf-8")))
+    if not isinstance(decoded, dict):
         raise ValueError(f"{path} must contain a JSON object")
-    return record
+    return cast(dict[str, Any], decoded)
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -211,7 +249,7 @@ def _required_mapping(record: dict[str, Any], field_name: str) -> dict[str, Any]
     value = record.get(field_name)
     if not isinstance(value, dict):
         raise ValueError(f"{field_name} must be a JSON object")
-    return value
+    return cast(dict[str, Any], value)
 
 
 def _required_str(record: dict[str, Any], field_name: str) -> str:

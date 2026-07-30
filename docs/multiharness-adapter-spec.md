@@ -11,7 +11,7 @@ Canonical records live in `legalforecast.multiharness.spec`.
 - `TaskSelection`: deterministic selectors for family, task ID, case ID, candidate ID, ablation, LAB module, practice area, tags, seed, and limit.
 - `AdapterManifest`: public adapter identity and command metadata.
 - `AdapterCapabilities`: declared task families, scoring modes, sandbox-policy support, and a capabilities hash. The hash commits to semantic capability inputs and must be stable across equivalent checkouts; absolute roots, launcher paths, workspaces, and other machine-local paths belong only in private probe artifacts. The Harvey LAB bridge derives its public-safe identity from the checkout's Git subtree plus its exact dirty/untracked overlay and a path-normalized digest of the launcher argv and file bytes. It rechecks that identity immediately before execution, writes the path-bearing probe only under `private-logs/`, and materializes only task bytes whose size and SHA-256 match the indexed artifacts.
-- `SandboxPolicy`: host-owned execution policy recorded for every row. The planned tool container uses no network; live tool-container enforcement remains unimplemented, and provider egress, when allowed, is a host-adapter assumption.
+- `SandboxPolicy`: host-owned execution policy recorded for every row. Plan-only runs record the policy without claiming containment. Live-tool runs enforce a network-disabled, read-only, non-root container while provider egress and allowlisted credentials remain confined to the host adapter.
 - `RunRequest` and `RunResult`: canonical per-row request/result records.
 - `RunManifest`: deterministic run-level provenance for the scheduled task, adapter, model, selection, and sandbox matrix.
 - `ConformanceReport`: fixture-only adapter conformance result.
@@ -87,7 +87,7 @@ Minimal manifest:
 }
 ```
 
-The command must support two phases:
+The command must support two ordinary phases:
 
 ```bash
 example-adapter capabilities --output adapter-capabilities.json
@@ -97,6 +97,8 @@ example-adapter run --request request.json --output result.json --workspace row-
 `capabilities` writes a valid `AdapterCapabilities` JSON object. The conformance suite currently requires `supports_sandbox_policy: true`, because every fixture request includes a host-owned `SandboxPolicy`.
 
 `run` reads a `RunRequest`, writes a `RunResult`, and keeps stdout/stderr/private logs out of public summaries. Each result public summary must echo the received `sandbox_policy_id` so reviewers can verify which host policy was recorded for the row. Public artifacts must use safe relative paths and SHA-256 hashes.
+
+An adapter that advertises `tool_protocol_version: legalforecast.multiharness.tool_request.v1` must also support `run-with-tools --request ... --output ... --workspace ...`. During that phase, stdout is reserved for one bounded `ToolRequest` JSON line at a time and stdin is reserved for the matching host-written `ToolResponse` line. Diagnostics belong on stderr. Unknown protocol versions, malformed frames, duplicate request IDs, mismatched responses, and adapters that advertise the protocol without implementing the phase fail before a result is accepted.
 
 Inspect and run conformance:
 
@@ -140,7 +142,48 @@ uv run legalforecast multiharness run \
   --output-dir tmp/multiharness/run
 ```
 
-Live tool-container execution remains open. The current adapter protocol defines host-side `capabilities` and `run` commands, but it does not define a tool command or RPC that the host can execute inside the planned container and connect back to the adapter. Launching an unrelated image entrypoint would not create a meaningful execution boundary, so the runner continues to record `sandbox.plan.json` without claiming that adapter/tool work ran there.
+That command is plan-only: it records `sandbox.plan.json` but does not claim that adapter tools ran in the container.
+
+Live tool execution is explicit:
+
+```bash
+uv run legalforecast multiharness run \
+  --task-index tmp/multiharness/lab-index.json \
+  --selection tmp/multiharness/lab-selection.json \
+  --adapter-manifest adapter-manifest.json \
+  --model-key provider:model-id \
+  --sandbox-policy-id live-tool-sandbox \
+  --sandbox-backend podman \
+  --sandbox-image 'example/tool-worker@sha256:<64-lowercase-hex-digest>' \
+  --allow-provider-egress \
+  --provider-env-var OPENAI_API_KEY \
+  --live-tool-container \
+  --output-dir tmp/multiharness/run
+```
+
+The backend and immutable image must already exist locally; before the live adapter run receives provider credentials, live execution verifies that the selected daemon is rootless and that `image inspect` resolves the exact pinned reference locally. Container creation then uses `--pull=never`. The host exposes exactly one read-only input bind, disables container networking, uses a read-only root, provides separate 64 MiB `noexec,nosuid,nodev` tmpfs mounts for `/tmp` and the scoped `/workspace/output`, drops all capabilities, enables no-new-privileges, selects a non-root UID/GID, and enforces PID, memory, CPU, and timeout limits. Output tmpfs bytes disappear with the container; bounded tool responses carry results back to the host. Caller-selected mounts, symlinked or special-file trees, home/root exposure, tag-only images, non-rootless daemons, and incomplete cleanup fail closed.
+
+The adapter remains a host process and receives only the explicitly allowed provider environment variables. The tool container receives no provider variables. Its entrypoint speaks the versioned JSONL tool protocol over stdin/stdout. Each successful row writes a private receipt binding the immutable image, policy, request, staged input tree, ordered exchange hashes, result, exit status, and confirmed cleanup; the public row contains only the receipt SHA-256 commitment. Resume requires the exact successful receipt and all bound artifacts to revalidate.
+
+Tool-container cleanup does not prove containment of host adapter descendants that escape their original process group. That separate boundary remains tracked in issue #267.
+
+The auditable negative-control worker and its digest-pinned build recipe are checked in under `tests/fixtures/container_runtime_worker/`. Build it explicitly with the same rootless backend used by the test, then resolve the local image ID:
+
+```bash
+CONTAINER_BACKEND=docker
+E2E_TAG=legalforecast-container-runtime-e2e:local
+"$CONTAINER_BACKEND" build \
+  --file tests/fixtures/container_runtime_worker/Containerfile \
+  --tag "$E2E_TAG" \
+  tests/fixtures/container_runtime_worker
+E2E_RAW_ID=$("$CONTAINER_BACKEND" image inspect --format '{{.Id}}' "$E2E_TAG")
+export LEGALFORECAST_CONTAINER_E2E_IMAGE="sha256:${E2E_RAW_ID#sha256:}"
+export LEGALFORECAST_CONTAINER_E2E_BACKEND="$CONTAINER_BACKEND"
+export LEGALFORECAST_CONTAINER_E2E=1
+uv run pytest -q tests/test_multiharness_container_runtime_e2e.py
+```
+
+The explicit build may fetch the Containerfile's digest-pinned base image; the runtime test itself never builds, pulls, publishes, or elevates. While the worker remains live, the host inspects the actual container and independently checks its exact image ID, network mode, read-only root, non-root user, dropped capabilities, no-new-privileges setting, resource limits, input bind, bounded tmpfs mounts, and environment isolation. The worker separately performs network, home, runtime-socket, root-write, tmpfs-write, scoped-output, and background-child probes. The test then requires confirmed cleanup and verifies that the exact container ID no longer exists.
 
 If a provider CLI or subscription is used, the adapter must record the auth mode and terms assumption in its public-safe metadata. Do not put API keys, account IDs, refresh tokens, raw transcripts, private logs, sealed material, or source documents in public artifacts.
 
@@ -152,4 +195,6 @@ If a provider CLI or subscription is used, the adapter must record the auth mode
 - LAB bridge reports missing `--lab-root` or `--output-dir`: the supplied LAB command does not expose the root/output controls this bridge needs. Use a fixture command or update the command manifest until the real LAB CLI supports those flags.
 - `LAB root must be a tracked path in a readable Git checkout`: use a Git checkout whose selected LAB root exists at `HEAD`; untracked standalone directories are intentionally rejected because they cannot provide a cheap, stable publication identity.
 - `LAB capabilities changed after run planning`: the LAB source overlay, launcher, or semantic command arguments changed after the manifest was created. Start a new run so its compatibility hash describes the bytes that will execute.
-- Container backend unavailable: the runner currently records a plan without checking or invoking the backend. Do not treat that plan as container-execution evidence; live tool-container enforcement still needs a tool command or RPC contract.
+- Container backend unavailable: plan-only mode can still record a policy, but `--live-tool-container` requires the selected local daemon to be installed, reachable, and rootless before any adapter run. For rootless Docker, point `DOCKER_HOST` at the operator-owned Unix socket beneath the operator-owned `XDG_RUNTIME_DIR`; remote TCP daemons and rootful daemons are rejected.
+- `live container image must be digest-pinned`: use a repository reference with `@sha256:<digest>` or an exact local `sha256:<image-id>`; mutable tags are accepted only for plan-only records.
+- `live tool container requires adapter tool protocol`: use an adapter that advertises the exact supported tool protocol and implements `run-with-tools`; ordinary adapters remain plan-only.

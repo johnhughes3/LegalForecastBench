@@ -37,6 +37,7 @@ from legalforecast.multiharness.sandbox import (
     NETWORK_NONE,
     PROVIDER_EGRESS_HOST_ONLY,
     sandbox_policy,
+    validate_live_container_policy,
 )
 from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import (
@@ -183,6 +184,15 @@ def add_multiharness_parser(subparsers: Any) -> None:
     run.add_argument("--sandbox-image", default="python:3.12-slim")
     run.add_argument("--sandbox-policy-id", default="multiharness-cli")
     run.add_argument("--sandbox-timeout-seconds", type=int, default=300)
+    run.add_argument(
+        "--live-tool-container",
+        action="store_true",
+        help=(
+            "Execute adapter tool calls in a local network-disabled container. "
+            "Requires a digest-pinned image and an adapter that advertises the "
+            "versioned tool protocol; provider credentials remain host-only."
+        ),
+    )
     run.add_argument(
         "--provider-env-var",
         action="append",
@@ -384,6 +394,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     manifests = _adapter_manifests_from_paths(_path_tuple_arg(args, "adapter_manifest"))
     policy = _sandbox_policy_from_args(args)
+    if cast(bool, args.live_tool_container):
+        validate_live_container_policy(policy)
     validate_provider_environment_scope(
         sandbox_policy=policy,
         adapter_count=len(manifests),
@@ -423,6 +435,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
             run_id=_required_str_arg(args, "run_id"),
             resume=cast(bool, args.resume),
             incomplete_run_policy=_required_str_arg(args, "incomplete_run_policy"),
+            container_execution=(
+                "live_tools" if cast(bool, args.live_tool_container) else "plan_only"
+            ),
         )
     )
     return 0
@@ -774,7 +789,9 @@ def _run_plan_record(
         "incomplete_run_policy": _required_str_arg(args, "incomplete_run_policy"),
         "resume": cast(bool, args.resume),
         "adapter_invocation": "skipped",
-        "container_invocation": "skipped",
+        "container_invocation": (
+            "required" if cast(bool, args.live_tool_container) else "skipped"
+        ),
     }
 
 
@@ -792,6 +809,7 @@ def _sandbox_policy_from_args(args: argparse.Namespace):
         mounts=(),
         timeout_seconds=cast(int, args.sandbox_timeout_seconds),
         network_policy=network_policy,
+        uid_gid="65532:65532" if cast(bool, args.live_tool_container) else None,
         allowed_provider_env_vars=provider_env_vars,
     )
 

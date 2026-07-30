@@ -294,6 +294,54 @@ def test_package_group_id_is_independent_of_partial_selection_hash(
     )
 
 
+def test_package_revalidates_successful_live_container_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _mark_first_row_live(run_dir, receipt_sha256=SHA1)
+    calls: list[Path] = []
+
+    def _validate(receipt_path: Path, **_: object) -> str:
+        calls.append(receipt_path)
+        return SHA1
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.community.validate_container_resume",
+        _validate,
+    )
+
+    package_community_submission(
+        _package_config(run_dir, tmp_path / "submission-package")
+    )
+
+    assert calls == [
+        run_dir
+        / "rows"
+        / "row-1"
+        / "private-logs"
+        / "tool-container"
+        / "execution-receipt.json"
+    ]
+
+
+def test_package_rejects_mismatched_live_container_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _mark_first_row_live(run_dir, receipt_sha256=SHA1)
+    monkeypatch.setattr(
+        "legalforecast.multiharness.community.validate_container_resume",
+        lambda *_args, **_kwargs: SHA2,
+    )
+
+    with pytest.raises(ValueError, match="receipt commitment"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "submission-package")
+        )
+
+
 def test_package_scrubs_lfb_raw_output_from_public_submission(
     tmp_path: Path,
 ) -> None:
@@ -426,6 +474,21 @@ def _package_config(run_dir: Path, output_dir: Path) -> CommunityPackageConfig:
         ),
         attestations=tuple(sorted(REQUIRED_ATTESTATIONS)),
         conformance_report_path=run_dir / "conformance-report.json",
+    )
+
+
+def _mark_first_row_live(run_dir: Path, *, receipt_sha256: str) -> None:
+    rows = _read_jsonl(run_dir / "row-results.jsonl")
+    rows[0]["container_execution"] = {
+        "mode": "live_tools",
+        "status": "succeeded",
+        "receipt_sha256": receipt_sha256,
+    }
+    _write_jsonl(run_dir / "row-results.jsonl", rows)
+    canonical_result = _read_jsonl(run_dir / "canonical-runs.jsonl")[0]
+    _write_json(
+        run_dir / "rows" / "row-1" / "result.json",
+        canonical_result,
     )
 
 
