@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import stat
 from collections.abc import Mapping, Sequence
@@ -13,8 +14,7 @@ from typing import Any, Self, cast
 from urllib.parse import unquote
 
 from legalforecast.multiharness.material_separation import (
-    MaterialAccessError,
-    deliverable_tree_sha256,
+    DELIVERABLE_TREE_COMMITMENT_SCHEMA_VERSION,
 )
 from legalforecast.multiharness.materialization import (
     MaterializationLimits,
@@ -42,6 +42,7 @@ _MANIFEST_FIELDS = {
     "config_sha256",
     "artifacts",
     "total_size_bytes",
+    "max_files",
     "max_total_size_bytes",
     "tree_sha256",
     "manifest_sha256",
@@ -79,6 +80,19 @@ class DeliverableLimits:
 
 
 @dataclass(frozen=True, slots=True)
+class _DiscoveredFile:
+    path: str
+    file_stat: os.stat_result
+
+
+@dataclass(frozen=True, slots=True)
+class _TreeSnapshot:
+    files: Mapping[str, tuple[str, int]]
+    total_size_bytes: int
+    tree_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
 class DeliverableArtifactProjection:
     """Map one harness-specific output path into the canonical deliverable tree."""
 
@@ -112,7 +126,9 @@ class SealedDeliverableArtifact:
         _require_non_empty(self.artifact_id, "artifact_id")
         _decoded_safe_path(self.path, "path")
         _validate_media_type(self.media_type)
-        validate_sha256(self.sha256, "sha256")
+        if self.media_type != self.media_type.lower():
+            raise ValueError("media_type must be lowercase")
+        _require_canonical_sha256(self.sha256, "sha256")
         if type(self.size_bytes) is not int or self.size_bytes < 0:
             raise ValueError("size_bytes must be a non-negative integer")
         if type(self.max_size_bytes) is not int or self.max_size_bytes <= 0:
@@ -152,6 +168,7 @@ class DeliverableManifest:
     config_sha256: str
     artifacts: tuple[SealedDeliverableArtifact, ...]
     total_size_bytes: int
+    max_files: int
     max_total_size_bytes: int
     tree_sha256: str
     manifest_sha256: str
@@ -169,7 +186,7 @@ class DeliverableManifest:
             "tree_sha256",
             "manifest_sha256",
         ):
-            validate_sha256(getattr(self, field_name), field_name)
+            _require_canonical_sha256(getattr(self, field_name), field_name)
         if not self.artifacts:
             raise ValueError("deliverable manifest requires at least one artifact")
         _require_unique(
@@ -189,6 +206,10 @@ class DeliverableManifest:
             raise ValueError("deliverable artifacts must be ordered by artifact_id")
         if type(self.total_size_bytes) is not int or self.total_size_bytes < 0:
             raise ValueError("total_size_bytes must be a non-negative integer")
+        if type(self.max_files) is not int or self.max_files <= 0:
+            raise ValueError("max_files must be a positive integer")
+        if len(self.artifacts) > self.max_files:
+            raise ValueError("deliverable artifact count exceeds max_files")
         if type(self.max_total_size_bytes) is not int or self.max_total_size_bytes <= 0:
             raise ValueError("max_total_size_bytes must be a positive integer")
         if self.total_size_bytes != sum(
@@ -208,6 +229,7 @@ class DeliverableManifest:
             "config_sha256": self.config_sha256,
             "artifacts": [artifact.to_record() for artifact in self.artifacts],
             "total_size_bytes": self.total_size_bytes,
+            "max_files": self.max_files,
             "max_total_size_bytes": self.max_total_size_bytes,
             "tree_sha256": self.tree_sha256,
         }
@@ -243,6 +265,7 @@ class DeliverableManifest:
                 record,
                 "total_size_bytes",
             ),
+            max_files=_required_positive_int(record, "max_files"),
             max_total_size_bytes=_required_positive_int(
                 record,
                 "max_total_size_bytes",
@@ -271,42 +294,42 @@ def seal_deliverable(
     fresh root for the coordinated caller to remove.
     """
 
-    for field_name, value in (
-        ("task_sha256", task_sha256),
-        ("run_sha256", run_sha256),
-        ("config_sha256", config_sha256),
-    ):
-        validate_sha256(value, field_name)
+    canonical_task_sha256 = _canonical_sha256(task_sha256, "task_sha256")
+    canonical_run_sha256 = _canonical_sha256(run_sha256, "run_sha256")
+    canonical_config_sha256 = _canonical_sha256(config_sha256, "config_sha256")
     applied_limits = limits or DeliverableLimits()
     declared = tuple(artifacts)
     _validate_projections(declared, applied_limits)
     normalized_source = _existing_real_directory(source_root, "source_root")
     normalized_sealed = _fresh_child_path(sealed_root)
     _require_disjoint_roots(normalized_source, normalized_sealed)
-    _verify_exact_source_tree(normalized_source, declared)
+    source_bounds = {
+        projection.source_path: min(
+            projection.max_size_bytes,
+            applied_limits.max_file_bytes,
+        )
+        for projection in declared
+    }
+    source_snapshot = _bounded_tree_snapshot(
+        normalized_source,
+        file_bounds=source_bounds,
+        max_files=applied_limits.max_files,
+        max_total_bytes=applied_limits.max_total_bytes,
+        field_name="deliverable source",
+        require_read_only=False,
+    )
 
     source_records: list[ArtifactRecord] = []
     sizes: dict[str, int] = {}
-    total_size = 0
     for projection in declared:
-        source_path = normalized_source / PurePosixPath(projection.source_path)
-        digest, size_bytes = _hash_regular_file(source_path, projection.source_path)
-        effective_max = min(projection.max_size_bytes, applied_limits.max_file_bytes)
-        if size_bytes > effective_max:
-            raise DeliverableValidationError(
-                f"artifact {projection.artifact_id!r} exceeds the per-file "
-                "deliverable limit"
-            )
-        total_size += size_bytes
-        if total_size > applied_limits.max_total_bytes:
-            raise DeliverableValidationError("deliverable exceeds the total byte limit")
+        digest, size_bytes = source_snapshot.files[projection.source_path]
         sizes[projection.artifact_id] = size_bytes
         source_records.append(
             ArtifactRecord(
                 artifact_id=projection.artifact_id,
                 path=projection.source_path,
                 sha256=digest,
-                media_type=projection.media_type,
+                media_type=projection.media_type.lower(),
                 size_bytes=size_bytes,
             )
         )
@@ -317,7 +340,7 @@ def seal_deliverable(
         family="contract_only",
         suite_version="v1",
         scoring_mode="contract_only",
-        task_sha256=task_sha256,
+        task_sha256=canonical_task_sha256,
         artifacts=tuple(source_records),
     )
     projections_by_id = {projection.artifact_id: projection for projection in declared}
@@ -345,13 +368,12 @@ def seal_deliverable(
     except TaskMaterializationError as exc:
         raise DeliverableValidationError(str(exc)) from exc
 
-    _seal_read_only(normalized_sealed)
     sealed_artifacts = tuple(
         SealedDeliverableArtifact(
             artifact_id=entry.artifact_id,
             path=entry.destination_path,
-            media_type=projections_by_id[entry.artifact_id].media_type,
-            sha256="sha256:" + entry.sha256.removeprefix("sha256:"),
+            media_type=projections_by_id[entry.artifact_id].media_type.lower(),
+            sha256=_canonical_sha256(entry.sha256, "artifact sha256"),
             size_bytes=sizes[entry.artifact_id],
             max_size_bytes=min(
                 projections_by_id[entry.artifact_id].max_size_bytes,
@@ -360,25 +382,58 @@ def seal_deliverable(
         )
         for entry in materialized.entries
     )
-    tree_sha256 = deliverable_tree_sha256(normalized_sealed)
+    canonical_bounds = {
+        artifact.path: artifact.max_size_bytes for artifact in sealed_artifacts
+    }
+    unsealed_snapshot = _bounded_tree_snapshot(
+        normalized_sealed,
+        file_bounds=canonical_bounds,
+        max_files=applied_limits.max_files,
+        max_total_bytes=applied_limits.max_total_bytes,
+        field_name="unsealed deliverable",
+        require_read_only=False,
+    )
+    for artifact in sealed_artifacts:
+        actual_sha256, actual_size = unsealed_snapshot.files[artifact.path]
+        if actual_sha256 != artifact.sha256 or actual_size != artifact.size_bytes:
+            raise DeliverableValidationError(
+                f"deliverable changed before sealing: {artifact.path}"
+            )
+    _seal_read_only(normalized_sealed, tuple(canonical_bounds))
+    sealed_snapshot = _bounded_tree_snapshot(
+        normalized_sealed,
+        file_bounds=canonical_bounds,
+        max_files=applied_limits.max_files,
+        max_total_bytes=applied_limits.max_total_bytes,
+        field_name="sealed deliverable",
+        require_read_only=True,
+    )
+    for artifact in sealed_artifacts:
+        actual_sha256, actual_size = sealed_snapshot.files[artifact.path]
+        if actual_sha256 != artifact.sha256 or actual_size != artifact.size_bytes:
+            raise DeliverableValidationError(
+                f"sealed deliverable changed during sealing: {artifact.path}"
+            )
     content = {
         "schema_version": DELIVERABLE_MANIFEST_SCHEMA_VERSION,
-        "task_sha256": task_sha256,
-        "run_sha256": run_sha256,
-        "config_sha256": config_sha256,
+        "task_sha256": canonical_task_sha256,
+        "run_sha256": canonical_run_sha256,
+        "config_sha256": canonical_config_sha256,
         "artifacts": [artifact.to_record() for artifact in sealed_artifacts],
-        "total_size_bytes": total_size,
+        "total_size_bytes": sealed_snapshot.total_size_bytes,
+        "max_files": applied_limits.max_files,
         "max_total_size_bytes": applied_limits.max_total_bytes,
-        "tree_sha256": tree_sha256,
+        "tree_sha256": sealed_snapshot.tree_sha256,
     }
     return DeliverableManifest(
-        task_sha256=task_sha256,
-        run_sha256=run_sha256,
-        config_sha256=config_sha256,
+        task_sha256=canonical_task_sha256,
+        run_sha256=canonical_run_sha256,
+        config_sha256=canonical_config_sha256,
         artifacts=sealed_artifacts,
-        total_size_bytes=total_size,
+        total_size_bytes=sealed_snapshot.total_size_bytes,
+        max_files=applied_limits.max_files,
         max_total_size_bytes=applied_limits.max_total_bytes,
-        tree_sha256=tree_sha256,
+        tree_sha256=sealed_snapshot.tree_sha256,
         manifest_sha256=_record_sha256(content),
     )
 
@@ -396,24 +451,24 @@ def validate_sealed_deliverable(
     # Reconstructing catches forged dataclass instances created without __init__.
     canonical_manifest = DeliverableManifest.from_record(manifest.to_record())
     normalized_root = _existing_real_directory(sealed_root, "sealed_root")
-    try:
-        actual_tree_sha256 = deliverable_tree_sha256(normalized_root)
-    except (MaterialAccessError, ValueError) as exc:
-        raise DeliverableValidationError(str(exc)) from exc
-    _verify_exact_tree(
+    snapshot = _bounded_tree_snapshot(
         normalized_root,
-        {artifact.path for artifact in canonical_manifest.artifacts},
-        "sealed deliverable",
+        file_bounds={
+            artifact.path: artifact.max_size_bytes
+            for artifact in canonical_manifest.artifacts
+        },
+        max_files=canonical_manifest.max_files,
+        max_total_bytes=canonical_manifest.max_total_size_bytes,
+        field_name="sealed deliverable",
+        require_read_only=True,
     )
-    if actual_tree_sha256 != canonical_manifest.tree_sha256:
+    if snapshot.tree_sha256 != canonical_manifest.tree_sha256:
         raise DeliverableValidationError(
             "sealed deliverable tree does not match its manifest"
         )
 
-    total_size = 0
     for artifact in canonical_manifest.artifacts:
-        path = normalized_root / PurePosixPath(artifact.path)
-        digest, size_bytes = _hash_regular_file(path, artifact.path)
+        digest, size_bytes = snapshot.files[artifact.path]
         if digest != artifact.sha256:
             raise DeliverableValidationError(
                 f"sealed deliverable hash mismatch: {artifact.path}"
@@ -422,18 +477,9 @@ def validate_sealed_deliverable(
             raise DeliverableValidationError(
                 f"sealed deliverable size mismatch: {artifact.path}"
             )
-        if size_bytes > artifact.max_size_bytes:
-            raise DeliverableValidationError(
-                f"sealed deliverable exceeds artifact bound: {artifact.path}"
-            )
-        total_size += size_bytes
-    if total_size != canonical_manifest.total_size_bytes:
+    if snapshot.total_size_bytes != canonical_manifest.total_size_bytes:
         raise DeliverableValidationError(
             "sealed deliverable total size does not match its manifest"
-        )
-    if total_size > canonical_manifest.max_total_size_bytes:
-        raise DeliverableValidationError(
-            "sealed deliverable exceeds its total size bound"
         )
     return canonical_manifest
 
@@ -458,98 +504,369 @@ def _validate_projections(
         tuple(artifact.path for artifact in artifacts),
         "canonical paths",
     )
-
-
-def _verify_exact_source_tree(
-    root: Path,
-    artifacts: tuple[DeliverableArtifactProjection, ...],
-) -> None:
-    _verify_exact_tree(
-        root,
-        {artifact.source_path for artifact in artifacts},
-        "deliverable source",
+    _require_no_path_prefix_collisions(
+        tuple(artifact.source_path for artifact in artifacts)
     )
+    _require_no_path_prefix_collisions(tuple(artifact.path for artifact in artifacts))
 
 
-def _verify_exact_tree(
+def _bounded_tree_snapshot(
     root: Path,
-    expected_files: set[str],
+    *,
+    file_bounds: Mapping[str, int],
+    max_files: int,
+    max_total_bytes: int,
     field_name: str,
-) -> None:
+    require_read_only: bool,
+) -> _TreeSnapshot:
+    expected_files = set(file_bounds)
     expected_directories: set[str] = set()
-    for source_path in expected_files:
-        parent = PurePosixPath(source_path).parent
+    for expected_path in expected_files:
+        parent = PurePosixPath(expected_path).parent
         while parent != PurePosixPath("."):
             expected_directories.add(parent.as_posix())
             parent = parent.parent
-
-    actual_files: set[str] = set()
+    max_entries = len(expected_files) + len(expected_directories)
+    root_fd = _open_root_fd(root, field_name)
+    discovered_files: dict[str, _DiscoveredFile] = {}
     actual_directories: set[str] = set()
-    for path in root.rglob("*"):
-        relative_path = path.relative_to(root).as_posix()
-        path_stat = path.lstat()
-        if stat.S_ISLNK(path_stat.st_mode):
-            raise DeliverableValidationError(
-                f"{field_name} contains a symlink: {relative_path}"
-            )
-        if stat.S_ISDIR(path_stat.st_mode):
-            actual_directories.add(relative_path)
-            continue
-        if not stat.S_ISREG(path_stat.st_mode) or path_stat.st_nlink != 1:
-            raise DeliverableValidationError(
-                f"{field_name} must contain only single-link regular files"
-            )
-        actual_files.add(relative_path)
-    missing = expected_files - actual_files
-    if missing:
-        raise DeliverableValidationError(
-            f"{field_name} is missing declared paths: {sorted(missing)}"
-        )
-    extra_files = actual_files - expected_files
-    extra_directories = actual_directories - expected_directories
-    if extra_files or extra_directories:
-        unexpected = sorted(extra_files | extra_directories)
-        raise DeliverableValidationError(
-            f"{field_name} contains unexpected paths: {unexpected}"
-        )
-
-
-def _hash_regular_file(path: Path, display_path: str) -> tuple[str, int]:
+    counters = {"entries": 0, "files": 0}
     try:
-        path_stat = path.lstat()
-    except OSError as exc:
-        raise DeliverableValidationError(
-            f"deliverable path is missing: {display_path}"
-        ) from exc
-    if (
-        not stat.S_ISREG(path_stat.st_mode)
-        or stat.S_ISLNK(path_stat.st_mode)
-        or path_stat.st_nlink != 1
-    ):
-        raise DeliverableValidationError(
-            f"deliverable path must be a single-link regular file: {display_path}"
+        root_stat = os.fstat(root_fd)
+        if require_read_only and root_stat.st_mode & 0o222:
+            raise DeliverableValidationError(f"{field_name} must be read-only")
+        _discover_bounded_tree(
+            root_fd,
+            prefix="",
+            expected_files=expected_files,
+            expected_directories=expected_directories,
+            max_entries=max_entries,
+            max_files=max_files,
+            require_read_only=require_read_only,
+            field_name=field_name,
+            discovered_files=discovered_files,
+            actual_directories=actual_directories,
+            counters=counters,
         )
+        missing_files = expected_files - discovered_files.keys()
+        missing_directories = expected_directories - actual_directories
+        if missing_files or missing_directories:
+            missing = sorted(set(missing_files) | missing_directories)
+            raise DeliverableValidationError(
+                f"{field_name} is missing declared paths: {missing}"
+            )
+
+        remaining_precheck = max_total_bytes
+        for path in sorted(expected_files):
+            size_bytes = discovered_files[path].file_stat.st_size
+            max_file_bytes = file_bounds[path]
+            if size_bytes > max_file_bytes:
+                raise DeliverableValidationError(
+                    f"{field_name} exceeds the per-file byte limit: {path}"
+                )
+            if size_bytes > remaining_precheck:
+                raise DeliverableValidationError(
+                    f"{field_name} exceeds the total byte limit"
+                )
+            remaining_precheck -= size_bytes
+
+        files: dict[str, tuple[str, int]] = {}
+        total_size = 0
+        for path in sorted(expected_files):
+            file_fd = _open_relative_file_fd(root_fd, path, field_name)
+            try:
+                opened_stat = os.fstat(file_fd)
+                expected_stat = discovered_files[path].file_stat
+                if not _same_file(opened_stat, expected_stat):
+                    raise DeliverableValidationError(
+                        f"{field_name} changed during validation: {path}"
+                    )
+                digest, size_bytes = _hash_open_file(
+                    file_fd,
+                    path,
+                    max_bytes=file_bounds[path],
+                    remaining_total_bytes=max_total_bytes - total_size,
+                    expected_stat=expected_stat,
+                    field_name=field_name,
+                )
+            finally:
+                os.close(file_fd)
+            files[path] = (digest, size_bytes)
+            total_size += size_bytes
+
+        entries: list[dict[str, object]] = [
+            {"path": path, "type": "directory"} for path in sorted(actual_directories)
+        ]
+        entries.extend(
+            {
+                "path": path,
+                "type": "file",
+                "sha256": digest,
+                "size_bytes": size_bytes,
+            }
+            for path, (digest, size_bytes) in sorted(files.items())
+        )
+        return _TreeSnapshot(
+            files=files,
+            total_size_bytes=total_size,
+            tree_sha256=_record_sha256(
+                {
+                    "schema_version": DELIVERABLE_TREE_COMMITMENT_SCHEMA_VERSION,
+                    "entries": sorted(
+                        entries, key=lambda item: cast(str, item["path"])
+                    ),
+                }
+            ),
+        )
+    finally:
+        os.close(root_fd)
+
+
+def _discover_bounded_tree(
+    directory_fd: int,
+    *,
+    prefix: str,
+    expected_files: set[str],
+    expected_directories: set[str],
+    max_entries: int,
+    max_files: int,
+    require_read_only: bool,
+    field_name: str,
+    discovered_files: dict[str, _DiscoveredFile],
+    actual_directories: set[str],
+    counters: dict[str, int],
+) -> None:
+    try:
+        iterator = os.scandir(directory_fd)
+    except OSError as exc:
+        raise DeliverableValidationError(f"could not enumerate {field_name}") from exc
+    with iterator:
+        for entry in iterator:
+            counters["entries"] += 1
+            if counters["entries"] > max_entries:
+                raise DeliverableValidationError(
+                    f"{field_name} exceeds its exact entry-count bound"
+                )
+            path = f"{prefix}/{entry.name}" if prefix else entry.name
+            try:
+                entry_stat = entry.stat(follow_symlinks=False)
+            except OSError as exc:
+                raise DeliverableValidationError(
+                    f"{field_name} changed during discovery: {path}"
+                ) from exc
+            if stat.S_ISDIR(entry_stat.st_mode):
+                if path not in expected_directories:
+                    raise DeliverableValidationError(
+                        f"{field_name} contains unexpected paths: {path}"
+                    )
+                if require_read_only and entry_stat.st_mode & 0o222:
+                    raise DeliverableValidationError(
+                        f"{field_name} must be read-only: {path}"
+                    )
+                actual_directories.add(path)
+                child_fd = _open_child_directory_fd(
+                    directory_fd, entry.name, field_name
+                )
+                try:
+                    if not _same_file(os.fstat(child_fd), entry_stat):
+                        raise DeliverableValidationError(
+                            f"{field_name} changed during discovery: {path}"
+                        )
+                    _discover_bounded_tree(
+                        child_fd,
+                        prefix=path,
+                        expected_files=expected_files,
+                        expected_directories=expected_directories,
+                        max_entries=max_entries,
+                        max_files=max_files,
+                        require_read_only=require_read_only,
+                        field_name=field_name,
+                        discovered_files=discovered_files,
+                        actual_directories=actual_directories,
+                        counters=counters,
+                    )
+                finally:
+                    os.close(child_fd)
+                continue
+            counters["files"] += 1
+            if counters["files"] > max_files:
+                raise DeliverableValidationError(
+                    f"{field_name} exceeds the file-count limit"
+                )
+            if path not in expected_files:
+                raise DeliverableValidationError(
+                    f"{field_name} contains unexpected paths: {path}"
+                )
+            if not stat.S_ISREG(entry_stat.st_mode) or entry_stat.st_nlink != 1:
+                raise DeliverableValidationError(
+                    f"{field_name} must contain only single-link regular files"
+                )
+            if require_read_only and entry_stat.st_mode & 0o222:
+                raise DeliverableValidationError(
+                    f"{field_name} must be read-only: {path}"
+                )
+            discovered_files[path] = _DiscoveredFile(path, entry_stat)
+
+
+def _hash_open_file(
+    file_fd: int,
+    display_path: str,
+    *,
+    max_bytes: int,
+    remaining_total_bytes: int,
+    expected_stat: os.stat_result,
+    field_name: str,
+) -> tuple[str, int]:
+    opened_stat = os.fstat(file_fd)
+    if opened_stat.st_size > max_bytes:
+        raise DeliverableValidationError(
+            f"{field_name} exceeds the per-file byte limit: {display_path}"
+        )
+    if opened_stat.st_size > remaining_total_bytes:
+        raise DeliverableValidationError(f"{field_name} exceeds the total byte limit")
     digest = hashlib.sha256()
     size_bytes = 0
     try:
-        with path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                digest.update(chunk)
+        with os.fdopen(os.dup(file_fd), "rb") as handle:
+            while True:
+                remaining_file_bytes = max_bytes - size_bytes
+                remaining_aggregate_bytes = remaining_total_bytes - size_bytes
+                read_size = min(
+                    1024 * 1024,
+                    min(remaining_file_bytes, remaining_aggregate_bytes) + 1,
+                )
+                chunk = handle.read(read_size)
+                if not chunk:
+                    break
+                if size_bytes + len(chunk) > max_bytes:
+                    raise DeliverableValidationError(
+                        f"{field_name} exceeds the per-file byte limit: {display_path}"
+                    )
+                if size_bytes + len(chunk) > remaining_total_bytes:
+                    raise DeliverableValidationError(
+                        f"{field_name} exceeds the total byte limit"
+                    )
                 size_bytes += len(chunk)
+                digest.update(chunk)
     except OSError as exc:
         raise DeliverableValidationError(
-            f"could not read deliverable path: {display_path}"
+            f"could not read {field_name} path: {display_path}"
         ) from exc
+    final_stat = os.fstat(file_fd)
+    if (
+        not _same_file(final_stat, expected_stat)
+        or final_stat.st_size != size_bytes
+        or opened_stat.st_size != size_bytes
+    ):
+        raise DeliverableValidationError(
+            f"{field_name} changed while hashing: {display_path}"
+        )
     return "sha256:" + digest.hexdigest(), size_bytes
 
 
-def _seal_read_only(root: Path) -> None:
-    for path in sorted(root.rglob("*"), key=lambda item: len(item.parts), reverse=True):
-        if path.is_dir():
-            path.chmod(0o555)
-        else:
-            path.chmod(0o444)
-    root.chmod(0o555)
+def _open_root_fd(root: Path, field_name: str) -> int:
+    try:
+        return os.open(root, _directory_flags())
+    except OSError as exc:
+        raise DeliverableValidationError(
+            f"{field_name} must be a real directory"
+        ) from exc
+
+
+def _open_child_directory_fd(parent_fd: int, name: str, field_name: str) -> int:
+    try:
+        return os.open(name, _directory_flags(), dir_fd=parent_fd)
+    except OSError as exc:
+        raise DeliverableValidationError(
+            f"{field_name} contains a symlink or changed directory"
+        ) from exc
+
+
+def _open_relative_file_fd(root_fd: int, relative_path: str, field_name: str) -> int:
+    parts = PurePosixPath(relative_path).parts
+    current_fd = os.dup(root_fd)
+    try:
+        for part in parts[:-1]:
+            next_fd = _open_child_directory_fd(current_fd, part, field_name)
+            os.close(current_fd)
+            current_fd = next_fd
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            return os.open(parts[-1], flags, dir_fd=current_fd)
+        except OSError as exc:
+            raise DeliverableValidationError(
+                f"{field_name} path changed: {relative_path}"
+            ) from exc
+    finally:
+        os.close(current_fd)
+
+
+def _open_relative_directory_fd(
+    root_fd: int,
+    relative_path: str,
+    field_name: str,
+) -> int:
+    current_fd = os.dup(root_fd)
+    try:
+        for part in PurePosixPath(relative_path).parts:
+            next_fd = _open_child_directory_fd(current_fd, part, field_name)
+            os.close(current_fd)
+            current_fd = next_fd
+        result = current_fd
+        current_fd = -1
+        return result
+    finally:
+        if current_fd >= 0:
+            os.close(current_fd)
+
+
+def _directory_flags() -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
+
+
+def _same_file(left: os.stat_result, right: os.stat_result) -> bool:
+    return left.st_dev == right.st_dev and left.st_ino == right.st_ino
+
+
+def _seal_read_only(root: Path, file_paths: tuple[str, ...]) -> None:
+    root_fd = _open_root_fd(root, "deliverable root")
+    try:
+        for path in file_paths:
+            file_fd = _open_relative_file_fd(root_fd, path, "deliverable root")
+            try:
+                os.fchmod(file_fd, 0o444)
+            finally:
+                os.close(file_fd)
+        directories: set[str] = set()
+        for path in file_paths:
+            parent = PurePosixPath(path).parent
+            while parent != PurePosixPath("."):
+                directories.add(parent.as_posix())
+                parent = parent.parent
+        for path in sorted(
+            directories,
+            key=lambda value: len(PurePosixPath(value).parts),
+            reverse=True,
+        ):
+            directory_fd = _open_relative_directory_fd(
+                root_fd,
+                path,
+                "deliverable root",
+            )
+            try:
+                os.fchmod(directory_fd, 0o555)
+            finally:
+                os.close(directory_fd)
+        os.fchmod(root_fd, 0o555)
+    finally:
+        os.close(root_fd)
 
 
 def _existing_real_directory(path: Path, field_name: str) -> Path:
@@ -608,6 +925,17 @@ def _record_sha256(record: object) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _canonical_sha256(value: str, field_name: str) -> str:
+    validate_sha256(value, field_name)
+    return "sha256:" + value.removeprefix("sha256:")
+
+
+def _require_canonical_sha256(value: str, field_name: str) -> None:
+    validate_sha256(value, field_name)
+    if not value.startswith("sha256:"):
+        raise ValueError(f"{field_name} must use the sha256:<hex> representation")
 
 
 def _require_non_empty(value: str, field_name: str) -> None:

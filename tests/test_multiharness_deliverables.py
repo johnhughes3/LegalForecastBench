@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import stat
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
+import legalforecast.multiharness.deliverables as deliverables_module
 import pytest
 from legalforecast.multiharness.deliverables import (
     DELIVERABLE_MANIFEST_SCHEMA_VERSION,
@@ -16,6 +20,7 @@ from legalforecast.multiharness.deliverables import (
     seal_deliverable,
     validate_sealed_deliverable,
 )
+from legalforecast.multiharness.material_separation import deliverable_tree_sha256
 
 TASK_SHA256 = "sha256:" + "1" * 64
 RUN_SHA256 = "sha256:" + "2" * 64
@@ -79,6 +84,12 @@ def test_claude_codex_and_native_layouts_normalize_to_same_contract(
             )
             == manifest
         )
+        assert manifest.tree_sha256 == (
+            "sha256:"
+            + deliverable_tree_sha256(tmp_path / f"{harness}-sealed").removeprefix(
+                "sha256:"
+            )
+        )
 
     assert manifests[0].to_record() == manifests[1].to_record()
     assert manifests[1].to_record() == manifests[2].to_record()
@@ -107,6 +118,7 @@ def test_manifest_round_trips_and_rejects_unknown_schema_or_content() -> None:
             }
         ],
         "total_size_bytes": 6,
+        "max_files": 1,
         "max_total_size_bytes": 10,
         "tree_sha256": "sha256:" + "5" * 64,
         "manifest_sha256": "sha256:" + "6" * 64,
@@ -154,13 +166,13 @@ def test_sealing_rejects_missing_extra_and_oversized_outputs(tmp_path: Path) -> 
     extra_root = tmp_path / "extra"
     _write(extra_root / "answer.md", b"answer")
     _write(extra_root / "surprise.txt", b"extra")
-    with pytest.raises(DeliverableValidationError, match="unexpected"):
+    with pytest.raises(DeliverableValidationError, match=r"entry-count|unexpected"):
         _seal(extra_root, tmp_path / "extra-sealed", _projection("answer.md"))
 
     empty_directory_root = tmp_path / "empty-directory"
     _write(empty_directory_root / "answer.md", b"answer")
     (empty_directory_root / "surprise").mkdir()
-    with pytest.raises(DeliverableValidationError, match="unexpected"):
+    with pytest.raises(DeliverableValidationError, match=r"entry-count|unexpected"):
         _seal(
             empty_directory_root,
             tmp_path / "empty-directory-sealed",
@@ -174,6 +186,58 @@ def test_sealing_rejects_missing_extra_and_oversized_outputs(tmp_path: Path) -> 
             oversized_root,
             tmp_path / "oversized-sealed",
             replace(_projection("answer.md"), max_size_bytes=4),
+        )
+
+
+def test_sparse_oversize_and_excess_entries_fail_before_hashing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_hash(*args: object, **kwargs: object) -> tuple[str, int]:
+        raise AssertionError("content hashing must not begin")
+
+    monkeypatch.setattr(deliverables_module, "_hash_open_file", unexpected_hash)
+
+    sparse_root = tmp_path / "sparse"
+    sparse = _write(sparse_root / "answer.md", b"")
+    with sparse.open("r+b") as handle:
+        handle.truncate(1024 * 1024 * 1024)
+    with pytest.raises(DeliverableValidationError, match="per-file"):
+        _seal(sparse_root, tmp_path / "sparse-sealed", _projection("answer.md"))
+
+    extra_root = tmp_path / "extra-before-hash"
+    _write(extra_root / "answer.md", b"answer")
+    _write(extra_root / "unexpected.txt", b"unexpected")
+    with pytest.raises(DeliverableValidationError, match=r"entry-count|unexpected"):
+        _seal(
+            extra_root,
+            tmp_path / "extra-before-hash-sealed",
+            _projection("answer.md"),
+        )
+
+    aggregate_root = tmp_path / "aggregate"
+    _write(aggregate_root / "one.txt", b"1234")
+    _write(aggregate_root / "two.txt", b"5678")
+    with pytest.raises(DeliverableValidationError, match="total"):
+        seal_deliverable(
+            source_root=aggregate_root,
+            sealed_root=tmp_path / "aggregate-sealed",
+            task_sha256=TASK_SHA256,
+            run_sha256=RUN_SHA256,
+            config_sha256=CONFIG_SHA256,
+            artifacts=(
+                replace(
+                    _projection("one.txt"),
+                    artifact_id="one",
+                    path="one.txt",
+                ),
+                replace(
+                    _projection("two.txt"),
+                    artifact_id="two",
+                    path="two.txt",
+                ),
+            ),
+            limits=DeliverableLimits(max_files=2, max_total_bytes=7),
         )
 
 
@@ -337,3 +401,116 @@ def test_validator_hashes_but_never_executes_contributor_content(
     assert not side_effect.exists()
     assert stat.S_IMODE((sealed_root / "answer.sh").stat().st_mode) == 0o444
     json.dumps(manifest.to_record(), sort_keys=True)
+
+
+def test_digest_media_spelling_and_projection_order_normalize_identity(
+    tmp_path: Path,
+) -> None:
+    first_source = tmp_path / "first-source"
+    _write(first_source / "one.txt", b"one")
+    _write(first_source / "two.txt", b"two")
+    second_source = tmp_path / "second-source"
+    _write(second_source / "two.txt", b"two")
+    _write(second_source / "one.txt", b"one")
+    projections = (
+        DeliverableArtifactProjection(
+            artifact_id="one",
+            source_path="one.txt",
+            path="canonical/one.txt",
+            media_type="TEXT/PLAIN",
+            max_size_bytes=16,
+        ),
+        DeliverableArtifactProjection(
+            artifact_id="two",
+            source_path="two.txt",
+            path="canonical/two.txt",
+            media_type="text/plain",
+            max_size_bytes=16,
+        ),
+    )
+
+    first = seal_deliverable(
+        source_root=first_source,
+        sealed_root=tmp_path / "first-sealed",
+        task_sha256="1" * 64,
+        run_sha256=RUN_SHA256,
+        config_sha256="3" * 64,
+        artifacts=projections,
+    )
+    second = seal_deliverable(
+        source_root=second_source,
+        sealed_root=tmp_path / "second-sealed",
+        task_sha256=TASK_SHA256,
+        run_sha256="2" * 64,
+        config_sha256=CONFIG_SHA256,
+        artifacts=tuple(reversed(projections)),
+    )
+
+    assert first.to_record() == second.to_record()
+    assert first.task_sha256 == TASK_SHA256
+    assert first.run_sha256 == RUN_SHA256
+    assert first.config_sha256 == CONFIG_SHA256
+    assert {artifact.media_type for artifact in first.artifacts} == {"text/plain"}
+    assert first.max_files == 100
+
+
+def test_validation_rejects_sparse_growth_before_hashing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    _write(source_root / "answer.md", b"answer")
+    sealed_root = tmp_path / "sealed"
+    manifest = _seal(source_root, sealed_root, _projection("answer.md"))
+    answer = sealed_root / "work-product" / "answer.md"
+    answer.chmod(0o644)
+    with answer.open("r+b") as handle:
+        handle.truncate(1024 * 1024 * 1024)
+    answer.chmod(0o444)
+
+    def unexpected_hash(*args: object, **kwargs: object) -> tuple[str, int]:
+        raise AssertionError("content hashing must not begin")
+
+    monkeypatch.setattr(deliverables_module, "_hash_open_file", unexpected_hash)
+    with pytest.raises(DeliverableValidationError, match="per-file"):
+        validate_sealed_deliverable(sealed_root, manifest)
+
+
+def test_streaming_hash_aborts_when_file_grows_past_remaining_budget(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = _write(tmp_path / "growing.bin", b"initial")
+    file_fd = os.open(path, os.O_RDONLY)
+    expected_stat = os.fstat(file_fd)
+    real_fdopen = os.fdopen
+    grew = False
+
+    def grow_then_open(
+        fd: int,
+        mode: str,
+    ) -> object:
+        nonlocal grew
+        if not grew:
+            with path.open("ab") as handle:
+                handle.write(b"x" * 128)
+            grew = True
+        return real_fdopen(fd, mode)
+
+    monkeypatch.setattr(deliverables_module.os, "fdopen", grow_then_open)
+    hash_open_file = cast(
+        Callable[..., tuple[str, int]],
+        deliverables_module.__dict__["_hash_open_file"],
+    )
+    try:
+        with pytest.raises(DeliverableValidationError, match="per-file"):
+            hash_open_file(
+                file_fd,
+                "growing.bin",
+                max_bytes=64,
+                remaining_total_bytes=64,
+                expected_stat=expected_stat,
+                field_name="deliverable",
+            )
+    finally:
+        os.close(file_fd)
