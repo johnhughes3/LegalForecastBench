@@ -904,6 +904,12 @@ def _wait_for_process_tree_start(pid_dir: Path) -> None:
 
 
 def _pid_is_running(pid: int) -> bool:
+    """Return Linux process liveness for the CI-only containment assertions.
+
+    Reading ``/proc`` is deliberate: these tests must distinguish a zombie from
+    a running process, and their process-containment contract is exercised on
+    Linux CI. This helper is not a portable process-liveness probe.
+    """
     stat_path = Path(f"/proc/{pid}/stat")
     try:
         fields = stat_path.read_text(encoding="utf-8").split()
