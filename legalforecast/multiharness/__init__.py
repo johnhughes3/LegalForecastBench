@@ -150,6 +150,7 @@ from legalforecast.multiharness.sandbox import (
     validate_live_container_policy,
 )
 from legalforecast.multiharness.scoring import (
+    HARVEY_LAB_NORMALIZER_ID,
     LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION,
     METRIC_DEFINITION_SCHEMA_VERSION,
     SCORE_ARTIFACT_SCHEMA_VERSION,
@@ -237,6 +238,7 @@ __all__ = [
     "EVALUATOR_PRIVATE_TARGET",
     "HARVEY_LAB_ADAPTER_ID",
     "HARVEY_LAB_ADAPTER_VERSION",
+    "HARVEY_LAB_NORMALIZER_ID",
     "HOST_PROCESS_CONTAINMENT_MODES",
     "INCOMPLETE_RUN_POLICIES",
     "LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION",

@@ -26,6 +26,7 @@ SCORE_ARTIFACT_SCHEMA_VERSION = "legalforecast.multiharness.score_artifact.v1"
 LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION = (
     "legalforecast.multiharness.harvey_lab_verdicts.v1"
 )
+HARVEY_LAB_NORMALIZER_ID = "legalforecast.harvey-lab-all-pass-normalizer.v1"
 
 _OPAQUE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}\Z")
 _METRIC_FIELDS = frozenset(
@@ -45,6 +46,8 @@ _METRIC_FIELDS = frozenset(
         "criteria_sha256",
         "aggregation_sha256",
         "output_schema_sha256",
+        "raw_derivative_schema_version",
+        "normalizer_id",
         "definition_sha256",
     }
 )
@@ -95,6 +98,8 @@ class MetricDefinition:
     criteria_sha256: str
     aggregation_sha256: str
     output_schema_sha256: str
+    raw_derivative_schema_version: str
+    normalizer_id: str
     definition_sha256: str
     schema_version: str = METRIC_DEFINITION_SCHEMA_VERSION
 
@@ -102,7 +107,11 @@ class MetricDefinition:
         if self.schema_version != METRIC_DEFINITION_SCHEMA_VERSION:
             raise ValueError("unsupported metric definition schema_version")
         _opaque(self.metric_id, "metric_id")
+        if self.metric_id != "harvey-lab-binary-all-pass-v1":
+            raise ValueError("metric_id must identify the pinned LAB v1 metric")
         _positive(self.criterion_count, "criterion_count")
+        if self.criterion_count != 23:
+            raise ValueError("criterion_count must be exactly 23")
         _integer(self.raw_min, "raw_min")
         _integer(self.raw_max, "raw_max")
         if self.raw_min >= self.raw_max:
@@ -120,6 +129,10 @@ class MetricDefinition:
                 raise ValueError(f"{name} must be {required!r}")
         if (self.raw_min, self.raw_max) != (0, 1):
             raise ValueError("binary metric raw bounds must be exactly 0 and 1")
+        if self.raw_derivative_schema_version != LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION:
+            raise ValueError("raw_derivative_schema_version must identify LAB v1")
+        if self.normalizer_id != HARVEY_LAB_NORMALIZER_ID:
+            raise ValueError("normalizer_id must identify the pinned LAB v1 normalizer")
         for name in (
             "rubric_sha256",
             "criteria_sha256",
@@ -148,6 +161,8 @@ class MetricDefinition:
             "criteria_sha256": self.criteria_sha256,
             "aggregation_sha256": self.aggregation_sha256,
             "output_schema_sha256": self.output_schema_sha256,
+            "raw_derivative_schema_version": self.raw_derivative_schema_version,
+            "normalizer_id": self.normalizer_id,
         }
 
     def to_record(self) -> dict[str, object]:
@@ -188,6 +203,8 @@ class ScoreArtifact:
         if self.unit != "binary":
             raise ValueError("score unit must be binary")
         _positive(self.n_criteria, "n_criteria")
+        if self.n_criteria != 23:
+            raise ValueError("n_criteria must be exactly 23")
         _non_negative(self.n_passed, "n_passed")
         if self.n_passed > self.n_criteria:
             raise ValueError("n_passed cannot exceed n_criteria")
@@ -245,6 +262,8 @@ def build_harvey_lab_metric_definition(
         "criteria_sha256": criteria_sha256,
         "aggregation_sha256": aggregation_sha256,
         "output_schema_sha256": output_schema_sha256,
+        "raw_derivative_schema_version": LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION,
+        "normalizer_id": HARVEY_LAB_NORMALIZER_ID,
     }
     return MetricDefinition(
         metric_id="harvey-lab-binary-all-pass-v1",
@@ -261,6 +280,8 @@ def build_harvey_lab_metric_definition(
         criteria_sha256=criteria_sha256,
         aggregation_sha256=aggregation_sha256,
         output_schema_sha256=output_schema_sha256,
+        raw_derivative_schema_version=LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION,
+        normalizer_id=HARVEY_LAB_NORMALIZER_ID,
         definition_sha256=_hash(content),
     )
 
@@ -394,6 +415,22 @@ def _parse_lab_verdicts(
         raise ScoreNormalizationError(
             "raw verdict derivative must be UTF-8 JSON"
         ) from exc
+    try:
+        canonical_bytes = json.dumps(
+            decoded,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ScoreNormalizationError(
+            "raw verdict derivative is not canonical JSON"
+        ) from exc
+    if raw_result != canonical_bytes:
+        raise ScoreNormalizationError(
+            "raw verdict derivative must use exact canonical UTF-8 JSON bytes"
+        )
     record = _mapping(decoded, "raw verdict derivative")
     _exact(
         record,
@@ -437,7 +474,7 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     record: dict[str, Any] = {}
     for key, value in pairs:
         if key in record:
-            raise ScoreNormalizationError(f"duplicate JSON field: {key}")
+            raise ScoreNormalizationError("raw verdict derivative has duplicate fields")
         record[key] = value
     return record
 

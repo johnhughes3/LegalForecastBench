@@ -16,6 +16,7 @@ from legalforecast.multiharness.evaluation import (
     build_evaluation_spec,
 )
 from legalforecast.multiharness.scoring import (
+    HARVEY_LAB_NORMALIZER_ID,
     LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION,
     METRIC_DEFINITION_SCHEMA_VERSION,
     SCORE_ARTIFACT_SCHEMA_VERSION,
@@ -85,6 +86,18 @@ def _raw(verdicts: tuple[str, ...], **changes: object) -> bytes:
     return json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
 
 
+def _rehash(record: dict[str, object], hash_field: str) -> dict[str, object]:
+    content = dict(record)
+    content.pop(hash_field)
+    record[hash_field] = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(content, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+    )
+    return record
+
+
 def _receipt(
     spec: EvaluationSpec, raw: bytes, *, status: str = "succeeded"
 ) -> EvaluationReceipt:
@@ -142,11 +155,12 @@ def _score(
     raw_override: bytes | None = None,
     status: str = "succeeded",
     expected_metric_sha256: str | None = None,
+    metric_override: MetricDefinition | None = None,
 ) -> ScoreArtifact:
     bound_spec = spec or _spec()
     raw = raw_override or _raw(verdicts)
     receipt = _receipt(bound_spec, raw, status=status)
-    metric = _metric(bound_spec)
+    metric = metric_override or _metric(bound_spec)
     return normalize_harvey_lab_score(
         receipt=receipt,
         raw_result=raw,
@@ -190,6 +204,8 @@ def test_contracts_round_trip_and_score_is_aggregate_only() -> None:
     assert metric.schema_version == METRIC_DEFINITION_SCHEMA_VERSION
     assert MetricDefinition.from_record(metric.to_record()) == metric
     assert ScoreArtifact.from_record(score.to_record()) == score
+    assert metric.raw_derivative_schema_version == LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION
+    assert metric.normalizer_id == HARVEY_LAB_NORMALIZER_ID
     rendered = str(score.to_record())
     for forbidden in (
         "verdict",
@@ -207,6 +223,31 @@ def test_contracts_round_trip_and_score_is_aggregate_only() -> None:
 def test_metric_definition_is_externally_pinned_and_matches_spec() -> None:
     with pytest.raises(ScoreNormalizationError, match="authorized definition"):
         _score(("pass",) * 23, expected_metric_sha256=_digest("0"))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("metric_id", "other-metric"),
+        ("criterion_count", 1),
+        ("criterion_count", 22),
+        ("criterion_count", 24),
+    ),
+)
+def test_rehashed_non_lab_v1_definitions_and_normalization_are_rejected(
+    field: str,
+    value: object,
+) -> None:
+    record = _metric(_spec()).to_record()
+    record[field] = value
+    _rehash(record, "definition_sha256")
+    with pytest.raises(ValueError, match=r"metric_id|criterion_count"):
+        MetricDefinition.from_record(record)
+    forged = object.__new__(MetricDefinition)
+    for name, item in record.items():
+        object.__setattr__(forged, name, item)
+    with pytest.raises(ScoreNormalizationError, match=r"metric_id|criterion_count"):
+        _score(("pass",) * 23, metric_override=forged)
 
 
 def test_failed_receipt_cannot_be_scored() -> None:
@@ -246,6 +287,33 @@ def test_raw_lab_parser_rejects_missing_inconsistent_unknown_or_duplicate(
 
 
 @pytest.mark.parametrize(
+    "raw",
+    (
+        b" " + _raw(("pass",) * 23),
+        json.dumps(json.loads(_raw(("pass",) * 23))).encode(),
+        _raw(("pass",) * 23).replace(b'"pass"', b'"\\u0070ass"', 1),
+        b"\xef\xbb\xbf" + _raw(("pass",) * 23),
+        _raw(("pass",) * 23).decode().encode("utf-16"),
+        _raw(("pass",) * 23).decode().encode("utf-32"),
+    ),
+)
+def test_raw_derivative_requires_exact_canonical_utf8_bytes(raw: bytes) -> None:
+    with pytest.raises(ScoreNormalizationError, match="canonical UTF-8"):
+        _score(("pass",) * 23, raw_override=raw)
+
+
+def test_duplicate_field_error_does_not_echo_private_canary() -> None:
+    valid = _raw(("pass",) * 23)
+    raw = valid.replace(
+        b'"score":1',
+        b'"private-canary":1,"private-canary":2,"score":1',
+    )
+    with pytest.raises(ScoreNormalizationError) as caught:
+        _score(("pass",) * 23, raw_override=raw)
+    assert "private-canary" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
     "second_spec",
     (
         _spec(rubric=_digest("1")),
@@ -272,4 +340,15 @@ def test_score_tampering_and_unknown_fields_fail() -> None:
     record = _score(("pass",) * 23).to_record()
     record["observations"] = []
     with pytest.raises(ValueError, match="unexpected fields"):
+        ScoreArtifact.from_record(record)
+
+
+@pytest.mark.parametrize("n_criteria", (1, 22, 24))
+def test_correctly_rehashed_non_23_score_artifacts_are_rejected(
+    n_criteria: int,
+) -> None:
+    record = _score(("fail",) * 23).to_record()
+    record["n_criteria"] = n_criteria
+    _rehash(record, "score_sha256")
+    with pytest.raises(ValueError, match="n_criteria"):
         ScoreArtifact.from_record(record)
