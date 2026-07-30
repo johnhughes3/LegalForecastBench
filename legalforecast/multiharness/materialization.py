@@ -193,7 +193,12 @@ def materialize_task(
             raise TaskMaterializationError(
                 "materialization destination must be a fresh, absent path"
             )
-        os.mkdir(destination_name, mode=0o700, dir_fd=destination_parent_fd)
+        try:
+            os.mkdir(destination_name, mode=0o700, dir_fd=destination_parent_fd)
+        except OSError as exc:
+            raise TaskMaterializationError(
+                "could not create materialization destination root"
+            ) from exc
         destination_root_stat = _directory_stat_at(
             destination_parent_fd,
             destination_name,

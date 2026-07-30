@@ -370,6 +370,48 @@ def test_materialization_fails_closed_on_destination_root_parent_swap(
     assert not (outside / "workspace").exists()
 
 
+def test_materialization_wraps_destination_root_creation_race(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    destination_root = tmp_path / "workspace"
+    original_mkdir = os.mkdir
+    appeared = False
+
+    def create_competing_root(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> None:
+        nonlocal appeared
+        if path == destination_root.name and dir_fd is not None and not appeared:
+            appeared = True
+            original_mkdir(path, mode, dir_fd=dir_fd)
+        original_mkdir(path, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "mkdir", create_competing_root)
+
+    with pytest.raises(
+        TaskMaterializationError,
+        match="could not create materialization destination root",
+    ):
+        materialize_task(
+            _task((_artifact("input", source, source_root),)),
+            source_root=source_root,
+            destination_root=destination_root,
+            layout=TaskMaterializationLayout(
+                layout_id="destination-root-appeared.v1",
+                solver_artifacts=(TaskArtifactProjection("input", "output.txt"),),
+            ),
+        )
+
+    assert destination_root.is_dir()
+    assert not any(destination_root.iterdir())
+
+
 def test_materialization_fails_closed_on_destination_parent_swap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
