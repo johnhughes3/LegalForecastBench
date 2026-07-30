@@ -412,6 +412,51 @@ def test_materialization_wraps_destination_root_creation_race(
     assert not any(destination_root.iterdir())
 
 
+def test_materialization_rejects_destination_root_replaced_before_stat(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    destination_root = tmp_path / "workspace"
+    created_root = tmp_path / "workspace-created-by-materializer"
+    original_directory_stat = materialization_module._directory_stat_at
+    swapped = False
+
+    def replace_root_before_stat(
+        parent_fd: int,
+        name: str,
+        field_name: str,
+    ) -> os.stat_result:
+        nonlocal swapped
+        if field_name == "materialization destination root" and not swapped:
+            swapped = True
+            destination_root.rename(created_root)
+            destination_root.mkdir()
+        return original_directory_stat(parent_fd, name, field_name)
+
+    monkeypatch.setattr(
+        materialization_module,
+        "_directory_stat_at",
+        replace_root_before_stat,
+    )
+
+    with pytest.raises(TaskMaterializationError, match="root changed"):
+        materialize_task(
+            _task((_artifact("input", source, source_root),)),
+            source_root=source_root,
+            destination_root=destination_root,
+            layout=TaskMaterializationLayout(
+                layout_id="destination-root-pre-stat.v1",
+                solver_artifacts=(TaskArtifactProjection("input", "output.txt"),),
+            ),
+        )
+
+    assert created_root.is_dir()
+    assert destination_root.is_dir()
+    assert not (destination_root / "output.txt").exists()
+
+
 def test_materialization_fails_closed_on_destination_parent_swap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -464,7 +509,7 @@ def test_materialization_fails_closed_on_destination_parent_swap(
 
     assert marker.read_bytes() == b"keep"
     assert not (outside / "output.txt").exists()
-    assert not destination_root.exists()
+    assert destination_root.is_dir()
 
 
 def test_materialization_rejects_replaced_destination_directory(
@@ -495,7 +540,10 @@ def test_materialization_rejects_replaced_destination_directory(
 
     monkeypatch.setattr(os, "open", replace_directory_before_open)
 
-    with pytest.raises(TaskMaterializationError, match="directory changed"):
+    with pytest.raises(
+        TaskMaterializationError,
+        match=r"directory changed|unexpected or missing",
+    ):
         materialize_task(
             _task((_artifact("input", source, source_root),)),
             source_root=source_root,
@@ -508,7 +556,94 @@ def test_materialization_rejects_replaced_destination_directory(
             ),
         )
 
-    assert not destination_root.exists()
+    assert (destination_root / "nested" / "injected.txt").read_bytes() == (
+        b"not in the manifest"
+    )
+
+
+def test_materialization_rejects_destination_directory_replaced_before_stat(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    destination_root = tmp_path / "workspace"
+    created_directory = tmp_path / "nested-created-by-materializer"
+    original_directory_stat = materialization_module._directory_stat_at
+    swapped = False
+
+    def replace_directory_before_stat(
+        parent_fd: int,
+        name: str,
+        field_name: str,
+    ) -> os.stat_result:
+        nonlocal swapped
+        if field_name == "materialization destination directory" and not swapped:
+            swapped = True
+            (destination_root / "nested").rename(created_directory)
+            (destination_root / "nested").mkdir()
+        return original_directory_stat(parent_fd, name, field_name)
+
+    monkeypatch.setattr(
+        materialization_module,
+        "_directory_stat_at",
+        replace_directory_before_stat,
+    )
+
+    with pytest.raises(TaskMaterializationError, match="directory changed"):
+        materialize_task(
+            _task((_artifact("input", source, source_root),)),
+            source_root=source_root,
+            destination_root=destination_root,
+            layout=TaskMaterializationLayout(
+                layout_id="destination-directory-pre-stat.v1",
+                solver_artifacts=(
+                    TaskArtifactProjection("input", "nested/output.txt"),
+                ),
+            ),
+        )
+
+    assert created_directory.is_dir()
+    assert not (destination_root / "nested" / "output.txt").exists()
+
+
+def test_materialization_cleanup_never_deletes_replacement_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    destination_root = tmp_path / "workspace"
+    created_root = tmp_path / "workspace-created-by-materializer"
+
+    def fail_copy(
+        source_fd: int,
+        destination_fd: int,
+        *,
+        artifact: ArtifactRecord,
+        max_bytes: int,
+    ) -> tuple[str, int]:
+        del source_fd, destination_fd, artifact, max_bytes
+        destination_root.rename(created_root)
+        destination_root.mkdir()
+        _write(destination_root / "victim.txt", b"unrelated")
+        raise TaskMaterializationError("injected copy failure")
+
+    monkeypatch.setattr(materialization_module, "_copy_verified", fail_copy)
+
+    with pytest.raises(TaskMaterializationError, match="injected copy failure"):
+        materialize_task(
+            _task((_artifact("input", source, source_root),)),
+            source_root=source_root,
+            destination_root=destination_root,
+            layout=TaskMaterializationLayout(
+                layout_id="cleanup-root-race.v1",
+                solver_artifacts=(TaskArtifactProjection("input", "output.txt"),),
+            ),
+        )
+
+    assert (destination_root / "victim.txt").read_bytes() == b"unrelated"
+    assert created_root.is_dir()
 
 
 def test_materialization_final_seal_rejects_unmanifested_destination_path(
@@ -557,7 +692,41 @@ def test_materialization_final_seal_rejects_unmanifested_destination_path(
             ),
         )
 
-    assert not destination_root.exists()
+    assert (destination_root / "injected.txt").read_bytes() == b"not in the manifest"
+
+
+def test_materialization_final_seal_rechecks_directory_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source = _write(source_root / "input.txt", b"trusted")
+    destination_root = tmp_path / "workspace"
+    original_listdir = os.listdir
+    injected = False
+
+    def inject_after_snapshot(path: int) -> list[str]:
+        nonlocal injected
+        names = original_listdir(path)
+        if not injected:
+            injected = True
+            _write(destination_root / "injected.txt", b"not in the snapshot")
+        return names
+
+    monkeypatch.setattr(os, "listdir", inject_after_snapshot)
+
+    with pytest.raises(TaskMaterializationError, match="changed during sealing"):
+        materialize_task(
+            _task((_artifact("input", source, source_root),)),
+            source_root=source_root,
+            destination_root=destination_root,
+            layout=TaskMaterializationLayout(
+                layout_id="final-tree-resnapshot.v1",
+                solver_artifacts=(TaskArtifactProjection("input", "output.txt"),),
+            ),
+        )
+
+    assert (destination_root / "injected.txt").read_bytes() == b"not in the snapshot"
 
 
 def test_materialization_final_seal_rejects_in_place_destination_mutation(
@@ -608,7 +777,7 @@ def test_materialization_final_seal_rejects_in_place_destination_mutation(
             ),
         )
 
-    assert not destination_root.exists()
+    assert (destination_root / "nested" / "output.txt").read_bytes() == b"tampered"
 
 
 def _task(artifacts: tuple[ArtifactRecord, ...]) -> CanonicalTask:

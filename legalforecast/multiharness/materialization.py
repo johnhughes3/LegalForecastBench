@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -141,6 +140,11 @@ def materialize_task(
     Every canonical artifact must be classified exactly once as solver-visible
     or evaluator-private. The returned manifest stays outside the solver tree so
     materialization does not add semantic bytes.
+
+    The source root, destination parent, and workspace require exclusive
+    coordination from other same-UID processes during this call. Checks reject
+    mutations they observe; the returned manifest does not make the workspace
+    immutable after this function returns.
     """
 
     applied_limits = limits or MaterializationLimits()
@@ -199,17 +203,23 @@ def materialize_task(
             raise TaskMaterializationError(
                 "could not create materialization destination root"
             ) from exc
-        destination_root_stat = _directory_stat_at(
+        try:
+            destination_root_fd = os.open(
+                destination_name,
+                _directory_flags(),
+                dir_fd=destination_parent_fd,
+            )
+        except OSError as exc:
+            raise TaskMaterializationError(
+                "materialization destination root changed during creation"
+            ) from exc
+        destination_root_stat = os.fstat(destination_root_fd)
+        visible_root_stat = _directory_stat_at(
             destination_parent_fd,
             destination_name,
             "materialization destination root",
         )
-        destination_root_fd = os.open(
-            destination_name,
-            _directory_flags(),
-            dir_fd=destination_parent_fd,
-        )
-        if not _same_file(os.fstat(destination_root_fd), destination_root_stat):
+        if not _same_file(destination_root_stat, visible_root_stat):
             raise TaskMaterializationError(
                 "materialization destination root changed during creation"
             )
@@ -311,14 +321,6 @@ def materialize_task(
             destination_identities,
             destination_directory_identities,
         )
-    except Exception:
-        if destination_parent_fd is not None and destination_root_stat is not None:
-            _remove_owned_destination_at(
-                destination_parent_fd,
-                destination_name,
-                destination_root_stat,
-            )
-        raise
     finally:
         if destination_root_fd is not None:
             os.close(destination_root_fd)
@@ -592,6 +594,16 @@ def _verify_destination_directory(
                 )
         finally:
             os.close(file_fd)
+    try:
+        final_names = set(os.listdir(directory_fd))
+    except OSError as exc:
+        raise TaskMaterializationError(
+            "could not complete sealing the materialized destination tree"
+        ) from exc
+    if final_names != actual_names:
+        raise TaskMaterializationError(
+            "materialized destination tree changed during sealing"
+        )
 
 
 def _copy_verified(
@@ -685,13 +697,26 @@ def _open_relative_file(
                             "materialization destination directory appeared "
                             f"unexpectedly: {traversed_path}"
                         ) from exc
-                    expected_stat = _directory_stat_at(
-                        current_fd,
-                        part,
-                        "materialization destination directory",
-                    )
                 next_fd = os.open(part, _directory_flags(), dir_fd=current_fd)
-                if not _same_file(os.fstat(next_fd), expected_stat):
+                opened_stat = os.fstat(next_fd)
+                if expected_stat is None:
+                    try:
+                        visible_stat = _directory_stat_at(
+                            current_fd,
+                            part,
+                            "materialization destination directory",
+                        )
+                    except Exception:
+                        os.close(next_fd)
+                        raise
+                    if not _same_file(opened_stat, visible_stat):
+                        os.close(next_fd)
+                        raise TaskMaterializationError(
+                            "materialization destination directory changed during "
+                            f"creation: {traversed_path}"
+                        )
+                    expected_stat = opened_stat
+                if not _same_file(opened_stat, expected_stat):
                     os.close(next_fd)
                     raise TaskMaterializationError(
                         "materialization destination directory changed during "
@@ -801,19 +826,6 @@ def _path_matches_stat(path: Path, expected_stat: os.stat_result) -> bool:
 
 def _same_file(left: os.stat_result, right: os.stat_result) -> bool:
     return left.st_dev == right.st_dev and left.st_ino == right.st_ino
-
-
-def _remove_owned_destination_at(
-    destination_parent_fd: int,
-    destination_name: str,
-    expected_stat: os.stat_result,
-) -> None:
-    if _path_at_matches_stat(
-        destination_parent_fd,
-        destination_name,
-        expected_stat,
-    ):
-        shutil.rmtree(destination_name, dir_fd=destination_parent_fd)
 
 
 def _require_unique(values: tuple[str, ...], field_name: str) -> None:
