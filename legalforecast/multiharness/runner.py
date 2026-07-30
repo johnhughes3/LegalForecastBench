@@ -259,10 +259,20 @@ class _MultiHarnessRunner:
             _preflight_live_container(self.config.sandbox_policy)
         adapters = _ordered_adapters(self.config.adapters)
         requested_containment = self.config.sandbox_policy.host_process_containment
-        if requested_containment != POSIX_PROCESS_GROUP_CONTAINMENT and any(
-            isinstance(adapter, CommandAdapter) for adapter in adapters
-        ):
-            preflight_process_containment(requested_containment)
+        if requested_containment != POSIX_PROCESS_GROUP_CONTAINMENT:
+            unsupported = tuple(
+                adapter.manifest.adapter_id
+                for adapter in adapters
+                if not isinstance(adapter, (CommandAdapter, LfbNativeAdapter))
+            )
+            if unsupported:
+                formatted = ", ".join(unsupported)
+                raise ValueError(
+                    "strong host process containment is unsupported for "
+                    f"adapters: {formatted}"
+                )
+            if any(isinstance(adapter, CommandAdapter) for adapter in adapters):
+                preflight_process_containment(requested_containment)
         provider_values = require_provider_environment_values(
             self.config.sandbox_policy.allowed_provider_env_vars
         )

@@ -30,6 +30,7 @@ from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterError,
 )
+from legalforecast.multiharness.harvey_lab_adapter import HarveyLabCliAdapter
 from legalforecast.multiharness.host_environment import HostEnvironmentError
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
 from legalforecast.multiharness.process_containment import (
@@ -547,6 +548,64 @@ def test_runner_strong_preflight_precedes_provider_resolution(
     with pytest.raises(
         ProcessContainmentError,
         match="fixture containment unavailable",
+    ):
+        run_multi_harness(config)
+
+    assert not config.output_dir.exists()
+
+
+@pytest.mark.parametrize("mixed_with_command", [False, True])
+def test_runner_rejects_strong_mode_for_uncontained_lab_adapter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mixed_with_command: bool,
+) -> None:
+    lab_adapter = HarveyLabCliAdapter(
+        lab_command=("fixture-lab-command",),
+    )
+    task = _task("lab:fixture", "harvey_lab", "lab_native")
+    adapters = (
+        (
+            _command_adapter(
+                tmp_path,
+                supported_families=("harvey_lab",),
+                supported_scoring_modes=("lab_native",),
+            ),
+            lab_adapter,
+        )
+        if mixed_with_command
+        else (lab_adapter,)
+    )
+    model_configs = tuple(
+        ModelConfig(
+            adapter_id=adapter.manifest.adapter_id,
+            model_key=f"fixture-{index}",
+        )
+        for index, adapter in enumerate(adapters)
+    )
+    config = MultiHarnessRunConfig(
+        task_index=_task_index(task),
+        adapters=adapters,
+        model_configs=model_configs,
+        sandbox_policy=replace(
+            _sandbox(),
+            host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+        ),
+        output_dir=tmp_path / "run",
+    )
+
+    def unexpected_preflight(_requested: str) -> None:
+        raise AssertionError("unsupported adapter must fail before preflight")
+
+    monkeypatch.setattr(
+        runner_module,
+        "preflight_process_containment",
+        unexpected_preflight,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"strong host process containment is unsupported.*harvey-lab",
     ):
         run_multi_harness(config)
 

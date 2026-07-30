@@ -59,6 +59,7 @@ def main() -> int:
     os.environ.pop("XDG_RUNTIME_DIR", None)
     os.environ.update(environment)
     os.execvpe(command[0], command, os.environ)
+    return 126
 
 
 def _read_control_line(control: socket.socket) -> dict[str, object]:

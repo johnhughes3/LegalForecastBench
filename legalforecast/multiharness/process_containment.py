@@ -161,6 +161,7 @@ def prepare_contained_command(
         "--user",
         "--scope",
         "--quiet",
+        "--expand-environment=no",
         f"--unit={unit_name}",
         "--property=Delegate=no",
         f"--property=RuntimeMaxSec={max(1.0, runtime_max_seconds):.3f}s",
@@ -460,6 +461,7 @@ def _exercise_systemd_scope_preflight() -> None:
             "--user",
             "--scope",
             "--quiet",
+            "--expand-environment=no",
             f"--unit={unit_name}",
             "--property=Delegate=no",
             "--property=RuntimeMaxSec=5s",
@@ -510,7 +512,8 @@ def _exercise_systemd_scope_preflight() -> None:
             try:
                 process.wait(timeout=1.0)
             except subprocess.TimeoutExpired:
-                pass
+                # The preflight is already failing; RuntimeMaxSec owns cleanup.
+                process.poll()
 
 
 def _wait_for_systemd_scope(
@@ -775,11 +778,13 @@ def _terminate_process_group(
         try:
             process.kill()
         except (ProcessLookupError, PermissionError):
-            pass
+            # The process already exited or the retained group signal was denied.
+            process.poll()
     try:
         process.wait(timeout=grace_seconds)
     except subprocess.TimeoutExpired:
-        pass
+        # The caller records incomplete cleanup from the still-live group.
+        process.poll()
     return termination_requested, forced_kill
 
 

@@ -136,6 +136,7 @@ def _fake_populated_handle(
         cgroup_directory,
         os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
     )
+    # Ownership transfers to ProcessContainmentHandle; cleanup closes this FD.
     process = subprocess.Popen(
         ("/bin/true",),
         stdin=subprocess.DEVNULL,

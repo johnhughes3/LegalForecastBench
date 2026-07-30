@@ -851,7 +851,8 @@ def _stop_unreleased_direct_child(
         try:
             process.wait(timeout=grace_seconds)
         except subprocess.TimeoutExpired:
-            pass
+            # RuntimeMaxSec remains the final backstop for a stuck launcher.
+            return
 
 
 def _cleanup_contained_process(
@@ -888,19 +889,24 @@ def _raise_for_execution(
 ) -> None:
     phase = execution.phase
     containment = execution.containment
-    if containment.cleanup_outcome not in {"not_required", "succeeded"}:
-        raise CommandAdapterError(
-            f"command adapter {phase} containment cleanup was "
-            f"{containment.cleanup_outcome}; see private logs"
-        ) from pending_error
+    cleanup_detail = (
+        ""
+        if containment.cleanup_outcome in {"not_required", "succeeded"}
+        else f"; containment cleanup was {containment.cleanup_outcome}"
+    )
     if execution.status == "timed_out":
         raise CommandAdapterError(
-            f"command adapter {phase} timed out after {timeout_seconds}s"
+            f"command adapter {phase} timed out after "
+            f"{timeout_seconds}s{cleanup_detail}"
         )
     if execution.status == "cancelled":
-        raise CommandAdapterError(f"command adapter {phase} was cancelled") from (
-            pending_error
-        )
+        raise CommandAdapterError(
+            f"command adapter {phase} was cancelled{cleanup_detail}"
+        ) from pending_error
+    if cleanup_detail:
+        raise CommandAdapterError(
+            f"command adapter {phase}{cleanup_detail}; see private logs"
+        ) from pending_error
     if isinstance(pending_error, CommandAdapterError):
         raise pending_error
     if pending_error is not None:

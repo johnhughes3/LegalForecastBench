@@ -19,6 +19,7 @@ from legalforecast.multiharness import (
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterError,
+    CommandExecutionLog,
 )
 from legalforecast.multiharness.process_containment import (
     ProcessContainmentError,
@@ -962,8 +963,10 @@ def test_systemd_scope_rejects_gate_outside_attested_cgroup_before_exec(
                 "cap.add_argument('--output', required=True)",
                 "args = parser.parse_args()",
                 "pathlib.Path(args.output).write_text(json.dumps({",
-                "  'schema_version': "
-                "'legalforecast.multiharness.adapter_capabilities.v1',",
+                (
+                    "  'schema_version': "
+                    "'legalforecast.multiharness.adapter_capabilities.v1',"
+                ),
                 "  'adapter_id': 'fixture-adapter',",
                 "  'adapter_version': '0.1.0',",
                 "  'supported_families': ['legalforecast_mtd'],",
@@ -1246,6 +1249,42 @@ def test_launch_failure_writes_sanitized_typed_receipt(tmp_path: Path) -> None:
     assert receipt["forced_kill"] is False
 
 
+@pytest.mark.parametrize(
+    ("status", "message"),
+    [
+        ("cancelled", "was cancelled; containment cleanup was incomplete"),
+        ("timed_out", "timed out after 3s; containment cleanup was incomplete"),
+    ],
+)
+def test_terminal_status_retains_incomplete_cleanup_detail(
+    tmp_path: Path,
+    status: str,
+    message: str,
+) -> None:
+    execution = CommandExecutionLog(
+        phase="capabilities",
+        stdout_path=tmp_path / "stdout.log",
+        stderr_path=tmp_path / "stderr.log",
+        returncode=None,
+        containment=ProcessContainmentEvidence(
+            requested=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+            establishment="failed",
+            mechanism="systemd_user_scope_cgroup_v2",
+            cleanup_requested=True,
+            cleanup_outcome="incomplete",
+            populated_after_cleanup=None,
+        ),
+        status=status,
+    )
+
+    with pytest.raises(CommandAdapterError, match=message):
+        command_adapter_module._raise_for_execution(  # pyright: ignore[reportPrivateUsage]
+            execution,
+            pending_error=None,
+            timeout_seconds=3,
+        )
+
+
 def test_private_execution_logs_reject_planted_symlinks(tmp_path: Path) -> None:
     script = _write_adapter_script(tmp_path)
     adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
@@ -1467,8 +1506,15 @@ def _write_tool_adapter_script(
                 "        print('not-json', flush=True)",
                 "        raise SystemExit()",
                 "    if MODE == 'pipelined':",
+                "        second_request = dict(tool_request)",
+                "        second_request['request_id'] = 'tool-2'",
+                "        sys.stdout.write(",
+                "            json.dumps(tool_request) + '\\n' +",
+                "            json.dumps(second_request) + '\\n'",
+                "        )",
+                "        sys.stdout.flush()",
+                "    else:",
                 "        print(json.dumps(tool_request), flush=True)",
-                "    print(json.dumps(tool_request), flush=True)",
                 "    response = json.loads(sys.stdin.readline())",
                 "    if MODE == 'duplicate':",
                 "        print(json.dumps(tool_request), flush=True)",
