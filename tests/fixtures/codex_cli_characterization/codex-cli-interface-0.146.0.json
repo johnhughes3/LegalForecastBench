@@ -1,0 +1,180 @@
+{
+  "activation": {
+    "allowed": false,
+    "blocking_gaps": [
+      "native model tool inventory not observed for this binary",
+      "resolved model not observed for this binary"
+    ]
+  },
+  "binary": {
+    "distribution": {
+      "kind": "homebrew-cask",
+      "package": "codex",
+      "version": "0.146.0"
+    },
+    "executable": "codex-x86_64-unknown-linux-musl",
+    "sha256": "2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04",
+    "version": "codex-cli 0.146.0"
+  },
+  "identity": {
+    "adapter_profile": "codex-cli-clean-native",
+    "foreign_mcp_primary_loop": false,
+    "openai_responses_adapter": false
+  },
+  "interface": {
+    "exec_help_sha256": "9f86f0115238ddde2514587e5f95b0ab0aa6b89495e5912878d49ad26038aa19",
+    "exec_long_flags": [
+      "--add-dir",
+      "--cd",
+      "--color",
+      "--config",
+      "--dangerously-bypass-approvals-and-sandbox",
+      "--dangerously-bypass-hook-trust",
+      "--disable",
+      "--enable",
+      "--ephemeral",
+      "--help",
+      "--ignore-rules",
+      "--ignore-user-config",
+      "--image",
+      "--json",
+      "--last",
+      "--local-provider",
+      "--model",
+      "--oss",
+      "--output-last-message",
+      "--output-schema",
+      "--profile",
+      "--sandbox",
+      "--skip-git-repo-check",
+      "--strict-config",
+      "--version"
+    ],
+    "parser_probe": {
+      "help_only": true,
+      "provider_request_possible": false,
+      "sha256": "9f86f0115238ddde2514587e5f95b0ab0aa6b89495e5912878d49ad26038aa19"
+    },
+    "required_exec_flags": [
+      "--cd",
+      "--ephemeral",
+      "--ignore-rules",
+      "--ignore-user-config",
+      "--json",
+      "--model",
+      "--sandbox",
+      "--strict-config"
+    ],
+    "root_help_sha256": "e0e9bf467f5eaa19c0d1f3d4db6f10844cdb080d30ddfdcbb384a16cb54171e5",
+    "root_long_flags": [
+      "--add-dir",
+      "--ask-for-approval",
+      "--cd",
+      "--config",
+      "--dangerously-bypass-approvals-and-sandbox",
+      "--dangerously-bypass-hook-trust",
+      "--disable",
+      "--enable",
+      "--help",
+      "--image",
+      "--last",
+      "--local-provider",
+      "--model",
+      "--no-alt-screen",
+      "--oss",
+      "--profile",
+      "--remote",
+      "--remote-auth-token-env",
+      "--sandbox",
+      "--search",
+      "--strict-config",
+      "--version"
+    ],
+    "root_subcommands": [
+      "app-server",
+      "apply",
+      "archive",
+      "cloud",
+      "completion",
+      "debug",
+      "delete",
+      "doctor",
+      "exec",
+      "exec-server",
+      "features",
+      "fork",
+      "help",
+      "login",
+      "logout",
+      "mcp",
+      "mcp-server",
+      "plugin",
+      "remote-control",
+      "resume",
+      "review",
+      "sandbox",
+      "unarchive",
+      "update"
+    ],
+    "sandbox_modes": [
+      "danger-full-access",
+      "read-only",
+      "workspace-write"
+    ]
+  },
+  "model": {
+    "requested": "gpt-5.1",
+    "resolved": null,
+    "resolved_verification": "requires a separately approved model request"
+  },
+  "platform": {
+    "machine": "x86_64",
+    "system": "linux"
+  },
+  "safety": {
+    "auth_state_inspected_or_copied": false,
+    "benchmark_task_bytes": 0,
+    "model_or_provider_requests": 0,
+    "probe_kind": "version-help-feature-interface-only"
+  },
+  "schema_version": "legalforecast.codex_cli_interface_characterization.v1",
+  "tools": {
+    "feature_list_sha256": "b338bae6ecd46ad6bc02de695a89d4bc80c9ae77ab1294384880fca0dc251384",
+    "feature_rows": {
+      "apps": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "hooks": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "image_generation": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "memories": {
+        "enabled": false,
+        "stage": "stable"
+      },
+      "multi_agent": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "plugins": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "shell_tool": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "unified_exec": {
+        "enabled": true,
+        "stage": "stable"
+      }
+    },
+    "native_model_tool_inventory": null,
+    "observed_without_model_request": false
+  }
+}
