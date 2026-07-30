@@ -3,7 +3,8 @@
 Decision: the installed `codex-cli 0.146.0` interface is pinned for offline adapter work, but it is not activated for benchmark execution.
 
 This characterization invokes only the installed binary's version, help, feature-list, and help-only argument-parser surfaces.
-It sends zero model or provider requests, consumes zero benchmark-task bytes, and neither inspects nor copies Codex authentication state.
+The probe argv requests no model/provider call, benchmark-task path, or authentication path, and the child environment inherits no provider credential variable.
+The probe does not enforce network isolation or trace the binary's system calls, so it makes no categorical claim that the executable performed zero external behavior internally.
 
 ## Exact installed identity
 
@@ -11,12 +12,13 @@ It sends zero model or provider requests, consumes zero benchmark-task bytes, an
 | --- | --- |
 | Distribution | Homebrew cask `codex` `0.146.0` |
 | Executable | `codex-x86_64-unknown-linux-musl` |
+| Executable mode | `0755` |
 | Version output | `codex-cli 0.146.0` |
 | SHA-256 | `2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04` |
 | Requested future model pin | `gpt-5.1` |
 
 The safe parser probe supplies `exec`, `--json`, `--ephemeral`, `--model gpt-5.1`, an isolated working directory through `--cd`, `--sandbox read-only`, `--strict-config`, `--ignore-user-config`, and `--ignore-rules`, followed by `--help`.
-This proves that the exact binary accepts the required command-line surface without beginning a task.
+This records that the exact binary accepted the required help-only command-line surface; the probe supplied no task prompt.
 It does not prove JSONL event semantics, model resolution, sandbox enforcement, or model-advertised tool behavior.
 
 The isolated `features list` surface reports enabled stable rows for `shell_tool`, `unified_exec`, and `multi_agent`, along with the recorded stock feature rows in the fixture.
@@ -40,7 +42,9 @@ Those findings remain historical evidence for their exact executable hash; they 
 
 The committed fixture stores only public executable identity and sanitized interface data.
 It contains no local path, account, credential, auth-store, configuration value, task content, or raw transcript.
-Version, distribution, executable hash, help interface, feature interface, sandbox modes, or requested-model changes fail closed.
+In check mode, the expected fixture is loaded before the source executable can run.
+The probe verifies the source basename, mode, and hash, copies those exact bytes into the isolated probe root, verifies the staged copy, executes only that staged file through an exact command-shape allowlist, and verifies its mode and hash again after all commands.
+Version, distribution, executable mode/hash, help interface, feature interface, sandbox modes, or requested-model changes fail closed.
 
 Run the fixture tests on any host:
 
@@ -48,7 +52,7 @@ Run the fixture tests on any host:
 uv run pytest -q tests/test_codex_cli_characterization.py
 ```
 
-On the characterized host, compare the installed executable to the exact fixture without provider contact:
+On the characterized host, compare the installed executable to the exact fixture with no provider credential inherited and no provider/model call requested:
 
 ```bash
 uv run python scripts/probe_codex_cli_interface.py \

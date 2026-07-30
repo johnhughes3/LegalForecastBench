@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe the installed Codex CLI through non-spending public interfaces only."""
+"""Probe the installed Codex CLI through allowlisted public interface commands."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import os
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -40,6 +41,13 @@ RECORDED_FEATURES = {
     "plugins",
     "shell_tool",
     "unified_exec",
+}
+SAFE_ENVIRONMENT_KEYS = {
+    "CODEX_HOME",
+    "HOME",
+    "NO_COLOR",
+    "PATH",
+    "TERM",
 }
 
 type JsonObject = dict[str, Any]
@@ -120,10 +128,46 @@ def assert_matches_fixture(observed: JsonObject, expected: JsonObject) -> None:
         )
 
 
-def observe(executable_name: str, expected_model: str) -> JsonObject:
-    """Collect a sanitized observation without reading auth or making a model call."""
+def check_fixture(
+    *,
+    executable_name: str,
+    expected_model: str,
+    fixture_path: Path,
+) -> JsonObject:
+    """Load the trusted pin before observing, then require an exact match."""
 
+    expected = _load_fixture(fixture_path)
+    _require_expected_model(expected, expected_model)
+    observation = observe(
+        executable_name,
+        expected_model,
+        expected_fixture=expected,
+    )
+    assert_matches_fixture(observation, expected)
+    return observation
+
+
+def observe(
+    executable_name: str,
+    expected_model: str,
+    *,
+    expected_fixture: JsonObject | None = None,
+) -> JsonObject:
+    """Collect requested interface facts without claiming external containment."""
+
+    if expected_fixture is not None:
+        _require_expected_model(expected_fixture, expected_model)
     executable = _resolve_executable(executable_name)
+    source_mode = stat.S_IMODE(executable.stat().st_mode)
+    source_sha256 = _sha256_file(executable)
+    if expected_fixture is not None:
+        _preflight_expected_binary(
+            executable,
+            source_mode=source_mode,
+            source_sha256=source_sha256,
+            expected=expected_fixture,
+        )
+
     with tempfile.TemporaryDirectory(
         prefix=".codex-cli-interface-",
         dir=Path.cwd(),
@@ -132,9 +176,16 @@ def observe(executable_name: str, expected_model: str) -> JsonObject:
         workspace = isolated_root / "workspace"
         codex_home = isolated_root / "codex-home"
         home = isolated_root / "home"
+        staged_executable = isolated_root / executable.name
         workspace.mkdir()
         codex_home.mkdir()
         home.mkdir()
+        _stage_executable(
+            executable,
+            staged_executable,
+            expected_sha256=source_sha256,
+            expected_mode=source_mode,
+        )
         environment = {
             "CODEX_HOME": str(codex_home),
             "HOME": str(home),
@@ -142,22 +193,50 @@ def observe(executable_name: str, expected_model: str) -> JsonObject:
             "PATH": os.environ.get("PATH", ""),
             "TERM": "dumb",
         }
-
-        version = _run_safe([str(executable), "--version"], environment).strip()
-        root_help = _run_safe([str(executable), "--help"], environment)
-        exec_help = _run_safe([str(executable), "exec", "--help"], environment)
-        feature_text = _run_safe(
-            [str(executable), "features", "list"],
-            environment,
-        )
-        parser_help = _run_safe(
+        commands = [
+            [str(staged_executable), "--version"],
+            [str(staged_executable), "--help"],
+            [str(staged_executable), "exec", "--help"],
+            [str(staged_executable), "features", "list"],
             build_safe_parser_probe(
-                executable=executable,
+                executable=staged_executable,
                 expected_model=expected_model,
                 workspace=workspace,
             ),
-            environment,
-        )
+        ]
+        allowed_commands = {tuple(command) for command in commands}
+        try:
+            version = _run_safe(
+                commands[0],
+                environment,
+                allowed_commands=allowed_commands,
+            ).strip()
+            root_help = _run_safe(
+                commands[1],
+                environment,
+                allowed_commands=allowed_commands,
+            )
+            exec_help = _run_safe(
+                commands[2],
+                environment,
+                allowed_commands=allowed_commands,
+            )
+            feature_text = _run_safe(
+                commands[3],
+                environment,
+                allowed_commands=allowed_commands,
+            )
+            parser_help = _run_safe(
+                commands[4],
+                environment,
+                allowed_commands=allowed_commands,
+            )
+        finally:
+            _verify_staged_executable(
+                staged_executable,
+                expected_sha256=source_sha256,
+                expected_mode=source_mode,
+            )
 
     exec_flags = set(parse_long_flags(exec_help))
     missing_flags = sorted(REQUIRED_EXEC_FLAGS - exec_flags)
@@ -188,7 +267,8 @@ def observe(executable_name: str, expected_model: str) -> JsonObject:
         "binary": {
             "distribution": _distribution(executable, version),
             "executable": executable.name,
-            "sha256": _sha256_file(executable),
+            "mode": f"{source_mode:04o}",
+            "sha256": source_sha256,
             "version": version,
         },
         "platform": {
@@ -200,7 +280,7 @@ def observe(executable_name: str, expected_model: str) -> JsonObject:
             "exec_long_flags": sorted(exec_flags),
             "parser_probe": {
                 "help_only": True,
-                "provider_request_possible": False,
+                "probe_requested_model_call": False,
                 "sha256": _sha256_text(parser_help),
             },
             "required_exec_flags": sorted(REQUIRED_EXEC_FLAGS),
@@ -233,10 +313,13 @@ def observe(executable_name: str, expected_model: str) -> JsonObject:
             ],
         },
         "safety": {
-            "auth_state_inspected_or_copied": False,
-            "benchmark_task_bytes": 0,
-            "model_or_provider_requests": 0,
+            "auth_paths_requested": False,
+            "benchmark_task_paths_requested": False,
+            "external_network_isolation_enforced": False,
+            "no_external_behavior_claimed": True,
             "probe_kind": "version-help-feature-interface-only",
+            "probe_requested_model_calls": 0,
+            "provider_credential_environment_inherited": False,
         },
     }
 
@@ -248,7 +331,20 @@ def _resolve_executable(executable_name: str) -> Path:
     return Path(located).resolve(strict=True)
 
 
-def _run_safe(command: list[str], environment: dict[str, str]) -> str:
+def _run_safe(
+    command: list[str],
+    environment: dict[str, str],
+    *,
+    allowed_commands: set[tuple[str, ...]],
+) -> str:
+    if tuple(command) not in allowed_commands:
+        raise CharacterizationDriftError(
+            "Codex CLI interface command is not allowlisted"
+        )
+    if set(environment) != SAFE_ENVIRONMENT_KEYS:
+        raise CharacterizationDriftError(
+            "Codex CLI interface environment is not the exact safe projection"
+        )
     completed = subprocess.run(
         command,
         check=False,
@@ -284,7 +380,7 @@ def _distribution(executable: Path, version: str) -> JsonObject:
         cask_position = parts.index("Caskroom")
     except ValueError:
         return {"kind": "unknown", "package": "codex", "version": version}
-    if parts[cask_position + 1] != "codex":
+    if len(parts) <= cask_position + 2 or parts[cask_position + 1] != "codex":
         return {"kind": "unknown", "package": "codex", "version": version}
     return {
         "kind": "homebrew-cask",
@@ -305,6 +401,79 @@ def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _stage_executable(
+    source: Path,
+    destination: Path,
+    *,
+    expected_sha256: str,
+    expected_mode: int,
+) -> None:
+    with (
+        source.open("rb") as source_handle,
+        destination.open("xb") as destination_handle,
+    ):
+        shutil.copyfileobj(source_handle, destination_handle)
+    destination.chmod(expected_mode)
+    _verify_staged_executable(
+        destination,
+        expected_sha256=expected_sha256,
+        expected_mode=expected_mode,
+    )
+
+
+def _verify_staged_executable(
+    executable: Path,
+    *,
+    expected_sha256: str,
+    expected_mode: int,
+) -> None:
+    actual_stat = executable.stat()
+    if not stat.S_ISREG(actual_stat.st_mode):
+        raise CharacterizationDriftError("staged Codex CLI is not a regular file")
+    if stat.S_IMODE(actual_stat.st_mode) != expected_mode:
+        raise CharacterizationDriftError("staged Codex CLI mode drift detected")
+    if _sha256_file(executable) != expected_sha256:
+        raise CharacterizationDriftError("staged Codex CLI hash drift detected")
+
+
+def _require_expected_model(expected: JsonObject, expected_model: str) -> None:
+    model = expected.get("model")
+    if not isinstance(model, dict):
+        raise CharacterizationDriftError(
+            "requested model drift detected before Codex CLI invocation"
+        )
+    model_record = cast(dict[str, object], model)
+    if model_record.get("requested") != expected_model:
+        raise CharacterizationDriftError(
+            "requested model drift detected before Codex CLI invocation"
+        )
+
+
+def _preflight_expected_binary(
+    executable: Path,
+    *,
+    source_mode: int,
+    source_sha256: str,
+    expected: JsonObject,
+) -> None:
+    binary = expected.get("binary")
+    if not isinstance(binary, dict):
+        raise CharacterizationDriftError("expected binary pin is missing")
+    binary_record = cast(dict[str, object], binary)
+    if binary_record.get("executable") != executable.name:
+        raise CharacterizationDriftError(
+            "Codex CLI executable identity drift detected before invocation"
+        )
+    if binary_record.get("mode") != f"{source_mode:04o}":
+        raise CharacterizationDriftError(
+            "Codex CLI mode drift detected before invocation"
+        )
+    if binary_record.get("sha256") != source_sha256:
+        raise CharacterizationDriftError(
+            "Codex CLI hash drift detected before invocation"
+        )
+
+
 def _load_fixture(path: Path) -> JsonObject:
     decoded = cast(object, json.loads(path.read_text(encoding="utf-8")))
     if not isinstance(decoded, dict):
@@ -322,9 +491,14 @@ def main() -> int:
     parser.add_argument("--print-observation", action="store_true")
     arguments = parser.parse_args()
 
-    observation = observe(arguments.executable, arguments.expected_model)
     if arguments.check is not None:
-        assert_matches_fixture(observation, _load_fixture(arguments.check))
+        observation = check_fixture(
+            executable_name=arguments.executable,
+            expected_model=arguments.expected_model,
+            fixture_path=arguments.check,
+        )
+    else:
+        observation = observe(arguments.executable, arguments.expected_model)
     if arguments.print_observation:
         print(json.dumps(observation, indent=2, sort_keys=True))
     return 0
