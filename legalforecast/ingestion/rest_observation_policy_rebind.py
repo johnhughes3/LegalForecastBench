@@ -8,6 +8,7 @@ import hashlib
 import inspect
 import json
 import os
+import re
 import sqlite3
 import stat
 import subprocess
@@ -920,17 +921,6 @@ def _verify_git_noop_semantics(contract: RestObservationRebindContract) -> None:
     old_commit = _required_text(proof, "source_code_commit")
     target_commit = _required_text(proof, "target_code_commit")
     delta_commit = _required_text(proof, "commit")
-    current_bytes = _read_regular_file(
-        repository_root / source_path, label="current screening source"
-    )
-    if (
-        hashlib.sha256(current_bytes).hexdigest()
-        != (contract.allowed_policy_delta["new_sha256"])
-    ):
-        raise RestObservationPolicyRebindError(
-            "current screening source does not match authorized target hash"
-        )
-
     proof_data_root = Path(__file__).resolve().parents[1] / "data"
     old_source = _read_regular_file(
         proof_data_root / _OLD_SOURCE_WITNESS,
@@ -953,6 +943,14 @@ def _verify_git_noop_semantics(contract: RestObservationRebindContract) -> None:
         raise RestObservationPolicyRebindError(
             "old-to-current screening diff commitment mismatch"
         )
+    target_source = _apply_unified_diff(old_source, old_to_current)
+    if (
+        hashlib.sha256(target_source).hexdigest()
+        != contract.allowed_policy_delta["new_sha256"]
+    ):
+        raise RestObservationPolicyRebindError(
+            "packaged semantic witness does not produce the authorized target hash"
+        )
     commit_diff = _read_regular_file(
         proof_data_root / _DELTA_COMMIT_WITNESS,
         label="packaged 6ffbbdb semantic witness",
@@ -968,7 +966,7 @@ def _verify_git_noop_semantics(contract: RestObservationRebindContract) -> None:
         commit_diff=commit_diff,
         source_path=source_path,
         old_source=old_source,
-        current_source=current_bytes,
+        target_source=target_source,
     )
 
     revisions = (old_commit, target_commit, delta_commit, f"{delta_commit}^")
@@ -1006,7 +1004,7 @@ def _verify_semantic_witness_shape(
     commit_diff: bytes,
     source_path: str,
     old_source: bytes,
-    current_source: bytes,
+    target_source: bytes,
 ) -> None:
     expected_header = (
         f"diff --git a/{source_path} b/{source_path}\n".encode(),
@@ -1040,7 +1038,7 @@ def _verify_semantic_witness_shape(
         raise RestObservationPolicyRebindError(
             "old-to-current semantic witness change shape mismatch"
         )
-    if _source_changed_lines(old_source, current_source) != (
+    if _source_changed_lines(old_source, target_source) != (
         expected_old_to_current_changes
     ):
         raise RestObservationPolicyRebindError(
@@ -1055,6 +1053,81 @@ def _verify_semantic_witness_shape(
         raise RestObservationPolicyRebindError(
             "6ffbbdb semantic witness change shape mismatch"
         )
+
+
+def _apply_unified_diff(source: bytes, patch: bytes) -> bytes:
+    """Apply one packaged unified diff without consulting the current checkout."""
+
+    try:
+        source_lines = source.decode("utf-8").splitlines(keepends=True)
+        patch_lines = patch.decode("utf-8").splitlines(keepends=True)
+    except UnicodeDecodeError as exc:
+        raise RestObservationPolicyRebindError(
+            "semantic witness is not valid UTF-8"
+        ) from exc
+
+    hunk_header = re.compile(
+        r"^@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? "
+        r"\+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
+    )
+    output: list[str] = []
+    source_cursor = 0
+    patch_cursor = 0
+    saw_hunk = False
+    while patch_cursor < len(patch_lines):
+        header = hunk_header.match(patch_lines[patch_cursor])
+        if header is None:
+            patch_cursor += 1
+            continue
+        saw_hunk = True
+        old_start = int(header.group("old_start"))
+        old_count = int(header.group("old_count") or "1")
+        new_count = int(header.group("new_count") or "1")
+        hunk_start = old_start - 1
+        if hunk_start < source_cursor or hunk_start > len(source_lines):
+            raise RestObservationPolicyRebindError(
+                "semantic witness hunk position mismatch"
+            )
+        output.extend(source_lines[source_cursor:hunk_start])
+        source_cursor = hunk_start
+        patch_cursor += 1
+        consumed_old = 0
+        produced_new = 0
+        while patch_cursor < len(patch_lines):
+            line = patch_lines[patch_cursor]
+            if hunk_header.match(line):
+                break
+            if line.startswith("\\"):
+                raise RestObservationPolicyRebindError(
+                    "semantic witness has unsupported newline marker"
+                )
+            if not line or line[0] not in {" ", "+", "-"}:
+                break
+            payload = line[1:]
+            if line[0] in {" ", "-"}:
+                if (
+                    source_cursor >= len(source_lines)
+                    or source_lines[source_cursor] != payload
+                ):
+                    raise RestObservationPolicyRebindError(
+                        "semantic witness does not apply to packaged old source"
+                    )
+                source_cursor += 1
+                consumed_old += 1
+            if line[0] in {" ", "+"}:
+                output.append(payload)
+                produced_new += 1
+            patch_cursor += 1
+        if consumed_old != old_count or produced_new != new_count:
+            raise RestObservationPolicyRebindError(
+                "semantic witness hunk count mismatch"
+            )
+    if not saw_hunk:
+        raise RestObservationPolicyRebindError(
+            "semantic witness contains no unified diff hunks"
+        )
+    output.extend(source_lines[source_cursor:])
+    return "".join(output).encode()
 
 
 def _diff_changed_lines(payload: bytes) -> tuple[tuple[str, str], ...]:
