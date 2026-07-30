@@ -26,6 +26,14 @@ FIXTURE = (
 )
 PROBE = ROOT / "scripts" / "probe_claude_code_native_containment.py"
 EXPECTED_SHA256 = "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863"
+PINNED_PROJECTION = Path("/opt/legalforecastbench/claude-code/pinned/claude")
+PUBLIC_CONTAINMENT_FILES = (
+    ROOT / "docs" / "README.md",
+    ROOT / "docs" / "adapters" / "claude-code-native-containment.md",
+    PROBE,
+    ROOT / "tests" / "fixtures" / "README.md",
+    Path(__file__),
+)
 REQUIRED_LOCAL_TOOLS = {"Read", "Write", "Edit", "Glob", "Grep", "Bash"}
 CANARY_KEYS = {
     "ambient_agents_loaded",
@@ -63,14 +71,21 @@ def test_pre_capture_profile_pins_exact_220_binary_and_one_permission_mode() -> 
 
     assert module.EXPECTED_VERSION == "2.1.220 (Claude Code)"
     assert module.EXPECTED_SHA256 == EXPECTED_SHA256
-    assert module._parser().parse_args([]).claude_binary == Path(
-        "/work/.local/share/claude/versions/2.1.220"
-    )
+    assert module._parser().parse_args([]).claude_binary == PINNED_PROJECTION
     argv = module._claude_argv(Path("/opt/claude"))
     assert argv.count("--dangerously-skip-permissions") == 1
     assert "--permission-mode" not in argv
     assert module.UNVERIFIED_SAFE_MODE_SURFACES == ("ambient plugins",)
     assert "ambient plugins" not in module.DISABLED_STOCK_CAPABILITIES
+
+
+def test_public_containment_files_omit_operator_local_home_and_install_paths() -> None:
+    operator_install_fragment = "/work" + "/.local"
+    home_path_fragment = "/home" + "/"
+    for path in PUBLIC_CONTAINMENT_FILES:
+        content = path.read_text(encoding="utf-8")
+        assert operator_install_fragment not in content, path
+        assert home_path_fragment not in content, path
 
 
 def test_outer_binary_preflight_hashes_without_executing_candidate(
@@ -636,7 +651,7 @@ def test_committed_probe_uses_a_disposable_fail_closed_outer_boundary() -> None:
     assert boundary["root_directory"] == "disposable"
     assert boundary["sensitive_private_host_paths_bound"] == []
     assert boundary["read_only_os_binds"] == ["/bin", "/lib", "/lib64", "/usr"]
-    assert boundary["writable_paths"] == ["/home/claude", "/tmp", "/workspace"]
+    assert boundary["writable_paths"] == ["/state/claude", "/tmp", "/workspace"]
     assert "DynamicUser=yes" in boundary["requested_systemd_properties"]
     assert "User=johnhughes" not in boundary["requested_systemd_properties"]
     assert "PrivatePIDs=yes" not in boundary["requested_systemd_properties"]

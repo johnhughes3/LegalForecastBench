@@ -27,6 +27,8 @@ from urllib.parse import urlsplit
 
 EXPECTED_VERSION = "2.1.220 (Claude Code)"
 EXPECTED_SHA256 = "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863"
+PINNED_BINARY_PROJECTION = Path("/opt/legalforecastbench/claude-code/pinned/claude")
+ISOLATED_HOME = Path("/state/claude")
 MODEL = "claude-sonnet-4-6"
 LOCAL_API_KEY = "local-stub-no-provider-credential"
 PROBE_PROMPT = "Synthetic native capability probe. No benchmark task bytes are present."
@@ -105,7 +107,7 @@ SYSTEMD_PROPERTIES = (
     "MemoryMax=1G",
     "KillMode=control-group",
     "TimeoutStopSec=10s",
-    "ReadWritePaths=/home/claude /workspace",
+    f"ReadWritePaths={ISOLATED_HOME} /workspace",
     "BindReadOnlyPaths=/bin /lib /lib64 /usr",
 )
 FAIL_CLOSED_CONDITIONS = (
@@ -133,8 +135,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--claude-binary",
         type=Path,
-        default=Path("/work/.local/share/claude/versions/2.1.220"),
-        help="pinned Claude Code executable to copy into the disposable root",
+        default=PINNED_BINARY_PROJECTION,
+        help=(
+            "fixed operator-prepared Claude Code projection to copy into the "
+            "disposable root"
+        ),
     )
     parser.add_argument(
         "--expected-sha256",
@@ -446,8 +451,8 @@ def _prepare_root(
         "opt",
         "input",
         "workspace",
-        "home/claude/.claude/agents",
-        "home/claude/.claude/skills/ambient-canary",
+        "state/claude/.claude/agents",
+        "state/claude/.claude/skills/ambient-canary",
         "tmp",
     ):
         (root / relative).mkdir(parents=True, exist_ok=True)
@@ -481,7 +486,7 @@ def _prepare_root(
         + "\n",
     )
     _write_text(
-        root / "home/claude/.claude/settings.json",
+        root / "state/claude/.claude/settings.json",
         json.dumps(
             {
                 "env": {"LFB_AMBIENT_SETTINGS_CANARY": f"{CANARY}_SETTINGS"},
@@ -505,7 +510,7 @@ def _prepare_root(
         + "\n",
     )
     _write_text(
-        root / "home/claude/.claude/agents/ambient-canary.md",
+        root / "state/claude/.claude/agents/ambient-canary.md",
         (
             "---\n"
             "name: ambient-canary\n"
@@ -515,7 +520,7 @@ def _prepare_root(
         ),
     )
     _write_text(
-        root / "home/claude/.claude/skills/ambient-canary/SKILL.md",
+        root / "state/claude/.claude/skills/ambient-canary/SKILL.md",
         f"---\nname: ambient-canary\n---\n{CANARY}_SKILL\n",
     )
 
@@ -523,7 +528,7 @@ def _prepare_root(
     # These broad modes exist only inside a root-owned, disposable RootDirectory.
     # They let systemd's unpredictable DynamicUser write its isolated home/workspace
     # without granting access to any persistent host path.
-    for writable in (root / "workspace", root / "home/claude"):
+    for writable in (root / "workspace", root / ISOLATED_HOME.relative_to("/")):
         for path in (writable, *writable.parents):
             if path == root.parent:
                 break
@@ -1005,7 +1010,11 @@ def _outer_probe(binary: Path, expected_sha256: str) -> dict[str, Any]:
             "evaluator_private_sha256": _sha256(evaluator_private),
             "external_process": external_attestation,
             "host_gid": external_attestation["host_gid"],
+            "host_home_path": pwd.getpwuid(
+                cast(int, external_attestation["host_uid"])
+            ).pw_dir,
             "host_network_namespace": os.readlink("/proc/self/ns/net"),
+            "host_repository_path": str(Path.cwd().resolve()),
             "host_uid": external_attestation["host_uid"],
             "probe_source_sha256": _sha256(Path(__file__).resolve()),
             "root_device": root_stat.st_dev,
@@ -1194,8 +1203,8 @@ def _tool_input(name: str) -> dict[str, Any]:
                 "set -eu; "
                 'if test -n "${LFB_AMBIENT_SETTINGS_CANARY+x}"; then '
                 "printf settings > /workspace/ambient-settings-fired; exit 97; fi; "
-                "test ! -e /home/johnhughes; "
-                "test ! -e /work/Development; "
+                'test ! -e "$LFB_HOST_HOME_CANARY"; '
+                'test ! -e "$LFB_HOST_REPOSITORY_CANARY"; '
                 "test ! -e /workspace/ambient-mcp-fired; "
                 f"{BASH_DNS_GUARD}; "
                 f"printf '{BASH_NATIVE_SENTINEL}\\n' > /workspace/bash-ok.txt; "
@@ -1862,7 +1871,9 @@ def _read_boundary_attestation() -> dict[str, Any]:
         "evaluator_private_sha256",
         "external_process",
         "host_gid",
+        "host_home_path",
         "host_network_namespace",
+        "host_repository_path",
         "host_uid",
         "probe_source_sha256",
         "root_device",
@@ -1897,11 +1908,17 @@ def _read_boundary_attestation() -> dict[str, Any]:
         _fail("process did not enter a network namespace distinct from the host")
     host_uid = attestation["host_uid"]
     host_gid = attestation["host_gid"]
+    host_home_path = attestation["host_home_path"]
+    host_repository_path = attestation["host_repository_path"]
     transient_unit = attestation["transient_unit"]
     external_process = attestation["external_process"]
     if (
         not isinstance(host_uid, int)
         or not isinstance(host_gid, int)
+        or not isinstance(host_home_path, str)
+        or not Path(host_home_path).is_absolute()
+        or not isinstance(host_repository_path, str)
+        or not Path(host_repository_path).is_absolute()
         or not isinstance(transient_unit, str)
         or not transient_unit.endswith(".service")
         or not isinstance(external_process, dict)
@@ -1962,6 +1979,8 @@ def _read_boundary_attestation() -> dict[str, Any]:
 
 def _inner_probe(binary: Path, expected_sha256: str) -> dict[str, Any]:
     attestation = _read_boundary_attestation()
+    host_home_path = cast(str, attestation["host_home_path"])
+    host_repository_path = cast(str, attestation["host_repository_path"])
     supervisor_boundary = _establish_same_uid_supervisor_boundary()
     cast(dict[str, Any], attestation["observed_runtime"])["supervisor_boundary"] = (
         supervisor_boundary
@@ -1978,17 +1997,19 @@ def _inner_probe(binary: Path, expected_sha256: str) -> dict[str, Any]:
         "ANTHROPIC_API_KEY": "local-stub-no-provider-credential",
         "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{port}",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-        "CLAUDE_CONFIG_DIR": "/home/claude/.claude",
-        "HOME": "/home/claude",
+        "CLAUDE_CONFIG_DIR": f"{ISOLATED_HOME}/.claude",
+        "HOME": str(ISOLATED_HOME),
         "LANG": "C.UTF-8",
+        "LFB_HOST_HOME_CANARY": host_home_path,
+        "LFB_HOST_REPOSITORY_CANARY": host_repository_path,
         "NO_PROXY": "127.0.0.1,localhost",
         "PATH": "/usr/bin:/bin",
         "SHELL": "/bin/sh",
         "TMPDIR": "/tmp",
-        "XDG_CACHE_HOME": "/home/claude/.cache",
-        "XDG_CONFIG_HOME": "/home/claude/.config",
-        "XDG_DATA_HOME": "/home/claude/.local/share",
-        "XDG_STATE_HOME": "/home/claude/.local/state",
+        "XDG_CACHE_HOME": f"{ISOLATED_HOME}/.cache",
+        "XDG_CONFIG_HOME": f"{ISOLATED_HOME}/.config",
+        "XDG_DATA_HOME": f"{ISOLATED_HOME}/.local/share",
+        "XDG_STATE_HOME": f"{ISOLATED_HOME}/.local/state",
     }
     try:
         result = subprocess.run(
@@ -2060,8 +2081,8 @@ def _inner_probe(binary: Path, expected_sha256: str) -> dict[str, Any]:
             attestation["evaluator_private_path_visible"]
         ),
         "external_network_reachable": _external_network_reachable(),
-        "host_home_visible": Path("/home/johnhughes").exists(),
-        "host_repository_visible": Path("/work/Development").exists(),
+        "host_home_visible": Path(host_home_path).exists(),
+        "host_repository_visible": Path(host_repository_path).exists(),
     }
     _require_clear_canaries(canaries)
 
@@ -2108,7 +2129,7 @@ def _inner_probe(binary: Path, expected_sha256: str) -> dict[str, Any]:
             "requested_systemd_properties": list(SYSTEMD_PROPERTIES),
             "root_directory": "disposable",
             "sensitive_private_host_paths_bound": [],
-            "writable_paths": ["/home/claude", "/tmp", "/workspace"],
+            "writable_paths": [str(ISOLATED_HOME), "/tmp", "/workspace"],
         },
         "profile": {
             "claude_argv": argv[1:],
