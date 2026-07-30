@@ -9,6 +9,7 @@ import pytest
 from legalforecast.multiharness.material_separation import (
     MaterialAccessError,
     MaterialSeparationLayout,
+    deliverable_tree_sha256,
     evaluator_material_access,
     materialize_separated_task,
     solver_material_access,
@@ -114,7 +115,7 @@ def test_hidden_material_canaries_fail_closed_in_both_directions(
     evaluator_access = evaluator_material_access(
         separated,
         sealed_deliverable_root=deliverable_root,
-        sealed_deliverable_sha256="sha256:" + "d" * 64,
+        sealed_deliverable_sha256=deliverable_tree_sha256(deliverable_root),
     )
 
     assert solver_access.read_bytes("/workspace/input/solver-canary.txt") == (
@@ -223,6 +224,74 @@ def test_access_plans_reject_writable_or_nested_inputs(tmp_path: Path) -> None:
             sealed_deliverable_root=separated.evaluator_private_root,
             sealed_deliverable_sha256="sha256:" + "d" * 64,
         )
+
+
+def test_evaluator_access_recomputes_deliverable_tree_commitment(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    document = _write(source_root / "document.txt", b"solver")
+    private = _write(source_root / "private.txt", b"private")
+    separated = materialize_separated_task(
+        _task(
+            (
+                _artifact("document", document, source_root),
+                _artifact("private", private, source_root),
+            )
+        ),
+        source_root=source_root,
+        solver_root=tmp_path / "solver",
+        evaluator_private_root=tmp_path / "evaluator-private",
+        layout=MaterialSeparationLayout(
+            layout_id="deliverable-commitment.v1",
+            solver_artifacts=(TaskArtifactProjection("document", "document.txt"),),
+            evaluator_private_artifacts=(
+                TaskArtifactProjection("private", "private.txt"),
+            ),
+        ),
+    )
+    deliverable_root = tmp_path / "sealed-deliverable"
+    deliverable = _write(deliverable_root / "nested" / "answer.txt", b"answer")
+    _seal_fixture(deliverable_root)
+    commitment = deliverable_tree_sha256(deliverable_root)
+
+    with pytest.raises(MaterialAccessError, match="commitment"):
+        evaluator_material_access(
+            separated,
+            sealed_deliverable_root=deliverable_root,
+            sealed_deliverable_sha256="sha256:" + "d" * 64,
+        )
+
+    deliverable.chmod(0o644)
+    deliverable.write_bytes(b"tampered")
+    deliverable.chmod(0o444)
+    with pytest.raises(MaterialAccessError, match="commitment"):
+        evaluator_material_access(
+            separated,
+            sealed_deliverable_root=deliverable_root,
+            sealed_deliverable_sha256=commitment,
+        )
+
+
+def test_deliverable_tree_commitment_is_deterministic_and_complete(
+    tmp_path: Path,
+) -> None:
+    first = tmp_path / "first"
+    _write(first / "nested" / "b.txt", b"b")
+    _write(first / "a.txt", b"a")
+    second = tmp_path / "second"
+    _write(second / "a.txt", b"a")
+    _write(second / "nested" / "b.txt", b"b")
+    _seal_fixture(first)
+    _seal_fixture(second)
+
+    first_sha256 = deliverable_tree_sha256(first)
+    assert deliverable_tree_sha256(second) == first_sha256
+
+    second.chmod(0o755)
+    (second / "empty").mkdir()
+    _seal_fixture(second)
+    assert deliverable_tree_sha256(second) != first_sha256
 
 
 def test_access_revalidates_manifest_commitments_and_material_bytes(

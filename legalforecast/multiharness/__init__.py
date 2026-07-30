@@ -70,6 +70,7 @@ from legalforecast.multiharness.lfb_native import (
     lfb_native_manifest,
 )
 from legalforecast.multiharness.material_separation import (
+    DELIVERABLE_TREE_COMMITMENT_SCHEMA_VERSION,
     EVALUATOR_DELIVERABLE_TARGET,
     EVALUATOR_PRIVATE_TARGET,
     MATERIAL_SEPARATION_SCHEMA_VERSION,
@@ -81,6 +82,7 @@ from legalforecast.multiharness.material_separation import (
     MaterialSeparationLayout,
     ReadOnlyMaterialMount,
     SeparatedTaskMaterialization,
+    deliverable_tree_sha256,
     evaluator_material_access,
     materialize_separated_task,
     solver_material_access,
@@ -184,6 +186,7 @@ __all__ = [
     "COMMUNITY_SUBMISSION_SCHEMA_VERSION",
     "CONFORMANCE_REPORT_SCHEMA_VERSION",
     "CONTAINER_RECEIPT_SCHEMA_VERSION",
+    "DELIVERABLE_TREE_COMMITMENT_SCHEMA_VERSION",
     "EVALUATOR_DELIVERABLE_TARGET",
     "EVALUATOR_PRIVATE_TARGET",
     "HARVEY_LAB_ADAPTER_ID",
@@ -278,6 +281,7 @@ __all__ = [
     "community_model_id",
     "decode_tool_request",
     "decode_tool_response",
+    "deliverable_tree_sha256",
     "encode_tool_message",
     "evaluator_material_access",
     "harvey_lab_manifest",

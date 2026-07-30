@@ -25,6 +25,9 @@ from legalforecast.multiharness.validation import (
 )
 
 MATERIAL_SEPARATION_SCHEMA_VERSION = "legalforecast.multiharness.material_separation.v1"
+DELIVERABLE_TREE_COMMITMENT_SCHEMA_VERSION = (
+    "legalforecast.multiharness.deliverable_tree_commitment.v1"
+)
 SOLVER_INPUT_TARGET = "/workspace/input"
 EVALUATOR_DELIVERABLE_TARGET = "/evaluation/deliverable"
 EVALUATOR_PRIVATE_TARGET = "/evaluation/private"
@@ -181,7 +184,7 @@ class ReadOnlyMaterialMount:
     purpose: str
     source: Path
     target: str
-    manifest_sha256: str
+    commitment_sha256: str
 
     def __post_init__(self) -> None:
         if not self.source.is_absolute():
@@ -194,7 +197,7 @@ class ReadOnlyMaterialMount:
         expected_target = expected_targets.get(self.purpose)
         if expected_target is None or self.target != expected_target:
             raise ValueError("material mount purpose and target do not match")
-        validate_sha256(self.manifest_sha256, "manifest_sha256")
+        validate_sha256(self.commitment_sha256, "commitment_sha256")
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,7 +353,7 @@ def solver_material_access(
                 purpose="solver_input",
                 source=materialization.solver_root,
                 target=SOLVER_INPUT_TARGET,
-                manifest_sha256=materialization.solver_manifest.manifest_sha256,
+                commitment_sha256=materialization.solver_manifest.manifest_sha256,
             ),
         ),
     )
@@ -362,7 +365,12 @@ def evaluator_material_access(
     sealed_deliverable_root: Path,
     sealed_deliverable_sha256: str,
 ) -> MaterialAccessPlan:
-    """Expose only a sealed deliverable and private inputs to the evaluator."""
+    """Expose only a sealed deliverable and private inputs to the evaluator.
+
+    The deliverable root requires exclusive same-UID coordination while its tree
+    commitment is recomputed and until the returned sources are mounted. The
+    access plan does not make mutable host paths immutable after it returns.
+    """
 
     validate_sha256(sealed_deliverable_sha256, "sealed_deliverable_sha256")
     normalized_deliverable_root = _normalized_root(sealed_deliverable_root)
@@ -379,7 +387,11 @@ def evaluator_material_access(
         materialization.evaluator_private_root,
         materialization.evaluator_private_manifest,
     )
-    _verify_read_only_tree(normalized_deliverable_root, "sealed deliverable")
+    actual_deliverable_sha256 = deliverable_tree_sha256(normalized_deliverable_root)
+    if actual_deliverable_sha256 != sealed_deliverable_sha256:
+        raise MaterialAccessError(
+            "sealed deliverable tree commitment does not match mounted bytes"
+        )
     return MaterialAccessPlan(
         role="evaluator",
         mounts=(
@@ -387,17 +399,54 @@ def evaluator_material_access(
                 purpose="sealed_deliverable",
                 source=normalized_deliverable_root,
                 target=EVALUATOR_DELIVERABLE_TARGET,
-                manifest_sha256=sealed_deliverable_sha256,
+                commitment_sha256=sealed_deliverable_sha256,
             ),
             ReadOnlyMaterialMount(
                 purpose="evaluator_private",
                 source=materialization.evaluator_private_root,
                 target=EVALUATOR_PRIVATE_TARGET,
-                manifest_sha256=(
+                commitment_sha256=(
                     materialization.evaluator_private_manifest.manifest_sha256
                 ),
             ),
         ),
+    )
+
+
+def deliverable_tree_sha256(sealed_deliverable_root: Path) -> str:
+    """Return a canonical commitment to a complete read-only deliverable tree."""
+
+    normalized_root = _normalized_root(sealed_deliverable_root)
+    _verify_read_only_tree(normalized_root, "sealed deliverable")
+    entries: list[dict[str, object]] = []
+    for path in sorted(
+        normalized_root.rglob("*"),
+        key=lambda item: item.relative_to(normalized_root).as_posix(),
+    ):
+        relative_path = path.relative_to(normalized_root).as_posix()
+        path_stat = path.lstat()
+        if stat.S_ISDIR(path_stat.st_mode):
+            entries.append(
+                {
+                    "path": relative_path,
+                    "type": "directory",
+                }
+            )
+            continue
+        file_sha256, size_bytes = _file_sha256_and_size(path)
+        entries.append(
+            {
+                "path": relative_path,
+                "type": "file",
+                "sha256": file_sha256,
+                "size_bytes": size_bytes,
+            }
+        )
+    return _record_sha256(
+        {
+            "schema_version": DELIVERABLE_TREE_COMMITMENT_SCHEMA_VERSION,
+            "entries": entries,
+        }
     )
 
 
@@ -630,3 +679,13 @@ def _record_sha256(record: object) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _file_sha256_and_size(path: Path) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    size_bytes = 0
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+            size_bytes += len(chunk)
+    return f"sha256:{digest.hexdigest()}", size_bytes
