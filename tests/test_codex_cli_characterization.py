@@ -8,7 +8,6 @@ from typing import Any
 import pytest
 from scripts.probe_codex_cli_interface import (
     CharacterizationDriftError,
-    _run_safe,
     assert_matches_fixture,
     build_safe_parser_probe,
     check_fixture,
@@ -16,6 +15,7 @@ from scripts.probe_codex_cli_interface import (
     parse_feature_rows,
     parse_long_flags,
     parse_subcommands,
+    run_allowlisted_interface_command,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -276,7 +276,7 @@ def test_execution_helper_rejects_non_allowlisted_command_before_invocation(
     command = [str(executable), "login"]
 
     with pytest.raises(CharacterizationDriftError, match="allowlisted"):
-        _run_safe(
+        run_allowlisted_interface_command(
             command,
             {"PATH": os.environ.get("PATH", "")},
             allowed_commands={(str(executable), "--help")},

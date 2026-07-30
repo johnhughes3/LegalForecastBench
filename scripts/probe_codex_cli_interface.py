@@ -206,27 +206,27 @@ def observe(
         ]
         allowed_commands = {tuple(command) for command in commands}
         try:
-            version = _run_safe(
+            version = run_allowlisted_interface_command(
                 commands[0],
                 environment,
                 allowed_commands=allowed_commands,
             ).strip()
-            root_help = _run_safe(
+            root_help = run_allowlisted_interface_command(
                 commands[1],
                 environment,
                 allowed_commands=allowed_commands,
             )
-            exec_help = _run_safe(
+            exec_help = run_allowlisted_interface_command(
                 commands[2],
                 environment,
                 allowed_commands=allowed_commands,
             )
-            feature_text = _run_safe(
+            feature_text = run_allowlisted_interface_command(
                 commands[3],
                 environment,
                 allowed_commands=allowed_commands,
             )
-            parser_help = _run_safe(
+            parser_help = run_allowlisted_interface_command(
                 commands[4],
                 environment,
                 allowed_commands=allowed_commands,
@@ -331,12 +331,14 @@ def _resolve_executable(executable_name: str) -> Path:
     return Path(located).resolve(strict=True)
 
 
-def _run_safe(
+def run_allowlisted_interface_command(
     command: list[str],
     environment: dict[str, str],
     *,
     allowed_commands: set[tuple[str, ...]],
 ) -> str:
+    """Run one exact allowlisted interface command with the safe environment."""
+
     if tuple(command) not in allowed_commands:
         raise CharacterizationDriftError(
             "Codex CLI interface command is not allowlisted"
