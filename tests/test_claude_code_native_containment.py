@@ -22,10 +22,10 @@ FIXTURE = (
     / "tests"
     / "fixtures"
     / "claude_native_containment"
-    / "claude-code-native-containment-2.1.218.json"
+    / "claude-code-native-containment-2.1.220.json"
 )
 PROBE = ROOT / "scripts" / "probe_claude_code_native_containment.py"
-EXPECTED_SHA256 = "e12071751a9336b8af1012c103358ff04ac18f9aaff4a738cff7ba5cdfaf63f2"
+EXPECTED_SHA256 = "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863"
 REQUIRED_LOCAL_TOOLS = {"Read", "Write", "Edit", "Glob", "Grep", "Bash"}
 CANARY_KEYS = {
     "ambient_agents_loaded",
@@ -58,13 +58,13 @@ def _probe_module() -> Any:
     return module
 
 
-def test_pre_capture_profile_pins_exact_218_binary_and_one_permission_mode() -> None:
+def test_pre_capture_profile_pins_exact_220_binary_and_one_permission_mode() -> None:
     module = _probe_module()
 
-    assert module.EXPECTED_VERSION == "2.1.218 (Claude Code)"
+    assert module.EXPECTED_VERSION == "2.1.220 (Claude Code)"
     assert module.EXPECTED_SHA256 == EXPECTED_SHA256
     assert module._parser().parse_args([]).claude_binary == Path(
-        "/work/.local/share/claude/versions/2.1.218"
+        "/work/.local/share/claude/versions/2.1.220"
     )
     argv = module._claude_argv(Path("/opt/claude"))
     assert argv.count("--dangerously-skip-permissions") == 1
@@ -540,17 +540,18 @@ def test_external_process_canary_requires_every_access_surface_denied(
 @FIXTURE_REQUIRED
 def test_committed_probe_records_exact_binary_and_zero_provider_spend() -> None:
     evidence = _fixture()
+    module = _probe_module()
+    expected_source = hashlib.sha256(PROBE.read_bytes()).hexdigest()
 
     assert evidence["schema_version"] == (
         "legalforecast.claude_code_native_containment_probe.v2"
     )
+    module._require_approved_evidence_identity(evidence, expected_source)
     assert evidence["binary"] == {
         "sha256": EXPECTED_SHA256,
-        "version": "2.1.218 (Claude Code)",
+        "version": "2.1.220 (Claude Code)",
     }
-    assert evidence["probe"] == {
-        "source_sha256": hashlib.sha256(PROBE.read_bytes()).hexdigest()
-    }
+    assert evidence["probe"] == {"source_sha256": expected_source}
     assert evidence["spend"] == {
         "benchmark_task_bytes": 0,
         "count_token_requests": evidence["spend"]["count_token_requests"],
@@ -1091,9 +1092,36 @@ def test_probe_source_attestation_fails_closed_on_mismatch(tmp_path: Path) -> No
         module._verify_probe_source(source, "0" * 64)
 
 
+def test_approved_evidence_identity_rejects_stale_binary_or_probe_source() -> None:
+    module = _probe_module()
+    expected_source = hashlib.sha256(PROBE.read_bytes()).hexdigest()
+    current = {
+        "binary": {
+            "sha256": EXPECTED_SHA256,
+            "version": "2.1.220 (Claude Code)",
+        },
+        "probe": {"source_sha256": expected_source},
+    }
+
+    module._require_approved_evidence_identity(current, expected_source)
+
+    stale_binary = json.loads(json.dumps(current))
+    stale_binary["binary"] = {
+        "sha256": "e12071751a9336b8af1012c103358ff04ac18f9aaff4a738cff7ba5cdfaf63f2",
+        "version": "2.1.218 (Claude Code)",
+    }
+    with pytest.raises(module.ProbeError, match="binary identity drift"):
+        module._require_approved_evidence_identity(stale_binary, expected_source)
+
+    stale_source = json.loads(json.dumps(current))
+    stale_source["probe"]["source_sha256"] = "0" * 64
+    with pytest.raises(module.ProbeError, match="probe source identity drift"):
+        module._require_approved_evidence_identity(stale_source, expected_source)
+
+
 def _realistic_runtime_receipt() -> dict[str, Any]:
     return {
-        "binary": {"version": "2.1.218 (Claude Code)"},
+        "binary": {"version": "2.1.220 (Claude Code)"},
         "outer_boundary": {
             "network_namespace": {
                 "distinct_from_host": True,
@@ -1629,7 +1657,7 @@ def test_cli_event_contract_allows_known_shapes_and_rejects_unknown() -> None:
             "subtype": "init",
             "session_id": "session",
             "model": module.MODEL,
-            "claude_code_version": "2.1.218",
+            "claude_code_version": "2.1.220",
             "tools": list(module.REQUIRED_TOOLS),
         },
         {

@@ -25,8 +25,8 @@ from pathlib import Path
 from typing import Any, NoReturn, cast
 from urllib.parse import urlsplit
 
-EXPECTED_VERSION = "2.1.218 (Claude Code)"
-EXPECTED_SHA256 = "e12071751a9336b8af1012c103358ff04ac18f9aaff4a738cff7ba5cdfaf63f2"
+EXPECTED_VERSION = "2.1.220 (Claude Code)"
+EXPECTED_SHA256 = "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863"
 MODEL = "claude-sonnet-4-6"
 LOCAL_API_KEY = "local-stub-no-provider-credential"
 PROBE_PROMPT = "Synthetic native capability probe. No benchmark task bytes are present."
@@ -133,7 +133,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--claude-binary",
         type=Path,
-        default=Path("/work/.local/share/claude/versions/2.1.218"),
+        default=Path("/work/.local/share/claude/versions/2.1.220"),
         help="pinned Claude Code executable to copy into the disposable root",
     )
     parser.add_argument(
@@ -166,6 +166,22 @@ def _verify_probe_source(path: Path, expected_sha256: str) -> str:
             f"expected {expected_sha256}, observed {observed_sha256}"
         )
     return observed_sha256
+
+
+def _require_approved_evidence_identity(
+    evidence: Mapping[str, Any],
+    expected_probe_source_sha256: str,
+) -> None:
+    expected_binary = {
+        "sha256": EXPECTED_SHA256,
+        "version": EXPECTED_VERSION,
+    }
+    if evidence.get("binary") != expected_binary:
+        _fail("approved evidence binary identity drift")
+    if evidence.get("probe") != {
+        "source_sha256": expected_probe_source_sha256,
+    }:
+        _fail("approved evidence probe source identity drift")
 
 
 def _fail(message: str) -> NoReturn:
@@ -2129,6 +2145,10 @@ def main() -> int:
             evidence = _inner_probe(args.claude_binary, args.expected_sha256)
         else:
             evidence = _outer_probe(args.claude_binary, args.expected_sha256)
+        _require_approved_evidence_identity(
+            evidence,
+            _sha256(Path(__file__).resolve()),
+        )
         encoded = json.dumps(evidence, indent=2, sort_keys=True) + "\n"
         sys.stdout.write(encoded)
     except (
