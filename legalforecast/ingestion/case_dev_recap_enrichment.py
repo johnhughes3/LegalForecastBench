@@ -283,6 +283,7 @@ class CaseDevRecapEnrichment:
                 entries=tuple(entry.as_courtlistener_entry() for entry in self.entries),
                 has_next_page=False,
             ),
+            court_id=_optional_string(self.screening_metadata, "court_id"),
             decision_filed_on_or_after=self.eligibility_anchor,
         )
 

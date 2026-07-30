@@ -1884,6 +1884,7 @@ def observe_recap_api_candidate(
     anchored = screen_courtlistener_docket_for_mtd_decision(
         screening_page,
         candidate_text=adversary_candidate_text,
+        court_id=docket.court_id,
         decision_filed_on_or_after=eligibility_anchor,
         decision_filed_on_or_before=decision_window_end,
     )
@@ -1894,6 +1895,7 @@ def observe_recap_api_candidate(
     unbounded = screen_courtlistener_docket_for_mtd_decision(
         screening_page,
         candidate_text=adversary_candidate_text,
+        court_id=docket.court_id,
     )
     all_decisions = _decision_entry_records(unbounded.decision_entries)
     anchor_dispositions = _decision_entry_records(unbounded.anchor_disposition_entries)
