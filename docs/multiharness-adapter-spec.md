@@ -70,7 +70,11 @@ Community adapters can be ordinary command-line programs. The host never invokes
 
 Command-adapter and Harvey LAB subprocesses receive an environment allowlist, not the caller's full host environment. The `run` phase receives only provider variables named by `SandboxPolicy.allowed_provider_env_vars`, plus `PATH`, `LC_CTYPE`, and private per-workspace `HOME`/XDG directories. Capability probes receive only those runtime essentials because they must not require provider credentials. The caller's normal home directory is therefore unavailable through ordinary home/config credential discovery; live adapters must use explicitly allowed environment variables until a separate file-credential policy exists. Declared variables must be set and nonempty, and their exact values are rejected from public result/error records. Because provider-variable grants are currently run-wide rather than row-scoped, credentialed runs require `provider_egress_host_only` and exactly one adapter/model pair; use separate runs for additional pairs.
 
-The host starts each command adapter in a new POSIX session and performs best-effort cleanup by signaling the adapter leader's original process group. A descendant that calls `setsid()`, changes process group, or otherwise daemonizes can leave that group and retain the run environment after group cleanup. The private receipt status `process_group_cleanup_requested` and fields `termination_requested` and `forced_kill` describe signals delivered to the original group; they do not prove that every descendant stopped. Conformance output and these receipts are therefore not whole-process containment evidence. Stronger host-owned containment is tracked in [issue #267](https://github.com/johnhughes3/LegalForecastBench/issues/267); any profile that requires whole-process containment must fail closed until that boundary is implemented and attested.
+`SandboxPolicy.host_process_containment` selects one of two explicit lifecycle boundaries. `posix_process_group.v1` retains the compatibility behavior: the host starts the adapter in a new POSIX session and performs best-effort cleanup of the leader's original process group, but a descendant that calls `setsid()` can escape. `linux_systemd_scope_cgroup_v2.v1` requires Linux, unified cgroup v2, a working systemd user manager, pidfd support, and writable `cgroup.kill`; it never downgrades to process-group cleanup. Before resolving provider values, the host exercises a provider-free transient scope. The real adapter then starts behind a peer-credentialed control socket, and the host releases it only after binding the exact gate PID and nonce to the scope's `InvocationID`, `ControlGroup`, pidfd, and open cgroup descriptors. Provider values cross that private socket only after attestation, so they do not appear in `systemd-run` arguments, unit properties, or its initial environment.
+
+For the stronger mode, cleanup sends graceful signals through pidfds read from the retained cgroup, uses the retained `cgroup.kill` descriptor if processes remain, and accepts completion only after the retained `cgroup.events` reports `populated 0` or the kernel removes the now-empty cgroup. The v2 private execution receipt records the requested mode, establishment result, systemd identity, whether cleanup was requested, TERM/KILL activity, the terminal cleanup outcome (`not_required`, `succeeded`, `denied`, or `incomplete`), and the observed population state. A successful adapter result is rejected whenever descendant cleanup was required or cleanup was not positively completed.
+
+This boundary owns ordinary forked, daemonized, and `setsid()` descendants; it is not a separate UID, filesystem sandbox, network sandbox, or defense against an actively malicious same-UID process asking the user manager to create a sibling unit. `Delegate=no` prevents delegated child cgroups, but the stronger same-UID threat model remains the responsibility of the separate Codex and Claude native-containment tracks. Unsupported hosts and unavailable primitives fail before the adapter executable or provider environment is released.
 
 Minimal manifest:
 
@@ -139,6 +143,7 @@ uv run legalforecast multiharness run \
   --sandbox-policy-id demo-sandbox \
   --sandbox-backend docker \
   --sandbox-image python:3.12-slim \
+  --host-process-containment linux_systemd_scope_cgroup_v2.v1 \
   --output-dir tmp/multiharness/run
 ```
 
@@ -165,7 +170,7 @@ The backend and immutable image must already exist locally; before the live adap
 
 The adapter remains a host process and receives only the explicitly allowed provider environment variables. The tool container receives no provider variables. Its entrypoint speaks the versioned JSONL tool protocol over stdin/stdout. Each successful row writes a private receipt binding the immutable image, policy, request, staged input tree, ordered exchange hashes, result, exit status, and confirmed cleanup; the public row contains only the receipt SHA-256 commitment. Resume requires the exact successful receipt and all bound artifacts to revalidate.
 
-Tool-container cleanup does not prove containment of host adapter descendants that escape their original process group. That separate boundary remains tracked in issue #267.
+Tool-container cleanup is separate from host adapter containment. Select `--host-process-containment linux_systemd_scope_cgroup_v2.v1` when the host command adapter must be held in the verified systemd scope/cgroup-v2 boundary described above; the legacy default only cleans the original POSIX process group.
 
 The auditable negative-control worker and its digest-pinned build recipe are checked in under `tests/fixtures/container_runtime_worker/`. Build it explicitly with the same rootless backend used by the test, then resolve the local image ID:
 

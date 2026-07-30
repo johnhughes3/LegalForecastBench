@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
+import time
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,6 +32,10 @@ from legalforecast.multiharness.command_adapter import (
 )
 from legalforecast.multiharness.host_environment import HostEnvironmentError
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
+from legalforecast.multiharness.process_containment import (
+    ProcessContainmentError,
+    preflight_process_containment,
+)
 from legalforecast.multiharness.runner import (
     ModelConfig,
     MultiHarnessRunConfig,
@@ -43,6 +49,7 @@ from legalforecast.multiharness.sandbox import (
 )
 from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import (
+    LINUX_SYSTEMD_SCOPE_CONTAINMENT,
     TOOL_REQUEST_SCHEMA_VERSION,
     AdapterCapabilities,
     AdapterManifest,
@@ -502,6 +509,93 @@ def test_runner_rejects_missing_provider_environment_before_capability_probe(
     assert not output_dir.exists()
 
 
+def test_runner_strong_preflight_precedes_provider_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = _command_config(
+        output_dir=tmp_path / "run",
+        task=task,
+        adapter=adapter,
+    )
+    config = replace(
+        config,
+        sandbox_policy=replace(
+            config.sandbox_policy,
+            allowed_provider_env_vars=("MISSING_PROVIDER_KEY",),
+            host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+        ),
+    )
+    monkeypatch.delenv("MISSING_PROVIDER_KEY", raising=False)
+
+    def reject_preflight(requested: str) -> None:
+        assert requested == LINUX_SYSTEMD_SCOPE_CONTAINMENT
+        raise ProcessContainmentError("fixture containment unavailable")
+
+    monkeypatch.setattr(
+        runner_module,
+        "preflight_process_containment",
+        reject_preflight,
+    )
+
+    with pytest.raises(
+        ProcessContainmentError,
+        match="fixture containment unavailable",
+    ):
+        run_multi_harness(config)
+
+    assert not config.output_dir.exists()
+
+
+def test_runner_strong_mode_contains_setsid_capability_descendant(
+    tmp_path: Path,
+) -> None:
+    try:
+        preflight_process_containment(LINUX_SYSTEMD_SCOPE_CONTAINMENT)
+    except ProcessContainmentError as exc:
+        pytest.skip(f"systemd scope containment unavailable: {exc}")
+    descendant_pid_file = tmp_path / "capability-descendant.pid"
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+        capability_descendant_pid_file=descendant_pid_file,
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = _command_config(
+        output_dir=tmp_path / "run",
+        task=task,
+        adapter=adapter,
+    )
+    config = replace(
+        config,
+        sandbox_policy=replace(
+            config.sandbox_policy,
+            host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+        ),
+    )
+
+    with pytest.raises(CommandAdapterError, match="verified control group"):
+        run_multi_harness(config)
+
+    descendant_pid = int(descendant_pid_file.read_text(encoding="ascii"))
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        try:
+            os.kill(descendant_pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.01)
+    else:
+        pytest.fail("setsid capability descendant survived runner cleanup")
+
+
 def test_runner_redacts_provider_values_from_public_failure_errors(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -938,19 +1032,24 @@ def _command_adapter(
     fail_run: bool = False,
     write_private_capability_probe: bool = False,
     public_summary_env_name: str | None = None,
+    capability_descendant_pid_file: Path | None = None,
 ) -> CommandAdapter:
     script = tmp_path / f"adapter_{len(list(tmp_path.glob('adapter_*.py')))}.py"
+    capability_descendant_path = (
+        str(capability_descendant_pid_file) if capability_descendant_pid_file else None
+    )
     script.write_text(
         "\n".join(
             [
                 "#!/usr/bin/env python3",
                 "from __future__ import annotations",
-                "import argparse, json, os, sys",
+                "import argparse, json, os, pathlib, subprocess, sys, time",
                 f"SUPPORTED_FAMILIES = {supported_families!r}",
                 f"SUPPORTED_SCORING_MODES = {supported_scoring_modes!r}",
                 f"FAIL_RUN = {fail_run!r}",
                 f"WRITE_PRIVATE_CAPABILITY_PROBE = {write_private_capability_probe!r}",
                 f"PUBLIC_SUMMARY_ENV_NAME = {public_summary_env_name!r}",
+                (f"CAPABILITY_DESCENDANT_PID_FILE = {capability_descendant_path!r}"),
                 "parser = argparse.ArgumentParser()",
                 "sub = parser.add_subparsers(dest='command', required=True)",
                 "cap = sub.add_parser('capabilities')",
@@ -961,6 +1060,24 @@ def _command_adapter(
                 "run.add_argument('--workspace', required=True)",
                 "args = parser.parse_args()",
                 "if args.command == 'capabilities':",
+                "    if CAPABILITY_DESCENDANT_PID_FILE:",
+                "        child_code = (",
+                "            'import os, pathlib, time; '",
+                "            f'pathlib.Path({CAPABILITY_DESCENDANT_PID_FILE!r})'",
+                "            \".write_text(str(os.getpid()), encoding='ascii'); \"",
+                "            'time.sleep(30)'",
+                "        )",
+                "        subprocess.Popen(",
+                "            [sys.executable, '-c', child_code],",
+                "            start_new_session=True,",
+                "        )",
+                "        deadline = time.monotonic() + 2",
+                "        while not pathlib.Path(",
+                "            CAPABILITY_DESCENDANT_PID_FILE",
+                "        ).exists():",
+                "            if time.monotonic() >= deadline:",
+                "                raise RuntimeError('descendant did not start')",
+                "            time.sleep(0.01)",
                 "    payload = {",
                 "        'schema_version': (",
                 "            'legalforecast.multiharness.adapter_capabilities.v1'",
