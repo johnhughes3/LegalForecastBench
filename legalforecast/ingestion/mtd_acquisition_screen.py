@@ -498,6 +498,7 @@ def screen_courtlistener_docket_for_mtd_decision(
     page: CourtListenerWebDocketPage,
     *,
     candidate_text: str | None = None,
+    court_id: str | None = None,
     decision_filed_on_or_after: date | None = None,
     decision_filed_on_or_before: date | None = None,
 ) -> MtdDocketDecisionScreen:
@@ -577,7 +578,10 @@ def screen_courtlistener_docket_for_mtd_decision(
             anchor_disposition_entries=anchor_disposition_entries,
         )
 
-    bankruptcy_context = _looks_like_bankruptcy_context(combined_text)
+    bankruptcy_context = _looks_like_bankruptcy_context(
+        combined_text,
+        court_id=court_id,
+    )
     decision_row_ids = {entry.row_id for entry in decision_entries}
     social_security_exclusions = (
         ("social_security_merits_review_posture",)
@@ -1595,14 +1599,13 @@ def _has_disposition_linked_rule_12_basis(decision_text: str) -> bool:
     return False
 
 
-def _looks_like_bankruptcy_context(text: str) -> bool:
+def _looks_like_bankruptcy_context(text: str, *, court_id: str | None) -> bool:
     lowered = text.lower()
-    court_ids = set(re.findall(r"\b[a-z]{2,5}b\b", lowered))
     return bool(
         "bankruptcy" in lowered
         or "adversary complaint" in lowered
         or _looks_like_adversary_designation(text)
-        or court_ids.intersection(_BANKRUPTCY_COURT_IDS)
+        or (court_id or "").strip().lower() in _BANKRUPTCY_COURT_IDS
         or re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", lowered)
         or _references_rule_7012(lowered)
     )

@@ -643,6 +643,26 @@ def test_official_semantic_proof_does_not_require_historical_git_objects(
     assert proof["source_code_commit"] == ("126a18b5849f83c0ba2d87f3fd424ca99e7faf14")
 
 
+def test_official_semantic_proof_does_not_depend_on_current_checkout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_read = _read_regular_file
+
+    def refuse_current_checkout(path: Path, *, label: str) -> bytes:
+        if label == "current screening source":
+            raise AssertionError("historical proof consulted the current checkout")
+        return original_read(path, label=label)
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.rest_observation_policy_rebind._read_regular_file",
+        refuse_current_checkout,
+    )
+
+    proof = verify_official_rest_observation_rebind_semantics()
+
+    assert proof["target_code_commit"] == ("e0d71779324ce8a0b8cdf09a6f2416fe97135d38")
+
+
 def test_official_semantic_proof_rejects_tampered_packaged_witness(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

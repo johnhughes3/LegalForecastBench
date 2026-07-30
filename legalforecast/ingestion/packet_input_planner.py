@@ -553,6 +553,7 @@ def _plan_candidate(
     docket_screen = screen_courtlistener_docket_for_mtd_decision(
         page,
         candidate_text=_optional_str(selection, "case_name"),
+        court_id=_optional_str(selection, "court"),
     )
     docket_screen_record = docket_screen.to_record()
     if decision_filed_on_or_after is not None:

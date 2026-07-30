@@ -886,10 +886,12 @@ def screen_courtlistener_docket_page(
     unanchored = screen_courtlistener_docket_for_mtd_decision(
         parsed,
         candidate_text=candidate_text,
+        court_id=docket.court_id,
     )
     anchored = screen_courtlistener_docket_for_mtd_decision(
         parsed,
         candidate_text=candidate_text,
+        court_id=docket.court_id,
         decision_filed_on_or_after=decision_filed_on_or_after,
         decision_filed_on_or_before=decision_filed_on_or_before,
     )

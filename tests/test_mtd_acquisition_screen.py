@@ -1554,7 +1554,7 @@ def test_docket_screen_rejects_bankruptcy_main_case_despite_rule_12_words() -> N
 
 
 def test_docket_screen_does_not_treat_ordinary_b_suffix_tokens_as_bankruptcy() -> None:
-    for token in ("Feb", "CAB", "JLB"):
+    for token in ("Feb", "CAB", "JLB", "NEB"):
         page = parse_courtlistener_docket_html(
             _multi_entry_docket_html(
                 title=f"Doe v. {token} Corporation - 6:26-cv-00106",
@@ -1573,6 +1573,7 @@ def test_docket_screen_does_not_treat_ordinary_b_suffix_tokens_as_bankruptcy() -
         screen = screen_courtlistener_docket_for_mtd_decision(
             page,
             candidate_text=f"Civil action assigned to Judge {token}.",
+            court_id="mnd",
             decision_filed_on_or_after=date(2026, 6, 30),
         )
 
@@ -1597,6 +1598,7 @@ def test_docket_screen_still_recognizes_bankruptcy_court_identifier() -> None:
     screen = screen_courtlistener_docket_for_mtd_decision(
         page,
         candidate_text="flmb 6:26-06489",
+        court_id="flmb",
         decision_filed_on_or_after=date(2026, 6, 30),
     )
 
@@ -1719,6 +1721,7 @@ def test_adversary_jop_does_not_promote_osborne_generic_motion_reference() -> No
     screen = screen_courtlistener_docket_for_mtd_decision(
         page,
         candidate_text="flsb 25-01237 Osborne v. Moeinifar",
+        court_id="flsb",
         decision_filed_on_or_after=date(2026, 6, 30),
     )
     normalized = _linkage_entries(
