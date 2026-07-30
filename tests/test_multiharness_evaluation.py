@@ -69,6 +69,7 @@ def _spec() -> EvaluationSpec:
         runtime_policy_sha256=POLICY,
         egress_policy_sha256=_digest("d"),
         resource_policy_sha256=_digest("e"),
+        token_accounting_policy_sha256=_digest("f"),
     )
 
 
@@ -77,7 +78,8 @@ def _usage() -> EvaluationTokenUsage:
         source="provider_response",
         input_tokens=TokenCount(value=800, unknown_reason=None),
         output_tokens=TokenCount(value=200, unknown_reason=None),
-        cached_input_tokens=TokenCount(value=None, unknown_reason="not_reported"),
+        cache_read_tokens=TokenCount(value=None, unknown_reason="not_reported"),
+        cache_write_tokens=TokenCount(value=None, unknown_reason="not_reported"),
         reasoning_tokens=TokenCount(value=None, unknown_reason="not_reported"),
         total_tokens=TokenCount(value=1000, unknown_reason=None),
     )
@@ -121,8 +123,6 @@ def _receipt(
         evaluation_attempt_id=attempt_id,
         attempt_nonce=nonce,
         repeat_index=repeat_index,
-        attempt_number=1,
-        retry_count=0,
         judge_resolved_identity="anthropic/claude-sonnet-4-6@2026-07-15",
         raw_result_sha256=raw_result_sha256,
         raw_result_size_bytes=len(RAW_RESULT_BYTES),
@@ -150,6 +150,7 @@ def _verify(
         "issuer_public_key": PRIVATE_KEY.public_key(),
         "expected_measurement_id": receipt.measurement_id,
         "expected_evaluation_attempt_id": receipt.evaluation_attempt_id,
+        "expected_attempt_nonce": receipt.attempt_nonce,
         "expected_repeat_index": receipt.repeat_index,
     }
     arguments.update(overrides)
@@ -394,8 +395,6 @@ def test_zero_cost_is_allowed_only_as_authenticated_known_measurement() -> None:
                 "evaluation_attempt_id": "attempt-zero",
                 "attempt_nonce": "nonce-zero",
                 "repeat_index": 1,
-                "attempt_number": 1,
-                "retry_count": 0,
                 "judge_resolved_identity": "provider/model@resolved",
                 "raw_result_sha256": RAW_RESULT,
                 "raw_result_size_bytes": 1,
@@ -424,16 +423,31 @@ def test_monotonic_and_utc_timing_are_exact_and_distinguish_call_sum() -> None:
 
 def test_criterion_commitments_require_id_order_and_expose_no_private_text() -> None:
     ordered = (
-        CriterionCommitment("criterion-01", _digest("a")),
-        CriterionCommitment("criterion-02", _digest("b")),
+        CriterionCommitment(1, _digest("a")),
+        CriterionCommitment(2, _digest("b")),
     )
     digest = criteria_commitment_sha256(ordered)
     assert digest.startswith("sha256:")
-    assert set(ordered[0].to_record()) == {"criterion_id", "commitment_sha256"}
-    with pytest.raises(ValueError, match="ordered"):
+    assert set(ordered[0].to_record()) == {"ordinal", "commitment_sha256"}
+    with pytest.raises(ValueError, match="ordinals"):
         criteria_commitment_sha256(tuple(reversed(ordered)))
-    with pytest.raises(ValueError, match="duplicate"):
+    with pytest.raises(ValueError, match="ordinals"):
         criteria_commitment_sha256((ordered[0], ordered[0]))
+
+
+def test_nonce_is_externally_bound_and_replay_checked() -> None:
+    receipt = _receipt()
+    with pytest.raises(EvaluationBindingError, match="attempt_nonce"):
+        _verify(receipt, expected_attempt_nonce="nonce-elsewhere")
+    with pytest.raises(EvaluationBindingError, match="attempt_nonce"):
+        _verify(receipt, seen_attempt_nonces={receipt.attempt_nonce})
+
+
+def test_public_codes_reject_prose_paths_and_secret_like_reason_text() -> None:
+    with pytest.raises(ValueError, match="supported token source"):
+        replace(_usage(), source="../../private")
+    with pytest.raises(ValueError, match="public-safe"):
+        TokenCount(None, "provider error: secret=abc")
 
 
 def test_unknown_fields_and_noncanonical_digests_fail_closed() -> None:

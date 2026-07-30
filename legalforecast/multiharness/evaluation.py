@@ -21,6 +21,17 @@ EVALUATION_SIGNATURE_DOMAIN = b"LegalForecastBench EvaluationReceipt v1\x00"
 
 _GIT_SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
 _MEDIA_TYPE_RE = re.compile(r"[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+\Z")
+_SAFE_CODE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}\Z")
+_UNKNOWN_REASONS = frozenset(
+    {
+        "not_reported",
+        "provider_did_not_report",
+        "flat_subscription_has_no_per_call_allocation",
+        "not_applicable",
+        "unknown",
+    }
+)
+_TOKEN_SOURCES = frozenset({"provider_response", "evaluator_wrapper", "unknown"})
 _STATUSES = frozenset({"succeeded", "failed"})
 _KNOWN_COST_BASES = frozenset(
     {"metered", "provider_reported", "estimated_from_pricing_snapshot"}
@@ -52,17 +63,19 @@ _SPEC_FIELDS = frozenset(
         "runtime_policy_sha256",
         "egress_policy_sha256",
         "resource_policy_sha256",
+        "token_accounting_policy_sha256",
         "spec_sha256",
     }
 )
-_CRITERION_FIELDS = frozenset({"criterion_id", "commitment_sha256"})
+_CRITERION_FIELDS = frozenset({"ordinal", "commitment_sha256"})
 _TOKEN_COUNT_FIELDS = frozenset({"value", "unknown_reason"})
 _TOKEN_USAGE_FIELDS = frozenset(
     {
         "source",
         "input_tokens",
         "output_tokens",
-        "cached_input_tokens",
+        "cache_read_tokens",
+        "cache_write_tokens",
         "reasoning_tokens",
         "total_tokens",
     }
@@ -95,8 +108,6 @@ _RECEIPT_FIELDS = frozenset(
         "evaluation_attempt_id",
         "attempt_nonce",
         "repeat_index",
-        "attempt_number",
-        "retry_count",
         "evaluation_spec_sha256",
         "deliverable_manifest_sha256",
         "deliverable_tree_sha256",
@@ -111,6 +122,7 @@ _RECEIPT_FIELDS = frozenset(
         "runtime_policy_sha256",
         "egress_policy_sha256",
         "resource_policy_sha256",
+        "token_accounting_policy_sha256",
         "raw_result_sha256",
         "raw_result_size_bytes",
         "raw_result_media_type",
@@ -134,16 +146,16 @@ class EvaluationBindingError(ValueError):
 class CriterionCommitment:
     """Private-safe commitment to one criterion, identified without its text."""
 
-    criterion_id: str
+    ordinal: int
     commitment_sha256: str
 
     def __post_init__(self) -> None:
-        _require_non_empty(self.criterion_id, "criterion_id")
+        _require_positive_int_value(self.ordinal, "ordinal")
         _require_digest(self.commitment_sha256, "commitment_sha256")
 
-    def to_record(self) -> dict[str, str]:
+    def to_record(self) -> dict[str, object]:
         return {
-            "criterion_id": self.criterion_id,
+            "ordinal": self.ordinal,
             "commitment_sha256": self.commitment_sha256,
         }
 
@@ -151,7 +163,7 @@ class CriterionCommitment:
     def from_record(cls, record: Mapping[str, Any]) -> Self:
         _require_exact_fields(record, _CRITERION_FIELDS, "criterion commitment")
         return cls(
-            criterion_id=_required_string(record, "criterion_id"),
+            ordinal=_require_positive_int_value(record.get("ordinal"), "ordinal"),
             commitment_sha256=_required_string(record, "commitment_sha256"),
         )
 
@@ -165,7 +177,7 @@ class TokenCount:
 
     def __post_init__(self) -> None:
         if self.value is None:
-            _require_non_empty(self.unknown_reason, "unknown_reason")
+            _require_unknown_reason(self.unknown_reason)
         else:
             _require_non_negative_int_value(self.value, "value")
             if self.unknown_reason is not None:
@@ -190,19 +202,22 @@ class EvaluationTokenUsage:
     source: str
     input_tokens: TokenCount
     output_tokens: TokenCount
-    cached_input_tokens: TokenCount
+    cache_read_tokens: TokenCount
+    cache_write_tokens: TokenCount
     reasoning_tokens: TokenCount
     total_tokens: TokenCount
 
     def __post_init__(self) -> None:
-        _require_non_empty(self.source, "source")
+        if self.source not in _TOKEN_SOURCES:
+            raise ValueError("source must be a supported token source code")
 
     def to_record(self) -> dict[str, object]:
         return {
             "source": self.source,
             "input_tokens": self.input_tokens.to_record(),
             "output_tokens": self.output_tokens.to_record(),
-            "cached_input_tokens": self.cached_input_tokens.to_record(),
+            "cache_read_tokens": self.cache_read_tokens.to_record(),
+            "cache_write_tokens": self.cache_write_tokens.to_record(),
             "reasoning_tokens": self.reasoning_tokens.to_record(),
             "total_tokens": self.total_tokens.to_record(),
         }
@@ -218,9 +233,12 @@ class EvaluationTokenUsage:
             output_tokens=TokenCount.from_record(
                 _required_mapping(record.get("output_tokens"), "output_tokens")
             ),
-            cached_input_tokens=TokenCount.from_record(
+            cache_read_tokens=TokenCount.from_record(
+                _required_mapping(record.get("cache_read_tokens"), "cache_read_tokens")
+            ),
+            cache_write_tokens=TokenCount.from_record(
                 _required_mapping(
-                    record.get("cached_input_tokens"), "cached_input_tokens"
+                    record.get("cache_write_tokens"), "cache_write_tokens"
                 )
             ),
             reasoning_tokens=TokenCount.from_record(
@@ -272,7 +290,7 @@ class CostMeasurement:
             raise ValueError(
                 f"pricing_snapshot_sha256 must be null for {self.basis} cost"
             )
-        _require_non_empty(self.unknown_reason, "unknown_reason")
+        _require_unknown_reason(self.unknown_reason)
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -391,6 +409,7 @@ class EvaluationSpec:
     runtime_policy_sha256: str
     egress_policy_sha256: str
     resource_policy_sha256: str
+    token_accounting_policy_sha256: str
     spec_sha256: str
     schema_version: str = EVALUATION_SPEC_SCHEMA_VERSION
 
@@ -422,6 +441,7 @@ class EvaluationSpec:
             "runtime_policy_sha256",
             "egress_policy_sha256",
             "resource_policy_sha256",
+            "token_accounting_policy_sha256",
             "spec_sha256",
         ):
             _require_digest(cast(str, getattr(self, name)), name)
@@ -456,6 +476,7 @@ class EvaluationSpec:
             "runtime_policy_sha256": self.runtime_policy_sha256,
             "egress_policy_sha256": self.egress_policy_sha256,
             "resource_policy_sha256": self.resource_policy_sha256,
+            "token_accounting_policy_sha256": self.token_accounting_policy_sha256,
         }
 
     def to_record(self) -> dict[str, object]:
@@ -475,8 +496,6 @@ class EvaluationReceipt:
     evaluation_attempt_id: str
     attempt_nonce: str
     repeat_index: int
-    attempt_number: int
-    retry_count: int
     evaluation_spec_sha256: str
     deliverable_manifest_sha256: str
     deliverable_tree_sha256: str
@@ -491,6 +510,7 @@ class EvaluationReceipt:
     runtime_policy_sha256: str
     egress_policy_sha256: str
     resource_policy_sha256: str
+    token_accounting_policy_sha256: str
     raw_result_sha256: str
     raw_result_size_bytes: int
     raw_result_media_type: str
@@ -529,16 +549,13 @@ class EvaluationReceipt:
             "runtime_policy_sha256",
             "egress_policy_sha256",
             "resource_policy_sha256",
+            "token_accounting_policy_sha256",
             "raw_result_sha256",
             "issuer_policy_sha256",
             "receipt_sha256",
         ):
             _require_digest(cast(str, getattr(self, name)), name)
-        for name in ("repeat_index", "attempt_number"):
-            _require_positive_int_value(getattr(self, name), name)
-        _require_non_negative_int_value(self.retry_count, "retry_count")
-        if self.retry_count >= self.attempt_number:
-            raise ValueError("retry_count must be less than attempt_number")
+        _require_positive_int_value(self.repeat_index, "repeat_index")
         _require_non_negative_int_value(
             self.raw_result_size_bytes, "raw_result_size_bytes"
         )
@@ -557,8 +574,6 @@ class EvaluationReceipt:
             "evaluation_attempt_id": self.evaluation_attempt_id,
             "attempt_nonce": self.attempt_nonce,
             "repeat_index": self.repeat_index,
-            "attempt_number": self.attempt_number,
-            "retry_count": self.retry_count,
             "evaluation_spec_sha256": self.evaluation_spec_sha256,
             "deliverable_manifest_sha256": self.deliverable_manifest_sha256,
             "deliverable_tree_sha256": self.deliverable_tree_sha256,
@@ -573,6 +588,7 @@ class EvaluationReceipt:
             "runtime_policy_sha256": self.runtime_policy_sha256,
             "egress_policy_sha256": self.egress_policy_sha256,
             "resource_policy_sha256": self.resource_policy_sha256,
+            "token_accounting_policy_sha256": self.token_accounting_policy_sha256,
             "raw_result_sha256": self.raw_result_sha256,
             "raw_result_size_bytes": self.raw_result_size_bytes,
             "raw_result_media_type": self.raw_result_media_type,
@@ -628,11 +644,8 @@ def criteria_commitment_sha256(
     canonical = tuple(
         CriterionCommitment.from_record(criterion.to_record()) for criterion in criteria
     )
-    criterion_ids = tuple(criterion.criterion_id for criterion in canonical)
-    if len(set(criterion_ids)) != len(criterion_ids):
-        raise ValueError("criterion commitments contain duplicate criterion IDs")
-    if canonical != tuple(sorted(canonical, key=lambda item: item.criterion_id)):
-        raise ValueError("criterion commitments must be ordered by criterion_id")
+    if tuple(item.ordinal for item in canonical) != tuple(range(1, len(canonical) + 1)):
+        raise ValueError("criterion commitments require contiguous 1-based ordinals")
     return _record_sha256(
         {"criteria": [criterion.to_record() for criterion in canonical]}
     )
@@ -646,8 +659,6 @@ def build_evaluation_receipt(
     evaluation_attempt_id: str,
     attempt_nonce: str,
     repeat_index: int,
-    attempt_number: int,
-    retry_count: int,
     judge_resolved_identity: str,
     raw_result_sha256: str,
     raw_result_size_bytes: int,
@@ -668,8 +679,6 @@ def build_evaluation_receipt(
         "evaluation_attempt_id": evaluation_attempt_id,
         "attempt_nonce": attempt_nonce,
         "repeat_index": repeat_index,
-        "attempt_number": attempt_number,
-        "retry_count": retry_count,
         "evaluation_spec_sha256": canonical_spec.spec_sha256,
         "deliverable_manifest_sha256": (canonical_spec.deliverable_manifest_sha256),
         "deliverable_tree_sha256": canonical_spec.deliverable_tree_sha256,
@@ -684,6 +693,7 @@ def build_evaluation_receipt(
         "runtime_policy_sha256": canonical_spec.runtime_policy_sha256,
         "egress_policy_sha256": canonical_spec.egress_policy_sha256,
         "resource_policy_sha256": canonical_spec.resource_policy_sha256,
+        "token_accounting_policy_sha256": canonical_spec.token_accounting_policy_sha256,
         "raw_result_sha256": raw_result_sha256,
         "raw_result_size_bytes": raw_result_size_bytes,
         "raw_result_media_type": raw_result_media_type,
@@ -718,8 +728,10 @@ def verify_evaluation_receipt(
     issuer_public_key: Ed25519PublicKey,
     expected_measurement_id: str,
     expected_evaluation_attempt_id: str,
+    expected_attempt_nonce: str,
     expected_repeat_index: int,
     seen_measurement_ids: Set[str] | None = None,
+    seen_attempt_nonces: Set[str] | None = None,
     occupied_repeat_slots: Set[tuple[str, int]] | None = None,
 ) -> EvaluationReceipt:
     """Verify integrity, external trust, exact bindings, and optional replay state.
@@ -766,6 +778,7 @@ def verify_evaluation_receipt(
             canonical_receipt.evaluation_attempt_id,
             expected_evaluation_attempt_id,
         ),
+        ("attempt_nonce", canonical_receipt.attempt_nonce, expected_attempt_nonce),
         (
             "repeat_index",
             canonical_receipt.repeat_index,
@@ -788,6 +801,7 @@ def verify_evaluation_receipt(
         "runtime_policy_sha256",
         "egress_policy_sha256",
         "resource_policy_sha256",
+        "token_accounting_policy_sha256",
     )
     for name in spec_receipt_bindings:
         if getattr(canonical_receipt, name) != getattr(canonical_spec, name):
@@ -821,6 +835,11 @@ def verify_evaluation_receipt(
         and canonical_receipt.measurement_id in seen_measurement_ids
     ):
         raise EvaluationBindingError("measurement_id has already been consumed")
+    if (
+        seen_attempt_nonces is not None
+        and canonical_receipt.attempt_nonce in seen_attempt_nonces
+    ):
+        raise EvaluationBindingError("attempt_nonce has already been consumed")
     repeat_slot = (
         canonical_receipt.evaluation_spec_sha256,
         canonical_receipt.repeat_index,
@@ -854,6 +873,22 @@ def verify_raw_evaluation_result(
         )
 
 
+def verify_evaluation_result(
+    receipt: EvaluationReceipt,
+    raw_result: bytes,
+    *,
+    expected_media_type: str,
+    **verification: Any,
+) -> EvaluationReceipt:
+    """Verify receipt bindings/signature and then exact opaque result bytes."""
+
+    canonical = verify_evaluation_receipt(receipt, **verification)
+    verify_raw_evaluation_result(
+        canonical, raw_result, expected_media_type=expected_media_type
+    )
+    return canonical
+
+
 def _signature_payload(record: Mapping[str, object]) -> bytes:
     return EVALUATION_SIGNATURE_DOMAIN + _canonical_json(record)
 
@@ -876,7 +911,8 @@ def _canonical_json(record: Mapping[str, object]) -> bytes:
 
 
 def _decode_signature(value: str) -> bytes:
-    _require_non_empty(value, "signature")
+    if not value:
+        raise ValueError("signature must be non-empty")
     try:
         decoded = base64.b64decode(value, validate=True)
     except (binascii.Error, ValueError) as exc:
@@ -906,8 +942,13 @@ def _require_exact_fields(
 
 
 def _require_non_empty(value: object, field_name: str) -> None:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field_name} must be a non-empty string")
+    if not isinstance(value, str) or _SAFE_CODE_RE.fullmatch(value) is None:
+        raise ValueError(f"{field_name} must be a bounded public-safe code")
+
+
+def _require_unknown_reason(value: object) -> None:
+    if value not in _UNKNOWN_REASONS:
+        raise ValueError("unknown_reason must be a supported public-safe code")
 
 
 def _require_digest(value: object, field_name: str) -> str:

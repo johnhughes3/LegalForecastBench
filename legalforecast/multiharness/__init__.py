@@ -77,6 +77,7 @@ from legalforecast.multiharness.evaluation import (
     build_evaluation_spec,
     criteria_commitment_sha256,
     verify_evaluation_receipt,
+    verify_evaluation_result,
     verify_raw_evaluation_result,
 )
 from legalforecast.multiharness.harvey_lab_adapter import (
@@ -359,5 +360,6 @@ __all__ = [
     "validate_submission_file",
     "validate_submission_manifest",
     "verify_evaluation_receipt",
+    "verify_evaluation_result",
     "verify_raw_evaluation_result",
 ]
