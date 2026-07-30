@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 import stat
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import replace
 from pathlib import Path
 from typing import cast
@@ -166,13 +166,13 @@ def test_sealing_rejects_missing_extra_and_oversized_outputs(tmp_path: Path) -> 
     extra_root = tmp_path / "extra"
     _write(extra_root / "answer.md", b"answer")
     _write(extra_root / "surprise.txt", b"extra")
-    with pytest.raises(DeliverableValidationError, match=r"entry-count|unexpected"):
+    with pytest.raises(DeliverableValidationError, match="unexpected"):
         _seal(extra_root, tmp_path / "extra-sealed", _projection("answer.md"))
 
     empty_directory_root = tmp_path / "empty-directory"
     _write(empty_directory_root / "answer.md", b"answer")
     (empty_directory_root / "surprise").mkdir()
-    with pytest.raises(DeliverableValidationError, match=r"entry-count|unexpected"):
+    with pytest.raises(DeliverableValidationError, match="unexpected"):
         _seal(
             empty_directory_root,
             tmp_path / "empty-directory-sealed",
@@ -186,6 +186,49 @@ def test_sealing_rejects_missing_extra_and_oversized_outputs(tmp_path: Path) -> 
             oversized_root,
             tmp_path / "oversized-sealed",
             replace(_projection("answer.md"), max_size_bytes=4),
+        )
+
+
+@pytest.mark.parametrize("unexpected_first", (False, True))
+def test_unexpected_path_diagnostic_is_independent_of_enumeration_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    unexpected_first: bool,
+) -> None:
+    source_root = tmp_path / "source"
+    _write(source_root / "answer.md", b"answer")
+    _write(source_root / "surprise.txt", b"extra")
+    real_scandir = deliverables_module.os.scandir
+
+    class OrderedScandir:
+        def __init__(self, directory_fd: int) -> None:
+            with real_scandir(directory_fd) as entries:
+                self.entries = list(entries)
+            self.entries.sort(
+                key=lambda entry: entry.name == "surprise.txt",
+                reverse=unexpected_first,
+            )
+
+        def __iter__(self) -> Iterator[os.DirEntry[str]]:
+            return iter(self.entries)
+
+        def __enter__(self) -> OrderedScandir:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+    monkeypatch.setattr(deliverables_module.os, "scandir", OrderedScandir)
+
+    with pytest.raises(
+        DeliverableValidationError,
+        match=r"unexpected paths: surprise\.txt",
+    ):
+        _seal(
+            source_root,
+            tmp_path / "sealed",
+            _projection("answer.md"),
         )
 
 
@@ -208,7 +251,7 @@ def test_sparse_oversize_and_excess_entries_fail_before_hashing(
     extra_root = tmp_path / "extra-before-hash"
     _write(extra_root / "answer.md", b"answer")
     _write(extra_root / "unexpected.txt", b"unexpected")
-    with pytest.raises(DeliverableValidationError, match=r"entry-count|unexpected"):
+    with pytest.raises(DeliverableValidationError, match="unexpected"):
         _seal(
             extra_root,
             tmp_path / "extra-before-hash-sealed",

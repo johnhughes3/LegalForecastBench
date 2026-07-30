@@ -642,11 +642,6 @@ def _discover_bounded_tree(
         raise DeliverableValidationError(f"could not enumerate {field_name}") from exc
     with iterator:
         for entry in iterator:
-            counters["entries"] += 1
-            if counters["entries"] > max_entries:
-                raise DeliverableValidationError(
-                    f"{field_name} exceeds its exact entry-count bound"
-                )
             path = f"{prefix}/{entry.name}" if prefix else entry.name
             try:
                 entry_stat = entry.stat(follow_symlinks=False)
@@ -654,11 +649,18 @@ def _discover_bounded_tree(
                 raise DeliverableValidationError(
                     f"{field_name} changed during discovery: {path}"
                 ) from exc
-            if stat.S_ISDIR(entry_stat.st_mode):
-                if path not in expected_directories:
-                    raise DeliverableValidationError(
-                        f"{field_name} contains unexpected paths: {path}"
-                    )
+            is_directory = stat.S_ISDIR(entry_stat.st_mode)
+            expected_paths = expected_directories if is_directory else expected_files
+            if path not in expected_paths:
+                raise DeliverableValidationError(
+                    f"{field_name} contains unexpected paths: {path}"
+                )
+            counters["entries"] += 1
+            if counters["entries"] > max_entries:
+                raise DeliverableValidationError(
+                    f"{field_name} exceeds its exact entry-count bound"
+                )
+            if is_directory:
                 if require_read_only and entry_stat.st_mode & 0o222:
                     raise DeliverableValidationError(
                         f"{field_name} must be read-only: {path}"
@@ -692,10 +694,6 @@ def _discover_bounded_tree(
             if counters["files"] > max_files:
                 raise DeliverableValidationError(
                     f"{field_name} exceeds the file-count limit"
-                )
-            if path not in expected_files:
-                raise DeliverableValidationError(
-                    f"{field_name} contains unexpected paths: {path}"
                 )
             if not stat.S_ISREG(entry_stat.st_mode) or entry_stat.st_nlink != 1:
                 raise DeliverableValidationError(
