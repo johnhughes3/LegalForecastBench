@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.conformance import run_adapter_conformance
+from legalforecast.multiharness.openai_responses import adapter_bundle_sha256
 from legalforecast.multiharness.spec import TOOL_REQUEST_SCHEMA_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,13 @@ OPENCLAW_MANIFEST = (
 )
 OPENAI_RESPONSES_MANIFEST = (
     ROOT / "examples" / "adapters" / "openai-responses" / "adapter-manifest.json"
+)
+OPENAI_RESPONSES_FIXTURE_MANIFEST = (
+    ROOT
+    / "examples"
+    / "adapters"
+    / "openai-responses"
+    / "fixture-adapter-manifest.json"
 )
 CLAUDE_AGENT_SDK_MANIFEST = (
     ROOT / "examples" / "adapters" / "claude-agent-sdk" / "adapter-manifest.json"
@@ -106,11 +114,11 @@ def test_openclaw_fixture_capabilities_record_required_provenance(
     assert set(capabilities.supported_scoring_modes) == {"lfb_brier", "lab_native"}
 
 
-def test_provider_runtime_baseline_manifests_pass_conformance(
+def test_provider_runtime_fixture_manifests_pass_conformance(
     tmp_path: Path,
 ) -> None:
     expected_ids = {
-        OPENAI_RESPONSES_MANIFEST: "openai-responses-fixture-baseline",
+        OPENAI_RESPONSES_FIXTURE_MANIFEST: "openai-responses-fixture-baseline",
         CLAUDE_AGENT_SDK_MANIFEST: "claude-agent-sdk-fixture-baseline",
     }
     for manifest, adapter_id in expected_ids.items():
@@ -126,10 +134,13 @@ def test_provider_runtime_baseline_manifests_pass_conformance(
         assert run.report.checks["lab_fixture_run"].startswith("passed:")
 
 
-def test_provider_runtime_baselines_record_api_auth_assumptions(
+def test_provider_runtime_fixtures_record_api_auth_assumptions(
     tmp_path: Path,
 ) -> None:
-    for manifest in (OPENAI_RESPONSES_MANIFEST, CLAUDE_AGENT_SDK_MANIFEST):
+    for manifest in (
+        OPENAI_RESPONSES_FIXTURE_MANIFEST,
+        CLAUDE_AGENT_SDK_MANIFEST,
+    ):
         run = run_adapter_conformance(
             adapter_manifest_path=manifest,
             output_dir=tmp_path / manifest.parent.name,
@@ -146,7 +157,22 @@ def test_provider_runtime_baselines_record_api_auth_assumptions(
         assert "provider_terms_assumption" in public_summary
 
 
-def test_only_openai_fixture_baseline_advertises_live_tool_protocol(
+def test_openai_responses_baseline_passes_offline_conformance(
+    tmp_path: Path,
+) -> None:
+    run = run_adapter_conformance(
+        adapter_manifest_path=OPENAI_RESPONSES_MANIFEST,
+        output_dir=tmp_path / "openai-responses-real",
+        timeout_seconds=30,
+    )
+
+    assert run.report.status == "passed"
+    assert run.report.adapter_id == "openai-responses-baseline"
+    assert run.report.checks["lfb_fixture_run"].startswith("passed:")
+    assert run.report.checks["lab_fixture_run"].startswith("skipped:")
+
+
+def test_openai_responses_baseline_advertises_live_tool_protocol(
     tmp_path: Path,
 ) -> None:
     openai = CommandAdapter.from_manifest_file(
@@ -161,12 +187,14 @@ def test_only_openai_fixture_baseline_advertises_live_tool_protocol(
     assert openai.tool_protocol_version == TOOL_REQUEST_SCHEMA_VERSION
     assert claude.tool_protocol_version is None
     expected_semantics = {
-        "adapter_id": "openai-responses-fixture-baseline",
-        "adapter_version": "0.1.0",
-        "supported_families": ["legalforecast_mtd", "harvey_lab"],
-        "supported_scoring_modes": ["lfb_brier", "lab_native"],
+        "adapter_id": "openai-responses-baseline",
+        "adapter_version": "1.0.0",
+        "adapter_bundle_sha256": adapter_bundle_sha256(),
+        "sdk_name": "openai",
+        "sdk_version": "2.46.0",
+        "supported_families": ["legalforecast_mtd"],
+        "supported_scoring_modes": ["lfb_brier"],
         "supports_sandbox_policy": True,
-        "profile": "openai-responses",
         "tool_protocol_version": TOOL_REQUEST_SCHEMA_VERSION,
     }
     encoded = json.dumps(
