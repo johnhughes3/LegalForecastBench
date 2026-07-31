@@ -23,6 +23,8 @@ from legalforecast.multiharness.validation import validate_public_record
 OPENAI_RESPONSES_ADAPTER_ID = "openai-responses-baseline"
 OPENAI_RESPONSES_ADAPTER_VERSION = "1.0.0"
 OPENAI_SDK_VERSION = "2.46.0"
+OPENAI_SDK_MAX_RETRIES = 0
+OPENAI_MAX_OUTPUT_TOKENS = 4096
 OPENAI_PROVIDER_ENV_VAR = "OPENAI_API_KEY"
 
 _READ_TASK_TOOL_NAME = "read_canonical_task"
@@ -77,7 +79,9 @@ def build_capabilities() -> AdapterCapabilities:
         "adapter_id": OPENAI_RESPONSES_ADAPTER_ID,
         "adapter_version": OPENAI_RESPONSES_ADAPTER_VERSION,
         "adapter_bundle_sha256": adapter_bundle_sha256(),
+        "max_output_tokens_per_request": OPENAI_MAX_OUTPUT_TOKENS,
         "sdk_name": "openai",
+        "sdk_max_retries": OPENAI_SDK_MAX_RETRIES,
         "sdk_version": OPENAI_SDK_VERSION,
         "supported_families": ["legalforecast_mtd"],
         "supported_scoring_modes": ["lfb_brier"],
@@ -157,8 +161,10 @@ def run_openai_responses(
     common: dict[str, Any] = {
         "include": ["reasoning.encrypted_content"],
         "instructions": _instructions(required_unit_ids),
+        "max_output_tokens": OPENAI_MAX_OUTPUT_TOKENS,
         "model": requested_model,
         "store": False,
+        "timeout": float(request.sandbox_policy.timeout_seconds),
         "tools": [_READ_TASK_TOOL],
     }
     response = _provider_request(
@@ -206,7 +212,7 @@ def run_openai_responses(
                     raise OpenAIResponsesAdapterError(
                         "OpenAI Responses requested an unsupported tool"
                     )
-                _validate_empty_arguments(_required_item_str(call, "arguments"))
+                _validate_empty_arguments(_item_arguments(call))
                 tool_call_count += 1
                 tool_request = ToolRequest(
                     request_id=(f"{request.request_id}:openai-tool:{tool_call_count}"),
@@ -261,8 +267,8 @@ def _provider_request(client: OpenAIClient, **kwargs: Any) -> object:
         return client.responses.create(**kwargs)
     except OpenAIResponsesAdapterError:
         raise
-    except Exception as exc:
-        raise OpenAIResponsesAdapterError("OpenAI Responses request failed") from exc
+    except Exception:
+        raise OpenAIResponsesAdapterError("OpenAI Responses request failed") from None
 
 
 def _successful_result(
@@ -294,13 +300,16 @@ def _successful_result(
         "auth_mode": "api-key-by-user-environment",
         "forecast_sha256": forecast_sha256,
         "input_tokens": input_tokens,
+        "max_output_tokens_per_request": OPENAI_MAX_OUTPUT_TOKENS,
         "model_key": request.model_key,
         "output_tokens": output_tokens,
         "provider": "openai",
         "provider_request_count": provider_request_count,
+        "provider_request_timeout_seconds": request.sandbox_policy.timeout_seconds,
         "python_version": sys.version.split()[0],
         "requested_model": requested_model,
         "sdk_name": "openai",
+        "sdk_max_retries": OPENAI_SDK_MAX_RETRIES,
         "sdk_version": OPENAI_SDK_VERSION,
         "sandbox_policy_id": request.sandbox_policy.policy_id,
         "served_model": served_model,
@@ -541,6 +550,15 @@ def _required_item_str(item: object, field_name: str) -> str:
             f"OpenAI Responses function call {field_name} is missing"
         )
     return value
+
+
+def _item_arguments(item: object) -> str:
+    value = getattr(item, "arguments", None)
+    if not isinstance(value, str):
+        raise OpenAIResponsesAdapterError(
+            "OpenAI Responses function call arguments is missing"
+        )
+    return value if value.strip() else "{}"
 
 
 def _non_negative_int(value: object, field_name: str) -> int:

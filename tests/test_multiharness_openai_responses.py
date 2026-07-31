@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import traceback
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
@@ -10,8 +11,10 @@ from typing import Any
 
 import pytest
 from legalforecast.multiharness.openai_responses import (
+    OPENAI_MAX_OUTPUT_TOKENS,
     OPENAI_RESPONSES_ADAPTER_ID,
     OPENAI_RESPONSES_ADAPTER_VERSION,
+    OPENAI_SDK_MAX_RETRIES,
     OPENAI_SDK_VERSION,
     OpenAIResponsesAdapterError,
     adapter_bundle_sha256,
@@ -19,7 +22,12 @@ from legalforecast.multiharness.openai_responses import (
     run_offline_protocol_fixture,
     run_openai_responses,
 )
-from legalforecast.multiharness.openai_responses_cli import main as adapter_main
+from legalforecast.multiharness.openai_responses_cli import (
+    build_openai_client,
+)
+from legalforecast.multiharness.openai_responses_cli import (
+    main as adapter_main,
+)
 from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
@@ -114,6 +122,25 @@ def test_installed_sdk_matches_exact_baseline_pin() -> None:
     assert version("openai") == OPENAI_SDK_VERSION
 
 
+def test_live_client_disables_transparent_sdk_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_openai(**kwargs: object) -> object:
+        observed.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("openai.OpenAI", fake_openai)
+
+    build_openai_client("sk-test")
+
+    assert observed == {
+        "api_key": "sk-test",
+        "max_retries": OPENAI_SDK_MAX_RETRIES,
+    }
+
+
 def test_cli_missing_key_fails_with_constant_public_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -187,6 +214,8 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
     assert initial["model"] == "gpt-test"
     assert initial["store"] is False
     assert initial["include"] == ["reasoning.encrypted_content"]
+    assert initial["max_output_tokens"] == OPENAI_MAX_OUTPUT_TOKENS
+    assert initial["timeout"] == 30.0
     assert initial["tool_choice"] == "required"
     assert initial["tools"] == [
         {
@@ -234,14 +263,17 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
         "forecast_sha256": result.public_summary["forecast_sha256"],
         "input_tokens": 32,
         "model_key": "openai:gpt-test",
+        "max_output_tokens_per_request": OPENAI_MAX_OUTPUT_TOKENS,
         "output_tokens": 10,
         "provider": "openai",
         "provider_request_count": 2,
         "python_version": result.public_summary["python_version"],
         "requested_model": "gpt-test",
         "sdk_name": "openai",
+        "sdk_max_retries": OPENAI_SDK_MAX_RETRIES,
         "sdk_version": OPENAI_SDK_VERSION,
         "sandbox_policy_id": "provider-runtime",
+        "provider_request_timeout_seconds": 30,
         "served_model": "gpt-served-snapshot",
         "subscription_login_claimed": False,
         "task_id": "lfb:case-1:full_packet",
@@ -318,6 +350,47 @@ def test_live_run_rejects_unknown_or_malformed_tool_calls(
             tool_transport=_ToolTransport(),
             client=client,
         )
+
+
+@pytest.mark.parametrize("arguments", ["", " \t\n", "{}"])
+def test_live_run_accepts_empty_arguments_for_zero_parameter_tool(
+    tmp_path: Path,
+    arguments: str,
+) -> None:
+    forecast = {
+        "predictions": [
+            {
+                "unit_id": "count_i",
+                "probability_fully_dismissed": 0.5,
+            }
+        ]
+    }
+    client = _FakeClient(
+        [
+            _response(
+                response_id="resp-private-1",
+                model="gpt-test",
+                output=[
+                    _FunctionCall(call_id="call-1", arguments=arguments),
+                ],
+            ),
+            _response(
+                response_id="resp-private-2",
+                model="gpt-test",
+                output=[],
+                output_text=json.dumps(forecast),
+            ),
+        ]
+    )
+
+    result = run_openai_responses(
+        _request(),
+        tmp_path,
+        tool_transport=_ToolTransport(),
+        client=client,
+    )
+
+    assert result.status == "succeeded"
 
 
 def test_live_run_rejects_duplicate_function_call_ids(tmp_path: Path) -> None:
@@ -479,6 +552,16 @@ def test_provider_exception_is_normalized_without_secret_or_account_details(
 
     assert secret not in str(captured.value)
     assert "org-private" not in str(captured.value)
+    assert captured.value.__cause__ is None
+    rendered = "".join(
+        traceback.format_exception(
+            type(captured.value),
+            captured.value,
+            captured.value.__traceback__,
+        )
+    )
+    assert secret not in rendered
+    assert "org-private" not in rendered
 
 
 def _request(

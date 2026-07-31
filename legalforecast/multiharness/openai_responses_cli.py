@@ -13,6 +13,7 @@ from typing import Any, cast
 from legalforecast._json_io import write_json_object
 from legalforecast.multiharness.openai_responses import (
     OPENAI_PROVIDER_ENV_VAR,
+    OPENAI_SDK_MAX_RETRIES,
     OPENAI_SDK_VERSION,
     OpenAIResponsesAdapterError,
     build_capabilities,
@@ -76,9 +77,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise OpenAIResponsesAdapterError(
                     "OPENAI_API_KEY must be set and non-empty"
                 )
-            from openai import OpenAI
-
-            client = cast(Any, OpenAI(api_key=api_key))
+            client = build_openai_client(api_key)
             result = run_openai_responses(
                 request,
                 args.workspace,
@@ -96,6 +95,17 @@ def _verify_sdk() -> None:
     observed = importlib.metadata.version("openai")
     if observed != OPENAI_SDK_VERSION:
         raise OpenAIResponsesAdapterError("installed OpenAI SDK version does not match")
+
+
+def build_openai_client(api_key: str) -> Any:
+    """Build the pinned live client with transparent retries disabled."""
+
+    from openai import OpenAI
+
+    return cast(
+        Any,
+        OpenAI(api_key=api_key, max_retries=OPENAI_SDK_MAX_RETRIES),
+    )
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:
