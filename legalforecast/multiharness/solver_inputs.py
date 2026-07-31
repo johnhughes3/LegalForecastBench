@@ -374,7 +374,7 @@ def write_solver_input_store(
         "solver input task IDs",
     )
     try:
-        destination_root.mkdir(parents=True, exist_ok=False)
+        destination_root.mkdir(mode=0o700, parents=True, exist_ok=False)
     except OSError as exc:
         raise SolverInputError("solver input destination must be fresh") from exc
     entries: list[SolverInputEntry] = []
@@ -401,7 +401,7 @@ def write_solver_input_store(
         for relative_name, media_type, encoded, solver_visible in file_payloads:
             source_path = f"{task_root}/{relative_name}"
             path = destination_root / source_path
-            path.parent.mkdir(parents=True, exist_ok=True)
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             path.write_bytes(encoded)
             path.chmod(0o400)
             files.append(
@@ -465,8 +465,12 @@ def _tree_sha256(files: tuple[SolverInputFile, ...]) -> str:
 
 def _seal_materialized_tree(root: Path) -> None:
     for path in sorted(root.rglob("*"), key=lambda item: len(item.parts), reverse=True):
-        path.chmod(0o555 if path.is_dir() else 0o444, follow_symlinks=False)
-    root.chmod(0o555, follow_symlinks=False)
+        if path.is_symlink():
+            raise SolverInputError("materialized solver input contains a symlink")
+        path.chmod(0o555 if path.is_dir() else 0o444)
+    if root.is_symlink():
+        raise SolverInputError("materialized solver input root is a symlink")
+    root.chmod(0o555)
 
 
 def _canonical_bytes(

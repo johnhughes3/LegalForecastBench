@@ -430,6 +430,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
     manifests = _adapter_manifests_from_paths(_path_tuple_arg(args, "adapter_manifest"))
     policy = _sandbox_policy_from_args(args)
     if cast(bool, args.live_tool_container):
+        if solver_inputs is None:
+            raise ValueError(
+                "--solver-input-root is required with --live-tool-container"
+            )
         validate_live_container_policy(policy)
     validate_provider_environment_scope(
         sandbox_policy=policy,
@@ -698,6 +702,8 @@ def _task_index_from_args(args: argparse.Namespace) -> TaskIndex:
             solver_input_root=cast(Path | None, args.solver_input_root),
         )
     if suite == "harvey-lab":
+        if args.solver_input_root is not None:
+            raise ValueError("--solver-input-root is only supported for lfb")
         lab_root = _required_path_arg(
             args,
             "lab_root",

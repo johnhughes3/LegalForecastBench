@@ -225,10 +225,9 @@ def test_runner_executes_live_tool_adapter_and_records_receipt_commitment(
     compatibility = json.loads(
         (run.output_dir / "run-compatibility.json").read_text(encoding="utf-8")
     )
+    assert config.solver_inputs is not None
     assert compatibility["run_config"]["solver_input_index_sha256"] == (
         config.solver_inputs.index.index_sha256
-        if config.solver_inputs is not None
-        else None
     )
     assert adapter.ordinary_run_called is False
 
@@ -298,7 +297,12 @@ def test_runner_rejects_tampered_solver_input_before_provider_call(
     task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
     task_index = _task_index(task)
     solver_inputs = _solver_inputs(tmp_path, task_index)
-    prompt = solver_inputs.root / solver_inputs.index.entries[0].files[0].source_path
+    prompt_file = next(
+        item
+        for item in solver_inputs.index.entries[0].files
+        if item.destination_path == "prompt.txt"
+    )
+    prompt = solver_inputs.root / prompt_file.source_path
     prompt.chmod(0o600)
     prompt.write_text("tampered")
     monkeypatch.setattr(

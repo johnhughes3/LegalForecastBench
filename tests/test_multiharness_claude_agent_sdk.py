@@ -454,12 +454,14 @@ def test_pinned_executor_counts_malformed_mcp_attempts(
         },
     )
 
-    execution = PinnedClaudeSDKExecutor("sk-ant-test").execute(
-        _sdk_config(tmp_path),
-        tool_transport=_ToolTransport(),
-    )
-
-    assert execution.tool_call_count == 2
+    with pytest.raises(
+        ClaudeAgentSDKAdapterError,
+        match="exactly one solver prompt read",
+    ):
+        PinnedClaudeSDKExecutor("sk-ant-test").execute(
+            _sdk_config(tmp_path),
+            tool_transport=_ToolTransport(),
+        )
 
 
 def test_pinned_executor_rejects_malformed_only_mcp_attempt(

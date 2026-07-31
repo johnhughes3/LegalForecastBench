@@ -181,6 +181,7 @@ def test_solver_input_validator_rejects_extra_directory_and_root_symlink(
     )
     root = tmp_path / "materialized"
     entry, _ = store.materialize(request.task, destination_root=root)
+    _validate_solver_input_tree(root, entry)
     root.chmod(0o700)
     extra = root / "unexpected"
     extra.mkdir()

@@ -92,7 +92,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
     ) -> ClaudeSDKExecution:
         sdk = _import_sdk()
         identity = _runtime_identity(sdk)
-        tool_call_count = 0
+        tool_call_count = [0]
         successful_tool_reads: list[int] = [0]
 
         @sdk.tool(
@@ -108,8 +108,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
         async def read_canonical_task(
             arguments: Mapping[str, object],
         ) -> dict[str, Any]:
-            nonlocal tool_call_count
-            tool_call_count += 1
+            tool_call_count[0] += 1
             if arguments:
                 return {
                     "content": [
@@ -121,7 +120,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
                     "is_error": True,
                 }
             tool_request = ToolRequest(
-                request_id=f"{config.request_id}:claude-tool:{tool_call_count}",
+                request_id=f"{config.request_id}:claude-tool:{tool_call_count[0]}",
                 operation="read_text",
                 arguments={"encoding": "utf-8"},
                 input_paths=(SOLVER_INPUT_ENTRY_PATH,),
@@ -217,7 +216,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
             aggregate_usage=usage,
             total_cost_usd=total_cost_usd,
         )
-        if successful_tool_reads[0] != 1:
+        if tool_call_count[0] != 1 or successful_tool_reads[0] != 1:
             raise ClaudeAgentSDKAdapterError(
                 "Claude Agent SDK must complete exactly one solver prompt read"
             )
@@ -227,7 +226,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
             sdk_version=identity["sdk_version"],
             bundled_cli_version=identity["bundled_cli_version"],
             bundled_cli_sha256=identity["bundled_cli_sha256"],
-            tool_call_count=tool_call_count,
+            tool_call_count=tool_call_count[0],
             num_turns=_non_negative_int(terminal.num_turns, "num_turns"),
             duration_ms=_non_negative_int(terminal.duration_ms, "duration_ms"),
             duration_api_ms=_non_negative_int(

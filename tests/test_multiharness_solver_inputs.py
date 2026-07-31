@@ -51,7 +51,12 @@ def test_public_task_does_not_contain_private_solver_bytes(tmp_path: Path) -> No
 def test_store_rejects_tampered_source_before_materialization(tmp_path: Path) -> None:
     task = _task()
     store = _store(tmp_path, task=task)
-    prompt_file = store.root / store.index.entries[0].files[0].source_path
+    prompt_entry = next(
+        item
+        for item in store.index.entries[0].files
+        if item.destination_path == SOLVER_INPUT_ENTRY_PATH
+    )
+    prompt_file = store.root / prompt_entry.source_path
     prompt_file.chmod(0o600)
     prompt_file.write_text("tampered")
 

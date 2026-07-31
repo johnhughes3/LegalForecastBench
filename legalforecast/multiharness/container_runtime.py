@@ -40,6 +40,9 @@ from legalforecast.multiharness.tool_protocol import (
 )
 from legalforecast.multiharness.validation import MultiHarnessValidationError
 
+# V1 receipts committed only task.json and cannot be resumed or packaged under
+# the full-tree contract. Regenerate those run directories rather than adapting
+# an unauthenticated legacy input hash.
 CONTAINER_RECEIPT_SCHEMA_VERSION = "legalforecast.multiharness.container_receipt.v2"
 _RECEIPT_FIELDS = frozenset(
     {
@@ -509,7 +512,7 @@ def _validate_solver_input_tree(
     }
     expected_directories = {
         parent.as_posix()
-        for item in solver_input.files
+        for item in expected.values()
         for parent in Path(item.destination_path).parents
         if parent != Path(".")
     }
