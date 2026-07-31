@@ -6,14 +6,18 @@ Decision reviewed: 2026-07-17.
 
 This is a provider-surface and project-publication decision, not legal advice. It applies only to the named authentication and execution surfaces below. No provider statement is generalized beyond its documented product surface. Provider documentation and terms can change, so every paid or public run must recheck the linked sources and record the effective auth profile. Ambiguity is a blocking result: an undocumented auth, automation, billing, or publication combination must not run or publish until the provider documents it or gives written permission.
 
-The checked-in fixture manifests are:
+The checked-in provider baselines are:
 
 - `examples/adapters/openai-responses/adapter-manifest.json`
 - `examples/adapters/claude-agent-sdk/adapter-manifest.json`
 
-Both manifests use `examples/adapters/fixture_bridge.py`, run with no network, and prove the adapter contract before a contributor points a manifest at a real provider runtime.
+The OpenAI Responses manifest is a real, LFB-only adapter pinned to `openai==2.46.0`. Its ordinary `run` command is deliberately restricted to the credential-free conformance fixture. Its `run-with-tools` command requires an exact `OPENAI_API_KEY` provider grant and drives the Responses function-tool loop over the host-owned JSONL tool channel. The loop uses `store=false`, disables transparent SDK retries for exact request accounting, applies the sandbox timeout and a 4,096-output-token ceiling to every provider request, and explicitly replays every returned response item, including encrypted reasoning items, together with each function result; it never relies on a stored response ID. It records public-safe requested and served model identities, the SDK/runtime versions, request limits, token counts, a complete adapter/manifest/lock bundle commitment, and a private forecast artifact commitment; response IDs, provider account details, raw transcripts, and credentials remain private.
 
-Run the fixture bridge conformance checks:
+The historical OpenAI fixture remains available as `examples/adapters/openai-responses/fixture-adapter-manifest.json`. The Claude Agent SDK manifest remains a no-network fixture bridge pending its real adapter implementation. Historical community submissions under `community/submissions/2026/` remain unchanged and must not be treated as evidence for the real adapter.
+
+The real OpenAI baseline is intentionally source-checkout-only: its bundle commitment covers the checked-in core, CLI, manifest, `pyproject.toml`, and full `uv.lock`, while the published project wheel packages only `legalforecast`. Run `uv sync --frozen` in a clean checkout before conformance or live execution; do not copy the adapter module alone or claim that the wheel contains the benchmark lock and manifest.
+
+Run the credential-free conformance checks:
 
 ```bash
 uv run legalforecast multiharness conformance \
@@ -24,6 +28,8 @@ uv run legalforecast multiharness conformance \
   --adapter-manifest examples/adapters/claude-agent-sdk/adapter-manifest.json \
   --output-dir tmp/claude-agent-sdk-conformance
 ```
+
+The current live tool runtime stages the canonical task record but not yet the solver-visible packet bytes committed by that record. The real adapter therefore establishes the provider, authentication, tool-protocol, output-validation, provenance, and redaction boundaries, but a meaningful non-fixture benchmark submission must wait for the shared task-materialization seam. Do not describe the offline conformance result as a scored provider run.
 
 Production provider baseline bridges should use API-key auth or another explicit provider-supported API auth mechanism. Do not claim that a ChatGPT, Claude, or similar subscription login is a general third-party API entitlement.
 

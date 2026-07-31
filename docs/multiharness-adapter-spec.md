@@ -62,7 +62,7 @@ The first-class adapter examples live under `examples/adapters/`.
 - The LQ.AI fixture bridge is documented in `docs/adapters/lq-ai.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/lq-ai/adapter-manifest.json --output-dir tmp/lq-ai-conformance`.
 - The Hermes Agent fixture bridge is documented in `docs/adapters/hermes-agent.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/hermes-agent/adapter-manifest.json --output-dir tmp/hermes-agent-conformance`.
 - The OpenClaw fixture bridge is documented in `docs/adapters/openclaw.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/openclaw/adapter-manifest.json --output-dir tmp/openclaw-conformance`.
-- The OpenAI Responses and Claude Agent SDK fixture baselines are documented in `docs/adapters/provider-baselines.md` and can be checked with the manifests under `examples/adapters/openai-responses/` and `examples/adapters/claude-agent-sdk/`.
+- The real OpenAI Responses community baseline and the pending Claude Agent SDK fixture baseline are documented in `docs/adapters/provider-baselines.md`. The OpenAI adapter supports `legalforecast_mtd` with `lfb_brier`, advertises the v1 tool protocol, and keeps its ordinary `run` path credential-free and conformance-only; live provider execution uses `run-with-tools`. Their manifests live under `examples/adapters/openai-responses/` and `examples/adapters/claude-agent-sdk/`.
 
 ## Command Adapter Protocol
 
