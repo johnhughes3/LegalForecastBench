@@ -1,10 +1,10 @@
 {
-  "adapter_id": "claude-agent-sdk-baseline",
-  "adapter_version": "1.0.0",
+  "adapter_id": "claude-agent-sdk-fixture-baseline",
+  "adapter_version": "0.1.0",
   "command": [
-    "python",
-    "-m",
-    "legalforecast.multiharness.claude_agent_sdk_cli"
+    "../fixture_bridge.py",
+    "--profile",
+    "claude-agent-sdk"
   ],
   "contributors": [
     {
@@ -13,6 +13,6 @@
       "role": "adapter_author"
     }
   ],
-  "display_name": "Claude Agent SDK Community Baseline",
+  "display_name": "Claude Agent SDK Fixture Baseline",
   "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
 }
