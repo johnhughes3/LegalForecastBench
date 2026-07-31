@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import importlib.metadata
 import json
 import math
@@ -340,12 +341,13 @@ def _runtime_identity(sdk: Any) -> dict[str, Any]:
             "installed Claude Agent SDK version does not match"
         )
     try:
-        from claude_agent_sdk._cli_version import __cli_version__
-    except ImportError:
+        cli_version_module = importlib.import_module("claude_agent_sdk._cli_version")
+        observed_cli_version = cast(str, cli_version_module.__cli_version__)
+    except (AttributeError, ImportError):
         raise ClaudeAgentSDKAdapterError(
             "bundled Claude Code version is unavailable"
         ) from None
-    if __cli_version__ != CLAUDE_BUNDLED_CLI_VERSION:
+    if observed_cli_version != CLAUDE_BUNDLED_CLI_VERSION:
         raise ClaudeAgentSDKAdapterError("bundled Claude Code version does not match")
     package_path = Path(cast(str, sdk.__file__)).resolve().parent
     bundled_cli_path = package_path / "_bundled" / "claude"
@@ -357,7 +359,7 @@ def _runtime_identity(sdk: Any) -> dict[str, Any]:
         ) from None
     return {
         "sdk_version": observed_sdk,
-        "bundled_cli_version": __cli_version__,
+        "bundled_cli_version": observed_cli_version,
         "bundled_cli_path": bundled_cli_path,
         "bundled_cli_sha256": f"sha256:{hashlib.sha256(payload).hexdigest()}",
     }
