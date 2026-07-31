@@ -20,6 +20,15 @@ from legalforecast._json_io import (
     write_jsonl_objects,
 )
 from legalforecast.multiharness.container_runtime import validate_container_resume
+from legalforecast.multiharness.materialization import (
+    TASK_MATERIALIZATION_SCHEMA_VERSION,
+)
+from legalforecast.multiharness.solver_inputs import (
+    SOLVER_INPUT_ENTRY_PATH,
+    SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
+    SOLVER_INPUT_LAYOUT_ID,
+    SolverInputEntry,
+)
 from legalforecast.multiharness.spec import (
     RUN_COMPATIBILITY_SCHEMA_VERSION,
     SCORING_MODES,
@@ -574,12 +583,30 @@ def _validate_live_run_receipts(
 ) -> None:
     """Revalidate private live receipts before publishing their commitments."""
 
-    for row in rows:
+    live_rows = tuple(
+        row
+        for row in rows
+        if (
+            (execution := optional_mapping(row, "container_execution")) is not None
+            and optional_str(execution, "mode") == "live_tools"
+            and require_str(row, "status") == "succeeded"
+        )
+    )
+    if not live_rows:
+        return
+    compatibility = _read_json(
+        run_dir / "run-compatibility.json",
+        "run compatibility",
+    )
+    run_config = require_mapping(compatibility, "run_config")
+    expected_solver_index = optional_str(
+        run_config,
+        "solver_input_index_sha256",
+    )
+    for row in live_rows:
         execution = optional_mapping(row, "container_execution")
-        if execution is None or optional_str(execution, "mode") != "live_tools":
-            continue
-        if require_str(row, "status") != "succeeded":
-            continue
+        if execution is None:
+            raise AssertionError("live row lost its container execution record")
         if require_str(execution, "status") != "succeeded":
             raise ValueError("successful live row has no successful container receipt")
         expected_receipt = require_str(execution, "receipt_sha256")
@@ -593,16 +620,139 @@ def _validate_live_run_receipts(
         result = RunResult.from_record(
             _read_json(row_dir / "result.json", "live row result")
         )
+        input_manifest = _read_json(
+            row_dir / "private-logs" / "solver-input-manifest.json",
+            "live row solver-input manifest",
+        )
+        _require_exact_fields(
+            input_manifest,
+            frozenset(
+                {
+                    "schema_version",
+                    "task_id",
+                    "task_sha256",
+                    "entrypoint_path",
+                    "input_tree_sha256",
+                    "solver_input_index_sha256",
+                    "solver_input_entry",
+                    "materialization",
+                }
+            ),
+            "solver-input manifest",
+        )
+        require_schema_version(
+            input_manifest,
+            SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
+        )
+        if require_str(input_manifest, "task_id") != request.task.task_id:
+            raise ValueError("solver-input manifest task ID does not match")
+        if require_str(input_manifest, "task_sha256") != request.task.task_sha256:
+            raise ValueError("solver-input manifest task sha256 does not match")
+        input_tree_sha256 = require_str(input_manifest, "input_tree_sha256")
+        validate_sha256(input_tree_sha256, "input_tree_sha256")
+        solver_index_sha256 = require_str(
+            input_manifest,
+            "solver_input_index_sha256",
+        )
+        validate_sha256(solver_index_sha256, "solver_input_index_sha256")
+        if (
+            expected_solver_index is None
+            or solver_index_sha256 != expected_solver_index
+        ):
+            raise ValueError(
+                "solver-input manifest index does not match run compatibility"
+            )
+        solver_entry = SolverInputEntry.from_record(
+            require_mapping(input_manifest, "solver_input_entry")
+        )
+        if (
+            solver_entry.task_id != request.task.task_id
+            or solver_entry.task_sha256 != request.task.task_sha256
+        ):
+            raise ValueError("solver-input entry task identity does not match")
+        prompt_sha256 = request.task.metadata.get("prompt_sha256")
+        if (
+            not isinstance(prompt_sha256, str)
+            or solver_entry.prompt_sha256 != prompt_sha256
+        ):
+            raise ValueError("solver-input entry prompt commitment does not match")
+        if (
+            solver_entry.entrypoint_path
+            != require_str(input_manifest, "entrypoint_path")
+            or solver_entry.tree_sha256 != input_tree_sha256
+        ):
+            raise ValueError("solver-input entry tree commitment does not match")
+        _validate_solver_materialization(
+            require_mapping(input_manifest, "materialization"),
+            solver_entry,
+        )
         actual_receipt = validate_container_resume(
             row_dir / "private-logs" / "tool-container" / "execution-receipt.json",
             request=request,
             result=result,
             policy=request.sandbox_policy,
+            input_tree_sha256=input_tree_sha256,
         )
         if actual_receipt != expected_receipt:
             raise ValueError(
                 "container receipt commitment does not match successful live row"
             )
+
+
+def _validate_solver_materialization(
+    record: Mapping[str, Any],
+    entry: SolverInputEntry,
+) -> None:
+    expected_fields = frozenset(
+        {
+            "schema_version",
+            "task_id",
+            "task_sha256",
+            "layout_id",
+            "entries",
+            "evaluator_private_artifact_ids",
+            "semantic_bytes_sha256",
+            "total_size_bytes",
+            "manifest_sha256",
+        }
+    )
+    _require_exact_fields(record, expected_fields, "solver-input materialization")
+    require_schema_version(record, TASK_MATERIALIZATION_SCHEMA_VERSION)
+    if (
+        require_str(record, "task_id") != entry.task_id
+        or require_str(record, "task_sha256") != entry.task_sha256
+        or require_str(record, "layout_id") != SOLVER_INPUT_LAYOUT_ID
+    ):
+        raise ValueError("solver-input materialization identity does not match")
+    visible_files = tuple(item for item in entry.files if item.solver_visible)
+    materialized_entries = require_sequence(record, "entries")
+    if len(visible_files) != 1 or len(materialized_entries) != 1:
+        raise ValueError("solver-input materialization must contain one prompt")
+    materialized = materialized_entries[0]
+    if not isinstance(materialized, Mapping):
+        raise ValueError("solver-input materialization entry must be an object")
+    materialized_record = cast(Mapping[str, Any], materialized)
+    materialized_size = materialized_record.get("size_bytes")
+    prompt = visible_files[0]
+    if (
+        require_str(materialized_record, "destination_path") != SOLVER_INPUT_ENTRY_PATH
+        or require_str(materialized_record, "sha256")
+        != prompt.sha256.removeprefix("sha256:")
+        or type(materialized_size) is not int
+        or materialized_size != prompt.size_bytes
+    ):
+        raise ValueError("solver-input materialized prompt does not match")
+    content = dict(record)
+    manifest_sha256 = require_str(content, "manifest_sha256")
+    del content["manifest_sha256"]
+    encoded = json.dumps(
+        content,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    if manifest_sha256 != hashlib.sha256(encoded).hexdigest():
+        raise ValueError("solver-input materialization sha256 does not match")
 
 
 def validate_submission_file(path: Path) -> CommunitySubmissionManifest:
@@ -719,6 +869,11 @@ def _validate_local_run_provenance(
                         if "container_execution" in compatibility_run_config
                         else ()
                     ),
+                    *(
+                        ("solver_input_index_sha256",)
+                        if "solver_input_index_sha256" in compatibility_run_config
+                        else ()
+                    ),
                 }
             ),
             "run_compatibility.run_config",
@@ -729,6 +884,15 @@ def _validate_local_run_provenance(
         if container_execution not in {"plan_only", "live_tools"}:
             raise ValueError(
                 "container_execution must be one of: live_tools, plan_only"
+            )
+        solver_input_index_sha256 = optional_str(
+            compatibility_run_config,
+            "solver_input_index_sha256",
+        )
+        if solver_input_index_sha256 is not None:
+            validate_sha256(
+                solver_input_index_sha256,
+                "run_compatibility.solver_input_index_sha256",
             )
         task_index = require_mapping(compatibility_run_config, "task_index")
         _require_exact_fields(

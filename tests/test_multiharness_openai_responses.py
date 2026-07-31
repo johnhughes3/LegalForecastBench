@@ -222,8 +222,8 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
             "type": "function",
             "name": "read_canonical_task",
             "description": (
-                "Read the public canonical task record staged by the host-owned "
-                "tool container."
+                "Read the complete solver prompt staged by the host-owned tool "
+                "container."
             ),
             "parameters": {
                 "type": "object",
@@ -252,7 +252,7 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
             request_id=f"{_request().request_id}:openai-tool:1",
             operation="read_text",
             arguments={"encoding": "utf-8"},
-            input_paths=("task.json",),
+            input_paths=("prompt.txt",),
         )
     ]
     assert result.public_summary == {

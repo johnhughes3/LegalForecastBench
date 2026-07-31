@@ -18,6 +18,11 @@ from legalforecast.evals.packet_builder import (
     PacketDocument,
 )
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
+from legalforecast.multiharness.solver_inputs import (
+    SolverInputPayload,
+    SolverInputStore,
+    write_solver_input_store,
+)
 from legalforecast.multiharness.spec import ArtifactRecord, CanonicalTask, TaskIndex
 from legalforecast.multiharness.validation import (
     require_mapping,
@@ -51,20 +56,30 @@ class LfbTaskLoader:
         *,
         index_id: str = "legalforecast-mtd",
         selection_namespace: str = "legalforecast_mtd",
+        solver_input_root: Path | None = None,
     ) -> TaskIndex:
-        records = read_jsonl_objects(
-            path,
-            error_factory=ValueError,
-            missing_message=lambda item: f"LFB packet JSONL does not exist: {item}",
-            non_object_message=lambda item, line: (
-                f"LFB packet JSONL row {line} in {item} must be an object"
-            ),
+        records = tuple(
+            read_jsonl_objects(
+                path,
+                error_factory=ValueError,
+                missing_message=lambda item: f"LFB packet JSONL does not exist: {item}",
+                non_object_message=lambda item, line: (
+                    f"LFB packet JSONL row {line} in {item} must be an object"
+                ),
+            )
         )
-        return self.from_records(
+        task_index = self.from_records(
             records,
             index_id=index_id,
             selection_namespace=selection_namespace,
         )
+        if solver_input_root is not None:
+            self.write_solver_inputs(
+                records,
+                task_index=task_index,
+                destination_root=solver_input_root,
+            )
+        return task_index
 
     def from_records(
         self,
@@ -82,6 +97,36 @@ class LfbTaskLoader:
             selection_namespace=selection_namespace,
             tasks=tasks,
             index_sha256=_record_sha256([task.to_record() for task in tasks]),
+        )
+
+    def write_solver_inputs(
+        self,
+        records: Iterable[Mapping[str, Any]],
+        *,
+        task_index: TaskIndex,
+        destination_root: Path,
+    ) -> SolverInputStore:
+        """Write private exact prompts separately from the public task index."""
+
+        source_records = tuple(records)
+        if len(source_records) != len(task_index.tasks):
+            raise ValueError("solver input records do not match the task index")
+        payloads: list[SolverInputPayload] = []
+        for record, task in zip(source_records, task_index.tasks, strict=True):
+            packet_record = _extract_packet_record(record)
+            packet = _model_packet_from_record(packet_record)
+            prompt = build_inspect_samples((packet,))[0].prompt
+            payloads.append(
+                SolverInputPayload(
+                    task=task,
+                    prompt=prompt,
+                    source_packet=dict(packet_record),
+                )
+            )
+        return write_solver_input_store(
+            destination_root=destination_root,
+            task_index_sha256=task_index.index_sha256,
+            payloads=tuple(payloads),
         )
 
     def task_from_record(self, record: Mapping[str, Any]) -> CanonicalTask:

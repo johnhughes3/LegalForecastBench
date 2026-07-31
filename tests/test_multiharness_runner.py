@@ -49,6 +49,11 @@ from legalforecast.multiharness.sandbox import (
     sandbox_policy,
 )
 from legalforecast.multiharness.selection import TaskSelection
+from legalforecast.multiharness.solver_inputs import (
+    SolverInputPayload,
+    SolverInputStore,
+    write_solver_input_store,
+)
 from legalforecast.multiharness.spec import (
     LINUX_SYSTEMD_SCOPE_CONTAINMENT,
     TOOL_REQUEST_SCHEMA_VERSION,
@@ -181,7 +186,7 @@ def test_runner_executes_live_tool_adapter_and_records_receipt_commitment(
     )
     monkeypatch.setattr(runner_module, "ContainerToolSession", _FakeToolSession)
     config = MultiHarnessRunConfig(
-        task_index=_task_index(task),
+        task_index=(task_index := _task_index(task)),
         adapters=(adapter,),
         model_configs=(
             ModelConfig(
@@ -196,6 +201,7 @@ def test_runner_executes_live_tool_adapter_and_records_receipt_commitment(
         ),
         output_dir=tmp_path / "run",
         container_execution="live_tools",
+        solver_inputs=_solver_inputs(tmp_path, task_index),
     )
 
     run = run_multi_harness(config)
@@ -216,6 +222,13 @@ def test_runner_executes_live_tool_adapter_and_records_receipt_commitment(
     )
     assert live_plan["policy"] == config.sandbox_policy.to_record()
     assert live_plan["output"]["mode"] == "bounded_tmpfs"
+    compatibility = json.loads(
+        (run.output_dir / "run-compatibility.json").read_text(encoding="utf-8")
+    )
+    assert config.solver_inputs is not None
+    assert compatibility["run_config"]["solver_input_index_sha256"] == (
+        config.solver_inputs.index.index_sha256
+    )
     assert adapter.ordinary_run_called is False
 
 
@@ -246,7 +259,7 @@ def test_runner_clears_live_receipt_after_post_run_rejection(
         reject_run_result,
     )
     config = MultiHarnessRunConfig(
-        task_index=_task_index(task),
+        task_index=(task_index := _task_index(task)),
         adapters=(adapter,),
         model_configs=(
             ModelConfig(
@@ -262,6 +275,7 @@ def test_runner_clears_live_receipt_after_post_run_rejection(
         output_dir=tmp_path / "run",
         container_execution="live_tools",
         incomplete_run_policy="record_failure",
+        solver_inputs=_solver_inputs(tmp_path, task_index),
     )
 
     run = run_multi_harness(config)
@@ -273,6 +287,87 @@ def test_runner_clears_live_receipt_after_post_run_rejection(
         "mode": "live_tools",
         "status": "failed",
     }
+
+
+def test_runner_rejects_tampered_solver_input_before_provider_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _LiveToolAdapter()
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    task_index = _task_index(task)
+    solver_inputs = _solver_inputs(tmp_path, task_index)
+    prompt_file = next(
+        item
+        for item in solver_inputs.index.entries[0].files
+        if item.destination_path == "prompt.txt"
+    )
+    prompt = solver_inputs.root / prompt_file.source_path
+    prompt.chmod(0o600)
+    prompt.write_text("tampered")
+    monkeypatch.setattr(
+        runner_module, "_preflight_live_container", lambda _policy: None
+    )
+    monkeypatch.setattr(runner_module, "ContainerToolSession", _FakeToolSession)
+
+    with pytest.raises(ValueError, match="hash mismatch"):
+        run_multi_harness(
+            MultiHarnessRunConfig(
+                task_index=task_index,
+                adapters=(adapter,),
+                model_configs=(ModelConfig(model_key="fixture-model"),),
+                sandbox_policy=replace(
+                    _sandbox(),
+                    image="sha256:" + "b" * 64,
+                    uid_gid="65532:65532",
+                ),
+                output_dir=tmp_path / "run",
+                container_execution="live_tools",
+                solver_inputs=solver_inputs,
+                incomplete_run_policy="fail_fast",
+            )
+        )
+
+    assert adapter.tool_run_called is False
+
+
+def test_live_config_requires_solver_inputs_for_every_indexed_task(
+    tmp_path: Path,
+) -> None:
+    first = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    second = _task("lfb:case-2:full_packet", "legalforecast_mtd", "lfb_brier")
+    task_index = TaskIndex(
+        index_id="fixture-index",
+        selection_namespace="fixture",
+        tasks=(first, second),
+        index_sha256=SHA256,
+    )
+    incomplete_store = write_solver_input_store(
+        destination_root=tmp_path / "solver-inputs",
+        task_index_sha256=task_index.index_sha256,
+        payloads=(
+            SolverInputPayload(
+                task=first,
+                prompt="fixture prompt",
+                source_packet={"task_id": first.task_id},
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="exactly match"):
+        MultiHarnessRunConfig(
+            task_index=task_index,
+            adapters=(_LiveToolAdapter(),),
+            model_configs=(ModelConfig(model_key="fixture-model"),),
+            sandbox_policy=replace(
+                _sandbox(),
+                image="sha256:" + "b" * 64,
+                uid_gid="65532:65532",
+            ),
+            output_dir=tmp_path / "run",
+            container_execution="live_tools",
+            solver_inputs=incomplete_store,
+        )
 
 
 def test_runner_preflights_live_backend_before_adapter_capabilities(
@@ -291,7 +386,7 @@ def test_runner_preflights_live_backend_before_adapter_capabilities(
         _fail_preflight,
     )
     config = MultiHarnessRunConfig(
-        task_index=_task_index(task),
+        task_index=(task_index := _task_index(task)),
         adapters=(adapter,),
         model_configs=(ModelConfig(model_key="fixture-model"),),
         sandbox_policy=replace(
@@ -301,6 +396,7 @@ def test_runner_preflights_live_backend_before_adapter_capabilities(
         ),
         output_dir=tmp_path / "run",
         container_execution="live_tools",
+        solver_inputs=_solver_inputs(tmp_path, task_index),
     )
 
     with pytest.raises(HostEnvironmentError, match="pinned image unavailable"):
@@ -326,7 +422,7 @@ def test_runner_rejects_live_mode_for_adapter_without_tool_protocol(
         lambda _policy: None,
     )
     config = MultiHarnessRunConfig(
-        task_index=_task_index(task),
+        task_index=(task_index := _task_index(task)),
         adapters=(adapter,),
         model_configs=(ModelConfig(model_key="fixture-model"),),
         sandbox_policy=replace(
@@ -336,6 +432,7 @@ def test_runner_rejects_live_mode_for_adapter_without_tool_protocol(
         ),
         output_dir=tmp_path / "run",
         container_execution="live_tools",
+        solver_inputs=_solver_inputs(tmp_path, task_index),
     )
 
     with pytest.raises(ValueError, match="requires adapter tool protocol"):
@@ -1226,6 +1323,7 @@ class _ProviderValueErrorAdapter:
 class _LiveToolAdapter:
     def __init__(self) -> None:
         self.ordinary_run_called = False
+        self.tool_run_called = False
         self.capabilities_called = False
         self.manifest = AdapterManifest(
             adapter_id="live-tool-fixture",
@@ -1266,11 +1364,12 @@ class _LiveToolAdapter:
         _workspace: Path,
         tools: ToolExecutor,
     ) -> RunResult:
+        self.tool_run_called = True
         response = tools.execute(
             ToolRequest(
                 request_id="tool-1",
                 operation="read_text",
-                input_paths=("task.json",),
+                input_paths=("prompt.txt",),
             ),
             _workspace,
         )
@@ -1290,8 +1389,12 @@ class _FakeToolSession:
         policy: object,
         run_request: RunRequest,
         workspace: Path,
+        solver_input_root: Path,
+        solver_input: object,
+        input_tree_sha256: str,
     ) -> None:
-        del policy, run_request, workspace
+        del policy, run_request, workspace, solver_input, input_tree_sha256
+        assert (solver_input_root / "prompt.txt").read_text() == "fixture prompt"
         self.aborted = False
 
     def execute(self, request: ToolRequest, workspace: Path) -> ToolResponse:
@@ -1323,15 +1426,36 @@ def _task_index(task: CanonicalTask) -> TaskIndex:
     )
 
 
+def _solver_inputs(tmp_path: Path, task_index: TaskIndex) -> SolverInputStore:
+    return write_solver_input_store(
+        destination_root=tmp_path / f"solver-inputs-{len(tuple(tmp_path.iterdir()))}",
+        task_index_sha256=task_index.index_sha256,
+        payloads=tuple(
+            SolverInputPayload(
+                task=task,
+                prompt="fixture prompt",
+                source_packet={"task_id": task.task_id},
+            )
+            for task in task_index.tasks
+        ),
+    )
+
+
 def _task(task_id: str, family: str, scoring_mode: str) -> CanonicalTask:
+    source_packet = {"task_id": task_id}
+    task_sha256 = hashlib.sha256(
+        json.dumps(source_packet, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     return CanonicalTask(
         task_id=task_id,
         family=family,
         scoring_mode=scoring_mode,
         suite_version="fixture-suite",
         source_id=task_id,
-        task_sha256=SHA256,
-        metadata={},
+        task_sha256=task_sha256,
+        metadata={
+            "prompt_sha256": hashlib.sha256(b"fixture prompt").hexdigest(),
+        },
     )
 
 

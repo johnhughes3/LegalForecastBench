@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +44,11 @@ from legalforecast.multiharness.sandbox import (
     validate_live_container_policy,
 )
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
+from legalforecast.multiharness.solver_inputs import (
+    SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
+    SolverInputEntry,
+    SolverInputStore,
+)
 from legalforecast.multiharness.spec import (
     POSIX_PROCESS_GROUP_CONTAINMENT,
     RUN_COMPATIBILITY_SCHEMA_VERSION,
@@ -105,6 +111,7 @@ class MultiHarnessRunConfig:
     resume: bool = False
     incomplete_run_policy: str = "record_failure"
     container_execution: str = "plan_only"
+    solver_inputs: SolverInputStore | None = None
 
     def __post_init__(self) -> None:
         if not self.adapters:
@@ -120,6 +127,28 @@ class MultiHarnessRunConfig:
         if self.container_execution not in CONTAINER_EXECUTION_MODES:
             allowed = ", ".join(sorted(CONTAINER_EXECUTION_MODES))
             raise ValueError(f"container_execution must be one of: {allowed}")
+        if self.container_execution == "live_tools" and self.solver_inputs is None:
+            raise ValueError(
+                "live tool execution requires a private solver-input store"
+            )
+        if (
+            self.solver_inputs is not None
+            and self.solver_inputs.index.task_index_sha256
+            != self.task_index.index_sha256
+        ):
+            raise ValueError("solver-input index does not match the task index")
+        if self.solver_inputs is not None:
+            expected_tasks = {
+                task.task_id: task.task_sha256 for task in self.task_index.tasks
+            }
+            solver_tasks = {
+                entry.task_id: entry.task_sha256
+                for entry in self.solver_inputs.index.entries
+            }
+            if solver_tasks != expected_tasks:
+                raise ValueError(
+                    "solver-input entries do not exactly match the task index"
+                )
         validate_provider_environment_scope(
             sandbox_policy=self.sandbox_policy,
             adapter_count=len(self.adapters),
@@ -127,7 +156,7 @@ class MultiHarnessRunConfig:
         )
 
     def to_record(self) -> dict[str, Any]:
-        return {
+        record: dict[str, Any] = {
             "task_index": {
                 "index_id": self.task_index.index_id,
                 "index_sha256": self.task_index.index_sha256,
@@ -148,6 +177,9 @@ class MultiHarnessRunConfig:
             "incomplete_run_policy": self.incomplete_run_policy,
             "container_execution": self.container_execution,
         }
+        if self.solver_inputs is not None:
+            record["solver_input_index_sha256"] = self.solver_inputs.index.index_sha256
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -467,8 +499,44 @@ class _MultiHarnessRunner:
         resumed = False
         lfb_record: Mapping[str, Any] | None = None
         container_receipt_sha256: str | None = None
+        solver_input_temporary: tempfile.TemporaryDirectory[str] | None = None
         try:
-            resumed_result = self._resume_result(plan)
+            solver_input_root: Path | None = None
+            solver_input_entry: SolverInputEntry | None = None
+            solver_input_tree_sha256: str | None = None
+            if self.config.container_execution == "live_tools":
+                solver_inputs = self.config.solver_inputs
+                if solver_inputs is None:
+                    raise ValueError("live row has no solver-input store")
+                solver_input_temporary = tempfile.TemporaryDirectory(
+                    prefix="solver-input-",
+                    dir=private_logs,
+                )
+                solver_input_root = Path(solver_input_temporary.name) / "materialized"
+                solver_input_entry, materialization = solver_inputs.materialize(
+                    plan.task,
+                    destination_root=solver_input_root,
+                )
+                solver_input_tree_sha256 = solver_input_entry.tree_sha256
+                write_json_object(
+                    private_logs / "solver-input-manifest.json",
+                    {
+                        "schema_version": (
+                            SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION
+                        ),
+                        "task_id": solver_input_entry.task_id,
+                        "task_sha256": solver_input_entry.task_sha256,
+                        "entrypoint_path": solver_input_entry.entrypoint_path,
+                        "input_tree_sha256": solver_input_entry.tree_sha256,
+                        "solver_input_index_sha256": (solver_inputs.index.index_sha256),
+                        "solver_input_entry": solver_input_entry.to_record(),
+                        "materialization": materialization.to_record(),
+                    },
+                )
+            resumed_result = self._resume_result(
+                plan,
+                solver_input_tree_sha256=solver_input_tree_sha256,
+            )
             write_json_object(plan.workspace / "request.json", plan.request.to_record())
             write_json_object(
                 plan.workspace / "sandbox.plan.json",
@@ -482,7 +550,12 @@ class _MultiHarnessRunner:
                 result, lfb_record, container_receipt_sha256 = resumed_result
                 resumed = True
             else:
-                result, lfb_record, container_receipt_sha256 = self._run_adapter(plan)
+                result, lfb_record, container_receipt_sha256 = self._run_adapter(
+                    plan,
+                    solver_input_root=solver_input_root,
+                    solver_input_entry=solver_input_entry,
+                    solver_input_tree_sha256=solver_input_tree_sha256,
+                )
             provider_values = require_provider_environment_values(
                 plan.request.sandbox_policy.allowed_provider_env_vars
             )
@@ -503,6 +576,9 @@ class _MultiHarnessRunner:
             (private_logs / "error.txt").write_text(_plain_error(exc), encoding="utf-8")
             result = _failure_result(plan, exc)
             write_json_object(plan.workspace / "result.json", result.to_record())
+        finally:
+            if solver_input_temporary is not None:
+                solver_input_temporary.cleanup()
 
         return MultiHarnessRunRow(
             row_id=plan.row_id,
@@ -521,6 +597,8 @@ class _MultiHarnessRunner:
     def _resume_result(
         self,
         plan: _RowPlan,
+        *,
+        solver_input_tree_sha256: str | None,
     ) -> tuple[RunResult, Mapping[str, Any] | None, str | None] | None:
         if not self.config.resume:
             return None
@@ -558,6 +636,7 @@ class _MultiHarnessRunner:
                     request=plan.request,
                     result=result,
                     policy=plan.request.sandbox_policy,
+                    input_tree_sha256=solver_input_tree_sha256,
                 )
             except (OSError, ValueError, ContainerRuntimeError):
                 return None
@@ -573,12 +652,25 @@ class _MultiHarnessRunner:
     def _run_adapter(
         self,
         plan: _RowPlan,
+        *,
+        solver_input_root: Path | None,
+        solver_input_entry: SolverInputEntry | None,
+        solver_input_tree_sha256: str | None,
     ) -> tuple[RunResult, Mapping[str, Any] | None, str | None]:
         if self.config.container_execution == "live_tools":
+            if (
+                solver_input_root is None
+                or solver_input_entry is None
+                or solver_input_tree_sha256 is None
+            ):
+                raise ValueError("live row solver input is unavailable")
             session = ContainerToolSession(
                 policy=plan.request.sandbox_policy,
                 run_request=plan.request,
                 workspace=plan.workspace,
+                solver_input_root=solver_input_root,
+                solver_input=solver_input_entry,
+                input_tree_sha256=solver_input_tree_sha256,
             )
             try:
                 result = cast(LiveToolAdapter, plan.adapter).run_with_tools(
@@ -957,6 +1049,10 @@ def _run_compatibility_record(
             capabilities[adapter_id].to_record() for adapter_id in sorted(capabilities)
         ],
     }
+    if config.solver_inputs is not None:
+        compatibility_record["run_config"]["solver_input_index_sha256"] = (
+            config.solver_inputs.index.index_sha256
+        )
     validate_public_record(compatibility_record, "run_compatibility")
     return compatibility_record
 
