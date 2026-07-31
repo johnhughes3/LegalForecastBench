@@ -897,9 +897,9 @@ def _bare_record_sha256(record: JsonRecord) -> str:
 
 
 def _record_sha256_with_newline(record: JsonRecord) -> str:
-    encoded = (
-        json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
-    ).encode("utf-8")
+    encoded = (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode(
+        "utf-8"
+    )
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 

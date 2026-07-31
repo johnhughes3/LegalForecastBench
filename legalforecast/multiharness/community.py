@@ -725,8 +725,7 @@ def _validate_solver_materialization(
     materialized_record = cast(Mapping[str, Any], materialized)
     prompt = visible_files[0]
     if (
-        require_str(materialized_record, "destination_path")
-        != SOLVER_INPUT_ENTRY_PATH
+        require_str(materialized_record, "destination_path") != SOLVER_INPUT_ENTRY_PATH
         or require_str(materialized_record, "sha256")
         != prompt.sha256.removeprefix("sha256:")
         or materialized_record.get("size_bytes") != prompt.size_bytes
