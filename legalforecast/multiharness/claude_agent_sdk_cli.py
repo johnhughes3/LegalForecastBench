@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import importlib
 import importlib.metadata
@@ -40,6 +41,8 @@ from legalforecast.multiharness.tool_protocol import (
     decode_tool_response,
     encode_tool_message,
 )
+
+_TOOL_CALL_TIMEOUT_SECONDS = 60.0
 
 
 class StdioToolTransport:
@@ -89,6 +92,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
         sdk = _import_sdk()
         identity = _runtime_identity(sdk)
         tool_call_count = 0
+        successful_tool_reads: list[int] = [0]
 
         @sdk.tool(
             "read_canonical_task",
@@ -121,13 +125,17 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
                 arguments={"encoding": "utf-8"},
                 input_paths=("task.json",),
             )
-            response = tool_transport.execute(tool_request)
+            response = await asyncio.wait_for(
+                asyncio.to_thread(tool_transport.execute, tool_request),
+                timeout=_TOOL_CALL_TIMEOUT_SECONDS,
+            )
             if response.request_id != tool_request.request_id:
                 raise ClaudeAgentSDKAdapterError(
                     "host tool response request id does not match"
                 )
             if response.status != "succeeded":
                 raise ClaudeAgentSDKAdapterError("host tool request failed")
+            successful_tool_reads[0] += 1
             return {
                 "content": [
                     {
@@ -208,6 +216,10 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
             aggregate_usage=usage,
             total_cost_usd=total_cost_usd,
         )
+        if successful_tool_reads[0] != 1:
+            raise ClaudeAgentSDKAdapterError(
+                "Claude Agent SDK must complete exactly one canonical task read"
+            )
         return ClaudeSDKExecution(
             structured_output=terminal.structured_output,
             served_model=served_model,

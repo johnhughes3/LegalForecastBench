@@ -524,7 +524,6 @@ def _successful_summary(
         "output_contract_version": CLAUDE_OUTPUT_CONTRACT_VERSION,
         "prompt_version": CLAUDE_PROMPT_VERSION,
         "provider": "anthropic",
-        "provider_request_count": execution.num_turns,
         "python_version": sys.version.split()[0],
         "requested_model": requested_model,
         "sandbox_policy_id": request.sandbox_policy.policy_id,

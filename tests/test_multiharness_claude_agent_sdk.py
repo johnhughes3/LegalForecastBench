@@ -181,7 +181,7 @@ def test_live_run_maps_isolated_config_and_records_safe_provenance(
     assert summary["sdk_version"] == CLAUDE_AGENT_SDK_VERSION
     assert summary["bundled_cli_version"] == CLAUDE_BUNDLED_CLI_VERSION
     assert summary["bundled_cli_sha256"] == "sha256:" + "4" * 64
-    assert summary["provider_request_count"] == 2
+    assert "provider_request_count" not in summary
     assert summary["tool_call_count"] == 1
     assert summary["input_tokens"] == 12
     assert summary["output_tokens"] == 7
@@ -460,6 +460,41 @@ def test_pinned_executor_counts_malformed_mcp_attempts(
     )
 
     assert execution.tool_call_count == 2
+
+
+def test_pinned_executor_rejects_malformed_only_mcp_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sdk, _ = _fake_sdk(
+        [
+            _FakeAssistantMessage("claude-served-snapshot"),
+            _FakeResultMessage(),
+        ],
+        tool_arguments=[{"unexpected": "argument"}],
+    )
+    monkeypatch.setattr(
+        "legalforecast.multiharness.claude_agent_sdk_cli._import_sdk",
+        lambda: sdk,
+    )
+    monkeypatch.setattr(
+        "legalforecast.multiharness.claude_agent_sdk_cli._runtime_identity",
+        lambda _sdk: {
+            "sdk_version": CLAUDE_AGENT_SDK_VERSION,
+            "bundled_cli_version": CLAUDE_BUNDLED_CLI_VERSION,
+            "bundled_cli_path": tmp_path / "bundled" / "claude",
+            "bundled_cli_sha256": "sha256:" + "4" * 64,
+        },
+    )
+
+    with pytest.raises(
+        ClaudeAgentSDKAdapterError,
+        match="exactly one canonical task read",
+    ):
+        PinnedClaudeSDKExecutor("sk-ant-test").execute(
+            _sdk_config(tmp_path),
+            tool_transport=_ToolTransport(),
+        )
 
 
 @pytest.mark.parametrize(
