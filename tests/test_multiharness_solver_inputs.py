@@ -36,6 +36,15 @@ def test_store_materializes_exact_private_solver_tree(tmp_path: Path) -> None:
     assert stat.S_IMODE((destination / "prompt.txt").stat().st_mode) == 0o444
     assert stat.S_IMODE(store.root.stat().st_mode) == 0o700
     assert stat.S_IMODE((store.root / SOLVER_INPUT_INDEX_NAME).stat().st_mode) == 0o600
+    assert all(
+        stat.S_IMODE((store.root / item.source_path).stat().st_mode) == 0o400
+        for item in entry.files
+    )
+    assert all(
+        stat.S_IMODE(path.stat().st_mode) == 0o700
+        for path in store.root.rglob("*")
+        if path.is_dir()
+    )
 
 
 def test_public_task_does_not_contain_private_solver_bytes(tmp_path: Path) -> None:

@@ -438,6 +438,24 @@ def test_package_rejects_solver_input_manifest_not_bound_to_run(
         )
 
 
+def test_package_rejects_boolean_solver_input_size(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _mark_first_row_live(run_dir, receipt_sha256=SHA1)
+    manifest_path = (
+        run_dir / "rows" / "row-1" / "private-logs" / "solver-input-manifest.json"
+    )
+    manifest = _read_json(manifest_path)
+    materialization = cast(JsonRecord, manifest["materialization"])
+    entries = cast(list[JsonRecord], materialization["entries"])
+    entries[0]["size_bytes"] = True
+    _write_json(manifest_path, manifest)
+
+    with pytest.raises(ValueError, match="materialized prompt does not match"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "submission-package")
+        )
+
+
 def test_package_scrubs_lfb_raw_output_from_public_submission(
     tmp_path: Path,
 ) -> None:

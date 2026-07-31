@@ -402,6 +402,11 @@ def write_solver_input_store(
             source_path = f"{task_root}/{relative_name}"
             path = destination_root / source_path
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            for directory in (path.parent, *path.parent.parents):
+                directory.chmod(0o700)
+                if directory == destination_root:
+                    break
+            path.touch(mode=0o600, exist_ok=False)
             path.write_bytes(encoded)
             path.chmod(0o400)
             files.append(

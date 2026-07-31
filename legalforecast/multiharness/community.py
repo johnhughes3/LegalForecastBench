@@ -732,12 +732,14 @@ def _validate_solver_materialization(
     if not isinstance(materialized, Mapping):
         raise ValueError("solver-input materialization entry must be an object")
     materialized_record = cast(Mapping[str, Any], materialized)
+    materialized_size = materialized_record.get("size_bytes")
     prompt = visible_files[0]
     if (
         require_str(materialized_record, "destination_path") != SOLVER_INPUT_ENTRY_PATH
         or require_str(materialized_record, "sha256")
         != prompt.sha256.removeprefix("sha256:")
-        or materialized_record.get("size_bytes") != prompt.size_bytes
+        or type(materialized_size) is not int
+        or materialized_size != prompt.size_bytes
     ):
         raise ValueError("solver-input materialized prompt does not match")
     content = dict(record)
