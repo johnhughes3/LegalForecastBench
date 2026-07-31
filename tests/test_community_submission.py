@@ -338,6 +338,23 @@ def test_package_revalidates_successful_live_container_receipt(
     ]
 
 
+def test_package_plan_only_legacy_run_does_not_require_compatibility(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    (run_dir / "run-compatibility.json").unlink()
+    manifest_path = run_dir / "run-manifest.json"
+    manifest = _read_json(manifest_path)
+    del manifest["run_compatibility_sha256"]
+    _write_json(manifest_path, manifest)
+
+    result = package_community_submission(
+        _package_config(run_dir, tmp_path / "submission-package")
+    )
+
+    assert result.submission_path.is_file()
+
+
 def test_package_accepts_current_container_compatibility_fields(
     tmp_path: Path,
 ) -> None:

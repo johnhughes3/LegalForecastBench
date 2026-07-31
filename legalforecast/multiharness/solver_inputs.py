@@ -293,6 +293,11 @@ class SolverInputStore:
         entry = matches[0]
         if entry.task_sha256 != task.task_sha256:
             raise SolverInputError("solver input task sha256 does not match")
+        prompt_sha256 = task.metadata.get("prompt_sha256")
+        if not isinstance(prompt_sha256, str) or _normalized_sha256(
+            entry.prompt_sha256
+        ) != _normalized_sha256(prompt_sha256):
+            raise SolverInputError("solver input prompt sha256 does not match")
         return entry
 
     def materialize(
@@ -460,8 +465,8 @@ def _tree_sha256(files: tuple[SolverInputFile, ...]) -> str:
 
 def _seal_materialized_tree(root: Path) -> None:
     for path in sorted(root.rglob("*"), key=lambda item: len(item.parts), reverse=True):
-        path.chmod(0o500 if path.is_dir() else 0o400, follow_symlinks=False)
-    root.chmod(0o500, follow_symlinks=False)
+        path.chmod(0o555 if path.is_dir() else 0o444, follow_symlinks=False)
+    root.chmod(0o555, follow_symlinks=False)
 
 
 def _canonical_bytes(

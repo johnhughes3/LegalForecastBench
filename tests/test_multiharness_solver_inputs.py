@@ -32,8 +32,8 @@ def test_store_materializes_exact_private_solver_tree(tmp_path: Path) -> None:
     assert not (destination / "task.json").exists()
     assert entry.tree_sha256.startswith("sha256:")
     assert manifest.task_id == task.task_id
-    assert stat.S_IMODE(destination.stat().st_mode) == 0o500
-    assert stat.S_IMODE((destination / "prompt.txt").stat().st_mode) == 0o400
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o555
+    assert stat.S_IMODE((destination / "prompt.txt").stat().st_mode) == 0o444
     assert stat.S_IMODE(store.root.stat().st_mode) == 0o700
     assert stat.S_IMODE((store.root / SOLVER_INPUT_INDEX_NAME).stat().st_mode) == 0o600
 
@@ -65,6 +65,22 @@ def test_store_rejects_task_identity_mismatch(tmp_path: Path) -> None:
 
     with pytest.raises(SolverInputError, match="task sha256"):
         store.entry_for(replace(task, task_sha256="sha256:" + "b" * 64))
+
+
+def test_store_rejects_prompt_commitment_mismatch_at_lookup(tmp_path: Path) -> None:
+    task = _task()
+    store = _store(tmp_path, task=task)
+
+    with pytest.raises(SolverInputError, match="prompt sha256"):
+        store.entry_for(
+            replace(
+                task,
+                metadata={
+                    **task.metadata,
+                    "prompt_sha256": "sha256:" + "b" * 64,
+                },
+            )
+        )
 
 
 def test_store_rejects_tampered_index(tmp_path: Path) -> None:

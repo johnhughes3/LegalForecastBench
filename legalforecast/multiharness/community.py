@@ -583,6 +583,17 @@ def _validate_live_run_receipts(
 ) -> None:
     """Revalidate private live receipts before publishing their commitments."""
 
+    live_rows = tuple(
+        row
+        for row in rows
+        if (
+            (execution := optional_mapping(row, "container_execution")) is not None
+            and optional_str(execution, "mode") == "live_tools"
+            and require_str(row, "status") == "succeeded"
+        )
+    )
+    if not live_rows:
+        return
     compatibility = _read_json(
         run_dir / "run-compatibility.json",
         "run compatibility",
@@ -592,12 +603,10 @@ def _validate_live_run_receipts(
         run_config,
         "solver_input_index_sha256",
     )
-    for row in rows:
+    for row in live_rows:
         execution = optional_mapping(row, "container_execution")
-        if execution is None or optional_str(execution, "mode") != "live_tools":
-            continue
-        if require_str(row, "status") != "succeeded":
-            continue
+        if execution is None:
+            raise AssertionError("live row lost its container execution record")
         if require_str(execution, "status") != "succeeded":
             raise ValueError("successful live row has no successful container receipt")
         expected_receipt = require_str(execution, "receipt_sha256")
