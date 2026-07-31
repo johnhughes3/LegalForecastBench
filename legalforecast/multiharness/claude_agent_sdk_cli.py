@@ -33,6 +33,7 @@ from legalforecast.multiharness.claude_agent_sdk import (
     validate_process_auth_environment,
     validate_provider_grant,
 )
+from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
 from legalforecast.multiharness.spec import RunRequest
 from legalforecast.multiharness.tool_protocol import (
     MAX_TOOL_MESSAGE_BYTES,
@@ -96,7 +97,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
 
         @sdk.tool(
             "read_canonical_task",
-            "Read the public canonical task record staged by the host.",
+            "Read the complete solver prompt staged by the host.",
             {
                 "type": "object",
                 "properties": {},
@@ -123,7 +124,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
                 request_id=f"{config.request_id}:claude-tool:{tool_call_count}",
                 operation="read_text",
                 arguments={"encoding": "utf-8"},
-                input_paths=("task.json",),
+                input_paths=(SOLVER_INPUT_ENTRY_PATH,),
             )
             response = await asyncio.wait_for(
                 asyncio.to_thread(tool_transport.execute, tool_request),
@@ -218,7 +219,7 @@ class PinnedClaudeSDKExecutor(ClaudeSDKExecutor):
         )
         if successful_tool_reads[0] != 1:
             raise ClaudeAgentSDKAdapterError(
-                "Claude Agent SDK must complete exactly one canonical task read"
+                "Claude Agent SDK must complete exactly one solver prompt read"
             )
         return ClaudeSDKExecution(
             structured_output=terminal.structured_output,
@@ -253,7 +254,7 @@ def build_claude_agent_options(
         allowed_tools=["mcp__legalforecast__read_canonical_task"],
         system_prompt=(
             "You are a bounded LegalForecastBench forecasting adapter. "
-            "Use only the host-owned canonical task tool and return only the "
+            "Use only the host-owned solver prompt tool and return only the "
             "required structured output."
         ),
         mcp_servers={"legalforecast": mcp_server},

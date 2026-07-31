@@ -6,6 +6,7 @@ import hashlib
 import json
 import secrets
 import shutil
+import stat
 import subprocess
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
@@ -28,6 +29,7 @@ from legalforecast.multiharness.sandbox import (
     validate_container_backend_path,
     validate_live_container_policy,
 )
+from legalforecast.multiharness.solver_inputs import SolverInputEntry
 from legalforecast.multiharness.spec import RunRequest, RunResult, SandboxPolicy
 from legalforecast.multiharness.tool_protocol import (
     MAX_TOOL_MESSAGE_BYTES,
@@ -38,7 +40,7 @@ from legalforecast.multiharness.tool_protocol import (
 )
 from legalforecast.multiharness.validation import MultiHarnessValidationError
 
-CONTAINER_RECEIPT_SCHEMA_VERSION = "legalforecast.multiharness.container_receipt.v1"
+CONTAINER_RECEIPT_SCHEMA_VERSION = "legalforecast.multiharness.container_receipt.v2"
 _RECEIPT_FIELDS = frozenset(
     {
         "schema_version",
@@ -47,7 +49,7 @@ _RECEIPT_FIELDS = frozenset(
         "policy_sha256",
         "request_id",
         "request_sha256",
-        "input_sha256",
+        "input_tree_sha256",
         "result_id",
         "result_sha256",
         "result_record_sha256",
@@ -101,7 +103,7 @@ class ContainerExecutionReceipt:
     policy_sha256: str
     request_id: str
     request_sha256: str
-    input_sha256: str
+    input_tree_sha256: str
     result_id: str
     result_sha256: str
     result_record_sha256: str
@@ -120,7 +122,7 @@ class ContainerExecutionReceipt:
             "policy_sha256": self.policy_sha256,
             "request_id": self.request_id,
             "request_sha256": self.request_sha256,
-            "input_sha256": self.input_sha256,
+            "input_tree_sha256": self.input_tree_sha256,
             "result_id": self.result_id,
             "result_sha256": self.result_sha256,
             "result_record_sha256": self.result_record_sha256,
@@ -144,7 +146,7 @@ class ContainerExecutionReceipt:
             policy_sha256=_required_digest(record, "policy_sha256"),
             request_id=_required_str(record, "request_id"),
             request_sha256=_required_digest(record, "request_sha256"),
-            input_sha256=_required_digest(record, "input_sha256"),
+            input_tree_sha256=_required_digest(record, "input_tree_sha256"),
             result_id=_required_str(record, "result_id"),
             result_sha256=_required_digest(record, "result_sha256"),
             result_record_sha256=_required_digest(record, "result_record_sha256"),
@@ -177,6 +179,10 @@ class ContainerToolSession(ToolExecutor):
         policy: SandboxPolicy,
         run_request: RunRequest,
         workspace: Path,
+        *,
+        solver_input_root: Path | None = None,
+        solver_input: SolverInputEntry | None = None,
+        input_tree_sha256: str | None = None,
     ) -> None:
         if run_request.sandbox_policy != policy:
             raise ContainerRuntimeError("run request sandbox policy does not match")
@@ -184,7 +190,20 @@ class ContainerToolSession(ToolExecutor):
         self._request = run_request
         self._workspace = workspace.resolve()
         self._runtime_directory = self._workspace / "private-logs" / "tool-container"
-        self._input_directory = self._runtime_directory / "input"
+        if solver_input_root is not None and solver_input_root.is_symlink():
+            raise ContainerRuntimeError("solver input root must not be a symlink")
+        self._input_directory = (
+            solver_input_root.resolve()
+            if solver_input_root is not None
+            else self._runtime_directory / "input"
+        )
+        if (solver_input_root is None) != (solver_input is None):
+            raise ContainerRuntimeError(
+                "solver input root and manifest must be supplied together"
+            )
+        if solver_input is not None and input_tree_sha256 != solver_input.tree_sha256:
+            raise ContainerRuntimeError("solver input tree commitment does not match")
+        self._solver_input = solver_input
         self._cidfile = self._runtime_directory / "container.cid"
         self._receipt_path = self._runtime_directory / "execution-receipt.json"
         self._session_token = secrets.token_hex(16)
@@ -195,7 +214,7 @@ class ContainerToolSession(ToolExecutor):
         self._successful_exchange_count = 0
         self._closed = False
         self._cleanup_confirmed = False
-        self._input_sha256 = ""
+        self._input_tree_sha256 = input_tree_sha256 or ""
         try:
             self._backend_environment = build_container_backend_environment()
             validate_live_container_policy(self._policy)
@@ -215,7 +234,15 @@ class ContainerToolSession(ToolExecutor):
                 "live container policy or backend is unavailable"
             ) from exc
         self._reset_runtime_directory()
-        self._stage_canonical_task()
+        private_logs = self._workspace / "private-logs"
+        private_logs.mkdir(mode=0o700, parents=True, exist_ok=True)
+        private_logs.chmod(0o700)
+        self._runtime_directory.mkdir(mode=0o700)
+        self._runtime_directory.chmod(0o700)
+        if self._solver_input is None:
+            self._stage_canonical_task()
+        else:
+            _validate_solver_input_tree(self._input_directory, self._solver_input)
         try:
             self._plan = build_live_container_plan(
                 self._policy,
@@ -321,6 +348,7 @@ class ContainerToolSession(ToolExecutor):
             successful_exchange_count=self._successful_exchange_count,
             transcript_sha256=f"sha256:{self._transcript.hexdigest()}",
             exit_code=exit_code,
+            input_tree_sha256=self._input_tree_sha256,
         )
         _write_json(self._receipt_path, receipt.to_record())
         return receipt
@@ -353,17 +381,12 @@ class ContainerToolSession(ToolExecutor):
             raise cleanup_error from cause
 
     def _stage_canonical_task(self) -> None:
-        private_logs = self._workspace / "private-logs"
-        private_logs.mkdir(mode=0o700, parents=True, exist_ok=True)
-        private_logs.chmod(0o700)
-        self._runtime_directory.mkdir(mode=0o700)
         self._input_directory.mkdir(mode=0o755)
-        self._runtime_directory.chmod(0o700)
         self._input_directory.chmod(0o755)
         task_path = self._input_directory / "task.json"
         _write_json(task_path, self._request.task.to_record())
         task_path.chmod(0o444)
-        self._input_sha256 = _bytes_sha256(task_path.read_bytes())
+        self._input_tree_sha256 = _bytes_sha256(task_path.read_bytes())
 
     def _reset_runtime_directory(self) -> None:
         private_logs = self._workspace / "private-logs"
@@ -431,11 +454,14 @@ class ContainerToolSession(ToolExecutor):
         return self._process
 
     def _validate_staged_input(self) -> None:
+        if self._solver_input is not None:
+            _validate_solver_input_tree(self._input_directory, self._solver_input)
+            return
         entries = tuple(self._input_directory.iterdir())
         task_path = self._input_directory / "task.json"
         if entries != (task_path,) or task_path.is_symlink() or not task_path.is_file():
             raise ContainerRuntimeError("staged container input tree changed")
-        if _bytes_sha256(task_path.read_bytes()) != self._input_sha256:
+        if _bytes_sha256(task_path.read_bytes()) != self._input_tree_sha256:
             raise ContainerRuntimeError("staged canonical task changed")
 
     def _cleanup(self) -> bool:
@@ -468,12 +494,71 @@ class ContainerToolSession(ToolExecutor):
         return self._cleanup_confirmed
 
 
+def _validate_solver_input_tree(
+    root: Path,
+    solver_input: SolverInputEntry,
+) -> None:
+    if root.is_symlink() or not root.is_dir():
+        raise ContainerRuntimeError("materialized solver input root is unavailable")
+    if stat.S_IMODE(root.stat().st_mode) & 0o222:
+        raise ContainerRuntimeError("materialized solver input root is writable")
+    expected = {
+        item.destination_path: item
+        for item in solver_input.files
+        if item.solver_visible
+    }
+    expected_directories = {
+        parent.as_posix()
+        for item in solver_input.files
+        for parent in Path(item.destination_path).parents
+        if parent != Path(".")
+    }
+    observed_files: set[str] = set()
+    observed_directories: set[str] = set()
+    for path in root.rglob("*"):
+        relative = path.relative_to(root).as_posix()
+        path_stat = path.lstat()
+        if stat.S_ISDIR(path_stat.st_mode):
+            if path.is_symlink() or stat.S_IMODE(path_stat.st_mode) & 0o222:
+                raise ContainerRuntimeError(
+                    "materialized solver input directory is unsafe"
+                )
+            observed_directories.add(relative)
+            continue
+        item = expected.get(relative)
+        if (
+            item is None
+            or not stat.S_ISREG(path_stat.st_mode)
+            or path_stat.st_nlink != 1
+            or stat.S_IMODE(path_stat.st_mode) & 0o222
+        ):
+            raise ContainerRuntimeError("materialized solver input tree changed")
+        try:
+            payload = path.read_bytes()
+        except OSError as exc:
+            raise ContainerRuntimeError(
+                "materialized solver input is unreadable"
+            ) from exc
+        if len(payload) != item.size_bytes or _bytes_sha256(payload) != item.sha256:
+            raise ContainerRuntimeError("materialized solver input bytes changed")
+        observed_files.add(relative)
+    if observed_files != set(expected):
+        raise ContainerRuntimeError(
+            "materialized solver input tree has missing or extra files"
+        )
+    if observed_directories != expected_directories:
+        raise ContainerRuntimeError(
+            "materialized solver input tree has missing or extra directories"
+        )
+
+
 def validate_container_resume(
     receipt_path: Path,
     *,
     request: RunRequest,
     result: RunResult,
     policy: SandboxPolicy,
+    input_tree_sha256: str | None = None,
 ) -> str:
     """Validate an untrusted successful receipt against exact row identities."""
 
@@ -492,7 +577,7 @@ def validate_container_resume(
         "policy_sha256": _policy_sha256(policy),
         "request_id": request.request_id,
         "request_sha256": request.request_sha256,
-        "input_sha256": _canonical_task_sha256(request),
+        "input_tree_sha256": (input_tree_sha256 or _canonical_task_sha256(request)),
         "result_id": result.result_id,
         "result_sha256": result.result_sha256,
         "result_record_sha256": _result_record_sha256(result),
@@ -503,7 +588,7 @@ def validate_container_resume(
         "policy_sha256": receipt.policy_sha256,
         "request_id": receipt.request_id,
         "request_sha256": receipt.request_sha256,
-        "input_sha256": receipt.input_sha256,
+        "input_tree_sha256": receipt.input_tree_sha256,
         "result_id": receipt.result_id,
         "result_sha256": receipt.result_sha256,
         "result_record_sha256": receipt.result_record_sha256,
@@ -527,6 +612,7 @@ def _build_receipt(
     successful_exchange_count: int,
     transcript_sha256: str,
     exit_code: int,
+    input_tree_sha256: str,
 ) -> ContainerExecutionReceipt:
     content: dict[str, Any] = {
         "schema_version": CONTAINER_RECEIPT_SCHEMA_VERSION,
@@ -535,7 +621,7 @@ def _build_receipt(
         "policy_sha256": _policy_sha256(policy),
         "request_id": request.request_id,
         "request_sha256": request.request_sha256,
-        "input_sha256": _canonical_task_sha256(request),
+        "input_tree_sha256": input_tree_sha256,
         "result_id": result.result_id,
         "result_sha256": result.result_sha256,
         "result_record_sha256": _result_record_sha256(result),
@@ -551,7 +637,7 @@ def _build_receipt(
         policy_sha256=cast(str, content["policy_sha256"]),
         request_id=request.request_id,
         request_sha256=request.request_sha256,
-        input_sha256=cast(str, content["input_sha256"]),
+        input_tree_sha256=cast(str, content["input_tree_sha256"]),
         result_id=result.result_id,
         result_sha256=result.result_sha256,
         result_record_sha256=cast(str, content["result_record_sha256"]),

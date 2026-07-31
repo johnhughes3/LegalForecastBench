@@ -413,7 +413,7 @@ def test_pinned_executor_drives_fake_sdk_mcp_tool_and_terminal_result(
 
     assert execution.served_model == "claude-served-snapshot"
     assert execution.tool_call_count == 1
-    assert tools.requests[0].input_paths == ("task.json",)
+    assert tools.requests[0].input_paths == ("prompt.txt",)
     assert observed["query"] == ("prompt", "lfb-session")
     assert observed["tool_result"] == {
         "content": [
@@ -489,7 +489,7 @@ def test_pinned_executor_rejects_malformed_only_mcp_attempt(
 
     with pytest.raises(
         ClaudeAgentSDKAdapterError,
-        match="exactly one canonical task read",
+        match="exactly one solver prompt read",
     ):
         PinnedClaudeSDKExecutor("sk-ant-test").execute(
             _sdk_config(tmp_path),

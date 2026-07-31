@@ -19,6 +19,12 @@ from legalforecast.multiharness.community import (
     package_community_submission,
     validate_submission_file,
 )
+from legalforecast.multiharness.solver_inputs import (
+    SOLVER_INPUT_ENTRY_PATH,
+    SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
+    SOLVER_INPUT_LAYOUT_ID,
+    SOLVER_INPUT_PAYLOAD_SCHEMA_VERSION,
+)
 from legalforecast.multiharness.spec import (
     ADAPTER_MANIFEST_SCHEMA_VERSION,
     CONFORMANCE_REPORT_SCHEMA_VERSION,
@@ -302,10 +308,14 @@ def test_package_revalidates_successful_live_container_receipt(
     run_dir = _write_run_dir(tmp_path)
     _mark_first_row_live(run_dir, receipt_sha256=SHA1)
     calls: list[Path] = []
+    expected_tree = _read_json(
+        run_dir / "rows" / "row-1" / "private-logs" / "solver-input-manifest.json"
+    )["input_tree_sha256"]
 
     def _validate(*args: object, **kwargs: object) -> str:
         receipt_path = kwargs.get("receipt_path", args[0] if args else None)
         assert isinstance(receipt_path, Path)
+        assert kwargs["input_tree_sha256"] == expected_tree
         calls.append(receipt_path)
         return SHA1
 
@@ -388,6 +398,24 @@ def test_package_rejects_mismatched_live_container_receipt(
     )
 
     with pytest.raises(ValueError, match="receipt commitment"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "submission-package")
+        )
+
+
+def test_package_rejects_solver_input_manifest_not_bound_to_run(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _mark_first_row_live(run_dir, receipt_sha256=SHA1)
+    manifest_path = (
+        run_dir / "rows" / "row-1" / "private-logs" / "solver-input-manifest.json"
+    )
+    manifest = _read_json(manifest_path)
+    manifest["solver_input_index_sha256"] = SHA3
+    _write_json(manifest_path, manifest)
+
+    with pytest.raises(ValueError, match="index does not match"):
         package_community_submission(
             _package_config(run_dir, tmp_path / "submission-package")
         )
@@ -541,6 +569,96 @@ def _mark_first_row_live(run_dir: Path, *, receipt_sha256: str) -> None:
         run_dir / "rows" / "row-1" / "result.json",
         canonical_result,
     )
+    compatibility_path = run_dir / "run-compatibility.json"
+    compatibility = _read_json(compatibility_path)
+    compatibility["run_config"]["solver_input_index_sha256"] = SHA2
+    _write_json(compatibility_path, compatibility)
+    manifest_path = run_dir / "run-manifest.json"
+    run_manifest = _read_json(manifest_path)
+    run_manifest["run_compatibility_sha256"] = _record_sha256(compatibility)
+    _write_json(manifest_path, run_manifest)
+    request = _read_json(run_dir / "rows" / "row-1" / "request.json")
+    request["task"]["metadata"]["prompt_sha256"] = SHA1
+    _write_json(run_dir / "rows" / "row-1" / "request.json", request)
+    private_logs = run_dir / "rows" / "row-1" / "private-logs"
+    private_logs.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        private_logs / "solver-input-manifest.json",
+        _solver_input_manifest(request),
+    )
+
+
+def _solver_input_manifest(request: JsonRecord) -> JsonRecord:
+    task = cast(JsonRecord, request["task"])
+    prompt_file = {
+        "source_path": "tasks/fixture/prompt.txt",
+        "destination_path": SOLVER_INPUT_ENTRY_PATH,
+        "media_type": "text/plain",
+        "sha256": SHA1,
+        "size_bytes": 1,
+        "solver_visible": True,
+    }
+    source_file = {
+        "source_path": "tasks/fixture/source/model-packet.json",
+        "destination_path": "source/model-packet.json",
+        "media_type": "application/json",
+        "sha256": task["task_sha256"],
+        "size_bytes": 1,
+        "solver_visible": False,
+    }
+    tree_sha256 = _record_sha256_with_newline(
+        {
+            "schema_version": SOLVER_INPUT_PAYLOAD_SCHEMA_VERSION,
+            "files": [
+                {
+                    "destination_path": SOLVER_INPUT_ENTRY_PATH,
+                    "media_type": "text/plain",
+                    "sha256": SHA1,
+                    "size_bytes": 1,
+                }
+            ],
+        }
+    )
+    solver_entry = {
+        "task_id": task["task_id"],
+        "task_sha256": task["task_sha256"],
+        "prompt_sha256": SHA1,
+        "entrypoint_path": SOLVER_INPUT_ENTRY_PATH,
+        "files": [prompt_file, source_file],
+        "tree_sha256": tree_sha256,
+    }
+    materialization_content = {
+        "schema_version": "legalforecast.multiharness.task_materialization.v1",
+        "task_id": task["task_id"],
+        "task_sha256": task["task_sha256"],
+        "layout_id": SOLVER_INPUT_LAYOUT_ID,
+        "entries": [
+            {
+                "artifact_id": "solver_input:0",
+                "source_path": "tasks/fixture/prompt.txt",
+                "destination_path": SOLVER_INPUT_ENTRY_PATH,
+                "sha256": SHA1.removeprefix("sha256:"),
+                "size_bytes": 1,
+            }
+        ],
+        "evaluator_private_artifact_ids": [],
+        "semantic_bytes_sha256": "1" * 64,
+        "total_size_bytes": 1,
+    }
+    materialization = {
+        **materialization_content,
+        "manifest_sha256": _bare_record_sha256(materialization_content),
+    }
+    return {
+        "schema_version": SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
+        "task_id": task["task_id"],
+        "task_sha256": task["task_sha256"],
+        "entrypoint_path": SOLVER_INPUT_ENTRY_PATH,
+        "input_tree_sha256": tree_sha256,
+        "solver_input_index_sha256": SHA2,
+        "solver_input_entry": solver_entry,
+        "materialization": materialization,
+    }
 
 
 def _write_run_dir(tmp_path: Path) -> Path:
@@ -771,6 +889,17 @@ def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
 
 def _record_sha256(record: JsonRecord) -> str:
     encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _bare_record_sha256(record: JsonRecord) -> str:
+    return _record_sha256(record).removeprefix("sha256:")
+
+
+def _record_sha256_with_newline(record: JsonRecord) -> str:
+    encoded = (
+        json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 

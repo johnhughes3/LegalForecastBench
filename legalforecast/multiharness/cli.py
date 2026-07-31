@@ -40,6 +40,7 @@ from legalforecast.multiharness.sandbox import (
     validate_live_container_policy,
 )
 from legalforecast.multiharness.selection import TaskSelection
+from legalforecast.multiharness.solver_inputs import SolverInputStore
 from legalforecast.multiharness.spec import (
     HOST_PROCESS_CONTAINMENT_MODES,
     POSIX_PROCESS_GROUP_CONTAINMENT,
@@ -98,6 +99,14 @@ def add_multiharness_parser(subparsers: Any) -> None:
         help="Harvey LAB checkout/root for --suite harvey-lab.",
     )
     task_index.add_argument("--output", type=Path, required=True)
+    task_index.add_argument(
+        "--solver-input-root",
+        type=Path,
+        help=(
+            "Fresh private directory for exact solver-visible LFB prompts. "
+            "Required before live provider execution and never publishable."
+        ),
+    )
     task_index.add_argument("--suite-version")
     task_index.add_argument("--index-id")
     task_index.add_argument("--selection-namespace")
@@ -161,6 +170,14 @@ def add_multiharness_parser(subparsers: Any) -> None:
         help="Run or dry-run a selected task matrix through command adapters.",
     )
     run.add_argument("--task-index", type=Path, required=True)
+    run.add_argument(
+        "--solver-input-root",
+        type=Path,
+        help=(
+            "Private solver-input store produced by tasks index. Required with "
+            "--live-tool-container."
+        ),
+    )
     run.add_argument(
         "--adapter-manifest",
         type=Path,
@@ -319,6 +336,7 @@ def _cmd_tasks_index(args: argparse.Namespace) -> int:
                 "suite_version": cast(str | None, args.suite_version),
                 "index_id": cast(str | None, args.index_id),
                 "selection_namespace": cast(str | None, args.selection_namespace),
+                "solver_input_store_requested": args.solver_input_root is not None,
             },
         )
         return 0
@@ -400,6 +418,12 @@ def _cmd_conformance(args: argparse.Namespace) -> int:
 
 def _cmd_run(args: argparse.Namespace) -> int:
     task_index = _load_task_index(cast(Path, args.task_index))
+    solver_input_root = cast(Path | None, args.solver_input_root)
+    solver_inputs = (
+        SolverInputStore.load(solver_input_root)
+        if solver_input_root is not None
+        else None
+    )
     selection = _selection_from_run_args(args)
     output_dir = cast(Path, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -421,6 +445,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 selection=selection,
                 manifests=manifests,
                 policy_record=policy.to_record(),
+                solver_inputs=solver_inputs,
             ),
         )
         return 0
@@ -449,6 +474,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             container_execution=(
                 "live_tools" if cast(bool, args.live_tool_container) else "plan_only"
             ),
+            solver_inputs=solver_inputs,
         )
     )
     return 0
@@ -669,6 +695,7 @@ def _task_index_from_args(args: argparse.Namespace) -> TaskIndex:
             input_path,
             index_id=index_id or "legalforecast-mtd",
             selection_namespace=namespace or "legalforecast_mtd",
+            solver_input_root=cast(Path | None, args.solver_input_root),
         )
     if suite == "harvey-lab":
         lab_root = _required_path_arg(
@@ -780,9 +807,10 @@ def _run_plan_record(
     selection: TaskSelection,
     manifests: Sequence[AdapterManifest],
     policy_record: Mapping[str, Any],
+    solver_inputs: SolverInputStore | None,
 ) -> dict[str, Any]:
     selected = selection.select(task_index)
-    return {
+    record: dict[str, Any] = {
         "schema_version": _CLI_PLAN_SCHEMA_VERSION,
         "command": "run",
         "dry_run": True,
@@ -804,6 +832,9 @@ def _run_plan_record(
             "required" if cast(bool, args.live_tool_container) else "skipped"
         ),
     }
+    if solver_inputs is not None:
+        record["solver_input_index_sha256"] = solver_inputs.index.index_sha256
+    return record
 
 
 def _sandbox_policy_from_args(args: argparse.Namespace):

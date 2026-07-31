@@ -31,7 +31,7 @@ uv run legalforecast multiharness conformance \
   --output-dir tmp/claude-agent-sdk-conformance
 ```
 
-The current live tool runtime stages the canonical task record but not yet the solver-visible packet bytes committed by that record. The real adapter therefore establishes the provider, authentication, tool-protocol, output-validation, provenance, and redaction boundaries, but a meaningful non-fixture benchmark submission must wait for the shared task-materialization seam. Do not describe the offline conformance result as a scored provider run.
+The live tool runtime requires a private solver-input store bound to the exact public task index. For each LFB row, the store authenticates the reconstructed prompt against `prompt_sha256` and the canonical source packet against `task_sha256`, then materializes only the prompt into the read-only container input tree. The raw packet remains host-private construction evidence and is never solver-visible. The container receipt and community packaging bind the complete mounted tree without publishing prompt bytes, source bytes, credentials, account data, or host paths. Credential-free conformance still is not a scored provider run.
 
 Production provider baseline bridges should use API-key auth or another explicit provider-supported API auth mechanism. Do not claim that a ChatGPT, Claude, or similar subscription login is a general third-party API entitlement.
 

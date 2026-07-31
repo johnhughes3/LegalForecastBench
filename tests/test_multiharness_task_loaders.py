@@ -48,6 +48,44 @@ def test_lfb_task_loader_indexes_packet_jsonl_without_public_packet_text(
     assert "motion text" not in public_metadata
 
 
+def test_lfb_task_loader_writes_private_solver_input_store(tmp_path: Path) -> None:
+    packet = _model_packet().to_record()
+    packet_path = tmp_path / "packets.jsonl"
+    solver_root = tmp_path / "solver-inputs"
+    write_jsonl_objects(packet_path, (packet,))
+
+    index = LfbTaskLoader(suite_version="fixture-suite").load_packet_jsonl(
+        packet_path,
+        solver_input_root=solver_root,
+    )
+
+    solver_index = json.loads(
+        (solver_root / "solver-input-index.json").read_text(encoding="utf-8")
+    )
+    entry = solver_index["entries"][0]
+    assert solver_index["task_index_sha256"] == index.index_sha256
+    assert entry["task_id"] == index.tasks[0].task_id
+    assert entry["task_sha256"] == index.tasks[0].task_sha256
+    prompt_file = next(
+        item for item in entry["files"] if item["destination_path"] == "prompt.txt"
+    )
+    source_file = next(
+        item
+        for item in entry["files"]
+        if item["destination_path"] == "source/model-packet.json"
+    )
+    assert "complaint text" in (solver_root / prompt_file["source_path"]).read_text(
+        encoding="utf-8"
+    )
+    assert (
+        json.loads(
+            (solver_root / source_file["source_path"]).read_text(encoding="utf-8")
+        )
+        == packet
+    )
+    assert "complaint text" not in json.dumps(index.to_record(), sort_keys=True)
+
+
 def test_lfb_task_loader_accepts_run_input_manifest_packet_rows() -> None:
     task = LfbTaskLoader().task_from_record(
         {"model_packet": _model_packet().to_record()}

@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
 from legalforecast.multiharness.spec import (
     TOOL_REQUEST_SCHEMA_VERSION,
     AdapterCapabilities,
@@ -32,7 +33,7 @@ _READ_TASK_TOOL: dict[str, Any] = {
     "type": "function",
     "name": _READ_TASK_TOOL_NAME,
     "description": (
-        "Read the public canonical task record staged by the host-owned tool container."
+        "Read the complete solver prompt staged by the host-owned tool container."
     ),
     "parameters": {
         "type": "object",
@@ -148,7 +149,7 @@ def run_openai_responses(
     client: OpenAIClient,
     max_tool_calls: int = 8,
 ) -> RunResult:
-    """Run the pinned Responses function-tool loop for one canonical task."""
+    """Run the pinned Responses function-tool loop for one solver prompt."""
 
     _validate_request(request)
     validate_provider_grant(request)
@@ -218,7 +219,7 @@ def run_openai_responses(
                     request_id=(f"{request.request_id}:openai-tool:{tool_call_count}"),
                     operation="read_text",
                     arguments={"encoding": "utf-8"},
-                    input_paths=("task.json",),
+                    input_paths=(SOLVER_INPUT_ENTRY_PATH,),
                 )
                 tool_response = tool_transport.execute(tool_request)
                 if tool_response.request_id != tool_request.request_id:
@@ -400,7 +401,7 @@ def _instructions(required_unit_ids: Sequence[str]) -> str:
     encoded_ids = json.dumps(list(required_unit_ids), separators=(",", ":"))
     return (
         "You are producing a LegalForecastBench community baseline forecast. "
-        "Use only the public canonical task record available through "
+        "Use only the complete solver prompt available through "
         f"{_READ_TASK_TOOL_NAME}. Return only JSON with one predictions array. "
         "Each prediction must contain unit_id and probability_fully_dismissed. "
         f"The exact required unit IDs are {encoded_ids}; probabilities must be "

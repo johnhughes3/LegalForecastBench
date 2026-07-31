@@ -339,8 +339,9 @@ def _prompt(request: RunRequest, required_unit_ids: Sequence[str]) -> str:
     )
     return (
         "Produce one LegalForecastBench forecast. First call "
-        f"{_QUALIFIED_READ_TASK_TOOL_NAME} exactly once to read the public "
-        "canonical task record. Use no information outside that record. Return "
+        f"{_QUALIFIED_READ_TASK_TOOL_NAME} exactly once to read the complete "
+        "host-authenticated solver prompt. Use no information outside that "
+        "prompt. Return "
         "only the required structured output, with a non-empty case_assessment "
         "and exactly one probability_fully_dismissed from 0 through 1 for each "
         f"required unit. Public task identity: {identity}"

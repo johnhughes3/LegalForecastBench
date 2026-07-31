@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import stat
@@ -13,9 +14,14 @@ from legalforecast.multiharness.container_runtime import (
     ContainerExecutionReceipt,
     ContainerRuntimeError,
     ContainerToolSession,
+    _validate_solver_input_tree,
     validate_container_resume,
 )
 from legalforecast.multiharness.sandbox import ContainerRuntimePlan
+from legalforecast.multiharness.solver_inputs import (
+    SolverInputPayload,
+    write_solver_input_store,
+)
 from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
@@ -121,7 +127,7 @@ def test_session_stages_task_starts_lazily_and_records_sanitized_receipt(
     assert response.status == "succeeded"
     assert len(process.requests) == 1
     assert receipt.request_sha256 == request.request_sha256
-    assert receipt.input_sha256.startswith("sha256:")
+    assert receipt.input_tree_sha256.startswith("sha256:")
     assert receipt.result_sha256 == result.result_sha256
     assert receipt.successful_exchange_count == 1
     assert receipt.container_exit_code == 0
@@ -140,6 +146,54 @@ def test_session_stages_task_starts_lazily_and_records_sanitized_receipt(
         )
         == receipt.receipt_sha256
     )
+
+
+def test_solver_input_validator_rejects_extra_directory_and_root_symlink(
+    tmp_path: Path,
+) -> None:
+    request = _run_request()
+    source_packet = {"fixture": True}
+    request = replace(
+        request,
+        task=replace(
+            request.task,
+            task_sha256=hashlib.sha256(
+                json.dumps(
+                    source_packet, sort_keys=True, separators=(",", ":")
+                ).encode()
+            ).hexdigest(),
+            metadata={
+                **request.task.metadata,
+                "prompt_sha256": hashlib.sha256(b"fixture prompt").hexdigest(),
+            },
+        ),
+    )
+    store = write_solver_input_store(
+        destination_root=tmp_path / "store",
+        task_index_sha256=SHA256,
+        payloads=(
+            SolverInputPayload(
+                task=request.task,
+                prompt="fixture prompt",
+                source_packet=source_packet,
+            ),
+        ),
+    )
+    root = tmp_path / "materialized"
+    entry, _ = store.materialize(request.task, destination_root=root)
+    root.chmod(0o700)
+    extra = root / "unexpected"
+    extra.mkdir()
+    extra.chmod(0o500)
+    root.chmod(0o500)
+
+    with pytest.raises(ContainerRuntimeError, match="extra directories"):
+        _validate_solver_input_tree(root, entry)
+
+    link = tmp_path / "materialized-link"
+    link.symlink_to(root, target_is_directory=True)
+    with pytest.raises(ContainerRuntimeError, match="root is unavailable"):
+        _validate_solver_input_tree(link, entry)
 
 
 @pytest.mark.parametrize(
@@ -428,6 +482,15 @@ def test_resume_validation_rejects_tampering_and_binding_mismatch(
             policy=request.sandbox_policy,
         )
 
+    with pytest.raises(ContainerRuntimeError, match="input_tree_sha256"):
+        validate_container_resume(
+            path,
+            request=request,
+            result=result,
+            policy=request.sandbox_policy,
+            input_tree_sha256="sha256:" + "b" * 64,
+        )
+
 
 def test_receipt_parser_rejects_extra_fields() -> None:
     record = _receipt_record()
@@ -591,13 +654,13 @@ def _run_result(
 
 def _receipt_record() -> dict[str, Any]:
     return {
-        "schema_version": "legalforecast.multiharness.container_receipt.v1",
+        "schema_version": "legalforecast.multiharness.container_receipt.v2",
         "backend": "docker",
         "image": "example.invalid/tool@sha256:" + "d" * 64,
         "policy_sha256": SHA256,
         "request_id": "run-1",
         "request_sha256": SHA256,
-        "input_sha256": SHA256,
+        "input_tree_sha256": SHA256,
         "result_id": "result-1",
         "result_sha256": SHA256,
         "result_record_sha256": SHA256,
