@@ -66,6 +66,9 @@ def test_v4_ranked_reserve_template_binds_existing_approved_projection(
     assert not {"evaluate", "freeze", "dispatch"} & set(commands)
 
     broker, ledger, purchase = config.stages[1:4]
+    assert _argument_value(config.stages[0], "--cycle-store") == str(
+        tmp_path / "successor-v4" / "00-cycle" / "cycle-acquisition.sqlite3"
+    )
     assert broker.boundary.value == "provider_free"
     assert _argument_value(broker, "--budget-plan") == str(
         frozen_v4 / "missing-core-budget-plan.json"
@@ -83,12 +86,17 @@ def test_v4_ranked_reserve_template_binds_existing_approved_projection(
     assert _argument_value(ledger, "--initialization-receipt-output") == str(
         authority_root / "purchase-ledger-initialization.json"
     )
+    expected_ledger = str(
+        authority_root / "cycle-1-target100-recap-fetch-purchase-ledger.sqlite3"
+    )
+    assert _argument_value(ledger, "--purchase-ledger") == expected_ledger
     assert _argument_value(purchase, "--broker-policy") == str(
         authority_root / "recap-fetch-broker-policy.json"
     )
     assert _argument_value(purchase, "--purchase-ledger-initialization-receipt") == (
         str(authority_root / "purchase-ledger-initialization.json")
     )
+    assert _argument_value(purchase, "--purchase-ledger") == expected_ledger
 
 
 def test_v4_ranked_reserve_template_never_writes_frozen_evidence(
@@ -99,52 +107,36 @@ def test_v4_ranked_reserve_template_never_writes_frozen_evidence(
     approval_root = tmp_path / "private-approval"
     successor_root = tmp_path / "successor-v4"
     successor_private = tmp_path / "private-v4"
-    output_options = {
-        "--output-root",
-        "--identity-output",
-        "--log-output",
-        "--run-card-output",
-        "--output",
-        "--initialization-receipt-output",
-        "--purchase-output",
-        "--manifest-output",
-        "--case-relevance-output",
-        "--restriction-evidence-output",
-        "--review-requests-output",
-        "--document-output-root",
-        "--resolved-output",
-        "--requests-output",
-        "--markdown-output-root",
-        "--prediction-units-output",
-        "--audit-output",
-        "--unitization-review-queue-output",
-        "--structural-flags-output",
-        "--review-queue-output",
-        "--finalized-prediction-units-output",
-        "--decision-texts-output",
-        "--decision-texts-manifest-output",
-        "--labels-output",
-        "--lawyer-review-queue-output",
-        "--packet-build-input-output",
-        "--document-manifest-output",
-        "--candidate-manifest-output",
-        "--extracted-texts-output",
-        "--exclusion-ledger-output",
-        "--packets-output",
-        "--case-packets-output",
-        "--complete-exclusion-ledger-output",
-        "--readiness-output",
-    }
+    stateful_options = {"--cycle-store", "--provider-journal", "--purchase-ledger"}
 
     for stage in config.stages:
         assert stage.run_card.is_relative_to(
             successor_root
         ) or stage.run_card.is_relative_to(successor_private)
         for index, argument in enumerate(stage.arguments[:-1]):
-            if argument in output_options:
+            if (
+                argument == "--output"
+                or argument.endswith("-output")
+                or argument.endswith("-output-root")
+                or argument in stateful_options
+            ):
                 output = Path(stage.arguments[index + 1])
                 assert not output.is_relative_to(frozen_v4)
                 assert not output.is_relative_to(approval_root)
+
+
+def test_v4_ranked_reserve_template_runs_stage_b_without_unproduced_shards(
+    tmp_path: Path,
+) -> None:
+    _, config = _render(tmp_path)
+    label_stage = next(stage for stage in config.stages if stage.command == "llm-label")
+
+    assert label_stage.stage_id == "label-stage-b"
+    assert "--provider-shard-audit" not in label_stage.arguments
+    assert "--provider-shard-run-card" not in label_stage.arguments
+    assert not any(
+        "19-stage-b-shards" in argument for argument in label_stage.arguments
+    )
 
 
 def test_v4_ranked_reserve_template_binds_provider_caps_successor(

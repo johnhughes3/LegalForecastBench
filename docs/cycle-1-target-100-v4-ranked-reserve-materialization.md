@@ -5,22 +5,26 @@ It uses [`cycle-1-target-100.v4-ranked-reserve.template.json`](../manifests/cycl
 
 ## Fixed evidence
 
-Run from the repository root and keep these exact canonical roots.
-The approval fixes the ledger namespace under `successor_root`; choosing another root must fail replay.
+Load the canonical approval-checkpoint path from generated local metadata rather than assuming that the current checkout is the approved repository root.
+The authenticated checkpoint fixes the repository, cohort, source, and ledger paths; choosing another root must fail replay.
 
 ```zsh
-repo_root="$PWD"
-source_root="$repo_root/artifacts/cycle-1/official-acquisition-main-e0d7177-20260716/target-150-plus-five-current-policy-v1/15-final-provider-free-union-main-4d3ba85-v1/33-10k-continuation-main-5781216-v1"
-frozen_artifact_root="$repo_root/artifacts/cycle-1/target-100-production"
-successor_root="$repo_root/artifacts/cycle-1/target-100-production-v4-ranked-reserve"
-frozen_v4_root="$successor_root/05-target-cohort-v4"
-private_cycle_root="${repo_root:h}/.legalforecastbench-private/cycle-1/target-100-production-v4-ranked-reserve"
-approval_root="$private_cycle_root/purchase-approval"
+approval_checkpoint="${LFB_V4_APPROVAL_CHECKPOINT:?load this canonical path from generated local metadata}"
+test "${approval_checkpoint#/}" != "$approval_checkpoint"
+test -f "$approval_checkpoint"
+
+approval_root="${approval_checkpoint:h}"
+private_cycle_root="${approval_root:h}"
+frozen_v4_root="$(jq -er '.checkpoint.verification_inputs.target_cohort_root' "$approval_checkpoint")"
+cohort_policy="$(jq -er '.checkpoint.verification_inputs.cohort_policy_path' "$approval_checkpoint")"
+fee_schedule="$(jq -er '.checkpoint.verification_inputs.fee_schedule_path' "$approval_checkpoint")"
+ledger="$(jq -er '.checkpoint.verification_inputs.canonical_ledger_path' "$approval_checkpoint")"
+repo_root="${cohort_policy:h:h}"
+source_root="${fee_schedule:h:h}"
+successor_root="${frozen_v4_root:h}"
+authority_root="${ledger:h}"
+frozen_artifact_root="$(jq -er '[.input_commitments | keys[] | select(endswith("/02-preparation/target-cohort-config.json")) | sub("/02-preparation/target-cohort-config.json$"; "")] | if length == 1 then .[0] else error("expected one frozen preparation root") end' "$frozen_v4_root/target-cohort-projection.json")"
 parser_root="/absolute/clean/pinned/mistral-parser"
-authority_root="$successor_root/06-purchase-authority"
-ledger="$authority_root/cycle-1-target100-recap-fetch-purchase-ledger.sqlite3"
-cohort_policy="$repo_root/docs/cohort-policy-cycle-1-target-100-2026-07-25.json"
-fee_schedule="$source_root/10-purchase-authority/courtlistener-recap-fetch-fee-schedule-v1.json"
 ```
 
 Authenticate the immutable public projection before creating anything.
@@ -49,7 +53,7 @@ uv run legalforecast acquisition verify-purchase-approval \
   --fee-schedule "$fee_schedule" \
   --canonical-ledger-path "$ledger" \
   --controlled-private-root "$approval_root" \
-  --checkpoint "$approval_root/purchase-approval-checkpoint.json" \
+  --checkpoint "$approval_checkpoint" \
   --approval-run-card "$approval_root/run-cards/record-purchase-approval.json"
 ```
 
@@ -65,7 +69,7 @@ uv run legalforecast acquisition generate-purchase-policy \
   --fee-schedule "$fee_schedule" \
   --canonical-ledger-path "$ledger" \
   --controlled-private-root "$approval_root" \
-  --checkpoint "$approval_root/purchase-approval-checkpoint.json" \
+  --checkpoint "$approval_checkpoint" \
   --approval-run-card "$approval_root/run-cards/record-purchase-approval.json" \
   --output "$authority_root/purchase-policy-v2.json"
 
