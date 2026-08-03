@@ -107,12 +107,16 @@ def test_v4_ranked_reserve_template_never_writes_frozen_evidence(
     approval_root = tmp_path / "private-approval"
     successor_root = tmp_path / "successor-v4"
     successor_private = tmp_path / "private-v4"
+    successor_roots = tuple(
+        root.resolve() for root in (successor_root, successor_private)
+    )
+    frozen_v4 = frozen_v4.resolve()
+    approval_root = approval_root.resolve()
     stateful_options = {"--cycle-store", "--provider-journal", "--purchase-ledger"}
 
     for stage in config.stages:
-        assert stage.run_card.is_relative_to(
-            successor_root
-        ) or stage.run_card.is_relative_to(successor_private)
+        run_card = stage.run_card.resolve()
+        assert any(run_card.is_relative_to(root) for root in successor_roots)
         for index, argument in enumerate(stage.arguments[:-1]):
             if (
                 argument == "--output"
@@ -120,9 +124,13 @@ def test_v4_ranked_reserve_template_never_writes_frozen_evidence(
                 or argument.endswith("-output-root")
                 or argument in stateful_options
             ):
-                output = Path(stage.arguments[index + 1])
+                output = Path(stage.arguments[index + 1]).resolve()
                 assert not output.is_relative_to(frozen_v4)
                 assert not output.is_relative_to(approval_root)
+                assert any(output.is_relative_to(root) for root in successor_roots)
+
+        assert "--allow-paid" not in stage.arguments
+        assert "--allow-network" not in stage.arguments
 
 
 def test_v4_ranked_reserve_template_runs_stage_b_without_unproduced_shards(
