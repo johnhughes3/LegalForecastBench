@@ -825,9 +825,7 @@ def _money_decimal(value: object, source: str) -> Decimal:
             Decimal("0.01")
         )
     except InvalidOperation as exc:
-        raise RankedReserveReplacementError(
-            f"{source} must use finite cents"
-        ) from exc
+        raise RankedReserveReplacementError(f"{source} must use finite cents") from exc
     if not uses_finite_cents:
         raise RankedReserveReplacementError(f"{source} must use finite cents")
     return amount

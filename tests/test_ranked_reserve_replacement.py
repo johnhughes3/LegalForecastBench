@@ -324,9 +324,7 @@ def test_failed_purchase_with_response_is_not_double_reserved(tmp_path: Path) ->
             purchase_journal=journal,
         )
 
-    assert [row["candidate_id"] for row in second.replacement_selection] == [
-        "case-101"
-    ]
+    assert [row["candidate_id"] for row in second.replacement_selection] == ["case-101"]
     assert second.committed_spend_usd == "6.10"
     assert second.reserved_replacement_spend_usd == "3.05"
     assert second.remaining_headroom_usd == "0.00"
@@ -492,16 +490,14 @@ def test_cli_replays_full_projection_and_emits_provider_free_outputs(
 
     assert status == 0
     result = json.loads(outputs["result"].read_bytes())
-    assert _sha(outputs["active"].read_bytes()) == result["active_selection_sha256"]
-    assert _sha(outputs["replacement"].read_bytes()) == (
-        result["replacement_selection_sha256"]
+    artifact_commitments = (
+        ("active", "active_selection_sha256"),
+        ("replacement", "replacement_selection_sha256"),
+        ("exclusions", "successor_exclusions_sha256"),
+        ("budget", "replacement_budget_plan_sha256"),
     )
-    assert _sha(outputs["exclusions"].read_bytes()) == (
-        result["successor_exclusions_sha256"]
-    )
-    assert _sha(outputs["budget"].read_bytes()) == (
-        result["replacement_budget_plan_sha256"]
-    )
+    for artifact_name, commitment_name in artifact_commitments:
+        assert _sha(outputs[artifact_name].read_bytes()) == result[commitment_name]
     assert result["active_case_count"] == 100
     assert result["successor_approval_required"] is True
     assert result["provider_activity_requested"] is False
