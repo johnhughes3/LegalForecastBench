@@ -1256,6 +1256,19 @@ def _verify_runtime_purchase_ledger_initialization_lineage(
     return initialization_id
 
 
+def verify_purchase_ledger_initialization_lineage(
+    receipt_path: Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+) -> str:
+    """Authenticate an initialization receipt against its purchase policy."""
+
+    return _verify_runtime_purchase_ledger_initialization_lineage(
+        receipt_path,
+        policy=policy,
+    )
+
+
 def _require_pristine_purchase_ledger(connection: sqlite3.Connection) -> None:
     operations = connection.execute(
         "SELECT COUNT(*) FROM purchase_operations"

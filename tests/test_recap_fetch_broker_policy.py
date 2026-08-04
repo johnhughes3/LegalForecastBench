@@ -109,25 +109,35 @@ def test_unknown_status_evidence_rejects_nonexact_json_shapes(evidence: object) 
     ],
 )
 @pytest.mark.parametrize(
-    "replacement_kwargs",
+    ("replacement_kwargs", "expected_error"),
     [
-        {"replacement_purchase_authority_artifact": {}},
-        {"replacement_controlled_private_root": Path("private")},
-        {
-            "replacement_purchase_authority_artifact": {},
-            "replacement_controlled_private_root": Path("private"),
-        },
-        {"purchase_ledger_initialization_receipt_path": Path("receipt.json")},
+        ({"replacement_purchase_authority_artifact": {}}, "must be supplied together"),
+        (
+            {"replacement_controlled_private_root": Path("private")},
+            "must be supplied together",
+        ),
+        (
+            {
+                "replacement_purchase_authority_artifact": {},
+                "replacement_controlled_private_root": Path("private"),
+            },
+            "must be supplied together",
+        ),
+        (
+            {"purchase_ledger_initialization_receipt_path": Path("receipt.json")},
+            "valid only for policy replay",
+        ),
     ],
 )
 def test_replacement_inputs_must_be_supplied_all_or_none(
     generator: Any,
     error: type[ValueError],
     replacement_kwargs: dict[str, object],
+    expected_error: str,
 ) -> None:
     plan = _budget_plan()
 
-    with pytest.raises(error, match=r"must be supplied together|valid only"):
+    with pytest.raises(error, match=expected_error):
         generator(
             purchase_policy_artifact=_purchase_policy(),
             cohort_policy_artifact=_cohort_policy(),

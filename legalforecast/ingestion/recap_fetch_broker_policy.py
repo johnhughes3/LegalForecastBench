@@ -15,10 +15,12 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseLedgerError,
     require_approved_case_dev_purchase_policy,
     verify_approved_purchase_input_bytes,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
+    verify_purchase_ledger_initialization_lineage,
 )
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
 
@@ -157,6 +159,15 @@ def _build_recap_fetch_broker_policy(
                 "replay or complete replacement authority"
             )
         if (
+            not require_fresh_ledger_namespace
+            and not replacement_mode
+            and purchase_ledger_initialization_receipt_path is not None
+        ):
+            verify_purchase_ledger_initialization_lineage(
+                purchase_ledger_initialization_receipt_path,
+                policy=purchase_policy,
+            )
+        if (
             purchase_policy.has_verified_approval
             and require_fresh_ledger_namespace
             and not replacement_mode
@@ -200,7 +211,7 @@ def _build_recap_fetch_broker_policy(
             purchase_policy,
             cohort_policy_artifact,
         )
-    except (ImportError, OSError, ValueError) as exc:
+    except (CaseDevPurchaseLedgerError, ImportError, OSError, ValueError) as exc:
         raise RecapFetchBrokerPolicyError(str(exc)) from exc
 
     if broad_frontier_allowlist and purchase_policy.has_verified_approval:

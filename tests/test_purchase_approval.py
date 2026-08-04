@@ -1726,6 +1726,39 @@ def test_attempt_policy_generation_is_fresh_only_but_replay_survives_initializat
     )
     assert replayed_broker.allowed_documents
 
+    missing_receipt = tmp_path / "missing-ledger-initialization.json"
+    with pytest.raises(RecapFetchAttemptPolicyError, match="receipt is missing"):
+        verify_recap_fetch_attempt_policy(
+            attempt,
+            **replay_kwargs,
+            purchase_ledger_initialization_receipt_path=missing_receipt,
+        )
+    with pytest.raises(RecapFetchBrokerPolicyError, match="receipt is missing"):
+        verify_recap_fetch_broker_policy(
+            broker,
+            **replay_kwargs,
+            attempt_policy_artifact=attempt,
+            purchase_ledger_initialization_receipt_path=missing_receipt,
+        )
+
+    unrelated_policy, _, unrelated_receipt, _ = _initialized_v2_ledger(
+        tmp_path / "unrelated-policy"
+    )
+    assert unrelated_policy.policy_sha256 != policy.policy_sha256
+    with pytest.raises(RecapFetchAttemptPolicyError, match="not descended from policy"):
+        verify_recap_fetch_attempt_policy(
+            attempt,
+            **replay_kwargs,
+            purchase_ledger_initialization_receipt_path=unrelated_receipt,
+        )
+    with pytest.raises(RecapFetchBrokerPolicyError, match="not descended from policy"):
+        verify_recap_fetch_broker_policy(
+            broker,
+            **replay_kwargs,
+            attempt_policy_artifact=attempt,
+            purchase_ledger_initialization_receipt_path=unrelated_receipt,
+        )
+
     forged = deepcopy(attempt)
     forged["policy"]["planned_reserved_usd"] = "0.00"
     forged["policy_sha256"] = _canonical_sha(forged["policy"])
