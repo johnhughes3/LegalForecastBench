@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,14 @@ from legalforecast.ingestion.clearance_replacement import (
     bind_replacement_selection_outputs,
     build_replacement_frontier,
     plan_clearance_replacements,
+)
+from legalforecast.ingestion.missing_core_budget import (
+    CaseMissingCorePurchasePlan,
+    MissingCoreBudgetPlan,
+)
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    bind_ranked_reserve_outputs,
+    plan_ranked_reserve_replacements,
 )
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     UNKNOWN_STATUS_EVIDENCE,
@@ -47,6 +56,19 @@ from tests.purchase_approval_fixtures import (
     build_completed_projection_fixture,
 )
 from tests.test_clearance_replacement_loop import _clearance, _confirm_candidate
+from tests.test_ranked_reserve_replacement import (
+    _canonical_json as _ranked_canonical_json,
+)
+from tests.test_ranked_reserve_replacement import (
+    _canonical_sha as _ranked_canonical_sha,
+)
+from tests.test_ranked_reserve_replacement import _jsonl as _ranked_jsonl
+from tests.test_ranked_reserve_replacement import _omission as _ranked_omission
+from tests.test_ranked_reserve_replacement import _reserve as _ranked_reserve
+from tests.test_ranked_reserve_replacement import _selection as _ranked_selection
+from tests.test_ranked_reserve_replacement import (
+    _terminal_bytes as _ranked_terminal_bytes,
+)
 
 
 def _request() -> ReplacementPurchaseApprovalRequest:
@@ -88,8 +110,10 @@ def _ranked_authority_fixture(
     tmp_path: Path,
     *,
     monkeypatch: pytest.MonkeyPatch,
-    document_count: int = 1,
+    prior_unpaid_tranche: bool = False,
 ) -> dict[str, Any]:
+    """Build exact ranked planner, budget-producer, and output-binder artifacts."""
+
     projection = build_completed_projection_fixture(
         tmp_path / "ranked-projection",
         monkeypatch=monkeypatch,
@@ -113,11 +137,142 @@ def _ranked_authority_fixture(
         controlled_private_root=approved.controlled_private_root,
     )
     projection_sha256 = "sha256:" + "7" * 64
+    selected = tuple(_ranked_selection(index) for index in range(100))
+    reserves = tuple(_ranked_reserve(index) for index in range(100, 105))
+    source_pool = tuple(
+        {
+            **_ranked_selection(index),
+            "documents": (
+                [{"source_document_id": f"doc-{index:03d}"}] if index >= 100 else []
+            ),
+        }
+        for index in range(105)
+    )
+    original_exclusions = tuple(_ranked_omission(index) for index in range(100, 105))
+    selected_bytes = _ranked_jsonl(selected)
+    reserve_bytes = _ranked_jsonl(reserves)
+    source_pool_bytes = _ranked_jsonl(source_pool)
+    original_exclusions_bytes = _ranked_jsonl(original_exclusions)
+    ranked_projection: dict[str, object] = {
+        "schema_version": "legalforecast.target_cohort_projection.v1",
+        "projection_sha256": projection_sha256,
+        "resolved_pool_case_count": 105,
+        "post_clearance_case_count": 105,
+        "selected_case_count": 100,
+        "ranked_reserve_case_count": 5,
+        "selected_candidate_ids_sha256": _ranked_canonical_sha(
+            [row["candidate_id"] for row in selected]
+        ),
+        "ranked_reserve_candidate_ids_sha256": _ranked_canonical_sha(
+            [row["candidate_id"] for row in reserves]
+        ),
+        "ranked_reserve_sha256": _ranked_canonical_sha(reserves),
+        "output_commitments": {
+            "target-cohort-selection.jsonl": _sha256_uri(selected_bytes),
+            "target-cohort-ranked-reserve.jsonl": _sha256_uri(reserve_bytes),
+            "target-cohort-exclusions.jsonl": _sha256_uri(original_exclusions_bytes),
+        },
+        "input_commitments": {
+            "/frozen/public-packet-selection-reconciled.jsonl": _sha256_uri(
+                source_pool_bytes
+            )
+        },
+    }
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path,
+        policy=policy,
+        controlled_private_root=approved.controlled_private_root,
+        initialization_receipt_path=approved.initialization_receipt,
+    ) as journal:
+        terminal_bytes = _ranked_terminal_bytes("case-050")
+        ranked_plan = plan_ranked_reserve_replacements(
+            projection=ranked_projection,
+            selected_bytes=selected_bytes,
+            reserve_bytes=reserve_bytes,
+            source_pool_bytes=source_pool_bytes,
+            original_exclusions_bytes=original_exclusions_bytes,
+            terminal_exclusions_bytes=terminal_bytes,
+            expected_terminal_exclusions_sha256=_sha256_uri(terminal_bytes),
+            purchase_journal=journal,
+        )
+        if prior_unpaid_tranche:
+            terminal_bytes = _ranked_terminal_bytes("case-100")
+            ranked_plan = plan_ranked_reserve_replacements(
+                projection=ranked_projection,
+                selected_bytes=selected_bytes,
+                reserve_bytes=reserve_bytes,
+                source_pool_bytes=source_pool_bytes,
+                original_exclusions_bytes=original_exclusions_bytes,
+                terminal_exclusions_bytes=terminal_bytes,
+                expected_terminal_exclusions_sha256=_sha256_uri(terminal_bytes),
+                purchase_journal=journal,
+            )
+
+    budget_bytes = _ranked_canonical_json(ranked_plan.replacement_plan.to_record())
+    selection_bytes = _ranked_jsonl(ranked_plan.replacement_selection)
+    result = bind_ranked_reserve_outputs(
+        ranked_plan,
+        active_selection_bytes=_ranked_jsonl(ranked_plan.active_selection),
+        replacement_selection_bytes=selection_bytes,
+        successor_exclusions_bytes=_ranked_jsonl(ranked_plan.successor_exclusions),
+        replacement_budget_plan_bytes=budget_bytes,
+    )
+    budget_path = tmp_path / "ranked-budget.json"
+    selection_path = tmp_path / "ranked-selection.jsonl"
+    result_path = tmp_path / "ranked-result.json"
+    budget_path.write_bytes(budget_bytes)
+    selection_path.write_bytes(selection_bytes)
+    result_path.write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return {
+        "cohort_path": approved.cohort_policy,
+        "cohort_artifact": cohort_artifact,
+        "policy_path": approved.policy,
+        "policy_artifact": policy_artifact,
+        "initial_private_root": approved.controlled_private_root,
+        "ledger_path": policy.canonical_ledger_path,
+        "receipt_path": approved.initialization_receipt,
+        "budget_path": budget_path,
+        "selection_path": selection_path,
+        "result_path": result_path,
+        "projection_sha256": projection_sha256,
+        "policy": policy,
+        "ranked_plan": ranked_plan,
+    }
+
+
+def _over_cap_ranked_authority_fixture(
+    tmp_path: Path,
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+) -> dict[str, Any]:
+    """Build canonical budget bytes around a deliberately invalid durable event."""
+
+    projection = build_completed_projection_fixture(
+        tmp_path / "ranked-projection",
+        monkeypatch=monkeypatch,
+    )
+    approved = build_approved_purchase_fixture(
+        tmp_path / "ranked-initial-authority",
+        target_cohort_root=projection.root,
+    )
+    policy_artifact = json.loads(approved.policy.read_text(encoding="utf-8"))
+    policy = verify_case_dev_purchase_policy(policy_artifact)
+    cohort_artifact = json.loads(approved.cohort_policy.read_text(encoding="utf-8"))
+    initialize_case_dev_purchase_journal(
+        policy.canonical_ledger_path,
+        policy=policy,
+        receipt_path=approved.initialization_receipt,
+        purchase_policy_file_sha256=_sha256_uri(approved.policy.read_bytes()),
+        cohort_policy_file_sha256=_sha256_uri(approved.cohort_policy.read_bytes()),
+        initialized_at="2026-08-04T19:00:00Z",
+        controlled_private_root=approved.controlled_private_root,
+    )
+    projection_sha256 = "sha256:" + "7" * 64
     candidate_id = "ranked-reserve-candidate"
-    document_ids = [
-        f"ranked-reserve-document-{index}" for index in range(document_count)
-    ]
-    cost = policy.per_document_reservation_usd * document_count
+    document_ids = [f"ranked-reserve-document-{index}" for index in range(25)]
+    cost = policy.per_document_reservation_usd * len(document_ids)
     with CaseDevPurchaseJournal(
         policy.canonical_ledger_path,
         policy=policy,
@@ -125,7 +280,7 @@ def _ranked_authority_fixture(
         initialization_receipt_path=approved.initialization_receipt,
     ) as journal:
         event = journal.append_replacement_event(
-            "ranked-reserve-test-event",
+            "ranked-reserve-over-cap-test-event",
             {
                 "schema_version": "legalforecast.ranked_reserve_replacement_event.v1",
                 "projection_sha256": projection_sha256,
@@ -143,31 +298,26 @@ def _ranked_authority_fixture(
             },
         )
         journal_state_sha256 = "sha256:" + journal.purchase_state_sha256()
-        committed_spend_usd = journal.committed_amount_usd
-    event_hash = str(event["record_sha256"])
-    budget = {
-        "case_plans": [
-            {
-                "audit_only_document_count": 0,
-                "candidate_id": candidate_id,
-                "dry_run": False,
-                "estimated_cost_usd": f"{cost:.2f}",
-                "exclusion_reasons": [],
-                "missing_core_document_count": document_count,
-                "missing_core_roles": ["motion"],
-                "purchase_document_ids": document_ids,
-            }
-        ],
-        "dry_run": False,
-        "excluded_case_count": 0,
-        "hard_cap_usd": f"{policy.hard_cap_usd:.2f}",
-        "selected_case_count": 1,
-        "total_estimated_cost_usd": f"{cost:.2f}",
-    }
+        committed = Decimal(journal.committed_amount_usd)
+    case_plan = CaseMissingCorePurchasePlan(
+        candidate_id=candidate_id,
+        purchase_document_ids=tuple(document_ids),
+        missing_core_document_count=len(document_ids),
+        estimated_cost=cost,
+        audit_only_document_count=0,
+        dry_run=False,
+        missing_core_roles=("motion",),
+    )
+    budget = MissingCoreBudgetPlan(
+        case_plans=(case_plan,),
+        cost_per_document=policy.per_document_reservation_usd,
+        max_projected_budget=policy.hard_cap_usd - committed,
+        max_missing_core_documents_per_case=len(document_ids),
+        dry_run=False,
+        target_case_count=1,
+    ).to_record()
     selection = {
         "candidate_id": candidate_id,
-        "selected": True,
-        "exclusion_reasons": [],
         "documents": [
             {"source_document_id": document_id} for document_id in document_ids
         ],
@@ -175,14 +325,10 @@ def _ranked_authority_fixture(
     budget_path = tmp_path / "ranked-budget.json"
     selection_path = tmp_path / "ranked-selection.jsonl"
     result_path = tmp_path / "ranked-result.json"
-    budget_path.write_text(
-        json.dumps(budget, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    selection_path.write_text(
-        json.dumps(selection, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    budget_path.write_bytes(_ranked_canonical_json(budget))
+    selection_path.write_bytes(_ranked_jsonl((selection,)))
+    event_hash = str(event["record_sha256"])
     reserved = cost
-    committed = policy.hard_cap_usd.__class__(committed_spend_usd)
     result = {
         "schema_version": "legalforecast.ranked_reserve_replacement_result.v1",
         "projection_sha256": projection_sha256,
@@ -192,16 +338,14 @@ def _ranked_authority_fixture(
         "hard_cap_usd": f"{policy.hard_cap_usd:.2f}",
         "terminal_exclusions_sha256": "sha256:" + "6" * 64,
         "active_selection_sha256": "sha256:" + "1" * 64,
-        "replacement_selection_sha256": "sha256:"
-        + hashlib.sha256(selection_path.read_bytes()).hexdigest(),
+        "replacement_selection_sha256": _sha256_uri(selection_path.read_bytes()),
         "successor_exclusions_sha256": "sha256:" + "2" * 64,
-        "replacement_budget_plan_sha256": "sha256:"
-        + hashlib.sha256(budget_path.read_bytes()).hexdigest(),
+        "replacement_budget_plan_sha256": _sha256_uri(budget_path.read_bytes()),
         "active_case_count": 100,
         "replacement_case_count": 1,
         "committed_spend_usd": f"{committed:.2f}",
         "reserved_replacement_spend_usd": f"{reserved:.2f}",
-        "remaining_headroom_usd": f"{policy.hard_cap_usd - committed - reserved:.2f}",
+        "remaining_headroom_usd": (f"{policy.hard_cap_usd - committed - reserved:.2f}"),
         "successor_approval_required": True,
         "replacement_event_record_sha256s": [event_hash],
         "tranche_event_record_sha256s": [event_hash],
@@ -228,6 +372,10 @@ def _ranked_authority_fixture(
         "result_path": result_path,
         "projection_sha256": projection_sha256,
     }
+
+
+def _sha256_uri(payload: bytes) -> str:
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 def _build_ranked_request(
@@ -455,6 +603,36 @@ def test_explicit_clearance_source_uses_closed_v2_request_schema() -> None:
     assert record["source_authority_sha256"] == "sha256:" + "4" * 64
 
 
+@pytest.mark.parametrize(
+    ("source_authority_kind", "source_authority_sha256", "expected"),
+    (
+        (
+            "ranked_reserve_projection",
+            None,
+            "source authority requires a SHA-256",
+        ),
+        (
+            None,
+            "sha256:" + "4" * 64,
+            "legacy authority cannot be mixed with a v2 source commitment",
+        ),
+    ),
+)
+def test_request_hash_rejects_incomplete_source_authority(
+    source_authority_kind: str | None,
+    source_authority_sha256: str | None,
+    expected: str,
+) -> None:
+    request = replace(
+        _request(),
+        source_authority_kind=source_authority_kind,
+        source_authority_sha256=source_authority_sha256,
+    )
+
+    with pytest.raises(ReplacementPurchaseApprovalError, match=expected):
+        _ = request.request_sha256
+
+
 def test_v1_replacement_evidence_remains_byte_compatible(tmp_path: Path) -> None:
     request = _request()
     assert request.request_sha256 == (
@@ -551,6 +729,10 @@ def test_ranked_v2_authority_records_replays_and_verifies_exact_source(
     )
     authority = generate_replacement_purchase_authority(verified)
 
+    assert (
+        json.loads(fixture["budget_path"].read_bytes())
+        == fixture["ranked_plan"].replacement_plan.to_record()
+    )
     assert request.source_authority_kind == "ranked_reserve_projection"
     assert request.source_authority_sha256 == fixture["projection_sha256"]
     assert "frontier_sha256" not in request.to_record()
@@ -637,15 +819,52 @@ def test_ranked_v2_builder_rejects_per_case_cap_overrun(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fixture = _ranked_authority_fixture(
+    fixture = _over_cap_ranked_authority_fixture(
         tmp_path,
         monkeypatch=monkeypatch,
-        document_count=25,
     )
 
     with pytest.raises(
         ReplacementPurchaseApprovalError,
         match="exceeds per-case headroom",
+    ):
+        _build_ranked_request(fixture)
+
+
+def test_ranked_v2_builder_rejects_understated_prior_unpaid_reservations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _ranked_authority_fixture(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        prior_unpaid_tranche=True,
+    )
+    canonical_request = _build_ranked_request(fixture)
+    budget = json.loads(fixture["budget_path"].read_text(encoding="utf-8"))
+    assert (
+        canonical_request.remaining_headroom_before_usd
+        == budget["max_projected_budget_usd"]
+    )
+    result = json.loads(fixture["result_path"].read_text(encoding="utf-8"))
+    assert (
+        canonical_request.remaining_headroom_after_usd
+        == result["remaining_headroom_usd"]
+    )
+    current_cost = fixture["ranked_plan"].replacement_plan.total_estimated_cost
+    committed = Decimal(result["committed_spend_usd"])
+    assert Decimal(result["reserved_replacement_spend_usd"]) > current_cost
+    result["reserved_replacement_spend_usd"] = f"{current_cost:.2f}"
+    result["remaining_headroom_usd"] = (
+        f"{fixture['policy'].hard_cap_usd - committed - current_cost:.2f}"
+    )
+    fixture["result_path"].write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="reserved spend differs from the canonical journal",
     ):
         _build_ranked_request(fixture)
 

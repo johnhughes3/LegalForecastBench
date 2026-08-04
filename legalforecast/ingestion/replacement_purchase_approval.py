@@ -33,6 +33,12 @@ from legalforecast.ingestion.clearance_replacement import (
 )
 from legalforecast.ingestion.cohort_policy import CohortPolicyError
 from legalforecast.ingestion.disclosure_review_bundle import read_unique_regular_file
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    REPLACEMENT_EVENT_SCHEMA_VERSION as _RANKED_RESERVE_EVENT_SCHEMA,
+)
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    RESULT_SCHEMA_VERSION as _RANKED_RESERVE_RESULT_SCHEMA,
+)
 
 REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA = (
     "legalforecast.replacement_purchase_approval_checkpoint.v1"
@@ -49,9 +55,37 @@ REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA_V2 = (
 )
 REPLACEMENT_APPROVAL_SCHEMA_V2 = "legalforecast.replacement_purchase_approval.v2"
 
-_RANKED_RESERVE_RESULT_SCHEMA = "legalforecast.ranked_reserve_replacement_result.v1"
-_RANKED_RESERVE_EVENT_SCHEMA = "legalforecast.ranked_reserve_replacement_event.v1"
 _SOURCE_AUTHORITY_KINDS = frozenset({"clearance_frontier", "ranked_reserve_projection"})
+_RANKED_RESERVE_BUDGET_FIELDS = frozenset(
+    {
+        "dry_run",
+        "cost_per_document_usd",
+        "max_projected_budget_usd",
+        "max_missing_core_documents_per_case",
+        "total_missing_core_documents",
+        "total_estimated_cost_usd",
+        "frontier_truncated",
+        "omitted_candidate_ids",
+        "frontier_rows",
+        "case_plans",
+        "excluded_case_plans",
+        "target_case_count",
+        "target_case_count_met",
+    }
+)
+_RANKED_RESERVE_CASE_PLAN_FIELDS = frozenset(
+    {
+        "candidate_id",
+        "purchase_document_ids",
+        "missing_core_document_count",
+        "estimated_purchase_count",
+        "missing_core_roles",
+        "estimated_cost_usd",
+        "audit_only_document_count",
+        "dry_run",
+        "exclusion_reasons",
+    }
+)
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
@@ -97,6 +131,29 @@ class ReplacementPurchaseApprovalRequest:
     def to_record(self) -> dict[str, object]:
         """Return canonical request bytes committed by the private checkpoint."""
 
+        if self.source_authority_kind is None:
+            if self.source_authority_sha256 is not None:
+                raise ReplacementPurchaseApprovalError(
+                    "legacy authority cannot be mixed with a v2 source commitment"
+                )
+            authority_kind: str | None = None
+            authority_sha256: str | None = None
+        else:
+            authority_kind = _source_authority_kind(self.source_authority_kind)
+            if self.source_authority_sha256 is None:
+                raise ReplacementPurchaseApprovalError(
+                    "replacement source authority requires a SHA-256"
+                )
+            authority_sha256 = _sha(
+                self.source_authority_sha256, "source_authority_sha256"
+            )
+            if (
+                authority_sha256 != self.source_authority_sha256
+                or authority_sha256 != self.frontier_sha256
+            ):
+                raise ReplacementPurchaseApprovalError(
+                    "replacement source authority SHA-256 is not canonical"
+                )
         record: dict[str, object] = {
             "cycle_id": self.cycle_id,
             "cohort_policy_sha256": self.cohort_policy_sha256,
@@ -142,11 +199,11 @@ class ReplacementPurchaseApprovalRequest:
             "session_scope": self.session_scope,
             "fallback": self.fallback,
         }
-        if self.source_authority_kind is None:
+        if authority_kind is None:
             record["frontier_sha256"] = self.frontier_sha256
         else:
-            record["source_authority_kind"] = self.source_authority_kind
-            record["source_authority_sha256"] = self.source_authority_sha256
+            record["source_authority_kind"] = authority_kind
+            record["source_authority_sha256"] = authority_sha256
         return record
 
     @property
@@ -623,6 +680,9 @@ def _build_ranked_reserve_purchase_approval_request(
                 ): event
                 for event in events
             }
+            # The producer rejects every incompatible or cross-projection event
+            # before planning. Preserve that Cycle-journal invariant here; the
+            # exact successor tranche is scoped separately by its committed hashes.
             if len(event_by_hash) != len(events) or any(
                 event.get("schema_version") != _RANKED_RESERVE_EVENT_SCHEMA
                 or event.get("projection_sha256") != source_sha256
@@ -669,8 +729,44 @@ def _build_ranked_reserve_purchase_approval_request(
     existing_documents = {
         cast(str, operation["source_document_id"]) for operation in operations
     }
+    operation_by_document = {
+        cast(str, operation["source_document_id"]): operation
+        for operation in operations
+    }
+    canonical_reserved = Decimal("0.00")
+    for event in events:
+        event_documents = _unique_texts(
+            _sequence(
+                event.get("purchase_document_ids"),
+                "ranked event purchase document IDs",
+            ),
+            "ranked event purchase document IDs",
+        )
+        event_cost = _usd(
+            event.get("estimated_cost_usd"), "ranked event estimated cost"
+        )
+        if (
+            event_cost != policy.per_document_reservation_usd * len(event_documents)
+            or event.get("paid_activity_requested") is not False
+            or event.get("paid_activity_executed") is not False
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement journal differs from canonical reservation costs"
+            )
+        canonical_reserved += sum(
+            (
+                policy.per_document_reservation_usd
+                for document_id in event_documents
+                if (
+                    (operation := operation_by_document.get(document_id)) is None
+                    or not _operation_commits_spend(operation)
+                )
+            ),
+            Decimal("0.00"),
+        )
     candidate_ids: list[str] = []
     document_ids: list[str] = []
+    document_counts: list[int] = []
     total_cost = Decimal("0.00")
     if len(case_plans) != len(tranche_events):
         raise ReplacementPurchaseApprovalError(
@@ -678,10 +774,18 @@ def _build_ranked_reserve_purchase_approval_request(
         )
     for raw_plan, event in zip(case_plans, tranche_events, strict=True):
         plan = _mapping(raw_plan, "replacement case plan")
+        if frozenset(plan) != _RANKED_RESERVE_CASE_PLAN_FIELDS:
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement case plan fields differ from the canonical producer"
+            )
         candidate_id = _text(plan.get("candidate_id"), "replacement candidate_id")
         documents = _unique_texts(
             _sequence(plan.get("purchase_document_ids"), "purchase document IDs"),
             "purchase document IDs",
+        )
+        _unique_texts(
+            _sequence(plan.get("missing_core_roles"), "missing core roles"),
+            "missing core roles",
         )
         estimated = _usd(plan.get("estimated_cost_usd"), "replacement cost")
         expected = policy.per_document_reservation_usd * len(documents)
@@ -701,6 +805,8 @@ def _build_ranked_reserve_purchase_approval_request(
             plan.get("dry_run") is not False
             or plan.get("exclusion_reasons") != []
             or plan.get("missing_core_document_count") != len(documents)
+            or plan.get("estimated_purchase_count") != len(documents)
+            or plan.get("audit_only_document_count") != 0
             or estimated != expected
             or any(document_id in existing_documents for document_id in documents)
         ):
@@ -709,6 +815,7 @@ def _build_ranked_reserve_purchase_approval_request(
             )
         candidate_ids.append(candidate_id)
         document_ids.extend(documents)
+        document_counts.append(len(documents))
         total_cost += estimated
     if len(candidate_ids) != len(set(candidate_ids)) or len(document_ids) != len(
         set(document_ids)
@@ -717,29 +824,49 @@ def _build_ranked_reserve_purchase_approval_request(
             "ranked replacement event coverage or tranche identity differs"
         )
     if (
-        budget.get("selected_case_count") != len(case_plans)
-        or budget.get("excluded_case_count") != 0
+        frozenset(budget) != _RANKED_RESERVE_BUDGET_FIELDS
+        or budget.get("dry_run") is not False
+        or budget.get("cost_per_document_usd")
+        != _money(policy.per_document_reservation_usd)
+        or budget.get("max_missing_core_documents_per_case") != max(document_counts)
+        or budget.get("total_missing_core_documents") != len(document_ids)
         or budget.get("total_estimated_cost_usd") != _money(total_cost)
+        or budget.get("frontier_truncated") is not False
+        or budget.get("omitted_candidate_ids") != []
+        or budget.get("frontier_rows") != []
+        or budget.get("excluded_case_plans") != []
+        or budget.get("target_case_count") != len(case_plans)
+        or budget.get("target_case_count_met") is not True
     ):
         raise ReplacementPurchaseApprovalError(
             "ranked replacement budget totals differ from the exact tranche"
         )
     hard_cap = policy.hard_cap_usd
-    headroom_before = hard_cap - committed
-    budget_cap = _usd(budget.get("hard_cap_usd"), "replacement budget hard cap")
-    reserved = _usd(
+    prior_reserved = canonical_reserved - total_cost
+    if prior_reserved < 0:
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement journal omits the exact tranche reservation"
+        )
+    headroom_before = hard_cap - committed - prior_reserved
+    budget_cap = _usd(
+        budget.get("max_projected_budget_usd"),
+        "replacement maximum projected budget",
+    )
+    reported_reserved = _usd(
         result.get("reserved_replacement_spend_usd"),
         "ranked reserved replacement spend",
     )
+    if reported_reserved != canonical_reserved:
+        raise ReplacementPurchaseApprovalError(
+            "ranked reserved spend differs from the canonical journal"
+        )
     if (
         headroom_before < 0
         or total_cost > headroom_before
-        or budget_cap < total_cost
-        or budget_cap > headroom_before
-        or reserved < total_cost
+        or budget_cap != headroom_before
         or result.get("committed_spend_usd") != _money(committed)
         or result.get("remaining_headroom_usd")
-        != _money(hard_cap - committed - reserved)
+        != _money(hard_cap - committed - canonical_reserved)
     ):
         raise ReplacementPurchaseApprovalError(
             "ranked replacement tranche exceeds or differs from Cycle headroom"
@@ -1632,6 +1759,21 @@ def _selection_candidate_ids(selection_bytes: bytes) -> tuple[str, ...]:
             "candidate_id",
         )
         for row in rows
+    )
+
+
+def _operation_commits_spend(operation: Mapping[str, object]) -> bool:
+    """Mirror the ranked planner's canonical committed-spend treatment."""
+
+    status = operation.get("status")
+    return (
+        status == "confirmed"
+        or status in {"submitted", "queued", "unknown"}
+        or (
+            status == "failed"
+            and operation.get("response") is not None
+            and operation.get("reconciliation") is None
+        )
     )
 
 
