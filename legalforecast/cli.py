@@ -563,6 +563,11 @@ from legalforecast.ingestion.purchased_document_recovery import (
     purchased_document_recovery_requests_from_records,
     recover_purchased_documents,
 )
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    RankedReserveReplacementError,
+    bind_ranked_reserve_outputs,
+    plan_ranked_reserve_replacements,
+)
 from legalforecast.ingestion.readiness_provenance import (
     ReadinessProvenanceError,
     verify_stage_a_readiness_provenance,
@@ -1726,6 +1731,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_plan_clearance_replacements_arguments(acquisition_plan_clearance_replacements)
+    acquisition_plan_ranked_reserve_replacements = acquisition_subparsers.add_parser(
+        "plan-ranked-reserve-replacements",
+        help=(
+            "Consume explicit terminal downstream exclusions from one "
+            "authenticated frozen ranked reserve without provider or paid activity."
+        ),
+    )
+    _add_plan_ranked_reserve_replacements_arguments(
+        acquisition_plan_ranked_reserve_replacements
+    )
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
         "accumulate-replacement-clearance",
         help=(
@@ -5414,6 +5429,51 @@ def _add_accumulate_replacement_clearance_arguments(
     )
     parser.add_argument("--execute", action="store_true")
     parser.set_defaults(handler=_cmd_accumulate_replacement_clearance)
+
+
+def _add_plan_ranked_reserve_replacements_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--target-cohort-root",
+        type=Path,
+        required=True,
+        help=(
+            "Completed frozen target-cohort root. The full projection verifier is "
+            "replayed before reserve planning."
+        ),
+    )
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--controlled-private-root", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt", type=Path, required=True
+    )
+    parser.add_argument(
+        "--terminal-exclusions",
+        type=Path,
+        required=True,
+        help=(
+            "Closed-schema JSONL terminal/nonretryable downstream exclusions. "
+            "Retryable and human-pending records are rejected."
+        ),
+    )
+    parser.add_argument(
+        "--terminal-exclusions-sha256-file",
+        type=Path,
+        required=True,
+        help=(
+            "Singly linked regular file containing the externally pinned "
+            "sha256: digest of --terminal-exclusions and one newline."
+        ),
+    )
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--active-selection-output", type=Path, required=True)
+    parser.add_argument("--replacement-selection-output", type=Path, required=True)
+    parser.add_argument("--successor-exclusions-output", type=Path, required=True)
+    parser.add_argument("--replacement-budget-plan-output", type=Path, required=True)
+    parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
+    parser.set_defaults(handler=_cmd_plan_ranked_reserve_replacements)
 
 
 def _add_build_replacement_exclusions_arguments(
@@ -22715,6 +22775,180 @@ def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
                     result.broker_allowlist_plan.case_plans
                 ),
                 "stop_reason": result.stop_reason,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
+    target_root = cast(Path, args.target_cohort_root)
+    terminal_path = cast(Path, args.terminal_exclusions)
+    terminal_digest_path = cast(Path, args.terminal_exclusions_sha256_file)
+    policy_path = cast(Path, args.purchase_policy)
+    output = cast(Path, args.output)
+    active_output = cast(Path, args.active_selection_output)
+    replacement_output = cast(Path, args.replacement_selection_output)
+    exclusions_output = cast(Path, args.successor_exclusions_output)
+    budget_output = cast(Path, args.replacement_budget_plan_output)
+    try:
+        writable_paths = (
+            output,
+            active_output,
+            replacement_output,
+            exclusions_output,
+            budget_output,
+        )
+        protected_roots = (
+            target_root.resolve(strict=False),
+            cast(Path, args.controlled_private_root).resolve(strict=False),
+        )
+        protected_files = {
+            terminal_path.resolve(strict=False),
+            terminal_digest_path.resolve(strict=False),
+            policy_path.resolve(strict=False),
+            cast(Path, args.purchase_ledger).resolve(strict=False),
+            cast(Path, args.purchase_ledger_initialization_receipt).resolve(
+                strict=False
+            ),
+        }
+        for writable_path in writable_paths:
+            resolved = writable_path.resolve(strict=False)
+            if resolved in protected_files or any(
+                resolved == root or resolved.is_relative_to(root)
+                for root in protected_roots
+            ):
+                raise RankedReserveReplacementError(
+                    "ranked-reserve continuation output overlaps protected evidence"
+                )
+        if len({path.resolve(strict=False) for path in writable_paths}) != len(
+            writable_paths
+        ):
+            raise RankedReserveReplacementError(
+                "ranked-reserve continuation outputs must be distinct"
+            )
+        for writable_path in writable_paths:
+            prepare_non_symlink_directory(writable_path.parent)
+        verified = verify_completed_target_cohort_projection_for_purchase_approval(
+            target_root
+        )
+        summary = _mapping(verified.get("summary"), "target projection summary")
+        verified_bytes = cast(
+            Mapping[str, bytes],
+            _mapping(
+                verified.get("verified_artifact_bytes"),
+                "verified target artifact bytes",
+            ),
+        )
+        summary_path = cast(Path, verified["summary_path"])
+        selection_path = cast(Path, verified["selection_path"])
+        reserve_path = target_root / "target-cohort-ranked-reserve.jsonl"
+        original_exclusions_path = target_root / "target-cohort-exclusions.jsonl"
+        source_commitments = _mapping(
+            summary.get("input_commitments"), "target projection input commitments"
+        )
+        source_paths = [
+            Path(str(path))
+            for path in source_commitments
+            if str(path).endswith("/public-packet-selection-reconciled.jsonl")
+        ]
+        if len(source_paths) != 1:
+            raise RankedReserveReplacementError(
+                "target projection lacks one frozen source-pool commitment"
+            )
+
+        def authenticated_bytes(path: Path) -> bytes:
+            try:
+                return verified_bytes[os.path.abspath(path)]
+            except KeyError as exc:
+                raise RankedReserveReplacementError(
+                    f"full projection replay did not authenticate {path}"
+                ) from exc
+
+        # Explicitly require the summary itself to be part of the full replayed
+        # artifact set before trusting its semantic commitments below.
+        authenticated_bytes(summary_path)
+        selected_bytes = authenticated_bytes(selection_path)
+        reserve_bytes = authenticated_bytes(reserve_path)
+        original_exclusions_bytes = authenticated_bytes(original_exclusions_path)
+        source_pool_bytes = authenticated_bytes(source_paths[0])
+        terminal_bytes = read_unique_regular_file(terminal_path)
+        terminal_digest_bytes = read_unique_regular_file(terminal_digest_path)
+        try:
+            terminal_digest = terminal_digest_bytes.decode("ascii").removesuffix("\n")
+        except UnicodeDecodeError as exc:
+            raise RankedReserveReplacementError(
+                "terminal exclusion digest file must contain ASCII"
+            ) from exc
+        if terminal_digest_bytes != f"{terminal_digest}\n".encode("ascii"):
+            raise RankedReserveReplacementError(
+                "terminal exclusion digest file must have one terminal newline"
+            )
+        purchase_policy = verify_case_dev_purchase_policy(
+            _projection_json_object(
+                read_unique_regular_file(policy_path), source=policy_path
+            )
+        )
+        require_approved_case_dev_purchase_policy(
+            purchase_policy,
+            controlled_private_root=cast(Path, args.controlled_private_root),
+        )
+        with CaseDevPurchaseJournal(
+            cast(Path, args.purchase_ledger).resolve(),
+            policy=purchase_policy,
+            controlled_private_root=cast(Path, args.controlled_private_root),
+            initialization_receipt_path=cast(
+                Path, args.purchase_ledger_initialization_receipt
+            ),
+        ) as journal:
+            plan = plan_ranked_reserve_replacements(
+                projection=summary,
+                selected_bytes=selected_bytes,
+                reserve_bytes=reserve_bytes,
+                source_pool_bytes=source_pool_bytes,
+                original_exclusions_bytes=original_exclusions_bytes,
+                terminal_exclusions_bytes=terminal_bytes,
+                expected_terminal_exclusions_sha256=terminal_digest,
+                purchase_journal=journal,
+            )
+        active_bytes = _projection_jsonl_bytes(plan.active_selection)
+        replacement_bytes = _projection_jsonl_bytes(plan.replacement_selection)
+        exclusions_bytes = _projection_jsonl_bytes(plan.successor_exclusions)
+        budget_bytes = _projection_json_bytes(plan.replacement_plan.to_record())
+        result = bind_ranked_reserve_outputs(
+            plan,
+            active_selection_bytes=active_bytes,
+            replacement_selection_bytes=replacement_bytes,
+            successor_exclusions_bytes=exclusions_bytes,
+            replacement_budget_plan_bytes=budget_bytes,
+        )
+        resume = cast(bool, args.resume)
+        _write_immutable_bytes(active_output, active_bytes, resume=resume)
+        _write_immutable_bytes(replacement_output, replacement_bytes, resume=resume)
+        _write_immutable_bytes(exclusions_output, exclusions_bytes, resume=resume)
+        _write_immutable_bytes(budget_output, budget_bytes, resume=resume)
+        _write_immutable_bytes(output, _projection_json_bytes(result), resume=resume)
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        CommandError,
+        OSError,
+        RankedReserveReplacementError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "output": str(output),
+                "active_candidate_count": len(plan.active_selection),
+                "replacement_candidate_count": len(plan.replacement_selection),
+                "successor_approval_required": plan.successor_approval_required,
+                "provider_activity_requested": False,
                 "paid_activity_requested": False,
                 "paid_activity_executed": False,
             },

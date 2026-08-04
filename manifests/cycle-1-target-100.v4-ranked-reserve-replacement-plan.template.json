@@ -1,0 +1,52 @@
+{
+  "schema_version": "legalforecast.ranked_reserve_replacement_plan_template.v1",
+  "cycle_id": "cycle-1-target-100-2026-07-25-v4-ranked-reserve-continuation",
+  "eligibility_anchor": "2026-06-30",
+  "variables": [
+    "CONTINUATION_ROOT",
+    "FROZEN_V4_ROOT",
+    "INITIAL_PRIVATE_ROOT",
+    "PURCHASE_AUTHORITY_ROOT",
+    "TERMINAL_EVIDENCE_ROOT"
+  ],
+  "command": {
+    "name": "plan-ranked-reserve-replacements",
+    "boundary": "provider_free",
+    "arguments": [
+      "--target-cohort-root",
+      "${FROZEN_V4_ROOT}",
+      "--purchase-policy",
+      "${PURCHASE_AUTHORITY_ROOT}/purchase-policy-v2.json",
+      "--controlled-private-root",
+      "${INITIAL_PRIVATE_ROOT}",
+      "--purchase-ledger",
+      "${PURCHASE_AUTHORITY_ROOT}/cycle-1-target100-recap-fetch-purchase-ledger.sqlite3",
+      "--purchase-ledger-initialization-receipt",
+      "${PURCHASE_AUTHORITY_ROOT}/purchase-ledger-initialization.json",
+      "--terminal-exclusions",
+      "${TERMINAL_EVIDENCE_ROOT}/terminal-candidate-exclusions.jsonl",
+      "--terminal-exclusions-sha256-file",
+      "${TERMINAL_EVIDENCE_ROOT}/terminal-candidate-exclusions.sha256",
+      "--output",
+      "${CONTINUATION_ROOT}/replacement-result.json",
+      "--active-selection-output",
+      "${CONTINUATION_ROOT}/active-selection.jsonl",
+      "--replacement-selection-output",
+      "${CONTINUATION_ROOT}/replacement-selection.jsonl",
+      "--successor-exclusions-output",
+      "${CONTINUATION_ROOT}/successor-exclusions.jsonl",
+      "--replacement-budget-plan-output",
+      "${CONTINUATION_ROOT}/replacement-budget-plan.json",
+      "--resume"
+    ]
+  },
+  "authority": {
+    "provider_activity_requested": false,
+    "paid_activity_requested": false,
+    "paid_activity_executed": false,
+    "evaluation_authorized": false,
+    "freeze_authorized": false,
+    "dispatch_authorized": false,
+    "paid_replacement_requires_separate_successor_approval": true
+  }
+}
