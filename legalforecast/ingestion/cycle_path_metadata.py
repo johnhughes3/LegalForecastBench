@@ -287,11 +287,24 @@ def _publish_exact(output: Path, payload: bytes) -> None:
                 expected_size=len(payload),
                 directory_fd=parent_fd,
                 output_name=output.name,
+                allow_incomplete_single_link=True,
             )
+            if stage_metadata.st_size < len(payload):
+                os.ftruncate(stage_fd, 0)
+                _write_all(stage_fd, payload)
+                os.fsync(stage_fd)
+                stage_metadata = _require_recoverable_stage(
+                    stage_fd,
+                    stage_name,
+                    expected_size=len(payload),
+                    directory_fd=parent_fd,
+                    output_name=output.name,
+                )
             if _read_fd(stage_fd, stage_name) != payload:
                 raise CyclePathMetadataError(
                     "existing metadata staging file differs"
                 ) from None
+            os.fsync(stage_fd)
         else:
             stage_metadata = _require_recoverable_stage(
                 stage_fd,
@@ -399,12 +412,19 @@ def _require_recoverable_stage(
     expected_size: int,
     directory_fd: int,
     output_name: str,
+    allow_incomplete_single_link: bool = False,
 ) -> os.stat_result:
     metadata = os.fstat(descriptor)
-    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size != expected_size:
+    if not stat.S_ISREG(metadata.st_mode):
         raise CyclePathMetadataError(f"{label} must be a recoverable regular file")
     if metadata.st_nlink == 1:
-        return metadata
+        if metadata.st_size == expected_size or (
+            allow_incomplete_single_link and metadata.st_size < expected_size
+        ):
+            return metadata
+        raise CyclePathMetadataError(f"{label} must be a recoverable regular file")
+    if metadata.st_size != expected_size:
+        raise CyclePathMetadataError(f"{label} must be a recoverable regular file")
     if metadata.st_nlink == 2:
         try:
             output_metadata = os.stat(

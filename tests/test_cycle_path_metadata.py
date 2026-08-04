@@ -207,6 +207,130 @@ def test_materialize_cycle_path_metadata_rejects_wrong_checkpoint_digest(
         )
 
 
+@pytest.mark.parametrize("stage_kind", ["empty", "truncated"])
+def test_materialize_cycle_path_metadata_recovers_incomplete_stage(
+    tmp_path: Path,
+    stage_kind: str,
+) -> None:
+    checkpoint, parser_root, parser_commit, private_root = _fixture(tmp_path)
+    output = private_root / "cycle-path-metadata.json"
+    checkpoint_sha256 = _checkpoint_sha256(checkpoint)
+    expected = materialize_cycle_path_metadata(
+        approval_checkpoint=checkpoint,
+        expected_approval_checkpoint_sha256=checkpoint_sha256,
+        parser_root=parser_root,
+        expected_parser_commit=parser_commit,
+        output=output,
+    )
+    payload = output.read_bytes()
+    output.unlink()
+    stage = private_root / (
+        f".{output.name}.{hashlib.sha256(payload).hexdigest()}.partial"
+    )
+    residue = b"" if stage_kind == "empty" else payload[: len(payload) // 2]
+    stage.write_bytes(residue)
+
+    assert (
+        materialize_cycle_path_metadata(
+            approval_checkpoint=checkpoint,
+            expected_approval_checkpoint_sha256=checkpoint_sha256,
+            parser_root=parser_root,
+            expected_parser_commit=parser_commit,
+            output=output,
+        )
+        == expected
+    )
+    assert output.read_bytes() == payload
+    assert not stage.exists()
+
+
+def test_materialize_cycle_path_metadata_syncs_recovered_stage_before_link(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkpoint, parser_root, parser_commit, private_root = _fixture(tmp_path)
+    output = private_root / "cycle-path-metadata.json"
+    checkpoint_sha256 = _checkpoint_sha256(checkpoint)
+    expected = materialize_cycle_path_metadata(
+        approval_checkpoint=checkpoint,
+        expected_approval_checkpoint_sha256=checkpoint_sha256,
+        parser_root=parser_root,
+        expected_parser_commit=parser_commit,
+        output=output,
+    )
+    payload = output.read_bytes()
+    output.unlink()
+    stage = private_root / (
+        f".{output.name}.{hashlib.sha256(payload).hexdigest()}.partial"
+    )
+    stage.write_bytes(payload)
+    stage_metadata = stage.stat()
+    stage_identity = (stage_metadata.st_dev, stage_metadata.st_ino)
+    real_fsync = os.fsync
+    real_link = os.link
+
+    def is_stage(descriptor: int) -> bool:
+        metadata = os.fstat(descriptor)
+        return (metadata.st_dev, metadata.st_ino) == stage_identity
+
+    def fail_stage_sync(descriptor: int) -> None:
+        if is_stage(descriptor):
+            raise OSError("simulated stage fsync failure")
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fail_stage_sync)
+    with pytest.raises(CyclePathMetadataError, match="simulated stage fsync failure"):
+        materialize_cycle_path_metadata(
+            approval_checkpoint=checkpoint,
+            expected_approval_checkpoint_sha256=checkpoint_sha256,
+            parser_root=parser_root,
+            expected_parser_commit=parser_commit,
+            output=output,
+        )
+    assert not output.exists()
+    assert stage.read_bytes() == payload
+
+    events: list[str] = []
+
+    def record_fsync(descriptor: int) -> None:
+        if is_stage(descriptor):
+            events.append("stage fsync")
+        real_fsync(descriptor)
+
+    def record_link(
+        source: str,
+        destination: str,
+        *,
+        src_dir_fd: int | None = None,
+        dst_dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ) -> None:
+        events.append("link")
+        real_link(
+            source,
+            destination,
+            src_dir_fd=src_dir_fd,
+            dst_dir_fd=dst_dir_fd,
+            follow_symlinks=follow_symlinks,
+        )
+
+    monkeypatch.setattr(os, "fsync", record_fsync)
+    monkeypatch.setattr(os, "link", record_link)
+    assert (
+        materialize_cycle_path_metadata(
+            approval_checkpoint=checkpoint,
+            expected_approval_checkpoint_sha256=checkpoint_sha256,
+            parser_root=parser_root,
+            expected_parser_commit=parser_commit,
+            output=output,
+        )
+        == expected
+    )
+    assert events.index("stage fsync") < events.index("link")
+    assert output.read_bytes() == payload
+    assert not stage.exists()
+
+
 def test_materialize_cycle_path_metadata_recovers_vanished_concurrent_stage(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
