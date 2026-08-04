@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
-import legalforecast.ingestion.cycle_path_metadata as cycle_path_metadata
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
@@ -221,12 +221,26 @@ def test_materialize_cycle_path_metadata_recovers_vanished_concurrent_stage(
         expected_parser_commit=parser_commit,
         output=output,
     )
+    payload = output.read_bytes()
+    stage = private_root / (
+        f".{output.name}.{hashlib.sha256(payload).hexdigest()}.partial"
+    )
+    stage.write_bytes(payload)
 
-    def vanished_stage(*args: object, **kwargs: object) -> None:
-        del args, kwargs
+    def peer_removes_stage(
+        source: str,
+        destination: str,
+        *,
+        src_dir_fd: int | None = None,
+        dst_dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ) -> None:
+        del destination, dst_dir_fd, follow_symlinks
+        assert source == stage.name
+        os.unlink(source, dir_fd=src_dir_fd)
         raise FileNotFoundError
 
-    monkeypatch.setattr(cycle_path_metadata.os, "link", vanished_stage)
+    monkeypatch.setattr(os, "link", peer_removes_stage)
     assert (
         materialize_cycle_path_metadata(
             approval_checkpoint=checkpoint,
@@ -237,3 +251,40 @@ def test_materialize_cycle_path_metadata_recovers_vanished_concurrent_stage(
         )
         == expected
     )
+    assert not stage.exists()
+
+
+def test_materialize_cycle_path_metadata_recovers_linked_stage_residue(
+    tmp_path: Path,
+) -> None:
+    checkpoint, parser_root, parser_commit, private_root = _fixture(tmp_path)
+    output = private_root / "cycle-path-metadata.json"
+    checkpoint_sha256 = _checkpoint_sha256(checkpoint)
+    expected = materialize_cycle_path_metadata(
+        approval_checkpoint=checkpoint,
+        expected_approval_checkpoint_sha256=checkpoint_sha256,
+        parser_root=parser_root,
+        expected_parser_commit=parser_commit,
+        output=output,
+    )
+    payload = output.read_bytes()
+    stage = private_root / (
+        f".{output.name}.{hashlib.sha256(payload).hexdigest()}.partial"
+    )
+    os.link(output, stage)
+
+    assert output.stat().st_ino == stage.stat().st_ino
+    assert output.stat().st_nlink == 2
+    assert (
+        materialize_cycle_path_metadata(
+            approval_checkpoint=checkpoint,
+            expected_approval_checkpoint_sha256=checkpoint_sha256,
+            parser_root=parser_root,
+            expected_parser_commit=parser_commit,
+            output=output,
+        )
+        == expected
+    )
+    assert not stage.exists()
+    assert output.read_bytes() == payload
+    assert output.stat().st_nlink == 1

@@ -281,11 +281,25 @@ def _publish_exact(output: Path, payload: bytes) -> None:
                 dir_fd=parent_fd,
             )
             fcntl.flock(stage_fd, fcntl.LOCK_EX)
+            stage_metadata = _require_recoverable_stage(
+                stage_fd,
+                stage_name,
+                expected_size=len(payload),
+                directory_fd=parent_fd,
+                output_name=output.name,
+            )
             if _read_fd(stage_fd, stage_name) != payload:
                 raise CyclePathMetadataError(
                     "existing metadata staging file differs"
                 ) from None
-        _require_unique_regular(stage_fd, stage_name)
+        else:
+            stage_metadata = _require_recoverable_stage(
+                stage_fd,
+                stage_name,
+                expected_size=len(payload),
+                directory_fd=parent_fd,
+                output_name=output.name,
+            )
         try:
             os.link(
                 stage_name,
@@ -295,14 +309,14 @@ def _publish_exact(output: Path, payload: bytes) -> None:
                 follow_symlinks=False,
             )
         except (FileExistsError, FileNotFoundError):
-            if _read_at(parent_fd, output.name) != payload:
+            if _read_at(parent_fd, output.name, linked_to=stage_metadata) != payload:
                 raise CyclePathMetadataError(
                     "cycle path metadata already exists with different content"
                 ) from None
         else:
-            if _read_at(parent_fd, output.name, allow_two_links=True) != payload:
+            if _read_at(parent_fd, output.name, linked_to=stage_metadata) != payload:
                 raise CyclePathMetadataError("published cycle path metadata differs")
-        os.unlink(stage_name, dir_fd=parent_fd)
+        _unlink_if_same_inode(parent_fd, stage_name, stage_metadata)
         os.fsync(parent_fd)
         if _read_at(parent_fd, output.name) != payload:
             raise CyclePathMetadataError("published cycle path metadata differs")
@@ -324,7 +338,12 @@ def _write_all(descriptor: int, payload: bytes) -> None:
         offset += written
 
 
-def _read_at(directory_fd: int, name: str, *, allow_two_links: bool = False) -> bytes:
+def _read_at(
+    directory_fd: int,
+    name: str,
+    *,
+    linked_to: os.stat_result | None = None,
+) -> bytes:
     descriptor = os.open(
         name,
         os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | os.O_NOFOLLOW,
@@ -332,10 +351,13 @@ def _read_at(directory_fd: int, name: str, *, allow_two_links: bool = False) -> 
     )
     try:
         metadata = os.fstat(descriptor)
-        expected_links = {1, 2} if allow_two_links else {1}
-        if (
-            not stat.S_ISREG(metadata.st_mode)
-            or metadata.st_nlink not in expected_links
+        recoverable_link = (
+            linked_to is not None
+            and metadata.st_nlink == 2
+            and _same_inode(metadata, linked_to)
+        )
+        if not stat.S_ISREG(metadata.st_mode) or (
+            metadata.st_nlink != 1 and not recoverable_link
         ):
             raise CyclePathMetadataError(
                 "cycle path metadata must be a unique regular file"
@@ -370,10 +392,57 @@ def _read_fd(descriptor: int, label: str) -> bytes:
     return payload
 
 
-def _require_unique_regular(descriptor: int, label: str) -> None:
+def _require_recoverable_stage(
+    descriptor: int,
+    label: str,
+    *,
+    expected_size: int,
+    directory_fd: int,
+    output_name: str,
+) -> os.stat_result:
     metadata = os.fstat(descriptor)
-    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-        raise CyclePathMetadataError(f"{label} must be a unique regular file")
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size != expected_size:
+        raise CyclePathMetadataError(f"{label} must be a recoverable regular file")
+    if metadata.st_nlink == 1:
+        return metadata
+    if metadata.st_nlink == 2:
+        try:
+            output_metadata = os.stat(
+                output_name,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileNotFoundError:
+            pass
+        else:
+            if _same_inode(metadata, output_metadata):
+                return metadata
+    raise CyclePathMetadataError(f"{label} must be a recoverable regular file")
+
+
+def _unlink_if_same_inode(
+    directory_fd: int,
+    name: str,
+    expected: os.stat_result,
+) -> None:
+    try:
+        current = os.stat(
+            name,
+            dir_fd=directory_fd,
+            follow_symlinks=False,
+        )
+    except FileNotFoundError:
+        return
+    if not _same_inode(current, expected):
+        return
+    try:
+        os.unlink(name, dir_fd=directory_fd)
+    except FileNotFoundError:
+        pass
+
+
+def _same_inode(left: os.stat_result, right: os.stat_result) -> bool:
+    return (left.st_dev, left.st_ino) == (right.st_dev, right.st_ino)
 
 
 __all__ = [
