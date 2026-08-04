@@ -11,6 +11,7 @@ from legalforecast.cli import main
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.cycle_path_metadata import (
     CyclePathMetadataError,
+    _read_fd,
     materialize_cycle_path_metadata,
 )
 
@@ -72,6 +73,36 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, Path]:
 
 def _checkpoint_sha256(checkpoint: Path) -> str:
     return hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+
+
+def test_read_fd_rejects_ctime_only_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.json"
+    source.write_bytes(b"{}\n")
+    descriptor = os.open(source, os.O_RDONLY | os.O_CLOEXEC)
+    real_fstat = os.fstat
+    calls = 0
+
+    def changed_ctime(fd: int) -> os.stat_result:
+        nonlocal calls
+        metadata = real_fstat(fd)
+        if fd != descriptor:
+            return metadata
+        calls += 1
+        if calls == 1:
+            return metadata
+        values = list(metadata)
+        values[9] = metadata.st_ctime + 1
+        return os.stat_result(values)
+
+    monkeypatch.setattr(os, "fstat", changed_ctime)
+    try:
+        with pytest.raises(CyclePathMetadataError, match="changed while reading"):
+            _read_fd(descriptor, "cycle path metadata")
+    finally:
+        os.close(descriptor)
 
 
 def test_materialize_cycle_path_metadata_derives_exact_successor_roots(

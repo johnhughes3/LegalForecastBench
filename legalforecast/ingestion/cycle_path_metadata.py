@@ -390,13 +390,19 @@ def _read_fd(descriptor: int, label: str) -> bytes:
     if (
         before.st_dev,
         before.st_ino,
+        before.st_mode,
+        before.st_nlink,
         before.st_size,
         before.st_mtime_ns,
+        before.st_ctime_ns,
     ) != (
         after.st_dev,
         after.st_ino,
+        after.st_mode,
+        after.st_nlink,
         after.st_size,
         after.st_mtime_ns,
+        after.st_ctime_ns,
     ):
         raise CyclePathMetadataError(f"{label} changed while reading")
     payload = b"".join(chunks)
