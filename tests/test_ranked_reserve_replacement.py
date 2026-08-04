@@ -20,6 +20,10 @@ from legalforecast.ingestion.ranked_reserve_replacement import (
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
 )
+from legalforecast.selection.exclusion_ledger import (
+    ExclusionStage,
+    merge_exclusion_ledger_records,
+)
 from tests.purchase_approval_fixtures import allow_historical_v1_algorithm_fixtures
 
 
@@ -68,6 +72,13 @@ def test_exact_100_plus_five_promotes_first_reserve_and_reconciles(
     assert selected | excluded == {f"case-{index:03d}" for index in range(105)}
     assert "case-100" not in excluded
     assert "case-050" in excluded
+    terminal_exclusion = next(
+        row for row in plan.successor_exclusions if row["candidate_id"] == "case-050"
+    )
+    assert terminal_exclusion["stage"] == "unitization"
+    assert terminal_exclusion["source_stage"] == "apply-unitization-review"
+    round_tripped = merge_exclusion_ledger_records((terminal_exclusion,))
+    assert round_tripped.entries[0].stage is ExclusionStage.UNITIZATION
     assert plan.committed_spend_usd == "3.05"
     assert plan.reserved_replacement_spend_usd == "3.05"
     assert plan.remaining_headroom_usd == "0.00"
@@ -75,13 +86,19 @@ def test_exact_100_plus_five_promotes_first_reserve_and_reconciles(
     assert plan.paid_activity_executed is False
 
 
+@pytest.mark.parametrize(
+    ("terminal", "retryable"),
+    ((False, False), (True, True)),
+)
 def test_retryable_or_nonterminal_evidence_never_consumes_a_reserve(
     tmp_path: Path,
+    terminal: bool,
+    retryable: bool,
 ) -> None:
     fixture = _fixture(tmp_path)
     evidence = _terminal_record("case-050")
-    evidence["terminal"] = False
-    evidence["retryable"] = True
+    evidence["terminal"] = terminal
+    evidence["retryable"] = retryable
     payload = _jsonl((evidence,))
 
     with CaseDevPurchaseJournal(
@@ -92,6 +109,34 @@ def test_retryable_or_nonterminal_evidence_never_consumes_a_reserve(
         with pytest.raises(
             RankedReserveReplacementError,
             match="explicit terminal nonretryable",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=payload,
+                expected_terminal_exclusions_sha256=_sha(payload),
+                purchase_journal=journal,
+            )
+        assert journal.replacement_events() == ()
+
+
+def test_unknown_terminal_stage_fails_before_journal_mutation(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    evidence = _terminal_record("case-050")
+    evidence["source_stage"] = "unsupported-downstream-stage"
+    payload = _jsonl((evidence,))
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="terminal exclusion source stage is unsupported",
         ):
             plan_ranked_reserve_replacements(
                 projection=fixture["projection"],
@@ -235,6 +280,54 @@ def test_replay_is_idempotent_and_later_terminal_reserve_uses_next_rank(
         "case-100",
     }
     assert replacement_event_count == 2
+
+
+def test_failed_purchase_with_response_is_not_double_reserved(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    first_evidence = _terminal_bytes("case-050")
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        first = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=first_evidence,
+            expected_terminal_exclusions_sha256=_sha(first_evidence),
+            purchase_journal=journal,
+        )
+        journal.plan(first.replacement_plan)
+        assert journal.submit("doc-100") is True
+        journal.queue("doc-100", response={"queue_id": "queue-100"})
+        journal.fail("doc-100", RuntimeError("provider failed after response"))
+        operation = journal.operation_records()[0]
+        assert operation["status"] == "failed"
+        assert operation["response"] is not None
+        assert operation["reconciliation"] is None
+        assert journal.committed_amount_usd == "6.10"
+
+        second_evidence = _terminal_bytes("case-100")
+        second = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=second_evidence,
+            expected_terminal_exclusions_sha256=_sha(second_evidence),
+            purchase_journal=journal,
+        )
+
+    assert [row["candidate_id"] for row in second.replacement_selection] == [
+        "case-101"
+    ]
+    assert second.committed_spend_usd == "6.10"
+    assert second.reserved_replacement_spend_usd == "3.05"
+    assert second.remaining_headroom_usd == "0.00"
 
 
 def test_hard_cap_blocks_next_rank_before_journal_mutation(tmp_path: Path) -> None:

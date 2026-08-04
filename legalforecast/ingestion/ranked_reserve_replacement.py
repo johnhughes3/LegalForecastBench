@@ -20,6 +20,7 @@ from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
 )
+from legalforecast.selection.exclusion_ledger import ExclusionStage
 
 JsonRecord = dict[str, Any]
 
@@ -31,6 +32,14 @@ _RESERVE_SCHEMA_VERSION = "legalforecast.target_cohort_ranked_reserve.v1"
 _FROZEN_SELECTED_COUNT = 100
 _FROZEN_RESERVE_COUNT = 5
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
+_TERMINAL_SOURCE_STAGE_TO_EXCLUSION_STAGE = {
+    "parse-documents": ExclusionStage.EXTRACTION,
+    "llm-unitize": ExclusionStage.UNITIZATION,
+    "llm-review-stage-a": ExclusionStage.UNITIZATION,
+    "apply-unitization-review": ExclusionStage.UNITIZATION,
+    "llm-label": ExclusionStage.LABELING,
+    "apply-lawyer-review": ExclusionStage.LABELING,
+}
 _TERMINAL_FIELDS = frozenset(
     {
         "schema_version",
@@ -306,9 +315,10 @@ def plan_ranked_reserve_replacements(
     ]
     new_events: list[tuple[str, JsonRecord]] = []
     newly_promoted_ids: list[str] = []
-    for displaced_id, terminal in terminal_by_id.items():
+    for displaced_id in sorted(terminal_by_id):
         if displaced_id in promoted_by_displaced:
             continue
+        terminal = terminal_by_id[displaced_id]
         if not remaining:
             raise RankedReserveReplacementError(
                 "ranked reserve is exhausted before all terminal exclusions "
@@ -358,14 +368,6 @@ def plan_ranked_reserve_replacements(
         newly_promoted_ids.append(promoted_id)
         reserved += cost
 
-    # All validation and budget decisions precede the first journal mutation.
-    tranche_event_hashes: list[str] = []
-    for event_key, payload in new_events:
-        stored = purchase_journal.append_replacement_event(event_key, payload)
-        event_hash = _digest(stored.get("record_sha256"), "event record hash")
-        event_hashes.append(event_hash)
-        tranche_event_hashes.append(event_hash)
-
     replacement_selection = tuple(
         dict(source_by_id[candidate_id]) for candidate_id in newly_promoted_ids
     )
@@ -398,6 +400,15 @@ def plan_ranked_reserve_replacements(
     remaining_headroom = policy.hard_cap_usd - committed - reserved
     if remaining_headroom < 0:
         raise RankedReserveReplacementError("replacement reservations exceed hard cap")
+
+    # All validation and budget decisions precede the first journal mutation.
+    tranche_event_hashes: list[str] = []
+    for event_key, payload in new_events:
+        stored = purchase_journal.append_replacement_event(event_key, payload)
+        event_hash = _digest(stored.get("record_sha256"), "event record hash")
+        event_hashes.append(event_hash)
+        tranche_event_hashes.append(event_hash)
+
     return RankedReserveReplacementPlan(
         projection_sha256=projection_sha256,
         cycle_id=policy.cycle_id,
@@ -648,6 +659,13 @@ def _successor_exclusions(
     ]
     for candidate_id, terminal in terminal_by_id.items():
         source = source_by_id[candidate_id]
+        source_stage = cast(str, terminal["source_stage"])
+        try:
+            exclusion_stage = _TERMINAL_SOURCE_STAGE_TO_EXCLUSION_STAGE[source_stage]
+        except KeyError as exc:
+            raise RankedReserveReplacementError(
+                f"terminal exclusion source stage is unsupported: {source_stage}"
+            ) from exc
         raw_documents = source.get("documents")
         documents = (
             cast(list[object], raw_documents) if isinstance(raw_documents, list) else []
@@ -688,7 +706,8 @@ def _successor_exclusions(
                 "secondary_exclusion_reasons": [],
                 "source_document_ids": source_document_ids,
                 "source_entry_ids": source_entry_ids,
-                "stage": terminal["source_stage"],
+                "stage": exclusion_stage.value,
+                "source_stage": source_stage,
                 "terminal_evidence_sha256": terminal["source_record_sha256"],
             }
         )
@@ -801,7 +820,15 @@ def _money_decimal(value: object, source: str) -> Decimal:
         amount = Decimal(str(value))
     except (InvalidOperation, ValueError) as exc:
         raise RankedReserveReplacementError(f"{source} must be decimal money") from exc
-    if not amount.is_finite() or amount != amount.quantize(Decimal("0.01")):
+    try:
+        uses_finite_cents = amount.is_finite() and amount == amount.quantize(
+            Decimal("0.01")
+        )
+    except InvalidOperation as exc:
+        raise RankedReserveReplacementError(
+            f"{source} must use finite cents"
+        ) from exc
+    if not uses_finite_cents:
         raise RankedReserveReplacementError(f"{source} must use finite cents")
     return amount
 
@@ -815,8 +842,8 @@ def _operation_commits_spend(operation: Mapping[str, Any]) -> bool:
         or status in {"submitted", "queued", "unknown"}
         or (
             status == "failed"
-            and operation.get("response_json") is not None
-            and operation.get("reconciliation_json") is None
+            and operation.get("response") is not None
+            and operation.get("reconciliation") is None
         )
     )
 
