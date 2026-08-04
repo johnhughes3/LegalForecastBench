@@ -1707,7 +1707,14 @@ def test_attempt_policy_generation_is_fresh_only_but_replay_survives_initializat
         initialized_at="2026-07-26T16:30:00Z",
         controlled_private_root=private_root,
     )
-    assert verify_recap_fetch_attempt_policy(attempt, **replay_kwargs) == before
+    initialized_replay_kwargs = {
+        **replay_kwargs,
+        "purchase_ledger_initialization_receipt_path": receipt,
+    }
+    assert (
+        verify_recap_fetch_attempt_policy(attempt, **initialized_replay_kwargs)
+        == before
+    )
     with pytest.raises(RecapFetchAttemptPolicyError, match="absent fresh ledger"):
         generate_recap_fetch_attempt_policy(**replay_kwargs)
     with pytest.raises(RecapFetchBrokerPolicyError, match="absent fresh ledger"):
@@ -1715,7 +1722,7 @@ def test_attempt_policy_generation_is_fresh_only_but_replay_survives_initializat
             **replay_kwargs, attempt_policy_artifact=attempt
         )
     replayed_broker = verify_recap_fetch_broker_policy(
-        broker, **replay_kwargs, attempt_policy_artifact=attempt
+        broker, **initialized_replay_kwargs, attempt_policy_artifact=attempt
     )
     assert replayed_broker.allowed_documents
 

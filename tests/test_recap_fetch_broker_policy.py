@@ -108,21 +108,33 @@ def test_unknown_status_evidence_rejects_nonexact_json_shapes(evidence: object) 
         (generate_recap_fetch_broker_policy, RecapFetchBrokerPolicyError),
     ],
 )
+@pytest.mark.parametrize(
+    "replacement_kwargs",
+    [
+        {"replacement_purchase_authority_artifact": {}},
+        {"replacement_controlled_private_root": Path("private")},
+        {
+            "replacement_purchase_authority_artifact": {},
+            "replacement_controlled_private_root": Path("private"),
+        },
+        {"purchase_ledger_initialization_receipt_path": Path("receipt.json")},
+    ],
+)
 def test_replacement_inputs_must_be_supplied_all_or_none(
-    tmp_path: Path,
     generator: Any,
     error: type[ValueError],
+    replacement_kwargs: dict[str, object],
 ) -> None:
     plan = _budget_plan()
 
-    with pytest.raises(error, match="must be supplied together"):
+    with pytest.raises(error, match=r"must be supplied together|valid only"):
         generator(
             purchase_policy_artifact=_purchase_policy(),
             cohort_policy_artifact=_cohort_policy(),
             budget_plan=plan,
             budget_plan_artifact=plan.to_record(),
             selection_records=_selection(),
-            replacement_controlled_private_root=tmp_path,
+            **replacement_kwargs,
         )
 
 

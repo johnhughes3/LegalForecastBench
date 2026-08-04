@@ -122,20 +122,29 @@ def _build_recap_fetch_attempt_policy(
         require_approved_case_dev_purchase_policy(
             purchase_policy, controlled_private_root=controlled_private_root
         )
-        replacement_inputs_supplied = sum(
-            value is not None
-            for value in (
-                replacement_purchase_authority_artifact,
-                replacement_controlled_private_root,
-                purchase_ledger_initialization_receipt_path,
-            )
+        replacement_authority_supplied = (
+            replacement_purchase_authority_artifact is not None
         )
-        if replacement_inputs_supplied not in {0, 3}:
+        replacement_private_root_supplied = (
+            replacement_controlled_private_root is not None
+        )
+        replacement_mode = replacement_authority_supplied
+        if replacement_authority_supplied != replacement_private_root_supplied or (
+            replacement_mode and purchase_ledger_initialization_receipt_path is None
+        ):
             raise ValueError(
                 "replacement authority, controlled private root, and purchase-ledger "
                 "initialization receipt must be supplied together"
             )
-        replacement_mode = replacement_inputs_supplied == 3
+        if (
+            require_fresh_ledger_namespace
+            and not replacement_mode
+            and purchase_ledger_initialization_receipt_path is not None
+        ):
+            raise ValueError(
+                "purchase-ledger initialization receipt is valid only for policy "
+                "replay or complete replacement authority"
+            )
         if (
             purchase_policy.has_verified_approval
             and require_fresh_ledger_namespace
