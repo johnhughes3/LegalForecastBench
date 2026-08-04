@@ -5,6 +5,7 @@ import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import legalforecast.cli as cli
 import pytest
@@ -30,6 +31,8 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
 )
 from legalforecast.ingestion.replacement_purchase_approval import (
     REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA,
+    REPLACEMENT_APPROVAL_SCHEMA,
+    REPLACEMENT_APPROVAL_SCHEMA_V2,
     ReplacementPurchaseApprovalError,
     ReplacementPurchaseApprovalRequest,
     VerifiedReplacementPurchaseApproval,
@@ -78,6 +81,170 @@ def _request() -> ReplacementPurchaseApprovalRequest:
             "sha256:" + "8" * 64,
             "sha256:" + "9" * 64,
         ),
+    )
+
+
+def _ranked_authority_fixture(
+    tmp_path: Path,
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+    document_count: int = 1,
+) -> dict[str, Any]:
+    projection = build_completed_projection_fixture(
+        tmp_path / "ranked-projection",
+        monkeypatch=monkeypatch,
+    )
+    approved = build_approved_purchase_fixture(
+        tmp_path / "ranked-initial-authority",
+        target_cohort_root=projection.root,
+    )
+    policy_artifact = json.loads(approved.policy.read_text(encoding="utf-8"))
+    policy = verify_case_dev_purchase_policy(policy_artifact)
+    cohort_artifact = json.loads(approved.cohort_policy.read_text(encoding="utf-8"))
+    initialize_case_dev_purchase_journal(
+        policy.canonical_ledger_path,
+        policy=policy,
+        receipt_path=approved.initialization_receipt,
+        purchase_policy_file_sha256="sha256:"
+        + hashlib.sha256(approved.policy.read_bytes()).hexdigest(),
+        cohort_policy_file_sha256="sha256:"
+        + hashlib.sha256(approved.cohort_policy.read_bytes()).hexdigest(),
+        initialized_at="2026-08-04T19:00:00Z",
+        controlled_private_root=approved.controlled_private_root,
+    )
+    projection_sha256 = "sha256:" + "7" * 64
+    candidate_id = "ranked-reserve-candidate"
+    document_ids = [
+        f"ranked-reserve-document-{index}" for index in range(document_count)
+    ]
+    cost = policy.per_document_reservation_usd * document_count
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path,
+        policy=policy,
+        controlled_private_root=approved.controlled_private_root,
+        initialization_receipt_path=approved.initialization_receipt,
+    ) as journal:
+        event = journal.append_replacement_event(
+            "ranked-reserve-test-event",
+            {
+                "schema_version": "legalforecast.ranked_reserve_replacement_event.v1",
+                "projection_sha256": projection_sha256,
+                "displaced_candidate_id": "initial-candidate",
+                "promoted_candidate_id": candidate_id,
+                "reserve_rank": 1,
+                "estimated_cost_usd": f"{cost:.2f}",
+                "purchase_document_ids": document_ids,
+                "terminal_reason": "unitization_unresolvable",
+                "terminal_source_stage": "apply-unitization-review",
+                "terminal_source_artifact_sha256": "sha256:" + "4" * 64,
+                "terminal_source_record_sha256": "sha256:" + "5" * 64,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+        )
+        journal_state_sha256 = "sha256:" + journal.purchase_state_sha256()
+        committed_spend_usd = journal.committed_amount_usd
+    event_hash = str(event["record_sha256"])
+    budget = {
+        "case_plans": [
+            {
+                "audit_only_document_count": 0,
+                "candidate_id": candidate_id,
+                "dry_run": False,
+                "estimated_cost_usd": f"{cost:.2f}",
+                "exclusion_reasons": [],
+                "missing_core_document_count": document_count,
+                "missing_core_roles": ["motion"],
+                "purchase_document_ids": document_ids,
+            }
+        ],
+        "dry_run": False,
+        "excluded_case_count": 0,
+        "hard_cap_usd": f"{policy.hard_cap_usd:.2f}",
+        "selected_case_count": 1,
+        "total_estimated_cost_usd": f"{cost:.2f}",
+    }
+    selection = {
+        "candidate_id": candidate_id,
+        "selected": True,
+        "exclusion_reasons": [],
+        "documents": [
+            {"source_document_id": document_id} for document_id in document_ids
+        ],
+    }
+    budget_path = tmp_path / "ranked-budget.json"
+    selection_path = tmp_path / "ranked-selection.jsonl"
+    result_path = tmp_path / "ranked-result.json"
+    budget_path.write_text(
+        json.dumps(budget, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    selection_path.write_text(
+        json.dumps(selection, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    reserved = cost
+    committed = policy.hard_cap_usd.__class__(committed_spend_usd)
+    result = {
+        "schema_version": "legalforecast.ranked_reserve_replacement_result.v1",
+        "projection_sha256": projection_sha256,
+        "cycle_id": policy.cycle_id,
+        "purchase_policy_sha256": "sha256:" + policy.policy_sha256,
+        "purchase_journal_state_sha256": journal_state_sha256,
+        "hard_cap_usd": f"{policy.hard_cap_usd:.2f}",
+        "terminal_exclusions_sha256": "sha256:" + "6" * 64,
+        "active_selection_sha256": "sha256:" + "1" * 64,
+        "replacement_selection_sha256": "sha256:"
+        + hashlib.sha256(selection_path.read_bytes()).hexdigest(),
+        "successor_exclusions_sha256": "sha256:" + "2" * 64,
+        "replacement_budget_plan_sha256": "sha256:"
+        + hashlib.sha256(budget_path.read_bytes()).hexdigest(),
+        "active_case_count": 100,
+        "replacement_case_count": 1,
+        "committed_spend_usd": f"{committed:.2f}",
+        "reserved_replacement_spend_usd": f"{reserved:.2f}",
+        "remaining_headroom_usd": f"{policy.hard_cap_usd - committed - reserved:.2f}",
+        "successor_approval_required": True,
+        "replacement_event_record_sha256s": [event_hash],
+        "tranche_event_record_sha256s": [event_hash],
+        "provider_activity_requested": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "evaluation_authorized": False,
+        "freeze_authorized": False,
+        "dispatch_authorized": False,
+    }
+    result_path.write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return {
+        "cohort_path": approved.cohort_policy,
+        "cohort_artifact": cohort_artifact,
+        "policy_path": approved.policy,
+        "policy_artifact": policy_artifact,
+        "initial_private_root": approved.controlled_private_root,
+        "ledger_path": policy.canonical_ledger_path,
+        "receipt_path": approved.initialization_receipt,
+        "budget_path": budget_path,
+        "selection_path": selection_path,
+        "result_path": result_path,
+        "projection_sha256": projection_sha256,
+    }
+
+
+def _build_ranked_request(
+    fixture: dict[str, Any],
+) -> ReplacementPurchaseApprovalRequest:
+    return build_replacement_purchase_approval_request(
+        cohort_policy_path=fixture["cohort_path"],
+        initial_purchase_policy_path=fixture["policy_path"],
+        initial_controlled_private_root=fixture["initial_private_root"],
+        frontier_path=None,
+        replacement_result_path=fixture["result_path"],
+        replacement_budget_plan_path=fixture["budget_path"],
+        replacement_selection_path=fixture["selection_path"],
+        purchase_ledger_path=fixture["ledger_path"],
+        purchase_ledger_initialization_receipt_path=fixture["receipt_path"],
+        source_authority_kind="ranked_reserve_projection",
+        source_authority_sha256=fixture["projection_sha256"],
     )
 
 
@@ -272,6 +439,215 @@ def test_invalid_per_case_headroom_fails_before_writing(tmp_path: Path) -> None:
         )
 
     assert not private_root.exists()
+
+
+def test_explicit_clearance_source_uses_closed_v2_request_schema() -> None:
+    request = replace(
+        _request(),
+        source_authority_kind="clearance_frontier",
+        source_authority_sha256="sha256:" + "4" * 64,
+    )
+
+    record = request.to_record()
+
+    assert "frontier_sha256" not in record
+    assert record["source_authority_kind"] == "clearance_frontier"
+    assert record["source_authority_sha256"] == "sha256:" + "4" * 64
+
+
+def test_v1_replacement_evidence_remains_byte_compatible(tmp_path: Path) -> None:
+    request = _request()
+    assert request.request_sha256 == (
+        "8341cd5e110b1ea829713c6d0f302c44b337ebcc914b8d810c53b52be17a842e"
+    )
+    root = (tmp_path / "legacy-private").resolve()
+    checkpoint, run_card = record_replacement_purchase_approval(
+        request=request,
+        controlled_private_root=root,
+        decision="approve",
+        typed_confirmation=request.required_confirmation("approve"),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-07-28T16:00:00Z",
+    )
+    verified = verify_replacement_purchase_approval(
+        request=request,
+        controlled_private_root=root,
+        checkpoint_path=checkpoint,
+        run_card_path=run_card,
+    )
+
+    authority = generate_replacement_purchase_authority(verified)
+
+    assert authority["schema_version"] == REPLACEMENT_APPROVAL_SCHEMA
+    assert authority["authority"]["schema_version"] == REPLACEMENT_APPROVAL_SCHEMA
+    assert "frontier_sha256" in authority["authority"]["request"]
+    assert "source_authority_kind" not in authority["authority"]["request"]
+
+
+@pytest.mark.parametrize(
+    ("source_authority_kind", "supply_frontier", "expected"),
+    (
+        ("unknown", False, "unsupported"),
+        (
+            "ranked_reserve_projection",
+            True,
+            "cannot be mixed with a clearance frontier",
+        ),
+        (
+            "ranked_reserve_projection",
+            False,
+            "requires the replayed projection SHA-256",
+        ),
+    ),
+)
+def test_ranked_builder_rejects_unknown_or_mixed_source_modes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source_authority_kind: str,
+    supply_frontier: bool,
+    expected: str,
+) -> None:
+    fixture = _ranked_authority_fixture(tmp_path, monkeypatch=monkeypatch)
+    frontier_path = fixture["result_path"] if supply_frontier else None
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match=expected,
+    ):
+        build_replacement_purchase_approval_request(
+            cohort_policy_path=fixture["cohort_path"],
+            initial_purchase_policy_path=fixture["policy_path"],
+            initial_controlled_private_root=fixture["initial_private_root"],
+            frontier_path=frontier_path,
+            replacement_result_path=fixture["result_path"],
+            replacement_budget_plan_path=fixture["budget_path"],
+            replacement_selection_path=fixture["selection_path"],
+            purchase_ledger_path=fixture["ledger_path"],
+            purchase_ledger_initialization_receipt_path=fixture["receipt_path"],
+            source_authority_kind=source_authority_kind,
+        )
+
+
+def test_ranked_v2_authority_records_replays_and_verifies_exact_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _ranked_authority_fixture(tmp_path, monkeypatch=monkeypatch)
+    request = _build_ranked_request(fixture)
+    root = (tmp_path / "ranked-private").resolve()
+    checkpoint, run_card = record_replacement_purchase_approval(
+        request=request,
+        controlled_private_root=root,
+        decision="approve",
+        typed_confirmation=request.required_confirmation("approve"),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-08-04T20:00:00Z",
+    )
+    verified = verify_replacement_purchase_approval(
+        request=request,
+        controlled_private_root=root,
+        checkpoint_path=checkpoint,
+        run_card_path=run_card,
+    )
+    authority = generate_replacement_purchase_authority(verified)
+
+    assert request.source_authority_kind == "ranked_reserve_projection"
+    assert request.source_authority_sha256 == fixture["projection_sha256"]
+    assert "frontier_sha256" not in request.to_record()
+    assert authority["schema_version"] == REPLACEMENT_APPROVAL_SCHEMA_V2
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="request or current journal state changed",
+    ):
+        verify_replacement_purchase_approval(
+            request=replace(
+                request,
+                frontier_sha256="sha256:" + "9" * 64,
+                source_authority_sha256="sha256:" + "9" * 64,
+            ),
+            controlled_private_root=root,
+            checkpoint_path=checkpoint,
+            run_card_path=run_card,
+        )
+    assert (
+        verify_replacement_purchase_authority(
+            authority_artifact=authority,
+            controlled_private_root=root,
+            initial_purchase_policy_artifact=fixture["policy_artifact"],
+            initial_controlled_private_root=fixture["initial_private_root"],
+            cohort_policy_artifact=fixture["cohort_artifact"],
+            budget_plan_bytes=fixture["budget_path"].read_bytes(),
+            selection_bytes=fixture["selection_path"].read_bytes(),
+            purchase_ledger_path=fixture["ledger_path"],
+            purchase_ledger_initialization_receipt_path=fixture["receipt_path"],
+        )
+        == request
+    )
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    (
+        ("authority", "differs from the replayed source authority"),
+        ("budget", "differs from its durable event"),
+        ("selection", "lacks an approved successor candidate"),
+        ("journal", "purchase-journal state is stale"),
+    ),
+)
+def test_ranked_v2_builder_rejects_changed_source_budget_selection_journal_or_cap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+    expected: str,
+) -> None:
+    fixture = _ranked_authority_fixture(tmp_path, monkeypatch=monkeypatch)
+    result = json.loads(fixture["result_path"].read_text(encoding="utf-8"))
+    if target == "authority":
+        result["projection_sha256"] = "sha256:" + "9" * 64
+    elif target == "budget":
+        budget = json.loads(fixture["budget_path"].read_text(encoding="utf-8"))
+        budget["case_plans"][0]["candidate_id"] = "changed-candidate"
+        fixture["budget_path"].write_text(
+            json.dumps(budget, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        result["replacement_budget_plan_sha256"] = (
+            "sha256:" + hashlib.sha256(fixture["budget_path"].read_bytes()).hexdigest()
+        )
+    elif target == "selection":
+        selection = json.loads(fixture["selection_path"].read_text(encoding="utf-8"))
+        selection["candidate_id"] = "changed-candidate"
+        fixture["selection_path"].write_text(
+            json.dumps(selection, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        result["replacement_selection_sha256"] = (
+            "sha256:"
+            + hashlib.sha256(fixture["selection_path"].read_bytes()).hexdigest()
+        )
+    elif target == "journal":
+        result["purchase_journal_state_sha256"] = "sha256:" + "8" * 64
+    fixture["result_path"].write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ReplacementPurchaseApprovalError, match=expected):
+        _build_ranked_request(fixture)
+
+
+def test_ranked_v2_builder_rejects_per_case_cap_overrun(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _ranked_authority_fixture(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        document_count=25,
+    )
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="exceeds per-case headroom",
+    ):
+        _build_ranked_request(fixture)
 
 
 def test_v2_replacement_requires_exact_successor_before_broker_authority(
