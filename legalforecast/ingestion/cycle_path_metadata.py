@@ -458,6 +458,7 @@ def _unlink_if_same_inode(
     try:
         os.unlink(name, dir_fd=directory_fd)
     except FileNotFoundError:
+        # A concurrent publisher may remove the same verified staging link.
         pass
 
 
