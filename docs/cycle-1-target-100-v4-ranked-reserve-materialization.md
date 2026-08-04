@@ -5,22 +5,34 @@ It uses [`cycle-1-target-100.v4-ranked-reserve.template.json`](../manifests/cycl
 
 ## Fixed evidence
 
-Load the canonical approval-checkpoint, successor-root, and parser-root paths from generated local metadata rather than assuming that the current checkout or a parent-directory layout supplies them.
+Generate the canonical machine-local path map from the approval checkpoint and exact parser checkout.
+Set only the two operator-known absolute input paths below; the command derives and verifies both successor roots rather than trusting operator-supplied values.
 The authenticated checkpoint fixes the repository, cohort, source, and ledger paths; choosing another root must fail replay.
 
 ```zsh
 setopt ERR_EXIT NO_UNSET PIPE_FAIL
 
-approval_checkpoint="${LFB_V4_APPROVAL_CHECKPOINT:?load this canonical path from generated local metadata}"
-successor_root="${LFB_V4_SUCCESSOR_ARTIFACT_ROOT:?load this canonical path from generated local metadata}"
-private_cycle_root="${LFB_V4_SUCCESSOR_PRIVATE_ROOT:?load this canonical path from generated local metadata}"
-parser_root="${LFB_V4_PARSER_ROOT:?load the pinned parser path from generated local metadata}"
+approval_checkpoint="<absolute-path-to-purchase-approval-checkpoint.json>"
+parser_root="<absolute-path-to-pinned-parser-checkout>"
 test "${approval_checkpoint#/}" != "$approval_checkpoint"
-test "${successor_root#/}" != "$successor_root"
-test "${private_cycle_root#/}" != "$private_cycle_root"
 test "${parser_root#/}" != "$parser_root"
 test -f "$approval_checkpoint"
 test -d "$parser_root"
+
+cycle_path_metadata="${approval_checkpoint:h:h}/cycle-path-metadata.json"
+uv run legalforecast acquisition materialize-cycle-path-metadata \
+  --approval-checkpoint "$approval_checkpoint" \
+  --expected-approval-checkpoint-sha256 38444b964d229444c62d0a5f3345217b9075d4a0d57de98f9d18d324b8e98b1f \
+  --parser-root "$parser_root" \
+  --expected-parser-commit 9402306972462a5bdd0da7f687c5e6b4cea373a0 \
+  --output "$cycle_path_metadata"
+
+approval_checkpoint="$(jq -er '.approval_checkpoint' "$cycle_path_metadata")"
+successor_root="$(jq -er '.successor_artifact_root' "$cycle_path_metadata")"
+private_cycle_root="$(jq -er '.successor_private_root' "$cycle_path_metadata")"
+parser_root="$(jq -er '.parser_root' "$cycle_path_metadata")"
+test "${successor_root#/}" != "$successor_root"
+test "${private_cycle_root#/}" != "$private_cycle_root"
 
 approval_root="${approval_checkpoint:h}"
 frozen_v4_root="$(jq -er '.checkpoint.verification_inputs.target_cohort_root' "$approval_checkpoint")"
@@ -45,7 +57,7 @@ test "$(git -C "$parser_root" rev-parse HEAD)" = 9402306972462a5bdd0da7f687c5e6b
 test -z "$(git -C "$parser_root" status --porcelain --untracked-files=normal)"
 ```
 
-Authenticate the immutable public projection before creating anything.
+Authenticate the immutable public projection before creating any successor public or purchase-authority artifact.
 The exact projection contains 100 selected cases, 179 planned purchases, a `$545.95` maximum reservation, and the unchanged `$567.30` cap.
 
 ```zsh

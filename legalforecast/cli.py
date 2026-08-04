@@ -311,6 +311,10 @@ from legalforecast.ingestion.cycle_orchestrator import (
     CycleStage,
     run_acquisition_cycle,
 )
+from legalforecast.ingestion.cycle_path_metadata import (
+    CyclePathMetadataError,
+    materialize_cycle_path_metadata,
+)
 from legalforecast.ingestion.decision_text_artifact import (
     CYCLE_1_ELIGIBILITY_ANCHOR,
     DecisionTextArtifactError,
@@ -1407,6 +1411,17 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_render_cycle_config_arguments(acquisition_render_cycle_config)
+    acquisition_cycle_path_metadata = acquisition_subparsers.add_parser(
+        "materialize-cycle-path-metadata",
+        help="Verify and publish the machine-local paths for a frozen cycle.",
+        description=(
+            "Derive the successor public and private roots from an authenticated "
+            "approval checkpoint, verify the exact clean parser checkout, and "
+            "publish a deterministic private path map. This command performs no "
+            "provider call, purchase, evaluation, freeze, or dispatch."
+        ),
+    )
+    _add_acquisition_cycle_path_metadata_arguments(acquisition_cycle_path_metadata)
     acquisition_run_cycle = acquisition_subparsers.add_parser(
         "run-cycle",
         help=(
@@ -2713,6 +2728,40 @@ def _add_acquisition_render_cycle_config_arguments(
         ),
     )
     parser.set_defaults(handler=_cmd_acquisition_render_cycle_config)
+
+
+def _add_acquisition_cycle_path_metadata_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--approval-checkpoint",
+        type=Path,
+        required=True,
+        help="Authenticated private purchase-approval checkpoint JSON.",
+    )
+    parser.add_argument(
+        "--expected-approval-checkpoint-sha256",
+        required=True,
+        help="Exact lowercase SHA-256 of the approved checkpoint bytes.",
+    )
+    parser.add_argument(
+        "--parser-root",
+        type=Path,
+        required=True,
+        help="Absolute root of the pinned, clean parser Git checkout.",
+    )
+    parser.add_argument(
+        "--expected-parser-commit",
+        required=True,
+        help="Exact lowercase 40-character parser commit SHA.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Canonical private cycle-path-metadata.json output path.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_cycle_path_metadata)
 
 
 def _add_acquisition_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -17320,6 +17369,25 @@ def _cmd_acquisition_render_cycle_config(args: argparse.Namespace) -> int:
     except CycleManifestTemplateError as exc:
         raise CommandError(str(exc)) from exc
     print(json.dumps(receipt, sort_keys=True))
+    return 0
+
+
+def _cmd_acquisition_cycle_path_metadata(args: argparse.Namespace) -> int:
+    """Publish the verified machine-local path map for a frozen cycle."""
+
+    try:
+        record = materialize_cycle_path_metadata(
+            approval_checkpoint=cast(Path, args.approval_checkpoint),
+            expected_approval_checkpoint_sha256=cast(
+                str, args.expected_approval_checkpoint_sha256
+            ),
+            parser_root=cast(Path, args.parser_root),
+            expected_parser_commit=cast(str, args.expected_parser_commit),
+            output=cast(Path, args.output),
+        )
+    except CyclePathMetadataError as exc:
+        raise CommandError(str(exc)) from exc
+    print(json.dumps(record, sort_keys=True))
     return 0
 
 
