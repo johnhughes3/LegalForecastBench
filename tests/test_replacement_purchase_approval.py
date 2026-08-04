@@ -869,6 +869,59 @@ def test_ranked_v2_builder_rejects_understated_prior_unpaid_reservations(
         _build_ranked_request(fixture)
 
 
+def test_cli_verifies_ranked_v2_authority_from_canonical_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fixture = _ranked_authority_fixture(tmp_path, monkeypatch=monkeypatch)
+    request = _build_ranked_request(fixture)
+    root = (tmp_path / "ranked-cli-private").resolve()
+    checkpoint, run_card = record_replacement_purchase_approval(
+        request=request,
+        controlled_private_root=root,
+        decision="approve",
+        typed_confirmation=request.required_confirmation("approve"),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-08-04T20:00:00Z",
+    )
+    capsys.readouterr()
+
+    status = cli.main(
+        [
+            "acquisition",
+            "verify-replacement-purchase-approval",
+            "--cohort-policy",
+            str(fixture["cohort_path"]),
+            "--initial-purchase-policy",
+            str(fixture["policy_path"]),
+            "--initial-controlled-private-root",
+            str(fixture["initial_private_root"]),
+            "--ranked-reserve-projection-sha256",
+            fixture["projection_sha256"],
+            "--replacement-result",
+            str(fixture["result_path"]),
+            "--replacement-budget-plan",
+            str(fixture["budget_path"]),
+            "--replacement-selection",
+            str(fixture["selection_path"]),
+            "--purchase-ledger",
+            str(fixture["ledger_path"]),
+            "--purchase-ledger-initialization-receipt",
+            str(fixture["receipt_path"]),
+            "--controlled-private-root",
+            str(root),
+            "--checkpoint",
+            str(checkpoint),
+            "--approval-run-card",
+            str(run_card),
+        ]
+    )
+
+    assert status == 0
+    assert json.loads(capsys.readouterr().out)["verified"] is True
+
+
 def test_v2_replacement_requires_exact_successor_before_broker_authority(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

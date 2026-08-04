@@ -5632,7 +5632,19 @@ def _add_replacement_purchase_approval_source_arguments(
         required=True,
         help="Trusted private root used to replay the unchanged initial v2 approval.",
     )
-    parser.add_argument("--frontier", type=Path, required=True)
+    authority = parser.add_mutually_exclusive_group(required=True)
+    authority.add_argument(
+        "--frontier",
+        type=Path,
+        help="Exact authenticated clearance-replacement frontier artifact.",
+    )
+    authority.add_argument(
+        "--ranked-reserve-projection-sha256",
+        help=(
+            "Externally replayed target-cohort projection SHA-256 for ranked-reserve "
+            "outputs. This closed authority mode cannot be combined with --frontier."
+        ),
+    )
     parser.add_argument("--replacement-result", type=Path, required=True)
     parser.add_argument("--replacement-budget-plan", type=Path, required=True)
     parser.add_argument(
@@ -24623,13 +24635,17 @@ def _merge_replacement_consolidation_record(
 def _replacement_purchase_approval_request_from_args(
     args: argparse.Namespace,
 ) -> Any:
+    ranked_projection_sha256 = cast(
+        str | None,
+        getattr(args, "ranked_reserve_projection_sha256", None),
+    )
     return build_replacement_purchase_approval_request(
         cohort_policy_path=cast(Path, args.cohort_policy),
         initial_purchase_policy_path=cast(Path, args.initial_purchase_policy),
         initial_controlled_private_root=cast(
             Path, args.initial_controlled_private_root
         ),
-        frontier_path=cast(Path, args.frontier),
+        frontier_path=cast(Path | None, args.frontier),
         replacement_result_path=cast(Path, args.replacement_result),
         replacement_budget_plan_path=cast(Path, args.replacement_budget_plan),
         replacement_selection_path=cast(Path, args.replacement_selection),
@@ -24637,6 +24653,12 @@ def _replacement_purchase_approval_request_from_args(
         purchase_ledger_initialization_receipt_path=cast(
             Path, args.purchase_ledger_initialization_receipt
         ),
+        source_authority_kind=(
+            "ranked_reserve_projection"
+            if ranked_projection_sha256 is not None
+            else None
+        ),
+        source_authority_sha256=ranked_projection_sha256,
     )
 
 
