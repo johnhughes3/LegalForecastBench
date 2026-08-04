@@ -15,10 +15,12 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseLedgerError,
     require_approved_case_dev_purchase_policy,
     verify_approved_purchase_input_bytes,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
+    verify_purchase_ledger_initialization_lineage,
 )
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
 
@@ -133,20 +135,38 @@ def _build_recap_fetch_broker_policy(
         require_approved_case_dev_purchase_policy(
             purchase_policy, controlled_private_root=controlled_private_root
         )
-        replacement_inputs_supplied = sum(
-            value is not None
-            for value in (
-                replacement_purchase_authority_artifact,
-                replacement_controlled_private_root,
-                purchase_ledger_initialization_receipt_path,
-            )
+        replacement_authority_supplied = (
+            replacement_purchase_authority_artifact is not None
         )
-        if replacement_inputs_supplied not in {0, 3}:
+        replacement_private_root_supplied = (
+            replacement_controlled_private_root is not None
+        )
+        replacement_mode = replacement_authority_supplied
+        if replacement_authority_supplied != replacement_private_root_supplied or (
+            replacement_mode and purchase_ledger_initialization_receipt_path is None
+        ):
             raise ValueError(
                 "replacement authority, controlled private root, and purchase-ledger "
                 "initialization receipt must be supplied together"
             )
-        replacement_mode = replacement_inputs_supplied == 3
+        if (
+            require_fresh_ledger_namespace
+            and not replacement_mode
+            and purchase_ledger_initialization_receipt_path is not None
+        ):
+            raise ValueError(
+                "purchase-ledger initialization receipt is valid only for policy "
+                "replay or complete replacement authority"
+            )
+        if (
+            not require_fresh_ledger_namespace
+            and not replacement_mode
+            and purchase_ledger_initialization_receipt_path is not None
+        ):
+            verify_purchase_ledger_initialization_lineage(
+                purchase_ledger_initialization_receipt_path,
+                policy=purchase_policy,
+            )
         if (
             purchase_policy.has_verified_approval
             and require_fresh_ledger_namespace
@@ -191,7 +211,7 @@ def _build_recap_fetch_broker_policy(
             purchase_policy,
             cohort_policy_artifact,
         )
-    except (ImportError, OSError, ValueError) as exc:
+    except (CaseDevPurchaseLedgerError, ImportError, OSError, ValueError) as exc:
         raise RecapFetchBrokerPolicyError(str(exc)) from exc
 
     if broad_frontier_allowlist and purchase_policy.has_verified_approval:
