@@ -36,7 +36,7 @@ claude-agent-sdk-adapter = [
 [dependency-groups]
 dev = [
   "interrogate>=1.7.0",
-  "openai==2.46.0",
+  "openai==2.52.0",
   "pyright>=1.1.409",
   "pytest>=8.4",
   "reportlab>=5.0.0",
