@@ -8,7 +8,6 @@ from typing import TypedDict
 
 import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchasePolicy,
@@ -272,6 +271,9 @@ def test_replay_is_idempotent_and_later_terminal_reserve_uses_next_rank(
 
     assert [row["candidate_id"] for row in first.replacement_selection] == ["case-100"]
     assert replay.replacement_selection == ()
+    assert replay.active_selection == first.active_selection
+    assert replay.active_candidate_ids == first.active_candidate_ids
+    assert replay.successor_exclusions == first.successor_exclusions
     assert replay.successor_approval_required is False
     assert [row["candidate_id"] for row in second.replacement_selection] == ["case-101"]
     assert second.active_candidate_ids[50] == "case-101"
@@ -458,43 +460,61 @@ def test_cli_replays_full_projection_and_emits_provider_free_outputs(
         "budget": tmp_path / "budget.json",
     }
 
-    status = main(
-        [
-            "acquisition",
-            "plan-ranked-reserve-replacements",
-            "--target-cohort-root",
-            str(target_root),
-            "--purchase-policy",
-            str(policy_path),
-            "--controlled-private-root",
-            str(controlled_private_root),
-            "--purchase-ledger",
-            str(fixture["policy"].canonical_ledger_path),
-            "--purchase-ledger-initialization-receipt",
-            str(receipt_path),
-            "--terminal-exclusions",
-            str(terminal_path),
-            "--terminal-exclusions-sha256-file",
-            str(digest_path),
-            "--output",
-            str(outputs["result"]),
-            "--active-selection-output",
-            str(outputs["active"]),
-            "--replacement-selection-output",
-            str(outputs["replacement"]),
-            "--successor-exclusions-output",
-            str(outputs["exclusions"]),
-            "--replacement-budget-plan-output",
-            str(outputs["budget"]),
-        ]
-    )
+    command = [
+        "acquisition",
+        "plan-ranked-reserve-replacements",
+        "--target-cohort-root",
+        str(target_root),
+        "--purchase-policy",
+        str(policy_path),
+        "--controlled-private-root",
+        str(controlled_private_root),
+        "--purchase-ledger",
+        str(fixture["policy"].canonical_ledger_path),
+        "--purchase-ledger-initialization-receipt",
+        str(receipt_path),
+        "--terminal-exclusions",
+        str(terminal_path),
+        "--terminal-exclusions-sha256-file",
+        str(digest_path),
+        "--output",
+        str(outputs["result"]),
+        "--active-selection-output",
+        str(outputs["active"]),
+        "--replacement-selection-output",
+        str(outputs["replacement"]),
+        "--successor-exclusions-output",
+        str(outputs["exclusions"]),
+        "--replacement-budget-plan-output",
+        str(outputs["budget"]),
+    ]
+    status = cli.main(command)
 
     assert status == 0
     result = json.loads(outputs["result"].read_bytes())
+    assert _sha(outputs["active"].read_bytes()) == result["active_selection_sha256"]
+    assert _sha(outputs["replacement"].read_bytes()) == (
+        result["replacement_selection_sha256"]
+    )
+    assert _sha(outputs["exclusions"].read_bytes()) == (
+        result["successor_exclusions_sha256"]
+    )
+    assert _sha(outputs["budget"].read_bytes()) == (
+        result["replacement_budget_plan_sha256"]
+    )
     assert result["active_case_count"] == 100
     assert result["successor_approval_required"] is True
     assert result["provider_activity_requested"] is False
     assert json.loads(capsys.readouterr().out)["paid_activity_executed"] is False
+
+    original_outputs = {name: path.read_bytes() for name, path in outputs.items()}
+    replay_status = cli.main(command)
+    replay_console = capsys.readouterr()
+
+    assert replay_status == 2
+    assert "immutable output differs" in replay_console.err
+    replayed_outputs = {name: path.read_bytes() for name, path in outputs.items()}
+    assert replayed_outputs == original_outputs
 
 
 def test_v4_continuation_template_has_no_paid_or_downstream_stage() -> None:
