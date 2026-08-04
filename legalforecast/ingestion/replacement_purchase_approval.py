@@ -18,18 +18,27 @@ from typing import Any, cast
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
+    CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
     require_approved_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
 )
 from legalforecast.ingestion.clearance_replacement import (
-    RESULT_SCHEMA_VERSION,
+    RESULT_SCHEMA_VERSION as CLEARANCE_RESULT_SCHEMA_VERSION,
+)
+from legalforecast.ingestion.clearance_replacement import (
     ClearanceReplacementError,
     verify_replacement_frontier,
 )
 from legalforecast.ingestion.cohort_policy import CohortPolicyError
 from legalforecast.ingestion.disclosure_review_bundle import read_unique_regular_file
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    REPLACEMENT_EVENT_SCHEMA_VERSION as _RANKED_RESERVE_EVENT_SCHEMA,
+)
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    RESULT_SCHEMA_VERSION as _RANKED_RESERVE_RESULT_SCHEMA,
+)
 
 REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA = (
     "legalforecast.replacement_purchase_approval_checkpoint.v1"
@@ -38,6 +47,45 @@ REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA = (
     "legalforecast.replacement_purchase_approval_run_card.v1"
 )
 REPLACEMENT_APPROVAL_SCHEMA = "legalforecast.replacement_purchase_approval.v1"
+REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA_V2 = (
+    "legalforecast.replacement_purchase_approval_checkpoint.v2"
+)
+REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA_V2 = (
+    "legalforecast.replacement_purchase_approval_run_card.v2"
+)
+REPLACEMENT_APPROVAL_SCHEMA_V2 = "legalforecast.replacement_purchase_approval.v2"
+
+_SOURCE_AUTHORITY_KINDS = frozenset({"clearance_frontier", "ranked_reserve_projection"})
+_RANKED_RESERVE_BUDGET_FIELDS = frozenset(
+    {
+        "dry_run",
+        "cost_per_document_usd",
+        "max_projected_budget_usd",
+        "max_missing_core_documents_per_case",
+        "total_missing_core_documents",
+        "total_estimated_cost_usd",
+        "frontier_truncated",
+        "omitted_candidate_ids",
+        "frontier_rows",
+        "case_plans",
+        "excluded_case_plans",
+        "target_case_count",
+        "target_case_count_met",
+    }
+)
+_RANKED_RESERVE_CASE_PLAN_FIELDS = frozenset(
+    {
+        "candidate_id",
+        "purchase_document_ids",
+        "missing_core_document_count",
+        "estimated_purchase_count",
+        "missing_core_roles",
+        "estimated_cost_usd",
+        "audit_only_document_count",
+        "dry_run",
+        "exclusion_reasons",
+    }
+)
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
@@ -77,16 +125,40 @@ class ReplacementPurchaseApprovalRequest:
     baseline_operation_record_sha256s: tuple[str, ...] = ()
     session_scope: str = "exact_replacement_tranche_one_global_session"
     fallback: str = "stop_without_replacement_purchase"
+    source_authority_kind: str | None = None
+    source_authority_sha256: str | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return canonical request bytes committed by the private checkpoint."""
 
-        return {
+        if self.source_authority_kind is None:
+            if self.source_authority_sha256 is not None:
+                raise ReplacementPurchaseApprovalError(
+                    "legacy authority cannot be mixed with a v2 source commitment"
+                )
+            authority_kind: str | None = None
+            authority_sha256: str | None = None
+        else:
+            authority_kind = _source_authority_kind(self.source_authority_kind)
+            if self.source_authority_sha256 is None:
+                raise ReplacementPurchaseApprovalError(
+                    "replacement source authority requires a SHA-256"
+                )
+            authority_sha256 = _sha(
+                self.source_authority_sha256, "source_authority_sha256"
+            )
+            if (
+                authority_sha256 != self.source_authority_sha256
+                or authority_sha256 != self.frontier_sha256
+            ):
+                raise ReplacementPurchaseApprovalError(
+                    "replacement source authority SHA-256 is not canonical"
+                )
+        record: dict[str, object] = {
             "cycle_id": self.cycle_id,
             "cohort_policy_sha256": self.cohort_policy_sha256,
             "initial_purchase_policy_sha256": self.initial_purchase_policy_sha256,
             "initial_approval_sha256": self.initial_approval_sha256,
-            "frontier_sha256": self.frontier_sha256,
             "replacement_result_sha256": self.replacement_result_sha256,
             "replacement_budget_plan_sha256": (self.replacement_budget_plan_sha256),
             "replacement_selection_sha256": self.replacement_selection_sha256,
@@ -127,6 +199,18 @@ class ReplacementPurchaseApprovalRequest:
             "session_scope": self.session_scope,
             "fallback": self.fallback,
         }
+        if authority_kind is None:
+            record["frontier_sha256"] = self.frontier_sha256
+        else:
+            record["source_authority_kind"] = authority_kind
+            record["source_authority_sha256"] = authority_sha256
+        return record
+
+    @property
+    def evidence_schema_version(self) -> int:
+        """Return the closed private/public evidence schema generation."""
+
+        return 1 if self.source_authority_kind is None else 2
 
     @property
     def request_sha256(self) -> str:
@@ -190,23 +274,48 @@ def build_replacement_purchase_approval_request(
     cohort_policy_path: Path,
     initial_purchase_policy_path: Path,
     initial_controlled_private_root: Path,
-    frontier_path: Path,
+    frontier_path: Path | None,
     replacement_result_path: Path,
     replacement_budget_plan_path: Path,
     replacement_selection_path: Path,
     purchase_ledger_path: Path,
     purchase_ledger_initialization_receipt_path: Path,
+    source_authority_kind: str | None = None,
+    source_authority_sha256: str | None = None,
 ) -> ReplacementPurchaseApprovalRequest:
     """Reproduce one exact ranked tranche against the existing Cycle ledger.
 
     This function performs no provider call, fee acknowledgement, or purchase.
     The initial approval authenticates only the common policy/cap identity; it
     is deliberately not treated as authority for the replacement tranche.
+    Ranked-reserve callers must supply the projection digest returned by their
+    full authenticated projection replay.  This function then binds that digest
+    directly to the ranked result and canonical replacement-event journal.
     """
+
+    authority_kind = _optional_source_authority_kind(source_authority_kind)
+    if authority_kind is None and source_authority_sha256 is not None:
+        raise ReplacementPurchaseApprovalError(
+            "legacy authority cannot be mixed with a v2 source commitment"
+        )
+    if authority_kind == "ranked_reserve_projection" and frontier_path is not None:
+        raise ReplacementPurchaseApprovalError(
+            "ranked-reserve authority cannot be mixed with a clearance frontier"
+        )
+    if authority_kind != "ranked_reserve_projection" and frontier_path is None:
+        raise ReplacementPurchaseApprovalError(
+            "clearance-frontier authority requires the exact frontier artifact"
+        )
+    if (
+        authority_kind == "ranked_reserve_projection"
+        and source_authority_sha256 is None
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "ranked-reserve authority requires the replayed projection SHA-256"
+        )
 
     cohort_bytes = read_unique_regular_file(cohort_policy_path)
     policy_bytes = read_unique_regular_file(initial_purchase_policy_path)
-    frontier_bytes = read_unique_regular_file(frontier_path)
     result_bytes = read_unique_regular_file(replacement_result_path)
     budget_bytes = read_unique_regular_file(replacement_budget_plan_path)
     selection_bytes = read_unique_regular_file(replacement_selection_path)
@@ -214,7 +323,6 @@ def build_replacement_purchase_approval_request(
     initialization_receipt_bytes = read_unique_regular_file(initialization_receipt)
     cohort = _json_object(cohort_bytes, "cohort policy")
     policy_artifact = _json_object(policy_bytes, "initial purchase policy")
-    frontier_artifact = _json_object(frontier_bytes, "replacement frontier")
     result = _json_object(result_bytes, "replacement result")
     budget = _json_object(budget_bytes, "replacement budget plan")
     try:
@@ -224,12 +332,6 @@ def build_replacement_purchase_approval_request(
             controlled_private_root=initial_controlled_private_root,
         )
         verify_case_dev_purchase_policy_cohort_binding(policy, cohort)
-        frontier = verify_replacement_frontier(
-            frontier_artifact,
-            cohort_policy_artifact=cohort,
-            purchase_policy_artifact=policy_artifact,
-            controlled_private_root=initial_controlled_private_root,
-        )
     except (
         CaseDevPurchasePolicyError,
         ClearanceReplacementError,
@@ -242,6 +344,44 @@ def build_replacement_purchase_approval_request(
     if ledger != policy.canonical_ledger_path:
         raise ReplacementPurchaseApprovalError(
             "replacement approval ledger differs from the initial v2 policy"
+        )
+    if authority_kind == "ranked_reserve_projection":
+        return _build_ranked_reserve_purchase_approval_request(
+            policy=policy,
+            result=result,
+            result_bytes=result_bytes,
+            budget=budget,
+            budget_bytes=budget_bytes,
+            selection_bytes=selection_bytes,
+            ledger=ledger,
+            initialization_receipt=initialization_receipt,
+            initialization_receipt_bytes=initialization_receipt_bytes,
+            initial_controlled_private_root=initial_controlled_private_root,
+            expected_source_authority_sha256=_sha(
+                source_authority_sha256, "source_authority_sha256"
+            ),
+        )
+
+    assert frontier_path is not None
+    frontier_bytes = read_unique_regular_file(frontier_path)
+    frontier_artifact = _json_object(frontier_bytes, "replacement frontier")
+    try:
+        frontier = verify_replacement_frontier(
+            frontier_artifact,
+            cohort_policy_artifact=cohort,
+            purchase_policy_artifact=policy_artifact,
+            controlled_private_root=initial_controlled_private_root,
+        )
+    except (ClearanceReplacementError, OSError, ValueError) as exc:
+        raise ReplacementPurchaseApprovalError(str(exc)) from exc
+    frontier_sha256 = _sha(frontier["policy_sha256"], "source_authority_sha256")
+    if (
+        authority_kind is not None
+        and source_authority_sha256 is not None
+        and _sha(source_authority_sha256, "source_authority_sha256") != frontier_sha256
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "clearance replacement frontier differs from the source commitment"
         )
     _verify_result_identity(result)
     if result.get("replacement_plan") != budget:
@@ -439,7 +579,7 @@ def build_replacement_purchase_approval_request(
         cohort_policy_sha256=policy.cohort_policy_sha256,
         initial_purchase_policy_sha256=policy.policy_sha256,
         initial_approval_sha256=_canonical_sha256(dict(raw_approval)),
-        frontier_sha256=_sha(frontier["policy_sha256"], "frontier_sha256"),
+        frontier_sha256=frontier_sha256,
         replacement_result_sha256=_sha256(result_bytes),
         replacement_budget_plan_sha256=_sha256(budget_bytes),
         replacement_selection_sha256=_sha256(selection_bytes),
@@ -462,9 +602,356 @@ def build_replacement_purchase_approval_request(
         baseline_operation_record_sha256s=tuple(
             _canonical_sha256(dict(operation)) for operation in operations
         ),
+        source_authority_kind=authority_kind,
+        source_authority_sha256=(
+            frontier_sha256 if authority_kind is not None else None
+        ),
     )
     _verify_runtime_budget_plan(request, budget_bytes)
     _verify_runtime_selection(request, selection_bytes, budget_bytes)
+    return request
+
+
+def _build_ranked_reserve_purchase_approval_request(
+    *,
+    policy: CaseDevPurchasePolicy,
+    result: Mapping[str, object],
+    result_bytes: bytes,
+    budget: Mapping[str, object],
+    budget_bytes: bytes,
+    selection_bytes: bytes,
+    ledger: Path,
+    initialization_receipt: Path,
+    initialization_receipt_bytes: bytes,
+    initial_controlled_private_root: Path,
+    expected_source_authority_sha256: str,
+) -> ReplacementPurchaseApprovalRequest:
+    """Replay ranked-reserve evidence directly against the canonical journal."""
+
+    _verify_ranked_result_identity(result)
+    source_sha256 = _sha(
+        result.get("projection_sha256"), "ranked source authority SHA-256"
+    )
+    if source_sha256 != expected_source_authority_sha256:
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement result differs from the replayed source authority"
+        )
+    if (
+        result.get("cycle_id") != policy.cycle_id
+        or result.get("purchase_policy_sha256") != "sha256:" + policy.policy_sha256
+        or result.get("hard_cap_usd") != _money(policy.hard_cap_usd)
+        or result.get("replacement_budget_plan_sha256")
+        != "sha256:" + _sha256(budget_bytes)
+        or result.get("replacement_selection_sha256")
+        != "sha256:" + _sha256(selection_bytes)
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement result differs from its policy, budget, or selection"
+        )
+    case_plans = _sequence(budget.get("case_plans"), "replacement case plans")
+    if (
+        not case_plans
+        or result.get("replacement_case_count") != len(case_plans)
+        or result.get("successor_approval_required") is not True
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement result lacks a nonempty exact successor tranche"
+        )
+
+    try:
+        with CaseDevPurchaseJournal(
+            ledger,
+            policy=policy,
+            controlled_private_root=initial_controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
+        ) as journal:
+            journal.require_reconciled()
+            state_sha256 = "sha256:" + journal.purchase_state_sha256()
+            committed = _usd(journal.committed_amount_usd, "committed spend")
+            events = tuple(journal.replacement_events())
+            operations = tuple(journal.operation_records())
+            if result.get("purchase_journal_state_sha256") != state_sha256:
+                raise ReplacementPurchaseApprovalError(
+                    "ranked replacement result purchase-journal state is stale"
+                )
+            event_by_hash = {
+                _sha(
+                    event.get("record_sha256"), "replacement event record SHA-256"
+                ): event
+                for event in events
+            }
+            # The producer rejects every incompatible or cross-projection event
+            # before planning. Preserve that Cycle-journal invariant here; the
+            # exact successor tranche is scoped separately by its committed hashes.
+            if len(event_by_hash) != len(events) or any(
+                event.get("schema_version") != _RANKED_RESERVE_EVENT_SCHEMA
+                or event.get("projection_sha256") != source_sha256
+                for event in events
+            ):
+                raise ReplacementPurchaseApprovalError(
+                    "ranked replacement journal is not bound to one source projection"
+                )
+            all_event_hashes = tuple(event_by_hash)
+            result_event_hashes = tuple(
+                _sha(value, "replacement event record SHA-256")
+                for value in _sequence(
+                    result.get("replacement_event_record_sha256s"),
+                    "replacement event record SHA-256s",
+                )
+            )
+            tranche_event_hashes = tuple(
+                _sha(value, "tranche event record SHA-256")
+                for value in _sequence(
+                    result.get("tranche_event_record_sha256s"),
+                    "tranche event record SHA-256s",
+                )
+            )
+            if (
+                result_event_hashes != all_event_hashes
+                or not tranche_event_hashes
+                or len(tranche_event_hashes) != len(set(tranche_event_hashes))
+                or any(value not in event_by_hash for value in tranche_event_hashes)
+            ):
+                raise ReplacementPurchaseApprovalError(
+                    "ranked replacement event commitments differ from the "
+                    "canonical journal"
+                )
+            tranche_events = tuple(
+                event_by_hash[value] for value in tranche_event_hashes
+            )
+            if "sha256:" + journal.purchase_state_sha256() != state_sha256:
+                raise ReplacementPurchaseApprovalError(
+                    "purchase journal changed while replaying ranked authority"
+                )
+    except (CaseDevPurchaseLedgerError, OSError, ValueError) as exc:
+        raise ReplacementPurchaseApprovalError(str(exc)) from exc
+
+    existing_documents = {
+        cast(str, operation["source_document_id"]) for operation in operations
+    }
+    operation_by_document = {
+        cast(str, operation["source_document_id"]): operation
+        for operation in operations
+    }
+    canonical_reserved = Decimal("0.00")
+    for event in events:
+        event_documents = _unique_texts(
+            _sequence(
+                event.get("purchase_document_ids"),
+                "ranked event purchase document IDs",
+            ),
+            "ranked event purchase document IDs",
+        )
+        event_cost = _usd(
+            event.get("estimated_cost_usd"), "ranked event estimated cost"
+        )
+        if (
+            event_cost != policy.per_document_reservation_usd * len(event_documents)
+            or event.get("paid_activity_requested") is not False
+            or event.get("paid_activity_executed") is not False
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement journal differs from canonical reservation costs"
+            )
+        canonical_reserved += sum(
+            (
+                policy.per_document_reservation_usd
+                for document_id in event_documents
+                if (
+                    (operation := operation_by_document.get(document_id)) is None
+                    or not _operation_commits_spend(operation)
+                )
+            ),
+            Decimal("0.00"),
+        )
+    candidate_ids: list[str] = []
+    document_ids: list[str] = []
+    document_counts: list[int] = []
+    total_cost = Decimal("0.00")
+    if len(case_plans) != len(tranche_events):
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement event coverage or tranche identity differs"
+        )
+    for raw_plan, event in zip(case_plans, tranche_events, strict=True):
+        plan = _mapping(raw_plan, "replacement case plan")
+        if frozenset(plan) != _RANKED_RESERVE_CASE_PLAN_FIELDS:
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement case plan fields differ from the canonical producer"
+            )
+        candidate_id = _text(plan.get("candidate_id"), "replacement candidate_id")
+        documents = _unique_texts(
+            _sequence(plan.get("purchase_document_ids"), "purchase document IDs"),
+            "purchase document IDs",
+        )
+        _unique_texts(
+            _sequence(plan.get("missing_core_roles"), "missing core roles"),
+            "missing core roles",
+        )
+        estimated = _usd(plan.get("estimated_cost_usd"), "replacement cost")
+        expected = policy.per_document_reservation_usd * len(documents)
+        if (
+            event.get("schema_version") != _RANKED_RESERVE_EVENT_SCHEMA
+            or event.get("projection_sha256") != source_sha256
+            or event.get("promoted_candidate_id") != candidate_id
+            or event.get("purchase_document_ids") != list(documents)
+            or event.get("estimated_cost_usd") != _money(estimated)
+            or event.get("paid_activity_requested") is not False
+            or event.get("paid_activity_executed") is not False
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement tranche differs from its durable event"
+            )
+        if (
+            plan.get("dry_run") is not False
+            or plan.get("exclusion_reasons") != []
+            or plan.get("missing_core_document_count") != len(documents)
+            or plan.get("estimated_purchase_count") != len(documents)
+            or plan.get("audit_only_document_count") != 0
+            or estimated != expected
+            or any(document_id in existing_documents for document_id in documents)
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement tranche is not an executable unpurchased plan"
+            )
+        candidate_ids.append(candidate_id)
+        document_ids.extend(documents)
+        document_counts.append(len(documents))
+        total_cost += estimated
+    if len(candidate_ids) != len(set(candidate_ids)) or len(document_ids) != len(
+        set(document_ids)
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement event coverage or tranche identity differs"
+        )
+    if (
+        frozenset(budget) != _RANKED_RESERVE_BUDGET_FIELDS
+        or budget.get("dry_run") is not False
+        or budget.get("cost_per_document_usd")
+        != _money(policy.per_document_reservation_usd)
+        or budget.get("max_missing_core_documents_per_case") != max(document_counts)
+        or budget.get("total_missing_core_documents") != len(document_ids)
+        or budget.get("total_estimated_cost_usd") != _money(total_cost)
+        or budget.get("frontier_truncated") is not False
+        or budget.get("omitted_candidate_ids") != []
+        or budget.get("frontier_rows") != []
+        or budget.get("excluded_case_plans") != []
+        or budget.get("target_case_count") != len(case_plans)
+        or budget.get("target_case_count_met") is not True
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement budget totals differ from the exact tranche"
+        )
+    hard_cap = policy.hard_cap_usd
+    prior_reserved = canonical_reserved - total_cost
+    if prior_reserved < 0:
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement journal omits the exact tranche reservation"
+        )
+    headroom_before = hard_cap - committed - prior_reserved
+    budget_cap = _usd(
+        budget.get("max_projected_budget_usd"),
+        "replacement maximum projected budget",
+    )
+    reported_reserved = _usd(
+        result.get("reserved_replacement_spend_usd"),
+        "ranked reserved replacement spend",
+    )
+    if reported_reserved != canonical_reserved:
+        raise ReplacementPurchaseApprovalError(
+            "ranked reserved spend differs from the canonical journal"
+        )
+    if (
+        headroom_before < 0
+        or total_cost > headroom_before
+        or budget_cap != headroom_before
+        or result.get("committed_spend_usd") != _money(committed)
+        or result.get("remaining_headroom_usd")
+        != _money(hard_cap - committed - canonical_reserved)
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement tranche exceeds or differs from Cycle headroom"
+        )
+    raw_approval = policy.approval
+    if raw_approval is None:
+        raise ReplacementPurchaseApprovalError("initial v2 approval is missing")
+    approved_costs_by_candidate = {
+        candidate_id: _usd(
+            _mapping(raw_plan, "replacement case plan").get("estimated_cost_usd"),
+            "replacement cost",
+        )
+        for candidate_id, raw_plan in zip(candidate_ids, case_plans, strict=True)
+    }
+    baseline_candidate_ids = sorted(
+        set(candidate_ids)
+        | set(policy.opening_case_committed_spend_usd)
+        | {cast(str, operation["candidate_id"]) for operation in operations}
+    )
+    try:
+        with CaseDevPurchaseJournal(
+            ledger,
+            policy=policy,
+            controlled_private_root=initial_controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
+        ) as journal:
+            journal.require_reconciled()
+            if "sha256:" + journal.purchase_state_sha256() != state_sha256:
+                raise ReplacementPurchaseApprovalError(
+                    "purchase journal changed while snapshotting per-case headroom"
+                )
+            candidate_headroom = tuple(
+                _candidate_headroom_record(
+                    candidate_id=candidate_id,
+                    committed=_usd(
+                        journal.candidate_committed_amount_usd(candidate_id),
+                        f"{candidate_id} committed spend",
+                    ),
+                    approved_cost=approved_costs_by_candidate.get(
+                        candidate_id, Decimal("0.00")
+                    ),
+                    max_per_case=policy.max_per_case_usd,
+                )
+                for candidate_id in baseline_candidate_ids
+            )
+    except (CaseDevPurchaseLedgerError, OSError, ValueError) as exc:
+        raise ReplacementPurchaseApprovalError(str(exc)) from exc
+
+    request = ReplacementPurchaseApprovalRequest(
+        cycle_id=policy.cycle_id,
+        cohort_policy_sha256=policy.cohort_policy_sha256,
+        initial_purchase_policy_sha256=policy.policy_sha256,
+        initial_approval_sha256=_canonical_sha256(dict(raw_approval)),
+        frontier_sha256=source_sha256,
+        replacement_result_sha256=_sha256(result_bytes),
+        replacement_budget_plan_sha256=_sha256(budget_bytes),
+        replacement_selection_sha256=_sha256(selection_bytes),
+        purchase_journal_state_sha256=state_sha256,
+        purchase_ledger_path=str(ledger),
+        purchase_ledger_initialization_receipt_path=str(initialization_receipt),
+        purchase_ledger_initialization_receipt_sha256=_sha256(
+            initialization_receipt_bytes
+        ),
+        committed_spend_usd=_money(committed),
+        hard_cap_usd=_money(hard_cap),
+        max_per_case_usd=_money(policy.max_per_case_usd),
+        remaining_headroom_before_usd=_money(headroom_before),
+        tranche_projected_cost_usd=_money(total_cost),
+        remaining_headroom_after_usd=_money(headroom_before - total_cost),
+        candidate_headroom=candidate_headroom,
+        replacement_candidate_ids=tuple(candidate_ids),
+        purchase_document_ids=tuple(document_ids),
+        replacement_event_record_sha256s=tranche_event_hashes,
+        baseline_operation_record_sha256s=tuple(
+            _canonical_sha256(dict(operation)) for operation in operations
+        ),
+        source_authority_kind="ranked_reserve_projection",
+        source_authority_sha256=source_sha256,
+    )
+    _verify_runtime_budget_plan(request, budget_bytes)
+    _verify_runtime_selection(request, selection_bytes, budget_bytes)
+    if _selection_candidate_ids(selection_bytes) != request.replacement_candidate_ids:
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement selection differs from the exact tranche"
+        )
     return request
 
 
@@ -507,7 +994,7 @@ def record_replacement_purchase_approval(
         "paid_activity_executed": False,
     }
     checkpoint = {
-        "schema_version": REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA,
+        "schema_version": _checkpoint_schema(request),
         "checkpoint": checkpoint_body,
         "checkpoint_sha256": _canonical_sha256(checkpoint_body),
     }
@@ -528,7 +1015,7 @@ def record_replacement_purchase_approval(
         "paid_activity_executed": False,
     }
     run_card = {
-        "schema_version": REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA,
+        "schema_version": _run_card_schema(request),
         "run_card": run_card_body,
         "run_card_sha256": _canonical_sha256(run_card_body),
     }
@@ -561,12 +1048,9 @@ def verify_replacement_purchase_approval(
     run_card_bytes = read_unique_regular_file(run_card_path)
     checkpoint_artifact = _json_object(checkpoint_bytes, "replacement checkpoint")
     run_card_artifact = _json_object(run_card_bytes, "replacement run card")
-    if (
-        checkpoint_artifact.get("schema_version")
-        != REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA
-        or run_card_artifact.get("schema_version")
-        != REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA
-    ):
+    if checkpoint_artifact.get("schema_version") != _checkpoint_schema(
+        request
+    ) or run_card_artifact.get("schema_version") != _run_card_schema(request):
         raise ReplacementPurchaseApprovalError(
             "unsupported replacement approval evidence schema"
         )
@@ -646,8 +1130,9 @@ def generate_replacement_purchase_authority(
         raise ReplacementPurchaseApprovalError(
             "replacement authority can be minted only from private evidence replay"
         )
+    schema = _authority_schema(approval.request)
     body = {
-        "schema_version": REPLACEMENT_APPROVAL_SCHEMA,
+        "schema_version": schema,
         "decision": "approve",
         "reviewer_id": approval.reviewer_id,
         "recorded_at_utc": approval.recorded_at_utc,
@@ -657,7 +1142,7 @@ def generate_replacement_purchase_authority(
         "request": approval.request.to_record(),
     }
     return {
-        "schema_version": REPLACEMENT_APPROVAL_SCHEMA,
+        "schema_version": schema,
         "authority": body,
         "authority_sha256": _canonical_sha256(body),
     }
@@ -678,15 +1163,14 @@ def verify_replacement_purchase_authority(
 ) -> ReplacementPurchaseApprovalRequest:
     """Authorize only the exact successor tranche, including safe resume state."""
 
-    if (
-        set(authority_artifact)
-        != {
-            "schema_version",
-            "authority",
-            "authority_sha256",
-        }
-        or authority_artifact.get("schema_version") != REPLACEMENT_APPROVAL_SCHEMA
-    ):
+    if set(authority_artifact) != {
+        "schema_version",
+        "authority",
+        "authority_sha256",
+    } or authority_artifact.get("schema_version") not in {
+        REPLACEMENT_APPROVAL_SCHEMA,
+        REPLACEMENT_APPROVAL_SCHEMA_V2,
+    }:
         raise ReplacementPurchaseApprovalError(
             "unsupported replacement purchase authority artifact"
         )
@@ -709,8 +1193,9 @@ def verify_replacement_purchase_authority(
         raise ReplacementPurchaseApprovalError(
             "replacement purchase authority fields differ"
         )
+    artifact_schema = authority_artifact.get("schema_version")
     if (
-        body.get("schema_version") != REPLACEMENT_APPROVAL_SCHEMA
+        body.get("schema_version") != artifact_schema
         or body.get("decision") != "approve"
         or body.get("reviewer_id") != "John Hughes"
     ):
@@ -720,6 +1205,10 @@ def verify_replacement_purchase_authority(
     request = _request_from_record(
         _mapping(body.get("request"), "replacement authority request")
     )
+    if artifact_schema != _authority_schema(request):
+        raise ReplacementPurchaseApprovalError(
+            "replacement purchase authority schema differs from its request"
+        )
     checkpoint_path = (
         controlled_private_root / "replacement-purchase-approval-checkpoint.json"
     )
@@ -891,12 +1380,11 @@ def verify_replacement_purchase_authority(
 def _request_from_record(
     record: Mapping[str, object],
 ) -> ReplacementPurchaseApprovalRequest:
-    expected = {
+    common_fields = {
         "cycle_id",
         "cohort_policy_sha256",
         "initial_purchase_policy_sha256",
         "initial_approval_sha256",
-        "frontier_sha256",
         "replacement_result_sha256",
         "replacement_budget_plan_sha256",
         "replacement_selection_sha256",
@@ -918,7 +1406,24 @@ def _request_from_record(
         "session_scope",
         "fallback",
     }
-    if set(record) != expected:
+    v1_fields = common_fields | {"frontier_sha256"}
+    v2_fields = common_fields | {
+        "source_authority_kind",
+        "source_authority_sha256",
+    }
+    if set(record) == v1_fields:
+        source_authority_kind: str | None = None
+        source_authority_sha256: str | None = None
+        frontier_sha256 = _sha(record.get("frontier_sha256"), "frontier_sha256")
+    elif set(record) == v2_fields:
+        source_authority_kind = _source_authority_kind(
+            record.get("source_authority_kind")
+        )
+        source_authority_sha256 = _sha(
+            record.get("source_authority_sha256"), "source_authority_sha256"
+        )
+        frontier_sha256 = source_authority_sha256
+    else:
         raise ReplacementPurchaseApprovalError(
             "replacement approval request fields differ"
         )
@@ -934,7 +1439,7 @@ def _request_from_record(
         initial_approval_sha256=_sha(
             record.get("initial_approval_sha256"), "initial_approval_sha256"
         ).removeprefix("sha256:"),
-        frontier_sha256=_sha(record.get("frontier_sha256"), "frontier_sha256"),
+        frontier_sha256=frontier_sha256,
         replacement_result_sha256=_sha(
             record.get("replacement_result_sha256"), "replacement_result_sha256"
         ).removeprefix("sha256:"),
@@ -1016,10 +1521,20 @@ def _request_from_record(
         ),
         session_scope=_text(record.get("session_scope"), "session_scope"),
         fallback=_text(record.get("fallback"), "fallback"),
+        source_authority_kind=source_authority_kind,
+        source_authority_sha256=source_authority_sha256,
     )
     if (
         request.session_scope != "exact_replacement_tranche_one_global_session"
         or request.fallback != "stop_without_replacement_purchase"
+        or (
+            request.source_authority_kind is None
+            and request.source_authority_sha256 is not None
+        )
+        or (
+            request.source_authority_kind is not None
+            and request.source_authority_sha256 != request.frontier_sha256
+        )
         or tuple(entry[0] for entry in request.candidate_headroom)
         != tuple(sorted(entry[0] for entry in request.candidate_headroom))
         or len({entry[0] for entry in request.candidate_headroom})
@@ -1227,6 +1742,41 @@ def _verify_runtime_selection(
             )
 
 
+def _selection_candidate_ids(selection_bytes: bytes) -> tuple[str, ...]:
+    try:
+        rows = tuple(
+            json.loads(line)
+            for line in selection_bytes.decode().splitlines()
+            if line.strip()
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReplacementPurchaseApprovalError(
+            "replacement selection is invalid JSONL"
+        ) from exc
+    return tuple(
+        _text(
+            _mapping(row, "replacement selection row").get("candidate_id"),
+            "candidate_id",
+        )
+        for row in rows
+    )
+
+
+def _operation_commits_spend(operation: Mapping[str, object]) -> bool:
+    """Mirror the ranked planner's canonical committed-spend treatment."""
+
+    status = operation.get("status")
+    return (
+        status == "confirmed"
+        or status in {"submitted", "queued", "unknown"}
+        or (
+            status == "failed"
+            and operation.get("response") is not None
+            and operation.get("reconciliation") is None
+        )
+    )
+
+
 def _verify_result_identity(result: Mapping[str, object]) -> None:
     expected = {
         "schema_version",
@@ -1246,7 +1796,10 @@ def _verify_result_identity(result: Mapping[str, object]) -> None:
         "paid_activity_executed",
         "plan_sha256",
     }
-    if set(result) != expected or result.get("schema_version") != RESULT_SCHEMA_VERSION:
+    if (
+        set(result) != expected
+        or result.get("schema_version") != CLEARANCE_RESULT_SCHEMA_VERSION
+    ):
         raise ReplacementPurchaseApprovalError(
             "replacement result has unsupported or incomplete fields"
         )
@@ -1255,6 +1808,124 @@ def _verify_result_identity(result: Mapping[str, object]) -> None:
         raise ReplacementPurchaseApprovalError(
             "replacement result plan_sha256 does not match content"
         )
+
+
+def _verify_ranked_result_identity(result: Mapping[str, object]) -> None:
+    expected = {
+        "schema_version",
+        "projection_sha256",
+        "cycle_id",
+        "purchase_policy_sha256",
+        "purchase_journal_state_sha256",
+        "hard_cap_usd",
+        "terminal_exclusions_sha256",
+        "active_selection_sha256",
+        "replacement_selection_sha256",
+        "successor_exclusions_sha256",
+        "replacement_budget_plan_sha256",
+        "active_case_count",
+        "replacement_case_count",
+        "committed_spend_usd",
+        "reserved_replacement_spend_usd",
+        "remaining_headroom_usd",
+        "successor_approval_required",
+        "replacement_event_record_sha256s",
+        "tranche_event_record_sha256s",
+        "provider_activity_requested",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "evaluation_authorized",
+        "freeze_authorized",
+        "dispatch_authorized",
+    }
+    if set(result) != expected or result.get("schema_version") != (
+        _RANKED_RESERVE_RESULT_SCHEMA
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "ranked replacement result has unsupported or incomplete fields"
+        )
+    for field in (
+        "provider_activity_requested",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "evaluation_authorized",
+        "freeze_authorized",
+        "dispatch_authorized",
+    ):
+        if result.get(field) is not False:
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement result grants activity or downstream authority"
+            )
+    for field in (
+        "projection_sha256",
+        "purchase_policy_sha256",
+        "purchase_journal_state_sha256",
+        "terminal_exclusions_sha256",
+        "active_selection_sha256",
+        "replacement_selection_sha256",
+        "successor_exclusions_sha256",
+        "replacement_budget_plan_sha256",
+    ):
+        _sha(result.get(field), field)
+    for field, positive in (
+        ("active_case_count", True),
+        ("replacement_case_count", True),
+    ):
+        value = result.get(field)
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or (positive and value <= 0)
+        ):
+            raise ReplacementPurchaseApprovalError(
+                f"ranked replacement result {field} is invalid"
+            )
+    for field in (
+        "hard_cap_usd",
+        "committed_spend_usd",
+        "reserved_replacement_spend_usd",
+        "remaining_headroom_usd",
+    ):
+        _usd(result.get(field), field)
+
+
+def _optional_source_authority_kind(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return _source_authority_kind(value)
+
+
+def _source_authority_kind(value: object) -> str:
+    kind = _text(value, "source_authority_kind")
+    if kind not in _SOURCE_AUTHORITY_KINDS:
+        raise ReplacementPurchaseApprovalError(
+            "replacement source authority kind is unsupported"
+        )
+    return kind
+
+
+def _checkpoint_schema(request: ReplacementPurchaseApprovalRequest) -> str:
+    return (
+        REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA
+        if request.evidence_schema_version == 1
+        else REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA_V2
+    )
+
+
+def _run_card_schema(request: ReplacementPurchaseApprovalRequest) -> str:
+    return (
+        REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA
+        if request.evidence_schema_version == 1
+        else REPLACEMENT_APPROVAL_RUN_CARD_SCHEMA_V2
+    )
+
+
+def _authority_schema(request: ReplacementPurchaseApprovalRequest) -> str:
+    return (
+        REPLACEMENT_APPROVAL_SCHEMA
+        if request.evidence_schema_version == 1
+        else REPLACEMENT_APPROVAL_SCHEMA_V2
+    )
 
 
 def _write_private_once(path: Path, payload: bytes) -> None:
