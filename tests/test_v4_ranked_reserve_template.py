@@ -133,18 +133,51 @@ def test_v4_ranked_reserve_template_never_writes_frozen_evidence(
         assert "--allow-network" not in stage.arguments
 
 
-def test_v4_ranked_reserve_template_runs_stage_b_without_unproduced_shards(
+def test_v4_ranked_reserve_template_merges_protected_stage_b_shards(
     tmp_path: Path,
 ) -> None:
     _, config = _render(tmp_path)
     label_stage = next(stage for stage in config.stages if stage.command == "llm-label")
 
-    assert label_stage.stage_id == "label-stage-b"
-    assert "--provider-shard-audit" not in label_stage.arguments
-    assert "--provider-shard-run-card" not in label_stage.arguments
-    assert not any(
-        "19-stage-b-shards" in argument for argument in label_stage.arguments
-    )
+    shard_root = tmp_path / "successor-v4" / "19-stage-b-shards"
+    assert label_stage.stage_id == "merge-stage-b-provider-shards"
+    assert label_stage.boundary.value == "model_provider"
+    assert "--execution-provider" not in label_stage.arguments
+    assert "--provider-authority-table" not in label_stage.arguments
+    assert "--provider-authority-region" not in label_stage.arguments
+    assert [
+        label_stage.arguments[index + 1]
+        for index, argument in enumerate(label_stage.arguments)
+        if argument == "--provider-shard-audit"
+    ] == [
+        str(shard_root / "openai-audit.jsonl"),
+        str(shard_root / "google-audit.jsonl"),
+    ]
+    assert [
+        label_stage.arguments[index + 1]
+        for index, argument in enumerate(label_stage.arguments)
+        if argument == "--provider-shard-run-card"
+    ] == [
+        str(shard_root / "openai-run-card.json"),
+        str(shard_root / "google-run-card.json"),
+    ]
+
+
+def test_v4_ranked_reserve_runbook_requires_provider_free_merge_then_adoption() -> None:
+    runbook = (
+        Path(__file__).parents[1]
+        / "docs"
+        / "cycle-1-target-100-v4-ranked-reserve-materialization.md"
+    ).read_text(encoding="utf-8")
+
+    assert "## Merge and adopt protected Stage B shards" in runbook
+    assert "19-stage-b-shards/openai-audit.jsonl" in runbook
+    assert "19-stage-b-shards/openai-run-card.json" in runbook
+    assert "19-stage-b-shards/google-audit.jsonl" in runbook
+    assert "19-stage-b-shards/google-run-card.json" in runbook
+    assert "uv run legalforecast acquisition llm-label" in runbook
+    assert "--adopt-next-completed --json" in runbook
+    assert "Do not combine `--adopt-next-completed` with `--execute`" in runbook
 
 
 def test_v4_ranked_reserve_template_binds_provider_caps_successor(

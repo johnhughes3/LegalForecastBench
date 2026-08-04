@@ -178,4 +178,64 @@ Only after secure-gate has activated those exact broker-policy bytes may another
 That invocation must stop before `purchase-missing-documents` with `paid_boundary_not_authorized`.
 Do not add `--allow-paid` or `--allow-network` during materialization.
 
+## Merge and adopt protected Stage B shards
+
+Stage B provider calls run outside the coordinator in the protected official paid-labeling workflow.
+Run the OpenAI shard first and the Google shard second through the same sequential encrypted baton and canonical provider journal; never run the two shards in parallel or inject both provider credentials into one job.
+Each protected shard must name the complete two-model judge panel and restore its authenticated outputs at exactly these paths:
+
+- `$successor_root/19-stage-b-shards/openai-audit.jsonl`
+- `$successor_root/19-stage-b-shards/openai-run-card.json`
+- `$successor_root/19-stage-b-shards/google-audit.jsonl`
+- `$successor_root/19-stage-b-shards/google-run-card.json`
+
+After both protected shard audit/card pairs exist, reconcile them locally with the credential-free merge command below.
+This command verifies the shard cards, journal lineage, complete settled-attempt cross-product, Stage A chain, decision-text commitments, model registries, and provider caps before it writes any selected label.
+It does not receive `--execution-provider`, a provider-authority table, an AWS region, or a provider credential.
+
+```zsh
+setopt ERR_EXIT NO_UNSET PIPE_FAIL
+
+uv run legalforecast acquisition llm-label \
+  --output-root "$successor_root/20-stage-b-labels" \
+  --selection "$frozen_v4_root/target-cohort-selection.jsonl" \
+  --parser-manifest "$successor_root/14-parse/mistral-markdown-conversions.jsonl" \
+  --markdown-root "$successor_root/14-parse/markdown" \
+  --decision-texts "$successor_root/18-decision-texts/decision-texts.jsonl" \
+  --decision-texts-manifest "$successor_root/18-decision-texts/decision-texts-manifest.json" \
+  --decision-texts-run-card "$successor_root/18-decision-texts/run-cards/build-decision-texts.json" \
+  --prediction-units "$successor_root/17-stage-a-final/prediction-units-finalized.jsonl" \
+  --llm-unitization-run-card "$successor_root/15-stage-a-unitize/run-cards/llm-unitize.json" \
+  --llm-review-stage-a-run-card "$successor_root/16-stage-a-review/run-cards/llm-review-stage-a.json" \
+  --unitization-review-run-card "$successor_root/17-stage-a-final/run-cards/apply-unitization-review.json" \
+  --model-registry "$repo_root/model_registries/cycle-1-stage-b-judges-2026-07-12.json" \
+  --evaluated-model-registry "$repo_root/model_registries/cycle-1-2026-06-30.json" \
+  --model-key openai:gpt-5.4-mini-2026-03-17 \
+  --model-key google:gemini-3.5-flash \
+  --provider-cycle-caps "$successor_root/01-provider-authority/provider-cycle-caps.json" \
+  --provider-journal "$private_cycle_root/paid-labeling/provider-attempts.sqlite3" \
+  --provider-shard-audit "$successor_root/19-stage-b-shards/openai-audit.jsonl" \
+  --provider-shard-run-card "$successor_root/19-stage-b-shards/openai-run-card.json" \
+  --provider-shard-audit "$successor_root/19-stage-b-shards/google-audit.jsonl" \
+  --provider-shard-run-card "$successor_root/19-stage-b-shards/google-run-card.json" \
+  --labels-output "$successor_root/20-stage-b-labels/labels.jsonl" \
+  --audit-output "$successor_root/20-stage-b-labels/llm-label-audit.jsonl" \
+  --lawyer-review-queue-output "$successor_root/20-stage-b-labels/lawyer-review-queue.jsonl" \
+  --run-card-output "$successor_root/20-stage-b-labels/run-cards/llm-label.json" \
+  --execute --resume
+```
+
+The template deliberately retains the conservative `model_provider` boundary for this externally completed merge so the coordinator cannot execute it during an ordinary provider-free cycle advance.
+Adopt the authenticated completion without invoking the handler or granting any provider authority:
+
+```zsh
+uv run legalforecast acquisition run-cycle \
+  --config "$successor_root/acquisition-cycle-v4-ranked-reserve.json" \
+  --state-root "$successor_root/orchestrator-v4-ranked-reserve" \
+  --adopt-next-completed --json
+```
+
+Do not combine `--adopt-next-completed` with `--execute`, any `--allow-*` flag, or a changed output path.
+The adoption must authenticate the exact next unreceipted `merge-stage-b-provider-shards` run card and outputs; a missing, drifted, partial, or unbound shard fails closed without a provider call.
+
 Evaluation, freeze, dispatch, and publication are absent from the template and remain unauthorized.
