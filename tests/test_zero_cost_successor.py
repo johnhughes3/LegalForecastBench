@@ -298,6 +298,16 @@ def test_rejects_purchased_zero_cost_candidate() -> None:
         project_zero_cost_successor(**fixture.kwargs)
 
 
+def test_rejects_unsupported_manifest_phase_on_inherited_case() -> None:
+    fixture = _fixture()
+    row = next(row for row in fixture.manifest if row["candidate_id"] == "case-010")
+    row["free_or_purchased"] = "unknown"
+    fixture.refresh()
+
+    with pytest.raises(ZeroCostSuccessorError, match="unsupported free_or_purchased"):
+        project_zero_cost_successor(**fixture.kwargs)
+
+
 def test_rejects_document_omitted_from_active_selection() -> None:
     fixture = _fixture()
     fixture.active[0]["documents"].pop()

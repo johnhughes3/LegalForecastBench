@@ -258,6 +258,12 @@ def project_zero_cost_successor(
         raise ZeroCostSuccessorError(
             "successor core-document eligibility does not cover exactly 100 cases"
         )
+    for row in selected_manifest:
+        if row.get("free_or_purchased") not in {"free", "purchased"}:
+            raise ZeroCostSuccessorError(
+                "download manifest row has an unsupported free_or_purchased value: "
+                f"{row.get('candidate_id')}/{row.get('source_document_id')}"
+            )
     selection_bytes = _jsonl_bytes(selection)
     relevance_bytes = _jsonl_bytes(selected_relevance)
     manifest_bytes = _jsonl_bytes(selected_manifest)
