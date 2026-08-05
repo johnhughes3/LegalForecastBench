@@ -21,6 +21,9 @@ from legalforecast.ingestion.docket_decision_text_source import (
     DocketDecisionTextSourceError,
     validate_terminal_purchase_disposition_record,
 )
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    ranked_reserve_result_bytes,
+)
 
 JsonRecord = dict[str, Any]
 
@@ -420,11 +423,12 @@ def _verify_ranked_result(
         or ranked_result.get("schema_version") != RESULT_SCHEMA_VERSION
     ):
         raise ZeroCostSuccessorError("unsupported ranked successor result")
-    canonical = canonical_json_bytes(
-        ranked_result,
-        error_type=ZeroCostSuccessorError,
-        error_message="ranked successor result is not canonical JSON",
-    )
+    try:
+        canonical = ranked_reserve_result_bytes(ranked_result)
+    except ValueError as exc:
+        raise ZeroCostSuccessorError(
+            "ranked successor result is not canonical JSON"
+        ) from exc
     if ranked_result_bytes != canonical:
         raise ZeroCostSuccessorError("ranked successor result is not canonical JSON")
     if ranked_result.get("projection_sha256") != target_projection.get(

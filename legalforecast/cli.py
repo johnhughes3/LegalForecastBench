@@ -595,6 +595,7 @@ from legalforecast.ingestion.ranked_reserve_replacement import (
     RankedReserveReplacementError,
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
+    ranked_reserve_result_bytes,
 )
 from legalforecast.ingestion.readiness_provenance import (
     ReadinessProvenanceError,
@@ -23508,7 +23509,9 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
         _write_immutable_bytes(replacement_output, replacement_bytes, resume=resume)
         _write_immutable_bytes(exclusions_output, exclusions_bytes, resume=resume)
         _write_immutable_bytes(budget_output, budget_bytes, resume=resume)
-        _write_immutable_bytes(output, _projection_json_bytes(result), resume=resume)
+        _write_immutable_bytes(
+            output, ranked_reserve_result_bytes(result), resume=resume
+        )
     except (
         CaseDevPurchaseLedgerError,
         CaseDevPurchasePolicyError,
