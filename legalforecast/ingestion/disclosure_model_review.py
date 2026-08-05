@@ -261,6 +261,45 @@ def build_marker_page_prompt(
     )
 
 
+def model_review_eligible_documents(
+    documents: Sequence[Mapping[str, object]],
+) -> tuple[Mapping[str, object], ...]:
+    """Return the ordered subset that the frozen model policy may review.
+
+    Rows with a well-formed, conservatively non-reviewable disposition remain
+    outside the provider prompt and are quarantined by the clearance builder.
+    """
+
+    eligible: list[Mapping[str, object]] = []
+    for document in documents:
+        # These fields must remain structurally valid even when the row is not
+        # eligible; otherwise a malformed row could be silently hidden.
+        _required_text(document, "candidate_id")
+        _required_text(document, "source_document_id")
+        _digest(_required_text(document, "sha256"), "sha256")
+        _mapping(document.get("disclosure_pdf_scan"), "disclosure_pdf_scan")
+        _text_list(document.get("route_reasons"))
+        _text_list(document.get("restriction_evidence"))
+        if (
+            document.get("route_reasons") == ["automated_marker_present"]
+            and document.get("exception_clearance_permitted") is True
+            and cast(Mapping[str, object], document["disclosure_pdf_scan"]).get(
+                "coverage_status"
+            )
+            == "complete"
+            and cast(Mapping[str, object], document["disclosure_pdf_scan"]).get(
+                "unscanned_page_numbers"
+            )
+            == []
+            and _visibility_valid(document)
+            and not _positive_restriction(document)
+            and _affirmative_courtlistener_provenance(document)
+        ):
+            _require_model_review_eligible(document)
+            eligible.append(document)
+    return tuple(eligible)
+
+
 def build_model_review_batch_prompt(
     prompts: Sequence[DisclosureModelReviewPrompt],
     *,

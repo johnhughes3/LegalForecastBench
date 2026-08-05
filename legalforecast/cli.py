@@ -341,6 +341,14 @@ from legalforecast.ingestion.disclosure_clearance import (
     validate_review_receipt,
     verify_parse_request_bytes,
 )
+from legalforecast.ingestion.disclosure_model_review_authority import (
+    DisclosureModelReviewAuthorityError,
+    authenticate_disclosure_model_review,
+    disclosure_model_review_provider_call_executed,
+    private_disclosure_model_review_records,
+    public_disclosure_model_review_record,
+    replay_authenticated_disclosure_model_review,
+)
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthority,
     DisclosureReviewAuthorityError,
@@ -542,6 +550,7 @@ from legalforecast.ingestion.provenance_clearance import (
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
     _issue_recovered_public_clearance_capability,  # pyright: ignore[reportPrivateUsage]
+    build_authenticated_model_provenance_clearance_records_v3,
     build_exception_inspection_map,
     build_provenance_clearance_plan,
     build_provenance_clearance_plan_v3,
@@ -551,6 +560,7 @@ from legalforecast.ingestion.provenance_clearance import (
     exception_review_worksheet,
     exception_review_worksheet_v3,
     validate_exception_review_worksheet,
+    validate_exception_review_worksheet_v3,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
 from legalforecast.ingestion.purchase_approval import (
@@ -2248,6 +2258,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_quarantine_provenance_exceptions_arguments(
         acquisition_provider_free_quarantine
+    )
+    acquisition_model_disclosure_review = acquisition_subparsers.add_parser(
+        "review-disclosure-exceptions",
+        help=("Review eligible v3 disclosure exceptions with frozen Gemini authority."),
+    )
+    _add_acquisition_model_disclosure_review_arguments(
+        acquisition_model_disclosure_review
     )
     acquisition_resolve_post_recovery = acquisition_subparsers.add_parser(
         "resolve-post-recovery-documents",
@@ -7594,8 +7611,30 @@ def _add_acquisition_quarantine_provenance_exceptions_arguments(
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--clearance-output", type=Path)
     parser.add_argument("--quarantine-output", type=Path)
+    parser.add_argument("--model-review-authority", type=Path)
+    parser.add_argument("--model-review-private-records", type=Path)
+    parser.add_argument("--model-review-run-card", type=Path)
+    parser.add_argument("--frozen-authority-root", type=Path)
+    parser.add_argument("--provider-journal", type=Path)
+    parser.add_argument("--provider-spend-authority", type=Path)
     _add_recovered_public_clearance_verification_arguments(parser)
     parser.set_defaults(handler=_cmd_acquisition_quarantine_provenance_exceptions)
+
+
+def _add_acquisition_model_disclosure_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--routing-plan", type=Path, required=True)
+    parser.add_argument("--exception-worksheet", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--frozen-authority-root", type=Path, required=True)
+    parser.add_argument("--provider-journal", type=Path, required=True)
+    parser.add_argument("--provider-spend-authority", type=Path, required=True)
+    parser.add_argument("--controlled-private-store-root", type=Path, required=True)
+    parser.add_argument("--authority-output", type=Path)
+    parser.add_argument("--private-records-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_model_disclosure_review)
 
 
 def _add_recovered_public_clearance_verification_arguments(
@@ -9232,11 +9271,35 @@ def _disclosure_failure_context(
         "seal-disclosure-review-bundle",
         "clear-provenance-disclosures",
         "finalize-provenance-quarantine",
+        "review-disclosure-exceptions",
     }
     if command not in disclosure_commands:
         return None
     command_name = cast(str, command)
     output_root = cast(Path, args.output_root)
+    if command == "review-disclosure-exceptions":
+        private_root = cast(Path, args.controlled_private_store_root)
+        return (
+            command_name,
+            (
+                cast(Path, args.routing_plan),
+                cast(Path, args.exception_worksheet),
+                cast(Path, args.document_root),
+                cast(Path, args.frozen_authority_root),
+            ),
+            (
+                _acquisition_path(
+                    args,
+                    "authority_output",
+                    output_root / "disclosure-model-review-authority.json",
+                ),
+                _acquisition_path(
+                    args,
+                    "private_records_output",
+                    private_root / "disclosure-model-review-private-records.json",
+                ),
+            ),
+        )
     if command == "plan-disclosure-provenance":
         return (
             command_name,
@@ -17745,6 +17808,93 @@ def _verify_external_completed_cycle_stage(
                 clearance_bytes=clearance_payload,
                 markdown_bytes=markdown_bytes,
             )
+            return
+
+        if stage.command == "review-disclosure-exceptions":
+            plan_path = _cycle_stage_path(stage, "--routing-plan")
+            worksheet_path = _cycle_stage_path(stage, "--exception-worksheet")
+            document_root = _cycle_stage_path(stage, "--document-root")
+            authority_path = _cycle_stage_path(stage, "--authority-output")
+            private_path = _cycle_stage_path(stage, "--private-records-output")
+            plan_bytes = _read_singly_linked_regular_input(
+                plan_path, label="external disclosure routing plan"
+            )
+            worksheet_bytes = _read_singly_linked_regular_input(
+                worksheet_path, label="external disclosure worksheet"
+            )
+            authority_bytes = _read_singly_linked_regular_input(
+                authority_path, label="external disclosure review authority"
+            )
+            private_bytes = _read_singly_linked_regular_input(
+                private_path, label="external disclosure private records"
+            )
+            plan = _projection_json_object(plan_bytes, source=plan_path)
+            worksheet = _projection_json_object(worksheet_bytes, source=worksheet_path)
+            documents = validate_exception_review_worksheet_v3(
+                worksheet,
+                routing_plan=plan,
+                routing_plan_bytes=plan_bytes,
+                worksheet_bytes=worksheet_bytes,
+            )
+            document_map: dict[tuple[str, str], bytes] = {}
+            document_tree: list[dict[str, object]] = []
+            for document in documents:
+                key = (
+                    cast(str, document["candidate_id"]),
+                    cast(str, document["source_document_id"]),
+                )
+                relative = cast(str, document["local_path"])
+                data = _read_singly_linked_regular_input(
+                    safe_disclosure_document_path(document_root, relative),
+                    label="external disclosure document",
+                )
+                document_map[key] = data
+                document_tree.append(
+                    {
+                        "candidate_id": key[0],
+                        "source_document_id": key[1],
+                        "relative_path": relative,
+                        "sha256": hashlib.sha256(data).hexdigest(),
+                        "byte_count": len(data),
+                    }
+                )
+            raw_sources = run_card.get("source_commitments")
+            if not isinstance(raw_sources, Mapping):
+                raise CommandError("external disclosure sources are missing")
+            raw_document_commitment = cast(Mapping[str, object], raw_sources).get(
+                "document_root"
+            )
+            if not isinstance(raw_document_commitment, Mapping):
+                raise CommandError("external disclosure document tree changed")
+            document_commitment = cast(Mapping[str, object], raw_document_commitment)
+            if dict(document_commitment) != {
+                "path": str(document_root.resolve()),
+                "tree_sha256": _canonical_json_sha256(document_tree),
+                "document_count": len(document_tree),
+            }:
+                raise CommandError("external disclosure document tree changed")
+            capability = replay_authenticated_disclosure_model_review(
+                routing_plan=plan,
+                routing_plan_bytes=plan_bytes,
+                worksheet=worksheet,
+                worksheet_bytes=worksheet_bytes,
+                document_bytes_by_key=document_map,
+                provider_journal_path=_cycle_stage_path(stage, "--provider-journal"),
+                provider_spend_authority_path=_cycle_stage_path(
+                    stage, "--provider-spend-authority"
+                ),
+                source_root=_cycle_stage_path(stage, "--frozen-authority-root"),
+            )
+            replayed_authority = public_disclosure_model_review_record(capability)
+            replayed_private = private_disclosure_model_review_records(capability)
+            if (
+                canonical_json_bytes(replayed_authority) != authority_bytes
+                or canonical_json_bytes(list(replayed_private)) != private_bytes
+                or run_card.get("model_review_authority") != replayed_authority
+                or run_card.get("record_count")
+                != replayed_authority.get("decision_count")
+            ):
+                raise CommandError("external disclosure authority replay differs")
             return
 
         unitization_card_path = (
@@ -40057,6 +40207,40 @@ def _provenance_document_tree_from_snapshot(
     }
 
 
+def _model_review_document_map(
+    worksheet: Mapping[str, object],
+    document_snapshot: Mapping[str, bytes],
+) -> dict[tuple[str, str], bytes]:
+    """Bind every worksheet row to one captured manifest document."""
+
+    raw_documents = worksheet.get("documents")
+    if not isinstance(raw_documents, list):
+        raise ProvenanceClearanceError("model review worksheet lacks documents")
+    result: dict[tuple[str, str], bytes] = {}
+    for value in cast(list[object], raw_documents):
+        if not isinstance(value, Mapping):
+            raise ProvenanceClearanceError("model review worksheet row is invalid")
+        document = cast(Mapping[str, object], value)
+        candidate_id = document.get("candidate_id")
+        source_document_id = document.get("source_document_id")
+        relative = document.get("local_path")
+        if not all(
+            isinstance(field, str) and field
+            for field in (candidate_id, source_document_id, relative)
+        ):
+            raise ProvenanceClearanceError(
+                "model review worksheet document identity is invalid"
+            )
+        data = document_snapshot.get(cast(str, relative))
+        if data is None:
+            raise ProvenanceClearanceError(
+                "model review worksheet document is absent from manifest snapshot: "
+                f"{relative}"
+            )
+        result[(cast(str, candidate_id), cast(str, source_document_id))] = data
+    return result
+
+
 def _require_provenance_document_snapshot_unchanged(
     snapshot: Mapping[str, bytes], *, document_root: Path
 ) -> None:
@@ -40694,7 +40878,12 @@ def _cmd_acquisition_clear_provenance_disclosures(
         _require_provenance_document_snapshot_unchanged(
             document_snapshot, document_root=document_root
         )
-    except (CohortPolicyError, OSError, ProvenanceClearanceError) as exc:
+    except (
+        CohortPolicyError,
+        DisclosureModelReviewAuthorityError,
+        OSError,
+        ProvenanceClearanceError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
     rows = [record.to_record() for record in records]
     quarantined = [row for row in rows if row["status"] != "cleared"]
@@ -40780,6 +40969,187 @@ def _cmd_acquisition_clear_provenance_disclosures(
     return 0
 
 
+def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
+    """Publish projections from the frozen authenticated Gemini reviewer."""
+
+    output_root = _acquisition_output_root(args)
+    plan_path = cast(Path, args.routing_plan)
+    worksheet_path = cast(Path, args.exception_worksheet)
+    raw_document_root = cast(Path, args.document_root)
+    raw_frozen_root = cast(Path, args.frozen_authority_root)
+    raw_journal_path = cast(Path, args.provider_journal)
+    raw_spend_path = cast(Path, args.provider_spend_authority)
+    raw_private_root = cast(Path, args.controlled_private_store_root)
+    for path, label in (
+        (raw_document_root, "document root"),
+        (raw_frozen_root, "frozen authority root"),
+        (raw_journal_path, "provider journal"),
+        (raw_spend_path, "provider spend authority"),
+        (raw_private_root, "controlled private root"),
+    ):
+        _reject_existing_parent_symlink(path, label=label)
+        if path.is_symlink():
+            raise CommandError(f"{label} is a symlink: {path}")
+    document_root = raw_document_root.resolve()
+    frozen_root = raw_frozen_root.resolve()
+    journal_path = raw_journal_path.resolve()
+    spend_path = raw_spend_path.resolve()
+    private_root = raw_private_root.resolve()
+    authority_path = _acquisition_path(
+        args,
+        "authority_output",
+        output_root / "disclosure-model-review-authority.json",
+    )
+    private_path = _acquisition_path(
+        args,
+        "private_records_output",
+        private_root / "disclosure-model-review-private-records.json",
+    )
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/review-disclosure-exceptions.json",
+    )
+    resolved_outputs = tuple(
+        path.resolve() for path in (authority_path, private_path, run_card_path)
+    )
+    _validate_disclosure_review_paths(
+        input_paths=(plan_path, worksheet_path),
+        output_paths=(authority_path, private_path, run_card_path),
+        protected_roots=(document_root, frozen_root),
+    )
+    if journal_path == spend_path:
+        raise CommandError("provider journal and spend authority must be distinct")
+    if any(
+        state_path in {plan_path.resolve(), worksheet_path.resolve()}
+        for state_path in (journal_path, spend_path)
+    ):
+        raise CommandError("model-review provider state aliases a content input")
+    if not private_path.resolve().is_relative_to(private_root):
+        raise CommandError(
+            "private model-review records must remain in the private root"
+        )
+    if any(
+        output.is_relative_to(document_root)
+        or output.is_relative_to(frozen_root)
+        or document_root.is_relative_to(output)
+        or frozen_root.is_relative_to(output)
+        for output in (*resolved_outputs, journal_path, spend_path)
+    ):
+        raise CommandError(
+            "model-review state or output overlaps a protected input root"
+        )
+    if any(output in {journal_path, spend_path} for output in resolved_outputs):
+        raise CommandError("model-review output aliases provider state")
+    try:
+        plan_bytes = _read_singly_linked_regular_input(plan_path, label="routing plan")
+        worksheet_bytes = _read_singly_linked_regular_input(
+            worksheet_path, label="exception worksheet"
+        )
+        plan = _projection_json_object(plan_bytes, source=plan_path)
+        worksheet = _projection_json_object(worksheet_bytes, source=worksheet_path)
+        documents = validate_exception_review_worksheet_v3(
+            worksheet,
+            routing_plan=plan,
+            routing_plan_bytes=plan_bytes,
+            worksheet_bytes=worksheet_bytes,
+        )
+        document_map: dict[tuple[str, str], bytes] = {}
+        tree: list[dict[str, object]] = []
+        for document in documents:
+            key = (
+                cast(str, document["candidate_id"]),
+                cast(str, document["source_document_id"]),
+            )
+            relative = cast(str, document["local_path"])
+            path = safe_disclosure_document_path(document_root, relative)
+            data = _read_singly_linked_regular_input(path, label="disclosure document")
+            document_map[key] = data
+            tree.append(
+                {
+                    "candidate_id": key[0],
+                    "source_document_id": key[1],
+                    "relative_path": relative,
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "byte_count": len(data),
+                }
+            )
+    except (OSError, ProvenanceClearanceError, ReviewBundleError) as exc:
+        raise CommandError(str(exc)) from exc
+    if _acquisition_dry_run(args):
+        return 0
+    try:
+        capability = authenticate_disclosure_model_review(
+            routing_plan=plan,
+            routing_plan_bytes=plan_bytes,
+            worksheet=worksheet,
+            worksheet_bytes=worksheet_bytes,
+            document_bytes_by_key=document_map,
+            provider_journal_path=journal_path,
+            provider_spend_authority_path=spend_path,
+            source_root=frozen_root,
+        )
+        authority = public_disclosure_model_review_record(capability)
+        private_records = private_disclosure_model_review_records(capability)
+    except (DisclosureModelReviewAuthorityError, OSError) as exc:
+        raise CommandError(str(exc)) from exc
+    authority_bytes = canonical_json_bytes(authority)
+    private_bytes = canonical_json_bytes(list(private_records))
+    provider_call_executed = disclosure_model_review_provider_call_executed(capability)
+    run_card = {
+        "schema_version": "legalforecast.disclosure_model_review_run_card.v1",
+        "stage": "review-disclosure-exceptions",
+        "status": "completed",
+        "resume": True,
+        "dry_run": False,
+        "execute": True,
+        "provider_activity_requested": True,
+        "provider_activity_executed": True,
+        "provider_call_executed_this_run": provider_call_executed,
+        "paid_activity_requested": True,
+        "paid_activity_executed": True,
+        "record_count": authority["decision_count"],
+        "source_commitments": {
+            "routing_plan": {
+                "path": str(plan_path.resolve()),
+                "sha256": _bytes_sha256(plan_bytes),
+            },
+            "exception_worksheet": {
+                "path": str(worksheet_path.resolve()),
+                "sha256": _bytes_sha256(worksheet_bytes),
+            },
+            "document_root": {
+                "path": str(document_root),
+                "tree_sha256": _canonical_json_sha256(tree),
+                "document_count": len(tree),
+            },
+        },
+        "state_paths": {
+            "provider_journal": str(journal_path),
+            "provider_spend_authority": str(spend_path),
+            "frozen_authority_root": str(frozen_root),
+        },
+        "model_review_authority": authority,
+        "output_commitments": {
+            "public_authority": {
+                "path": str(authority_path.resolve()),
+                "sha256": _bytes_sha256(authority_bytes),
+            },
+            "private_records": {
+                "path": str(private_path.resolve()),
+                "sha256": _bytes_sha256(private_bytes),
+            },
+        },
+    }
+    resume = cast(bool, args.resume)
+    _ensure_disclosure_review_artifact(private_path, private_bytes, resume=resume)
+    _ensure_disclosure_review_artifact(authority_path, authority_bytes, resume=resume)
+    _ensure_disclosure_review_artifact(
+        run_card_path, canonical_json_bytes(run_card), resume=resume
+    )
+    return 0
+
+
 def _cmd_acquisition_quarantine_provenance_exceptions(
     args: argparse.Namespace,
 ) -> int:
@@ -40814,10 +41184,42 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         "exception_worksheet": worksheet_path,
         "cohort_policy": cohort_policy_path,
     }
+    model_argument_names = (
+        "model_review_authority",
+        "model_review_private_records",
+        "model_review_run_card",
+        "frozen_authority_root",
+        "provider_journal",
+        "provider_spend_authority",
+    )
+    model_values = tuple(
+        cast(Path | None, getattr(args, name)) for name in model_argument_names
+    )
+    if any(value is not None for value in model_values) and not all(
+        value is not None for value in model_values
+    ):
+        raise CommandError(
+            "model-review finalization requires the complete authority argument set"
+        )
+    model_mode = all(value is not None for value in model_values)
+    if model_mode:
+        for name, value in zip(model_argument_names[:3], model_values[:3], strict=True):
+            source_paths[name] = cast(Path, value)
+        raw_frozen_root = cast(Path, args.frozen_authority_root)
+        raw_journal_path = cast(Path, args.provider_journal)
+        raw_spend_path = cast(Path, args.provider_spend_authority)
+        _reject_existing_parent_symlink(raw_frozen_root, label="frozen authority root")
+        if raw_frozen_root.is_symlink() or not raw_frozen_root.is_dir():
+            raise CommandError("frozen authority root is missing or unsafe")
+        frozen_root = raw_frozen_root.resolve()
+        model_state_paths = (raw_journal_path, raw_spend_path)
+    else:
+        frozen_root = None
+        model_state_paths = ()
     _validate_disclosure_review_paths(
-        input_paths=tuple(source_paths.values()),
+        input_paths=(*tuple(source_paths.values()), *model_state_paths),
         output_paths=(clearance_path, quarantine_path, run_card_path),
-        protected_roots=(document_root,),
+        protected_roots=(document_root, *((frozen_root,) if frozen_root else ())),
     )
     try:
         _reject_existing_parent_symlink(document_root, label="document root")
@@ -40885,14 +41287,60 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             )
         )
         routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
-        records = build_provider_free_quarantine_records_v3(
-            recomputed_plan,
-            routing_plan_sha256=routing_plan_sha256,
-        )
+        if model_mode:
+            model_run_card_path = cast(Path, args.model_review_run_card)
+            model_run_card = _projection_json_object(
+                source_bytes["model_review_run_card"], source=model_run_card_path
+            )
+            if (
+                model_run_card.get("schema_version")
+                != "legalforecast.disclosure_model_review_run_card.v1"
+                or model_run_card.get("stage") != "review-disclosure-exceptions"
+                or model_run_card.get("status") != "completed"
+            ):
+                raise ProvenanceClearanceError("model review run card is invalid")
+            document_map = _model_review_document_map(worksheet, document_snapshot)
+            capability = replay_authenticated_disclosure_model_review(
+                routing_plan=recomputed_plan,
+                routing_plan_bytes=plan_bytes,
+                worksheet=worksheet,
+                worksheet_bytes=worksheet_bytes,
+                document_bytes_by_key=document_map,
+                provider_journal_path=cast(Path, args.provider_journal),
+                provider_spend_authority_path=cast(Path, args.provider_spend_authority),
+                source_root=cast(Path, args.frozen_authority_root),
+            )
+            replayed_authority = public_disclosure_model_review_record(capability)
+            replayed_private = private_disclosure_model_review_records(capability)
+            if (
+                canonical_json_bytes(replayed_authority)
+                != source_bytes["model_review_authority"]
+                or canonical_json_bytes(list(replayed_private))
+                != source_bytes["model_review_private_records"]
+                or model_run_card.get("model_review_authority") != replayed_authority
+            ):
+                raise ProvenanceClearanceError(
+                    "model review projections differ from authenticated replay"
+                )
+            records = build_authenticated_model_provenance_clearance_records_v3(
+                recomputed_plan,
+                model_review_capability=capability,
+                routing_plan_sha256=routing_plan_sha256,
+            )
+        else:
+            records = build_provider_free_quarantine_records_v3(
+                recomputed_plan,
+                routing_plan_sha256=routing_plan_sha256,
+            )
         _require_provenance_document_snapshot_unchanged(
             document_snapshot, document_root=document_root
         )
-    except (CohortPolicyError, OSError, ProvenanceClearanceError) as exc:
+    except (
+        CohortPolicyError,
+        DisclosureModelReviewAuthorityError,
+        OSError,
+        ProvenanceClearanceError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
 
     rows = [record.to_record() for record in records]
@@ -40923,9 +41371,14 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         },
     }
     run_card = {
-        "schema_version": "legalforecast.provenance_quarantine_clearance_run_card.v1",
+        "schema_version": (
+            "legalforecast.provenance_model_clearance_run_card.v1"
+            if model_mode
+            else "legalforecast.provenance_quarantine_clearance_run_card.v1"
+        ),
         "stage": "finalize-provenance-quarantine",
         "status": "completed",
+        **({"resume": True} if model_mode else {}),
         "dry_run": False,
         "execute": True,
         "provider_activity_requested": False,
@@ -40952,7 +41405,11 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         ],
         "output_commitments": output_commitments,
         "disposition_policy": {
-            "kind": "v3_auto_clear_else_quarantine",
+            "kind": (
+                "v3_auto_clear_authenticated_model_else_quarantine"
+                if model_mode
+                else "v3_auto_clear_else_quarantine"
+            ),
             "routing_plan_schema_version": recomputed_plan["schema_version"],
             "exception_worksheet_schema_version": worksheet["schema_version"],
             "clearance_schema_version": "legalforecast.disclosure_clearance.v1",
@@ -40961,8 +41418,25 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             "cohort_policy_sha256": "sha256:" + cohort_policy_sha256,
             "auto_clear_count": recomputed_plan["auto_clear_count"],
             "exception_quarantine_count": len(quarantined),
-            "human_or_model_override_permitted": False,
+            "human_or_model_override_permitted": model_mode,
         },
+        **(
+            {
+                "model_review_state": {
+                    "frozen_authority_root": str(
+                        cast(Path, args.frozen_authority_root).resolve()
+                    ),
+                    "provider_journal": str(
+                        cast(Path, args.provider_journal).resolve()
+                    ),
+                    "provider_spend_authority": str(
+                        cast(Path, args.provider_spend_authority).resolve()
+                    ),
+                }
+            }
+            if model_mode
+            else {}
+        ),
         **(
             {"recovered_public_authority": recovered_public_authority}
             if recovered_public_authority is not None
@@ -42790,10 +43264,14 @@ def _verify_authenticated_clearance_run_card(
         run_card.get("schema_version")
         == "legalforecast.provenance_quarantine_clearance_run_card.v1"
     )
-    if provider_free_schema and run_card_bytes != canonical_json_bytes(run_card):
-        raise CommandError(
-            "provider-free provenance quarantine run card is not canonical"
-        )
+    model_schema = (
+        run_card.get("schema_version")
+        == "legalforecast.provenance_model_clearance_run_card.v1"
+    )
+    if (
+        provider_free_schema or model_schema
+    ) and run_card_bytes != canonical_json_bytes(run_card):
+        raise CommandError("provenance clearance run card is not canonical")
     verified_snapshot = _complete_clearance_artifact_snapshot(
         run_card=run_card,
         run_card_path=clearance_run_card_path,
@@ -42801,7 +43279,7 @@ def _verify_authenticated_clearance_run_card(
         clearance_path=clearance_path,
         captured_artifact_bytes=captured_artifact_bytes,
     )
-    if provider_free_schema:
+    if provider_free_schema or model_schema:
         return _verify_provider_free_provenance_quarantine_run_card(
             clearance_path=clearance_path,
             clearance_run_card_path=clearance_run_card_path,
@@ -43093,12 +43571,22 @@ def _verify_provider_free_provenance_quarantine_run_card(
         "output_commitments",
         "disposition_policy",
     }
+    model_schema = (
+        run_card.get("schema_version")
+        == "legalforecast.provenance_model_clearance_run_card.v1"
+    )
     if recovered_authority is not None:
         expected_fields.add("recovered_public_authority")
+    if model_schema:
+        expected_fields.add("model_review_state")
+        expected_fields.add("resume")
     if (
         set(run_card) != expected_fields
         or run_card.get("schema_version")
-        != "legalforecast.provenance_quarantine_clearance_run_card.v1"
+        not in {
+            "legalforecast.provenance_quarantine_clearance_run_card.v1",
+            "legalforecast.provenance_model_clearance_run_card.v1",
+        }
         or run_card.get("stage") != "finalize-provenance-quarantine"
         or run_card.get("status") != "completed"
         or run_card.get("dry_run") is not False
@@ -43109,8 +43597,9 @@ def _verify_provider_free_provenance_quarantine_run_card(
         or run_card.get("human_review_executed") is not False
         or run_card.get("paid_activity_requested") is not False
         or run_card.get("paid_activity_executed") is not False
+        or (model_schema and run_card.get("resume") is not True)
     ):
-        raise CommandError("invalid provider-free provenance quarantine run card")
+        raise CommandError("invalid provenance clearance run card")
     raw_sources = run_card.get("source_commitments")
     raw_outputs = run_card.get("output_commitments")
     raw_policy = run_card.get("disposition_policy")
@@ -43133,6 +43622,14 @@ def _verify_provider_free_provenance_quarantine_run_card(
         "routing_plan",
         "exception_worksheet",
         "cohort_policy",
+    ) + (
+        (
+            "model_review_authority",
+            "model_review_private_records",
+            "model_review_run_card",
+        )
+        if model_schema
+        else ()
     )
     paths = {name: _materializer_committed_path(sources, name) for name in source_names}
     if set(sources) != {*source_names, "document_root"}:
@@ -43471,9 +43968,55 @@ def _verify_provider_free_provenance_quarantine_run_card(
             )
         )
         routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
-        records = build_provider_free_quarantine_records_v3(
-            plan, routing_plan_sha256=routing_plan_sha256
-        )
+        if model_schema:
+            raw_model_state = run_card.get("model_review_state")
+            if not isinstance(raw_model_state, Mapping):
+                raise ProvenanceClearanceError("model review replay state is invalid")
+            model_state = cast(Mapping[str, object], raw_model_state)
+            state_values = tuple(
+                model_state.get(name)
+                for name in (
+                    "frozen_authority_root",
+                    "provider_journal",
+                    "provider_spend_authority",
+                )
+            )
+            if not all(isinstance(value, str) and value for value in state_values):
+                raise ProvenanceClearanceError("model review replay state is invalid")
+            document_map = _model_review_document_map(worksheet, document_snapshot)
+            capability = replay_authenticated_disclosure_model_review(
+                routing_plan=plan,
+                routing_plan_bytes=plan_bytes,
+                worksheet=worksheet,
+                worksheet_bytes=worksheet_bytes,
+                document_bytes_by_key=document_map,
+                provider_journal_path=Path(cast(str, state_values[1])),
+                provider_spend_authority_path=Path(cast(str, state_values[2])),
+                source_root=Path(cast(str, state_values[0])),
+            )
+            replayed_authority = public_disclosure_model_review_record(capability)
+            replayed_private = private_disclosure_model_review_records(capability)
+            model_card = _projection_json_object(
+                source_bytes["model_review_run_card"],
+                source=paths["model_review_run_card"],
+            )
+            if (
+                canonical_json_bytes(replayed_authority)
+                != source_bytes["model_review_authority"]
+                or canonical_json_bytes(list(replayed_private))
+                != source_bytes["model_review_private_records"]
+                or model_card.get("model_review_authority") != replayed_authority
+            ):
+                raise ProvenanceClearanceError("model review replay differs")
+            records = build_authenticated_model_provenance_clearance_records_v3(
+                plan,
+                model_review_capability=capability,
+                routing_plan_sha256=routing_plan_sha256,
+            )
+        else:
+            records = build_provider_free_quarantine_records_v3(
+                plan, routing_plan_sha256=routing_plan_sha256
+            )
         expected_clearance = b"".join(
             canonical_json_bytes(record.to_record()) for record in records
         )
@@ -43487,7 +44030,11 @@ def _verify_provider_free_provenance_quarantine_run_card(
         if quarantine_bytes != expected_quarantine:
             raise ProvenanceClearanceError("quarantine artifact replay mismatch")
         expected_policy = {
-            "kind": "v3_auto_clear_else_quarantine",
+            "kind": (
+                "v3_auto_clear_authenticated_model_else_quarantine"
+                if model_schema
+                else "v3_auto_clear_else_quarantine"
+            ),
             "routing_plan_schema_version": plan["schema_version"],
             "exception_worksheet_schema_version": worksheet["schema_version"],
             "clearance_schema_version": "legalforecast.disclosure_clearance.v1",
@@ -43495,8 +44042,10 @@ def _verify_provider_free_provenance_quarantine_run_card(
             "exception_worksheet_sha256": _bytes_sha256(worksheet_bytes),
             "cohort_policy_sha256": "sha256:" + cohort_sha256,
             "auto_clear_count": plan["auto_clear_count"],
-            "exception_quarantine_count": plan["exception_review_count"],
-            "human_or_model_override_permitted": False,
+            "exception_quarantine_count": sum(
+                record.status == "quarantined" for record in records
+            ),
+            "human_or_model_override_permitted": model_schema,
         }
         if (
             type(disposition_policy.get("auto_clear_count")) is not int
@@ -43509,7 +44058,9 @@ def _verify_provider_free_provenance_quarantine_run_card(
         expected_counts = {
             "record_count": len(records),
             "auto_clear_count": plan["auto_clear_count"],
-            "exception_quarantine_count": plan["exception_review_count"],
+            "exception_quarantine_count": sum(
+                record.status == "quarantined" for record in records
+            ),
         }
         if any(
             type(run_card.get(name)) is not int or run_card.get(name) != expected_value

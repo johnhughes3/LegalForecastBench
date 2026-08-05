@@ -13,6 +13,8 @@ import legalforecast.ingestion.disclosure_model_review_authority as authority_mo
 import pytest
 from legalforecast.evals.live_model_solver import LiveModelProviderError
 from legalforecast.ingestion.provenance_clearance import (
+    ProvenanceClearanceError,
+    build_authenticated_model_provenance_clearance_records_v3,
     canonical_json_bytes,
     exception_review_worksheet_v3,
 )
@@ -29,6 +31,12 @@ private_disclosure_model_review_records = (
 )
 public_disclosure_model_review_record = (
     authority_module.public_disclosure_model_review_record
+)
+replay_authenticated_disclosure_model_review = (
+    authority_module.replay_authenticated_disclosure_model_review
+)
+disclosure_model_review_provider_call_executed = (
+    authority_module.disclosure_model_review_provider_call_executed
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -232,11 +240,13 @@ def test_journal_replay_is_adopted_without_a_second_provider_call(
     tmp_path: Path,
 ) -> None:
     first = _authenticate(tmp_path)
+    assert disclosure_model_review_provider_call_executed(first) is True
 
     def unexpected_call(*_args: object) -> dict[str, object]:
         raise AssertionError("provider must not be called during journal adoption")
 
     replay = _authenticate(tmp_path, transport=unexpected_call)
+    assert disclosure_model_review_provider_call_executed(replay) is False
 
     assert public_disclosure_model_review_record(replay) == (
         public_disclosure_model_review_record(first)
@@ -244,6 +254,92 @@ def test_journal_replay_is_adopted_without_a_second_provider_call(
     assert private_disclosure_model_review_records(replay) == (
         private_disclosure_model_review_records(first)
     )
+
+
+def test_replay_only_issuer_reconstructs_capability_without_transport(
+    tmp_path: Path,
+) -> None:
+    original = _authenticate(tmp_path)
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+
+    replayed = replay_authenticated_disclosure_model_review(
+        routing_plan=plan,
+        routing_plan_bytes=plan_bytes,
+        worksheet=worksheet,
+        worksheet_bytes=worksheet_bytes,
+        document_bytes_by_key=documents,
+        provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+        provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+    )
+
+    assert public_disclosure_model_review_record(replayed) == (
+        public_disclosure_model_review_record(original)
+    )
+    assert private_disclosure_model_review_records(replayed) == (
+        private_disclosure_model_review_records(original)
+    )
+
+
+def test_replay_only_issuer_never_falls_back_to_provider(tmp_path: Path) -> None:
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+
+    with pytest.raises(
+        DisclosureModelReviewAuthorityError,
+        match=r"provider call forbidden|journal",
+    ):
+        replay_authenticated_disclosure_model_review(
+            routing_plan=plan,
+            routing_plan_bytes=plan_bytes,
+            worksheet=worksheet,
+            worksheet_bytes=worksheet_bytes,
+            document_bytes_by_key=documents,
+            provider_journal_path=tmp_path / "missing-journal.sqlite3",
+            provider_spend_authority_path=tmp_path / "missing-spend.sqlite3",
+        )
+    assert not (tmp_path / "missing-journal.sqlite3").exists()
+    assert not (tmp_path / "missing-spend.sqlite3").exists()
+
+
+def test_replay_only_issuer_rejects_symlinked_provider_state(tmp_path: Path) -> None:
+    _authenticate(tmp_path)
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+    journal_link = tmp_path / "journal-link.sqlite3"
+    journal_link.symlink_to(tmp_path / "provider-attempts.sqlite3")
+
+    with pytest.raises(
+        DisclosureModelReviewAuthorityError, match="no replayable store"
+    ):
+        replay_authenticated_disclosure_model_review(
+            routing_plan=plan,
+            routing_plan_bytes=plan_bytes,
+            worksheet=worksheet,
+            worksheet_bytes=worksheet_bytes,
+            document_bytes_by_key=documents,
+            provider_journal_path=journal_link,
+            provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+        )
+
+
+def test_v3_clearance_consumes_capability_not_public_mapping(tmp_path: Path) -> None:
+    capability = _authenticate(tmp_path)
+    plan, plan_bytes, _, _, _ = _inputs()
+    routing_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+
+    records = build_authenticated_model_provenance_clearance_records_v3(
+        plan,
+        model_review_capability=capability,
+        routing_plan_sha256=routing_sha256,
+    )
+
+    assert len(records) == 1
+    assert records[0].status == "cleared"
+    assert records[0].clearance_basis == "authenticated_model_exception_review"
+    with pytest.raises(ProvenanceClearanceError, match="capability"):
+        build_authenticated_model_provenance_clearance_records_v3(
+            plan,
+            model_review_capability=public_disclosure_model_review_record(capability),
+            routing_plan_sha256=routing_sha256,
+        )
 
 
 @pytest.mark.parametrize(

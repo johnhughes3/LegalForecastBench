@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -32,6 +32,7 @@ from legalforecast.ingestion.disclosure_model_review import (
     build_marker_page_prompt,
     build_model_review_batch_prompt,
     build_public_model_review_decision,
+    model_review_eligible_documents,
     validate_model_review_batch_response,
 )
 from legalforecast.ingestion.provenance_clearance import (
@@ -91,6 +92,7 @@ class _CapabilityState:
     local_attempt_ordinal: int
     journal_attempt_ordinal: int
     authority_attempt_ordinal: int
+    provider_call_executed: bool
     public_bytes: bytes
     private_bytes: bytes
 
@@ -123,11 +125,16 @@ def _authenticate_state(
         worksheet_bytes=worksheet_bytes,
         document_bytes_by_key=document_bytes_by_key,
     )
+    eligible_documents = model_review_eligible_documents(documents)
+    if not eligible_documents:
+        raise DisclosureModelReviewAuthorityError(
+            "worksheet contains no model-review-eligible exceptions"
+        )
     prompts = tuple(
         build_marker_page_prompt(
             document, document_bytes=document_bytes_by_key[_key(document)]
         )
-        for document in documents
+        for document in eligible_documents
     )
     batch_prompt = build_model_review_batch_prompt(prompts, reviewer=reviewer)
     context = _execution_context(
@@ -221,6 +228,7 @@ def _authenticate_state(
         local_attempt_ordinal=local_ordinal,
         journal_attempt_ordinal=journal_ordinal,
         authority_attempt_ordinal=authority_ordinal,
+        provider_call_executed=response.request_count > 0,
         public_bytes=_canonical_bytes(public_record),
         private_bytes=_canonical_bytes(list(private_records)),
     )
@@ -356,9 +364,10 @@ def _substantive_replay(state: _CapabilityState) -> None:
         worksheet_bytes=state.inputs.worksheet_bytes,
         document_bytes_by_key=document_map,
     )
+    eligible_documents = model_review_eligible_documents(documents)
     prompts = tuple(
         build_marker_page_prompt(document, document_bytes=document_map[_key(document)])
-        for document in documents
+        for document in eligible_documents
     )
     batch_prompt = build_model_review_batch_prompt(prompts, reviewer=reviewer)
     context = _execution_context(
@@ -432,6 +441,98 @@ def _substantive_replay(state: _CapabilityState) -> None:
     finally:
         journal.close()
         authority.close()
+
+
+def _require_replayable_stores(
+    *,
+    routing_plan: Mapping[str, object],
+    routing_plan_bytes: bytes,
+    worksheet: Mapping[str, object],
+    worksheet_bytes: bytes,
+    document_bytes_by_key: Mapping[tuple[str, str], bytes],
+    provider_journal_path: str | Path,
+    provider_spend_authority_path: str | Path,
+    source_root: str | Path | None = None,
+) -> None:
+    """Prove replay exists in both stores before opening either read-write."""
+
+    frozen_root = None if source_root is None else Path(source_root).resolve()
+    reviewer, _, caps, _ = _frozen_authorities(source_root=frozen_root)
+    _, documents = _validate_inputs(
+        routing_plan=routing_plan,
+        routing_plan_bytes=routing_plan_bytes,
+        worksheet=worksheet,
+        worksheet_bytes=worksheet_bytes,
+        document_bytes_by_key=document_bytes_by_key,
+    )
+    eligible = model_review_eligible_documents(documents)
+    if not eligible:
+        raise DisclosureModelReviewAuthorityError(
+            "worksheet contains no model-review-eligible exceptions"
+        )
+    prompts = tuple(
+        build_marker_page_prompt(
+            document, document_bytes=document_bytes_by_key[_key(document)]
+        )
+        for document in eligible
+    )
+    batch_prompt = build_model_review_batch_prompt(prompts, reviewer=reviewer)
+    context = _execution_context(
+        routing_plan_bytes=routing_plan_bytes,
+        worksheet_bytes=worksheet_bytes,
+        batch_prompt_text=batch_prompt.prompt_text,
+        reviewer=reviewer,
+        caps=caps,
+        provider_journal_path=Path(provider_journal_path),
+        provider_spend_authority_path=Path(provider_spend_authority_path),
+    )
+    raw_journal_path = Path(provider_journal_path)
+    raw_spend_path = Path(provider_spend_authority_path)
+    for path, label in (
+        (raw_journal_path, "provider journal"),
+        (raw_spend_path, "provider spend authority"),
+    ):
+        resolved = path.resolve()
+        if (
+            path.is_symlink()
+            or resolved != path.absolute()
+            or not path.is_file()
+            or path.stat(follow_symlinks=False).st_nlink != 1
+        ):
+            raise DisclosureModelReviewAuthorityError(
+                f"{label} has no replayable store"
+            )
+    journal_path = raw_journal_path.resolve()
+    spend_path = raw_spend_path.resolve()
+    try:
+        with sqlite3.connect(f"file:{journal_path}?mode=ro", uri=True) as connection:
+            journal_row = connection.execute(
+                "SELECT attempt_ordinal, authority_attempt_ordinal "
+                "FROM provider_attempts WHERE logical_call_key = ? "
+                "AND status IN ('settled', 'validated_response') "
+                "AND raw_response_json IS NOT NULL "
+                "AND normalized_response_json IS NOT NULL "
+                "ORDER BY attempt_ordinal DESC LIMIT 1",
+                (context.journal_identity.logical_call_key,),
+            ).fetchone()
+        if journal_row is None or journal_row[1] is None:
+            raise DisclosureModelReviewAuthorityError(
+                "provider journal has no replayable cross-store response"
+            )
+        with sqlite3.connect(f"file:{spend_path}?mode=ro", uri=True) as connection:
+            spend_row = connection.execute(
+                "SELECT 1 FROM provider_attempts WHERE logical_call_key = ? "
+                "AND attempt_ordinal = ? AND status IN ('reserved', 'settled')",
+                (context.spend_key.logical_call_key, journal_row[1]),
+            ).fetchone()
+        if spend_row is None:
+            raise DisclosureModelReviewAuthorityError(
+                "provider spend authority has no replayable cross-store response"
+            )
+    except sqlite3.Error as exc:
+        raise DisclosureModelReviewAuthorityError(
+            "provider replay stores are malformed"
+        ) from exc
 
 
 def _frozen_authorities(
@@ -714,7 +815,13 @@ def _logical_call_id(routing_plan_bytes: bytes, worksheet_bytes: bytes) -> str:
     )
 
 
-def _verifier_owned_capability_boundary() -> tuple[Any, Any, Any]:
+def _verifier_owned_capability_boundary() -> tuple[
+    Callable[..., object],
+    Callable[..., object],
+    Callable[[object], tuple[dict[str, object], ...]],
+    Callable[[object], dict[str, object]],
+    Callable[[object], bool],
+]:
     """Close capability construction and state adoption over verifier-only data."""
 
     class AuthenticatedCapability:
@@ -734,11 +841,30 @@ def _verifier_owned_capability_boundary() -> tuple[Any, Any, Any]:
                 "authenticated disclosure review capability was not verifier-issued"
             ) from exc
 
-    def authenticate(**kwargs: Any) -> object:
-        state = _authenticate_state(**kwargs)
+    def issue(state: _CapabilityState) -> object:
         capability = AuthenticatedCapability()
         states[capability] = state
         return capability
+
+    def authenticate(**kwargs: Any) -> object:
+        state = _authenticate_state(**kwargs)
+        return issue(state)
+
+    def replay(**kwargs: Any) -> object:
+        _require_replayable_stores(**kwargs)
+
+        def forbidden_transport(*_args: Any, **_kwargs: Any) -> Any:
+            raise DisclosureModelReviewAuthorityError(
+                "provider call forbidden during disclosure authority replay"
+            )
+
+        state = _authenticate_state(
+            **kwargs,
+            transport=forbidden_transport,
+            environ={"GEMINI_API_KEY": "replay-only-no-network"},
+            retry_backoff_seconds=0.0,
+        )
+        return issue(state)
 
     def public_record(capability: object) -> dict[str, object]:
         state = consume(capability)
@@ -756,13 +882,18 @@ def _verifier_owned_capability_boundary() -> tuple[Any, Any, Any]:
             raise DisclosureModelReviewAuthorityError("private projection is invalid")
         return tuple(cast(dict[str, object], row) for row in rows)
 
-    return authenticate, private_records, public_record
+    def provider_call_executed(capability: object) -> bool:
+        return consume(capability).provider_call_executed
+
+    return authenticate, replay, private_records, public_record, provider_call_executed
 
 
 (
     authenticate_disclosure_model_review,
+    replay_authenticated_disclosure_model_review,
     private_disclosure_model_review_records,
     public_disclosure_model_review_record,
+    disclosure_model_review_provider_call_executed,
 ) = _verifier_owned_capability_boundary()
 del _verifier_owned_capability_boundary
 
@@ -770,6 +901,8 @@ del _verifier_owned_capability_boundary
 __all__ = [
     "DisclosureModelReviewAuthorityError",
     "authenticate_disclosure_model_review",
+    "disclosure_model_review_provider_call_executed",
     "private_disclosure_model_review_records",
     "public_disclosure_model_review_record",
+    "replay_authenticated_disclosure_model_review",
 ]
