@@ -95,6 +95,29 @@ class BrokerOutcomeUnknown(RecapFetchBrokerError):
         self.code = code
 
 
+@dataclass(slots=True)
+class PreparedRecapFetchSubmission:
+    """One-shot broker submission with an explicit pre-wire cancellation path."""
+
+    _submit: Callable[[Mapping[str, str]], Mapping[str, Any]]
+    _cancel: Callable[[], None] = lambda: None
+    _finished: bool = False
+
+    def __call__(self, request: Mapping[str, str]) -> Mapping[str, Any]:
+        if self._finished:
+            raise ValueError("purchase submission preparation was already consumed")
+        self._finished = True
+        return self._submit(request)
+
+    def cancel(self) -> None:
+        """Release an unconsumed preparation after a local pre-wire failure."""
+
+        if self._finished:
+            return
+        self._finished = True
+        self._cancel()
+
+
 @dataclass(frozen=True, slots=True)
 class RecapFetchBrokerConfig:
     """Stage-scoped client identity and fixed broker endpoint."""
@@ -256,10 +279,10 @@ class SignedRecapFetchPurchaseBroker:
 
     def prepare_submission(
         self,
-    ) -> Callable[[Mapping[str, str]], Mapping[str, Any]]:
+    ) -> PreparedRecapFetchSubmission:
         """Return the unchanged secure-gate submission path."""
 
-        return self.submit
+        return PreparedRecapFetchSubmission(self.submit)
 
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
         """Submit canonical purchase bytes exactly once."""

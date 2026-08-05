@@ -230,7 +230,7 @@ def test_direct_submit_requires_and_consumes_one_preparation() -> None:
         "id": "77",
         "reservation_id": "direct:00000000-0000-4000-8000-000000000000",
     }
-    with pytest.raises(ValueError, match="requires fresh pre-dispatch preparation"):
+    with pytest.raises(ValueError, match="preparation was already consumed"):
         prepared_submit(request)
 
     assert reservations == [("POST", "/recap-fetch/")]
@@ -346,6 +346,90 @@ def test_direct_budget_wait_stays_planned_and_attempt_policy_restarts_once(
     assert post_reservations == [("POST", "/recap-fetch/")]
     assert len(second_paid.calls) == 1
     assert result.attempts[0].status.value == "quarantined"
+
+
+def test_direct_preparation_is_cancelled_when_journal_submit_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 77})]
+    )
+    post_reservations: list[tuple[str, str]] = []
+    direct = DirectCourtListenerRecapFetchPurchaseBroker(
+        _direct_config(),
+        transport=paid,
+        before_request=lambda method, path: post_reservations.append((method, path)),
+    )
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        original_submit = journal.submit
+
+        def fail_submit(
+            document_id: str, *, context: Mapping[str, object] | None = None
+        ) -> bool:
+            del document_id, context
+            raise CaseDevPurchaseLedgerError("injected journal submit failure")
+
+        monkeypatch.setattr(journal, "submit", fail_submit)
+        with pytest.raises(
+            CaseDevPurchaseLedgerError, match="injected journal submit failure"
+        ):
+            CourtListenerRecapFetchClient(
+                _public_config(),
+                journal=journal,
+                transport=FixtureRecapFetchTransport(
+                    [_response("GET", "/recap-documents/123/", {"id": 123})]
+                ),
+                purchase_broker=direct,
+            ).execute_purchase_plan(
+                _plan(),
+                public_documents=_public_documents(),
+                live=True,
+                acknowledge_pacer_fees=True,
+            )
+        assert journal.statuses() == {"123": "planned"}
+        assert journal.committed_amount_usd == "0.00"
+        assert paid.calls == []
+
+        monkeypatch.setattr(journal, "submit", original_submit)
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    _response("GET", "/recap-documents/123/", {"id": 123}),
+                    _response("GET", "/recap-fetch/77/", {"status": 2}),
+                    _response(
+                        "GET",
+                        "/recap-documents/123/",
+                        {
+                            "id": 123,
+                            "is_available": True,
+                            "filepath_local": (
+                                "https://storage.courtlistener.com/123.pdf"
+                            ),
+                        },
+                    ),
+                ]
+            ),
+            purchase_broker=direct,
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=_public_documents(),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+
+        assert journal.statuses() == {"123": "confirmed"}
+
+    assert post_reservations == [
+        ("POST", "/recap-fetch/"),
+        ("POST", "/recap-fetch/"),
+    ]
+    assert len(paid.calls) == 1
+    assert result.executed_purchase_count == 1
 
 
 @pytest.mark.parametrize("status_code", (302, 503))

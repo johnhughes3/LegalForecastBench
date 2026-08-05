@@ -30,6 +30,7 @@ from legalforecast.ingestion.recap_fetch_attempt_policy import (
 from legalforecast.ingestion.recap_fetch_broker import (
     BrokerDefiniteRejection,
     BrokerOutcomeUnknown,
+    PreparedRecapFetchSubmission,
     broker_reconciliation_record,
     canonical_submission_bytes,
     recap_fetch_client_code,
@@ -179,12 +180,10 @@ class RecapFetchPurchaseBroker(Protocol):
 
     def prepare_submission(
         self,
-    ) -> Callable[[Mapping[str, str]], Mapping[str, Any]]:
+    ) -> PreparedRecapFetchSubmission:
         """Return the submit callable after local pre-dispatch gates."""
 
         raise NotImplementedError
-
-    def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]: ...
 
     def receipt(self, operation_key: str) -> Mapping[str, Any]: ...
 
@@ -288,10 +287,10 @@ class FixtureRecapFetchPurchaseBroker:
 
     def prepare_submission(
         self,
-    ) -> Callable[[Mapping[str, str]], Mapping[str, Any]]:
+    ) -> PreparedRecapFetchSubmission:
         """Fixtures have no live pre-dispatch gate."""
 
-        return self.submit
+        return PreparedRecapFetchSubmission(self.submit)
 
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
         self.requests.append(dict(request))
@@ -401,7 +400,7 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
 
     def prepare_submission(
         self,
-    ) -> Callable[[Mapping[str, str]], Mapping[str, Any]]:
+    ) -> PreparedRecapFetchSubmission:
         """Reserve request capacity before the journal enters submitted state."""
 
         if self._active_preparation is not None:
@@ -411,10 +410,16 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
         preparation = _DirectSubmissionPreparation(owner=self._preparation_owner)
         self._active_preparation = preparation
 
-        def submit_prepared(request: Mapping[str, str]) -> Mapping[str, Any]:
-            return self.submit(request, preparation=preparation)
+        return PreparedRecapFetchSubmission(
+            lambda request: self.submit(request, preparation=preparation),
+            lambda: self._cancel_preparation(preparation),
+        )
 
-        return submit_prepared
+    def _cancel_preparation(self, preparation: _DirectSubmissionPreparation) -> None:
+        if preparation is not self._active_preparation or preparation.consumed:
+            raise ValueError("direct purchase preparation cannot be cancelled")
+        preparation.consumed = True
+        self._active_preparation = None
 
     def submit(
         self,
@@ -685,11 +690,23 @@ class CourtListenerRecapFetchClient:
             "reservation_usd": str(planned["reservation_usd"]),
         }
         prepared_submit = self.purchase_broker.prepare_submission()
-        if not self.journal.submit(document_id, context=submission_context):
-            raise CaseDevPurchaseLedgerError("submit skipped without replayable state")
-        evidence = self.journal.operation_evidence(document_id)
-        if evidence is None or evidence.get("operation_key") is None:
-            raise CaseDevPurchaseLedgerError("submitted purchase lacks operation key")
+        submitted = False
+        try:
+            if not self.journal.submit(document_id, context=submission_context):
+                raise CaseDevPurchaseLedgerError(
+                    "submit skipped without replayable state"
+                )
+            submitted = True
+            evidence = self.journal.operation_evidence(document_id)
+            if evidence is None or evidence.get("operation_key") is None:
+                raise CaseDevPurchaseLedgerError(
+                    "submitted purchase lacks operation key"
+                )
+        except BaseException as exc:
+            prepared_submit.cancel()
+            if submitted:
+                self.journal.fail_before_dispatch(document_id, exc)
+            raise
         broker_request = {
             "request_type": "2",
             "recap_document": document_id,
