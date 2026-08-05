@@ -193,6 +193,8 @@ It must stop before `purchase-missing-documents` with `paid_boundary_not_authori
 After reviewing that boundary, rerun with the coordinator's explicit paid and network authorizations to execute the already frozen purchase plan; do not change the selection, policy, ledger, or cap between runs.
 
 ```zsh
+setopt ERR_EXIT NO_UNSET PIPE_FAIL
+
 uv run legalforecast acquisition run-cycle \
   --config "$successor_root/acquisition-cycle-v4-ranked-reserve.json" \
   --state-root "$successor_root/orchestrator-v4-ranked-reserve" \

@@ -38639,9 +38639,10 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                 selection_bytes=selection_bytes,
             )
         else:
-            if replacement_private_root is None:
+            if replacement_private_root is None or controlled_private_root is None:
                 raise CommandError(
-                    "replacement purchase authority requires its private root"
+                    "replacement purchase authority requires both the initial and "
+                    "replacement controlled private roots"
                 )
             verify_replacement_purchase_authority(
                 authority_artifact=cast(
@@ -38649,7 +38650,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                 ),
                 controlled_private_root=replacement_private_root,
                 initial_purchase_policy_artifact=purchase_policy_artifact,
-                initial_controlled_private_root=cast(Path, controlled_private_root),
+                initial_controlled_private_root=controlled_private_root,
                 cohort_policy_artifact=cohort_policy_artifact,
                 budget_plan_bytes=budget_plan_bytes,
                 selection_bytes=selection_bytes,
