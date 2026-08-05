@@ -22,6 +22,7 @@ from legalforecast.ingestion.docket_decision_text_source import (
     validate_terminal_purchase_disposition_record,
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    ranked_reserve_canonical_sha256,
     ranked_reserve_result_bytes,
 )
 
@@ -303,13 +304,13 @@ def project_zero_cost_successor(
             ranked_result.get("purchase_journal_state_sha256"),
             "purchase journal state",
         ),
-        "purchase_result": _digest(
+        "purchase_result": _prefixed_sha256(
             disposition.get("purchase_result_sha256"), "purchase result"
         ),
-        "purchase_run_card": _digest(
+        "purchase_run_card": _prefixed_sha256(
             disposition.get("purchase_run_card_sha256"), "purchase run card"
         ),
-        "screening_snapshot_manifest": _digest(
+        "screening_snapshot_manifest": _prefixed_sha256(
             disposition.get("snapshot_manifest_sha256"),
             "screening snapshot manifest",
         ),
@@ -478,16 +479,17 @@ def _verify_ranked_result(
         )
     except DocketDecisionTextSourceError as exc:
         raise ZeroCostSuccessorError(str(exc)) from exc
-    disposition_bytes = canonical_json_bytes(
-        disposition,
-        error_type=ZeroCostSuccessorError,
-        error_message="terminal disposition is not canonical JSON",
-    )
     if (
         ranked_result.get("terminal_disposition_sha256")
-        != _bytes_sha256(disposition_bytes)
-        or disposition.get("residual_terminal_exclusions_sha256")
-        != ranked_result.get("terminal_exclusions_sha256")
+        != ranked_reserve_canonical_sha256(disposition)
+        or _sha256_hex(
+            disposition.get("residual_terminal_exclusions_sha256"),
+            "terminal disposition residual exclusions",
+        )
+        != _sha256_hex(
+            ranked_result.get("terminal_exclusions_sha256"),
+            "ranked successor terminal exclusions",
+        )
         or disposition.get("purchase_journal_state_sha256")
         != ranked_result.get("purchase_journal_state_sha256")
         or disposition.get("partition_disjoint") is not True
@@ -588,50 +590,77 @@ def _require_union_document_coverage(
 ) -> None:
     """Require one exact document-key universe across the emitted 100 cases."""
 
-    selection_keys: set[tuple[str, str]] = set()
+    selection_documents: dict[tuple[str, str], Mapping[str, Any]] = {}
     for record in selection:
         candidate_id = _required_text(record, "candidate_id")
         for document in _documents(record, f"selection {candidate_id}"):
-            if _required_text(document, "candidate_id") != candidate_id:
-                raise ZeroCostSuccessorError(
-                    f"selection document candidate differs: {candidate_id}"
-                )
+            _require_parent_scoped_document_candidate(
+                document,
+                candidate_id=candidate_id,
+                label="selection",
+            )
             key = (candidate_id, _required_text(document, "source_document_id"))
-            if key in selection_keys:
+            if key in selection_documents:
                 raise ZeroCostSuccessorError(
                     f"selection repeats document coverage: {key}"
                 )
-            selection_keys.add(key)
+            selection_documents[key] = document
+    selection_keys = set(selection_documents)
 
-    relevance_keys: set[tuple[str, str]] = set()
+    relevance_documents: dict[tuple[str, str], Mapping[str, Any]] = {}
     for record in case_relevance:
         candidate_id = _required_text(record, "candidate_id")
         for document in _documents(record, f"case relevance {candidate_id}"):
-            if _required_text(document, "candidate_id") != candidate_id:
-                raise ZeroCostSuccessorError(
-                    f"relevance document candidate differs: {candidate_id}"
-                )
+            _require_parent_scoped_document_candidate(
+                document,
+                candidate_id=candidate_id,
+                label="relevance",
+            )
             key = (candidate_id, _required_text(document, "source_document_id"))
-            if key in relevance_keys:
+            if key in relevance_documents:
                 raise ZeroCostSuccessorError(
                     f"case relevance repeats document coverage: {key}"
                 )
-            relevance_keys.add(key)
+            relevance_documents[key] = document
+    relevance_keys = set(relevance_documents)
 
     manifest_keys = set(_document_index(download_manifest, "download manifest"))
     clearance_keys = set(_document_index(disclosure_clearance, "disclosure clearance"))
     restriction_keys = set(
         _document_index(restriction_evidence, "restriction evidence")
     )
-    if not (
-        selection_keys
-        == relevance_keys
-        == manifest_keys
-        == clearance_keys
-        == restriction_keys
+    if selection_keys != relevance_keys or not (
+        manifest_keys == clearance_keys == restriction_keys
     ):
         raise ZeroCostSuccessorError(
             "exact-100 selection document coverage differs across standard surfaces"
+        )
+    if not manifest_keys <= selection_keys:
+        raise ZeroCostSuccessorError(
+            "exact-100 acquired documents are absent from the selection"
+        )
+    for key in selection_keys - manifest_keys:
+        for document in (selection_documents[key], relevance_documents[key]):
+            if (
+                document.get("requires_paid_recovery") is not True
+                or document.get("availability_status") != "unavailable"
+            ):
+                raise ZeroCostSuccessorError(
+                    f"unacquired successor document is not a paid-recovery gap: {key}"
+                )
+
+
+def _require_parent_scoped_document_candidate(
+    document: Mapping[str, Any],
+    *,
+    candidate_id: str,
+    label: str,
+) -> None:
+    if "candidate_id" not in document:
+        return
+    if _required_text(document, "candidate_id") != candidate_id:
+        raise ZeroCostSuccessorError(
+            f"{label} document candidate differs: {candidate_id}"
         )
 
 
@@ -779,6 +808,21 @@ def _digest(value: object, field: str) -> str:
     if any(character not in "0123456789abcdef" for character in value[7:]):
         raise ZeroCostSuccessorError(f"{field} must be a sha256 digest")
     return value
+
+
+def _sha256_hex(value: object, field: str) -> str:
+    if not isinstance(value, str):
+        raise ZeroCostSuccessorError(f"{field} must be a sha256 digest")
+    normalized = value.removeprefix("sha256:")
+    if len(normalized) != 64 or any(
+        character not in "0123456789abcdef" for character in normalized
+    ):
+        raise ZeroCostSuccessorError(f"{field} must be a sha256 digest")
+    return normalized
+
+
+def _prefixed_sha256(value: object, field: str) -> str:
+    return "sha256:" + _sha256_hex(value, field)
 
 
 def _money(value: object, label: str) -> str:
