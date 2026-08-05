@@ -1,6 +1,6 @@
 # Ingestion Module Map
 
-`legalforecast.ingestion` is intentionally still a flat package. Moving its modules while acquisition work is active would create broad import churn, so this map supplies the internal structure: each Python module belongs to exactly one concern below, and each concern names its ownership boundary and useful entry points.
+`legalforecast.ingestion` intentionally still has a mostly flat, shallow structure. Moving its modules while acquisition work is active would create broad import churn, so this map supplies the internal structure: each Python module belongs to exactly one concern below, and each concern names its ownership boundary and useful entry points.
 
 Use this page to find code, not as a second API specification. Module docstrings and typed public interfaces remain authoritative. The consistency test in `tests/test_ingestion_module_map.py` requires every ingestion Python file to appear exactly once, so new modules must be placed deliberately.
 

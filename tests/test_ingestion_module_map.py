@@ -25,8 +25,8 @@ def test_ingestion_module_map_covers_every_python_module_exactly_once() -> None:
         for path in INGESTION_ROOT.rglob("*.py")
     )
 
-    assert sorted(mapped_modules) == actual_modules
     assert all(count == 1 for count in Counter(mapped_modules).values())
+    assert sorted(mapped_modules) == actual_modules
 
 
 def test_ingestion_module_map_exposes_ownership_and_entry_points() -> None:
