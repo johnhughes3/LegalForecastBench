@@ -6,7 +6,7 @@ import json
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
@@ -61,6 +61,9 @@ from tests.test_ranked_reserve_replacement import (
 )
 from tests.test_ranked_reserve_replacement import (
     _canonical_sha as _ranked_canonical_sha,
+)
+from tests.test_ranked_reserve_replacement import (
+    _disposition_record as _ranked_disposition_record,
 )
 from tests.test_ranked_reserve_replacement import _jsonl as _ranked_jsonl
 from tests.test_ranked_reserve_replacement import _omission as _ranked_omission
@@ -704,6 +707,64 @@ def test_ranked_builder_rejects_unknown_or_mixed_source_modes(
             purchase_ledger_initialization_receipt_path=fixture["receipt_path"],
             source_authority_kind=source_authority_kind,
         )
+
+
+def test_authenticated_ranked_result_binds_closed_terminal_disposition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _ranked_authority_fixture(tmp_path, monkeypatch=monkeypatch)
+    result = json.loads(fixture["result_path"].read_text(encoding="utf-8"))
+    disposition = _ranked_disposition_record(
+        residual_sha256=str(result["terminal_exclusions_sha256"]),
+        purchase_journal_state_sha256=str(result["purchase_journal_state_sha256"]),
+    )
+    result["schema_version"] = "legalforecast.ranked_reserve_replacement_result.v2"
+    result["terminal_disposition"] = disposition
+    result["terminal_disposition_sha256"] = _ranked_canonical_sha(disposition)
+    fixture["result_path"].write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    request = _build_ranked_request(fixture)
+    assert (
+        request.replacement_result_sha256
+        == hashlib.sha256(fixture["result_path"].read_bytes()).hexdigest()
+    )
+
+    residual_pairs = cast(list[object], disposition["residual_failure_pairs"])
+    mutations: tuple[tuple[str, object, str], ...] = (
+        (
+            "partition_exhaustive",
+            False,
+            "activity and partition flags are invalid",
+        ),
+        ("terminal_candidate_count", 4, "does not match its records"),
+        ("model_visible", True, "activity and partition flags are invalid"),
+        (
+            "residual_failure_pairs",
+            [*residual_pairs, residual_pairs[0]],
+            "duplicated or unordered",
+        ),
+        (
+            "purchase_journal_state_sha256",
+            "sha256:" + "9" * 64,
+            "targets another journal state",
+        ),
+    )
+    for field, value, expected_error in mutations:
+        tampered = json.loads(json.dumps(disposition))
+        tampered[field] = value
+        result["terminal_disposition"] = tampered
+        result["terminal_disposition_sha256"] = _ranked_canonical_sha(tampered)
+        fixture["result_path"].write_text(
+            json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        with pytest.raises(
+            ReplacementPurchaseApprovalError,
+            match=expected_error,
+        ):
+            _build_ranked_request(fixture)
 
 
 def test_ranked_v2_authority_records_replays_and_verifies_exact_source(

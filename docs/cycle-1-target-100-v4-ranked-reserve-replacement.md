@@ -1,7 +1,8 @@
 # Cycle 1 v4 ranked-reserve continuation
 
 This continuation replaces a candidate only after a downstream stage emits explicit terminal, nonretryable exclusion evidence.
-It replays the complete frozen v4 target projection, retains the original target count, consumes the five-case reserve in its frozen order, preserves the canonical Cycle purchase ledger and hard cap, and emits a successor selected-XOR-excluded resolution.
+It replays the complete frozen v4 target projection, consumes the reserve only in its frozen order, preserves the canonical Cycle purchase ledger and hard cap, and emits a successor selected-XOR-excluded resolution.
+When the unchanged cap cannot fund every terminal replacement, the result is an explicitly incomplete precursor whose `active_case_count` is below 100; it must not be presented to downstream corpus stages as a complete cohort.
 
 This is not an acquisition rerun and does not edit the frozen v4 artifacts.
 It performs no provider request, network request, fee acknowledgement, purchase, model evaluation, cycle freeze, or dispatch.
@@ -13,7 +14,7 @@ Use generated local metadata to locate these existing absolute paths:
 
 - the completed v4 target-cohort root containing 100 selected cases and five ordered reserves;
 - the approved v2 purchase policy, canonical ledger, initialization receipt, and original controlled private root;
-- a separately committed terminal-exclusion JSONL file and its digest file; and
+- the completed purchase result and run card plus the pinned complete screening snapshot used to derive the terminal retained-versus-residual partition; and
 - a new continuation output root outside every frozen and private evidence root.
 
 Each terminal record has the closed schema `legalforecast.ranked_reserve_terminal_exclusion.v1` and exactly these fields:
@@ -50,14 +51,17 @@ The verifier fails closed for queue status `1`, `4`, or `5`, every retryable, `n
 
 The core planner accepts those retrieval-stage records only when the caller also supplies the same verifier-issued object as `terminal_purchase_failure_authority=authority` and the current journal still has its authenticated state hash.
 At planner time the authority replays the substantive verifier from its immutable captured source bytes and requires the regenerated evidence to match exactly, so neither a raw lookalike JSONL nor direct access to a private issuer helper can consume a reserve.
-The authority covers the complete terminal-failure universe for its purchase tranche, and the current planner path is usable only when every verified terminal candidate is correctly dispositioned as a ranked-reserve exclusion.
-A mixed tranche in which separate authenticated docket-text evidence retains some terminal candidates must stop until the typed disposition integration proves an exact, disjoint, and exhaustive retained-versus-replaced partition; do not pass a caller-selected subset or promote every terminal candidate merely to satisfy the current equality check.
+The authority covers the complete terminal-failure universe for its purchase tranche.
+The supported CLI composes it with `verify_docket_decision_text_sources(...)`, which replays the frozen selection and pinned screening snapshot and derives one exact, disjoint, exhaustive retained-versus-residual partition.
+Only the verifier-owned residual terminal bytes reach the reserve planner; no caller supplies retained IDs, residual IDs, or a terminal subset.
 
 This adapter performs only local safe reads; it performs no file write, network request, provider request, purchase, journal mutation, model call, evaluation, freeze, or dispatch.
-CLI and successor-reprojection wiring must invoke the verifier after the result and run card are durably published, persist the returned evidence and terminal JSONL, then call the existing planner with that same authority object.
-That CLI and typed-disposition integration is not part of this provider-free core adapter yet, so the command below must not be used with `source_stage=purchase-missing-recap-fetch` evidence until the caller constructs and passes both the terminal authority and any required mixed-tranche disposition authority.
+The CLI invokes the verifier only after the result and run card are durably published, rechecks every captured source before publishing outputs, and passes the opaque disposition authority into the planner.
+It rechecks and substantively replays that authority immediately before the planner's first journal mutation and again before output publication.
+Authenticated runs emit `legalforecast.ranked_reserve_replacement_result.v2`, which commits the complete closed disposition record and its purchase-result, purchase-run-card, screening-snapshot, retained-source, and residual-exclusion hashes.
+The legacy `--terminal-exclusions` mode remains available only for authenticated non-retrieval downstream exclusions and is mutually exclusive with purchase-result disposition mode.
 
-## Provider-free planning command for non-retrieval exclusions
+## Provider-free planning command for authenticated retrieval failures
 
 The reviewed path map is [`cycle-1-target-100.v4-ranked-reserve-replacement-plan.template.json`](../manifests/cycle-1-target-100.v4-ranked-reserve-replacement-plan.template.json).
 It is deliberately a command template rather than an acquisition-cycle manifest: the planner may establish that a paid successor approval is required, but it must never chain automatically into a paid or downstream model stage.
@@ -73,8 +77,9 @@ uv run legalforecast acquisition plan-ranked-reserve-replacements \
   --controlled-private-root "$initial_private_root" \
   --purchase-ledger "$purchase_ledger" \
   --purchase-ledger-initialization-receipt "$purchase_ledger_receipt" \
-  --terminal-exclusions "$terminal_evidence_root/terminal-candidate-exclusions.jsonl" \
-  --terminal-exclusions-sha256-file "$terminal_evidence_root/terminal-candidate-exclusions.sha256" \
+  --purchase-result "$purchase_result_root/courtlistener-recap-fetch-purchases.json" \
+  --purchase-run-card "$purchase_result_root/run-cards/purchase-missing-recap-fetch.json" \
+  --screening-snapshot-manifest "$screening_snapshot_root/manifest.json" \
   --output "$continuation_root/replacement-result.json" \
   --active-selection-output "$continuation_root/active-selection.jsonl" \
   --replacement-selection-output "$continuation_root/replacement-selection.jsonl" \
@@ -83,7 +88,12 @@ uv run legalforecast acquisition plan-ranked-reserve-replacements \
 ```
 
 The planner authenticates the target projection through the existing full semantic replay, not by reading the projection summary alone.
-It then binds the exact selected, reserve, original-exclusion, and full source-pool bytes; verifies counts, canonical ID and reserve commitments, reserve ranks and costs, and resolved-pool reconciliation; checks the external terminal-evidence digest; and appends replay-safe hash-chained decisions to the existing purchase journal only after all validation and cap checks pass.
+It then binds the exact selected, reserve, original-exclusion, and full source-pool bytes; verifies counts, canonical ID and reserve commitments, reserve ranks and costs, and resolved-pool reconciliation; authenticates the exact residual terminal digest from the exhaustive disposition authority; and appends replay-safe hash-chained decisions to the existing purchase journal only after all validation and cap checks pass.
+If output publication is interrupted after those journal appends, rerunning the same authenticated command reconstructs the same rank-1/rank-2 tranche and immutable bytes from the durable events rather than emitting an empty successor tranche.
+
+For the current Cycle ledger, the frozen completion envelope is `$545.95` and only `$21.35` remains under the unchanged `$567.30` cap.
+That headroom permits reserve rank 1 (`$9.15`) and reserve rank 2 (`$12.20`) exactly.
+Rank 3 is not attempted, inspected as an alternative, or authorized; with three residual terminal candidates the output is therefore the authenticated 99-case precursor comprising 97 retained original candidates plus ranks 1 and 2.
 
 ## Required stop
 
@@ -92,5 +102,6 @@ Its activity and authority flags must all remain false.
 If `successor_approval_required` is true, record and replay a new exact successor approval for `replacement-selection.jsonl` and `replacement-budget-plan.json`; do not reuse the original target-100 approval as authority for those documents.
 Until that approval path authenticates this ranked-reserve result schema, stop without purchasing.
 
-Only a later, separately reviewed continuation may rebuild acquisition materialization, Stage A, Stage B, packet inputs, or corpus readiness from `active-selection.jsonl` and `successor-exclusions.jsonl`.
+An `active_case_count` below 100 is a precursor only.
+A separately authenticated zero-cost clearance successor must bring it back to exactly 100 before the replacement reprojection and corpus templates may rebuild acquisition materialization, Stage A, Stage B, packet inputs, or corpus readiness.
 Evaluation, freeze, and dispatch remain out of scope.

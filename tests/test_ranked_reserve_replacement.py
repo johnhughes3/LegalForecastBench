@@ -4,9 +4,11 @@ import hashlib
 import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TypedDict, cast
 
 import legalforecast.cli as cli
+import legalforecast.ingestion.ranked_reserve_replacement as ranked_reserve_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseStatus,
@@ -18,6 +20,9 @@ from legalforecast.ingestion.case_dev_purchase import (
 from legalforecast.ingestion.courtlistener_recap_fetch import (
     COURTLISTENER_RECAP_FETCH_PROVIDER,
     CourtListenerRecapFetchError,
+)
+from legalforecast.ingestion.docket_decision_text_source import (
+    VerifiedTerminalPurchaseDispositionAuthority,
 )
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
@@ -227,6 +232,92 @@ def test_verified_terminal_purchase_failure_consumes_ranked_reserve(
     assert terminal_exclusion["stage"] == "retrieval"
     assert terminal_exclusion["source_stage"] == "purchase-missing-recap-fetch"
     assert terminal_exclusion["terminal_evidence_sha256"].startswith("sha256:")
+
+
+def test_verified_mixed_disposition_emits_cap_bounded_99_case_precursor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        tmp_path,
+        hard_cap_usd="24.40",
+        reserve_document_counts=(3, 4, 4, 4, 4),
+    )
+    terminal_records = {
+        candidate_id: {
+            **_terminal_record(candidate_id),
+            "reason": "terminal_courtlistener_recap_fetch_provider_error",
+            "source_stage": "purchase-missing-recap-fetch",
+        }
+        for candidate_id in ("case-050", "case-051", "case-052")
+    }
+    terminal_bytes = _jsonl(tuple(terminal_records.values()))
+    disposition = object.__new__(VerifiedTerminalPurchaseDispositionAuthority)
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "verified_residual_terminal_records",
+        lambda authority, *, purchase_journal: terminal_records,
+    )
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "verified_terminal_purchase_disposition_record",
+        lambda authority, *, purchase_journal: _disposition_record(
+            residual_sha256=_sha(terminal_bytes)
+        ),
+    )
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        plan = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=terminal_bytes,
+            expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+        )
+        replayed = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=terminal_bytes,
+            expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+        )
+
+    assert len(plan.active_selection) == 99
+    assert [row["candidate_id"] for row in plan.replacement_selection] == [
+        "case-100",
+        "case-101",
+    ]
+    assert [row.candidate_id for row in plan.replacement_plan.case_plans] == [
+        "case-100",
+        "case-101",
+    ]
+    assert "case-052" not in plan.active_candidate_ids
+    assert {row["candidate_id"] for row in plan.successor_exclusions} >= {
+        "case-050",
+        "case-051",
+        "case-052",
+    }
+    assert plan.reserved_replacement_spend_usd == "21.35"
+    assert plan.remaining_headroom_usd == "0.00"
+    assert len(plan.tranche_event_record_sha256s) == 2
+    assert replayed.active_selection == plan.active_selection
+    assert replayed.replacement_selection == plan.replacement_selection
+    assert replayed.replacement_plan.to_record() == plan.replacement_plan.to_record()
+    assert replayed.tranche_event_record_sha256s == plan.tranche_event_record_sha256s
 
 
 def test_raw_retrieval_terminal_record_cannot_bypass_verified_authority(
@@ -1247,6 +1338,242 @@ def test_cli_replays_full_projection_and_emits_provider_free_outputs(
     assert replayed_outputs == original_outputs
 
 
+def test_cli_derives_mixed_terminal_partition_and_publishes_99_case_precursor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        tmp_path,
+        hard_cap_usd="24.40",
+        reserve_document_counts=(3, 4, 4, 4, 4),
+    )
+    target_root = tmp_path / "target"
+    summary_path = target_root / "target-cohort-projection.json"
+    selection_path = target_root / "target-cohort-selection.jsonl"
+    reserve_path = target_root / "target-cohort-ranked-reserve.jsonl"
+    exclusions_path = target_root / "target-cohort-exclusions.jsonl"
+    source_path = Path("/frozen/public-packet-selection-reconciled.jsonl")
+    verified_bytes = {
+        str(summary_path.resolve()): _canonical_json(fixture["projection"]),
+        str(selection_path.resolve()): fixture["selected_bytes"],
+        str(reserve_path.resolve()): fixture["reserve_bytes"],
+        str(exclusions_path.resolve()): fixture["exclusions_bytes"],
+        str(source_path): fixture["source_pool_bytes"],
+    }
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        lambda _root: {
+            "summary": fixture["projection"],
+            "summary_path": summary_path,
+            "selection_path": selection_path,
+            "verified_artifact_bytes": verified_bytes,
+        },
+    )
+    terminal_records = {
+        candidate_id: {
+            **_terminal_record(candidate_id),
+            "reason": "terminal_courtlistener_recap_fetch_provider_error",
+            "source_stage": "purchase-missing-recap-fetch",
+        }
+        for candidate_id in ("case-050", "case-051", "case-052")
+    }
+    terminal_bytes = _jsonl(tuple(terminal_records.values()))
+    disposition = object.__new__(VerifiedTerminalPurchaseDispositionAuthority)
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "verified_residual_terminal_records",
+        lambda authority, *, purchase_journal: terminal_records,
+    )
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "verified_terminal_purchase_disposition_record",
+        lambda authority, *, purchase_journal: _disposition_record(
+            residual_sha256=_sha(terminal_bytes)
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_materializer_docket_decision_authority",
+        lambda **_kwargs: SimpleNamespace(
+            authority=disposition,
+            source_snapshots={},
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "residual_terminal_exclusions_bytes",
+        lambda authority, *, purchase_journal: terminal_bytes,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_replay_materialized_docket_decision_authority",
+        lambda descriptor: (descriptor.authority, ()),
+    )
+
+    policy_path = tmp_path / "purchase-policy.json"
+    policy_path.write_bytes(_canonical_json(dict(fixture["policy"].artifact)))
+    receipt_path = tmp_path / "initialization.json"
+    receipt_path.write_text("{}\n")
+    controlled_private_root = tmp_path / "private"
+    controlled_private_root.mkdir()
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ):
+        pass
+    freshness_checks = 0
+    reject_stale = True
+    mutate_during_planning = False
+
+    def require_fresh_before_mutation(
+        snapshots: Mapping[Path, bytes], *, label: str
+    ) -> None:
+        nonlocal freshness_checks, reject_stale
+        freshness_checks += 1
+        if reject_stale:
+            raise RankedReserveReplacementError("simulated stale terminal evidence")
+        for path, expected in snapshots.items():
+            if path.read_bytes() != expected:
+                raise RankedReserveReplacementError(
+                    "simulated concurrent terminal evidence mutation"
+                )
+
+    monkeypatch.setattr(
+        cli, "_require_snapshot_unchanged", require_fresh_before_mutation
+    )
+    original_planner = cli.plan_ranked_reserve_replacements
+
+    def assert_freshness_precedes_planner(**kwargs: object) -> object:
+        assert freshness_checks == 1
+        journal = cast(CaseDevPurchaseJournal, kwargs["purchase_journal"])
+        assert journal.replacement_events() == ()
+        if mutate_during_planning:
+            purchase_result.write_text('{"tampered":true}\n')
+        return original_planner(**kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        cli, "plan_ranked_reserve_replacements", assert_freshness_precedes_planner
+    )
+    purchase_result = tmp_path / "purchase-result.json"
+    purchase_run_card = tmp_path / "purchase-run-card.json"
+    snapshot_manifest = tmp_path / "snapshot" / "manifest.json"
+    snapshot_manifest.parent.mkdir()
+    for path in (purchase_result, purchase_run_card, snapshot_manifest):
+        path.write_text("{}\n")
+    outputs = {
+        "result": tmp_path / "result.json",
+        "active": tmp_path / "active.jsonl",
+        "replacement": tmp_path / "replacement.jsonl",
+        "exclusions": tmp_path / "successor-exclusions.jsonl",
+        "budget": tmp_path / "budget.json",
+    }
+    command = [
+        "acquisition",
+        "plan-ranked-reserve-replacements",
+        "--target-cohort-root",
+        str(target_root),
+        "--purchase-policy",
+        str(policy_path),
+        "--controlled-private-root",
+        str(controlled_private_root),
+        "--purchase-ledger",
+        str(fixture["policy"].canonical_ledger_path),
+        "--purchase-ledger-initialization-receipt",
+        str(receipt_path),
+        "--purchase-result",
+        str(purchase_result),
+        "--purchase-run-card",
+        str(purchase_run_card),
+        "--screening-snapshot-manifest",
+        str(snapshot_manifest),
+        "--output",
+        str(outputs["result"]),
+        "--active-selection-output",
+        str(outputs["active"]),
+        "--replacement-selection-output",
+        str(outputs["replacement"]),
+        "--successor-exclusions-output",
+        str(outputs["exclusions"]),
+        "--replacement-budget-plan-output",
+        str(outputs["budget"]),
+    ]
+    assert cli.main(command) == 2
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+    ) as observer:
+        assert observer.replacement_events() == ()
+    assert not any(path.exists() for path in outputs.values())
+
+    reject_stale = False
+    freshness_checks = 0
+    mutate_during_planning = True
+    assert cli.main(command) == 2
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+    ) as observer:
+        assert observer.replacement_events() == ()
+    assert not any(path.exists() for path in outputs.values())
+
+    purchase_result.write_text("{}\n")
+    freshness_checks = 0
+    mutate_during_planning = False
+    status = cli.main(command)
+
+    assert status == 0
+    result = json.loads(outputs["result"].read_bytes())
+    assert result["active_case_count"] == 99
+    assert result["replacement_case_count"] == 2
+    assert result["reserved_replacement_spend_usd"] == "21.35"
+    assert result["remaining_headroom_usd"] == "0.00"
+    assert result["schema_version"] == (
+        "legalforecast.ranked_reserve_replacement_result.v2"
+    )
+    assert result["terminal_disposition"]["partition_exhaustive"] is True
+    assert result["terminal_disposition_sha256"].startswith("sha256:")
+    assert freshness_checks == 3
+    assert [
+        json.loads(line)["candidate_id"]
+        for line in outputs["replacement"].read_text().splitlines()
+    ] == ["case-100", "case-101"]
+
+
+def test_cli_requires_one_complete_terminal_evidence_mode(tmp_path: Path) -> None:
+    status = cli.main(
+        [
+            "acquisition",
+            "plan-ranked-reserve-replacements",
+            "--target-cohort-root",
+            str(tmp_path / "target"),
+            "--purchase-policy",
+            str(tmp_path / "policy.json"),
+            "--controlled-private-root",
+            str(tmp_path / "private"),
+            "--purchase-ledger",
+            str(tmp_path / "ledger.sqlite3"),
+            "--purchase-ledger-initialization-receipt",
+            str(tmp_path / "receipt.json"),
+            "--purchase-result",
+            str(tmp_path / "result.json"),
+            "--output",
+            str(tmp_path / "output.json"),
+            "--active-selection-output",
+            str(tmp_path / "active.jsonl"),
+            "--replacement-selection-output",
+            str(tmp_path / "replacement.jsonl"),
+            "--successor-exclusions-output",
+            str(tmp_path / "exclusions.jsonl"),
+            "--replacement-budget-plan-output",
+            str(tmp_path / "budget.json"),
+        ]
+    )
+
+    assert status == 2
+
+
 def test_v4_continuation_template_has_no_paid_or_downstream_stage() -> None:
     template_path = (
         Path(__file__).parents[1]
@@ -1260,6 +1587,11 @@ def test_v4_continuation_template_has_no_paid_or_downstream_stage() -> None:
     )
     assert template["command"]["name"] == "plan-ranked-reserve-replacements"
     assert template["command"]["boundary"] == "provider_free"
+    arguments = template["command"]["arguments"]
+    assert "--purchase-result" in arguments
+    assert "--purchase-run-card" in arguments
+    assert "--screening-snapshot-manifest" in arguments
+    assert "--terminal-exclusions" not in arguments
     assert template["authority"] == {
         "dispatch_authorized": False,
         "evaluation_authorized": False,
@@ -1280,9 +1612,19 @@ class _Fixture(TypedDict):
     exclusions_bytes: bytes
 
 
-def _fixture(tmp_path: Path, *, hard_cap_usd: str = "6.10") -> _Fixture:
+def _fixture(
+    tmp_path: Path,
+    *,
+    hard_cap_usd: str = "6.10",
+    reserve_document_counts: tuple[int, int, int, int, int] = (1, 1, 1, 1, 1),
+) -> _Fixture:
     selected = tuple(_selection(index) for index in range(100))
-    reserves = tuple(_reserve(index) for index in range(100, 105))
+    reserves = tuple(
+        _reserve(index, document_count=document_count)
+        for index, document_count in zip(
+            range(100, 105), reserve_document_counts, strict=True
+        )
+    )
     source_pool = tuple(_selection(index) for index in range(105))
     exclusions = tuple(_omission(index) for index in range(100, 105))
     selected_bytes = _jsonl(selected)
@@ -1353,9 +1695,15 @@ def _selection(index: int) -> dict[str, object]:
     }
 
 
-def _reserve(index: int) -> dict[str, object]:
+def _reserve(index: int, *, document_count: int = 1) -> dict[str, object]:
     candidate_id = f"case-{index:03d}"
     rank = index - 99
+    document_ids = (
+        [f"doc-{index:03d}"]
+        if document_count == 1
+        else [f"doc-{index:03d}-{offset}" for offset in range(document_count)]
+    )
+    estimated_cost = f"{document_count * 3.05:.2f}"
     return {
         "schema_version": "legalforecast.target_cohort_ranked_reserve.v1",
         "reserve_rank": rank,
@@ -1364,11 +1712,11 @@ def _reserve(index: int) -> dict[str, object]:
         "case_id": candidate_id,
         "court": "court-a",
         "decision_date": "2026-07-01",
-        "missing_core_document_count": 1,
+        "missing_core_document_count": document_count,
         "missing_core_roles": ["complaint"],
-        "purchase_document_ids": [f"doc-{index:03d}"],
-        "estimated_cost_usd": "3.05",
-        "ranking_key": [1, "3.05", candidate_id],
+        "purchase_document_ids": document_ids,
+        "estimated_cost_usd": estimated_cost,
+        "ranking_key": [document_count, estimated_cost, candidate_id],
     }
 
 
@@ -1389,6 +1737,40 @@ def _omission(index: int) -> dict[str, object]:
         "source_document_ids": [],
         "source_entry_ids": [],
         "stage": "extraction",
+    }
+
+
+def _disposition_record(
+    *,
+    residual_sha256: str,
+    purchase_journal_state_sha256: str = "sha256:" + "3" * 64,
+) -> dict[str, object]:
+    terminal_pairs = [
+        {"candidate_id": f"case-{index:03d}", "source_document_id": f"doc-{index:03d}"}
+        for index in range(50, 53)
+    ]
+    return {
+        "schema_version": "legalforecast.terminal_purchase_disposition.v1",
+        "purchase_result_sha256": "sha256:" + "1" * 64,
+        "purchase_run_card_sha256": "sha256:" + "2" * 64,
+        "purchase_journal_state_sha256": purchase_journal_state_sha256,
+        "selection_payload_sha256": "sha256:" + "4" * 64,
+        "snapshot_manifest_sha256": "sha256:" + "5" * 64,
+        "terminal_candidate_count": 3,
+        "terminal_failure_pair_count": 3,
+        "terminal_failure_pairs": terminal_pairs,
+        "docket_retained_candidate_count": 0,
+        "docket_retained_failure_pair_count": 0,
+        "docket_retained_failure_pairs": [],
+        "docket_decision_sources_sha256": "sha256:" + "6" * 64,
+        "residual_candidate_count": 3,
+        "residual_failure_pair_count": 3,
+        "residual_failure_pairs": terminal_pairs,
+        "residual_terminal_exclusions_sha256": residual_sha256,
+        "partition_disjoint": True,
+        "partition_exhaustive": True,
+        "model_visible": False,
+        "audit_only": True,
     }
 
 

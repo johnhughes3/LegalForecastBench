@@ -377,6 +377,7 @@ from legalforecast.ingestion.discovery_scheduler import (
 )
 from legalforecast.ingestion.docket_decision_text_source import (
     VerifiedTerminalPurchaseDispositionAuthority,
+    residual_terminal_exclusions_bytes,
     verified_docket_decision_document_keys,
     verified_docket_decision_source_records,
     verified_residual_terminal_records,
@@ -5535,19 +5536,40 @@ def _add_plan_ranked_reserve_replacements_arguments(
     parser.add_argument(
         "--terminal-exclusions",
         type=Path,
-        required=True,
         help=(
             "Closed-schema JSONL terminal/nonretryable downstream exclusions. "
-            "Retryable and human-pending records are rejected."
+            "Retryable and human-pending records are rejected. Mutually exclusive "
+            "with authenticated purchase-result disposition mode."
         ),
     )
     parser.add_argument(
         "--terminal-exclusions-sha256-file",
         type=Path,
-        required=True,
         help=(
             "Singly linked regular file containing the externally pinned "
             "sha256: digest of --terminal-exclusions and one newline."
+        ),
+    )
+    parser.add_argument(
+        "--purchase-result",
+        type=Path,
+        help=(
+            "Completed CourtListener purchase result. Supply with --purchase-run-card "
+            "and --screening-snapshot-manifest to derive the exhaustive "
+            "retained-versus-residual terminal partition."
+        ),
+    )
+    parser.add_argument(
+        "--purchase-run-card",
+        type=Path,
+        help="Completed run card for --purchase-result.",
+    )
+    parser.add_argument(
+        "--screening-snapshot-manifest",
+        type=Path,
+        help=(
+            "Pinned complete screening snapshot used to authenticate audit-only "
+            "docket decision retention."
         ),
     )
     parser.add_argument("--output", type=Path, required=True)
@@ -23155,8 +23177,11 @@ def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
 
 def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
     target_root = cast(Path, args.target_cohort_root)
-    terminal_path = cast(Path, args.terminal_exclusions)
-    terminal_digest_path = cast(Path, args.terminal_exclusions_sha256_file)
+    terminal_path = cast(Path | None, args.terminal_exclusions)
+    terminal_digest_path = cast(Path | None, args.terminal_exclusions_sha256_file)
+    purchase_result_path = cast(Path | None, args.purchase_result)
+    purchase_run_card_path = cast(Path | None, args.purchase_run_card)
+    snapshot_manifest_path = cast(Path | None, args.screening_snapshot_manifest)
     policy_path = cast(Path, args.purchase_policy)
     output = cast(Path, args.output)
     active_output = cast(Path, args.active_selection_output)
@@ -23164,6 +23189,32 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
     exclusions_output = cast(Path, args.successor_exclusions_output)
     budget_output = cast(Path, args.replacement_budget_plan_output)
     try:
+        legacy_terminal_mode = (
+            terminal_path is not None and terminal_digest_path is not None
+        )
+        authenticated_values = (
+            purchase_result_path,
+            purchase_run_card_path,
+            snapshot_manifest_path,
+        )
+        authenticated_terminal_mode = all(
+            value is not None for value in authenticated_values
+        )
+        if (terminal_path is None) != (terminal_digest_path is None):
+            raise RankedReserveReplacementError(
+                "terminal exclusions and digest must be supplied together"
+            )
+        if any(value is not None for value in authenticated_values) and not (
+            authenticated_terminal_mode
+        ):
+            raise RankedReserveReplacementError(
+                "purchase result, purchase run card, and screening snapshot manifest "
+                "must be supplied together"
+            )
+        if legacy_terminal_mode == authenticated_terminal_mode:
+            raise RankedReserveReplacementError(
+                "select exactly one terminal-evidence mode"
+            )
         writable_paths = (
             output,
             active_output,
@@ -23176,12 +23227,21 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
             cast(Path, args.controlled_private_root).resolve(strict=False),
         )
         protected_files = {
-            terminal_path.resolve(strict=False),
-            terminal_digest_path.resolve(strict=False),
             policy_path.resolve(strict=False),
             cast(Path, args.purchase_ledger).resolve(strict=False),
             cast(Path, args.purchase_ledger_initialization_receipt).resolve(
                 strict=False
+            ),
+            *(
+                path.resolve(strict=False)
+                for path in (
+                    terminal_path,
+                    terminal_digest_path,
+                    purchase_result_path,
+                    purchase_run_card_path,
+                    snapshot_manifest_path,
+                )
+                if path is not None
             ),
         }
         for writable_path in writable_paths:
@@ -23244,18 +23304,25 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
         reserve_bytes = authenticated_bytes(reserve_path)
         original_exclusions_bytes = authenticated_bytes(original_exclusions_path)
         source_pool_bytes = authenticated_bytes(source_paths[0])
-        terminal_bytes = read_unique_regular_file(terminal_path)
-        terminal_digest_bytes = read_unique_regular_file(terminal_digest_path)
-        try:
-            terminal_digest = terminal_digest_bytes.decode("ascii").removesuffix("\n")
-        except UnicodeDecodeError as exc:
-            raise RankedReserveReplacementError(
-                "terminal exclusion digest file must contain ASCII"
-            ) from exc
-        if terminal_digest_bytes != f"{terminal_digest}\n".encode("ascii"):
-            raise RankedReserveReplacementError(
-                "terminal exclusion digest file must have one terminal newline"
-            )
+        terminal_bytes = b""
+        terminal_digest = ""
+        if legacy_terminal_mode:
+            assert terminal_path is not None
+            assert terminal_digest_path is not None
+            terminal_bytes = read_unique_regular_file(terminal_path)
+            terminal_digest_bytes = read_unique_regular_file(terminal_digest_path)
+            try:
+                terminal_digest = terminal_digest_bytes.decode("ascii").removesuffix(
+                    "\n"
+                )
+            except UnicodeDecodeError as exc:
+                raise RankedReserveReplacementError(
+                    "terminal exclusion digest file must contain ASCII"
+                ) from exc
+            if terminal_digest_bytes != f"{terminal_digest}\n".encode("ascii"):
+                raise RankedReserveReplacementError(
+                    "terminal exclusion digest file must have one terminal newline"
+                )
         purchase_policy = verify_case_dev_purchase_policy(
             _projection_json_object(
                 read_unique_regular_file(policy_path), source=policy_path
@@ -23265,6 +23332,8 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
             purchase_policy,
             controlled_private_root=cast(Path, args.controlled_private_root),
         )
+        docket_descriptor: _MaterializerDocketDecisionAuthority | None = None
+        authenticated_terminal_snapshots: dict[Path, bytes] = {}
         with CaseDevPurchaseJournal(
             cast(Path, args.purchase_ledger).resolve(),
             policy=purchase_policy,
@@ -23273,6 +23342,71 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                 Path, args.purchase_ledger_initialization_receipt
             ),
         ) as journal:
+            disposition_authority: (
+                VerifiedTerminalPurchaseDispositionAuthority | None
+            ) = None
+            precommit_revalidator: Callable[[], None] | None = None
+            if authenticated_terminal_mode:
+                assert purchase_result_path is not None
+                assert purchase_run_card_path is not None
+                assert snapshot_manifest_path is not None
+                authenticated_terminal_snapshots = {
+                    purchase_result_path: read_unique_regular_file(
+                        purchase_result_path
+                    ),
+                    purchase_run_card_path: read_unique_regular_file(
+                        purchase_run_card_path
+                    ),
+                    snapshot_manifest_path: read_unique_regular_file(
+                        snapshot_manifest_path
+                    ),
+                }
+                selected_records = _projection_jsonl_records(
+                    selected_bytes,
+                    source=selection_path,
+                )
+                selected_document_count = 0
+                for record in selected_records:
+                    documents = record.get("documents")
+                    if not isinstance(documents, list):
+                        raise RankedReserveReplacementError(
+                            "frozen selection documents must be a JSON list"
+                        )
+                    selected_document_count += len(cast(list[object], documents))
+                docket_descriptor = _verify_materializer_docket_decision_authority(
+                    selection_payload=selected_bytes,
+                    snapshot_manifest_path=snapshot_manifest_path,
+                    purchase_result_path=purchase_result_path,
+                    purchase_run_card_path=purchase_run_card_path,
+                    purchase_journal=journal,
+                    purchase_policy=purchase_policy,
+                    ledger_path=cast(Path, args.purchase_ledger).resolve(),
+                    controlled_private_root=cast(Path, args.controlled_private_root),
+                    initialization_receipt_path=cast(
+                        Path, args.purchase_ledger_initialization_receipt
+                    ),
+                    selected_document_count=selected_document_count,
+                )
+                disposition_authority = docket_descriptor.authority
+                terminal_bytes = residual_terminal_exclusions_bytes(
+                    disposition_authority,
+                    purchase_journal=journal,
+                )
+                terminal_digest = _bytes_sha256(terminal_bytes)
+
+                def revalidate_terminal_disposition() -> None:
+                    assert docket_descriptor is not None
+                    _require_snapshot_unchanged(
+                        {
+                            **authenticated_terminal_snapshots,
+                            **docket_descriptor.source_snapshots,
+                        },
+                        label="ranked-reserve terminal disposition authority",
+                    )
+                    _replay_materialized_docket_decision_authority(docket_descriptor)
+
+                precommit_revalidator = revalidate_terminal_disposition
+                precommit_revalidator()
             plan = plan_ranked_reserve_replacements(
                 projection=summary,
                 selected_bytes=selected_bytes,
@@ -23282,7 +23416,18 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                 terminal_exclusions_bytes=terminal_bytes,
                 expected_terminal_exclusions_sha256=terminal_digest,
                 purchase_journal=journal,
+                terminal_purchase_disposition_authority=disposition_authority,
+                precommit_revalidator=precommit_revalidator,
             )
+        if docket_descriptor is not None:
+            _require_snapshot_unchanged(
+                {
+                    **authenticated_terminal_snapshots,
+                    **docket_descriptor.source_snapshots,
+                },
+                label="ranked-reserve terminal disposition authority",
+            )
+            _replay_materialized_docket_decision_authority(docket_descriptor)
         active_bytes = _projection_jsonl_bytes(plan.active_selection)
         replacement_bytes = _projection_jsonl_bytes(plan.replacement_selection)
         exclusions_bytes = _projection_jsonl_bytes(plan.successor_exclusions)

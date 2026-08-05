@@ -509,6 +509,136 @@ def residual_terminal_exclusions_bytes(
     return authority._residual_exclusions_bytes  # pyright: ignore[reportPrivateUsage]
 
 
+def verified_terminal_purchase_disposition_record(
+    authority: VerifiedTerminalPurchaseDispositionAuthority,
+    *,
+    purchase_journal: CaseDevPurchaseJournal,
+) -> Mapping[str, Any]:
+    """Replay and expose the closed disposition record for artifact binding."""
+
+    _replay_terminal_disposition(authority, purchase_journal)
+    return _json_record_bytes(
+        authority._disposition_bytes,  # pyright: ignore[reportPrivateUsage]
+        "terminal purchase disposition",
+    )
+
+
+def validate_terminal_purchase_disposition_record(
+    value: object,
+) -> JsonRecord:
+    """Validate a published disposition's closed, exhaustive partition."""
+
+    record = _mapping(value, "terminal purchase disposition")
+    expected_fields = {
+        "schema_version",
+        "purchase_result_sha256",
+        "purchase_run_card_sha256",
+        "purchase_journal_state_sha256",
+        "selection_payload_sha256",
+        "snapshot_manifest_sha256",
+        "terminal_candidate_count",
+        "terminal_failure_pair_count",
+        "terminal_failure_pairs",
+        "docket_retained_candidate_count",
+        "docket_retained_failure_pair_count",
+        "docket_retained_failure_pairs",
+        "docket_decision_sources_sha256",
+        "residual_candidate_count",
+        "residual_failure_pair_count",
+        "residual_failure_pairs",
+        "residual_terminal_exclusions_sha256",
+        "partition_disjoint",
+        "partition_exhaustive",
+        "model_visible",
+        "audit_only",
+    }
+    if (
+        set(record) != expected_fields
+        or record.get("schema_version") != TERMINAL_PURCHASE_DISPOSITION_SCHEMA
+    ):
+        raise DocketDecisionTextSourceError(
+            "terminal purchase disposition has unsupported fields"
+        )
+    for field in (
+        "purchase_result_sha256",
+        "purchase_run_card_sha256",
+        "purchase_journal_state_sha256",
+        "selection_payload_sha256",
+        "snapshot_manifest_sha256",
+        "docket_decision_sources_sha256",
+        "residual_terminal_exclusions_sha256",
+    ):
+        _sha256(record.get(field), f"terminal disposition {field}")
+
+    def pairs(field: str) -> tuple[tuple[str, str], ...]:
+        raw_pairs = record.get(field)
+        if not isinstance(raw_pairs, list):
+            raise DocketDecisionTextSourceError(
+                f"terminal disposition {field} must be a JSON list"
+            )
+        parsed: list[tuple[str, str]] = []
+        for raw_pair in cast(list[object], raw_pairs):
+            pair = _mapping(raw_pair, f"terminal disposition {field} pair")
+            if set(pair) != {"candidate_id", "source_document_id"}:
+                raise DocketDecisionTextSourceError(
+                    f"terminal disposition {field} pair has unsupported fields"
+                )
+            parsed.append(
+                (
+                    _required_string(pair.get("candidate_id"), "pair candidate ID"),
+                    _required_string(
+                        pair.get("source_document_id"), "pair source document ID"
+                    ),
+                )
+            )
+        ordered = tuple(parsed)
+        if ordered != tuple(sorted(set(ordered))):
+            raise DocketDecisionTextSourceError(
+                f"terminal disposition {field} is duplicated or unordered"
+            )
+        return ordered
+
+    terminal_pairs = pairs("terminal_failure_pairs")
+    retained_pairs = pairs("docket_retained_failure_pairs")
+    residual_pairs = pairs("residual_failure_pairs")
+    terminal_candidates = {candidate_id for candidate_id, _ in terminal_pairs}
+    retained_candidates = {candidate_id for candidate_id, _ in retained_pairs}
+    residual_candidates = {candidate_id for candidate_id, _ in residual_pairs}
+
+    def require_count(field: str, expected: int) -> None:
+        count = record.get(field)
+        if not isinstance(count, int) or isinstance(count, bool) or count != expected:
+            raise DocketDecisionTextSourceError(
+                f"terminal disposition {field} does not match its records"
+            )
+
+    require_count("terminal_candidate_count", len(terminal_candidates))
+    require_count("terminal_failure_pair_count", len(terminal_pairs))
+    require_count("docket_retained_candidate_count", len(retained_candidates))
+    require_count("docket_retained_failure_pair_count", len(retained_pairs))
+    require_count("residual_candidate_count", len(residual_candidates))
+    require_count("residual_failure_pair_count", len(residual_pairs))
+    if (
+        set(retained_pairs) & set(residual_pairs)
+        or set(retained_pairs) | set(residual_pairs) != set(terminal_pairs)
+        or retained_candidates & residual_candidates
+        or retained_candidates | residual_candidates != terminal_candidates
+    ):
+        raise DocketDecisionTextSourceError(
+            "terminal disposition retained and residual records are not exhaustive"
+        )
+    if (
+        record.get("partition_disjoint") is not True
+        or record.get("partition_exhaustive") is not True
+        or record.get("model_visible") is not False
+        or record.get("audit_only") is not True
+    ):
+        raise DocketDecisionTextSourceError(
+            "terminal disposition activity and partition flags are invalid"
+        )
+    return dict(record)
+
+
 def _fresh_terminal_universe(
     authority: VerifiedTerminalPurchaseFailureAuthority,
     *,
