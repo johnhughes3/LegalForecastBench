@@ -476,8 +476,8 @@ def test_docket_decision_partition_binds_exact_omission_and_residual_counts(
     monkeypatch.setattr(
         cli,
         "verified_docket_decision_document_keys",
-        lambda *_args, **_kwargs: frozenset(
-            {("candidate-2", "decision-2"), ("candidate-1", "decision-1")}
+        lambda *_args, **_kwargs: pytest.fail(
+            "partition must derive keys from its already-replayed source records"
         ),
     )
     monkeypatch.setattr(
@@ -504,10 +504,45 @@ def test_docket_decision_partition_binds_exact_omission_and_residual_counts(
     ]
 
 
+@pytest.mark.parametrize("input_count", [14, 15])
+def test_paid_materialization_input_extensions_preserve_fixed_authority_indices(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    input_count: int,
+) -> None:
+    inputs = [tmp_path / f"input-{index}" for index in range(input_count)]
+    run_card_path = tmp_path / "materialization-card"
+    run_card_bytes = (
+        json.dumps({"input_paths": [str(path) for path in inputs]}) + "\n"
+    ).encode()
+    cohort_policy_bytes = (
+        json.dumps({"policy": {"cycle_id": "cycle-paid"}}) + "\n"
+    ).encode()
+
+    def captured(path: Path, **_kwargs: object) -> bytes:
+        if path == run_card_path:
+            return run_card_bytes
+        if path == inputs[10]:
+            return cohort_policy_bytes
+        raise AssertionError(f"unexpected materialization input: {path}")
+
+    monkeypatch.setattr(cli, "_captured_or_stable_input", captured)
+    monkeypatch.setattr(cli, "verify_cohort_policy", lambda _artifact: None)
+
+    assert (
+        cli._authenticated_materialization_snapshot_manifest_path(
+            {"input_paths": [str(path) for path in inputs]}
+        )
+        == inputs[3]
+    )
+    assert cli._materialization_cohort_cycle_id(run_card_path) == "cycle-paid"
+
+
 def test_paid_materializer_authenticates_decision_omission_before_recovery(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    calls: list[str] = []
     paths = {
         name: tmp_path / name
         for name in (
@@ -635,12 +670,15 @@ def test_paid_materializer_authenticates_decision_omission_before_recovery(
     monkeypatch.setattr(
         cli,
         "_verify_materializer_docket_decision_authority",
-        lambda **_kwargs: descriptor,
+        lambda **_kwargs: (calls.append("authority"), descriptor)[1],
     )
     monkeypatch.setattr(
         cli,
         "verified_docket_decision_document_keys",
-        lambda *_args, **_kwargs: frozenset({("candidate-1", "decision-1")}),
+        lambda *_args, **_kwargs: (
+            calls.append("decision_keys"),
+            frozenset({("candidate-1", "decision-1")}),
+        )[1],
     )
     monkeypatch.setattr(cli, "_verify_materializer_recovery", capture_recovery)
     args = SimpleNamespace(
@@ -673,6 +711,7 @@ def test_paid_materializer_authenticates_decision_omission_before_recovery(
     with pytest.raises(RecoveryReached):
         cli._cmd_acquisition_materialize_cohort_documents(args)
 
+    assert calls == ["authority", "decision_keys"]
     assert observed["selected_document_keys"] == {("candidate-1", "motion-1")}
 
 

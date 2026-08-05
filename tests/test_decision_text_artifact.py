@@ -9,6 +9,7 @@ from typing import Any, cast
 import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import build_parser, main
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.decision_text_artifact import build_decision_text_records
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.protocol.policy_artifacts import generate_labeling_policy
@@ -27,7 +28,9 @@ def _isolate_materialized_decision_semantics(
         lambda _args: None,
     )
 
-    def verify_fixture_materialization(**keywords: Any) -> tuple[Path, ...]:
+    def verify_fixture_materialization(
+        **keywords: Any,
+    ) -> cli_module._VerifiedMaterializedDownstreamLineage:
         run_card_path = Path(keywords["run_card_path"])
         clearance_path = Path(keywords["clearance_path"])
         card = json.loads(run_card_path.read_text(encoding="utf-8"))
@@ -36,7 +39,15 @@ def _isolate_materialized_decision_semantics(
             raise cli_module.CommandError(
                 "clear-disclosures disclosure_clearance commitment mismatch"
             )
-        return (run_card_path,)
+        return cli_module._VerifiedMaterializedDownstreamLineage(
+            paths=(run_card_path,),
+            artifact_bytes={},
+            manifest_records=(),
+            clearance_records=(),
+            selection_records=(),
+            resolved_records=(),
+            document_tree={},
+        )
 
     monkeypatch.setattr(
         cli_module,
@@ -164,7 +175,7 @@ def test_authenticated_docket_decision_builds_without_pdf_or_parser(
             },
         ],
     }
-    canary = "OUTCOME_CANARY_GRANTED_WITH_PREJUDICE"
+    canary = "OUTCOME_CANARY_GRANTED_WITH_PREJUDICE — naïve"
     source = {
         "candidate_id": "cand-1",
         "case_id": "case-1",
@@ -210,6 +221,155 @@ def test_authenticated_docket_decision_builds_without_pdf_or_parser(
     assert records[0]["source_provenance"] == "authenticated_docket_entry_text"
     assert records[0]["model_visible"] is False
     assert records[0]["parser_revision"] == "not_applicable"
+    assert (
+        records[0]["docket_source_record_sha256"]
+        == "sha256:"
+        + hashlib.sha256(
+            canonical_json_value_bytes(
+                source,
+                error_type=ValueError,
+                error_message="not canonical",
+            )
+        ).hexdigest()
+    )
+
+
+def test_docket_decision_record_commitment_rejects_nonfinite_values() -> None:
+    with pytest.raises(ValueError, match="not canonical"):
+        canonical_json_value_bytes(
+            {"score": float("nan")},
+            error_type=ValueError,
+            error_message="not canonical",
+        )
+
+
+def test_docket_decision_replay_accepts_suffixless_materialization_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    decision_texts = tmp_path / "decisions.jsonl"
+    decision_texts.write_text(
+        json.dumps({"source_provenance": "authenticated_docket_entry_text"}) + "\n",
+        encoding="utf-8",
+    )
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    materialization_card = tmp_path / "materialization-card"
+    materialization_card.write_text(
+        json.dumps(
+            {
+                "stage": "materialize-cohort-documents",
+                "output_paths": [
+                    str(tmp_path / f"output-{index}") for index in range(6)
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    run_card = tmp_path / "decision-card.json"
+    run_card.write_text(
+        json.dumps(
+            {
+                "input_paths": [
+                    str(decision_texts),
+                    str(materialization_card),
+                    str(markdown_root),
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    calls: list[str] = []
+    verified = cli_module._VerifiedMaterializedDownstreamLineage(
+        paths=(materialization_card,),
+        artifact_bytes={},
+        manifest_records=(),
+        clearance_records=(),
+        selection_records=(),
+        resolved_records=(),
+        document_tree={},
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_verify_materialized_downstream_lineage",
+        lambda **_kwargs: (calls.append("materialization"), verified)[1],
+    )
+    sentinel = cast(Any, object())
+    monkeypatch.setattr(
+        cli_module,
+        "verify_decision_text_artifact",
+        lambda **_kwargs: (calls.append("decision"), sentinel)[1],
+    )
+
+    result = cli_module._verify_decision_text_artifact_with_materialization(
+        args=type(
+            "Args",
+            (),
+            {
+                "controlled_private_root": None,
+                "purchase_ledger_initialization_receipt": None,
+            },
+        )(),
+        decision_texts_path=decision_texts,
+        manifest_path=tmp_path / "manifest.json",
+        run_card_path=run_card,
+        selections=(),
+        selection_path=tmp_path / "selection.jsonl",
+        parser_records=(),
+        parser_manifest_path=tmp_path / "parser.jsonl",
+        finalized_unit_records=(),
+        finalized_units_path=tmp_path / "units.jsonl",
+        markdown_root=markdown_root,
+    )
+
+    assert result is sentinel
+    assert calls == ["materialization", "decision"]
+
+
+def test_docket_decision_replay_rejects_missing_materialization_lineage(
+    tmp_path: Path,
+) -> None:
+    decision_texts = tmp_path / "decisions.jsonl"
+    decision_texts.write_text(
+        json.dumps({"source_provenance": "authenticated_docket_entry_text"}) + "\n",
+        encoding="utf-8",
+    )
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    run_card = tmp_path / "decision-card.json"
+    run_card.write_text(
+        json.dumps({"input_paths": [str(decision_texts), str(markdown_root)]}) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(cli_module.CommandError, match="no materialization lineage"):
+        cli_module._verify_decision_text_artifact_with_materialization(
+            args=type(
+                "Args",
+                (),
+                {
+                    "controlled_private_root": None,
+                    "purchase_ledger_initialization_receipt": None,
+                },
+            )(),
+            decision_texts_path=decision_texts,
+            manifest_path=tmp_path / "manifest.json",
+            run_card_path=run_card,
+            selections=(),
+            selection_path=tmp_path / "selection.jsonl",
+            parser_records=(),
+            parser_manifest_path=tmp_path / "parser.jsonl",
+            finalized_unit_records=(),
+            finalized_units_path=tmp_path / "units.jsonl",
+            markdown_root=markdown_root,
+        )
+
+
+def test_downstream_docket_descriptor_rejects_unverified_shapes() -> None:
+    with pytest.raises(cli_module.CommandError, match="invalid type"):
+        cli_module._downstream_docket_decision_descriptor((Path("card"),))
 
 
 @pytest.mark.parametrize(

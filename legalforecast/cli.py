@@ -34260,10 +34260,11 @@ def _docket_decision_partition_record(
         purchase_journal=purchase_journal,
     )
     omitted_keys = sorted(
-        verified_docket_decision_document_keys(
-            authority,
-            purchase_journal=purchase_journal,
+        (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "unavailable_recap_document_id"),
         )
+        for record in source_records
     )
     if len(omitted_keys) > selected_document_count:
         raise CommandError("audit-only docket decision partition exceeds selection")
@@ -37559,11 +37560,13 @@ class _VerifiedMaterializedDownstreamLineage:
 def _downstream_docket_decision_descriptor(
     verified: object,
 ) -> _MaterializerDocketDecisionAuthority | None:
-    """Return new authority metadata while tolerating legacy tuple test doubles."""
+    """Return authority metadata from a replay-verified downstream lineage."""
 
+    if verified is None:
+        return None
     if isinstance(verified, _VerifiedMaterializedDownstreamLineage):
         return verified.docket_decision_authority
-    return None
+    raise CommandError("materialization downstream lineage has an invalid type")
 
 
 def _require_materialized_downstream_lineage_unchanged(
@@ -47617,9 +47620,6 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
     return 0
 
 
-_ORIGINAL_VERIFY_DECISION_TEXT_ARTIFACT = verify_decision_text_artifact
-
-
 def _verify_decision_text_artifact_with_materialization(
     *,
     args: argparse.Namespace,
@@ -47636,19 +47636,6 @@ def _verify_decision_text_artifact_with_materialization(
 ) -> VerifiedDecisionTextArtifact:
     """Verify Stage B text, replaying docket authority when its build used it."""
 
-    if verify_decision_text_artifact is not _ORIGINAL_VERIFY_DECISION_TEXT_ARTIFACT:
-        return verify_decision_text_artifact(
-            decision_texts_path=decision_texts_path,
-            manifest_path=manifest_path,
-            run_card_path=run_card_path,
-            selections=selections,
-            selection_path=selection_path,
-            parser_records=parser_records,
-            parser_manifest_path=parser_manifest_path,
-            finalized_unit_records=finalized_unit_records,
-            finalized_units_path=finalized_units_path,
-            markdown_root=markdown_root,
-        )
     decision_records = _projection_jsonl_records(
         _read_singly_linked_regular_input(
             decision_texts_path, label="decision text artifact"
@@ -47683,14 +47670,15 @@ def _verify_decision_text_artifact_with_materialization(
     materialization_cards: list[Path] = []
     for raw_path in cast(Sequence[object], raw_inputs):
         path = Path(str(raw_path))
-        if path.suffix != ".json" or not path.is_file():
+        if path.resolve() == markdown_root.resolve():
             continue
-        card = _projection_json_object(
-            _read_singly_linked_regular_input(
-                path, label="decision text materialization run card"
-            ),
-            source=path,
+        payload = _read_singly_linked_regular_input(
+            path, label="decision text lineage input"
         )
+        try:
+            card = _projection_json_object(payload, source=path)
+        except CommandError:
+            continue
         if card.get("stage") == "materialize-cohort-documents":
             materialization_cards.append(path)
     if len(materialization_cards) > 1:
@@ -47698,17 +47686,9 @@ def _verify_decision_text_artifact_with_materialization(
             "decision text run card has ambiguous materialization lineage"
         )
     if not materialization_cards:
-        return verify_decision_text_artifact(
-            decision_texts_path=decision_texts_path,
-            manifest_path=manifest_path,
-            run_card_path=run_card_path,
-            selections=selections,
-            selection_path=selection_path,
-            parser_records=parser_records,
-            parser_manifest_path=parser_manifest_path,
-            finalized_unit_records=finalized_unit_records,
-            finalized_units_path=finalized_units_path,
-            markdown_root=markdown_root,
+        raise CommandError(
+            "decision text artifact declares authenticated docket entries but its "
+            "run card has no materialization lineage"
         )
     materialization_card_path = materialization_cards[0]
     materialization_card = _projection_json_object(
@@ -48044,7 +48024,7 @@ def _materialization_cohort_cycle_id(
     if not isinstance(inputs, Sequence) or isinstance(inputs, (str, bytes)):
         raise CommandError("materialization run card lacks cohort-policy input")
     typed = tuple(Path(str(path)) for path in cast(Sequence[object], inputs))
-    if len(typed) not in {12, 13}:
+    if len(typed) not in {12, 13, 14, 15}:
         raise CommandError("materialization run card input paths differ")
     cohort_policy_path = typed[10]
     try:
@@ -52608,7 +52588,7 @@ def _authenticated_materialization_snapshot_manifest_path(
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
         raise CommandError("materialization run card lacks exact input paths")
     input_paths = tuple(Path(str(path)) for path in cast(Sequence[object], raw_inputs))
-    if len(input_paths) not in {12, 13}:
+    if len(input_paths) not in {12, 13, 14, 15}:
         raise CommandError("materialization run card input paths differ")
     return input_paths[3]
 

@@ -16,6 +16,7 @@ from datetime import date
 from types import MappingProxyType
 from typing import Any, Final, cast
 
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
 from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
 from legalforecast.ingestion.courtlistener_web import (
@@ -1981,12 +1982,13 @@ def _jsonl_records(payload: bytes, label: str) -> list[JsonRecord]:
     return records
 
 
+def _canonical_record_bytes(record: Mapping[str, Any]) -> bytes:
+    return canonical_json_value_bytes(
+        dict(record),
+        error_type=DocketDecisionTextSourceError,
+        error_message="docket decision source is not canonical JSON",
+    )
+
+
 def _canonical_sha256(record: Mapping[str, Any]) -> str:
-    payload = json.dumps(
-        record,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    ).encode()
-    return _bytes_sha256(payload)
+    return _bytes_sha256(_canonical_record_bytes(record))

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.courtlistener_web import CourtListenerWebDocketEntry
 from legalforecast.ingestion.packet_input_planner import (
     PacketInputPlanningError,
@@ -222,7 +223,7 @@ def test_authenticated_docket_decision_needs_no_download_and_never_leaks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     candidate_id = "candidate-1"
-    canary = "OUTCOME_CANARY_GRANTED_WITH_PREJUDICE"
+    canary = "OUTCOME_CANARY_GRANTED_WITH_PREJUDICE — naïve"
     raw_html_dir = tmp_path / "raw-html"
     raw_html_dir.mkdir()
     (raw_html_dir / f"{candidate_id}.html").write_text(
@@ -290,6 +291,16 @@ def test_authenticated_docket_decision_needs_no_download_and_never_leaks(
     )
     assert decision["is_mounted_for_model"] is False
     assert decision["availability_status"] == "unavailable"
+    assert (
+        decision["sha256"]
+        == hashlib.sha256(
+            canonical_json_value_bytes(
+                source,
+                error_type=ValueError,
+                error_message="not canonical",
+            )
+        ).hexdigest()
+    )
     assert all(
         row["source_document_id"] != "candidate-1-decision"
         for row in packet["parsed_documents"]

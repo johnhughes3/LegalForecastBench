@@ -68,7 +68,9 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
             del records
 
     monkeypatch.setattr(
-        cli, "verify_decision_text_artifact", lambda **kwargs: _Artifact()
+        cli,
+        "_verify_decision_text_artifact_with_materialization",
+        lambda **kwargs: _Artifact(),
     )
     _write_jsonl(
         inputs / "selection.jsonl",

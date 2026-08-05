@@ -3298,7 +3298,7 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
     )
     monkeypatch.setattr(
         cli,
-        "verify_decision_text_artifact",
+        "_verify_decision_text_artifact_with_materialization",
         lambda **kwargs: _DecisionArtifact(),
     )
     monkeypatch.setattr(

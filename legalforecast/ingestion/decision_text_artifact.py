@@ -10,6 +10,7 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
     require_clearance_policy,
@@ -427,7 +428,15 @@ def _build_decision_text_records(
                     "extraction_method": "authenticated_docket_entry_text",
                     "parser_revision": "not_applicable",
                     "source_provenance": "authenticated_docket_entry_text",
-                    "docket_source_record_sha256": _canonical_sha256(docket_source),
+                    "docket_source_record_sha256": _payload_sha256(
+                        canonical_json_value_bytes(
+                            docket_source,
+                            error_type=DecisionTextArtifactError,
+                            error_message=(
+                                "docket decision source is not canonical JSON"
+                            ),
+                        )
+                    ),
                     "clearance": {
                         "status": "cleared",
                         "restriction_status": "public",
@@ -742,8 +751,12 @@ def _validate_verified_record(
             raise DecisionTextArtifactError(
                 f"docket decision clearance mismatch: {key}"
             )
-        if record.get("docket_source_record_sha256") != _canonical_sha256(
-            docket_source
+        if record.get("docket_source_record_sha256") != _payload_sha256(
+            canonical_json_value_bytes(
+                docket_source,
+                error_type=DecisionTextArtifactError,
+                error_message="docket decision source is not canonical JSON",
+            )
         ):
             raise DecisionTextArtifactError(
                 f"docket decision source commitment mismatch: {key}"

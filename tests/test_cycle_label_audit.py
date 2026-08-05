@@ -252,7 +252,9 @@ def test_plan_label_audit_cli_writes_frozen_plan_and_blind_queue(
             del records
 
     monkeypatch.setattr(
-        cli, "verify_decision_text_artifact", lambda **kwargs: _Artifact()
+        cli,
+        "_verify_decision_text_artifact_with_materialization",
+        lambda **kwargs: _Artifact(),
     )
     output = tmp_path / "output"
 

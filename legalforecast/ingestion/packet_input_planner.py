@@ -14,6 +14,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
@@ -948,8 +949,10 @@ def _audit_only_docket_source_document_record(
         "retrieved_at": _format_datetime(generated_at),
         "source_url_or_reference": _required_str(source, "decision_source_id"),
         "sha256": hashlib.sha256(
-            json.dumps(dict(source), sort_keys=True, separators=(",", ":")).encode(
-                "utf-8"
+            canonical_json_value_bytes(
+                source,
+                error_type=PacketInputPlanningError,
+                error_message="docket decision source is not canonical JSON",
             )
         ).hexdigest(),
         "is_predecision_material": False,
