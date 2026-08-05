@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Final
 
 ROOT: Final = Path(__file__).resolve().parents[1]
-SANDBOX_PATH: Final = "/agents/sandbox/legalforecastbench-acquisition"
+SANDBOX_PATH: Final = "/agents/sandbox/legalforecastbench/acquisition"
 
 
 def _write_masking_sandbox(path: Path) -> None:

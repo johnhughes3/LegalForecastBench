@@ -74,7 +74,7 @@ uv run legalforecast batch-002 rebind-direct-search \
 
 ```bash
 infisical-agent-sandbox run \
-  --path /agents/sandbox/legalforecastbench-acquisition \
+  --path /agents/sandbox/legalforecastbench/acquisition \
   -- uv run legalforecast batch-002 resolve-opinion-recap-dockets \
   --source-store <official-cycle-store.sqlite3> \
   --source-batch-id <complete-saturated-opinion-source-batch> \

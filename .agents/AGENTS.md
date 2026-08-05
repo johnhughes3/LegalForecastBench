@@ -10,6 +10,10 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 
 This repository is public and open source. Do not commit machine- or user-specific operational details, including hostnames, private network names or addresses, Tailscale node identifiers, email addresses, local filesystem paths, account identifiers, or credentials. Use generic placeholders, environment variables, or generated local metadata instead.
 
+## Infisical Paths
+
+All LegalForecastBench Infisical paths are stage-specific subdirectories of `/agents/sandbox/legalforecastbench/`; do not add or use sibling aliases outside that namespace.
+
 ## Scope Decisions
 
 This benchmark is intentionally **not** adopting:
