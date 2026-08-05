@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import cast
 
 import legalforecast.cli as cli_module
-import legalforecast.ingestion.provenance_clearance as provenance_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.disclosure_clearance import (
@@ -440,15 +439,11 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     paths = _inputs(tmp_path)
     operation_key = "00000000-0000-4000-8000-000000000000"
     fresh_sha = "2" * 64
-    manifest = [
-        json.loads(line) for line in paths["manifest"].read_text().splitlines()
-    ]
+    manifest = [json.loads(line) for line in paths["manifest"].read_text().splitlines()]
     restrictions = [
         json.loads(line) for line in paths["restrictions"].read_text().splitlines()
     ]
-    requests = [
-        json.loads(line) for line in paths["requests"].read_text().splitlines()
-    ]
+    requests = [json.loads(line) for line in paths["requests"].read_text().splitlines()]
     relevance = json.loads(paths["relevance"].read_text())
     manifest[0].update(
         {
@@ -500,7 +495,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         "purchase_operation_key": operation_key,
         "fresh_recap_detail_sha256": fresh_sha,
     }
-    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
+    capability = cli_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
         [lineage]
     )
     authority = {"kind": "verified_recap_fetch_recovery", "document_count": 1}
@@ -512,9 +507,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     _install_document_scanner(monkeypatch)
 
     assert main(_plan_command(paths, schema_version="v3")) == 0
-    plan = json.loads(
-        (paths["output"] / "disclosure-provenance-plan.json").read_text()
-    )
+    plan = json.loads((paths["output"] / "disclosure-provenance-plan.json").read_text())
     auto_plan = next(
         row for row in plan["documents"] if row["source_document_id"] == "auto"
     )
@@ -549,9 +542,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     )
     assert auto["recovered_public_lineage"] == lineage
     run_card = json.loads(
-        (
-            clearance_root / "run-cards/finalize-provenance-quarantine.json"
-        ).read_text()
+        (clearance_root / "run-cards/finalize-provenance-quarantine.json").read_text()
     )
     assert run_card["human_review_requested"] is False
     assert run_card["human_review_executed"] is False
