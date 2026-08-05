@@ -88,10 +88,9 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
     for expected in (
         "parser stage view must resolve exactly `MISTRAL_API_KEY`",
         f"labeling stage view must resolve exactly {labeling_keys}",
-        "dependent-secret references",
-        "canonical values under `/agents/sandbox/legalforecastbench-acquisition`",
-        "read both the stage view and the referenced canonical secret",
-        "Do not copy credential values",
+        "dedicated stage path under `/agents/sandbox/legalforecastbench`",
+        "read access only to the exact stage view",
+        "Do not copy credential values between stage folders",
         "Do not enable folder imports",
         "masked Infisical UI inventory is the authoritative exact-inventory check",
         "The sentinels are not a substitute for the complete masked UI inventory",
@@ -161,7 +160,8 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
             "GEMINI_API_KEY",
         ),
     )
-    assert "dependent-secret reference" in runbook
+    assert "containing only `MISTRAL_API_KEY`" in runbook
+    assert "stage-only, no-copy, no-folder-import rule" in runbook
     assert "acquisition-systemd-launcher.md" in runbook
     assert "authoritative masked Infisical UI inventory" in runbook
     assert "zsh -dfc" in runbook

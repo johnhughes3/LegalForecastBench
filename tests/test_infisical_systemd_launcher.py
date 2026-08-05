@@ -66,7 +66,7 @@ def _run_launcher(
             "-m",
             "legalforecast.ingestion.infisical_systemd_launcher",
             "--sandbox-path",
-            "/agents/sandbox/legalforecastbench-acquisition",
+            "/agents/sandbox/legalforecastbench/acquisition",
             "--receipt-output",
             str(receipt),
             "--",
@@ -176,7 +176,7 @@ def test_launcher_records_missing_sandbox_as_status_127(
     status = main(
         [
             "--sandbox-path",
-            "/agents/sandbox/legalforecastbench-acquisition",
+            "/agents/sandbox/legalforecastbench/acquisition",
             "--receipt-output",
             str(receipt),
             "--",
@@ -197,7 +197,8 @@ def test_launcher_records_missing_sandbox_as_status_127(
         "/agents/sandbox",
         "/agents/sandbox/",
         "/agents/sandbox/.",
-        "/agents/sandbox/legalforecastbench-acquisition/..",
+        "/agents/sandbox/legalforecastbench-acquisition",
+        "/agents/sandbox/legalforecastbench/acquisition/..",
         "/agents/sandbox/unrelated",
     ],
 )
@@ -246,7 +247,7 @@ def test_launcher_help_describes_exact_sandbox_path_allowlist(
     assert "exact allowlisted Infisical path" in help_text
     compact_help = "".join(help_text.split())
     for sandbox_path in (
-        "/agents/sandbox/legalforecastbench-acquisition",
+        "/agents/sandbox/legalforecastbench/acquisition",
         "/agents/sandbox/legalforecastbench/parser",
         "/agents/sandbox/legalforecastbench/labeling",
         "/agents/sandbox/legalforecastbench/recap-fetch-broker-client",

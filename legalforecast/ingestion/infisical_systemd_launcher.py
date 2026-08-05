@@ -23,7 +23,7 @@ EXIT_OUTPUT_ERROR: Final = 74
 _NONCE_HEX_LENGTH: Final = 64
 _ALLOWED_SANDBOX_PATHS: Final = frozenset(
     {
-        "/agents/sandbox/legalforecastbench-acquisition",
+        "/agents/sandbox/legalforecastbench/acquisition",
         "/agents/sandbox/legalforecastbench/parser",
         "/agents/sandbox/legalforecastbench/labeling",
         "/agents/sandbox/legalforecastbench/recap-fetch-broker-client",
@@ -227,7 +227,7 @@ def _launcher_parser() -> argparse.ArgumentParser:
         required=True,
         help=(
             "Use one exact allowlisted Infisical path: "
-            "/agents/sandbox/legalforecastbench-acquisition, "
+            "/agents/sandbox/legalforecastbench/acquisition, "
             "/agents/sandbox/legalforecastbench/parser, "
             "/agents/sandbox/legalforecastbench/labeling, or "
             "/agents/sandbox/legalforecastbench/recap-fetch-broker-client."
