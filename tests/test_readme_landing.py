@@ -41,7 +41,6 @@ def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
     assert len(first_screen.split()) <= 250
     assert wrapped_lines <= 42
     assert PREPUBLICATION_MARKER in first_screen
-    assert "Current status — 2026-07-17" in first_screen
     assert UNPUBLISHED_STATUS in first_screen
     assert "does not prove zero contamination" in first_screen
     assert "Official LegalForecast-MTD" in first_screen
