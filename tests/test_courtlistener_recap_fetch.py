@@ -1189,6 +1189,40 @@ def test_confirmed_receipt_waits_for_noncharging_queue_delivery_proof(
         assert journal.committed_amount_usd == "3.05"
 
 
+def test_confirmed_receipt_waits_when_queue_is_not_yet_visible(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123")
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        receipt = _broker_receipt(
+            str(operation["operation_key"]),
+            policy.policy_sha256,
+            state="confirmed",
+            authoritative_fee_usd="1.20",
+        )
+        receipt["held_usd"] = "1.20"
+
+        CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [RecordedRecapFetchResponse("GET", "/recap-fetch/77/", {}, 404, {})]
+            ),
+            purchase_broker=FixtureRecapFetchPurchaseBroker([]),
+        ).apply_broker_receipt("123", receipt)
+
+        evidence = journal.operation_evidence("123")
+        assert evidence is not None
+        assert evidence["status"] == "submitted"
+        assert evidence["reconciliation"] is None
+        assert journal.committed_amount_usd == "3.05"
+
+
 def test_receipt_recovery_includes_locally_failed_paid_operation(
     tmp_path: Path,
 ) -> None:

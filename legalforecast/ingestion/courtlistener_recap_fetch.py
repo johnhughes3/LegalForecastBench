@@ -54,6 +54,10 @@ class CourtListenerRecapFetchOutcomeUnknown(CourtListenerRecapFetchError):
     """Raised when the paid POST may have reached CourtListener."""
 
 
+class _CourtListenerRecapFetchQueueNotVisible(CourtListenerRecapFetchError):
+    """Raised when a durably queued purchase is not yet readable by queue ID."""
+
+
 @dataclass(frozen=True, slots=True)
 class CourtListenerRecapFetchConfig:
     api_token: str = field(repr=False)
@@ -836,9 +840,17 @@ class CourtListenerRecapFetchClient:
         if effective_queue_id is None:
             return
         queue_id = _identifier(str(effective_queue_id))
-        queue = self._request(
-            "GET", f"/recap-fetch/{queue_id}/", {}, paid=False, retry=True
-        )
+        try:
+            queue = self._request(
+                "GET",
+                f"/recap-fetch/{queue_id}/",
+                {},
+                paid=False,
+                retry=True,
+                queue_detail=True,
+            )
+        except _CourtListenerRecapFetchQueueNotVisible:
+            return
         if _status(queue) != 2:
             return
         document = self._request(
@@ -875,9 +887,22 @@ class CourtListenerRecapFetchClient:
         queue_id = _identifier(str(queued.get("queue_id", "")))
         last_status: int | None = None
         for index in range(self.poll_attempts):
-            payload = self._request(
-                "GET", f"/recap-fetch/{queue_id}/", {}, paid=False, retry=True
-            )
+            try:
+                payload = self._request(
+                    "GET",
+                    f"/recap-fetch/{queue_id}/",
+                    {},
+                    paid=False,
+                    retry=True,
+                    queue_detail=True,
+                )
+            except _CourtListenerRecapFetchQueueNotVisible:
+                return _attempt(
+                    candidate_id,
+                    document_id,
+                    CaseDevPacerPurchaseStatus.NOT_ATTEMPTED,
+                    "recap_fetch_queue_not_yet_visible",
+                )
             last_status = _status(payload)
             if last_status == 2:
                 document = self._request(
@@ -956,6 +981,7 @@ class CourtListenerRecapFetchClient:
         *,
         paid: bool,
         retry: bool = False,
+        queue_detail: bool = False,
     ) -> Mapping[str, Any]:
         maximum = 3 if retry and not paid else 1
         for attempt in range(maximum):
@@ -980,6 +1006,10 @@ class CourtListenerRecapFetchClient:
                 raise
             if 200 <= response.status_code < 300:
                 return response.payload
+            if queue_detail and response.status_code == 404:
+                raise _CourtListenerRecapFetchQueueNotVisible(
+                    "durably queued RECAP Fetch operation is not yet visible"
+                )
             if response.status_code in _RETRYABLE and attempt + 1 < maximum:
                 continue
             if paid and response.status_code in _RETRYABLE | {301, 302, 303, 307, 308}:
