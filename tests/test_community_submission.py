@@ -50,6 +50,18 @@ SHA4 = "sha256:" + "4" * 64
 def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> None:
     run_dir = _write_run_dir(tmp_path)
     output_dir = tmp_path / "community-submission"
+    canonical_runs = _read_jsonl(run_dir / "canonical-runs.jsonl")
+    canonical_runs[0]["artifacts"] = [
+        {
+            "artifact_id": "private-forecast",
+            "path": "private-logs/forecast.json",
+            "sha256": SHA1,
+            "media_type": "application/json",
+            "public": False,
+            "size_bytes": 1,
+        }
+    ]
+    _write_jsonl(run_dir / "canonical-runs.jsonl", canonical_runs)
 
     assert (
         main(
@@ -106,6 +118,11 @@ def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> Non
         "legalforecastbench-community-artifacts"
     )
     assert upload_plan["revision_policy"] == "immutable-commit"
+    packaged_rows = _read_jsonl(output_dir / "row-results.jsonl")
+    assert "workspace" not in packaged_rows[0]
+    packaged_runs = _read_jsonl(output_dir / "canonical-runs.jsonl")
+    assert packaged_runs[0]["artifacts"] == []
+    assert "private-logs" not in json.dumps(packaged_runs, sort_keys=True)
 
 
 def test_missing_required_attestation_is_rejected(tmp_path: Path) -> None:
@@ -353,6 +370,22 @@ def test_package_plan_only_legacy_run_does_not_require_compatibility(
     )
 
     assert result.submission_path.is_file()
+
+
+def test_package_projects_legacy_canonical_result_without_artifacts(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    canonical_runs = _read_jsonl(run_dir / "canonical-runs.jsonl")
+    del canonical_runs[0]["artifacts"]
+    _write_jsonl(run_dir / "canonical-runs.jsonl", canonical_runs)
+
+    result = package_community_submission(
+        _package_config(run_dir, tmp_path / "submission-package")
+    )
+
+    packaged_runs = _read_jsonl(result.output_dir / "canonical-runs.jsonl")
+    assert packaged_runs[0]["artifacts"] == []
 
 
 def test_package_accepts_current_container_compatibility_fields(

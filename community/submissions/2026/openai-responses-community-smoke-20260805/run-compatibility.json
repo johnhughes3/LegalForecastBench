@@ -1,0 +1,46 @@
+{
+  "adapter_capabilities": [
+    {
+      "adapter_id": "openai-responses-baseline",
+      "adapter_version": "1.0.0",
+      "capabilities_sha256": "sha256:abc4fef4dd942540655e42e21d3a5ceee6d9876257d6b07f886649abe8d5f714",
+      "schema_version": "legalforecast.multiharness.adapter_capabilities.v1",
+      "supported_families": [
+        "legalforecast_mtd"
+      ],
+      "supported_scoring_modes": [
+        "lfb_brier"
+      ],
+      "supports_sandbox_policy": true,
+      "tool_protocol_version": "legalforecast.multiharness.tool_request.v1"
+    }
+  ],
+  "run_config": {
+    "adapters": [
+      {
+        "adapter_id": "openai-responses-baseline",
+        "adapter_version": "1.0.0"
+      }
+    ],
+    "container_execution": "live_tools",
+    "incomplete_run_policy": "record_failure",
+    "model_configs": [
+      {
+        "adapter_id": null,
+        "lfb_fixture": false,
+        "model_key": "openai:gpt-5.4-mini-2026-03-17"
+      }
+    ],
+    "sandbox_policy": {
+      "policy_id": "community-openai-responses-rootless-v1",
+      "policy_sha256": "sha256:a0fbdcd7077f15e74732a4cfaa39aac55e1ff310e809369d6d8cfdfb2fdf4721"
+    },
+    "solver_input_index_sha256": "sha256:b30662bdbdd6826a01ea009e9ee0a16963fe3d7c6a8a10e67a201f74bb249633",
+    "task_index": {
+      "index_id": "legalforecast-mtd",
+      "index_sha256": "e23535f8c5f50da10358b228fafb1aeadea4d2f8eb15946c595282c592717f77",
+      "selection_namespace": "legalforecast_mtd"
+    }
+  },
+  "schema_version": "legalforecast.multiharness.run_compatibility.v1"
+}
