@@ -332,6 +332,7 @@ def test_build_and_require_authenticated_public_material_delivery_authority() ->
     assert records[0]["schema_version"] == (
         "legalforecast.resolved_post_recovery_public_document.v3"
     )
+    assert records[0]["clearance_basis"] == "provider_free_recovered_public"
     assert records[0]["purchase_policy_sha256"] == "1" * 64
     assert records[0]["public_material_recovery_sha256"] == _hash(
         operation["public_material_recovery"]
@@ -376,6 +377,24 @@ def test_build_and_require_authenticated_public_material_delivery_authority() ->
             download_records=inputs["download_records"],
             clearance_records=inputs["clearance_records"],
             resolved_records=[wrong_basis],
+            **_external_kwargs(inputs),
+        )
+
+    missing_basis = deepcopy(records[0])
+    del missing_basis["clearance_basis"]
+    missing_basis["record_sha256"] = _hash(
+        {
+            name: value
+            for name, value in missing_basis.items()
+            if name != "record_sha256"
+        }
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="schema does not match"):
+        require_resolved_post_recovery_documents(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=inputs["clearance_records"],
+            resolved_records=[missing_basis],
             **_external_kwargs(inputs),
         )
 

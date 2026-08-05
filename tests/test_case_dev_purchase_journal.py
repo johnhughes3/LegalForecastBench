@@ -633,9 +633,8 @@ def test_unknown_public_recovery_survives_later_billing_reconciliation(
         assert recovered["actual_usd"] is None
         assert recovered["reconciliation"] == reconciliation
         assert recovered["public_material_recovery"]["billing_status"] == "unknown"
-        assert journal.operation_records()[0]["public_material_recovery"] == (
-            recovered["public_material_recovery"]
-        )
+        persisted_recovery = journal.operation_records()[0]["public_material_recovery"]
+        assert persisted_recovery == recovered["public_material_recovery"]
 
 
 def test_unknown_public_recovery_converts_unreconciled_submitted_hold(

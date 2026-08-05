@@ -813,6 +813,8 @@ def _build_resolved_post_recovery_documents_core(
             "parser_eligible": True,
             "packet_eligible": True,
         }
+        if schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3:
+            record["clearance_basis"] = "provider_free_recovered_public"
         if recovered_lineages is not None:
             record.update(
                 {
@@ -1702,22 +1704,22 @@ def _fresh_public_restriction_record_from_resolved(
 def _validate_resolved_record(
     record: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
-    recovered_public = (
-        record.get("schema_version")
+    schema_version = record.get("schema_version")
+    provider_free_recovered_public = (
+        schema_version
         in {
             RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2,
             RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3,
         }
         and record.get("clearance_basis") == "provider_free_recovered_public"
     )
-    schema_version = record.get("schema_version")
-    clearance_basis = record.get("clearance_basis")
     if (
-        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
-        and not recovered_public
-    ) or (
-        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
-        and clearance_basis not in {None, "provider_free_recovered_public"}
+        schema_version
+        in {
+            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2,
+            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3,
+        }
+        and not provider_free_recovered_public
     ):
         raise ResolvedPostRecoveryError(
             f"resolved document schema does not match clearance basis: {key}"
@@ -1785,8 +1787,11 @@ def _validate_resolved_record(
         raise ResolvedPostRecoveryError(
             f"resolved document delivery authority is invalid: {key}"
         )
-    if recovered_public:
-        raw_lineage = record.get("recovered_public_lineage")
+    raw_lineage = record.get("recovered_public_lineage")
+    if schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2 or (
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
+        and raw_lineage is not None
+    ):
         if not isinstance(raw_lineage, Mapping):
             raise ResolvedPostRecoveryError(
                 f"resolved recovered-public lineage is invalid: {key}"
