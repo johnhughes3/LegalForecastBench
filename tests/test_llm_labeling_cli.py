@@ -372,6 +372,35 @@ def test_local_provider_journal_only_requires_explicit_journal(
         )
 
 
+def test_provider_spend_authorities_requires_explicit_mode(
+    tmp_path: Path,
+) -> None:
+    caps_path = _provider_caps_path(tmp_path)
+    caps = cli.load_provider_cycle_caps(caps_path)
+    args = argparse.Namespace(
+        local_provider_journal_only=False,
+        provider_authority_table=None,
+        provider_authority_region="us-east-1",
+        provider_journal=tmp_path / "provider-attempts.sqlite3",
+    )
+
+    with pytest.raises(
+        CommandError,
+        match=(
+            "requires exactly one of --provider-authority-table or "
+            "--local-provider-journal-only"
+        ),
+    ):
+        cli._provider_spend_authorities(
+            args,
+            provider_caps=caps,
+            provider_caps_sha256="sha256:"
+            + hashlib.sha256(caps_path.read_bytes()).hexdigest(),
+            cycle_id="test-cycle",
+            providers=("openai",),
+        )
+
+
 def test_provider_spend_authorities_preserve_dynamodb_mode(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,

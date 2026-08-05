@@ -796,7 +796,11 @@ def _expected_stage_boundary(
     if (
         shard_audits
         and len(shard_audits) == len(shard_run_cards)
-        and not any(flag in arguments for flag in forbidden_merge_flags)
+        and not any(
+            argument == flag or argument.startswith(f"{flag}=")
+            for argument in arguments
+            for flag in forbidden_merge_flags
+        )
     ):
         return AcquisitionBoundary.PROVIDER_FREE
     return expected
