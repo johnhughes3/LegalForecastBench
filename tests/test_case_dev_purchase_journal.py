@@ -252,6 +252,37 @@ def test_unknown_attempt_billing_and_material_states_are_orthogonal(
         assert journal.committed_amount_usd == "3.05"
 
 
+def test_unknown_attempt_authority_replay_is_idempotent_after_submit(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    authority = {
+        "doc-1": {
+            "case_id": "case-1",
+            "selection_document_sha256": "9" * 64,
+        }
+    }
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            authority, attempt_policy_sha256="a" * 64
+        )
+        assert journal.submit("doc-1") is True
+        journal.queue("doc-1", response={"queue_id": "77"})
+
+        journal.authorize_unknown_material_attempts(
+            authority, attempt_policy_sha256="a" * 64
+        )
+        with pytest.raises(
+            CaseDevPurchaseLedgerError, match="unknown-attempt authority is immutable"
+        ):
+            journal.authorize_unknown_material_attempts(
+                authority, attempt_policy_sha256="b" * 64
+            )
+
+
 def test_unknown_material_clearance_is_independent_of_unresolved_billing(
     tmp_path: Path,
 ) -> None:

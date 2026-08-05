@@ -283,6 +283,7 @@ def test_private_null_recap_evidence_requires_attempt_policy_and_quarantine(
 
     assert result.executed_purchase_count == 0
     assert result.quarantined_material_count == 1
+    assert result.completed_purchase_count == result.intended_purchase_count
 
 
 def test_live_fails_closed_without_budget_broker_before_paid_submission(
@@ -549,13 +550,16 @@ def test_noncharging_poll_retries_transient_transport_failure(
     assert request_budget.total_reservations() == 3
 
 
-def test_cli_help_exposes_brokered_command(capsys: pytest.CaptureFixture[str]) -> None:
+def test_cli_help_exposes_transport_neutral_command(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     with pytest.raises(SystemExit) as exc:
         main(["acquisition", "purchase-missing-recap-fetch", "--help"])
     assert exc.value.code == 0
     output = capsys.readouterr().out
     assert "--purchase-broker-fixture" in output
     assert "--live-purchase" in output
+    assert "--direct-courtlistener-purchase" in output
     assert "--request-ledger" in output
     assert "--courtlistener-rate-profile" in output
     assert "--request-budget-max-wait-seconds" in output

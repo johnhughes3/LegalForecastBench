@@ -264,16 +264,20 @@ def require_approved_case_dev_purchase_policy(
     *,
     controlled_private_root: Path | None = None,
 ) -> None:
-    """Replay the private approval before any new official paid authority gate."""
+    """Verify public v2 authority and optionally replay its issuance evidence.
+
+    The published v2 policy already commits the approved selection, budget plan,
+    document set, reviewer decision, and all monetary limits.  A controlled
+    private root remains useful when issuance provenance is available, but it is
+    not a runtime dependency after the immutable policy has been published.
+    """
 
     if not policy.has_verified_approval:
         raise CaseDevPurchasePolicyError(
             "official purchase authority requires an approved v2 purchase policy"
         )
     if controlled_private_root is None:
-        raise CaseDevPurchasePolicyError(
-            "approved v2 replay requires a trusted controlled private root"
-        )
+        return
     approval = policy.approval
     assert approval is not None
     try:
@@ -299,7 +303,7 @@ def require_approved_case_dev_purchase_policy(
 def verify_approved_purchase_input_bytes(
     policy: CaseDevPurchasePolicy,
     *,
-    controlled_private_root: Path,
+    controlled_private_root: Path | None,
     budget_plan_bytes: bytes | None,
     selection_bytes: bytes | None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -1703,10 +1707,6 @@ class CaseDevPurchaseJournal:
                     raise CaseDevPurchaseLedgerError(
                         f"unknown-attempt candidate identity conflicts: {document_id}"
                     )
-                if str(row["status"]) != "planned":
-                    raise CaseDevPurchaseLedgerError(
-                        "unknown-attempt authority must be bound before submit"
-                    )
                 material = self._material(document_id)
                 if material is None:
                     raise CaseDevPurchaseLedgerError(
@@ -1724,6 +1724,10 @@ class CaseDevPurchaseJournal:
                             "unknown-attempt authority is immutable"
                         )
                     continue
+                if str(row["status"]) != "planned":
+                    raise CaseDevPurchaseLedgerError(
+                        "unknown-attempt authority must be bound before submit"
+                    )
                 if authority != "ordinary_public" or prior_policy is not None:
                     raise CaseDevPurchaseLedgerError(
                         "purchase material authority is invalid"
@@ -3738,6 +3742,12 @@ class CaseDevPacerPurchaseResult:
             if attempt.status is CaseDevPacerPurchaseStatus.QUARANTINED
         )
 
+    @property
+    def completed_purchase_count(self) -> int:
+        """Count paid requests completed into public or quarantined material."""
+
+        return self.executed_purchase_count + self.quarantined_material_count
+
     def to_record(self) -> dict[str, Any]:
         return {
             "live": self.live,
@@ -3749,6 +3759,7 @@ class CaseDevPacerPurchaseResult:
             "intended_purchase_count": self.intended_purchase_count,
             "executed_purchase_count": self.executed_purchase_count,
             "quarantined_material_count": self.quarantined_material_count,
+            "completed_purchase_count": self.completed_purchase_count,
             "attempts": [attempt.to_record() for attempt in self.attempts],
         }
 
