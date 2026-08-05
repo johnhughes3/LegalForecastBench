@@ -1,5 +1,7 @@
 # Provenance clearance v1
 
+**Superseded.** `plan-disclosure-provenance --schema-version` accepts only `v2` and `v3`, so this contract can no longer be emitted. It is retained because v1 artifacts from historical runs remain verifiable against it. For new work use [provenance clearance v2](provenance-clearance-v2.md) (the current default) or [provenance clearance v3](provenance-clearance-v3.md).
+
 Cycle 1 uses provenance-first disclosure clearance instead of a signing-key ceremony.
 The supported path is `plan-disclosure-provenance` -> `record-disclosure-review-decisions` for exceptions -> `clear-provenance-disclosures`.
 Legacy signed-review artifacts remain verifiable for historical runs but are not a Cycle-1 readiness dependency.

@@ -1,5 +1,7 @@
 # Provenance clearance v2
 
+This is the contract `plan-disclosure-provenance` emits by default. [Provenance clearance v3](provenance-clearance-v3.md) is additive and is selected explicitly with `--schema-version v3`; it supersedes the v2 review vocabulary with a reviewer-neutral exception-review contract. [Provenance clearance v1](provenance-clearance-v1.md) can no longer be emitted.
+
 Cycle 1 uses provenance-first disclosure clearance instead of a signing-key ceremony.
 The supported path is `plan-disclosure-provenance` -> `record-disclosure-review-decisions` for exceptions -> `clear-provenance-disclosures`.
 Legacy signed-review and v1 routing artifacts remain verifiable for historical runs but are not a Cycle-1 readiness dependency.
