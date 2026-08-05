@@ -4,11 +4,12 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import build_parser, main
+from legalforecast.ingestion.decision_text_artifact import build_decision_text_records
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.protocol.policy_artifacts import generate_labeling_policy
 from legalforecast.unitization.review import apply_unitization_reviews
@@ -132,6 +133,83 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
     assert run_card["paid_activity_requested"] is False
     assert run_card["paid_activity_executed"] is False
     assert str(inputs["materialization_run_card"]) in run_card["input_paths"]
+
+
+def test_authenticated_docket_decision_builds_without_pdf_or_parser(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selection = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "decision_date": "2026-07-01",
+        "decision_entry_numbers": [50],
+        "selected": True,
+        "documents": [
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": "complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "model_visible": True,
+                "contains_target_outcome": False,
+            },
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": "decision",
+                "docket_entry_number": 50,
+                "document_role": "decision",
+                "model_visible": False,
+                "contains_target_outcome": True,
+            },
+        ],
+    }
+    canary = "OUTCOME_CANARY_GRANTED_WITH_PREJUDICE"
+    source = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "unavailable_recap_document_id": "decision",
+        "decision_entry_number": 50,
+        "entered_date": "2026-07-01",
+        "text": canary,
+        "text_sha256": hashlib.sha256(canary.encode()).hexdigest(),
+    }
+    monkeypatch.setattr(
+        "legalforecast.ingestion.docket_decision_text_source."
+        "verified_docket_decision_source_records",
+        lambda _authority, *, purchase_journal: (source,),
+    )
+    acquired = [{"candidate_id": "cand-1", "source_document_id": "complaint"}]
+
+    records = build_decision_text_records(
+        selections=[selection],
+        download_manifest=acquired,
+        clearance_records=acquired,
+        restriction_records=acquired,
+        parser_records=acquired,
+        markdown_root=tmp_path,
+        input_commitments={
+            name: "a" * 64
+            for name in (
+                "selection_sha256",
+                "download_manifest_sha256",
+                "disclosure_clearance_sha256",
+                "clearance_run_card_sha256",
+                "restriction_evidence_sha256",
+                "parser_manifest_sha256",
+                "parser_run_card_sha256",
+                "selection_run_card_sha256",
+            )
+        },
+        docket_decision_authority=cast(Any, object()),
+        purchase_journal=cast(Any, object()),
+    )
+
+    assert len(records) == 1
+    assert records[0]["text"] == canary
+    assert records[0]["source_provenance"] == "authenticated_docket_entry_text"
+    assert records[0]["model_visible"] is False
+    assert records[0]["parser_revision"] == "not_applicable"
 
 
 @pytest.mark.parametrize(

@@ -454,6 +454,33 @@ def verified_docket_decision_source_records(
     return sources
 
 
+def verified_docket_decision_document_keys(
+    authority: VerifiedTerminalPurchaseDispositionAuthority,
+    *,
+    purchase_journal: CaseDevPurchaseJournal,
+) -> frozenset[tuple[str, str]]:
+    """Return exact selected document keys that need no file materialization.
+
+    The keys are derived only after a fresh replay of the terminal purchase
+    authority.  Downstream callers therefore cannot turn a caller-supplied
+    omission list into authority to skip a selected document.
+    """
+
+    return frozenset(
+        (
+            _required_string(record.get("candidate_id"), "source candidate ID"),
+            _required_string(
+                record.get("unavailable_recap_document_id"),
+                "source terminal document ID",
+            ),
+        )
+        for record in verified_docket_decision_source_records(
+            authority,
+            purchase_journal=purchase_journal,
+        )
+    )
+
+
 def verified_residual_terminal_records(
     authority: VerifiedTerminalPurchaseDispositionAuthority,
     *,
