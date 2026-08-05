@@ -236,6 +236,58 @@ def test_replays_raw_html_decision_with_policy_rebind() -> None:
     }
 
 
+def test_raw_replay_preserves_the_frozen_decision_window_upper_bound() -> None:
+    selection, snapshot = _fixture(raw=True)
+    html = _html(
+        motion_entry=25,
+        decision_entry=34,
+        include_unicode=True,
+        post_window_decision_entry=35,
+    )
+    page = parse_courtlistener_docket_html(
+        html,
+        source_url="https://www.courtlistener.com/docket/72192698/example/",
+        docket_id="72192698",
+    )
+    screen = copy.deepcopy(dict(snapshot.screened[0]))
+    screen["decision_window_end"] = "2026-07-31"
+    screen["selected_entries"] = [entry.to_record() for entry in page.entries]
+    screen["mtd_decision_screen"] = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="Example v. Example",
+        court_id="mad",
+        decision_filed_on_or_after=date(2026, 6, 30),
+        decision_filed_on_or_before=date(2026, 7, 31),
+    ).to_record()
+    raw_bytes = html.encode()
+    raw_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+    raw = UnionRawArtifact(
+        candidate_id="courtlistener-docket-72192698",
+        path=Path(f"fixture/{raw_sha256}.html"),
+        content=raw_bytes,
+        content_authenticated=True,
+        sha256=raw_sha256,
+        byte_count=len(raw_bytes),
+        retrieved_at="2026-07-14T04:13:10Z",
+    )
+
+    lineage = replay_docket_decision_source_lineage(
+        selection_records=[selection],
+        selection_payload_sha256=_SELECTION_SHA,
+        screening_snapshot=_replace_snapshot(
+            snapshot,
+            screens=(screen,),
+            raw_artifacts=(raw,),
+        ),
+        candidate_id="72192698",
+        unavailable_recap_document_id="485754024",
+    )
+
+    assert (
+        require_replayed_docket_decision_lineage(lineage)["decision_entry_number"] == 34
+    )
+
+
 def test_lineage_is_opaque_and_not_downstream_omission_authority() -> None:
     with pytest.raises(TypeError, match="issued only"):
         ReplayedDocketDecisionLineage()
@@ -266,8 +318,8 @@ def test_terminal_disposition_derives_mixed_retained_and_residual_partition(
             terminal_pairs=terminal_pairs,
         )
         sources = verify_docket_decision_text_sources(
-            selection_records=selections,
-            selection_payload_sha256=_selection_sha(selections),
+            selection_payload=_selection_bytes(selections),
+            expected_selection_payload_sha256=_selection_sha(selections),
             screening_snapshot=snapshot,
             expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
             terminal_purchase_failure_authority=failure_authority,
@@ -317,8 +369,8 @@ def test_terminal_disposition_allows_an_exact_empty_residual_partition(
             terminal_pairs=(("72192698", "485754024", 3),),
         )
         sources = verify_docket_decision_text_sources(
-            selection_records=[selection],
-            selection_payload_sha256=_selection_sha([selection]),
+            selection_payload=_selection_bytes([selection]),
+            expected_selection_payload_sha256=_selection_sha([selection]),
             screening_snapshot=snapshot,
             expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
             terminal_purchase_failure_authority=failure_authority,
@@ -370,11 +422,54 @@ def test_terminal_disposition_rejects_selection_records_with_an_unrelated_digest
         )
         with pytest.raises(
             DocketDecisionTextSourceError,
-            match="differ from the frozen selection payload",
+            match="differs from the frozen selection pin",
         ):
             verify_docket_decision_text_sources(
-                selection_records=[selection],
-                selection_payload_sha256="a" * 64,
+                selection_payload=_selection_bytes([selection]),
+                expected_selection_payload_sha256="a" * 64,
+                screening_snapshot=snapshot,
+                expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
+                terminal_purchase_failure_authority=failure_authority,
+                purchase_journal=journal,
+            )
+
+
+def test_terminal_disposition_rejects_digest_valid_nonproducer_selection_encoding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+    selection, snapshot = _fixture(raw=True)
+    compact_payload = (
+        json.dumps(
+            selection,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode()
+    policy = _terminal_policy(tmp_path)
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path,
+        policy=policy,
+        allow_create=True,
+    ) as journal:
+        failure_authority = _terminal_failure_authority(
+            journal,
+            result_path=tmp_path / "purchase-result.json",
+            terminal_pairs=(("72192698", "485754024", 3),),
+        )
+        with pytest.raises(
+            DocketDecisionTextSourceError,
+            match="differs from producer encoding",
+        ):
+            verify_docket_decision_text_sources(
+                selection_payload=compact_payload,
+                expected_selection_payload_sha256=hashlib.sha256(
+                    compact_payload
+                ).hexdigest(),
                 screening_snapshot=snapshot,
                 expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
                 terminal_purchase_failure_authority=failure_authority,
@@ -405,8 +500,8 @@ def test_terminal_disposition_rejects_digest_valid_selection_target_drift(
             match="target motions differ from authenticated screening evidence",
         ):
             verify_docket_decision_text_sources(
-                selection_records=[selection],
-                selection_payload_sha256=_selection_sha([selection]),
+                selection_payload=_selection_bytes([selection]),
+                expected_selection_payload_sha256=_selection_sha([selection]),
                 screening_snapshot=snapshot,
                 expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
                 terminal_purchase_failure_authority=failure_authority,
@@ -450,8 +545,8 @@ def test_terminal_disposition_reauthenticates_the_screening_snapshot(
         )
         with pytest.raises(DocketDecisionTextSourceError, match="screening snapshot"):
             verify_docket_decision_text_sources(
-                selection_records=[selection],
-                selection_payload_sha256=_selection_sha([selection]),
+                selection_payload=_selection_bytes([selection]),
+                expected_selection_payload_sha256=_selection_sha([selection]),
                 screening_snapshot=snapshot,
                 expected_snapshot_manifest_sha256=expected_manifest,
                 terminal_purchase_failure_authority=failure_authority,
@@ -490,8 +585,8 @@ def test_terminal_candidate_with_decision_and_nondecision_failure_is_wholly_resi
             ),
         )
         sources = verify_docket_decision_text_sources(
-            selection_records=selections,
-            selection_payload_sha256=_selection_sha(selections),
+            selection_payload=_selection_bytes(selections),
+            expected_selection_payload_sha256=_selection_sha(selections),
             screening_snapshot=snapshot,
             expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
             terminal_purchase_failure_authority=failure_authority,
@@ -547,8 +642,8 @@ def test_terminal_disposition_accessor_replays_current_journal_state(
             ),
         )
         sources = verify_docket_decision_text_sources(
-            selection_records=selections,
-            selection_payload_sha256=_selection_sha(selections),
+            selection_payload=_selection_bytes(selections),
+            expected_selection_payload_sha256=_selection_sha(selections),
             screening_snapshot=snapshot,
             expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
             terminal_purchase_failure_authority=failure_authority,
@@ -611,8 +706,8 @@ def test_selected_decision_replay_failure_does_not_become_residual(
         )
         with pytest.raises(DocketDecisionTextSourceError):
             verify_docket_decision_text_sources(
-                selection_records=[selection],
-                selection_payload_sha256=_selection_sha([selection]),
+                selection_payload=_selection_bytes([selection]),
+                expected_selection_payload_sha256=_selection_sha([selection]),
                 screening_snapshot=tampered_snapshot,
                 expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
                 terminal_purchase_failure_authority=failure_authority,
@@ -1040,7 +1135,7 @@ def _terminal_failure_authority(
         "execute": True,
         "resume": False,
         "record_count": len(attempts),
-        "input_paths": [str(budget_path), "/frozen/selection.jsonl"],
+        "input_paths": [str(budget_path), "fixture/selection.jsonl"],
         "output_paths": [str(result_path), str(journal.policy.canonical_ledger_path)],
         "paid_activity_requested": True,
         "paid_activity_executed": True,
@@ -1052,7 +1147,7 @@ def _terminal_failure_authority(
         "courtlistener_physical_requests": len(attempts),
         "courtlistener_rate_profile": "authenticated",
         "courtlistener_request_budget_max_wait_seconds": 3700.0,
-        "courtlistener_request_ledger": "/private/request-ledger.sqlite3",
+        "courtlistener_request_ledger": "fixture/request-ledger.sqlite3",
         "courtlistener_reservations_this_phase": len(attempts),
         "courtlistener_reservations_total": len(attempts),
         "courtlistener_limits": {
@@ -1084,11 +1179,14 @@ def _canonical_bytes(value: object) -> bytes:
 
 
 def _selection_sha(records: list[dict[str, Any]]) -> str:
-    payload = b"".join(
+    return hashlib.sha256(_selection_bytes(records)).hexdigest()
+
+
+def _selection_bytes(records: list[dict[str, Any]]) -> bytes:
+    return b"".join(
         (json.dumps(record, sort_keys=True, allow_nan=False) + "\n").encode()
         for record in records
     )
-    return hashlib.sha256(payload).hexdigest()
 
 
 def _fixture(*, raw: bool) -> tuple[dict[str, Any], VerifiedScreeningSnapshot]:
@@ -1383,9 +1481,15 @@ def _synthetic_blank_document() -> dict[str, Any]:
     }
 
 
-def _html(*, motion_entry: int, decision_entry: int, include_unicode: bool) -> str:
+def _html(
+    *,
+    motion_entry: int,
+    decision_entry: int,
+    include_unicode: bool,
+    post_window_decision_entry: int | None = None,
+) -> str:
     unicode_suffix = " Main Doc \u00adument 🙏" if include_unicode else ""
-    rows = (
+    rows = [
         (
             motion_entry,
             "Jul 1, 2026",
@@ -1400,7 +1504,18 @@ def _html(*, motion_entry: int, decision_entry: int, include_unicode: bool) -> s
             f"(Entered: 07/10/2026){unicode_suffix}",
             "Order on Motion to Dismiss",
         ),
-    )
+    ]
+    if post_window_decision_entry is not None:
+        rows.append(
+            (
+                post_window_decision_entry,
+                "Aug 1, 2026",
+                f"TEXT ONLY ORDER denying {motion_entry} Motion to Dismiss. "
+                "Signed by District Judge Example on August 1, 2026. "
+                "(Entered: 08/01/2026)",
+                "Order on Motion to Dismiss",
+            )
+        )
     rendered = "".join(
         f"""
         <div class="row odd" id="entry-{number}">

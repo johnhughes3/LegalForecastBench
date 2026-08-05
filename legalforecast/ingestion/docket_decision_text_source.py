@@ -349,8 +349,8 @@ def replay_docket_decision_source_lineage(
 
 def verify_docket_decision_text_sources(
     *,
-    selection_records: Sequence[Mapping[str, Any]],
-    selection_payload_sha256: str,
+    selection_payload: bytes,
+    expected_selection_payload_sha256: str,
     screening_snapshot: VerifiedScreeningSnapshot,
     expected_snapshot_manifest_sha256: str,
     terminal_purchase_failure_authority: VerifiedTerminalPurchaseFailureAuthority,
@@ -365,14 +365,10 @@ def verify_docket_decision_text_sources(
     other terminal candidates remain exact verifier-owned reserve exclusions.
     """
 
-    selection_sha256 = _sha256(selection_payload_sha256, "selection payload")
-    captured_selection_records, captured_selection_bytes = _capture_selection_records(
-        selection_records
+    captured_selection_records, selection_sha256 = _capture_selection_records(
+        selection_payload,
+        expected_sha256=expected_selection_payload_sha256,
     )
-    if _bytes_sha256(captured_selection_bytes) != selection_sha256:
-        raise DocketDecisionTextSourceError(
-            "selection records differ from the frozen selection payload"
-        )
     captured_snapshot = _capture_screening_snapshot(
         screening_snapshot,
         expected_manifest_sha256=expected_snapshot_manifest_sha256,
@@ -1103,11 +1099,22 @@ def _rerun_semantic_screen_and_linkage(
 ) -> None:
     candidate = _mapping(evidence.get("candidate"), "screen candidate")
     metadata = _mapping(candidate.get("metadata"), "screen candidate metadata")
+    decision_window_end_value = evidence.get("decision_window_end")
+    decision_window_end = (
+        None
+        if decision_window_end_value is None
+        else _canonical_date(decision_window_end_value, "decision window end")
+    )
+    if decision_window_end is not None and decision_window_end < anchor_date:
+        raise DocketDecisionTextSourceError(
+            "decision window end predates the eligibility anchor"
+        )
     replayed_screen = screen_courtlistener_docket_for_mtd_decision(
         page,
         candidate_text=_required_string(metadata.get("case_name"), "case name"),
         court_id=_required_string(metadata.get("court"), "court"),
         decision_filed_on_or_after=anchor_date,
+        decision_filed_on_or_before=decision_window_end,
     ).to_record()
     if replayed_screen != evidence.get("mtd_decision_screen"):
         raise DocketDecisionTextSourceError(
@@ -1739,32 +1746,55 @@ def _bytes_sha256(payload: bytes) -> str:
 
 
 def _capture_selection_records(
-    records: Sequence[Mapping[str, Any]],
-) -> tuple[tuple[JsonRecord, ...], bytes]:
-    """Capture the canonical frozen-selection JSONL represented by records."""
+    payload: bytes,
+    *,
+    expected_sha256: str,
+) -> tuple[tuple[JsonRecord, ...], str]:
+    """Authenticate and parse exact frozen-selection producer bytes."""
 
-    try:
-        payload = b"".join(
-            (
+    expected = _sha256(expected_sha256, "expected selection payload")
+    if _bytes_sha256(payload) != expected:
+        raise DocketDecisionTextSourceError(
+            "selection payload differs from the frozen selection pin"
+        )
+    if not payload or not payload.endswith(b"\n"):
+        raise DocketDecisionTextSourceError(
+            "selection payload must be nonempty newline-terminated JSONL"
+        )
+    captured: list[JsonRecord] = []
+    for line_number, line in enumerate(payload.splitlines(keepends=True), start=1):
+        try:
+            value: object = json.loads(line)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise DocketDecisionTextSourceError(
+                f"selection payload line {line_number} is not JSON"
+            ) from exc
+        if not isinstance(value, dict):
+            raise DocketDecisionTextSourceError(
+                f"selection payload line {line_number} is not an object"
+            )
+        record = cast(JsonRecord, value)
+        try:
+            producer_bytes = (
                 json.dumps(
-                    dict(record),
+                    record,
                     sort_keys=True,
                     allow_nan=False,
                 )
                 + "\n"
             ).encode()
-            for record in records
-        )
-        captured = tuple(
-            cast(JsonRecord, json.loads(line)) for line in payload.splitlines()
-        )
-    except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise DocketDecisionTextSourceError(
-            "selection records are not canonical JSONL values"
-        ) from exc
+        except (TypeError, ValueError) as exc:
+            raise DocketDecisionTextSourceError(
+                f"selection payload line {line_number} is not canonical"
+            ) from exc
+        if producer_bytes != line:
+            raise DocketDecisionTextSourceError(
+                f"selection payload line {line_number} differs from producer encoding"
+            )
+        captured.append(record)
     if not captured:
         raise DocketDecisionTextSourceError("selection records must not be empty")
-    return captured, payload
+    return tuple(captured), expected
 
 
 def _capture_screening_snapshot(
@@ -1908,5 +1938,6 @@ def _canonical_sha256(record: Mapping[str, Any]) -> str:
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
+        allow_nan=False,
     ).encode()
     return _bytes_sha256(payload)
