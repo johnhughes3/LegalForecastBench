@@ -706,7 +706,8 @@ def _parse_stage(value: object, *, index: int) -> CycleStage:
     if not _STAGE_ID.fullmatch(stage_id):
         raise CycleOrchestratorError(f"stage {index} id is not a safe name")
     command = _required_text(record, "command")
-    expected_boundary = COMMAND_BOUNDARIES.get(command)
+    arguments = _required_text_list(record, "arguments")
+    expected_boundary = _expected_stage_boundary(command, arguments=arguments)
     if expected_boundary is None:
         raise CycleOrchestratorError(
             f"stage {stage_id} command is not approved for cycle orchestration: "
@@ -719,11 +720,15 @@ def _parse_stage(value: object, *, index: int) -> CycleStage:
         raise CycleOrchestratorError(
             f"stage {stage_id} has an unknown authority boundary"
         ) from exc
-    if boundary is not expected_boundary:
+    conservative_label_merge = (
+        command == "llm-label"
+        and expected_boundary is AcquisitionBoundary.PROVIDER_FREE
+        and boundary is AcquisitionBoundary.MODEL_PROVIDER
+    )
+    if boundary is not expected_boundary and not conservative_label_merge:
         raise CycleOrchestratorError(
             f"stage {stage_id} boundary must be {expected_boundary.value}"
         )
-    arguments = _required_text_list(record, "arguments")
     if "--help" in arguments or "-h" in arguments:
         raise CycleOrchestratorError(
             f"stage {stage_id} cannot substitute help output for execution"
@@ -761,6 +766,31 @@ def _parse_stage(value: object, *, index: int) -> CycleStage:
         run_card=run_card,
         run_card_stage=run_card_stage,
     )
+
+
+def _expected_stage_boundary(
+    command: str,
+    *,
+    arguments: Sequence[str],
+) -> AcquisitionBoundary | None:
+    expected = COMMAND_BOUNDARIES.get(command)
+    if command != "llm-label":
+        return expected
+    shard_audits = _flag_values(arguments, "--provider-shard-audit")
+    shard_run_cards = _flag_values(arguments, "--provider-shard-run-card")
+    forbidden_merge_flags = (
+        "--execution-provider",
+        "--local-provider-journal-only",
+        "--provider-authority-table",
+        "--provider-authority-region",
+    )
+    if (
+        shard_audits
+        and len(shard_audits) == len(shard_run_cards)
+        and not any(flag in arguments for flag in forbidden_merge_flags)
+    ):
+        return AcquisitionBoundary.PROVIDER_FREE
+    return expected
 
 
 def _verify_receipt(

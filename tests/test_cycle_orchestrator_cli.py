@@ -14,6 +14,7 @@ from legalforecast.ingestion.cycle_orchestrator import (
     CycleOrchestratorError,
     _completion_card_view,  # pyright: ignore[reportPrivateUsage]
     _cycle_lock,  # pyright: ignore[reportPrivateUsage]
+    _parse_stage,  # pyright: ignore[reportPrivateUsage]
     run_acquisition_cycle,
 )
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
@@ -1985,6 +1986,110 @@ def test_run_cycle_rejects_boundary_downgrade_for_paid_command(
         == 2
     )
     assert "boundary must be paid" in capsys.readouterr().err
+
+
+def test_run_cycle_accepts_exact_provider_free_llm_label_shard_merge(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "label" / "run-card.json"
+    arguments, _outputs = _adoptable_label_completion(
+        tmp_path,
+        run_card=run_card,
+    )
+    stage = _parse_stage(
+        _stage(
+            stage_id="merge-label-shards",
+            command="llm-label",
+            boundary="provider_free",
+            arguments=arguments,
+            run_card=run_card,
+        ),
+        index=0,
+    )
+
+    assert stage.stage_id == "merge-label-shards"
+    assert stage.boundary.value == "provider_free"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "provider_execution",
+        "mixed_execution_and_merge",
+        "unpaired_shard_inputs",
+        "local_authority_merge",
+        "remote_authority_merge",
+    ],
+)
+def test_run_cycle_rejects_provider_free_llm_label_nonmerge_forms(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    run_card = tmp_path / "label" / "run-card.json"
+    arguments, _outputs = _adoptable_label_completion(
+        tmp_path,
+        run_card=run_card,
+    )
+    if mutation == "provider_execution":
+        while "--provider-shard-audit" in arguments:
+            index = arguments.index("--provider-shard-audit")
+            del arguments[index : index + 2]
+        while "--provider-shard-run-card" in arguments:
+            index = arguments.index("--provider-shard-run-card")
+            del arguments[index : index + 2]
+        arguments.extend(["--execution-provider", "openai"])
+    elif mutation == "mixed_execution_and_merge":
+        arguments.extend(["--execution-provider", "openai"])
+    elif mutation == "unpaired_shard_inputs":
+        index = arguments.index("--provider-shard-run-card")
+        del arguments[index : index + 2]
+    elif mutation == "local_authority_merge":
+        arguments.append("--local-provider-journal-only")
+    else:
+        arguments.extend(["--provider-authority-table", "fixture-authority"])
+    with pytest.raises(
+        CycleOrchestratorError,
+        match="boundary must be model_provider",
+    ):
+        _parse_stage(
+            _stage(
+                stage_id="unsafe-label-stage",
+                command="llm-label",
+                boundary="provider_free",
+                arguments=arguments,
+                run_card=run_card,
+            ),
+            index=0,
+        )
+
+
+def test_run_cycle_preserves_model_provider_boundary_for_llm_label_execution(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "label" / "run-card.json"
+    arguments, _outputs = _adoptable_label_completion(
+        tmp_path,
+        run_card=run_card,
+    )
+    while "--provider-shard-audit" in arguments:
+        index = arguments.index("--provider-shard-audit")
+        del arguments[index : index + 2]
+    while "--provider-shard-run-card" in arguments:
+        index = arguments.index("--provider-shard-run-card")
+        del arguments[index : index + 2]
+    arguments.extend(["--execution-provider", "openai"])
+    stage = _parse_stage(
+        _stage(
+            stage_id="execute-openai-labels",
+            command="llm-label",
+            boundary="model_provider",
+            arguments=arguments,
+            run_card=run_card,
+        ),
+        index=0,
+    )
+
+    assert stage.boundary.value == "model_provider"
 
 
 def test_run_cycle_requires_network_authority_before_paid_authority(
