@@ -31,10 +31,33 @@ Each terminal record has the closed schema `legalforecast.ranked_reserve_termina
 }
 ```
 
-Provider failures, retryable errors, pending human review, and ambiguous records are not terminal evidence and must not consume a reserve.
+Unauthenticated provider failures, retryable errors, pending human review, and ambiguous records are not terminal evidence and must not consume a reserve.
 Write the exact prefixed digest plus one newline to `terminal-candidate-exclusions.sha256`.
 
-## Provider-free planning command
+## Authenticated terminal RECAP failures
+
+The provider-free adapter in `legalforecast.ingestion.terminal_purchase_failure` may issue terminal retrieval authority only for a completed live `purchase-missing-recap-fetch` result whose `provider_error` attempt encodes CourtListener queue status `3`, `6`, or `7` and whose exact canonical purchase ledger has the matching `failed` operation.
+
+`verify_terminal_purchase_failure_authority(...)` accepts paths to the purchase result and completed acquisition run card plus the already-authenticated `CaseDevPurchaseJournal`.
+It captures both inputs through race-checked, no-follow unique-regular-file reads, requires the run card's first output path to repeat the caller-supplied result path in exactly the same string form and its second output path to name the canonical ledger, and safely captures the purchase budget plan named by the run card's first input path.
+Pass a relative or absolute result path exactly as the producer recorded it; those two spellings are not interchangeable at this provenance boundary.
+Every candidate/document attempt in that committed budget-plan tranche must appear exactly once in the result, while historical failures from an earlier completed tranche may remain durably cap-counted in the ledger.
+The verifier also binds the UUID operation key, queue and reservation identities, unchanged policy reservation, complete purchase counts, result and run-card hashes, journal-state hash, and the fact that each unreconciled failed response still counts its full reservation against both budget caps.
+
+The verifier fails closed for queue status `1`, `4`, or `5`, every retryable, `not_attempted`, or unknown result, any submitted, queued, or unknown journal operation, a missing or mismatched result/run card/ledger operation, a released or reconciled hold, a different reservation, a non-CourtListener failure, or a fabricated authority object.
+
+`terminal_retrieval_exclusions_bytes(authority)` emits canonical `legalforecast.ranked_reserve_terminal_exclusion.v1` JSONL with `source_stage=purchase-missing-recap-fetch`; its source hashes bind the closed `legalforecast.terminal_recap_fetch_failure_evidence.v1` records retained by `authority.evidence_records`.
+
+The core planner accepts those retrieval-stage records only when the caller also supplies the same verifier-issued object as `terminal_purchase_failure_authority=authority` and the current journal still has its authenticated state hash.
+At planner time the authority replays the substantive verifier from its immutable captured source bytes and requires the regenerated evidence to match exactly, so neither a raw lookalike JSONL nor direct access to a private issuer helper can consume a reserve.
+The authority covers the complete terminal-failure universe for its purchase tranche, and the current planner path is usable only when every verified terminal candidate is correctly dispositioned as a ranked-reserve exclusion.
+A mixed tranche in which separate authenticated docket-text evidence retains some terminal candidates must stop until the typed disposition integration proves an exact, disjoint, and exhaustive retained-versus-replaced partition; do not pass a caller-selected subset or promote every terminal candidate merely to satisfy the current equality check.
+
+This adapter performs only local safe reads; it performs no file write, network request, provider request, purchase, journal mutation, model call, evaluation, freeze, or dispatch.
+CLI and successor-reprojection wiring must invoke the verifier after the result and run card are durably published, persist the returned evidence and terminal JSONL, then call the existing planner with that same authority object.
+That CLI and typed-disposition integration is not part of this provider-free core adapter yet, so the command below must not be used with `source_stage=purchase-missing-recap-fetch` evidence until the caller constructs and passes both the terminal authority and any required mixed-tranche disposition authority.
+
+## Provider-free planning command for non-retrieval exclusions
 
 The reviewed path map is [`cycle-1-target-100.v4-ranked-reserve-replacement-plan.template.json`](../manifests/cycle-1-target-100.v4-ranked-reserve-replacement-plan.template.json).
 It is deliberately a command template rather than an acquisition-cycle manifest: the planner may establish that a paid successor approval is required, but it must never chain automatically into a paid or downstream model stage.
