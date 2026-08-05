@@ -16,6 +16,7 @@ from datetime import date
 from types import MappingProxyType
 from typing import Any, Final, cast
 
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
 from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
 from legalforecast.ingestion.courtlistener_web import (
@@ -452,6 +453,33 @@ def verified_docket_decision_source_records(
 
     sources, _residual = _replay_terminal_disposition(authority, purchase_journal)
     return sources
+
+
+def verified_docket_decision_document_keys(
+    authority: VerifiedTerminalPurchaseDispositionAuthority,
+    *,
+    purchase_journal: CaseDevPurchaseJournal,
+) -> frozenset[tuple[str, str]]:
+    """Return exact selected document keys that need no file materialization.
+
+    The keys are derived only after a fresh replay of the terminal purchase
+    authority.  Downstream callers therefore cannot turn a caller-supplied
+    omission list into authority to skip a selected document.
+    """
+
+    return frozenset(
+        (
+            _required_string(record.get("candidate_id"), "source candidate ID"),
+            _required_string(
+                record.get("unavailable_recap_document_id"),
+                "source terminal document ID",
+            ),
+        )
+        for record in verified_docket_decision_source_records(
+            authority,
+            purchase_journal=purchase_journal,
+        )
+    )
 
 
 def verified_residual_terminal_records(
@@ -1954,12 +1982,13 @@ def _jsonl_records(payload: bytes, label: str) -> list[JsonRecord]:
     return records
 
 
+def _canonical_record_bytes(record: Mapping[str, Any]) -> bytes:
+    return canonical_json_value_bytes(
+        dict(record),
+        error_type=DocketDecisionTextSourceError,
+        error_message="docket decision source is not canonical JSON",
+    )
+
+
 def _canonical_sha256(record: Mapping[str, Any]) -> str:
-    payload = json.dumps(
-        record,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    ).encode()
-    return _bytes_sha256(payload)
+    return _bytes_sha256(_canonical_record_bytes(record))

@@ -375,6 +375,13 @@ from legalforecast.ingestion.discovery_scheduler import (
     TermTerminalStatus,
     materialize_independent_term_sets,
 )
+from legalforecast.ingestion.docket_decision_text_source import (
+    VerifiedTerminalPurchaseDispositionAuthority,
+    verified_docket_decision_document_keys,
+    verified_docket_decision_source_records,
+    verified_residual_terminal_records,
+    verify_docket_decision_text_sources,
+)
 from legalforecast.ingestion.docket_live_fetch import (
     DocketLiveFetchError,
     DocketLiveFetchExecutionResult,
@@ -760,6 +767,9 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     publish_target_public_gap_plan,
     require_target_public_gap_sources_unchanged,
     verify_target_public_gap_plan,
+)
+from legalforecast.ingestion.terminal_purchase_failure import (
+    verify_terminal_purchase_failure_authority,
 )
 from legalforecast.ingestion.terminal_subset_promotion import (
     TerminalSubsetPromotionError,
@@ -7437,6 +7447,22 @@ def _add_acquisition_materialize_cohort_documents_arguments(
         help="Completed clear-disclosures card authenticating purchased clearance.",
     )
     parser.add_argument("--purchase-policy", type=Path)
+    parser.add_argument(
+        "--purchase-result",
+        type=Path,
+        help=(
+            "Completed purchase result used with --purchase-run-card to "
+            "authenticate terminal decision-document omissions."
+        ),
+    )
+    parser.add_argument(
+        "--purchase-run-card",
+        type=Path,
+        help=(
+            "Completed purchase run card used with --purchase-result; the two "
+            "inputs must be supplied together."
+        ),
+    )
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument(
         "--purchase-ledger",
@@ -33979,6 +34005,8 @@ def _preflight_materialization_purchase_runtime(
                 getattr(args, "purchase_ledger", None),
                 getattr(args, "purchase_ledger_initialization_receipt", None),
                 getattr(args, "resolved_post_recovery_documents", None),
+                getattr(args, "purchase_result", None),
+                getattr(args, "purchase_run_card", None),
             )
             if any(value is not None for value in paid_values):
                 raise CommandError(
@@ -34019,7 +34047,7 @@ def _preflight_materialization_purchase_runtime(
         policy = _preflight_approved_purchase_runtime(args)
         if policy is not None:
             return policy
-        if len(input_paths) not in {12, 13}:
+        if len(input_paths) not in {12, 13, 14, 15}:
             raise CommandError("materialization run card input paths differ")
         policy = verify_case_dev_purchase_policy(_read_json_object(input_paths[9]))
         require_approved_case_dev_purchase_policy(
@@ -34200,6 +34228,226 @@ class _MaterializationPublication:
     captured_source_snapshots: Mapping[Path, bytes]
     authority_mode: str | None = None
     authority_recheck: Callable[[], None] | None = None
+    docket_decision_partition: Mapping[str, object] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _MaterializerDocketDecisionAuthority:
+    """Replay descriptor for verifier-owned audit-only document omissions."""
+
+    authority: VerifiedTerminalPurchaseDispositionAuthority
+    partition: Mapping[str, object]
+    purchase_policy: CaseDevPurchasePolicy
+    ledger_path: Path
+    controlled_private_root: Path | None
+    initialization_receipt_path: Path | None
+    purchase_budget_plan_path: Path
+    source_snapshots: Mapping[Path, bytes]
+
+
+def _docket_decision_partition_record(
+    *,
+    authority: VerifiedTerminalPurchaseDispositionAuthority,
+    purchase_journal: CaseDevPurchaseJournal,
+    selected_document_count: int,
+) -> dict[str, object]:
+    source_records = verified_docket_decision_source_records(
+        authority,
+        purchase_journal=purchase_journal,
+    )
+    residual_records = verified_residual_terminal_records(
+        authority,
+        purchase_journal=purchase_journal,
+    )
+    omitted_keys = sorted(
+        (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "unavailable_recap_document_id"),
+        )
+        for record in source_records
+    )
+    if len(omitted_keys) > selected_document_count:
+        raise CommandError("audit-only docket decision partition exceeds selection")
+    return {
+        "schema_version": "legalforecast.materializer_docket_decision_partition.v1",
+        "selected_document_count": selected_document_count,
+        "materialized_document_count": selected_document_count - len(omitted_keys),
+        "audit_only_document_count": len(omitted_keys),
+        "audit_only_candidate_count": len({key[0] for key in omitted_keys}),
+        "residual_terminal_candidate_count": len(residual_records),
+        "terminal_candidate_count": len({key[0] for key in omitted_keys})
+        + len(residual_records),
+        "audit_only_document_keys": [
+            {"candidate_id": candidate_id, "source_document_id": document_id}
+            for candidate_id, document_id in omitted_keys
+        ],
+        "docket_decision_sources_sha256": _bytes_sha256(
+            _projection_jsonl_bytes(source_records)
+        ),
+        "residual_terminal_records_sha256": _bytes_sha256(
+            _projection_jsonl_bytes(
+                tuple(residual_records[key] for key in sorted(residual_records))
+            )
+        ),
+        "purchase_journal_state_sha256": authority.purchase_journal_state_sha256,
+    }
+
+
+def _verify_materializer_docket_decision_authority(
+    *,
+    selection_payload: bytes,
+    snapshot_manifest_path: Path,
+    purchase_result_path: Path,
+    purchase_run_card_path: Path,
+    purchase_journal: CaseDevPurchaseJournal,
+    purchase_policy: CaseDevPurchasePolicy,
+    ledger_path: Path,
+    controlled_private_root: Path | None,
+    initialization_receipt_path: Path | None,
+    selected_document_count: int,
+) -> _MaterializerDocketDecisionAuthority:
+    manifest_bytes = _read_singly_linked_regular_input(
+        snapshot_manifest_path,
+        label="materializer docket-decision snapshot manifest",
+    )
+    manifest = _projection_json_object(manifest_bytes, source=snapshot_manifest_path)
+    screening_snapshot = load_verified_screening_snapshot(
+        snapshot_manifest_path.parent,
+        expected_manifest_sha256=_bytes_sha256(manifest_bytes),
+        expected_cycle_hash=_required_str(manifest, "cycle_hash"),
+    )
+    terminal_authority = verify_terminal_purchase_failure_authority(
+        purchase_result_path=purchase_result_path,
+        purchase_run_card_path=purchase_run_card_path,
+        purchase_journal=purchase_journal,
+    )
+    sources = verify_docket_decision_text_sources(
+        selection_payload=selection_payload,
+        expected_selection_payload_sha256=_bytes_sha256(selection_payload),
+        screening_snapshot=screening_snapshot,
+        expected_snapshot_manifest_sha256=_bytes_sha256(manifest_bytes),
+        terminal_purchase_failure_authority=terminal_authority,
+        purchase_journal=purchase_journal,
+    )
+    authority = sources.terminal_purchase_disposition_authority(
+        purchase_journal=purchase_journal
+    )
+    purchase_run_card_bytes = _read_singly_linked_regular_input(
+        purchase_run_card_path,
+        label="materializer terminal purchase run card",
+    )
+    purchase_run_card = _projection_json_object(
+        purchase_run_card_bytes,
+        source=purchase_run_card_path,
+    )
+    raw_purchase_inputs = purchase_run_card.get("input_paths")
+    if (
+        not isinstance(raw_purchase_inputs, Sequence)
+        or isinstance(raw_purchase_inputs, (str, bytes))
+        or not raw_purchase_inputs
+    ):
+        raise CommandError("terminal purchase run card lacks its budget-plan input")
+    purchase_inputs = cast(Sequence[object], raw_purchase_inputs)
+    budget_plan_path = Path(str(purchase_inputs[0])).absolute()
+    source_snapshots = {
+        **{
+            snapshot_manifest_path.parent / name: payload
+            for name, payload in screening_snapshot.payloads.items()
+        },
+        **{
+            raw.path: raw.content
+            for raw in screening_snapshot.raw_artifacts
+            if raw.content_authenticated and raw.content is not None
+        },
+        budget_plan_path: _read_singly_linked_regular_input(
+            budget_plan_path,
+            label="materializer terminal purchase budget plan",
+        ),
+    }
+    return _MaterializerDocketDecisionAuthority(
+        authority=authority,
+        partition=_docket_decision_partition_record(
+            authority=authority,
+            purchase_journal=purchase_journal,
+            selected_document_count=selected_document_count,
+        ),
+        purchase_policy=purchase_policy,
+        ledger_path=ledger_path,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt_path,
+        purchase_budget_plan_path=budget_plan_path,
+        source_snapshots=source_snapshots,
+    )
+
+
+def _replay_materialized_docket_decision_authority(
+    descriptor: _MaterializerDocketDecisionAuthority,
+) -> tuple[
+    VerifiedTerminalPurchaseDispositionAuthority,
+    tuple[Mapping[str, Any], ...],
+]:
+    """Freshly replay a materialized audit-only decision partition."""
+
+    _require_snapshot_unchanged(
+        descriptor.source_snapshots,
+        label="materialized docket decision authority source",
+    )
+    with CaseDevPurchaseJournal(
+        descriptor.ledger_path,
+        policy=descriptor.purchase_policy,
+        controlled_private_root=descriptor.controlled_private_root,
+        initialization_receipt_path=descriptor.initialization_receipt_path,
+    ) as journal:
+        partition = _docket_decision_partition_record(
+            authority=descriptor.authority,
+            purchase_journal=journal,
+            selected_document_count=cast(
+                int, descriptor.partition["selected_document_count"]
+            ),
+        )
+        if partition != descriptor.partition:
+            raise CommandError("audit-only docket decision partition changed")
+        records = verified_docket_decision_source_records(
+            descriptor.authority,
+            purchase_journal=journal,
+        )
+    return descriptor.authority, records
+
+
+def _consume_materialized_docket_decision_authority(
+    descriptor: _MaterializerDocketDecisionAuthority | None,
+    consumer: Callable[
+        [
+            VerifiedTerminalPurchaseDispositionAuthority | None,
+            CaseDevPurchaseJournal | None,
+        ],
+        Any,
+    ],
+) -> Any:
+    """Run one downstream consumer while the verified journal replay is live."""
+
+    if descriptor is None:
+        return consumer(None, None)
+    _require_snapshot_unchanged(
+        descriptor.source_snapshots,
+        label="materialized docket decision authority source",
+    )
+    with CaseDevPurchaseJournal(
+        descriptor.ledger_path,
+        policy=descriptor.purchase_policy,
+        controlled_private_root=descriptor.controlled_private_root,
+        initialization_receipt_path=descriptor.initialization_receipt_path,
+    ) as journal:
+        partition = _docket_decision_partition_record(
+            authority=descriptor.authority,
+            purchase_journal=journal,
+            selected_document_count=cast(
+                int, descriptor.partition["selected_document_count"]
+            ),
+        )
+        if partition != descriptor.partition:
+            raise CommandError("audit-only docket decision partition changed")
+        return consumer(descriptor.authority, journal)
 
 
 def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> int:
@@ -34219,6 +34467,8 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         getattr(args, "purchase_ledger", None),
         getattr(args, "purchase_ledger_initialization_receipt", None),
         getattr(args, "resolved_post_recovery_documents", None),
+        getattr(args, "purchase_result", None),
+        getattr(args, "purchase_run_card", None),
     )
     if any(value is not None for value in free_values):
         if not all(value is not None for value in free_values):
@@ -34250,6 +34500,12 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             "clearance, purchased-clearance run card, purchase policy, and "
             "purchase ledger inputs"
         )
+    purchase_result_arg = cast(Path | None, getattr(args, "purchase_result", None))
+    purchase_run_card_arg = cast(Path | None, getattr(args, "purchase_run_card", None))
+    if (purchase_result_arg is None) != (purchase_run_card_arg is None):
+        raise CommandError(
+            "--purchase-result and --purchase-run-card must be supplied together"
+        )
     _preflight_current_purchase_snapshot(args)
     output_root = cast(Path, args.output_root).absolute()
     preparation_root = cast(Path, args.preparation_root).absolute()
@@ -34268,6 +34524,12 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
     purchase_policy_path = cast(Path, args.purchase_policy).absolute()
     cohort_policy_path = cast(Path, args.cohort_policy).absolute()
     ledger_path = cast(Path, args.purchase_ledger).resolve()
+    purchase_result_path = (
+        purchase_result_arg.absolute() if purchase_result_arg is not None else None
+    )
+    purchase_run_card_path = (
+        purchase_run_card_arg.absolute() if purchase_run_card_arg is not None else None
+    )
     controlled_private_root = cast(Path | None, args.controlled_private_root)
     initialization_receipt = cast(
         Path | None, args.purchase_ledger_initialization_receipt
@@ -34289,6 +34551,11 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         purchase_policy_path,
         cohort_policy_path,
         ledger_path,
+        *(
+            (purchase_result_path, purchase_run_card_path)
+            if purchase_result_path is not None and purchase_run_card_path is not None
+            else ()
+        ),
         *((resolved_path,) if resolved_path is not None else ()),
     )
     _validate_projection_output_scope(output_root, input_paths=input_paths)
@@ -34332,6 +34599,11 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         purchase_policy_path,
         cohort_policy_path,
         ledger_path,
+        *(
+            (purchase_result_path, purchase_run_card_path)
+            if purchase_result_path is not None and purchase_run_card_path is not None
+            else ()
+        ),
         *((resolved_path,) if resolved_path is not None else ()),
     )
     materializer_direct_snapshots = {
@@ -34370,10 +34642,81 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             cast(Mapping[str, bytes], projection["verified_artifact_bytes"]),
             label="materialization projection",
         )
+        purchase_policy_artifact = _projection_json_object(
+            materializer_direct_snapshots[purchase_policy_path],
+            source=purchase_policy_path,
+        )
+        cohort_policy_artifact = _projection_json_object(
+            materializer_direct_snapshots[cohort_policy_path],
+            source=cohort_policy_path,
+        )
+        purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            purchase_policy, controlled_private_root=controlled_private_root
+        )
+        verify_case_dev_purchase_policy_cohort_binding(
+            purchase_policy, cohort_policy_artifact
+        )
+        if ledger_path != purchase_policy.canonical_ledger_path:
+            raise CommandError(
+                "--purchase-ledger conflicts with the canonical policy locator"
+            )
+        purchase_snapshot = read_case_dev_purchase_snapshot(
+            ledger_path,
+            policy=purchase_policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt,
+        )
+        selected_document_keys = cast(
+            set[tuple[str, str]], projection["selected_document_keys"]
+        )
+        docket_decision_descriptor: _MaterializerDocketDecisionAuthority | None = None
+        if purchase_result_path is not None and purchase_run_card_path is not None:
+            selection_path = cast(Path, projection["selection_path"])
+            selection_payload = captured_artifact_bytes[os.path.abspath(selection_path)]
+            with CaseDevPurchaseJournal(
+                ledger_path,
+                policy=purchase_policy,
+                controlled_private_root=controlled_private_root,
+                initialization_receipt_path=initialization_receipt,
+            ) as journal:
+                docket_decision_descriptor = (
+                    _verify_materializer_docket_decision_authority(
+                        selection_payload=selection_payload,
+                        snapshot_manifest_path=snapshot_manifest_path,
+                        purchase_result_path=purchase_result_path,
+                        purchase_run_card_path=purchase_run_card_path,
+                        purchase_journal=journal,
+                        purchase_policy=purchase_policy,
+                        ledger_path=ledger_path,
+                        controlled_private_root=controlled_private_root,
+                        initialization_receipt_path=initialization_receipt,
+                        selected_document_count=len(selected_document_keys),
+                    )
+                )
+                _merge_verified_artifact_bytes(
+                    captured_artifact_bytes,
+                    {
+                        os.path.abspath(path): payload
+                        for path, payload in (
+                            docket_decision_descriptor.source_snapshots.items()
+                        )
+                    },
+                    label="materializer docket-decision authority",
+                )
+                omission_keys = verified_docket_decision_document_keys(
+                    docket_decision_descriptor.authority,
+                    purchase_journal=journal,
+                )
+            if not omission_keys <= selected_document_keys:
+                raise CommandError(
+                    "audit-only docket decision omission is outside the selection"
+                )
+            selected_document_keys = selected_document_keys - omission_keys
         recovery = _verify_materializer_recovery(
             recovery_root=recovery_root,
             selection_path=projection["selection_path"],
-            selected_document_keys=projection["selected_document_keys"],
+            selected_document_keys=selected_document_keys,
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
@@ -34400,31 +34743,6 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         _verify_materializer_recovery_clearance_binding(
             recovery=recovery,
             clearance_lineage=purchased_clearance_lineage,
-        )
-        purchase_policy_artifact = _projection_json_object(
-            materializer_direct_snapshots[purchase_policy_path],
-            source=purchase_policy_path,
-        )
-        cohort_policy_artifact = _projection_json_object(
-            materializer_direct_snapshots[cohort_policy_path],
-            source=cohort_policy_path,
-        )
-        purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
-        require_approved_case_dev_purchase_policy(
-            purchase_policy, controlled_private_root=controlled_private_root
-        )
-        verify_case_dev_purchase_policy_cohort_binding(
-            purchase_policy, cohort_policy_artifact
-        )
-        if ledger_path != purchase_policy.canonical_ledger_path:
-            raise CommandError(
-                "--purchase-ledger conflicts with the canonical policy locator"
-            )
-        purchase_snapshot = read_case_dev_purchase_snapshot(
-            ledger_path,
-            policy=purchase_policy,
-            controlled_private_root=controlled_private_root,
-            initialization_receipt_path=initialization_receipt,
         )
         operations = purchase_snapshot.operations
         purchase_state_sha256 = purchase_snapshot.purchase_state_sha256
@@ -34499,9 +34817,7 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
                     ),
                 ),
             ),
-            selected_document_keys=cast(
-                set[tuple[str, str]], projection["selected_document_keys"]
-            ),
+            selected_document_keys=selected_document_keys,
             output_root=output_root,
             resolved_post_recovery_records=resolved_records,
         )
@@ -34608,11 +34924,32 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
         "cohort_policy": captured_commitment(cohort_policy_path),
         "purchase_state_sha256": purchase_state_sha256,
         **(
+            {
+                "terminal_purchase_result": captured_commitment(purchase_result_path),
+                "terminal_purchase_run_card": captured_commitment(
+                    purchase_run_card_path
+                ),
+                "terminal_purchase_budget_plan": captured_commitment(
+                    docket_decision_descriptor.purchase_budget_plan_path
+                ),
+                "docket_decision_partition": dict(docket_decision_descriptor.partition),
+            }
+            if docket_decision_descriptor is not None
+            and purchase_result_path is not None
+            and purchase_run_card_path is not None
+            else {}
+        ),
+        **(
             {"resolved_post_recovery_documents": captured_commitment(resolved_path)}
             if resolved_path is not None
             else {}
         ),
     }
+
+    def recheck_docket_decision_authority() -> None:
+        if docket_decision_descriptor is not None:
+            _replay_materialized_docket_decision_authority(docket_decision_descriptor)
+
     return _publish_materialized_cohort_documents(
         args,
         _MaterializationPublication(
@@ -34636,6 +34973,16 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             captured_source_snapshots={
                 Path(path): payload for path, payload in captured_artifact_bytes.items()
             },
+            authority_recheck=(
+                recheck_docket_decision_authority
+                if docket_decision_descriptor is not None
+                else None
+            ),
+            docket_decision_partition=(
+                docket_decision_descriptor.partition
+                if docket_decision_descriptor is not None
+                else None
+            ),
         ),
     )
 
@@ -34910,6 +35257,11 @@ def _publish_materialized_cohort_documents(
             else {}
         ),
         "target_case_count": publication.target_case_count,
+        **(
+            {"docket_decision_partition": dict(publication.docket_decision_partition)}
+            if publication.docket_decision_partition is not None
+            else {}
+        ),
         "source_commitments": publication.source_commitments,
         "output_commitments": {
             "document-downloads-merged.jsonl": _bytes_sha256(
@@ -34995,6 +35347,7 @@ def _publish_materialized_cohort_documents(
             output_commitments=output_commitments,
             dry_run=dry_run,
             authority_mode=publication.authority_mode,
+            docket_decision_partition=publication.docket_decision_partition,
         )
         return 0
     if not dry_run:
@@ -35052,6 +35405,15 @@ def _publish_materialized_cohort_documents(
                 else {}
             ),
             "target_case_count": publication.target_case_count,
+            **(
+                {
+                    "docket_decision_partition": dict(
+                        publication.docket_decision_partition
+                    )
+                }
+                if publication.docket_decision_partition is not None
+                else {}
+            ),
             "free_document_count": materialization.summary["free_document_count"],
             "purchased_document_count": materialization.summary[
                 "purchased_document_count"
@@ -37078,6 +37440,7 @@ def _verify_materializer_resume(
     output_commitments: Mapping[str, object],
     dry_run: bool,
     authority_mode: str | None = None,
+    docket_decision_partition: Mapping[str, object] | None = None,
 ) -> None:
     run_card_bytes = _read_singly_linked_regular_input(
         run_card_path, label="materialization resume run card"
@@ -37110,6 +37473,11 @@ def _verify_materializer_resume(
         "source_roots_mutated": False,
         "zero_provider_activity_evidence": True,
         **({"authority_mode": authority_mode} if authority_mode is not None else {}),
+        **(
+            {"docket_decision_partition": dict(docket_decision_partition)}
+            if docket_decision_partition is not None
+            else {}
+        ),
     }
     for field, value in expected.items():
         if card.get(field) != value:
@@ -37117,6 +37485,10 @@ def _verify_materializer_resume(
     if card.get("authority_mode") != authority_mode:
         raise CommandError(
             "materialize-cohort-documents resume mismatch: authority_mode"
+        )
+    if card.get("docket_decision_partition") != docket_decision_partition:
+        raise CommandError(
+            "materialize-cohort-documents resume mismatch: docket_decision_partition"
         )
     if dry_run:
         return
@@ -37167,6 +37539,7 @@ class _VerifiedMaterializedDownstreamLineage:
     resolved_records: tuple[Mapping[str, Any], ...]
     document_tree: Mapping[str, bytes]
     fresh_ledger_namespace: Path | None = None
+    docket_decision_authority: _MaterializerDocketDecisionAuthority | None = None
 
     def __len__(self) -> int:
         return len(self.paths)
@@ -37182,6 +37555,18 @@ class _VerifiedMaterializedDownstreamLineage:
 
     def __iter__(self) -> Iterator[Path]:
         return iter(self.paths)
+
+
+def _downstream_docket_decision_descriptor(
+    verified: object,
+) -> _MaterializerDocketDecisionAuthority | None:
+    """Return authority metadata from a replay-verified downstream lineage."""
+
+    if verified is None:
+        return None
+    if isinstance(verified, _VerifiedMaterializedDownstreamLineage):
+        return verified.docket_decision_authority
+    raise CommandError("materialization downstream lineage has an invalid type")
 
 
 def _require_materialized_downstream_lineage_unchanged(
@@ -37205,6 +37590,10 @@ def _require_materialized_downstream_lineage_unchanged(
             require_fresh_purchase_ledger_namespace(verified.fresh_ledger_namespace)
         except (OSError, PurchaseApprovalError, ValueError) as exc:
             raise CommandError(str(exc)) from exc
+    if verified.docket_decision_authority is not None:
+        _replay_materialized_docket_decision_authority(
+            verified.docket_decision_authority
+        )
 
 
 def _verify_materialized_downstream_lineage(
@@ -37450,7 +37839,7 @@ def _verify_materialized_downstream_lineage(
         )
     if authority_mode is not None:
         raise CommandError("unsupported materialization authority mode")
-    if len(input_paths) not in {12, 13}:
+    if len(input_paths) not in {12, 13, 14, 15}:
         raise CommandError("materialization run card input paths differ")
     (
         preparation_root,
@@ -37467,6 +37856,10 @@ def _verify_materialized_downstream_lineage(
         ledger_path,
         *optional_inputs,
     ) = input_paths
+    purchase_result_path: Path | None = None
+    purchase_run_card_path: Path | None = None
+    if len(input_paths) in {14, 15}:
+        purchase_result_path, purchase_run_card_path, *optional_inputs = optional_inputs
     resolved_path = optional_inputs[0] if optional_inputs else None
     raw_outputs = card.get("output_paths")
     if not isinstance(raw_outputs, Sequence) or isinstance(raw_outputs, (str, bytes)):
@@ -37502,6 +37895,11 @@ def _verify_materialized_downstream_lineage(
         purchase_policy_path,
         cohort_policy_path,
         ledger_path,
+        *(
+            (purchase_result_path, purchase_run_card_path)
+            if purchase_result_path is not None and purchase_run_card_path is not None
+            else ()
+        ),
         *((resolved_path,) if resolved_path is not None else ()),
         *((selection_path,) if selection_path is not None else ()),
     )
@@ -37560,10 +37958,76 @@ def _verify_materialized_downstream_lineage(
             raise CommandError(
                 "downstream selection differs from materialized target cohort"
             )
+        purchase_policy = verify_case_dev_purchase_policy(
+            _projection_json_object(
+                direct_snapshots[purchase_policy_path], source=purchase_policy_path
+            )
+        )
+        require_approved_case_dev_purchase_policy(
+            purchase_policy, controlled_private_root=controlled_private_root
+        )
+        verify_case_dev_purchase_policy_cohort_binding(
+            purchase_policy,
+            _projection_json_object(
+                direct_snapshots[cohort_policy_path], source=cohort_policy_path
+            ),
+        )
+        snapshot = read_case_dev_purchase_snapshot(
+            ledger_path.resolve(),
+            policy=purchase_policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
+        )
+        selected_document_keys = cast(
+            set[tuple[str, str]], projection["selected_document_keys"]
+        )
+        docket_decision_descriptor: _MaterializerDocketDecisionAuthority | None = None
+        if purchase_result_path is not None and purchase_run_card_path is not None:
+            with CaseDevPurchaseJournal(
+                ledger_path.resolve(),
+                policy=purchase_policy,
+                controlled_private_root=controlled_private_root,
+                initialization_receipt_path=initialization_receipt_path,
+            ) as journal:
+                docket_decision_descriptor = (
+                    _verify_materializer_docket_decision_authority(
+                        selection_payload=captured_artifact_bytes[
+                            os.path.abspath(committed_selection_path)
+                        ],
+                        snapshot_manifest_path=snapshot_manifest_path,
+                        purchase_result_path=purchase_result_path,
+                        purchase_run_card_path=purchase_run_card_path,
+                        purchase_journal=journal,
+                        purchase_policy=purchase_policy,
+                        ledger_path=ledger_path.resolve(),
+                        controlled_private_root=controlled_private_root,
+                        initialization_receipt_path=initialization_receipt_path,
+                        selected_document_count=len(selected_document_keys),
+                    )
+                )
+                _merge_verified_artifact_bytes(
+                    captured_artifact_bytes,
+                    {
+                        os.path.abspath(path): payload
+                        for path, payload in (
+                            docket_decision_descriptor.source_snapshots.items()
+                        )
+                    },
+                    label="downstream materializer docket-decision authority",
+                )
+                omission_keys = verified_docket_decision_document_keys(
+                    docket_decision_descriptor.authority,
+                    purchase_journal=journal,
+                )
+            if not omission_keys <= selected_document_keys:
+                raise CommandError(
+                    "audit-only docket decision omission is outside the selection"
+                )
+            selected_document_keys = selected_document_keys - omission_keys
         recovery = _verify_materializer_recovery(
             recovery_root=recovery_root,
             selection_path=projection["selection_path"],
-            selected_document_keys=projection["selected_document_keys"],
+            selected_document_keys=selected_document_keys,
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
@@ -37590,26 +38054,6 @@ def _verify_materialized_downstream_lineage(
         _verify_materializer_recovery_clearance_binding(
             recovery=recovery,
             clearance_lineage=purchased_lineage,
-        )
-        purchase_policy = verify_case_dev_purchase_policy(
-            _projection_json_object(
-                direct_snapshots[purchase_policy_path], source=purchase_policy_path
-            )
-        )
-        require_approved_case_dev_purchase_policy(
-            purchase_policy, controlled_private_root=controlled_private_root
-        )
-        verify_case_dev_purchase_policy_cohort_binding(
-            purchase_policy,
-            _projection_json_object(
-                direct_snapshots[cohort_policy_path], source=cohort_policy_path
-            ),
-        )
-        snapshot = read_case_dev_purchase_snapshot(
-            ledger_path.resolve(),
-            policy=purchase_policy,
-            controlled_private_root=controlled_private_root,
-            initialization_receipt_path=initialization_receipt_path,
         )
         selection_records = cast(
             Sequence[Mapping[str, Any]], projection["selection_records"]
@@ -37680,9 +38124,7 @@ def _verify_materialized_downstream_lineage(
                     ),
                 ),
             ),
-            selected_document_keys=cast(
-                set[tuple[str, str]], projection["selected_document_keys"]
-            ),
+            selected_document_keys=selected_document_keys,
             output_root=materialized_root,
             resolved_post_recovery_records=resolved_records,
         )
@@ -37791,6 +38233,22 @@ def _verify_materialized_downstream_lineage(
         "cohort_policy": verified_commitment(cohort_policy_path),
         "purchase_state_sha256": snapshot.purchase_state_sha256,
         **(
+            {
+                "terminal_purchase_result": verified_commitment(purchase_result_path),
+                "terminal_purchase_run_card": verified_commitment(
+                    purchase_run_card_path
+                ),
+                "terminal_purchase_budget_plan": verified_commitment(
+                    docket_decision_descriptor.purchase_budget_plan_path
+                ),
+                "docket_decision_partition": dict(docket_decision_descriptor.partition),
+            }
+            if docket_decision_descriptor is not None
+            and purchase_result_path is not None
+            and purchase_run_card_path is not None
+            else {}
+        ),
+        **(
             {"resolved_post_recovery_documents": verified_commitment(resolved_path)}
             if resolved_path is not None
             else {}
@@ -37798,6 +38256,15 @@ def _verify_materialized_downstream_lineage(
     }
     if card.get("source_commitments") != expected_sources:
         raise CommandError("materialization source commitments do not reproduce")
+    expected_docket_partition = (
+        dict(docket_decision_descriptor.partition)
+        if docket_decision_descriptor is not None
+        else None
+    )
+    if card.get("docket_decision_partition") != expected_docket_partition:
+        raise CommandError(
+            "materialization docket-decision partition does not reproduce"
+        )
     document_commitments = {
         document.destination.relative_to(document_root).as_posix(): (
             "sha256:" + _required_str(document.manifest_record, "sha256")
@@ -37814,6 +38281,11 @@ def _verify_materialized_downstream_lineage(
     expected_summary = {
         **materialization.summary,
         "target_case_count": verified_preparation.target_case_count,
+        **(
+            {"docket_decision_partition": dict(docket_decision_descriptor.partition)}
+            if docket_decision_descriptor is not None
+            else {}
+        ),
         "source_commitments": expected_sources,
         "output_commitments": {
             "document-downloads-merged.jsonl": _bytes_sha256(expected_manifest),
@@ -37887,6 +38359,7 @@ def _verify_materialized_downstream_lineage(
         selection_records=tuple(selection_records),
         resolved_records=tuple(resolved_records),
         document_tree=dict(document_tree_snapshot),
+        docket_decision_authority=docket_decision_descriptor,
     )
 
 
@@ -47075,17 +47548,23 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         f"{name}_sha256": digest for name, digest in commitment_sources.items()
     }
     try:
-        records = build_decision_text_records(
-            selections=selection_records,
-            download_manifest=download_records,
-            clearance_records=clearance_records,
-            restriction_records=_projection_jsonl_records(
-                source_bytes["restriction_evidence"],
-                source=source_paths["restriction_evidence"],
+        restriction_records = _projection_jsonl_records(
+            source_bytes["restriction_evidence"],
+            source=source_paths["restriction_evidence"],
+        )
+        records = _consume_materialized_docket_decision_authority(
+            (_downstream_docket_decision_descriptor(verified_materialization)),
+            lambda authority, journal: build_decision_text_records(
+                selections=selection_records,
+                download_manifest=download_records,
+                clearance_records=clearance_records,
+                restriction_records=restriction_records,
+                parser_records=parser_records,
+                markdown_root=markdown_root,
+                input_commitments=commitments,
+                docket_decision_authority=authority,
+                purchase_journal=journal,
             ),
-            parser_records=parser_records,
-            markdown_root=markdown_root,
-            input_commitments=commitments,
         )
     except DecisionTextArtifactError as exc:
         raise CommandError(str(exc)) from exc
@@ -47139,6 +47618,125 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         },
     )
     return 0
+
+
+def _verify_decision_text_artifact_with_materialization(
+    *,
+    args: argparse.Namespace,
+    decision_texts_path: Path,
+    manifest_path: Path,
+    run_card_path: Path,
+    selections: Sequence[Mapping[str, Any]],
+    selection_path: Path,
+    parser_records: Sequence[Mapping[str, Any]],
+    parser_manifest_path: Path,
+    finalized_unit_records: Sequence[Mapping[str, Any]],
+    finalized_units_path: Path,
+    markdown_root: Path,
+) -> VerifiedDecisionTextArtifact:
+    """Verify Stage B text, replaying docket authority when its build used it."""
+
+    decision_records = _projection_jsonl_records(
+        _read_singly_linked_regular_input(
+            decision_texts_path, label="decision text artifact"
+        ),
+        source=decision_texts_path,
+    )
+    if not any(
+        record.get("source_provenance") == "authenticated_docket_entry_text"
+        for record in decision_records
+    ):
+        return verify_decision_text_artifact(
+            decision_texts_path=decision_texts_path,
+            manifest_path=manifest_path,
+            run_card_path=run_card_path,
+            selections=selections,
+            selection_path=selection_path,
+            parser_records=parser_records,
+            parser_manifest_path=parser_manifest_path,
+            finalized_unit_records=finalized_unit_records,
+            finalized_units_path=finalized_units_path,
+            markdown_root=markdown_root,
+        )
+    run_card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            run_card_path, label="decision text lineage run card"
+        ),
+        source=run_card_path,
+    )
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("decision text run card lacks exact input paths")
+    materialization_cards: list[Path] = []
+    for raw_path in cast(Sequence[object], raw_inputs):
+        path = Path(str(raw_path))
+        if path.resolve() == markdown_root.resolve():
+            continue
+        payload = _read_singly_linked_regular_input(
+            path, label="decision text lineage input"
+        )
+        try:
+            card = _projection_json_object(payload, source=path)
+        except CommandError:
+            continue
+        if card.get("stage") == "materialize-cohort-documents":
+            materialization_cards.append(path)
+    if len(materialization_cards) > 1:
+        raise CommandError(
+            "decision text run card has ambiguous materialization lineage"
+        )
+    if not materialization_cards:
+        raise CommandError(
+            "decision text artifact declares authenticated docket entries but its "
+            "run card has no materialization lineage"
+        )
+    materialization_card_path = materialization_cards[0]
+    materialization_card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            materialization_card_path, label="decision text materialization run card"
+        ),
+        source=materialization_card_path,
+    )
+    outputs = materialization_card.get("output_paths")
+    typed_output_values = (
+        cast(Sequence[object], outputs)
+        if isinstance(outputs, Sequence) and not isinstance(outputs, (str, bytes))
+        else ()
+    )
+    if not typed_output_values or len(typed_output_values) != 6:
+        raise CommandError("materialization run card output paths differ")
+    typed_outputs = tuple(Path(str(path)) for path in typed_output_values)
+    verified = _verify_materialized_downstream_lineage(
+        run_card_path=materialization_card_path,
+        manifest_path=typed_outputs[0],
+        clearance_path=typed_outputs[1],
+        document_root=typed_outputs[5],
+        selection_path=selection_path,
+        controlled_private_root=cast(Path | None, args.controlled_private_root),
+        initialization_receipt_path=cast(
+            Path | None, args.purchase_ledger_initialization_receipt
+        ),
+    )
+    return cast(
+        VerifiedDecisionTextArtifact,
+        _consume_materialized_docket_decision_authority(
+            _downstream_docket_decision_descriptor(verified),
+            lambda authority, journal: verify_decision_text_artifact(
+                decision_texts_path=decision_texts_path,
+                manifest_path=manifest_path,
+                run_card_path=run_card_path,
+                selections=selections,
+                selection_path=selection_path,
+                parser_records=parser_records,
+                parser_manifest_path=parser_manifest_path,
+                finalized_unit_records=finalized_unit_records,
+                finalized_units_path=finalized_units_path,
+                markdown_root=markdown_root,
+                docket_decision_authority=authority,
+                purchase_journal=journal,
+            ),
+        ),
+    )
 
 
 _STAGE_A_UNITIZATION_LINEAGE_SCHEMA_VERSION = (
@@ -47426,7 +48024,7 @@ def _materialization_cohort_cycle_id(
     if not isinstance(inputs, Sequence) or isinstance(inputs, (str, bytes)):
         raise CommandError("materialization run card lacks cohort-policy input")
     typed = tuple(Path(str(path)) for path in cast(Sequence[object], inputs))
-    if len(typed) not in {12, 13}:
+    if len(typed) not in {12, 13, 14, 15}:
         raise CommandError("materialization run card input paths differ")
     cohort_policy_path = typed[10]
     try:
@@ -49562,7 +50160,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     prediction_unit_records = _read_records(prediction_units_path)
     try:
         finalized_unit_records = require_finalized_envelopes(prediction_unit_records)
-        decision_text_artifact = verify_decision_text_artifact(
+        decision_text_artifact = _verify_decision_text_artifact_with_materialization(
+            args=args,
             decision_texts_path=decision_texts_path,
             manifest_path=decision_texts_manifest_path,
             run_card_path=decision_texts_run_card_path,
@@ -50330,19 +50929,22 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
         if not llm_label_audit_records:
             raise CommandError("llm-label audit must include at least one record")
         try:
-            decision_text_artifact = verify_decision_text_artifact(
-                decision_texts_path=decision_texts_path,
-                manifest_path=decision_texts_manifest_path,
-                run_card_path=decision_texts_run_card_path,
-                selections=_read_records(selection_path),
-                selection_path=selection_path,
-                parser_records=_read_records(parser_manifest_path),
-                parser_manifest_path=parser_manifest_path,
-                finalized_unit_records=require_finalized_envelopes(
-                    _read_records(prediction_units_path)
-                ),
-                finalized_units_path=prediction_units_path,
-                markdown_root=markdown_root,
+            decision_text_artifact = (
+                _verify_decision_text_artifact_with_materialization(
+                    args=args,
+                    decision_texts_path=decision_texts_path,
+                    manifest_path=decision_texts_manifest_path,
+                    run_card_path=decision_texts_run_card_path,
+                    selections=_read_records(selection_path),
+                    selection_path=selection_path,
+                    parser_records=_read_records(parser_manifest_path),
+                    parser_manifest_path=parser_manifest_path,
+                    finalized_unit_records=require_finalized_envelopes(
+                        _read_records(prediction_units_path)
+                    ),
+                    finalized_units_path=prediction_units_path,
+                    markdown_root=markdown_root,
+                )
             )
             decision_text_artifact.verify_stage_b_audit_commitments(
                 llm_label_audit_records
@@ -50473,19 +51075,22 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
         try:
             selection_records = _read_records(selection_path)
             prediction_unit_records = _read_records(prediction_units_path)
-            decision_text_artifact = verify_decision_text_artifact(
-                decision_texts_path=decision_texts_path,
-                manifest_path=decision_texts_manifest_path,
-                run_card_path=decision_texts_run_card_path,
-                selections=selection_records,
-                selection_path=selection_path,
-                parser_records=_read_records(parser_manifest_path),
-                parser_manifest_path=parser_manifest_path,
-                finalized_unit_records=require_finalized_envelopes(
-                    prediction_unit_records
-                ),
-                finalized_units_path=prediction_units_path,
-                markdown_root=markdown_root,
+            decision_text_artifact = (
+                _verify_decision_text_artifact_with_materialization(
+                    args=args,
+                    decision_texts_path=decision_texts_path,
+                    manifest_path=decision_texts_manifest_path,
+                    run_card_path=decision_texts_run_card_path,
+                    selections=selection_records,
+                    selection_path=selection_path,
+                    parser_records=_read_records(parser_manifest_path),
+                    parser_manifest_path=parser_manifest_path,
+                    finalized_unit_records=require_finalized_envelopes(
+                        prediction_unit_records
+                    ),
+                    finalized_units_path=prediction_units_path,
+                    markdown_root=markdown_root,
+                )
             )
             label_audit_records = _read_records(llm_audit_path)
             decision_text_artifact.verify_stage_b_audit_commitments(label_audit_records)
@@ -50831,22 +51436,27 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         )
         official_entries = require_official_registry_entries(registry.entries)
         decision_filed_on_or_after = earliest_eligible_decision_date(official_entries)
-        plan = plan_packet_build_inputs(
-            selection_records=records,
-            download_records=download_records,
-            parser_records=parser_records,
-            prediction_unit_records=prediction_unit_records,
-            raw_html_dir=raw_html_dir,
-            raw_artifact_records=raw_artifact_records,
-            raw_artifact_bytes=raw_html_snapshot,
-            document_root=document_root,
-            markdown_root=markdown_root,
-            markdown_bytes=markdown_snapshot,
-            source_dir=output_root,
-            generated_at=generated_at,
-            search_query=cast(str, args.search_query),
-            search_window=cast(str, args.search_window),
-            decision_filed_on_or_after=decision_filed_on_or_after,
+        plan = _consume_materialized_docket_decision_authority(
+            (_downstream_docket_decision_descriptor(materialization_lineage)),
+            lambda authority, journal: plan_packet_build_inputs(
+                selection_records=records,
+                download_records=download_records,
+                parser_records=parser_records,
+                prediction_unit_records=prediction_unit_records,
+                raw_html_dir=raw_html_dir,
+                raw_artifact_records=raw_artifact_records,
+                raw_artifact_bytes=raw_html_snapshot,
+                document_root=document_root,
+                markdown_root=markdown_root,
+                markdown_bytes=markdown_snapshot,
+                source_dir=output_root,
+                generated_at=generated_at,
+                search_query=cast(str, args.search_query),
+                search_window=cast(str, args.search_window),
+                decision_filed_on_or_after=decision_filed_on_or_after,
+                docket_decision_authority=authority,
+                purchase_journal=journal,
+            ),
         )
         packet_output_records = {
             packet_build_input_path: plan.packet_build_records,
@@ -51305,6 +51915,9 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             markdown_root=typed_markdown_root,
             materialization_run_card_path=typed_materialization_card,
             resolved_post_recovery_documents_path=resolved_path,
+            docket_decision_descriptor=(
+                _downstream_docket_decision_descriptor(verified_materialization)
+            ),
         )
         if replay.model_registry_sha256 != _normalize_expected_sha256(
             cast(str, expected_model_registry_sha256),
@@ -51646,6 +52259,7 @@ def _replay_packet_planner_run_card(
     document_root: Path,
     markdown_root: Path,
     resolved_post_recovery_documents_path: Path | None,
+    docket_decision_descriptor: _MaterializerDocketDecisionAuthority | None = None,
 ) -> _PacketPlannerReplay:
     """Re-run packet planning from its exact committed inputs and parameters."""
 
@@ -51800,24 +52414,30 @@ def _replay_packet_planner_run_card(
     download_records = _projection_jsonl_records(
         downloads_payload, source=committed_downloads
     )
-    plan = plan_packet_build_inputs(
-        selection_records=selection_records,
-        download_records=download_records,
-        parser_records=parser_records,
-        prediction_unit_records=prediction_unit_records,
-        raw_html_dir=committed_raw_html_dir,
-        raw_artifact_records=_projection_jsonl_records(
-            raw_artifacts_payload, source=raw_artifacts_manifest
+    raw_artifact_records = _projection_jsonl_records(
+        raw_artifacts_payload, source=raw_artifacts_manifest
+    )
+    plan = _consume_materialized_docket_decision_authority(
+        docket_decision_descriptor,
+        lambda authority, journal: plan_packet_build_inputs(
+            selection_records=selection_records,
+            download_records=download_records,
+            parser_records=parser_records,
+            prediction_unit_records=prediction_unit_records,
+            raw_html_dir=committed_raw_html_dir,
+            raw_artifact_records=raw_artifact_records,
+            raw_artifact_bytes=raw_html_snapshot,
+            document_root=committed_document_root,
+            markdown_root=committed_markdown_root,
+            markdown_bytes=markdown_snapshot,
+            source_dir=committed_source_dir,
+            generated_at=generated_at,
+            search_query=required_string("search_query"),
+            search_window=required_string("search_window"),
+            decision_filed_on_or_after=actual_eligible_date,
+            docket_decision_authority=authority,
+            purchase_journal=journal,
         ),
-        raw_artifact_bytes=raw_html_snapshot,
-        document_root=committed_document_root,
-        markdown_root=committed_markdown_root,
-        markdown_bytes=markdown_snapshot,
-        source_dir=committed_source_dir,
-        generated_at=generated_at,
-        search_query=required_string("search_query"),
-        search_window=required_string("search_window"),
-        decision_filed_on_or_after=actual_eligible_date,
     )
     expected_payloads = {
         "packet_build_input": _projection_jsonl_bytes(plan.packet_build_records),
@@ -51968,7 +52588,7 @@ def _authenticated_materialization_snapshot_manifest_path(
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
         raise CommandError("materialization run card lacks exact input paths")
     input_paths = tuple(Path(str(path)) for path in cast(Sequence[object], raw_inputs))
-    if len(input_paths) not in {12, 13}:
+    if len(input_paths) not in {12, 13, 14, 15}:
         raise CommandError("materialization run card input paths differ")
     return input_paths[3]
 
@@ -52771,6 +53391,7 @@ def _validate_packet_input_run_card(
     markdown_root: Path,
     materialization_run_card_path: Path,
     resolved_post_recovery_documents_path: Path | None,
+    docket_decision_descriptor: _MaterializerDocketDecisionAuthority | None = None,
 ) -> _PacketPlannerReplay:
     """Require the exact executed packet planner to own the build input bytes."""
 
@@ -52823,6 +53444,7 @@ def _validate_packet_input_run_card(
         document_root=document_root,
         markdown_root=markdown_root,
         resolved_post_recovery_documents_path=(resolved_post_recovery_documents_path),
+        docket_decision_descriptor=docket_decision_descriptor,
     )
     if run_card_path.read_bytes() != card_payload:
         raise CommandError("packet planner run card changed while being replayed")
@@ -53175,6 +53797,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             markdown_root=markdown_root,
             materialization_run_card_path=typed_materialization_card,
             resolved_post_recovery_documents_path=resolved_path,
+            docket_decision_descriptor=(
+                _downstream_docket_decision_descriptor(verified_materialization)
+            ),
         )
         packet_build_replay = _validate_packet_build_run_card(
             typed_packet_build_card,
@@ -53450,19 +54075,22 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             packet_plan_replay.model_registry.entries
         )
         try:
-            decision_text_artifact = verify_decision_text_artifact(
-                decision_texts_path=decision_texts_path,
-                manifest_path=decision_texts_manifest_path,
-                run_card_path=decision_texts_run_card_path,
-                selections=selection_records,
-                selection_path=selection_path,
-                parser_records=parser_records,
-                parser_manifest_path=parser_manifest_path,
-                finalized_unit_records=require_finalized_envelopes(
-                    prediction_unit_records
-                ),
-                finalized_units_path=prediction_units_path,
-                markdown_root=markdown_root,
+            decision_text_artifact = (
+                _verify_decision_text_artifact_with_materialization(
+                    args=args,
+                    decision_texts_path=decision_texts_path,
+                    manifest_path=decision_texts_manifest_path,
+                    run_card_path=decision_texts_run_card_path,
+                    selections=selection_records,
+                    selection_path=selection_path,
+                    parser_records=parser_records,
+                    parser_manifest_path=parser_manifest_path,
+                    finalized_unit_records=require_finalized_envelopes(
+                        prediction_unit_records
+                    ),
+                    finalized_units_path=prediction_units_path,
+                    markdown_root=markdown_root,
+                )
             )
             decision_text_artifact.verify_stage_b_audit_commitments(label_audit_records)
         except (DecisionTextArtifactError, UnitizationReviewError) as exc:

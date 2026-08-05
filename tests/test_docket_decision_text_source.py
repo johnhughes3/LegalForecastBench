@@ -35,6 +35,7 @@ from legalforecast.ingestion.docket_decision_text_source import (
     replay_docket_decision_source_lineage,
     require_replayed_docket_decision_lineage,
     residual_terminal_exclusions_bytes,
+    verified_docket_decision_document_keys,
     verified_docket_decision_source_records,
     verified_residual_terminal_records,
     verify_docket_decision_text_sources,
@@ -398,6 +399,10 @@ def test_terminal_disposition_derives_mixed_retained_and_residual_partition(
             disposition,
             purchase_journal=journal,
         )
+        omitted_keys = verified_docket_decision_document_keys(
+            disposition,
+            purchase_journal=journal,
+        )
 
     assert [record["candidate_id"] for record in retained] == ["72192698"]
     assert retained[0]["unavailable_recap_document_id"] == "485754024"
@@ -407,6 +412,7 @@ def test_terminal_disposition_derives_mixed_retained_and_residual_partition(
     assert residual_bytes.endswith(b"\n")
     assert b'"candidate_id":"71942225"' in residual_bytes
     assert b"72192698" not in residual_bytes
+    assert omitted_keys == frozenset({("72192698", "485754024")})
 
 
 def test_terminal_disposition_allows_an_exact_empty_residual_partition(

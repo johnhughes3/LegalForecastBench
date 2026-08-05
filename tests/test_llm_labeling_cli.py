@@ -194,7 +194,9 @@ def _stub_downstream_decision_artifact(
             )
         return _Artifact()
 
-    monkeypatch.setattr(cli, "verify_decision_text_artifact", verify)
+    monkeypatch.setattr(
+        cli, "_verify_decision_text_artifact_with_materialization", verify
+    )
     return [
         "--selection",
         str(decision_texts_path),

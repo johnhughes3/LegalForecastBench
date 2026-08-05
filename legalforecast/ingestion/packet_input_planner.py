@@ -12,8 +12,9 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
@@ -50,6 +51,12 @@ from legalforecast.unitization.review import (
     UnitizationReviewError,
     require_finalized_envelopes,
 )
+
+if TYPE_CHECKING:
+    from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
+    from legalforecast.ingestion.docket_decision_text_source import (
+        VerifiedTerminalPurchaseDispositionAuthority,
+    )
 
 
 class PacketInputPlanningError(ValueError):
@@ -380,6 +387,9 @@ def plan_packet_build_inputs(
     search_query: str = "refined MTD decision terms",
     search_window: str = "not recorded",
     decision_filed_on_or_after: date | None = None,
+    docket_decision_authority: VerifiedTerminalPurchaseDispositionAuthority
+    | None = None,
+    purchase_journal: CaseDevPurchaseJournal | None = None,
 ) -> PacketInputPlan:
     """Create packet-build and private-store manifest rows from acquisition rows."""
 
@@ -388,6 +398,10 @@ def plan_packet_build_inputs(
         raise PacketInputPlanningError("generated_at must be timezone-aware")
 
     selections = tuple(selection_records)
+    docket_decision_sources = _verified_docket_decision_sources(
+        docket_decision_authority,
+        purchase_journal=purchase_journal,
+    )
     raw_html_root = Path(raw_html_dir)
     verified_raw_artifacts = (
         load_verified_raw_artifacts(
@@ -475,6 +489,7 @@ def plan_packet_build_inputs(
             search_query=search_query,
             search_window=search_window,
             decision_filed_on_or_after=decision_filed_on_or_after,
+            docket_decision_sources=docket_decision_sources,
         )
         if planned.packet_build_record is not None:
             packet_build.append(planned.packet_build_record)
@@ -523,6 +538,7 @@ def _plan_candidate(
     search_query: str,
     search_window: str,
     decision_filed_on_or_after: date | None,
+    docket_decision_sources: Mapping[tuple[str, str], Mapping[str, Any]],
 ) -> _PlannedCandidate:
     candidate_id = _required_str(selection, "candidate_id")
     units = prediction_units.get(candidate_id)
@@ -596,6 +612,18 @@ def _plan_candidate(
         original_id = _required_str(document, "source_document_id")
         packet_document_id = _packet_document_id(candidate_id, original_id)
         original_to_packet_id[original_id] = packet_document_id
+        docket_source = docket_decision_sources.get((candidate_id, original_id))
+        if docket_source is not None:
+            source_record = _audit_only_docket_source_document_record(
+                selection=selection,
+                document=document,
+                source=docket_source,
+                packet_document_id=packet_document_id,
+                generated_at=generated_at,
+            )
+            source_documents.append(source_record)
+            candidate_documents.append(_candidate_document_record(source_record))
+            continue
         download = _required_indexed_record(
             downloads,
             candidate_id=candidate_id,
@@ -880,6 +908,98 @@ def _source_document_record(
             )
         ),
     }
+
+
+def _audit_only_docket_source_document_record(
+    *,
+    selection: Mapping[str, Any],
+    document: Mapping[str, Any],
+    source: Mapping[str, Any],
+    packet_document_id: str,
+    generated_at: datetime,
+) -> dict[str, Any]:
+    """Project authenticated outcome evidence without exposing its text."""
+
+    candidate_id = _required_str(selection, "candidate_id")
+    original_id = _required_str(document, "source_document_id")
+    docket_entry_number = _optional_int(document, "docket_entry_number")
+    if (
+        _required_str(source, "candidate_id") != candidate_id
+        or _required_str(source, "unavailable_recap_document_id") != original_id
+        or source.get("model_visible") is not False
+        or source.get("audit_only") is not True
+        or source.get("materialization_required") is not False
+        or document.get("contains_target_outcome") is not True
+        or document.get("model_visible") is not False
+        or document.get("is_predecision_material") is not False
+        or _required_str(document, "document_role") not in {"decision", "order"}
+        or docket_entry_number is None
+    ):
+        raise PacketInputPlanningError(
+            "invalid authenticated audit-only decision binding: "
+            f"{candidate_id}/{original_id}"
+        )
+    return {
+        "source_provider": "courtlistener_docket",
+        "source_case_id": _required_str(selection, "case_id"),
+        "source_document_id": packet_document_id,
+        "court": _required_str(selection, "court"),
+        "docket_number": _required_str(selection, "docket_number"),
+        "document_role": _required_str(document, "document_role"),
+        "retrieved_at": _format_datetime(generated_at),
+        "source_url_or_reference": _required_str(source, "decision_source_id"),
+        "sha256": hashlib.sha256(
+            canonical_json_value_bytes(
+                source,
+                error_type=PacketInputPlanningError,
+                error_message="docket decision source is not canonical JSON",
+            )
+        ).hexdigest(),
+        "is_predecision_material": False,
+        "is_mounted_for_model": False,
+        "availability_status": AvailabilityStatus.UNAVAILABLE.value,
+        "redaction_or_seal_status": "public",
+        "docket_entry_number": docket_entry_number,
+        "contains_target_outcome": True,
+        "packet_section": "post_decision",
+        "notes": (
+            "Authenticated public docket-entry decision retained for Stage B audit "
+            "only; no document bytes or decision text are present in packet inputs; "
+            f"original_source_document_id={original_id}"
+        ),
+    }
+
+
+def _verified_docket_decision_sources(
+    authority: VerifiedTerminalPurchaseDispositionAuthority | None,
+    *,
+    purchase_journal: CaseDevPurchaseJournal | None,
+) -> dict[tuple[str, str], Mapping[str, Any]]:
+    if (authority is None) != (purchase_journal is None):
+        raise PacketInputPlanningError(
+            "docket decision authority and purchase journal are required together"
+        )
+    if authority is None or purchase_journal is None:
+        return {}
+    from legalforecast.ingestion.docket_decision_text_source import (
+        verified_docket_decision_source_records,
+    )
+
+    indexed: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for record in verified_docket_decision_source_records(
+        authority,
+        purchase_journal=purchase_journal,
+    ):
+        key = (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "unavailable_recap_document_id"),
+        )
+        if key in indexed:
+            raise PacketInputPlanningError(
+                f"duplicate authenticated docket decision source: {key}"
+            )
+        indexed[key] = record
+    return indexed
 
 
 def _redaction_or_seal_status(

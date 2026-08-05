@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.courtlistener_web import CourtListenerWebDocketEntry
 from legalforecast.ingestion.packet_input_planner import (
     PacketInputPlanningError,
@@ -215,6 +216,95 @@ def test_packet_planning_skips_candidate_exclusion(tmp_path: Path) -> None:
     assert plan.case_count == 0
     assert plan.packet_build_records == ()
     assert plan.candidate_manifest_records == ()
+
+
+def test_authenticated_docket_decision_needs_no_download_and_never_leaks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate_id = "candidate-1"
+    canary = "OUTCOME_CANARY_GRANTED_WITH_PREJUDICE — naïve"
+    raw_html_dir = tmp_path / "raw-html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / f"{candidate_id}.html").write_text(
+        _packet_input_docket_html(decision_date="July 1, 2026").replace(
+            "Motion granted.", canary
+        ),
+        encoding="utf-8",
+    )
+    markdown_root = tmp_path / "markdown"
+    for document_id in ("complaint", "mtd-memo"):
+        path = markdown_root / candidate_id / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{document_id} markdown", encoding="utf-8")
+    source = {
+        "candidate_id": candidate_id,
+        "case_id": f"case-{candidate_id}",
+        "unavailable_recap_document_id": "decision",
+        "decision_source_id": "docket-entry:candidate-1:50",
+        "model_visible": False,
+        "audit_only": True,
+        "materialization_required": False,
+        "text": canary,
+    }
+    monkeypatch.setattr(
+        "legalforecast.ingestion.docket_decision_text_source."
+        "verified_docket_decision_source_records",
+        lambda _authority, *, purchase_journal: (source,),
+    )
+    downloads = tuple(
+        row
+        for row in _packet_download_records(candidate_id)
+        if row["source_document_id"] != "decision"
+    )
+    parsers = tuple(
+        row
+        for row in _packet_parser_records(candidate_id)
+        if row["source_document_id"] != "decision"
+    )
+
+    plan = plan_packet_build_inputs(
+        selection_records=(
+            _packet_selection_record(
+                candidate_id=candidate_id,
+                case_id=f"case-{candidate_id}",
+                decision_date="2026-07-01",
+            ),
+        ),
+        download_records=downloads,
+        parser_records=parsers,
+        prediction_unit_records=(_prediction_unit_record(candidate_id),),
+        raw_html_dir=raw_html_dir,
+        document_root=tmp_path / "documents",
+        markdown_root=markdown_root,
+        source_dir=tmp_path,
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+        docket_decision_authority=cast(object, object()),
+        purchase_journal=cast(object, object()),
+    )
+
+    assert plan.case_count == 1
+    packet = plan.packet_build_records[0]
+    assert canary not in str(packet)
+    decision = next(
+        row for row in packet["documents"] if row["document_role"] == "decision"
+    )
+    assert decision["is_mounted_for_model"] is False
+    assert decision["availability_status"] == "unavailable"
+    assert (
+        decision["sha256"]
+        == hashlib.sha256(
+            canonical_json_value_bytes(
+                source,
+                error_type=ValueError,
+                error_message="not canonical",
+            )
+        ).hexdigest()
+    )
+    assert all(
+        row["source_document_id"] != "candidate-1-decision"
+        for row in packet["parsed_documents"]
+    )
 
 
 def test_packet_docket_planning_rejects_missing_decision_entry_numbers() -> None:
@@ -656,6 +746,7 @@ def _selection_document(
         "description": source_document_id,
         "model_visible": model_visible,
         "contains_target_outcome": not model_visible,
+        "is_predecision_material": model_visible,
         "redaction_or_seal_status": "public",
         "restriction_evidence": ["fixture_public_download_verified"],
     }

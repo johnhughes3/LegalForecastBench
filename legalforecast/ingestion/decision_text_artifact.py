@@ -8,13 +8,20 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
     require_clearance_policy,
 )
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
+
+if TYPE_CHECKING:
+    from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
+    from legalforecast.ingestion.docket_decision_text_source import (
+        VerifiedTerminalPurchaseDispositionAuthority,
+    )
 
 SCHEMA_VERSION = "legalforecast.decision_text.v1"
 MANIFEST_SCHEMA_VERSION = "legalforecast.decision_text_manifest.v1"
@@ -113,6 +120,9 @@ def verify_decision_text_artifact(
     finalized_unit_records: Sequence[Mapping[str, Any]],
     finalized_units_path: Path,
     markdown_root: Path,
+    docket_decision_authority: VerifiedTerminalPurchaseDispositionAuthority
+    | None = None,
+    purchase_journal: CaseDevPurchaseJournal | None = None,
 ) -> VerifiedDecisionTextArtifact:
     """Authenticate all Stage B text before any provider call is possible."""
 
@@ -154,6 +164,10 @@ def verify_decision_text_artifact(
         )
     selection_index = _selection_index(authenticated_selections)
     parser_index = _document_index(authenticated_parser_records, label="parser")
+    docket_sources = _verified_docket_source_index(
+        docket_decision_authority,
+        purchase_journal=purchase_journal,
+    )
 
     selected_candidates = set(selection_index)
     finalized_index: dict[str, Mapping[str, Any]] = {}
@@ -228,6 +242,7 @@ def verify_decision_text_artifact(
             markdown_root=root,
             manifest_commitments=manifest_commitments,
             seen_documents=seen_documents,
+            docket_sources=docket_sources,
         )
         indexed_records[candidate_id] = record
     if set(indexed_records) != selected_candidates:
@@ -255,6 +270,9 @@ def build_decision_text_records(
     parser_records: Sequence[Mapping[str, Any]],
     markdown_root: Path,
     input_commitments: Mapping[str, str],
+    docket_decision_authority: VerifiedTerminalPurchaseDispositionAuthority
+    | None = None,
+    purchase_journal: CaseDevPurchaseJournal | None = None,
 ) -> tuple[JsonRecord, ...]:
     """Return one strictly reconciled first-disposition text row per candidate."""
 
@@ -267,6 +285,10 @@ def build_decision_text_records(
         markdown_root=markdown_root,
         input_commitments=input_commitments,
         parser_provenance="live_mistral",
+        docket_sources=_verified_docket_source_index(
+            docket_decision_authority,
+            purchase_journal=purchase_journal,
+        ),
     )
 
 
@@ -296,6 +318,7 @@ def build_fixture_rehearsal_decision_text_records(
         markdown_root=markdown_root,
         input_commitments=input_commitments,
         parser_provenance="fixture_markdown",
+        docket_sources={},
     )
 
 
@@ -309,6 +332,7 @@ def _build_decision_text_records(
     markdown_root: Path,
     input_commitments: Mapping[str, str],
     parser_provenance: str,
+    docket_sources: Mapping[DocumentKey, Mapping[str, Any]],
 ) -> tuple[JsonRecord, ...]:
     if parser_provenance not in {"live_mistral", "fixture_markdown"}:
         raise DecisionTextArtifactError("unsupported parser provenance")
@@ -331,7 +355,13 @@ def _build_decision_text_records(
             "document key coverage mismatch across download, clearance, "
             "restriction, and parser artifacts"
         )
-    acquired_candidates = {candidate_id for candidate_id, _ in acquired_keys}
+    if set(docket_sources) & acquired_keys:
+        raise DecisionTextArtifactError(
+            "authenticated docket decisions overlap acquired document artifacts"
+        )
+    acquired_candidates = {candidate_id for candidate_id, _ in acquired_keys} | {
+        candidate_id for candidate_id, _ in docket_sources
+    }
     if set(selection_index) != acquired_candidates:
         raise DecisionTextArtifactError(
             "selection and acquired document candidates differ"
@@ -351,6 +381,71 @@ def _build_decision_text_records(
             )
         seen_document_ids.add(source_document_id)
         key = (candidate_id, source_document_id)
+        docket_source = docket_sources.get(key)
+        if docket_source is not None:
+            entered_date = _decision_date(selection, candidate_id=candidate_id)
+            if _required_str(docket_source, "case_id") != _required_str(
+                selection, "case_id"
+            ):
+                raise DecisionTextArtifactError(
+                    f"docket decision case mismatch: {candidate_id}"
+                )
+            if _required_str(docket_source, "entered_date") != entered_date:
+                raise DecisionTextArtifactError(
+                    f"docket decision date mismatch: {candidate_id}"
+                )
+            if _required_int(docket_source, "decision_entry_number") != _required_int(
+                decision_document, "docket_entry_number"
+            ):
+                raise DecisionTextArtifactError(
+                    f"docket decision entry mismatch: {candidate_id}"
+                )
+            text = _required_str(docket_source, "text")
+            text_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            if _required_sha256(docket_source, "text_sha256") != text_sha256:
+                raise DecisionTextArtifactError(
+                    f"docket decision text hash mismatch: {candidate_id}"
+                )
+            output.append(
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "candidate_id": candidate_id,
+                    "case_id": _required_str(selection, "case_id"),
+                    "document_id": source_document_id,
+                    "entered_date": entered_date,
+                    "text": text,
+                    "is_first_written_disposition": True,
+                    "contains_target_outcome": True,
+                    "model_visible": False,
+                    "document_role": _required_str(decision_document, "document_role"),
+                    "docket_entry_number": _required_int(
+                        decision_document, "docket_entry_number"
+                    ),
+                    "source_sha256": text_sha256,
+                    "source_byte_count": len(text.encode("utf-8")),
+                    "text_sha256": text_sha256,
+                    "markdown_sha256": text_sha256,
+                    "extraction_method": "authenticated_docket_entry_text",
+                    "parser_revision": "not_applicable",
+                    "source_provenance": "authenticated_docket_entry_text",
+                    "docket_source_record_sha256": _payload_sha256(
+                        canonical_json_value_bytes(
+                            docket_source,
+                            error_type=DecisionTextArtifactError,
+                            error_message=(
+                                "docket decision source is not canonical JSON"
+                            ),
+                        )
+                    ),
+                    "clearance": {
+                        "status": "cleared",
+                        "restriction_status": "public",
+                        "clearance_basis": "authenticated_public_docket_entry",
+                    },
+                    "input_commitments": dict(normalized_commitments),
+                }
+            )
+            continue
         try:
             manifest = manifest_index[key]
             clearance = clearance_index[key]
@@ -568,6 +663,7 @@ def _validate_verified_record(
     markdown_root: Path,
     manifest_commitments: Mapping[str, str],
     seen_documents: set[str],
+    docket_sources: Mapping[DocumentKey, Mapping[str, Any]],
 ) -> None:
     candidate_id = _required_str(record, "candidate_id")
     if record.get("schema_version") != SCHEMA_VERSION:
@@ -640,11 +736,52 @@ def _validate_verified_record(
         raise DecisionTextArtifactError(
             f"decision text is sealed/private/restricted: {candidate_id}"
         )
+    key = (candidate_id, document_id)
+    docket_source = docket_sources.get(key)
+    if docket_source is not None:
+        if record.get("source_provenance") != "authenticated_docket_entry_text":
+            raise DecisionTextArtifactError(
+                f"docket decision provenance mismatch: {key}"
+            )
+        if clearance != {
+            "status": "cleared",
+            "restriction_status": "public",
+            "clearance_basis": "authenticated_public_docket_entry",
+        }:
+            raise DecisionTextArtifactError(
+                f"docket decision clearance mismatch: {key}"
+            )
+        if record.get("docket_source_record_sha256") != _payload_sha256(
+            canonical_json_value_bytes(
+                docket_source,
+                error_type=DecisionTextArtifactError,
+                error_message="docket decision source is not canonical JSON",
+            )
+        ):
+            raise DecisionTextArtifactError(
+                f"docket decision source commitment mismatch: {key}"
+            )
+        if text != _required_str(docket_source, "text"):
+            raise DecisionTextArtifactError(f"docket decision text mismatch: {key}")
+        if (
+            _required_str(record, "extraction_method")
+            != ("authenticated_docket_entry_text")
+            or _required_str(record, "parser_revision") != "not_applicable"
+        ):
+            raise DecisionTextArtifactError(
+                f"docket decision extraction provenance mismatch: {key}"
+            )
+        if _required_sha256(record, "source_sha256") != text_sha256 or (
+            _required_nonnegative_int(record, "source_byte_count")
+            != len(text.encode("utf-8"))
+        ):
+            raise DecisionTextArtifactError(
+                f"docket decision source bytes mismatch: {key}"
+            )
+        return
     _validate_decision_text_clearance(
         clearance, key=(candidate_id, document_id), label="decision text"
     )
-
-    key = (candidate_id, document_id)
     try:
         parser = parser_index[key]
     except KeyError as exc:
@@ -698,6 +835,39 @@ def _validate_verified_record(
         raise DecisionTextArtifactError(
             f"decision text differs from pinned parser output: {key}"
         )
+
+
+def _verified_docket_source_index(
+    authority: VerifiedTerminalPurchaseDispositionAuthority | None,
+    *,
+    purchase_journal: CaseDevPurchaseJournal | None,
+) -> dict[DocumentKey, Mapping[str, Any]]:
+    if (authority is None) != (purchase_journal is None):
+        raise DecisionTextArtifactError(
+            "docket decision authority and purchase journal are required together"
+        )
+    if authority is None or purchase_journal is None:
+        return {}
+    from legalforecast.ingestion.docket_decision_text_source import (
+        verified_docket_decision_source_records,
+    )
+
+    records = verified_docket_decision_source_records(
+        authority,
+        purchase_journal=purchase_journal,
+    )
+    indexed: dict[DocumentKey, Mapping[str, Any]] = {}
+    for record in records:
+        key = (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "unavailable_recap_document_id"),
+        )
+        if key in indexed:
+            raise DecisionTextArtifactError(
+                f"duplicate authenticated docket decision source: {key}"
+            )
+        indexed[key] = record
+    return indexed
 
 
 def _validate_finalized_unit_envelope(
