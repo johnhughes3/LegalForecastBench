@@ -201,6 +201,7 @@ from legalforecast.ingestion.cohort_document_materializer import (
     prepare_non_symlink_directory,
     publish_cohort_documents,
     require_non_symlink_components,
+    validate_materializer_writable_paths,
 )
 from legalforecast.ingestion.cohort_policy import (
     CohortPolicyError,
@@ -39533,36 +39534,15 @@ def _validate_materializer_writable_paths(
     document_root: Path,
     input_paths: Sequence[Path],
 ) -> None:
-    root = output_root.absolute()
-    normalized = tuple(path.absolute() for path in writable_paths)
-    if len(set(normalized)) != len(normalized):
-        raise CommandError("materializer writable paths must be pairwise distinct")
-    documents = document_root.absolute()
-    if any(
-        path == documents
-        or path.is_relative_to(documents)
-        or documents.is_relative_to(path)
-        for path in normalized
-    ):
-        raise CommandError(
-            "materializer metadata outputs must not overlap the document tree"
+    try:
+        validate_materializer_writable_paths(
+            output_root=output_root,
+            writable_paths=writable_paths,
+            document_root=document_root,
+            input_paths=input_paths,
         )
-    input_resolved = tuple(path.resolve(strict=False) for path in input_paths)
-    for path in normalized:
-        if not path.is_relative_to(root):
-            raise CommandError(
-                f"materializer writable path escapes output root: {path}"
-            )
-        resolved = path.resolve(strict=False)
-        if any(
-            resolved == source
-            or resolved.is_relative_to(source)
-            or source.is_relative_to(resolved)
-            for source in input_resolved
-        ):
-            raise CommandError(
-                f"materializer writable path overlaps immutable input: {path}"
-            )
+    except CohortDocumentMaterializationError as exc:
+        raise CommandError(str(exc)) from exc
 
 
 def _reject_unexpected_materializer_outputs(

@@ -17,6 +17,7 @@ from legalforecast.ingestion.cohort_document_materializer import (
     cleanup_orphaned_cohort_document_temporaries,
     prepare_cohort_document_materialization,
     publish_cohort_documents,
+    validate_materializer_writable_paths,
 )
 
 
@@ -65,6 +66,113 @@ def _source(
             clearance=(clearance,),
         ),
         (candidate_id, document_id),
+    )
+
+
+def test_materializer_writable_path_validation_accepts_disjoint_outputs(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+
+    validate_materializer_writable_paths(
+        output_root=output_root,
+        writable_paths=(output_root / "manifest.jsonl", output_root / "run-card.json"),
+        document_root=output_root / "documents",
+        input_paths=(tmp_path / "immutable-input",),
+    )
+
+
+def test_materializer_writable_path_validation_rejects_duplicate_outputs(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+    shared = output_root / "shared.json"
+
+    with pytest.raises(
+        CohortDocumentMaterializationError,
+        match="materializer writable paths must be pairwise distinct",
+    ):
+        validate_materializer_writable_paths(
+            output_root=output_root,
+            writable_paths=(shared, shared),
+            document_root=output_root / "documents",
+            input_paths=(),
+        )
+
+
+def test_materializer_writable_path_validation_rejects_document_tree_overlap(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+    document_root = output_root / "documents"
+
+    with pytest.raises(
+        CohortDocumentMaterializationError,
+        match="materializer metadata outputs must not overlap the document tree",
+    ):
+        validate_materializer_writable_paths(
+            output_root=output_root,
+            writable_paths=(document_root / "metadata.json",),
+            document_root=document_root,
+            input_paths=(),
+        )
+
+
+def test_materializer_writable_path_validation_rejects_output_root_escape(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+    escaped = tmp_path / "escaped.json"
+
+    with pytest.raises(CohortDocumentMaterializationError) as exc_info:
+        validate_materializer_writable_paths(
+            output_root=output_root,
+            writable_paths=(escaped,),
+            document_root=output_root / "documents",
+            input_paths=(),
+        )
+
+    assert str(exc_info.value) == (
+        f"materializer writable path escapes output root: {escaped}"
+    )
+
+
+def test_materializer_writable_path_validation_rejects_immutable_input_overlap(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+    immutable_input = output_root / "immutable"
+    writable = immutable_input / "metadata.json"
+
+    with pytest.raises(CohortDocumentMaterializationError) as exc_info:
+        validate_materializer_writable_paths(
+            output_root=output_root,
+            writable_paths=(writable,),
+            document_root=output_root / "documents",
+            input_paths=(immutable_input,),
+        )
+
+    assert str(exc_info.value) == (
+        f"materializer writable path overlaps immutable input: {writable}"
+    )
+
+
+def test_materializer_writable_path_validation_preserves_cli_error_contract(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+    shared = output_root / "shared.json"
+
+    with pytest.raises(cli.CommandError) as exc_info:
+        cli._validate_materializer_writable_paths(
+            output_root=output_root,
+            writable_paths=(shared, shared),
+            document_root=output_root / "documents",
+            input_paths=(),
+        )
+
+    assert str(exc_info.value) == (
+        "materializer writable paths must be pairwise distinct"
     )
 
 

@@ -24,6 +24,49 @@ class CohortDocumentMaterializationError(ValueError):
     """Raised when immutable source documents cannot be safely materialized."""
 
 
+def validate_materializer_writable_paths(
+    *,
+    output_root: Path,
+    writable_paths: Sequence[Path],
+    document_root: Path,
+    input_paths: Sequence[Path],
+) -> None:
+    """Keep materializer metadata inside its root and away from immutable inputs."""
+
+    root = output_root.absolute()
+    normalized = tuple(path.absolute() for path in writable_paths)
+    if len(set(normalized)) != len(normalized):
+        raise CohortDocumentMaterializationError(
+            "materializer writable paths must be pairwise distinct"
+        )
+    documents = document_root.absolute()
+    if any(
+        path == documents
+        or path.is_relative_to(documents)
+        or documents.is_relative_to(path)
+        for path in normalized
+    ):
+        raise CohortDocumentMaterializationError(
+            "materializer metadata outputs must not overlap the document tree"
+        )
+    input_resolved = tuple(path.resolve(strict=False) for path in input_paths)
+    for path in normalized:
+        if not path.is_relative_to(root):
+            raise CohortDocumentMaterializationError(
+                f"materializer writable path escapes output root: {path}"
+            )
+        resolved = path.resolve(strict=False)
+        if any(
+            resolved == source
+            or resolved.is_relative_to(source)
+            or source.is_relative_to(resolved)
+            for source in input_resolved
+        ):
+            raise CohortDocumentMaterializationError(
+                f"materializer writable path overlaps immutable input: {path}"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class DocumentSource:
     """One authenticated source manifest, root, and matching clearance artifact."""
