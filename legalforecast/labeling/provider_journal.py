@@ -740,6 +740,98 @@ class ProviderAttemptJournal:
                     "reconstruction failure requires exactly one validated response"
                 )
 
+    def commit_reconstruction_recovery(
+        self,
+        durable_attempt_ordinal: int,
+        *,
+        raw_response_json: str,
+        normalized_response_json: str,
+        record: Mapping[str, object],
+    ) -> None:
+        """Settle a previously rejected response after provider-free revalidation.
+
+        The caller must present the exact journaled provider envelope and normalized
+        accounting record it revalidated. This transition never creates an attempt
+        or changes captured provider/accounting evidence; it only adopts a corrected
+        local reconstruction for that exact response.
+        """
+
+        if isinstance(durable_attempt_ordinal, bool) or durable_attempt_ordinal <= 0:
+            raise ProviderJournalError(
+                "reconstruction recovery attempt ordinal must be positive"
+            )
+        if not raw_response_json or not normalized_response_json:
+            raise ProviderJournalError(
+                "reconstruction recovery requires exact response evidence"
+            )
+        reconstructed_result_json = _canonical_json(record)
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._attempt(durable_attempt_ordinal)
+            if row is None:
+                raise ProviderJournalError(
+                    "reconstruction recovery attempt does not exist"
+                )
+            self._validate_replay(row)
+            if (
+                row["raw_response_json"] != raw_response_json
+                or row["normalized_response_json"] != normalized_response_json
+            ):
+                raise ProviderJournalError(
+                    "reconstruction recovery response evidence changed"
+                )
+            competing = self._connection.execute(
+                """
+                SELECT 1 FROM provider_attempts
+                WHERE logical_call_key = ? AND attempt_ordinal != ?
+                  AND status IN (
+                      'settled', 'validated_response', 'response_received'
+                  )
+                LIMIT 1
+                """,
+                (self.identity.logical_call_key, durable_attempt_ordinal),
+            ).fetchone()
+            if competing is not None:
+                raise ProviderJournalError(
+                    "reconstruction recovery conflicts with another authoritative "
+                    "response"
+                )
+            status = str(row["status"])
+            if status == "settled":
+                if row["reconstructed_result_json"] != reconstructed_result_json:
+                    raise ProviderJournalError("reconstruction recovery result changed")
+                self._connection.commit()
+                return
+            if status != "reconstruction_failed":
+                raise ProviderJournalError(
+                    "reconstruction recovery requires a failed reconstruction"
+                )
+            cursor = self._connection.execute(
+                """
+                UPDATE provider_attempts
+                SET reconstructed_result_json = ?, status = 'settled', completed_at = ?
+                WHERE logical_call_key = ? AND attempt_ordinal = ?
+                  AND status = 'reconstruction_failed'
+                  AND raw_response_json = ? AND normalized_response_json = ?
+                """,
+                (
+                    reconstructed_result_json,
+                    _now(),
+                    self.identity.logical_call_key,
+                    durable_attempt_ordinal,
+                    raw_response_json,
+                    normalized_response_json,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ProviderJournalError(
+                    "reconstruction recovery response evidence changed"
+                )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
     def stage_cost_total(self, stage: str) -> float:
         row = self._connection.execute(
             """
