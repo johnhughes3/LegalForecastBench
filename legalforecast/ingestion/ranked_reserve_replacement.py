@@ -139,6 +139,7 @@ def plan_ranked_reserve_replacements(
         VerifiedTerminalPurchaseDispositionAuthority | None
     ) = None,
     precommit_revalidator: Callable[[], None] | None = None,
+    allow_new_replacement_events: bool = True,
 ) -> RankedReserveReplacementPlan:
     """Plan deterministic reserve promotions from explicit terminal evidence.
 
@@ -548,6 +549,12 @@ def plan_ranked_reserve_replacements(
     remaining_headroom = policy.hard_cap_usd - committed - reserved
     if remaining_headroom < 0:
         raise RankedReserveReplacementError("replacement reservations exceed hard cap")
+
+    # Read-only downstream replay must never create missing producer history.
+    if new_events and not allow_new_replacement_events:
+        raise RankedReserveReplacementError(
+            "ranked-reserve replay requires unrecorded replacement events"
+        )
 
     # All validation and budget decisions precede the first journal mutation.
     if precommit_revalidator is not None:
