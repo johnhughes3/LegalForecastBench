@@ -41212,13 +41212,9 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         if raw_frozen_root.is_symlink() or not raw_frozen_root.is_dir():
             raise CommandError("frozen authority root is missing or unsafe")
         frozen_root = raw_frozen_root.resolve()
-        journal_path = raw_journal_path.resolve()
-        spend_path = raw_spend_path.resolve()
         model_state_paths = (raw_journal_path, raw_spend_path)
     else:
         frozen_root = None
-        journal_path = None
-        spend_path = None
         model_state_paths = ()
     _validate_disclosure_review_paths(
         input_paths=(*tuple(source_paths.values()), *model_state_paths),
@@ -41310,9 +41306,9 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
                 worksheet=worksheet,
                 worksheet_bytes=worksheet_bytes,
                 document_bytes_by_key=document_map,
-                provider_journal_path=cast(Path, journal_path),
-                provider_spend_authority_path=cast(Path, spend_path),
-                source_root=cast(Path, frozen_root),
+                provider_journal_path=cast(Path, args.provider_journal),
+                provider_spend_authority_path=cast(Path, args.provider_spend_authority),
+                source_root=cast(Path, args.frozen_authority_root),
             )
             replayed_authority = public_disclosure_model_review_record(capability)
             replayed_private = private_disclosure_model_review_records(capability)
