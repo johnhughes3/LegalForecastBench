@@ -813,8 +813,6 @@ def _build_resolved_post_recovery_documents_core(
             "parser_eligible": True,
             "packet_eligible": True,
         }
-        if schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3:
-            record["clearance_basis"] = "provider_free_recovered_public"
         if recovered_lineages is not None:
             record.update(
                 {
@@ -1714,12 +1712,12 @@ def _validate_resolved_record(
         and record.get("clearance_basis") == "provider_free_recovered_public"
     )
     if (
-        schema_version
-        in {
-            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2,
-            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3,
-        }
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
         and not provider_free_recovered_public
+    ) or (
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
+        and record.get("clearance_basis")
+        not in {None, "provider_free_recovered_public"}
     ):
         raise ResolvedPostRecoveryError(
             f"resolved document schema does not match clearance basis: {key}"
@@ -1788,22 +1786,26 @@ def _validate_resolved_record(
             f"resolved document delivery authority is invalid: {key}"
         )
     raw_lineage = record.get("recovered_public_lineage")
-    if schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2 or (
-        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
-        and raw_lineage is not None
-    ):
+    review_fields = (
+        "reviews_artifact_sha256",
+        "review_receipt_sha256",
+        "review_authority_sha256",
+    )
+    if provider_free_recovered_public:
         if not isinstance(raw_lineage, Mapping):
             raise ResolvedPostRecoveryError(
                 f"resolved recovered-public lineage is invalid: {key}"
             )
-    else:
-        digest_fields.extend(
-            (
-                "reviews_artifact_sha256",
-                "review_receipt_sha256",
-                "review_authority_sha256",
+        if any(field in record for field in review_fields):
+            raise ResolvedPostRecoveryError(
+                f"resolved recovered-public lineage is contradictory: {key}"
             )
-        )
+    else:
+        if raw_lineage is not None:
+            raise ResolvedPostRecoveryError(
+                f"resolved review lineage is contradictory: {key}"
+            )
+        digest_fields.extend(review_fields)
     for field in digest_fields:
         _required_sha(record.get(field), field)
     _uuid4(record.get("operation_key"))
