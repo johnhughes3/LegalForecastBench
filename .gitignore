@@ -3,10 +3,11 @@
 .idea/
 .vscode/
 
-# Local secrets
+# Local secrets. Credentials come from Infisical, not a checkout-root .env —
+# see docs/acquisition-systemd-launcher.md. A .env here is a contamination
+# hazard that tests/test_publication_guardrails.py treats as a leak.
 .env
 .env.*
-!.env.example
 
 # Python / uv
 .venv/

@@ -4,7 +4,7 @@
   "author": "John J. Hughes III",
   "status": "draft_waiting_on_audited_results",
   "source": "docs/preprint/legalforecast-mtd-cycle-1.md",
-  "rendered_draft": "output/pdf/legalforecast-mtd-cycle-1-draft.pdf",
+  "rendered_draft": "docs/preprint/legalforecast-mtd-cycle-1-draft.pdf",
   "citation_audit": "docs/preprint/citation-audit.json",
   "remaining_manuscript_input": [
     "audited_official_cycle_1_public_aggregate"

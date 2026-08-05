@@ -9,7 +9,7 @@ The manuscript is complete as a methods draft and deliberately contains no Cycle
 - `legalforecast-mtd-cycle-1.md` is the canonical manuscript source.
 - `package-manifest.json` binds each pending result slot to a public aggregate path, field, and verification rule. Slots are required unless they explicitly set `required` to `false`; the paired-ablation slot is populated only when its artifact is indexed.
 - `citation-audit.json` states what each reference supports and whether it is direct support, a design analogy, or context only.
-- `../../output/pdf/legalforecast-mtd-cycle-1-draft.pdf` is the deterministic six-to-ten-page pre-results rendering.
+- `legalforecast-mtd-cycle-1-draft.pdf` is the deterministic six-to-ten-page pre-results rendering.
 
 No harness-comparison appendix is included. A future appendix is allowed only when validated evidence is ready, remains separately labeled with its community evidence status and limitations, and does not delay the official methods paper.
 
