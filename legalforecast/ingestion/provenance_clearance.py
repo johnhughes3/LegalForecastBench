@@ -774,6 +774,136 @@ def build_provider_free_quarantine_records_v3(
     return tuple(records)
 
 
+def build_authenticated_model_provenance_clearance_records_v3(
+    plan: Mapping[str, object],
+    *,
+    model_review_capability: object,
+    routing_plan_sha256: str,
+) -> tuple[ClearanceRecord, ...]:
+    """Apply only decisions carried by verifier-issued model authority."""
+
+    from legalforecast.ingestion.disclosure_model_review import (
+        DECISION_SCHEMA_VERSION,
+        model_review_eligible_documents,
+    )
+    from legalforecast.ingestion.disclosure_model_review_authority import (
+        public_disclosure_model_review_record,
+    )
+
+    if hashlib.sha256(canonical_json_bytes(plan)).hexdigest() != _strict_digest(
+        routing_plan_sha256, "routing plan hash"
+    ):
+        raise ProvenanceClearanceError("routing plan hash mismatch")
+    documents = _plan_documents_v3(plan)
+    eligible = model_review_eligible_documents(
+        tuple(row for row in documents if row.get("route") == "exception_review")
+    )
+    eligible_index = {_key(row): row for row in eligible}
+    try:
+        authority = public_disclosure_model_review_record(model_review_capability)
+    except ValueError as exc:
+        raise ProvenanceClearanceError(str(exc)) from exc
+    if authority.get("routing_plan_sha256") != routing_plan_sha256:
+        raise ProvenanceClearanceError("model authority routing plan hash mismatch")
+    raw_decisions = authority.get("decisions")
+    if not isinstance(raw_decisions, list):
+        raise ProvenanceClearanceError("model authority lacks decisions")
+    decisions: dict[tuple[str, str], Mapping[str, object]] = {}
+    expected_fields = {
+        "schema_version",
+        "candidate_id",
+        "source_document_id",
+        "document_sha256",
+        "prompt_sha256",
+        "batch_prompt_sha256",
+        "response_sha256",
+        "batch_response_sha256",
+        "reviewer_registry_entry_sha256",
+        "status",
+    }
+    for value in cast(list[object], raw_decisions):
+        if not isinstance(value, Mapping):
+            raise ProvenanceClearanceError("model authority decision is invalid")
+        decision = cast(Mapping[str, object], value)
+        key = _key(decision)
+        if (
+            set(decision) != expected_fields
+            or decision.get("schema_version") != DECISION_SCHEMA_VERSION
+            or decision.get("status") not in {"cleared", "quarantined"}
+            or key in decisions
+        ):
+            raise ProvenanceClearanceError("model authority decision is invalid")
+        decisions[key] = decision
+    if list(decisions) != sorted(decisions) or set(decisions) != set(eligible_index):
+        raise ProvenanceClearanceError("model authority decision coverage mismatch")
+    for key, decision in decisions.items():
+        if decision.get("document_sha256") != eligible_index[key].get("sha256"):
+            raise ProvenanceClearanceError(
+                f"model authority reviewed wrong document bytes: {key}"
+            )
+
+    records: list[ClearanceRecord] = []
+    reviewer_id = authority.get("reviewer_registry_key")
+    if not isinstance(reviewer_id, str) or not reviewer_id:
+        raise ProvenanceClearanceError("model authority reviewer identity is invalid")
+    for document in documents:
+        key = _key(document)
+        automatic = document.get("route") == "auto_clear"
+        recovered_lineage = document.get("recovered_public_lineage")
+        recovered_public = automatic and isinstance(recovered_lineage, Mapping)
+        decision = decisions.get(key)
+        status = (
+            "cleared"
+            if automatic
+            else cast(str, decision["status"])
+            if decision is not None
+            else "quarantined"
+        )
+        records.append(
+            ClearanceRecord(
+                candidate_id=key[0],
+                source_document_id=key[1],
+                local_path=_required_text(document, "local_path"),
+                sha256=_digest(document, "sha256"),
+                byte_count=_nonnegative_int(document, "byte_count"),
+                status=status,
+                automated_markers=tuple(_text_list(document, "automated_markers")),
+                restriction_status=_required_text(document, "restriction_status"),
+                restriction_evidence=tuple(
+                    _text_list(document, "restriction_evidence")
+                ),
+                reviewer_id=reviewer_id if decision is not None else None,
+                controlled_store_provenance=(
+                    f"courtlistener-rest://recap-documents/{key[1]}"
+                    if recovered_public
+                    else _required_text(document, "source_url")
+                    if automatic
+                    else "private-store://disclosure/model-review"
+                    if decision is not None
+                    else None
+                ),
+                reviewed_at=None,
+                free_or_purchased=_required_text(document, "free_or_purchased"),
+                clearance_basis=(
+                    "provider_free_recovered_public"
+                    if recovered_public
+                    else "affirmative_public_provenance"
+                    if automatic
+                    else "authenticated_model_exception_review"
+                    if decision is not None
+                    else "model_ineligible_exception_quarantine"
+                ),
+                routing_plan_sha256=routing_plan_sha256,
+                recovered_public_lineage=(
+                    dict(cast(Mapping[str, object], recovered_lineage))
+                    if recovered_public
+                    else None
+                ),
+            )
+        )
+    return tuple(records)
+
+
 def _validated_decisions(
     rows: Sequence[Mapping[str, object]],
     *,

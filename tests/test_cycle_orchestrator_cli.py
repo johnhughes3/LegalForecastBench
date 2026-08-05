@@ -23,6 +23,7 @@ from legalforecast.ingestion.disclosure_review_bundle import canonical_json_byte
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 
 TARGET_CASE_COUNT = 100
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class _CompletionFactory(Protocol):
@@ -736,6 +737,31 @@ def test_run_cycle_allowlist_contains_only_receipted_acquisition_commands(
         assert "--execute" in command_help, command
         assert "--run-card-output" in command_help, command
         assert "--resume" in command_help, command
+
+
+def test_gemini_disclosure_successor_inserts_review_before_finalization() -> None:
+    template = json.loads(
+        (
+            ROOT
+            / "manifests"
+            / (
+                "cycle-1-target-100.v4-ranked-reserve-"
+                "gemini-disclosure-successor.template.json"
+            )
+        ).read_text()
+    )
+    stages = template["config"]["stages"]
+    ids = [stage["id"] for stage in stages]
+    review_index = ids.index("review-paid-disclosure-exceptions")
+    finalizer_index = ids.index("clear-paid-documents")
+
+    assert review_index + 1 == finalizer_index
+    assert stages[review_index]["command"] == "review-disclosure-exceptions"
+    assert stages[review_index]["boundary"] == "model_provider"
+    assert stages[finalizer_index]["command"] == "finalize-provenance-quarantine"
+    assert stages[finalizer_index]["boundary"] == "provider_free"
+    assert "--model-review-authority" in stages[finalizer_index]["arguments"]
+    assert COMMAND_BOUNDARIES["review-disclosure-exceptions"].value == "model_provider"
 
 
 def test_run_cycle_status_reports_provider_free_stage_as_ready(

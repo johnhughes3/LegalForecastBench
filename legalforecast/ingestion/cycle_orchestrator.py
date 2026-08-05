@@ -93,6 +93,7 @@ COMMAND_BOUNDARIES: Mapping[str, AcquisitionBoundary] = MappingProxyType(
         "build-disclosure-review-bundle": AcquisitionBoundary.PROVIDER_FREE,
         "clear-provenance-disclosures": AcquisitionBoundary.PROVIDER_FREE,
         "finalize-provenance-quarantine": AcquisitionBoundary.PROVIDER_FREE,
+        "review-disclosure-exceptions": AcquisitionBoundary.MODEL_PROVIDER,
         "resolve-post-recovery-documents": AcquisitionBoundary.PROVIDER_FREE,
         "plan-parse-documents": AcquisitionBoundary.PROVIDER_FREE,
         "build-decision-texts": AcquisitionBoundary.PROVIDER_FREE,
