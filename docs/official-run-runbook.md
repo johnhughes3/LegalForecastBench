@@ -4,6 +4,35 @@ This is the operator checklist for `.github/workflows/run-benchmark.yaml` and th
 Angle-bracket values such as `<cycle_id>` are placeholders, not literal shell input. Replace every such value before running a command.
 The paired flags `--llm-unitization-run-card` / `--llm-unitize-run-card` and `--llm-review-stage-a-run-card` / `--stage-a-review-run-card` intentionally name the same authenticated card when both appear in one command. Substitute the same exact path for each pair; the different flag names describe validation roles, not different artifacts.
 
+## On This Page
+
+- [Acquisition downstream preflight](#acquisition-downstream-preflight)
+  - [Exact post-clearance purchase approval](#exact-post-clearance-purchase-approval)
+  - [Bounded Firecrawl terminal-target recovery](#bounded-firecrawl-terminal-target-recovery-compatibility-fallback-only)
+  - [Provider-free exact-cohort downstream rehearsal](#provider-free-exact-cohort-downstream-rehearsal)
+  - [Protected paid-labeling authority](#protected-paid-labeling-authority)
+- [Before dispatch](#before-dispatch)
+- [Dispatch sequence](#dispatch-sequence)
+- [Aggregation](#aggregation)
+- [Add models to a frozen cycle](#add-models-to-a-frozen-cycle)
+- [Staged-rollout rehearsal drill](#staged-rollout-rehearsal-drill)
+- [Render and review the site](#render-and-review-the-site)
+- [Recovery acceptance criteria](#recovery-acceptance-criteria)
+- [Cycle 1 Batch-002 CourtListener-first acquisition](#cycle-1-batch-002-courtlistener-first-acquisition)
+  - [Supported cycle coordinator](#supported-cycle-coordinator)
+  - [Credential prerequisites](#credential-prerequisites)
+  - [Step 1: Search CourtListener decisions through Firecrawl](#step-1-search-courtlistener-decisions-through-firecrawl)
+  - [Preferred REST transfer](#preferred-rest-transfer-before-compatibility-steps-2-and-3)
+  - [Exact-310 terminal REST policy rebind](#exact-310-terminal-rest-policy-rebind)
+  - [Step 2: Enrich and rank with free Case.dev lookup](#step-2-enrich-and-rank-with-free-casedev-lookup)
+  - [Step 3: Acquire and screen complete CourtListener dockets](#step-3-acquire-and-screen-complete-courtlistener-dockets)
+  - [Step 4: Prepare the resolved pool and provisional budget](#step-4-prepare-the-resolved-pool-and-provisional-budget)
+  - [Step 5: Clear every free document and freeze the exact cohort](#step-5-clear-every-free-document-and-freeze-the-exact-cohort)
+  - [Step 6: Generate allowlist, initialize ledger, then purchase](#step-6-generate-allowlist-initialize-ledger-then-purchase)
+  - [Expected volumes](#expected-volumes)
+  - [Reading the tallies](#reading-the-tallies)
+  - [Frozen priority-batch Firecrawl observation](#frozen-priority-batch-firecrawl-observation)
+
 ## Acquisition Downstream Preflight
 
 ### Exact post-clearance purchase approval

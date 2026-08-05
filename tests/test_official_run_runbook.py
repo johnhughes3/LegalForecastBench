@@ -19,6 +19,38 @@ ROOT = Path(__file__).resolve().parents[1]
 POSITIONAL_FREEZE_PREFIX = "uv run legalforecast freeze <cycle_id>"
 
 
+def _github_heading_id(heading: str) -> str:
+    plain = re.sub(r"[*_`]", "", heading).strip().casefold()
+    plain = re.sub(r"[^a-z0-9 -]", "", plain)
+    return re.sub(r"[ -]+", "-", plain).strip("-")
+
+
+def test_github_heading_id_strips_markdown_and_normalizes_separators() -> None:
+    assert _github_heading_id("  *Hello* _World_ `Code`!  ") == "hello-world-code"
+    assert _github_heading_id(" One -- Two ") == "one-two"
+
+
+def test_runbook_navigation_uses_unique_heading_native_ids() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    navigation = runbook.split("## On This Page\n", maxsplit=1)[1].split(
+        "\n## Acquisition Downstream Preflight", maxsplit=1
+    )[0]
+    navigation_ids = re.findall(r"\]\(#([^)]+)\)", navigation)
+    heading_ids = [
+        _github_heading_id(heading)
+        for heading in re.findall(r"^#{2,3} (.+)$", runbook, flags=re.MULTILINE)
+        if heading != "On This Page"
+    ]
+    explicit_ids = re.findall(r'<a\s+id="([^"]+)"', runbook)
+
+    assert navigation_ids
+    assert len(navigation_ids) == len(set(navigation_ids))
+    assert len(heading_ids) == len(set(heading_ids))
+    assert len(explicit_ids) == len(set(explicit_ids))
+    assert set(navigation_ids) <= set(heading_ids)
+    assert not (set(explicit_ids) & set(heading_ids))
+
+
 def test_documented_freeze_command_parses_against_real_cli() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     command = _extract_bash_command(runbook, POSITIONAL_FREEZE_PREFIX)
