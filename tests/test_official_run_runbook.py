@@ -20,8 +20,14 @@ POSITIONAL_FREEZE_PREFIX = "uv run legalforecast freeze <cycle_id>"
 
 
 def _github_heading_id(heading: str) -> str:
-    normalized = re.sub(r"[^\w\- ]", "", heading.lower())
-    return normalized.replace(" ", "-")
+    plain = re.sub(r"[*_`]", "", heading).strip().casefold()
+    plain = re.sub(r"[^a-z0-9 -]", "", plain)
+    return re.sub(r"[ -]+", "-", plain).strip("-")
+
+
+def test_github_heading_id_strips_markdown_and_normalizes_separators() -> None:
+    assert _github_heading_id("  *Hello* _World_ `Code`!  ") == "hello-world-code"
+    assert _github_heading_id(" One -- Two ") == "one-two"
 
 
 def test_runbook_navigation_uses_unique_heading_native_ids() -> None:
