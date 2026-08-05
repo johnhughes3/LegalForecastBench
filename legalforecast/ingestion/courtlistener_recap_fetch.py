@@ -1258,11 +1258,9 @@ def _verify_recap_document(payload: Mapping[str, Any], document_id: str) -> None
             raise CourtListenerRecapFetchError("provider reports restricted document")
 
 
-def _verified_download(payload: Mapping[str, Any], document_id: str) -> str:
-    _verify_recap_document(payload, document_id)
-    if payload.get("is_available") is not True:
-        raise CourtListenerRecapFetchError("purchased RECAP document is unavailable")
-    value = payload.get("filepath_local", payload.get("download_url"))
+def verified_courtlistener_download_url(value: object) -> str:
+    """Normalize one credential-free allowlisted CourtListener HTTPS URL."""
+
     if not isinstance(value, str) or not value.strip():
         raise CourtListenerRecapFetchError("purchased document lacks a download URL")
     url = urllib.parse.urljoin("https://www.courtlistener.com", value)
@@ -1287,6 +1285,14 @@ def _verified_download(payload: Mapping[str, Any], document_id: str) -> str:
             "purchased document URL must use the default HTTPS port"
         )
     return url
+
+
+def _verified_download(payload: Mapping[str, Any], document_id: str) -> str:
+    _verify_recap_document(payload, document_id)
+    if payload.get("is_available") is not True:
+        raise CourtListenerRecapFetchError("purchased RECAP document is unavailable")
+    value = payload.get("filepath_local", payload.get("download_url"))
+    return verified_courtlistener_download_url(value)
 
 
 def verified_recap_download_url(payload: Mapping[str, Any], document_id: str) -> str:

@@ -23463,7 +23463,10 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                         },
                         label="ranked-reserve terminal disposition authority",
                     )
-                    _replay_materialized_docket_decision_authority(docket_descriptor)
+                    _replay_materialized_docket_decision_authority_in_open_journal(
+                        docket_descriptor,
+                        purchase_journal=journal,
+                    )
 
                 precommit_revalidator = revalidate_terminal_disposition
                 precommit_revalidator()
@@ -35043,29 +35046,52 @@ def _replay_materialized_docket_decision_authority(
 ]:
     """Freshly replay a materialized audit-only decision partition."""
 
-    _require_snapshot_unchanged(
-        descriptor.source_snapshots,
-        label="materialized docket decision authority source",
-    )
     with CaseDevPurchaseJournal(
         descriptor.ledger_path,
         policy=descriptor.purchase_policy,
         controlled_private_root=descriptor.controlled_private_root,
         initialization_receipt_path=descriptor.initialization_receipt_path,
     ) as journal:
-        partition = _docket_decision_partition_record(
-            authority=descriptor.authority,
-            purchase_journal=journal,
-            selected_document_count=cast(
-                int, descriptor.partition["selected_document_count"]
-            ),
-        )
-        if partition != descriptor.partition:
-            raise CommandError("audit-only docket decision partition changed")
-        records = verified_docket_decision_source_records(
-            descriptor.authority,
+        return _replay_materialized_docket_decision_authority_in_open_journal(
+            descriptor,
             purchase_journal=journal,
         )
+
+
+def _replay_materialized_docket_decision_authority_in_open_journal(
+    descriptor: _MaterializerDocketDecisionAuthority,
+    *,
+    purchase_journal: CaseDevPurchaseJournal,
+) -> tuple[
+    VerifiedTerminalPurchaseDispositionAuthority,
+    tuple[Mapping[str, Any], ...],
+]:
+    """Replay a decision partition without reacquiring its live journal lock."""
+
+    _require_snapshot_unchanged(
+        descriptor.source_snapshots,
+        label="materialized docket decision authority source",
+    )
+    if purchase_journal.path != descriptor.ledger_path:
+        raise CommandError("audit-only docket decision journal path changed")
+    if (
+        purchase_journal.policy.policy_sha256
+        != descriptor.purchase_policy.policy_sha256
+    ):
+        raise CommandError("audit-only docket decision journal policy changed")
+    partition = _docket_decision_partition_record(
+        authority=descriptor.authority,
+        purchase_journal=purchase_journal,
+        selected_document_count=cast(
+            int, descriptor.partition["selected_document_count"]
+        ),
+    )
+    if partition != descriptor.partition:
+        raise CommandError("audit-only docket decision partition changed")
+    records = verified_docket_decision_source_records(
+        descriptor.authority,
+        purchase_journal=purchase_journal,
+    )
     return descriptor.authority, records
 
 

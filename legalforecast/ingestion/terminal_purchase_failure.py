@@ -13,6 +13,10 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
+from legalforecast.ingestion.courtlistener_recap_fetch import (
+    CourtListenerRecapFetchError,
+    verified_courtlistener_download_url,
+)
 from legalforecast.ingestion.disclosure_review_bundle import (
     ReviewBundleError,
     read_unique_regular_file,
@@ -27,6 +31,19 @@ TERMINAL_RETRIEVAL_EVIDENCE_SCHEMA_VERSION = (
 _COURTLISTENER_PROVIDER = "courtlistener.recap-fetch+pacer"
 _TERMINAL_QUEUE_STATUSES = frozenset({3, 6, 7})
 _AMBIGUOUS_LEDGER_STATUSES = frozenset({"submitted", "queued", "unknown"})
+_QUARANTINED_MATERIAL_STATES = frozenset(
+    {
+        "available_pending_quarantine",
+        "recovered_pending_clearance",
+        "cleared_public",
+    }
+)
+_QUARANTINED_ATTEMPT_REASONS = frozenset(
+    {
+        "unknown_status_material_available_only_in_quarantine",
+        "unknown_status_material_pending_clearance",
+    }
+)
 _PURCHASE_RESULT_FIELDS = frozenset(
     {
         "live",
@@ -263,17 +280,47 @@ def _verify_artifact_records(
         )
 
     operations = purchase_journal.operation_records()
-    ambiguous = sorted(
-        _required_string(operation, "source_document_id", "purchase operation")
-        for operation in operations
+    operation_by_document = _operations_by_document(operations)
+    result_quarantined_pairs = {
+        (
+            _required_string(attempt, "candidate_id", "purchase attempt"),
+            _required_string(attempt, "source_document_id", "purchase attempt"),
+        )
+        for attempt in attempts
+        if attempt.get("status") == "quarantined"
+    }
+    ambiguous_pairs = {
+        (
+            _required_string(operation, "candidate_id", "purchase operation"),
+            document_id,
+        )
+        for document_id, operation in operation_by_document.items()
         if operation.get("status") in _AMBIGUOUS_LEDGER_STATUSES
-    )
-    if ambiguous:
+    }
+    ledger_quarantined_pairs = {
+        (
+            _required_string(operation, "candidate_id", "purchase operation"),
+            document_id,
+        )
+        for document_id, operation in operation_by_document.items()
+        if operation.get("material_authority") == "unknown_status_attempt"
+        and operation.get("material_state") in _QUARANTINED_MATERIAL_STATES
+    }
+    unexpected_ambiguous_pairs = ambiguous_pairs - ledger_quarantined_pairs
+    if unexpected_ambiguous_pairs:
         raise TerminalPurchaseFailureError(
             "terminal authority cannot be issued while the canonical ledger has "
-            "submitted, queued, or unknown operations: " + ", ".join(ambiguous)
+            "submitted, queued, or unknown operations without exact authenticated "
+            "quarantine material: "
+            + ", ".join(sorted(pair[1] for pair in unexpected_ambiguous_pairs))
         )
-    operation_by_document = _operations_by_document(operations)
+    for candidate_id, document_id in sorted(ambiguous_pairs):
+        _verify_quarantined_operation(
+            candidate_id=candidate_id,
+            document_id=document_id,
+            operation=operation_by_document[document_id],
+            purchase_journal=purchase_journal,
+        )
     terminal_ledger_pairs = {
         (
             _required_string(operation, "candidate_id", "purchase operation"),
@@ -300,6 +347,25 @@ def _verify_artifact_records(
             "purchase result statuses differ from terminal operations in its "
             "committed budget-plan tranche"
         )
+    if result_quarantined_pairs != (ledger_quarantined_pairs & tranche_pairs):
+        raise TerminalPurchaseFailureError(
+            "purchase result quarantines differ from exact authenticated quarantine "
+            "material in its committed budget-plan tranche"
+        )
+    quarantined_pairs = _verified_quarantined_pairs(
+        attempts,
+        operation_by_document=operation_by_document,
+        purchase_journal=purchase_journal,
+    )
+    if quarantined_pairs != result_quarantined_pairs:
+        raise TerminalPurchaseFailureError(
+            "purchase result quarantines lack exact authenticated quarantine material"
+        )
+    _verified_purchased_pairs(
+        attempts,
+        operation_by_document=operation_by_document,
+        purchase_journal=purchase_journal,
+    )
     failures_by_candidate: dict[str, list[JsonRecord]] = {}
     seen_documents: set[str] = set()
     for attempt in attempts:
@@ -512,7 +578,6 @@ def _verify_completed_run_card(
         "dry_run": False,
         "execute": True,
         "paid_activity_requested": True,
-        "paid_activity_executed": True,
         "courtlistener_live": True,
     }
     if any(
@@ -522,18 +587,24 @@ def _verify_completed_run_card(
         raise TerminalPurchaseFailureError(
             "terminal authority requires a completed purchase run card"
         )
-    if not isinstance(card.get("resume"), bool):
+    resume = card.get("resume")
+    if not isinstance(resume, bool):
         raise TerminalPurchaseFailureError("purchase run-card resume must be boolean")
+    paid_activity_executed = card.get("paid_activity_executed")
+    if not isinstance(paid_activity_executed, bool):
+        raise TerminalPurchaseFailureError(
+            "purchase run-card paid activity must be boolean"
+        )
     _count(card.get("record_count"), "purchase run-card record count")
-    _count(
+    physical = _count(
         card.get("courtlistener_physical_requests"),
         "CourtListener physical request count",
-        positive=True,
+        positive=paid_activity_executed,
     )
     phase = _count(
         card.get("courtlistener_reservations_this_phase"),
         "CourtListener phase reservation count",
-        positive=True,
+        positive=paid_activity_executed,
     )
     total = _count(
         card.get("courtlistener_reservations_total"),
@@ -544,6 +615,15 @@ def _verify_completed_run_card(
         raise TerminalPurchaseFailureError(
             "CourtListener phase reservations exceed the durable total"
         )
+    if not paid_activity_executed:
+        if not resume:
+            raise TerminalPurchaseFailureError(
+                "zero-request completion requires resume"
+            )
+        if physical != 0 or phase != 0:
+            raise TerminalPurchaseFailureError(
+                "zero-request completion has request activity"
+            )
     inputs = _string_list(
         card.get("input_paths"), "completed purchase run-card input paths"
     )
@@ -683,7 +763,16 @@ def _verify_purchase_tranche(
         raise TerminalPurchaseFailureError(
             "purchase budget plan contains no closed case tranche"
         )
+    cost_per_document = _money(
+        budget_plan.get("cost_per_document_usd"),
+        "purchase budget per-document cost",
+    )
+    if cost_per_document <= 0:
+        raise TerminalPurchaseFailureError(
+            "purchase budget per-document cost must be positive"
+        )
     planned_pairs: set[tuple[str, str]] = set()
+    seen_candidates: set[str] = set()
     total_cost = Decimal("0.00")
     for raw_case_plan in cast(list[object], case_plans_value):
         if not isinstance(raw_case_plan, Mapping):
@@ -698,24 +787,41 @@ def _verify_purchase_tranche(
         candidate_id = _required_string(
             case_plan, "candidate_id", "purchase budget case plan"
         )
-        documents = _string_list(
+        if candidate_id in seen_candidates:
+            raise TerminalPurchaseFailureError(
+                "purchase budget plan repeats a candidate"
+            )
+        seen_candidates.add(candidate_id)
+        documents = _closed_string_list(
             case_plan.get("purchase_document_ids"),
             "purchase budget case-plan document IDs",
+            unique=True,
+        )
+        roles = _closed_string_list(
+            case_plan.get("missing_core_roles"),
+            "purchase budget case-plan roles",
+            unique=False,
         )
         count = _count(
             case_plan.get("missing_core_document_count"),
             "purchase budget case-plan document count",
-            positive=True,
         )
         estimated_count = _count(
             case_plan.get("estimated_purchase_count"),
             "purchase budget case-plan estimated count",
-            positive=True,
         )
         if count != len(documents) or estimated_count != len(documents):
             raise TerminalPurchaseFailureError(
                 "purchase budget case-plan counts differ from its documents"
             )
+        if len(roles) != len(documents):
+            raise TerminalPurchaseFailureError(
+                "purchase budget case-plan roles differ from its documents"
+            )
+        _count(
+            case_plan.get("audit_only_document_count"),
+            "purchase budget case-plan audit-only document count",
+        )
         if (
             case_plan.get("dry_run") is not False
             or case_plan.get("exclusion_reasons") != []
@@ -723,10 +829,15 @@ def _verify_purchase_tranche(
             raise TerminalPurchaseFailureError(
                 "purchase budget case plan is dry-run or excluded"
             )
-        total_cost += _money(
+        case_cost = _money(
             case_plan.get("estimated_cost_usd"),
             "purchase budget case-plan estimated cost",
         )
+        if case_cost != cost_per_document * len(documents):
+            raise TerminalPurchaseFailureError(
+                "purchase budget case-plan cost differs from its documents"
+            )
+        total_cost += case_cost
         for document_id in documents:
             pair = (candidate_id, document_id)
             if pair in planned_pairs:
@@ -816,6 +927,250 @@ def _terminal_queue_status(reason: object) -> int:
             "provider error is not a nonretryable CourtListener queue status 3, 6, or 7"
         )
     return status
+
+
+def _verified_quarantined_pairs(
+    attempts: Sequence[JsonRecord],
+    *,
+    operation_by_document: Mapping[str, Mapping[str, Any]],
+    purchase_journal: CaseDevPurchaseJournal,
+) -> set[tuple[str, str]]:
+    """Bind every quarantined result to closed material in the journal."""
+
+    pairs: set[tuple[str, str]] = set()
+    for attempt in attempts:
+        if attempt.get("status") != "quarantined":
+            continue
+        candidate_id = _required_string(attempt, "candidate_id", "purchase attempt")
+        document_id = _required_string(
+            attempt, "source_document_id", "purchase attempt"
+        )
+        operation = operation_by_document.get(document_id)
+        if (
+            operation is None
+            or operation.get("candidate_id") != candidate_id
+            or operation.get("status") not in {"queued", "unknown", "confirmed"}
+            or attempt.get("reason") not in _QUARANTINED_ATTEMPT_REASONS
+            or attempt.get("source_provider") != _COURTLISTENER_PROVIDER
+            or any(
+                attempt.get(name) is not None
+                for name in ("fee_acknowledged", "pacer_fees", "download_url")
+            )
+        ):
+            raise TerminalPurchaseFailureError(
+                "quarantined purchase attempt lacks exact authenticated quarantine "
+                f"material: {document_id}"
+            )
+        _verify_quarantined_operation(
+            candidate_id=candidate_id,
+            document_id=document_id,
+            operation=operation,
+            purchase_journal=purchase_journal,
+        )
+        pairs.add((candidate_id, document_id))
+    return pairs
+
+
+def _verify_quarantined_operation(
+    *,
+    candidate_id: str,
+    document_id: str,
+    operation: Mapping[str, Any],
+    purchase_journal: CaseDevPurchaseJournal,
+) -> None:
+    """Authenticate one canonical operation's closed quarantine material."""
+
+    if (
+        operation.get("candidate_id") != candidate_id
+        or operation.get("source_document_id") != document_id
+        or operation.get("status")
+        not in {"submitted", "queued", "unknown", "confirmed"}
+        or operation.get("material_authority") != "unknown_status_attempt"
+        or operation.get("material_state") not in _QUARANTINED_MATERIAL_STATES
+    ):
+        raise TerminalPurchaseFailureError(
+            "canonical ledger operation lacks exact authenticated quarantine "
+            f"material: {document_id}"
+        )
+    reservation = _money(
+        operation.get("reservation_usd"), "quarantined operation reservation"
+    )
+    if reservation != purchase_journal.policy.per_document_reservation_usd:
+        raise TerminalPurchaseFailureError(
+            "quarantined operation reservation differs from the purchase policy"
+        )
+    _uuid(operation.get("operation_key"), "quarantined operation key")
+    response_value = operation.get("response")
+    if not isinstance(response_value, Mapping):
+        raise TerminalPurchaseFailureError(
+            "quarantined operation lacks exact authenticated quarantine material "
+            "provider evidence"
+        )
+    response = cast(Mapping[str, Any], response_value)
+    if response.get("source_provider") != _COURTLISTENER_PROVIDER or response.get(
+        "reservation_usd"
+    ) != _money_text(reservation):
+        raise TerminalPurchaseFailureError(
+            "quarantined operation response differs from its provider reservation"
+        )
+    if (
+        _money(
+            purchase_journal.candidate_committed_amount_usd(candidate_id),
+            "candidate committed amount",
+        )
+        < reservation
+    ):
+        raise TerminalPurchaseFailureError(
+            "quarantined operation reservation is absent from the candidate cap"
+        )
+
+
+def _verified_purchased_pairs(
+    attempts: Sequence[JsonRecord],
+    *,
+    operation_by_document: Mapping[str, Mapping[str, Any]],
+    purchase_journal: CaseDevPurchaseJournal,
+) -> set[tuple[str, str]]:
+    """Bind every purchased result to its exact confirmed provider response."""
+
+    pairs: set[tuple[str, str]] = set()
+    for attempt in attempts:
+        if attempt.get("status") != "purchased":
+            continue
+        candidate_id = _required_string(attempt, "candidate_id", "purchase attempt")
+        document_id = _required_string(
+            attempt, "source_document_id", "purchase attempt"
+        )
+        operation = operation_by_document.get(document_id)
+        if (
+            operation is None
+            or operation.get("candidate_id") != candidate_id
+            or operation.get("source_document_id") != document_id
+            or operation.get("status") != "confirmed"
+            or operation.get("material_authority") != "ordinary_public"
+            or operation.get("error") is not None
+        ):
+            raise TerminalPurchaseFailureError(
+                "purchased attempt lacks a same-candidate confirmed ordinary-public "
+                f"canonical ledger operation: {document_id}"
+            )
+        reservation = _money(
+            operation.get("reservation_usd"), "purchased operation reservation"
+        )
+        if reservation != purchase_journal.policy.per_document_reservation_usd:
+            raise TerminalPurchaseFailureError(
+                "purchased operation reservation differs from the purchase policy"
+            )
+        _uuid(operation.get("operation_key"), "purchased operation key")
+        response_value = operation.get("response")
+        if not isinstance(response_value, Mapping):
+            raise TerminalPurchaseFailureError(
+                "purchased attempt differs from its canonical ledger response"
+            )
+        response = cast(Mapping[str, Any], response_value)
+        download_url = response.get("download_url")
+        if (
+            response.get("source_provider") != _COURTLISTENER_PROVIDER
+            or response.get("reservation_usd") != _money_text(reservation)
+            or not isinstance(download_url, str)
+            or not download_url
+        ):
+            raise TerminalPurchaseFailureError(
+                "purchased attempt differs from its canonical ledger response"
+            )
+        try:
+            verified_download_url = verified_courtlistener_download_url(download_url)
+        except CourtListenerRecapFetchError as exc:
+            raise TerminalPurchaseFailureError(
+                "purchased attempt differs from its canonical ledger response"
+            ) from exc
+        if verified_download_url != download_url:
+            raise TerminalPurchaseFailureError(
+                "purchased attempt differs from its canonical ledger response"
+            )
+        raw_actual = response.get("actual_fees")
+        if raw_actual is None:
+            if operation.get("actual_usd") is not None:
+                raise TerminalPurchaseFailureError(
+                    "purchased attempt differs from its canonical ledger response"
+                )
+            fees = {
+                "pacer_fee_usd": _money_text(reservation),
+                "service_fee_usd": "0.00",
+                "total_usd": _money_text(reservation),
+                "cost_basis": "worst_case_reservation",
+            }
+            reason = "confirmed_with_worst_case_reservation_pending_fee_reconciliation"
+        else:
+            fees = _verified_authoritative_pacer_fees(
+                raw_actual,
+                reservation=reservation,
+            )
+            operation_actual = _money(
+                operation.get("actual_usd"), "purchased operation actual fee"
+            )
+            if operation_actual != _money(
+                fees["total_usd"], "purchased response total fee"
+            ):
+                raise TerminalPurchaseFailureError(
+                    "purchased attempt differs from its canonical ledger response"
+                )
+            reason = "confirmed_with_authoritative_fee_reconciliation"
+        expected = {
+            "candidate_id": candidate_id,
+            "source_document_id": document_id,
+            "status": "purchased",
+            "reason": reason,
+            "fee_acknowledged": True,
+            "pacer_fees": fees,
+            "download_url": download_url,
+            "source_provider": _COURTLISTENER_PROVIDER,
+        }
+        if attempt != expected:
+            raise TerminalPurchaseFailureError(
+                "purchased attempt differs from its canonical ledger response"
+            )
+        pairs.add((candidate_id, document_id))
+    return pairs
+
+
+def _verified_authoritative_pacer_fees(
+    value: object,
+    *,
+    reservation: Decimal,
+) -> dict[str, str]:
+    """Validate the producer's exact authoritative CourtListener fee shape."""
+
+    fields = ("pacer_fee_usd", "service_fee_usd", "total_usd")
+    if not isinstance(value, Mapping):
+        raise TerminalPurchaseFailureError(
+            "purchased attempt differs from its canonical ledger response"
+        )
+    raw_object = cast(Mapping[object, object], value)
+    if set(raw_object) != set(fields):
+        raise TerminalPurchaseFailureError(
+            "purchased attempt differs from its canonical ledger response"
+        )
+    raw = cast(Mapping[str, object], raw_object)
+    try:
+        amounts = {
+            field: _money(raw[field], f"purchased response {field}") for field in fields
+        }
+    except TerminalPurchaseFailureError as exc:
+        raise TerminalPurchaseFailureError(
+            "purchased attempt differs from its canonical ledger response"
+        ) from exc
+    if any(amount < 0 for amount in amounts.values()) or (
+        amounts["pacer_fee_usd"] + amounts["service_fee_usd"] != amounts["total_usd"]
+    ):
+        raise TerminalPurchaseFailureError(
+            "purchased attempt differs from its canonical ledger response"
+        )
+    if amounts["total_usd"] > reservation:
+        raise TerminalPurchaseFailureError(
+            "purchased attempt differs from its canonical ledger response"
+        )
+    return {field: _money_text(amounts[field]) for field in fields}
 
 
 def _verified_terminal_operation(
@@ -987,6 +1342,24 @@ def _string_list(value: object, source: str) -> tuple[str, ...]:
     if not all(isinstance(item, str) and item for item in raw) or len(raw) != len(
         set(cast(list[str], raw))
     ):
+        raise TerminalPurchaseFailureError(f"{source} are invalid")
+    return tuple(cast(list[str], raw))
+
+
+def _closed_string_list(
+    value: object,
+    source: str,
+    *,
+    unique: bool,
+) -> tuple[str, ...]:
+    """Parse a canonical string list whose empty value is semantically valid."""
+
+    if not isinstance(value, list):
+        raise TerminalPurchaseFailureError(f"{source} are invalid")
+    raw = cast(list[object], value)
+    if not all(
+        isinstance(item, str) and item and item.strip() == item for item in raw
+    ) or (unique and len(raw) != len(set(cast(list[str], raw)))):
         raise TerminalPurchaseFailureError(f"{source} are invalid")
     return tuple(cast(list[str], raw))
 

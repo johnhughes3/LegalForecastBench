@@ -1136,17 +1136,31 @@ def _terminal_failure_authority(
     result_path: Path,
     terminal_pairs: tuple[tuple[str, str, int], ...],
 ) -> VerifiedTerminalPurchaseFailureAuthority:
+    pairs_by_candidate: dict[str, list[tuple[str, int]]] = {}
+    for candidate_id, document_id, queue_status in terminal_pairs:
+        pairs_by_candidate.setdefault(candidate_id, []).append(
+            (document_id, queue_status)
+        )
     case_plans = tuple(
         CaseMissingCorePurchasePlan(
             candidate_id=candidate_id,
-            purchase_document_ids=(document_id,),
-            missing_core_document_count=1,
-            estimated_cost=journal.policy.per_document_reservation_usd,
-            audit_only_document_count=(1 if document_id.isdigit() else 0),
+            purchase_document_ids=tuple(
+                document_id for document_id, _queue_status in candidate_pairs
+            ),
+            missing_core_document_count=len(candidate_pairs),
+            estimated_cost=(
+                journal.policy.per_document_reservation_usd * len(candidate_pairs)
+            ),
+            audit_only_document_count=sum(
+                document_id.isdigit() for document_id, _queue_status in candidate_pairs
+            ),
             dry_run=False,
-            missing_core_roles=("decision" if document_id.isdigit() else "mtd_notice",),
+            missing_core_roles=tuple(
+                "decision" if document_id.isdigit() else "mtd_notice"
+                for document_id, _queue_status in candidate_pairs
+            ),
         )
-        for candidate_id, document_id, _queue_status in terminal_pairs
+        for candidate_id, candidate_pairs in pairs_by_candidate.items()
     )
     plan = MissingCoreBudgetPlan(
         case_plans=case_plans,
@@ -1154,7 +1168,9 @@ def _terminal_failure_authority(
         max_projected_budget=(
             journal.policy.per_document_reservation_usd * len(terminal_pairs)
         ),
-        max_missing_core_documents_per_case=1,
+        max_missing_core_documents_per_case=max(
+            plan.missing_core_document_count for plan in case_plans
+        ),
         dry_run=False,
         target_case_count=len(case_plans),
     )
