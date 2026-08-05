@@ -467,7 +467,7 @@ def validate_broker_receipt(payload: Mapping[str, Any]) -> dict[str, Any]:
         operation_key = _uuid4(_string(receipt["operation_key"]))
     except ValueError as exc:
         raise BrokerOutcomeUnknown("broker receipt operation key is invalid") from exc
-    if receipt["client_code"] != _client_code(operation_key):
+    if receipt["client_code"] != recap_fetch_client_code(operation_key):
         raise BrokerOutcomeUnknown("broker receipt client code is invalid")
     if not _POSITIVE_DECIMAL.fullmatch(_string(receipt["recap_document"])):
         raise BrokerOutcomeUnknown("broker receipt document ID is invalid")
@@ -794,7 +794,10 @@ def _validate_billing_evidence(value: object) -> None:
     _receipt_timestamp(evidence["imported_at"])
 
 
-def _client_code(operation_key: str) -> str:
+def recap_fetch_client_code(operation_key: str) -> str:
+    """Derive the stable PACER client code for one purchase operation."""
+
+    _uuid4(operation_key)
     digest = hashlib.sha256(operation_key.encode()).digest()
     return "lfb-" + base64.b32encode(digest).decode().lower().rstrip("=")[:26]
 

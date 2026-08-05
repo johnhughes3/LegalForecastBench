@@ -149,8 +149,9 @@ If the exact raw receipt, digest, or reviewed release is unavailable, stop this 
 
 ## Render and preflight the v4 cycle
 
-Render exactly once after the policy, attempt policy, and provider caps successor exist.
-The template consumes the v4 target root and approval root only as inputs; every coordinator output is under the successor public/private roots.
+Render exactly once after the public purchase policy, attempt policy, and provider caps successor exist.
+Private approval evidence is required to issue those public authority artifacts, but it is not a downstream runtime input after publication.
+Every coordinator output is under the successor public/private roots.
 
 ```zsh
 setopt ERR_EXIT NO_UNSET PIPE_FAIL
@@ -161,7 +162,6 @@ uv run legalforecast acquisition render-cycle-config \
   --variable SOURCE_ROOT="$source_root" \
   --variable FROZEN_ARTIFACT_ROOT="$frozen_artifact_root" \
   --variable FROZEN_V4_ROOT="$frozen_v4_root" \
-  --variable APPROVAL_ROOT="$approval_root" \
   --variable SUCCESSOR_ARTIFACT_ROOT="$successor_root" \
   --variable SUCCESSOR_PRIVATE_ROOT="$private_cycle_root" \
   --variable PARSER_ROOT="$parser_root" \
@@ -174,8 +174,9 @@ uv run legalforecast acquisition run-cycle \
 ```
 
 The preflight must report cycle ID `cycle-1-target-100-2026-07-25-v4-ranked-reserve`, target 100, and next stage `initialize-cycle`.
-After review, `--execute` runs the provider-free cycle identity and exact broker-policy generation, then stops at `broker_policy_deployment_checkpoint_stage_completed`.
-It does not deploy the broker policy.
+The paid stage uses direct CourtListener RECAP Fetch with `COURTLISTENER_API_TOKEN`, `PACER_USERNAME`, and `PACER_PASSWORD` from the acquisition runtime environment.
+The immutable purchase policy and local SQLite ledger still reserve `$3.05` before each request, enforce the `$567.30` cycle cap and `$73.20` per-case cap, and retain the full reservation for queued or ambiguous outcomes.
+Direct mode sends no automatic paid retry; a timeout or indeterminate response remains held for reconciliation.
 
 ```zsh
 setopt ERR_EXIT NO_UNSET PIPE_FAIL
@@ -186,9 +187,16 @@ uv run legalforecast acquisition run-cycle \
   --execute --json
 ```
 
-Only after secure-gate has activated those exact broker-policy bytes may another provider-free `--execute` invocation initialize the ledger and emit `$authority_root/purchase-ledger-initialization.json`.
-That invocation must stop before `purchase-missing-documents` with `paid_boundary_not_authorized`.
-Do not add `--allow-paid` or `--allow-network` during materialization.
+The first provider-free `--execute` invocation may initialize the ledger and emit `$authority_root/purchase-ledger-initialization.json` without deploying a separate broker policy.
+It must stop before `purchase-missing-documents` with `paid_boundary_not_authorized`.
+After reviewing that boundary, rerun with the coordinator's explicit paid and network authorizations to execute the already frozen purchase plan; do not change the selection, policy, ledger, or cap between runs.
+
+```zsh
+uv run legalforecast acquisition run-cycle \
+  --config "$successor_root/acquisition-cycle-v4-ranked-reserve.json" \
+  --state-root "$successor_root/orchestrator-v4-ranked-reserve" \
+  --execute --allow-network --allow-paid --json
+```
 
 ## Merge and adopt protected Stage B shards
 

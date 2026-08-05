@@ -264,16 +264,20 @@ def require_approved_case_dev_purchase_policy(
     *,
     controlled_private_root: Path | None = None,
 ) -> None:
-    """Replay the private approval before any new official paid authority gate."""
+    """Verify public v2 authority and optionally replay its issuance evidence.
+
+    The published v2 policy already commits the approved selection, budget plan,
+    document set, reviewer decision, and all monetary limits.  A controlled
+    private root remains useful when issuance provenance is available, but it is
+    not a runtime dependency after the immutable policy has been published.
+    """
 
     if not policy.has_verified_approval:
         raise CaseDevPurchasePolicyError(
             "official purchase authority requires an approved v2 purchase policy"
         )
     if controlled_private_root is None:
-        raise CaseDevPurchasePolicyError(
-            "approved v2 replay requires a trusted controlled private root"
-        )
+        return
     approval = policy.approval
     assert approval is not None
     try:
@@ -299,7 +303,7 @@ def require_approved_case_dev_purchase_policy(
 def verify_approved_purchase_input_bytes(
     policy: CaseDevPurchasePolicy,
     *,
-    controlled_private_root: Path,
+    controlled_private_root: Path | None,
     budget_plan_bytes: bytes | None,
     selection_bytes: bytes | None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:

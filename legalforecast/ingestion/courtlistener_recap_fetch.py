@@ -30,6 +30,8 @@ from legalforecast.ingestion.recap_fetch_broker import (
     BrokerDefiniteRejection,
     BrokerOutcomeUnknown,
     broker_reconciliation_record,
+    canonical_submission_bytes,
+    recap_fetch_client_code,
     validate_broker_receipt,
 )
 from legalforecast.ingestion.recap_fetch_broker_policy import (
@@ -75,6 +77,70 @@ class CourtListenerRecapFetchConfig:
             api_token=values["COURTLISTENER_API_TOKEN"].strip(),
             base_url=values.get("COURTLISTENER_BASE_URL", _DEFAULT_BASE_URL),
             timeout_seconds=float(values.get("COURTLISTENER_TIMEOUT_SECONDS", "30")),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DirectCourtListenerRecapFetchConfig:
+    """Credentials for a locally budgeted CourtListener RECAP Fetch POST."""
+
+    api_token: str = field(repr=False)
+    pacer_username: str = field(repr=False)
+    pacer_password: str = field(repr=False)
+    base_url: str = _DEFAULT_BASE_URL
+    timeout_seconds: float = 30.0
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("COURTLISTENER_API_TOKEN", self.api_token),
+            ("PACER_USERNAME", self.pacer_username),
+            ("PACER_PASSWORD", self.pacer_password),
+        ):
+            if not value.strip() or "\n" in value or "\r" in value:
+                raise CourtListenerRecapFetchError(
+                    f"invalid direct purchase credential: {name}"
+                )
+        if self.timeout_seconds <= 0:
+            raise CourtListenerRecapFetchError(
+                "COURTLISTENER_TIMEOUT_SECONDS must be positive"
+            )
+
+    @classmethod
+    def from_env(
+        cls, environ: Mapping[str, str] | None = None
+    ) -> DirectCourtListenerRecapFetchConfig:
+        values = os.environ if environ is None else environ
+        names = (
+            "COURTLISTENER_API_TOKEN",
+            "PACER_USERNAME",
+            "PACER_PASSWORD",
+        )
+        missing = tuple(name for name in names if not values.get(name, "").strip())
+        if missing:
+            raise CourtListenerRecapFetchError(
+                "missing required direct purchase credentials: " + ", ".join(missing)
+            )
+        try:
+            timeout = float(values.get("COURTLISTENER_TIMEOUT_SECONDS", "30"))
+        except ValueError as exc:
+            raise CourtListenerRecapFetchError(
+                "COURTLISTENER_TIMEOUT_SECONDS must be numeric"
+            ) from exc
+        return cls(
+            api_token=values[names[0]].strip(),
+            pacer_username=values[names[1]].strip(),
+            pacer_password=values[names[2]].strip(),
+            base_url=values.get("COURTLISTENER_BASE_URL", _DEFAULT_BASE_URL),
+            timeout_seconds=timeout,
+        )
+
+    def public_config(self) -> CourtListenerRecapFetchConfig:
+        """Return the non-secretly-represented config used for GET and polling."""
+
+        return CourtListenerRecapFetchConfig(
+            api_token=self.api_token,
+            base_url=self.base_url,
+            timeout_seconds=self.timeout_seconds,
         )
 
 
@@ -285,6 +351,96 @@ class UrlLibRecapFetchTransport:
             raise CourtListenerRecapFetchOutcomeUnknown(
                 "CourtListener request outcome is unknown"
             ) from exc
+
+
+class DirectCourtListenerRecapFetchPurchaseBroker:
+    """Dispatch one paid POST under the caller's already-reserved local budget."""
+
+    def __init__(
+        self,
+        config: DirectCourtListenerRecapFetchConfig,
+        *,
+        transport: RecapFetchTransport | None = None,
+        before_request: Callable[[str, str], None] | None = None,
+    ) -> None:
+        self.config = config
+        self.transport = transport or UrlLibRecapFetchTransport(config.base_url)
+        self.before_request = before_request
+        self._paid_dispatch_count = 0
+
+    @property
+    def paid_dispatch_count(self) -> int:
+        return self._paid_dispatch_count
+
+    def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
+        """Send exactly one non-retryable provider request after local validation."""
+
+        canonical_submission_bytes(request)
+        operation_key = request["operation_key"]
+        form = {
+            "request_type": "2",
+            "pacer_username": self.config.pacer_username,
+            "pacer_password": self.config.pacer_password,
+            "recap_document": request["recap_document"],
+            "client_code": recap_fetch_client_code(operation_key),
+        }
+        headers = {
+            "Authorization": f"Token {self.config.api_token}",
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        if self.before_request is not None:
+            try:
+                self.before_request("POST", "/recap-fetch/")
+            except Exception as exc:
+                raise BrokerDefiniteRejection(
+                    "local_request_budget_rejected",
+                    "direct purchase request budget rejected dispatch",
+                ) from exc
+        self._paid_dispatch_count += 1
+        try:
+            response = self.transport.request(
+                method="POST",
+                path="/recap-fetch/",
+                form=form,
+                headers=headers,
+                timeout_seconds=self.config.timeout_seconds,
+            )
+        except (CourtListenerRecapFetchOutcomeUnknown, OSError, ValueError) as exc:
+            raise BrokerOutcomeUnknown(
+                "direct CourtListener purchase outcome is unknown"
+            ) from exc
+        if not 200 <= response.status_code < 300:
+            raise BrokerOutcomeUnknown(
+                f"direct CourtListener purchase returned ambiguous HTTP "
+                f"{response.status_code}"
+            )
+        payload = response.payload
+        raw_queue_id = payload.get("id")
+        if (
+            isinstance(raw_queue_id, int)
+            and not isinstance(raw_queue_id, bool)
+            and raw_queue_id > 0
+        ):
+            payload = {**payload, "id": str(raw_queue_id)}
+        try:
+            queue_id = _queue_id(payload)
+        except CourtListenerRecapFetchOutcomeUnknown as exc:
+            raise BrokerOutcomeUnknown(
+                "direct CourtListener purchase returned an invalid queue receipt"
+            ) from exc
+        return {
+            "id": queue_id,
+            "reservation_id": f"direct:{operation_key}",
+        }
+
+    def receipt(self, operation_key: str) -> Mapping[str, Any]:
+        """Retain ambiguous holds; direct mode never repeats a paid submission."""
+
+        recap_fetch_client_code(operation_key)
+        raise BrokerOutcomeUnknown(
+            "direct CourtListener purchase has no authoritative billing receipt"
+        )
 
 
 class CourtListenerRecapFetchClient:

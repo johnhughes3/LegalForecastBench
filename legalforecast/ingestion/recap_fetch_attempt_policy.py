@@ -288,7 +288,7 @@ def verify_recap_fetch_attempt_policy(
     selection_records: Sequence[Mapping[str, Any]],
     budget_plan_bytes: bytes,
     selection_bytes: bytes,
-    controlled_private_root: Path,
+    controlled_private_root: Path | None,
     replacement_purchase_authority_artifact: Mapping[str, object] | None = None,
     replacement_controlled_private_root: Path | None = None,
     purchase_ledger_initialization_receipt_path: Path | None = None,

@@ -264,6 +264,8 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchClient,
     CourtListenerRecapFetchConfig,
     CourtListenerRecapFetchError,
+    DirectCourtListenerRecapFetchConfig,
+    DirectCourtListenerRecapFetchPurchaseBroker,
     FixtureRecapFetchPurchaseBroker,
     FixtureRecapFetchTransport,
     UrlLibRecapFetchTransport,
@@ -2703,7 +2705,8 @@ def _add_acquisition_run_cycle_arguments(parser: argparse.ArgumentParser) -> Non
         help=(
             "Permit the next reviewed CourtListener RECAP Fetch purchase stage, "
             "then stop; also requires --allow-network and every existing "
-            "purchase-policy, ledger, broker, and budget gate. Omitted by default."
+            "purchase-policy, ledger, transport, and budget gate. Omitted by "
+            "default."
         ),
     )
     parser.add_argument(
@@ -7024,10 +7027,10 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
         "--broker-policy",
         type=Path,
         help=(
-            "Exact locally generated broker policy deployed and activated through "
-            "the protected secure-gate control plane. Required for a live "
-            "replacement purchase and replay-verified before provider "
-            "configuration is loaded."
+            "Exact policy activated by the optional signed purchase broker. "
+            "Required for a live brokered replacement purchase and replay-verified "
+            "before provider configuration is loaded; direct CourtListener mode "
+            "does not use it."
         ),
     )
     parser.add_argument(
@@ -7073,8 +7076,17 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
         "--live-purchase",
         action="store_true",
         help=(
-            "Request the production signed budget broker using only the "
-            "stage-scoped RECAP_FETCH_BROKER_* identity configuration."
+            "Execute the paid request through the selected transport after the "
+            "local purchase policy and ledger reserve the worst-case cost."
+        ),
+    )
+    parser.add_argument(
+        "--direct-courtlistener-purchase",
+        action="store_true",
+        help=(
+            "Use COURTLISTENER_API_TOKEN, PACER_USERNAME, and PACER_PASSWORD "
+            "directly instead of the optional signed purchase broker. The same "
+            "cycle, case, and document caps remain enforced by the purchase ledger."
         ),
     )
     parser.add_argument(
@@ -38561,6 +38573,9 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
     broker_fixture = cast(Path | None, args.purchase_broker_fixture)
     attempt_policy_path = cast(Path | None, args.attempt_policy)
     broker_policy_path = cast(Path | None, args.broker_policy)
+    direct_courtlistener_purchase = cast(
+        bool, getattr(args, "direct_courtlistener_purchase", False)
+    )
     replacement_authority_path = cast(Path | None, args.replacement_purchase_authority)
     replacement_private_root = cast(
         Path | None, args.replacement_controlled_private_root
@@ -38569,6 +38584,12 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
     initialization_receipt = cast(
         Path | None, args.purchase_ledger_initialization_receipt
     )
+    if direct_courtlistener_purchase and not live_purchase:
+        raise CommandError("--direct-courtlistener-purchase requires --live-purchase")
+    if direct_courtlistener_purchase and broker_policy_path is not None:
+        raise CommandError(
+            "--direct-courtlistener-purchase cannot be combined with --broker-policy"
+        )
     input_paths = (
         plan_path,
         selection_path,
@@ -38668,13 +38689,13 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         if (
             live_purchase
             and replacement_authority_path is not None
+            and not direct_courtlistener_purchase
             and broker_policy_path is None
         ):
             raise CommandError(
                 "--broker-policy is required for a live replacement purchase; "
-                "generate the exact successor policy, deploy and activate it "
-                "through secure-gate, and verify that activation before paid "
-                "admission"
+                "generate and activate the exact successor policy before brokered "
+                "paid admission, or use --direct-courtlistener-purchase"
             )
         if broker_policy_path is not None:
             verify_recap_fetch_broker_policy(
@@ -38756,20 +38777,37 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     raise CommandError(
                         "--request-budget-max-wait-seconds cannot be negative"
                     )
-                courtlistener_config = CourtListenerRecapFetchConfig.from_env()
+                direct_config = (
+                    DirectCourtListenerRecapFetchConfig.from_env()
+                    if direct_courtlistener_purchase
+                    else None
+                )
+                courtlistener_config = (
+                    direct_config.public_config()
+                    if direct_config is not None
+                    else CourtListenerRecapFetchConfig.from_env()
+                )
                 # Validate the allowlisted, redirect-refusing transport before the
                 # purchase journal is opened or any paid operation can be reserved.
                 courtlistener_transport = UrlLibRecapFetchTransport(
                     courtlistener_config.base_url
-                )
-                purchase_broker = SignedRecapFetchPurchaseBroker(
-                    RecapFetchBrokerConfig.from_env()
                 )
                 profile = cast(str, args.courtlistener_rate_profile)
                 request_budget = CourtListenerRequestBudget(
                     request_ledger,
                     limits=_COURTLISTENER_RATE_PROFILES[profile],
                     max_wait_seconds=max_wait,
+                )
+                purchase_broker = (
+                    DirectCourtListenerRecapFetchPurchaseBroker(
+                        direct_config,
+                        transport=courtlistener_transport,
+                        before_request=request_budget.before_request,
+                    )
+                    if direct_config is not None
+                    else SignedRecapFetchPurchaseBroker(
+                        RecapFetchBrokerConfig.from_env()
+                    )
                 )
                 _acquisition_output_root(args)
                 output_initialized = True
