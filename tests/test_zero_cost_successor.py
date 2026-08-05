@@ -510,6 +510,24 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     assert len(verified["selection_records"]) == 100
     assert verified["summary"]["schema_version"] == CONFIG_SCHEMA_VERSION
 
+    missing_path = output_root / "case-relevance.jsonl"
+    missing_payload = missing_path.read_bytes()
+    missing_path.unlink()
+    with pytest.raises(
+        cli.CommandError,
+        match=r"zero-cost successor output case-relevance\.jsonl must be",
+    ):
+        cli._verify_materializer_projection(
+            target_root=output_root,
+            free_clearance_path=output_root / "disclosure-clearance.jsonl",
+            preparation_summary_path=tmp_path / "unused-preparation-summary.json",
+            preparation_config_path=tmp_path / "unused-preparation-config.json",
+            snapshot_manifest_path=tmp_path / "unused-snapshot.json",
+            expected_target_count=100,
+        )
+    assert not missing_path.exists()
+    missing_path.write_bytes(missing_payload)
+
     unexpected_path = output_root / "uncommitted-evidence.json"
     unexpected_path.write_text("{}\n")
     with pytest.raises(cli.CommandError, match="unexpected files"):

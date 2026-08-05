@@ -36178,6 +36178,10 @@ def _verify_zero_cost_successor_projection(
     _reject_unexpected_materializer_outputs(
         target_root, expected_files=expected_outputs
     )
+    for path in expected_outputs:
+        _require_materializer_artifact(
+            path, label=f"zero-cost successor output {path.name}"
+        )
     if (
         {path.resolve() for path in output_paths}
         != {path.resolve() for path in expected_outputs}
