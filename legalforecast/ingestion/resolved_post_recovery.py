@@ -1514,17 +1514,14 @@ def _delivery_authority_fields(
         "reservation_retained": True,
         "no_paid_redispatch": True,
     }
-    response = operation.get("response")
-    has_broker_history = isinstance(response, Mapping) and (
-        "broker_receipts" in cast(Mapping[str, object], response)
-    )
     if (
         dict(recovery) != expected
-        or operation.get("status") != "unknown"
-        or operation.get("actual_usd") is not None
-        or operation.get("reconciliation") is not None
+        or operation.get("status") not in {"unknown", "confirmed", "failed"}
+        or (
+            operation.get("status") in {"unknown", "failed"}
+            and operation.get("actual_usd") is not None
+        )
         or material.get("queue_response_sha256") is not None
-        or has_broker_history
     ):
         raise ResolvedPostRecoveryError(
             f"public material recovery authority conflicts with purchase: {key}"
@@ -1710,9 +1707,14 @@ def _validate_resolved_record(
         }
         and record.get("clearance_basis") == "provider_free_recovered_public"
     )
+    schema_version = record.get("schema_version")
+    clearance_basis = record.get("clearance_basis")
     if (
-        record.get("schema_version") == (RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2)
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
         and not recovered_public
+    ) or (
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
+        and clearance_basis not in {None, "provider_free_recovered_public"}
     ):
         raise ResolvedPostRecoveryError(
             f"resolved document schema does not match clearance basis: {key}"

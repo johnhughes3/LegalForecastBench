@@ -2800,7 +2800,8 @@ class CaseDevPurchaseJournal:
             m.provider_detail_sha256, m.queue_response_sha256,
             m.download_url_sha256, m.content_sha256, m.byte_count,
             m.clearance_record_sha256, m.resolved_record_sha256,
-            r.record_json AS public_recovery_json
+            r.record_json AS public_recovery_json,
+            r.record_sha256 AS public_recovery_sha256
             FROM purchase_operations AS o
             JOIN purchase_material_state AS m USING(source_document_id)
             LEFT JOIN unknown_public_material_recoveries AS r
@@ -3745,9 +3746,10 @@ def _read_purchase_operation_records(
     connection: sqlite3.Connection,
 ) -> tuple[Mapping[str, Any], ...]:
     recovery_projection = (
-        "r.record_json AS public_recovery_json"
+        "r.record_json AS public_recovery_json, "
+        "r.record_sha256 AS public_recovery_sha256"
         if _table_exists(connection, "unknown_public_material_recoveries")
-        else "NULL AS public_recovery_json"
+        else "NULL AS public_recovery_json, NULL AS public_recovery_sha256"
     )
     recovery_join = (
         "LEFT JOIN unknown_public_material_recoveries AS r USING(source_document_id)"
@@ -3802,12 +3804,13 @@ def _purchase_operation_record(row: sqlite3.Row) -> Mapping[str, Any]:
     }
     recovery_json = row["public_recovery_json"]
     if recovery_json is not None:
-        recovery = json.loads(str(recovery_json))
-        if not isinstance(recovery, Mapping):
-            raise CaseDevPurchaseLedgerError(
-                "unknown public recovery record must be an object"
-            )
-        record["public_material_recovery"] = dict(cast(Mapping[str, object], recovery))
+        recovery = _decode_unknown_public_recovery_row(
+            {
+                "record_json": recovery_json,
+                "record_sha256": row["public_recovery_sha256"],
+            }
+        )
+        record["public_material_recovery"] = dict(recovery)
     return MappingProxyType(record)
 
 

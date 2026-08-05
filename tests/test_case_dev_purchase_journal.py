@@ -620,6 +620,51 @@ def test_unknown_public_recovery_converts_unreconciled_submitted_hold(
         journal.require_reconciled()
 
 
+def test_operation_records_authenticates_public_recovery_digest(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        assert journal.submit("doc-1") is True
+        operation = journal.operation_evidence("doc-1")
+        assert operation is not None
+        journal.mark_unknown("doc-1", "ambiguous")
+        journal.mark_unknown_public_material_available(
+            "doc-1",
+            candidate_id="case-1",
+            operation_key=str(operation["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256="b" * 64,
+            download_url_sha256="c" * 64,
+        )
+
+        connection = sqlite3.connect(ledger)
+        connection.execute(
+            "UPDATE unknown_public_material_recoveries SET record_sha256=?",
+            ("d" * 64,),
+        )
+        connection.commit()
+        connection.close()
+
+        with pytest.raises(
+            CaseDevPurchaseLedgerError,
+            match="unknown public recovery record hash is invalid",
+        ):
+            journal.operation_records()
+
+
 def test_unknown_attempt_authority_is_exact_and_immutable(tmp_path: Path) -> None:
     ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))

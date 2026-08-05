@@ -365,6 +365,71 @@ def test_build_and_require_authenticated_public_material_delivery_authority() ->
             **{**inputs, "purchase_operation_records": [contradictory_queue]}
         )
 
+    wrong_basis = deepcopy(records[0])
+    wrong_basis["clearance_basis"] = "affirmative_public_provenance"
+    wrong_basis["record_sha256"] = _hash(
+        {name: value for name, value in wrong_basis.items() if name != "record_sha256"}
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="schema does not match"):
+        require_resolved_post_recovery_documents(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=inputs["clearance_records"],
+            resolved_records=[wrong_basis],
+            **_external_kwargs(inputs),
+        )
+
+
+@pytest.mark.parametrize(
+    ("status", "actual_usd", "reconciliation"),
+    (
+        ("failed", None, {"disposition": "failed"}),
+        ("unknown", None, {"disposition": "write_off"}),
+        ("confirmed", "3.05", {"disposition": "confirmed"}),
+    ),
+)
+def test_public_material_authority_survives_later_billing_settlement(
+    status: str,
+    actual_usd: str | None,
+    reconciliation: dict[str, str],
+) -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    material = operation["material_evidence"]
+    del material["queue_response_sha256"]
+    operation.update(
+        {
+            "status": status,
+            "actual_usd": actual_usd,
+            "reconciliation": reconciliation,
+            "response": {"broker_receipts": [{"billing_only": True}]},
+            "public_material_recovery": {
+                "schema_version": ("legalforecast.unknown_public_material_recovery.v1"),
+                "candidate_id": "case-1",
+                "source_document_id": "123",
+                "operation_key": operation["operation_key"],
+                "purchase_policy_sha256": "1" * 64,
+                "attempt_policy_sha256": operation["attempt_policy_sha256"],
+                "attempt_document_sha256": operation["attempt_document_sha256"],
+                "provider_detail_sha256": material["provider_detail_sha256"],
+                "download_url_sha256": material["download_url_sha256"],
+                "billing_status": "unknown",
+                "reservation_retained": True,
+                "no_paid_redispatch": True,
+            },
+        }
+    )
+    inputs["purchase_operation_records"] = [operation]
+
+    records = build_resolved_post_recovery_documents(**inputs)
+
+    assert records[0]["delivery_authority"] == (
+        "authenticated_public_material_recovery"
+    )
+    require_resolved_post_recovery_operation_bindings(
+        purchase_operation_records=[operation], resolved_records=records
+    )
+
 
 def test_public_api_rejects_caller_fabricated_provenance_lineage(
     tmp_path: Path,
