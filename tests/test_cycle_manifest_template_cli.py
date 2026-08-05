@@ -750,7 +750,7 @@ def test_checked_in_replacement_reprojection_consumes_active_exact_100_selection
     )
 
 
-def test_checked_in_replacement_corpus_continues_from_reprojected_exact_100(
+def test_replacement_corpus_consolidates_promoted_purchases_and_exclusions(
     tmp_path: Path,
 ) -> None:
     template = (
@@ -760,11 +760,14 @@ def test_checked_in_replacement_corpus_continues_from_reprojected_exact_100(
     )
     output = tmp_path / "replacement-corpus.json"
     assignments = {
-        "ARTIFACT_ROOT": tmp_path / "artifacts",
-        "PARSER_ROOT": tmp_path / "parser",
-        "PRIVATE_ROOT": tmp_path / "private",
-        "REPLACEMENT_ROOT": tmp_path / "replacement",
         "INITIAL_RECOVERY_SOURCE": tmp_path / "initial-recovery-source.json",
+        "PREPARATION_ROOT": tmp_path / "preparation",
+        "PURCHASE_PRIVATE_ROOT": tmp_path / "purchase-private",
+        "PURCHASE_ROOT": tmp_path / "purchase",
+        "EXACT100_ROOT": tmp_path / "exact-100",
+        "PARSER_ROOT": tmp_path / "parser",
+        "SUCCESSOR_ARTIFACT_ROOT": tmp_path / "successor",
+        "SUCCESSOR_PRIVATE_ROOT": tmp_path / "successor-private",
         "SUCCESSOR_RECOVERY_SOURCE_DIR": tmp_path / "successor-recovery-sources",
         "REPO_ROOT": Path(__file__).parents[1],
         "SOURCE_ROOT": tmp_path / "source",
@@ -791,67 +794,53 @@ def test_checked_in_replacement_corpus_continues_from_reprojected_exact_100(
         "apply-unitization-review",
         "build-decision-texts",
         "llm-label",
+        "llm-label",
+        "llm-label",
         "plan-label-audit",
         "apply-lawyer-review",
         "plan-packet-inputs",
         "build-packets",
         "finalize-corpus",
     ]
-    replacement_selection = (
-        assignments["REPLACEMENT_ROOT"]
-        / "01-projection"
-        / "target-cohort-selection.jsonl"
+    exact_selection = assignments["EXACT100_ROOT"] / "target-cohort-selection.jsonl"
+    recovery_index, exclusions, consolidation = config.stages[1:4]
+    consolidated_root = (
+        assignments["SUCCESSOR_ARTIFACT_ROOT"] / "11-consolidated-recovery"
     )
-    index_builder = config.stages[1]
-    assert index_builder.command == "build-replacement-recovery-index"
-    assert index_builder.boundary.value == "provider_free"
-    assert index_builder.arguments[
-        index_builder.arguments.index("--index-output") + 1
-    ] == str(assignments["REPLACEMENT_ROOT"] / "tranche-recovery-index.json")
-    successor_exclusions = config.stages[2]
-    assert successor_exclusions.command == "build-replacement-exclusions"
-    consolidation = config.stages[3]
+    assert recovery_index.boundary.value == "provider_free"
     assert consolidation.boundary.value == "provider_free"
     assert consolidation.arguments[
-        consolidation.arguments.index("--tranche-index-run-card") + 1
-    ] == str(
-        assignments["REPLACEMENT_ROOT"]
-        / "00-recovery-index"
-        / "run-cards"
-        / "build-replacement-recovery-index.json"
-    )
+        consolidation.arguments.index("--target-purchased-manifest") + 1
+    ] == str(assignments["EXACT100_ROOT"] / "purchased-document-downloads.jsonl")
     assert consolidation.arguments[
-        consolidation.arguments.index("--selection") + 1
-    ] == str(replacement_selection)
+        consolidation.arguments.index("--controlled-private-root") + 1
+    ] == str(assignments["PURCHASE_PRIVATE_ROOT"] / "purchase-approval")
+    assert exclusions.arguments[
+        exclusions.arguments.index("--target-cohort-root") + 1
+    ] == str(assignments["EXACT100_ROOT"])
     materialize = config.stages[4]
     assert materialize.arguments[
+        materialize.arguments.index("--preparation-root") + 1
+    ] == str(assignments["PREPARATION_ROOT"])
+    assert materialize.arguments[
         materialize.arguments.index("--target-cohort-root") + 1
-    ] == str(assignments["REPLACEMENT_ROOT"] / "01-projection")
+    ] == str(assignments["EXACT100_ROOT"])
     assert materialize.arguments[
         materialize.arguments.index("--purchased-recovery-root") + 1
-    ] == str(assignments["REPLACEMENT_ROOT"] / "11-consolidated-recovery")
+    ] == str(consolidated_root)
     assert materialize.arguments[
-        materialize.arguments.index("--purchase-result") + 1
-    ] == str(
-        assignments["ARTIFACT_ROOT"]
-        / "07-purchase"
-        / "courtlistener-recap-fetch-purchases.json"
-    )
+        materialize.arguments.index("--purchased-disclosure-clearance") + 1
+    ] == str(consolidated_root / "disclosure-clearance.jsonl")
     assert materialize.arguments[
-        materialize.arguments.index("--purchase-run-card") + 1
-    ] == str(
-        assignments["ARTIFACT_ROOT"]
-        / "07-purchase"
-        / "run-cards"
-        / "purchase-missing-recap-fetch.json"
-    )
+        materialize.arguments.index("--purchased-clearance-run-card") + 1
+    ] == str(consolidation.run_card)
     selection_consumers = [
         stage for stage in config.stages if "--selection" in stage.arguments
     ]
     assert selection_consumers
     assert all(
         stage.arguments[stage.arguments.index("--selection") + 1]
-        == str(replacement_selection)
+        == str(exact_selection)
         for stage in selection_consumers
     )
     assert (
@@ -860,80 +849,125 @@ def test_checked_in_replacement_corpus_continues_from_reprojected_exact_100(
         ]
         == "100"
     )
-    finalization = config.stages[-1]
-    assert "--replacement-exclusion-run-card" in finalization.arguments
-    final_exclusion_sources = [
-        finalization.arguments[index + 1]
-        for index, value in enumerate(finalization.arguments)
-        if value == "--exclusion-source"
+    resolved_consumers = [
+        stage
+        for stage in config.stages
+        if "--resolved-post-recovery-documents" in stage.arguments
     ]
-    assert (
+    assert resolved_consumers
+    assert all(
+        stage.arguments[stage.arguments.index("--resolved-post-recovery-documents") + 1]
+        == str(consolidated_root / "resolved-post-recovery-documents.jsonl")
+        for stage in resolved_consumers
+    )
+    finalization = config.stages[-1]
+    successor_exclusions = (
+        assignments["SUCCESSOR_ARTIFACT_ROOT"]
+        / "10-successor-exclusions"
+        / "successor-target-exclusions.jsonl"
+    )
+    exclusion_sources = [
+        finalization.arguments[index + 1]
+        for index, argument in enumerate(finalization.arguments)
+        if argument == "--exclusion-source"
+    ]
+    assert exclusion_sources == [
         str(
-            assignments["REPLACEMENT_ROOT"]
-            / "10-successor-exclusions"
-            / "successor-target-exclusions.jsonl"
-        )
-        in final_exclusion_sources
+            assignments["SUCCESSOR_ARTIFACT_ROOT"]
+            / "23-packet-plan"
+            / "exclusion-ledger.jsonl"
+        ),
+        str(successor_exclusions),
+    ]
+    assert finalization.arguments[
+        finalization.arguments.index("--replacement-exclusion-run-card") + 1
+    ] == str(
+        assignments["SUCCESSOR_ARTIFACT_ROOT"]
+        / "10-successor-exclusions"
+        / "run-cards"
+        / "build-replacement-exclusions.json"
     )
     assert (
-        str(
-            assignments["REPLACEMENT_ROOT"]
-            / "01-projection"
-            / "target-cohort-exclusions.jsonl"
-        )
-        not in final_exclusion_sources
+        str(assignments["EXACT100_ROOT"] / "target-cohort-exclusions.jsonl")
+        not in exclusion_sources
     )
-    replacement_private_root = assignments["PRIVATE_ROOT"] / "replacement"
-    private_label_and_adjudication_paths = [
+    successor_private_paths = [
         Path(argument)
         for stage in config.stages
         for argument in (*stage.arguments, str(stage.run_card))
-        if Path(argument).is_relative_to(assignments["PRIVATE_ROOT"])
-        and (
-            "label-audit" in Path(argument).parts
-            or "adjudications" in Path(argument).parts
-        )
+        if Path(argument).is_relative_to(assignments["SUCCESSOR_PRIVATE_ROOT"])
     ]
-    assert private_label_and_adjudication_paths
-    assert all(
-        path.is_relative_to(replacement_private_root)
-        for path in private_label_and_adjudication_paths
+    assert successor_private_paths
+    caps = str(
+        assignments["REPO_ROOT"]
+        / "model_registries"
+        / "cycle-1-target-100-provider-caps-base-2026-07-28.json"
     )
-    forbidden_original_roots = {
-        assignments["ARTIFACT_ROOT"] / stage
-        for stage in (
-            "05-target-cohort",
-            "12-materialized",
-            "13-parse-plan",
-            "14-parse",
-            "15-stage-a-unitize",
-            "16-stage-a-review",
-            "17-stage-a-final",
-            "18-decision-texts",
-            "19-stage-b-shards",
-            "20-stage-b-labels",
-            "21-label-audit-summary",
-            "22-final-labels",
-            "23-packet-plan",
-            "24-packets",
-            "25-final-corpus",
-        )
-    }
+    provider_stages = [
+        stage
+        for stage in config.stages
+        if stage.command in {"llm-unitize", "llm-review-stage-a"}
+        or "--execution-provider" in stage.arguments
+    ]
+    assert len(provider_stages) == 4
+    assert all(
+        "--local-provider-journal-only" in stage.arguments for stage in provider_stages
+    )
+    assert all(
+        stage.arguments[stage.arguments.index("--provider-cycle-caps") + 1] == caps
+        for stage in provider_stages
+    )
     for stage in config.stages:
         for argument in (*stage.arguments, str(stage.run_card)):
-            if stage.command == "build-replacement-exclusions" and argument == str(
-                assignments["ARTIFACT_ROOT"]
-                / "05-target-cohort"
-                / "target-cohort-exclusions.jsonl"
-            ):
+            if argument.startswith(str(assignments["SUCCESSOR_ARTIFACT_ROOT"])):
                 continue
-            assert not any(
-                Path(argument).is_relative_to(forbidden_root)
-                for forbidden_root in forbidden_original_roots
-            ), (stage.id, argument)
+            assert not argument.startswith(str(tmp_path / "replacement"))
     rendered = output.read_text(encoding="utf-8")
-    assert "replacement-selection.jsonl" not in rendered
-    assert "active-selection.jsonl" not in rendered
+    assert "courtlistener-recap-fetch-purchases.json" not in rendered
+    assert "provider-authority-table" not in rendered
+    assert "provider-authority-region" not in rendered
+
+    runbook = (
+        Path(__file__).parents[1] / "docs" / "official-run-runbook.md"
+    ).read_text(encoding="utf-8")
+    assert "EXACT100_ROOT/purchased-document-downloads.jsonl" in runbook
+    assert "EXACT100_ROOT/document-downloads-merged.jsonl" in runbook
+    assert "EXACT100_ROOT/document-downloads.jsonl" not in runbook
+    schema = (
+        Path(__file__).parents[1] / "docs" / "schemas" / "clearance-replacement-v1.md"
+    ).read_text(encoding="utf-8")
+    assert "`run-cards/project-target-cohort.json` under `EXACT100_ROOT`" in schema
+    assert "`01-projection/run-cards/project-target-cohort.json`" not in schema
+
+
+def test_replacement_corpus_template_rejects_stale_single_root_variables(
+    tmp_path: Path,
+) -> None:
+    template = (
+        Path(__file__).parents[1]
+        / "manifests"
+        / "cycle-1-target-100.replacement-corpus.template.json"
+    )
+
+    with pytest.raises(
+        CycleManifestTemplateError,
+        match=(
+            r"missing variables: .*EXACT100_ROOT"
+            r".*unexpected variables: ARTIFACT_ROOT"
+        ),
+    ):
+        render_cycle_config(
+            template_path=template,
+            output_path=tmp_path / "stale.json",
+            variable_assignments=[
+                f"ARTIFACT_ROOT={tmp_path / 'artifacts'}",
+                f"PARSER_ROOT={tmp_path / 'parser'}",
+                f"PRIVATE_ROOT={tmp_path / 'private'}",
+                f"REPLACEMENT_ROOT={tmp_path / 'replacement'}",
+                f"REPO_ROOT={Path(__file__).parents[1]}",
+                f"SOURCE_ROOT={tmp_path / 'source'}",
+            ],
+        )
 
 
 def test_checked_in_target_100_provider_caps_inputs_share_cycle_identity() -> None:

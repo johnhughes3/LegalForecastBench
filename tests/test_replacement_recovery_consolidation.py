@@ -284,7 +284,7 @@ def _prepare_fixture(
     return args, allowed_pairs
 
 
-def test_multi_tranche_consolidation_scopes_each_authority_to_trailing_pairs(
+def test_multi_tranche_consolidation_materializes_promoted_purchased_documents(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     successor_pairs = {("case-1", "doc-1"), ("case-2", "doc-2")}
@@ -316,7 +316,10 @@ def test_multi_tranche_consolidation_scopes_each_authority_to_trailing_pairs(
         ledger_path=args.purchase_ledger,
     )
     assert verified["recovery_stage"] == "consolidate-replacement-recovery"
-    assert len(verified["manifest_records"]) == 3
+    assert {
+        (row["candidate_id"], row["source_document_id"])
+        for row in verified["manifest_records"]
+    } == expected
     assert allowed_pairs == [
         {("case-2", "doc-2")},
         set(),
