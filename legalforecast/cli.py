@@ -34413,6 +34413,42 @@ def _replay_materialized_docket_decision_authority(
     return descriptor.authority, records
 
 
+def _consume_materialized_docket_decision_authority(
+    descriptor: _MaterializerDocketDecisionAuthority | None,
+    consumer: Callable[
+        [
+            VerifiedTerminalPurchaseDispositionAuthority | None,
+            CaseDevPurchaseJournal | None,
+        ],
+        Any,
+    ],
+) -> Any:
+    """Run one downstream consumer while the verified journal replay is live."""
+
+    if descriptor is None:
+        return consumer(None, None)
+    _require_snapshot_unchanged(
+        descriptor.source_snapshots,
+        label="materialized docket decision authority source",
+    )
+    with CaseDevPurchaseJournal(
+        descriptor.ledger_path,
+        policy=descriptor.purchase_policy,
+        controlled_private_root=descriptor.controlled_private_root,
+        initialization_receipt_path=descriptor.initialization_receipt_path,
+    ) as journal:
+        partition = _docket_decision_partition_record(
+            authority=descriptor.authority,
+            purchase_journal=journal,
+            selected_document_count=cast(
+                int, descriptor.partition["selected_document_count"]
+            ),
+        )
+        if partition != descriptor.partition:
+            raise CommandError("audit-only docket decision partition changed")
+        return consumer(descriptor.authority, journal)
+
+
 def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> int:
     """Publish one immutable, clearance-bound document root for parsing."""
 
@@ -37518,6 +37554,16 @@ class _VerifiedMaterializedDownstreamLineage:
 
     def __iter__(self) -> Iterator[Path]:
         return iter(self.paths)
+
+
+def _downstream_docket_decision_descriptor(
+    verified: object,
+) -> _MaterializerDocketDecisionAuthority | None:
+    """Return new authority metadata while tolerating legacy tuple test doubles."""
+
+    if isinstance(verified, _VerifiedMaterializedDownstreamLineage):
+        return verified.docket_decision_authority
+    return None
 
 
 def _require_materialized_downstream_lineage_unchanged(
@@ -47499,17 +47545,23 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         f"{name}_sha256": digest for name, digest in commitment_sources.items()
     }
     try:
-        records = build_decision_text_records(
-            selections=selection_records,
-            download_manifest=download_records,
-            clearance_records=clearance_records,
-            restriction_records=_projection_jsonl_records(
-                source_bytes["restriction_evidence"],
-                source=source_paths["restriction_evidence"],
+        restriction_records = _projection_jsonl_records(
+            source_bytes["restriction_evidence"],
+            source=source_paths["restriction_evidence"],
+        )
+        records = _consume_materialized_docket_decision_authority(
+            (_downstream_docket_decision_descriptor(verified_materialization)),
+            lambda authority, journal: build_decision_text_records(
+                selections=selection_records,
+                download_manifest=download_records,
+                clearance_records=clearance_records,
+                restriction_records=restriction_records,
+                parser_records=parser_records,
+                markdown_root=markdown_root,
+                input_commitments=commitments,
+                docket_decision_authority=authority,
+                purchase_journal=journal,
             ),
-            parser_records=parser_records,
-            markdown_root=markdown_root,
-            input_commitments=commitments,
         )
     except DecisionTextArtifactError as exc:
         raise CommandError(str(exc)) from exc
@@ -47563,6 +47615,110 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         },
     )
     return 0
+
+
+def _verify_decision_text_artifact_with_materialization(
+    *,
+    args: argparse.Namespace,
+    decision_texts_path: Path,
+    manifest_path: Path,
+    run_card_path: Path,
+    selections: Sequence[Mapping[str, Any]],
+    selection_path: Path,
+    parser_records: Sequence[Mapping[str, Any]],
+    parser_manifest_path: Path,
+    finalized_unit_records: Sequence[Mapping[str, Any]],
+    finalized_units_path: Path,
+    markdown_root: Path,
+) -> VerifiedDecisionTextArtifact:
+    """Verify Stage B text, replaying docket authority when its build used it."""
+
+    run_card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            run_card_path, label="decision text lineage run card"
+        ),
+        source=run_card_path,
+    )
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("decision text run card lacks exact input paths")
+    materialization_cards: list[Path] = []
+    for raw_path in cast(Sequence[object], raw_inputs):
+        path = Path(str(raw_path))
+        if path.suffix != ".json" or not path.is_file():
+            continue
+        card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                path, label="decision text materialization run card"
+            ),
+            source=path,
+        )
+        if card.get("stage") == "materialize-cohort-documents":
+            materialization_cards.append(path)
+    if len(materialization_cards) > 1:
+        raise CommandError(
+            "decision text run card has ambiguous materialization lineage"
+        )
+    if not materialization_cards:
+        return verify_decision_text_artifact(
+            decision_texts_path=decision_texts_path,
+            manifest_path=manifest_path,
+            run_card_path=run_card_path,
+            selections=selections,
+            selection_path=selection_path,
+            parser_records=parser_records,
+            parser_manifest_path=parser_manifest_path,
+            finalized_unit_records=finalized_unit_records,
+            finalized_units_path=finalized_units_path,
+            markdown_root=markdown_root,
+        )
+    materialization_card_path = materialization_cards[0]
+    materialization_card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            materialization_card_path, label="decision text materialization run card"
+        ),
+        source=materialization_card_path,
+    )
+    outputs = materialization_card.get("output_paths")
+    typed_output_values = (
+        cast(Sequence[object], outputs)
+        if isinstance(outputs, Sequence) and not isinstance(outputs, (str, bytes))
+        else ()
+    )
+    if not typed_output_values or len(typed_output_values) != 6:
+        raise CommandError("materialization run card output paths differ")
+    typed_outputs = tuple(Path(str(path)) for path in typed_output_values)
+    verified = _verify_materialized_downstream_lineage(
+        run_card_path=materialization_card_path,
+        manifest_path=typed_outputs[0],
+        clearance_path=typed_outputs[1],
+        document_root=typed_outputs[5],
+        selection_path=selection_path,
+        controlled_private_root=cast(Path | None, args.controlled_private_root),
+        initialization_receipt_path=cast(
+            Path | None, args.purchase_ledger_initialization_receipt
+        ),
+    )
+    return cast(
+        VerifiedDecisionTextArtifact,
+        _consume_materialized_docket_decision_authority(
+            _downstream_docket_decision_descriptor(verified),
+            lambda authority, journal: verify_decision_text_artifact(
+                decision_texts_path=decision_texts_path,
+                manifest_path=manifest_path,
+                run_card_path=run_card_path,
+                selections=selections,
+                selection_path=selection_path,
+                parser_records=parser_records,
+                parser_manifest_path=parser_manifest_path,
+                finalized_unit_records=finalized_unit_records,
+                finalized_units_path=finalized_units_path,
+                markdown_root=markdown_root,
+                docket_decision_authority=authority,
+                purchase_journal=journal,
+            ),
+        ),
+    )
 
 
 _STAGE_A_UNITIZATION_LINEAGE_SCHEMA_VERSION = (
@@ -49986,7 +50142,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     prediction_unit_records = _read_records(prediction_units_path)
     try:
         finalized_unit_records = require_finalized_envelopes(prediction_unit_records)
-        decision_text_artifact = verify_decision_text_artifact(
+        decision_text_artifact = _verify_decision_text_artifact_with_materialization(
+            args=args,
             decision_texts_path=decision_texts_path,
             manifest_path=decision_texts_manifest_path,
             run_card_path=decision_texts_run_card_path,
@@ -50754,19 +50911,22 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
         if not llm_label_audit_records:
             raise CommandError("llm-label audit must include at least one record")
         try:
-            decision_text_artifact = verify_decision_text_artifact(
-                decision_texts_path=decision_texts_path,
-                manifest_path=decision_texts_manifest_path,
-                run_card_path=decision_texts_run_card_path,
-                selections=_read_records(selection_path),
-                selection_path=selection_path,
-                parser_records=_read_records(parser_manifest_path),
-                parser_manifest_path=parser_manifest_path,
-                finalized_unit_records=require_finalized_envelopes(
-                    _read_records(prediction_units_path)
-                ),
-                finalized_units_path=prediction_units_path,
-                markdown_root=markdown_root,
+            decision_text_artifact = (
+                _verify_decision_text_artifact_with_materialization(
+                    args=args,
+                    decision_texts_path=decision_texts_path,
+                    manifest_path=decision_texts_manifest_path,
+                    run_card_path=decision_texts_run_card_path,
+                    selections=_read_records(selection_path),
+                    selection_path=selection_path,
+                    parser_records=_read_records(parser_manifest_path),
+                    parser_manifest_path=parser_manifest_path,
+                    finalized_unit_records=require_finalized_envelopes(
+                        _read_records(prediction_units_path)
+                    ),
+                    finalized_units_path=prediction_units_path,
+                    markdown_root=markdown_root,
+                )
             )
             decision_text_artifact.verify_stage_b_audit_commitments(
                 llm_label_audit_records
@@ -50897,19 +51057,22 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
         try:
             selection_records = _read_records(selection_path)
             prediction_unit_records = _read_records(prediction_units_path)
-            decision_text_artifact = verify_decision_text_artifact(
-                decision_texts_path=decision_texts_path,
-                manifest_path=decision_texts_manifest_path,
-                run_card_path=decision_texts_run_card_path,
-                selections=selection_records,
-                selection_path=selection_path,
-                parser_records=_read_records(parser_manifest_path),
-                parser_manifest_path=parser_manifest_path,
-                finalized_unit_records=require_finalized_envelopes(
-                    prediction_unit_records
-                ),
-                finalized_units_path=prediction_units_path,
-                markdown_root=markdown_root,
+            decision_text_artifact = (
+                _verify_decision_text_artifact_with_materialization(
+                    args=args,
+                    decision_texts_path=decision_texts_path,
+                    manifest_path=decision_texts_manifest_path,
+                    run_card_path=decision_texts_run_card_path,
+                    selections=selection_records,
+                    selection_path=selection_path,
+                    parser_records=_read_records(parser_manifest_path),
+                    parser_manifest_path=parser_manifest_path,
+                    finalized_unit_records=require_finalized_envelopes(
+                        prediction_unit_records
+                    ),
+                    finalized_units_path=prediction_units_path,
+                    markdown_root=markdown_root,
+                )
             )
             label_audit_records = _read_records(llm_audit_path)
             decision_text_artifact.verify_stage_b_audit_commitments(label_audit_records)
@@ -51255,22 +51418,27 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         )
         official_entries = require_official_registry_entries(registry.entries)
         decision_filed_on_or_after = earliest_eligible_decision_date(official_entries)
-        plan = plan_packet_build_inputs(
-            selection_records=records,
-            download_records=download_records,
-            parser_records=parser_records,
-            prediction_unit_records=prediction_unit_records,
-            raw_html_dir=raw_html_dir,
-            raw_artifact_records=raw_artifact_records,
-            raw_artifact_bytes=raw_html_snapshot,
-            document_root=document_root,
-            markdown_root=markdown_root,
-            markdown_bytes=markdown_snapshot,
-            source_dir=output_root,
-            generated_at=generated_at,
-            search_query=cast(str, args.search_query),
-            search_window=cast(str, args.search_window),
-            decision_filed_on_or_after=decision_filed_on_or_after,
+        plan = _consume_materialized_docket_decision_authority(
+            (_downstream_docket_decision_descriptor(materialization_lineage)),
+            lambda authority, journal: plan_packet_build_inputs(
+                selection_records=records,
+                download_records=download_records,
+                parser_records=parser_records,
+                prediction_unit_records=prediction_unit_records,
+                raw_html_dir=raw_html_dir,
+                raw_artifact_records=raw_artifact_records,
+                raw_artifact_bytes=raw_html_snapshot,
+                document_root=document_root,
+                markdown_root=markdown_root,
+                markdown_bytes=markdown_snapshot,
+                source_dir=output_root,
+                generated_at=generated_at,
+                search_query=cast(str, args.search_query),
+                search_window=cast(str, args.search_window),
+                decision_filed_on_or_after=decision_filed_on_or_after,
+                docket_decision_authority=authority,
+                purchase_journal=journal,
+            ),
         )
         packet_output_records = {
             packet_build_input_path: plan.packet_build_records,
@@ -51729,6 +51897,9 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             markdown_root=typed_markdown_root,
             materialization_run_card_path=typed_materialization_card,
             resolved_post_recovery_documents_path=resolved_path,
+            docket_decision_descriptor=(
+                _downstream_docket_decision_descriptor(verified_materialization)
+            ),
         )
         if replay.model_registry_sha256 != _normalize_expected_sha256(
             cast(str, expected_model_registry_sha256),
@@ -52070,6 +52241,7 @@ def _replay_packet_planner_run_card(
     document_root: Path,
     markdown_root: Path,
     resolved_post_recovery_documents_path: Path | None,
+    docket_decision_descriptor: _MaterializerDocketDecisionAuthority | None = None,
 ) -> _PacketPlannerReplay:
     """Re-run packet planning from its exact committed inputs and parameters."""
 
@@ -52224,24 +52396,30 @@ def _replay_packet_planner_run_card(
     download_records = _projection_jsonl_records(
         downloads_payload, source=committed_downloads
     )
-    plan = plan_packet_build_inputs(
-        selection_records=selection_records,
-        download_records=download_records,
-        parser_records=parser_records,
-        prediction_unit_records=prediction_unit_records,
-        raw_html_dir=committed_raw_html_dir,
-        raw_artifact_records=_projection_jsonl_records(
-            raw_artifacts_payload, source=raw_artifacts_manifest
+    raw_artifact_records = _projection_jsonl_records(
+        raw_artifacts_payload, source=raw_artifacts_manifest
+    )
+    plan = _consume_materialized_docket_decision_authority(
+        docket_decision_descriptor,
+        lambda authority, journal: plan_packet_build_inputs(
+            selection_records=selection_records,
+            download_records=download_records,
+            parser_records=parser_records,
+            prediction_unit_records=prediction_unit_records,
+            raw_html_dir=committed_raw_html_dir,
+            raw_artifact_records=raw_artifact_records,
+            raw_artifact_bytes=raw_html_snapshot,
+            document_root=committed_document_root,
+            markdown_root=committed_markdown_root,
+            markdown_bytes=markdown_snapshot,
+            source_dir=committed_source_dir,
+            generated_at=generated_at,
+            search_query=required_string("search_query"),
+            search_window=required_string("search_window"),
+            decision_filed_on_or_after=actual_eligible_date,
+            docket_decision_authority=authority,
+            purchase_journal=journal,
         ),
-        raw_artifact_bytes=raw_html_snapshot,
-        document_root=committed_document_root,
-        markdown_root=committed_markdown_root,
-        markdown_bytes=markdown_snapshot,
-        source_dir=committed_source_dir,
-        generated_at=generated_at,
-        search_query=required_string("search_query"),
-        search_window=required_string("search_window"),
-        decision_filed_on_or_after=actual_eligible_date,
     )
     expected_payloads = {
         "packet_build_input": _projection_jsonl_bytes(plan.packet_build_records),
@@ -53195,6 +53373,7 @@ def _validate_packet_input_run_card(
     markdown_root: Path,
     materialization_run_card_path: Path,
     resolved_post_recovery_documents_path: Path | None,
+    docket_decision_descriptor: _MaterializerDocketDecisionAuthority | None = None,
 ) -> _PacketPlannerReplay:
     """Require the exact executed packet planner to own the build input bytes."""
 
@@ -53247,6 +53426,7 @@ def _validate_packet_input_run_card(
         document_root=document_root,
         markdown_root=markdown_root,
         resolved_post_recovery_documents_path=(resolved_post_recovery_documents_path),
+        docket_decision_descriptor=docket_decision_descriptor,
     )
     if run_card_path.read_bytes() != card_payload:
         raise CommandError("packet planner run card changed while being replayed")
@@ -53599,6 +53779,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             markdown_root=markdown_root,
             materialization_run_card_path=typed_materialization_card,
             resolved_post_recovery_documents_path=resolved_path,
+            docket_decision_descriptor=(
+                _downstream_docket_decision_descriptor(verified_materialization)
+            ),
         )
         packet_build_replay = _validate_packet_build_run_card(
             typed_packet_build_card,
@@ -53874,19 +54057,22 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             packet_plan_replay.model_registry.entries
         )
         try:
-            decision_text_artifact = verify_decision_text_artifact(
-                decision_texts_path=decision_texts_path,
-                manifest_path=decision_texts_manifest_path,
-                run_card_path=decision_texts_run_card_path,
-                selections=selection_records,
-                selection_path=selection_path,
-                parser_records=parser_records,
-                parser_manifest_path=parser_manifest_path,
-                finalized_unit_records=require_finalized_envelopes(
-                    prediction_unit_records
-                ),
-                finalized_units_path=prediction_units_path,
-                markdown_root=markdown_root,
+            decision_text_artifact = (
+                _verify_decision_text_artifact_with_materialization(
+                    args=args,
+                    decision_texts_path=decision_texts_path,
+                    manifest_path=decision_texts_manifest_path,
+                    run_card_path=decision_texts_run_card_path,
+                    selections=selection_records,
+                    selection_path=selection_path,
+                    parser_records=parser_records,
+                    parser_manifest_path=parser_manifest_path,
+                    finalized_unit_records=require_finalized_envelopes(
+                        prediction_unit_records
+                    ),
+                    finalized_units_path=prediction_units_path,
+                    markdown_root=markdown_root,
+                )
             )
             decision_text_artifact.verify_stage_b_audit_commitments(label_audit_records)
         except (DecisionTextArtifactError, UnitizationReviewError) as exc:
