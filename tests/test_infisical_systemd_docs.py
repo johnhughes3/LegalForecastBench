@@ -90,13 +90,20 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
         f"labeling stage view must resolve exactly {labeling_keys}",
         "dependent-secret references",
         "canonical values under `/agents/sandbox/legalforecastbench/acquisition`",
-        "read both the stage view and the referenced canonical secret",
+        (
+            "read both the exact stage view and the canonical "
+            "`/agents/sandbox/legalforecastbench/acquisition` source path"
+        ),
+        "Scope the identity's grants to those two paths only",
+        "must not read a sibling sandbox or another LegalForecastBench stage path",
         "Do not copy credential values",
         "Do not enable folder imports",
         "masked Infisical UI inventory is the authoritative exact-inventory check",
         "The sentinels are not a substitute for the complete masked UI inventory",
     ):
         assert expected in launcher_docs
+    assert "/agents/sandbox/**" not in launcher_docs
+    assert "dependent-secret parser and labeling views" in launcher_docs
 
     assert launcher_docs.count('env -i PATH="$PATH"') == 4
     parser_sentinel = _stage_sentinel(
