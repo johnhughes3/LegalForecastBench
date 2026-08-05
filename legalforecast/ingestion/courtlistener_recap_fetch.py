@@ -819,6 +819,16 @@ class CourtListenerRecapFetchClient:
             return
         if state != "confirmed":
             return
+        effective_queue_id = receipt_queue_id or local_queue_id
+        if effective_queue_id is not None and operation["status"] in {
+            "submitted",
+            "unknown",
+        }:
+            self.journal.recover_broker_queue(
+                document_id,
+                queue_id=str(effective_queue_id),
+                reservation_id=str(validated["reservation_id"]),
+            )
         unknown_material = operation.get("material_authority") == (
             "unknown_status_attempt"
         )
@@ -836,7 +846,6 @@ class CourtListenerRecapFetchClient:
                     f"recap-fetch-broker:{operation_key}:{evidence_sha256}"
                 ),
             )
-        effective_queue_id = receipt_queue_id or local_queue_id
         if effective_queue_id is None:
             return
         queue_id = _identifier(str(effective_queue_id))

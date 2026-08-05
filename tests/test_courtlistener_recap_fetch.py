@@ -5,6 +5,7 @@ import hashlib
 from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 from legalforecast.cli import main
@@ -1192,6 +1193,16 @@ def test_confirmed_receipt_waits_for_noncharging_queue_delivery_proof(
 def test_confirmed_receipt_waits_when_queue_is_not_yet_visible(
     tmp_path: Path,
 ) -> None:
+    class _ReceiptBroker(FixtureRecapFetchPurchaseBroker):
+        def __init__(self, receipt: Mapping[str, Any]) -> None:
+            super().__init__([])
+            self.receipt_value = receipt
+            self.receipt_requests: list[str] = []
+
+        def receipt(self, operation_key: str) -> Mapping[str, Any]:
+            self.receipt_requests.append(operation_key)
+            return self.receipt_value
+
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
@@ -1218,9 +1229,43 @@ def test_confirmed_receipt_waits_when_queue_is_not_yet_visible(
 
         evidence = journal.operation_evidence("123")
         assert evidence is not None
-        assert evidence["status"] == "submitted"
+        assert evidence["status"] == "queued"
         assert evidence["reconciliation"] is None
         assert journal.committed_amount_usd == "3.05"
+
+    receipt_broker = _ReceiptBroker(receipt)
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        resumed = CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    _response("GET", "/recap-fetch/77/", {"status": 2}),
+                    _response(
+                        "GET",
+                        "/recap-documents/123/",
+                        {
+                            "id": 123,
+                            "is_available": True,
+                            "filepath_local": (
+                                "https://storage.courtlistener.com/123.pdf"
+                            ),
+                        },
+                    ),
+                ]
+            ),
+            purchase_broker=receipt_broker,
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=_public_documents(),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+        assert journal.statuses() == {"123": "confirmed"}
+
+    assert resumed.executed_purchase_count == 1
+    assert receipt_broker.receipt_requests == [str(operation["operation_key"])]
+    assert receipt_broker.requests == []
 
 
 def test_receipt_recovery_includes_locally_failed_paid_operation(
