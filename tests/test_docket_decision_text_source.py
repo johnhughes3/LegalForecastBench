@@ -7,7 +7,6 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
-import legalforecast.ingestion.docket_decision_text_source as source_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
@@ -244,7 +243,11 @@ def test_normalizes_raw_parser_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     def fail_parse(*args: object, **kwargs: object) -> None:
         raise CourtListenerWebParseError("synthetic parser failure")
 
-    monkeypatch.setattr(source_module, "parse_courtlistener_docket_html", fail_parse)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.docket_decision_text_source."
+        "parse_courtlistener_docket_html",
+        fail_parse,
+    )
 
     with pytest.raises(
         DocketDecisionTextSourceError,
@@ -276,7 +279,10 @@ def test_normalizes_screen_and_linkage_failures(
     def fail_replay(*args: object, **kwargs: object) -> None:
         raise ValueError("synthetic collaborator failure")
 
-    monkeypatch.setattr(source_module, collaborator, fail_replay)
+    monkeypatch.setattr(
+        f"legalforecast.ingestion.docket_decision_text_source.{collaborator}",
+        fail_replay,
+    )
 
     with pytest.raises(DocketDecisionTextSourceError, match=message):
         replay_docket_decision_source_lineage(
