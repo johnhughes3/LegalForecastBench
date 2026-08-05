@@ -1050,7 +1050,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
                 "--execute",
             ]
         )
-        == 2
+        == 0
     )
     with CaseDevPurchaseJournal(ledger_path, policy=purchase_policy) as journal:
         evidence = journal.operation_evidence("123")
