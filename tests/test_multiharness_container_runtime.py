@@ -4,7 +4,7 @@ import hashlib
 import io
 import json
 import stat
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -390,6 +390,53 @@ def test_finalize_requires_confirmed_container_absence(
     monkeypatch.setattr(
         "legalforecast.multiharness.container_runtime._session_container_ids",
         lambda _backend, _name, _token, _environment: (CONTAINER_ID,),
+    )
+    session = ContainerToolSession(request.sandbox_policy, request, tmp_path)
+    session.execute(ToolRequest(request_id="tool-1", operation="read_text"), tmp_path)
+
+    with pytest.raises(ContainerRuntimeError, match="cleanup"):
+        session.finalize(_run_result(request))
+
+
+def test_finalize_tolerates_transient_auto_remove_visibility(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = _run_request()
+    process = _FakeProcess(
+        lambda tool_request: encode_tool_message(
+            ToolResponse(request_id=tool_request.request_id, status="succeeded")
+        )
+    )
+    _install_fake_backend(monkeypatch, process)
+    observed_ids = iter(((CONTAINER_ID,), (CONTAINER_ID,), ()))
+    monkeypatch.setattr(
+        "legalforecast.multiharness.container_runtime._session_container_ids",
+        lambda _backend, _name, _token, _environment: next(observed_ids),
+    )
+    session = ContainerToolSession(request.sandbox_policy, request, tmp_path)
+    session.execute(ToolRequest(request_id="tool-1", operation="read_text"), tmp_path)
+
+    receipt = session.finalize(_run_result(request))
+
+    assert receipt.cleanup_confirmed is True
+
+
+def test_finalize_rejects_ambiguous_inspection_during_cleanup_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = _run_request()
+    process = _FakeProcess(
+        lambda tool_request: encode_tool_message(
+            ToolResponse(request_id=tool_request.request_id, status="succeeded")
+        )
+    )
+    _install_fake_backend(monkeypatch, process)
+    observed_ids: Iterator[tuple[str, ...] | None] = iter(((CONTAINER_ID,), None))
+    monkeypatch.setattr(
+        "legalforecast.multiharness.container_runtime._session_container_ids",
+        lambda _backend, _name, _token, _environment: next(observed_ids),
     )
     session = ContainerToolSession(request.sandbox_policy, request, tmp_path)
     session.execute(ToolRequest(request_id="tool-1", operation="read_text"), tmp_path)
