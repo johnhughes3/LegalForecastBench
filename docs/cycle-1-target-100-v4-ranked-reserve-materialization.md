@@ -177,6 +177,7 @@ The preflight must report cycle ID `cycle-1-target-100-2026-07-25-v4-ranked-rese
 The paid stage uses direct CourtListener RECAP Fetch with `COURTLISTENER_API_TOKEN`, `PACER_USERNAME`, and `PACER_PASSWORD` from the acquisition runtime environment.
 The immutable purchase policy and local SQLite ledger still reserve `$3.05` before each request, enforce the `$567.30` cycle cap and `$73.20` per-case cap, and retain the full reservation for queued or ambiguous outcomes.
 Direct mode sends no automatic paid retry; a timeout or indeterminate response remains held for reconciliation.
+The purchase stage permits up to 3,700 seconds of bounded waiting for a CourtListener request-budget reservation because the frozen 179-document plan fits the daily base allowance but can span multiple hourly windows.
 
 ```zsh
 setopt ERR_EXIT NO_UNSET PIPE_FAIL

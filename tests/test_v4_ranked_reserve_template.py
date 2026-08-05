@@ -74,6 +74,7 @@ def test_v4_ranked_reserve_template_binds_existing_approved_projection(
     assert _argument_value(ledger, "--purchase-ledger") == expected_ledger
     assert "--direct-courtlistener-purchase" in purchase.arguments
     assert "--broker-policy" not in purchase.arguments
+    assert _argument_value(purchase, "--request-budget-max-wait-seconds") == "3700"
     assert all(
         "--controlled-private-root" not in stage.arguments for stage in config.stages
     )
