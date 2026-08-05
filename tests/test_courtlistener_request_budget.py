@@ -272,6 +272,21 @@ def test_transient_writer_lock_retries_then_reserves_before_deadline(
     assert budget.total_reservations() == 1
 
 
+def test_cancellable_reservation_releases_unused_capacity(tmp_path: Path) -> None:
+    budget = CourtListenerRequestBudget(tmp_path / "requests.sqlite3")
+
+    release = budget.reserve_cancellable("POST", "/recap-fetch/")
+
+    assert budget.local_reservations == 1
+    assert budget.total_reservations() == 1
+
+    release()
+    release()
+
+    assert budget.local_reservations == 0
+    assert budget.total_reservations() == 0
+
+
 def test_persistent_writer_lock_exhausts_the_single_deadline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

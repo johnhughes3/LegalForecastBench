@@ -100,7 +100,7 @@ class PreparedRecapFetchSubmission:
     """One-shot broker submission with an explicit pre-wire cancellation path."""
 
     _submit: Callable[[Mapping[str, str]], Mapping[str, Any]]
-    _cancel: Callable[[], None] = lambda: None
+    _cancel: Callable[[], None] = field(default_factory=lambda: lambda: None)
     _finished: bool = False
 
     def __call__(self, request: Mapping[str, str]) -> Mapping[str, Any]:
@@ -114,8 +114,8 @@ class PreparedRecapFetchSubmission:
 
         if self._finished:
             return
-        self._finished = True
         self._cancel()
+        self._finished = True
 
 
 @dataclass(frozen=True, slots=True)

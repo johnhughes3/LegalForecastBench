@@ -39755,7 +39755,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     DirectCourtListenerRecapFetchPurchaseBroker(
                         direct_config,
                         transport=courtlistener_transport,
-                        before_request=request_budget.before_request,
+                        before_request=request_budget.reserve_cancellable,
                     )
                     if direct_config is not None
                     else SignedRecapFetchPurchaseBroker(
