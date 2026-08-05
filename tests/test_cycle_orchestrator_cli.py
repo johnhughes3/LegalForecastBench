@@ -701,6 +701,118 @@ def test_external_completed_cycle_stage_replays_provider_shard_run_card(
         cli._verify_external_completed_cycle_stage(stage, card)
 
 
+def test_external_completed_disclosure_review_replays_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan_path = tmp_path / "plan.json"
+    worksheet_path = tmp_path / "worksheet.json"
+    document_root = tmp_path / "documents"
+    document_path = document_root / "case-a" / "document.pdf"
+    authority_path = tmp_path / "authority.json"
+    private_path = tmp_path / "private.json"
+    journal_path = tmp_path / "journal.sqlite3"
+    spend_path = tmp_path / "spend.sqlite3"
+    run_card_path = tmp_path / "run-card.json"
+    document_path.parent.mkdir(parents=True)
+    plan_path.write_bytes(canonical_json_bytes({}))
+    worksheet_path.write_bytes(canonical_json_bytes({}))
+    document_path.write_bytes(b"reviewed document")
+    journal_path.write_bytes(b"journal")
+    spend_path.write_bytes(b"spend")
+    authority = {"decision_count": 1}
+    private = ({"private": "evidence"},)
+    authority_path.write_bytes(canonical_json_bytes(authority))
+    private_path.write_bytes(canonical_json_bytes(list(private)))
+    stage = _parse_stage(
+        _stage(
+            stage_id="review-disclosure",
+            command="review-disclosure-exceptions",
+            boundary="model_provider",
+            arguments=[
+                "--output-root",
+                str(tmp_path),
+                "--routing-plan",
+                str(plan_path),
+                "--exception-worksheet",
+                str(worksheet_path),
+                "--document-root",
+                str(document_root),
+                "--authority-output",
+                str(authority_path),
+                "--private-records-output",
+                str(private_path),
+                "--provider-journal",
+                str(journal_path),
+                "--provider-spend-authority",
+                str(spend_path),
+                "--frozen-authority-root",
+                str(ROOT),
+                "--controlled-private-store-root",
+                str(tmp_path),
+                "--run-card-output",
+                str(run_card_path),
+                "--execute",
+                "--resume",
+            ],
+            run_card=run_card_path,
+        ),
+        index=0,
+    )
+    document = {
+        "candidate_id": "case-a",
+        "source_document_id": "document-1",
+        "local_path": "case-a/document.pdf",
+    }
+    document_tree = [
+        {
+            "candidate_id": "case-a",
+            "source_document_id": "document-1",
+            "relative_path": "case-a/document.pdf",
+            "sha256": hashlib.sha256(b"reviewed document").hexdigest(),
+            "byte_count": len(b"reviewed document"),
+        }
+    ]
+    card = {
+        "source_commitments": {
+            "document_root": {
+                "path": str(document_root.resolve()),
+                "tree_sha256": cli._canonical_json_sha256(document_tree),
+                "document_count": 1,
+            }
+        },
+        "record_count": 1,
+        "model_review_authority": authority,
+    }
+    capability = object()
+    monkeypatch.setattr(
+        cli,
+        "validate_exception_review_worksheet_v3",
+        lambda *_args, **_kwargs: (document,),
+    )
+    monkeypatch.setattr(
+        cli,
+        "replay_authenticated_disclosure_model_review",
+        lambda **_kwargs: capability,
+    )
+    monkeypatch.setattr(
+        cli,
+        "public_disclosure_model_review_record",
+        lambda value: authority if value is capability else {},
+    )
+    monkeypatch.setattr(
+        cli,
+        "private_disclosure_model_review_records",
+        lambda value: private if value is capability else (),
+    )
+
+    cli._verify_external_completed_cycle_stage(stage, card)
+
+    authority_path.write_bytes(canonical_json_bytes({"decision_count": 2}))
+    with pytest.raises(CycleOrchestratorError, match="semantic replay failed"):
+        cli._verify_external_completed_cycle_stage(stage, card)
+
+
 def test_run_cycle_help_describes_safe_resume_boundaries(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -760,7 +872,31 @@ def test_gemini_disclosure_successor_inserts_review_before_finalization() -> Non
     assert stages[review_index]["boundary"] == "model_provider"
     assert stages[finalizer_index]["command"] == "finalize-provenance-quarantine"
     assert stages[finalizer_index]["boundary"] == "provider_free"
-    assert "--model-review-authority" in stages[finalizer_index]["arguments"]
+    review_arguments = stages[review_index]["arguments"]
+    finalizer_arguments = stages[finalizer_index]["arguments"]
+
+    def flag_value(arguments: list[str], flag: str) -> str:
+        index = arguments.index(flag)
+        return arguments[index + 1]
+
+    assert flag_value(finalizer_arguments, "--model-review-authority") == flag_value(
+        review_arguments, "--authority-output"
+    )
+    assert flag_value(
+        finalizer_arguments, "--model-review-private-records"
+    ) == flag_value(review_arguments, "--private-records-output")
+    assert (
+        flag_value(finalizer_arguments, "--model-review-run-card")
+        == stages[review_index]["run_card"]
+    )
+    for state_flag in (
+        "--frozen-authority-root",
+        "--provider-journal",
+        "--provider-spend-authority",
+    ):
+        assert flag_value(finalizer_arguments, state_flag) == flag_value(
+            review_arguments, state_flag
+        )
     assert COMMAND_BOUNDARIES["review-disclosure-exceptions"].value == "model_provider"
 
 

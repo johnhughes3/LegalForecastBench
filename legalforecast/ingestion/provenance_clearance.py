@@ -829,7 +829,7 @@ def build_authenticated_model_provenance_clearance_records_v3(
         if (
             set(decision) != expected_fields
             or decision.get("schema_version") != DECISION_SCHEMA_VERSION
-            or decision.get("status") not in {"cleared", "quarantined"}
+            or decision.get("status") not in ("cleared", "quarantined")
             or key in decisions
         ):
             raise ProvenanceClearanceError("model authority decision is invalid")
@@ -937,7 +937,7 @@ def _validated_decisions(
             or row.get("recording_method") != "interactive_review_cli"
         ):
             raise ProvenanceClearanceError("invalid interactive exception decision")
-        if row.get("status") not in {"cleared", "quarantined"}:
+        if row.get("status") not in ("cleared", "quarantined"):
             raise ProvenanceClearanceError(f"invalid exception decision status: {key}")
         if row.get("intended_reviewer_id") != "John Hughes":
             raise ProvenanceClearanceError(

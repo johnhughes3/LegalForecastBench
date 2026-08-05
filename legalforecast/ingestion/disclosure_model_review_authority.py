@@ -486,16 +486,24 @@ def _require_replayable_stores(
         provider_journal_path=Path(provider_journal_path),
         provider_spend_authority_path=Path(provider_spend_authority_path),
     )
-    journal_path = Path(provider_journal_path).resolve()
-    spend_path = Path(provider_spend_authority_path).resolve()
+    raw_journal_path = Path(provider_journal_path)
+    raw_spend_path = Path(provider_spend_authority_path)
     for path, label in (
-        (journal_path, "provider journal"),
-        (spend_path, "provider spend authority"),
+        (raw_journal_path, "provider journal"),
+        (raw_spend_path, "provider spend authority"),
     ):
-        if path.is_symlink() or not path.is_file():
+        resolved = path.resolve()
+        if (
+            path.is_symlink()
+            or resolved != path.absolute()
+            or not path.is_file()
+            or path.stat(follow_symlinks=False).st_nlink != 1
+        ):
             raise DisclosureModelReviewAuthorityError(
                 f"{label} has no replayable store"
             )
+    journal_path = raw_journal_path.resolve()
+    spend_path = raw_spend_path.resolve()
     try:
         with sqlite3.connect(f"file:{journal_path}?mode=ro", uri=True) as connection:
             journal_row = connection.execute(

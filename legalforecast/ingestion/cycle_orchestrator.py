@@ -1055,6 +1055,10 @@ def _verify_external_model_completion(
 ) -> None:
     """Authenticate closed provider-stage evidence before coordinator adoption."""
 
+    if stage.command == "review-disclosure-exceptions":
+        _verify_external_disclosure_review_completion(stage, run_card)
+        return
+
     if run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1":
         raise CycleOrchestratorError(
             f"stage {stage.stage_id} external completion schema is unsupported"
@@ -1195,6 +1199,125 @@ def _verify_external_model_completion(
                     f"stage {stage.stage_id} source {name} is not a committed input"
                 )
     _verify_external_model_lineage_fields(stage, run_card)
+
+
+def _verify_external_disclosure_review_completion(
+    stage: CycleStage,
+    run_card: Mapping[str, object],
+) -> None:
+    """Authenticate the disclosure review card before semantic replay."""
+
+    if (
+        run_card.get("schema_version")
+        != "legalforecast.disclosure_model_review_run_card.v1"
+        or run_card.get("stage") != "review-disclosure-exceptions"
+        or run_card.get("status") != "completed"
+        or run_card.get("resume") is not True
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("provider_activity_requested") is not True
+        or run_card.get("provider_activity_executed") is not True
+        or run_card.get("paid_activity_requested") is not True
+        or run_card.get("paid_activity_executed") is not True
+        or not isinstance(run_card.get("provider_call_executed_this_run"), bool)
+        or not isinstance(run_card.get("record_count"), int)
+        or isinstance(run_card.get("record_count"), bool)
+        or cast(int, run_card.get("record_count")) < 1
+    ):
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external disclosure review is incomplete"
+        )
+
+    expected_outputs = {
+        "public_authority": _required_stage_path_flag(stage, "--authority-output"),
+        "private_records": _required_stage_path_flag(stage, "--private-records-output"),
+    }
+    raw_outputs = run_card.get("output_commitments")
+    if not isinstance(raw_outputs, Mapping):
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external output commitments differ"
+        )
+    outputs = cast(Mapping[str, object], raw_outputs)
+    if set(outputs) != set(expected_outputs):
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external output commitments differ"
+        )
+    for name, path in expected_outputs.items():
+        _verify_external_file_commitment(
+            outputs.get(name),
+            expected_path=path,
+            label=f"{stage.stage_id} output {name}",
+        )
+
+    expected_sources = {
+        "routing_plan": _required_stage_path_flag(stage, "--routing-plan"),
+        "exception_worksheet": _required_stage_path_flag(
+            stage, "--exception-worksheet"
+        ),
+    }
+    raw_sources = run_card.get("source_commitments")
+    if not isinstance(raw_sources, Mapping):
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external source commitments differ"
+        )
+    sources = cast(Mapping[str, object], raw_sources)
+    if set(sources) != {
+        *expected_sources,
+        "document_root",
+    }:
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external source commitments differ"
+        )
+    for name, path in expected_sources.items():
+        _verify_external_file_commitment(
+            sources.get(name),
+            expected_path=path,
+            label=f"{stage.stage_id} source {name}",
+        )
+    expected_document_root = _required_stage_path_flag(stage, "--document-root")
+    document_root = sources.get("document_root")
+    if not isinstance(document_root, Mapping):
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external document commitment differs"
+        )
+    document_commitment = cast(Mapping[str, object], document_root)
+    if (
+        set(document_commitment) != {"path", "tree_sha256", "document_count"}
+        or document_commitment.get("path") != str(expected_document_root.resolve())
+        or not isinstance(document_commitment.get("tree_sha256"), str)
+        or not isinstance(document_commitment.get("document_count"), int)
+    ):
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external document commitment differs"
+        )
+
+    expected_state = {
+        "provider_journal": _required_stage_path_flag(
+            stage, "--provider-journal"
+        ).resolve(),
+        "provider_spend_authority": _required_stage_path_flag(
+            stage, "--provider-spend-authority"
+        ).resolve(),
+        "frozen_authority_root": _required_stage_path_flag(
+            stage, "--frozen-authority-root"
+        ).resolve(),
+    }
+    raw_state = run_card.get("state_paths")
+    if not isinstance(raw_state, Mapping):
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external state paths differ"
+        )
+    state = cast(Mapping[str, object], raw_state)
+    if dict(state) != {name: str(path) for name, path in expected_state.items()}:
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external state paths differ"
+        )
+    for path in (
+        *expected_sources.values(),
+        expected_document_root,
+        *expected_state.values(),
+    ):
+        _require_safe_external_input(path, stage=stage)
 
 
 def _external_model_expected_outputs(
