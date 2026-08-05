@@ -1099,11 +1099,13 @@ def _rerun_semantic_screen_and_linkage(
         raise DocketDecisionTextSourceError(
             "decision window end predates the eligibility anchor"
         )
+    candidate_text = _required_string(metadata.get("case_name"), "case name")
+    court_id = _required_string(metadata.get("court"), "court")
     try:
         replayed_screen = screen_courtlistener_docket_for_mtd_decision(
             page,
-            candidate_text=_required_string(metadata.get("case_name"), "case name"),
-            court_id=_required_string(metadata.get("court"), "court"),
+            candidate_text=candidate_text,
+            court_id=court_id,
             decision_filed_on_or_after=anchor_date,
             decision_filed_on_or_before=decision_window_end,
         ).to_record()
@@ -1134,13 +1136,14 @@ def _rerun_semantic_screen_and_linkage(
         for entry in page.entries
     )
     expected_linkage = _mapping(evidence.get("motion_linkage"), "motion linkage")
+    linkage_case_id = _required_string(
+        expected_linkage.get("case_id"), "linkage case ID"
+    )
     try:
         replayed_linkage = link_mtd_dispositions(
             normalized,
             candidate_id=docket_id,
-            case_id=_required_string(
-                expected_linkage.get("case_id"), "linkage case ID"
-            ),
+            case_id=linkage_case_id,
         ).to_record()
     except ValueError as exc:
         raise DocketDecisionTextSourceError(
