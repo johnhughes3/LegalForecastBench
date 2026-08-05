@@ -19,7 +19,9 @@ The batch response contains one ordered `legalforecast.disclosure_model_review_r
 The exact raw batch bytes have one batch-level hash; each semantic item separately has the hash of its canonical JSON bytes.
 Prompt hashes are verifier-owned transport commitments: model-generated JSON does not contain or echo either the batch prompt hash or per-document prompt hashes.
 The validator derives those commitments from the exact prompt objects supplied alongside the raw response.
-The batch response fields are exactly `schema_version`, `model_id`, `model_version`, `document_count`, and `items`.
+The normal batch response fields are exactly `schema_version`, `model_id`, `model_version`, `document_count`, and `items`.
+The validator also recognizes one closed provider-echo form: those five fields plus `response_schema_version`, with `schema_version` exactly equal to the frozen batch-prompt schema and `response_schema_version` exactly equal to the frozen batch-response schema.
+No other schema alias, extra field, or field omission is accepted, and the original provider bytes remain the batch-hash authority.
 The batch prompt carries those fields, the exact semantic-item fields, allowed enum values, decision relationship, excerpt rule, frozen reviewer model ID and version, and the complete registry-entry SHA-256, so the provider is not expected to infer an out-of-band schema and a same-ID reviewer configuration cannot be rebound after prompting.
 
 `legalforecast.disclosure_model_review_response.v1` is therefore a per-document semantic record, not a raw provider response.
@@ -28,15 +30,20 @@ Candidate, document, and declared registry-model identities must match.
 For the future authenticated integration, authenticated transport served-version metadata is authoritative.
 There, the model-generated `model_version` must exactly equal that authenticated served version; a missing or different value rejects the entire batch before any private or public projection built by the integration.
 Those downstream projections must derive any served-version value from the authenticated transport evidence and must never trust or copy the model-generated `model_version` field.
-The supporting excerpt must satisfy the prompt’s length, marker, and verbatim-page constraints.
-A response may clear only when `sensitive_content` is `absent`; `present` and `uncertain` require quarantine.
+The response is a closed discriminated record.
+A response may clear only when `sensitive_content` is `absent`.
+Because the frozen prompt requests support without a clearance exception, the validator accepts either two explicit JSON nulls or a well-typed support pair on that clearance form, but always projects clearance support to null because absence has no authoritative positive excerpt.
+`present` and `uncertain` require quarantine, while `absent` cannot be paired with quarantine.
+A quarantined response is conservative and does not depend on its support fields for authority: its supporting fields must both be JSON null or form a well-typed pair consisting of a positive integer page number and a nonempty trimmed string, and malformed or half-null pairs fail closed.
+An exact pair satisfying the length, marker, and verbatim-page constraints may be retained as private evidence, while a well-typed but unverified pair is projected as null without changing the raw provider bytes or hashes.
 
 `legalforecast.disclosure_model_review_decision.v1` is the public per-document projection.
 It contains candidate and source-document identities, document, document-prompt, batch-prompt, semantic-response, raw-batch-response, and reviewer-entry hashes, plus terminal status.
 It contains no page text, prompt text, supporting excerpt, rationale, or raw provider output.
 It intentionally contains no caller-supplied per-document cost.
 
-Typed validated reviews are projected into canonical private JSONL containing the verbatim excerpt and exact document, prompt, response, reviewer-entry, page, identity, and status commitments.
+Typed validated reviews are projected into `legalforecast.disclosure_model_review_private_review.v2` canonical private JSONL containing the exact document, prompt, response, reviewer-entry, identity, and status commitments.
+Its page and excerpt fields contain verified verbatim support for a quarantined result when available and are otherwise null.
 This pure core cannot authenticate or compare transport metadata, does not authenticate execution, and therefore does not export authority or a public run card.
 Future integration must derive authority from verifier-owned local journal readback, authenticated remote-call evidence, raw-payload re-decoding, independently frozen registry identities, and cross-store agreement.
 It must treat a nonempty document batch as one provider attempt, or two only after the bounded retry, rather than one attempt per document.
