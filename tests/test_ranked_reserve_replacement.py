@@ -20,6 +20,11 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     COURTLISTENER_RECAP_FETCH_PROVIDER,
     CourtListenerRecapFetchError,
 )
+from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.discovery_scheduler import (
+    DiscoveryHit,
+    TermTerminalStatus,
+)
 from legalforecast.ingestion.docket_decision_text_source import (
     VerifiedTerminalPurchaseDispositionAuthority,
 )
@@ -1743,6 +1748,98 @@ def test_cli_derives_mixed_terminal_partition_and_publishes_99_case_precursor(
         json.loads(line)["candidate_id"]
         for line in outputs["replacement"].read_text().splitlines()
     ] == ["case-100", "case-101"]
+
+
+def test_authenticated_ranked_reserve_replay_loads_captured_snapshot_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(tmp_path)
+    snapshot_source = tmp_path / "snapshot-source"
+    raw_root = snapshot_source / "raw"
+    raw_root.mkdir(parents=True)
+    store_path = snapshot_source / "cycle.sqlite3"
+    candidate_id = "courtlistener-docket-1"
+    batch_id = "digest-boundary"
+    term = "motion-to-dismiss"
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_cycle({"eligibility_anchor": "2026-06-30", "fixture": True})
+        store.ensure_batch(batch_id, {"source": batch_id})
+        store.ensure_terms(batch_id, (term,))
+        store.commit_search_page(
+            batch_id,
+            term,
+            None,
+            (
+                DiscoveryHit(
+                    provider_hit_id=f"{batch_id}:{candidate_id}",
+                    candidate_id=candidate_id,
+                    payload={"candidate_id": candidate_id},
+                ),
+            ),
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+        store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code="strict_clean_screen_failed",
+            evidence={
+                "candidate_id": candidate_id,
+                "reason": "no_mtd_or_rule_12_reference",
+            },
+            observed_at="2026-07-16T12:00:00Z",
+        )
+        store.write_raw_artifact(
+            candidate_id,
+            raw_root / "1.html",
+            b"<html><body>excluded docket</body></html>",
+            retrieved_at="2026-07-16T12:00:00Z",
+        )
+        snapshot = store.export_snapshot(
+            snapshot_source / "snapshots",
+            snapshot_id="digest-boundary-complete",
+            batch_id=batch_id,
+            complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
+        )
+
+    class SnapshotLoaded(Exception):
+        pass
+
+    def stop_after_snapshot_load(**_kwargs: object) -> object:
+        raise SnapshotLoaded
+
+    monkeypatch.setattr(
+        cli,
+        "verify_terminal_purchase_failure_authority",
+        stop_after_snapshot_load,
+    )
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        with pytest.raises(SnapshotLoaded):
+            cli._verify_materializer_docket_decision_authority(  # pyright: ignore[reportPrivateUsage]
+                selection_payload=b"{}\n",
+                snapshot_manifest_path=snapshot / "manifest.json",
+                purchase_result_path=tmp_path / "purchase-result.json",
+                purchase_run_card_path=tmp_path / "purchase-run-card.json",
+                purchase_journal=journal,
+                purchase_policy=fixture["policy"],
+                ledger_path=fixture["policy"].canonical_ledger_path,
+                controlled_private_root=tmp_path / "private",
+                initialization_receipt_path=tmp_path / "initialization.json",
+                selected_document_count=1,
+            )
 
 
 def test_cli_requires_one_complete_terminal_evidence_mode(tmp_path: Path) -> None:

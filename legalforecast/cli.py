@@ -34967,7 +34967,7 @@ def _verify_materializer_docket_decision_authority(
     manifest = _projection_json_object(manifest_bytes, source=snapshot_manifest_path)
     screening_snapshot = load_verified_screening_snapshot(
         snapshot_manifest_path.parent,
-        expected_manifest_sha256=_bytes_sha256(manifest_bytes),
+        expected_manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
         expected_cycle_hash=_required_str(manifest, "cycle_hash"),
     )
     terminal_authority = verify_terminal_purchase_failure_authority(
