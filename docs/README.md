@@ -18,7 +18,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [labeling-protocol.md](labeling-protocol.md): the unit-resolution and edge-case codebook used to label frozen prediction units.
 - [official-run-runbook.md](official-run-runbook.md): operator checklist for protected official cycles — freeze, dispatch, recovery, aggregation, and site rendering.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
-- [publication-governance.md](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
+- [Publication governance](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
 
 ## Acquisition Operations
 
@@ -104,5 +104,9 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 ## Committed Policy Data
 
 These JSON files in this folder are the committed policy values the docs above describe: `publication-governance.json`, `labeling-policy.json`, `cohort-policy.json`, and the dated `cohort-policy-cycle-1-target-100-2026-07-25*.json` decision and provenance records.
+
+The RECAP Fetch policy records live under [`manifests/recap-fetch-policies/`](../manifests/recap-fetch-policies/). These committed copies are immutable historical, host-bound provenance snapshots, not portable configuration or replay templates, and runtime code does not load them; operators must generate fresh policies for their own environment instead of rewriting the recorded paths.
+
+Within that historical set, `purchase-policy.json` commits the exact approved budget-plan and selection bytes, while `attempt-policy.json` commits the canonical parsed JSON structures derived from those authenticated bytes. Their `budget_plan_sha256` and `selection_sha256` values therefore intentionally differ and must not be rewritten to match; each complete policy body, including its host-bound paths, is protected by its recorded `policy_sha256`.
 
 Historical planning and review documents have been removed from the working tree; they remain available in git history.
