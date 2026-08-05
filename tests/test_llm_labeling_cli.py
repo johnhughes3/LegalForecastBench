@@ -343,7 +343,32 @@ def test_local_provider_journal_only_accepts_legacy_caps(
     )
 
     assert authorities is None
-    assert accounts is None
+    assert accounts == {"openai": "default"}
+
+
+def test_local_provider_journal_only_preserves_committed_account_alias(
+    tmp_path: Path,
+) -> None:
+    caps_path = _provider_caps_path(tmp_path)
+    caps = cli.load_provider_cycle_caps(caps_path)
+    args = argparse.Namespace(
+        local_provider_journal_only=True,
+        provider_authority_table=None,
+        provider_authority_region="us-east-1",
+        provider_journal=tmp_path / "provider-attempts.sqlite3",
+    )
+
+    authorities, accounts = cli._provider_spend_authorities(
+        args,
+        provider_caps=caps,
+        provider_caps_sha256="sha256:"
+        + hashlib.sha256(caps_path.read_bytes()).hexdigest(),
+        cycle_id="test-cycle",
+        providers=("openai",),
+    )
+
+    assert authorities is None
+    assert accounts == {"openai": "primary"}
 
 
 def test_local_provider_journal_only_requires_explicit_journal(

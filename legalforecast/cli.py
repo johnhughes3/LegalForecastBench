@@ -48804,7 +48804,16 @@ def _provider_spend_authorities(
             raise CommandError(
                 "--local-provider-journal-only requires --provider-journal"
             )
-        return None, None
+        try:
+            accounts = {
+                provider: provider_caps.providers[provider].account or "default"
+                for provider in sorted({value.lower() for value in providers})
+            }
+        except KeyError as exc:
+            raise CommandError(
+                f"provider cycle caps artifact has no entry for {exc.args[0]!r}"
+            ) from exc
+        return None, accounts
     return _remote_provider_spend_authorities(
         args,
         provider_caps=provider_caps,
