@@ -320,6 +320,153 @@ def test_verified_mixed_disposition_emits_cap_bounded_99_case_precursor(
     assert replayed.tranche_event_record_sha256s == plan.tranche_event_record_sha256s
 
 
+@pytest.mark.parametrize(
+    ("actual_usd", "expected_remaining_headroom"),
+    (("1.00", "5.10"), ("0.00", "6.10")),
+)
+def test_authenticated_tranche_preserves_full_opening_headroom_on_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    actual_usd: str,
+    expected_remaining_headroom: str,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    terminal_records = {
+        "case-050": {
+            **_terminal_record("case-050"),
+            "reason": "terminal_courtlistener_recap_fetch_provider_error",
+            "source_stage": "purchase-missing-recap-fetch",
+        }
+    }
+    terminal_bytes = _jsonl(tuple(terminal_records.values()))
+    disposition = object.__new__(VerifiedTerminalPurchaseDispositionAuthority)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.ranked_reserve_replacement.verified_residual_terminal_records",
+        lambda authority, *, purchase_journal: terminal_records,
+    )
+    monkeypatch.setattr(
+        "legalforecast.ingestion.ranked_reserve_replacement.verified_terminal_purchase_disposition_record",
+        lambda authority, *, purchase_journal: _disposition_record(
+            residual_sha256=_sha(terminal_bytes), candidate_ids=("case-050",)
+        ),
+    )
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        first = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=terminal_bytes,
+            expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+        )
+        journal.plan(first.replacement_plan)
+        assert journal.submit("doc-100") is True
+        journal.confirm(
+            "doc-100",
+            response={"status": "delivered"},
+            fees={"total_usd": actual_usd},
+        )
+        replayed = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=terminal_bytes,
+            expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+        )
+
+    first_budget = first.replacement_plan.to_record()
+    assert first_budget["total_estimated_cost_usd"] == "3.05"
+    assert first_budget["max_projected_budget_usd"] == "6.10"
+    assert replayed.replacement_plan.to_record() == first_budget
+    assert replayed.replacement_selection == first.replacement_selection
+    assert replayed.tranche_event_record_sha256s == first.tranche_event_record_sha256s
+    assert replayed.reserved_replacement_spend_usd == "0.00"
+    assert replayed.remaining_headroom_usd == expected_remaining_headroom
+
+
+def test_authenticated_tranche_replays_mixed_confirmed_and_planned_documents(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        tmp_path, hard_cap_usd="12.20", reserve_document_counts=(2, 1, 1, 1, 1)
+    )
+    terminal_records = {
+        "case-050": {
+            **_terminal_record("case-050"),
+            "reason": "terminal_courtlistener_recap_fetch_provider_error",
+            "source_stage": "purchase-missing-recap-fetch",
+        }
+    }
+    terminal_bytes = _jsonl(tuple(terminal_records.values()))
+    disposition = object.__new__(VerifiedTerminalPurchaseDispositionAuthority)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.ranked_reserve_replacement.verified_residual_terminal_records",
+        lambda authority, *, purchase_journal: terminal_records,
+    )
+    monkeypatch.setattr(
+        "legalforecast.ingestion.ranked_reserve_replacement.verified_terminal_purchase_disposition_record",
+        lambda authority, *, purchase_journal: _disposition_record(
+            residual_sha256=_sha(terminal_bytes), candidate_ids=("case-050",)
+        ),
+    )
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        first = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=terminal_bytes,
+            expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+        )
+        journal.plan(first.replacement_plan)
+        assert journal.submit("doc-100-0") is True
+        journal.confirm(
+            "doc-100-0",
+            response={"status": "delivered"},
+            fees={"total_usd": "1.00"},
+        )
+        replayed = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=terminal_bytes,
+            expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+        )
+
+    assert first.replacement_plan.to_record()["max_projected_budget_usd"] == "9.15"
+    assert replayed.replacement_plan.to_record() == first.replacement_plan.to_record()
+    assert replayed.tranche_event_record_sha256s == first.tranche_event_record_sha256s
+
+
 def test_raw_retrieval_terminal_record_cannot_bypass_verified_authority(
     tmp_path: Path,
 ) -> None:
@@ -1744,10 +1891,11 @@ def _disposition_record(
     *,
     residual_sha256: str,
     purchase_journal_state_sha256: str = "sha256:" + "3" * 64,
+    candidate_ids: tuple[str, ...] = ("case-050", "case-051", "case-052"),
 ) -> dict[str, object]:
     terminal_pairs = [
-        {"candidate_id": f"case-{index:03d}", "source_document_id": f"doc-{index:03d}"}
-        for index in range(50, 53)
+        {"candidate_id": candidate_id, "source_document_id": f"doc-{candidate_id[5:]}"}
+        for candidate_id in candidate_ids
     ]
     return {
         "schema_version": "legalforecast.terminal_purchase_disposition.v1",
@@ -1756,15 +1904,15 @@ def _disposition_record(
         "purchase_journal_state_sha256": purchase_journal_state_sha256,
         "selection_payload_sha256": "sha256:" + "4" * 64,
         "snapshot_manifest_sha256": "sha256:" + "5" * 64,
-        "terminal_candidate_count": 3,
-        "terminal_failure_pair_count": 3,
+        "terminal_candidate_count": len(candidate_ids),
+        "terminal_failure_pair_count": len(candidate_ids),
         "terminal_failure_pairs": terminal_pairs,
         "docket_retained_candidate_count": 0,
         "docket_retained_failure_pair_count": 0,
         "docket_retained_failure_pairs": [],
         "docket_decision_sources_sha256": "sha256:" + "6" * 64,
-        "residual_candidate_count": 3,
-        "residual_failure_pair_count": 3,
+        "residual_candidate_count": len(candidate_ids),
+        "residual_failure_pair_count": len(candidate_ids),
         "residual_failure_pairs": terminal_pairs,
         "residual_terminal_exclusions_sha256": residual_sha256,
         "partition_disjoint": True,

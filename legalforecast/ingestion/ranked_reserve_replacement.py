@@ -301,7 +301,10 @@ def plan_ranked_reserve_replacements(
         event_documents = cast(list[str], event["purchase_document_ids"])
         for document_id in event_documents:
             operation = operation_by_document.get(document_id)
-            if operation is None or not _operation_commits_spend(operation):
+            commits_cap = (
+                False if operation is None else _operation_cap_amount(operation)[0]
+            )
+            if not commits_cap:
                 reserved += policy.per_document_reservation_usd
         event_hash = _digest(event.get("record_sha256"), "event record hash")
         event_hashes.append(event_hash)
@@ -372,6 +375,44 @@ def plan_ranked_reserve_replacements(
             raise RankedReserveReplacementError(
                 "terminal exclusion replay conflicts with the durable event"
             )
+    tranche_budget_cap = available_before_new
+    if terminal_purchase_disposition_authority is not None:
+        prior_tranche_events = tuple(
+            event
+            for event in prior_events
+            if cast(str, event["displaced_candidate_id"]) in terminal_by_id
+        )
+        if prior_tranche_events:
+            prior_caps = {
+                _money_decimal(
+                    event.get("tranche_max_projected_budget_usd"),
+                    "authenticated tranche budget cap",
+                )
+                for event in prior_tranche_events
+            }
+            if len(prior_caps) != 1:
+                raise RankedReserveReplacementError(
+                    "authenticated durable events disagree on tranche budget cap"
+                )
+            tranche_budget_cap = prior_caps.pop()
+            prior_tranche_encumbrance = Decimal("0.00")
+            for event in prior_tranche_events:
+                for document_id in cast(list[str], event["purchase_document_ids"]):
+                    operation = operation_by_document.get(document_id)
+                    commits_cap, cap_amount = (
+                        (False, Decimal("0.00"))
+                        if operation is None
+                        else _operation_cap_amount(operation)
+                    )
+                    prior_tranche_encumbrance += (
+                        cap_amount
+                        if commits_cap
+                        else policy.per_document_reservation_usd
+                    )
+            if tranche_budget_cap != available_before_new + prior_tranche_encumbrance:
+                raise RankedReserveReplacementError(
+                    "authenticated durable tranche budget cap no longer reconciles"
+                )
     remaining = [
         candidate_id
         for candidate_id in reserve_ids
@@ -435,6 +476,8 @@ def plan_ranked_reserve_replacements(
             "paid_activity_requested": False,
             "paid_activity_executed": False,
         }
+        if terminal_purchase_disposition_authority is not None:
+            payload["tranche_max_projected_budget_usd"] = _money(tranche_budget_cap)
         event_key = _canonical_sha256([projection_sha256, displaced_id])
         new_events.append((event_key, payload))
         new_displaced_ids.append(displaced_id)
@@ -490,14 +533,11 @@ def plan_ranked_reserve_replacements(
     max_documents = max(
         (plan.missing_core_document_count for plan in case_plans), default=1
     )
-    tranche_cost = sum(
-        (plan.estimated_cost for plan in case_plans), start=Decimal("0.00")
-    )
     replacement_plan = MissingCoreBudgetPlan(
         case_plans=case_plans,
         cost_per_document=policy.per_document_reservation_usd,
         max_projected_budget=(
-            tranche_cost
+            tranche_budget_cap
             if terminal_purchase_disposition_authority is not None
             else available_before_new
         ),
@@ -992,19 +1032,26 @@ def _money_decimal(value: object, source: str) -> Decimal:
     return amount
 
 
-def _operation_commits_spend(operation: Mapping[str, Any]) -> bool:
-    """Mirror the canonical journal's committed-amount status treatment."""
+def _operation_cap_amount(operation: Mapping[str, Any]) -> tuple[bool, Decimal]:
+    """Return whether and how much this operation contributes to the cycle cap."""
 
     status = operation.get("status")
-    return (
-        status == "confirmed"
-        or status in {"submitted", "queued", "unknown"}
-        or (
-            status == "failed"
-            and operation.get("response") is not None
-            and operation.get("reconciliation") is None
-        )
+    reservation = _money_decimal(operation.get("reservation_usd"), "reservation")
+    actual_raw = operation.get("actual_usd")
+    actual = (
+        Decimal("0.00")
+        if actual_raw is None
+        else _money_decimal(actual_raw, "actual purchase cost")
     )
+    if status == "confirmed":
+        return True, actual if actual_raw is not None else reservation
+    if status in {"submitted", "queued", "unknown"} or (
+        status == "failed"
+        and operation.get("response") is not None
+        and operation.get("reconciliation") is None
+    ):
+        return True, max(reservation, actual)
+    return False, Decimal("0.00")
 
 
 def _money(value: Decimal) -> str:
