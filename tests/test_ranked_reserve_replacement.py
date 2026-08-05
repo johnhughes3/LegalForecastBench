@@ -296,6 +296,180 @@ def test_verified_terminal_purchase_failure_consumes_ranked_reserve(
     assert terminal_exclusion["terminal_evidence_sha256"].startswith("sha256:")
 
 
+def test_zero_request_completed_resume_authenticates_quarantined_material(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_and_quarantined_resume_artifacts(
+            journal,
+            result_path=result_path,
+        )
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                result_path, result=result, run_card=run_card
+            ),
+            purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+
+    assert [record["candidate_id"] for record in authority.evidence_records] == [
+        "case-050"
+    ]
+
+
+def test_terminal_authority_accepts_closed_zero_cost_case_plan(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="6.10")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        _prepend_zero_cost_case_plan(result_path, candidate_id="case-free")
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                result_path, result=result, run_card=run_card
+            ),
+            purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+
+    assert authority.evidence_records[0]["candidate_id"] == "case-050"
+
+
+@pytest.mark.parametrize(
+    ("tamper", "match"),
+    (
+        ("zero_nonzero_count", "counts differ from its documents"),
+        ("zero_nonempty_role", "roles differ from its documents"),
+        ("zero_nonzero_cost", "cost differs from its documents"),
+        ("positive_zero_count", "counts differ from its documents"),
+        ("duplicate_candidate", "repeats a candidate"),
+    ),
+)
+def test_purchase_tranche_rejects_malformed_zero_or_positive_case_plan(
+    tmp_path: Path,
+    tamper: str,
+    match: str,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="6.10")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        plan = _prepend_zero_cost_case_plan(
+            result_path,
+            candidate_id=(
+                "case-050" if tamper == "duplicate_candidate" else "case-free"
+            ),
+        )
+        case_plans = cast(list[dict[str, object]], plan["case_plans"])
+        zero_plan, positive_plan = case_plans
+        if tamper == "zero_nonzero_count":
+            zero_plan["missing_core_document_count"] = 1
+        elif tamper == "zero_nonempty_role":
+            zero_plan["missing_core_roles"] = ["complaint"]
+        elif tamper == "zero_nonzero_cost":
+            zero_plan["estimated_cost_usd"] = "3.05"
+        elif tamper == "positive_zero_count":
+            positive_plan["missing_core_document_count"] = 0
+        result_path.with_name("purchase-budget-plan.json").write_bytes(
+            _canonical_json(plan)
+        )
+
+        with pytest.raises(TerminalPurchaseFailureError, match=match):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+@pytest.mark.parametrize(
+    ("tamper", "match"),
+    (
+        ("non_resume", "zero-request completion requires resume"),
+        ("nonzero_physical", "zero-request completion has request activity"),
+        ("submitted", "authenticated quarantine material"),
+        ("missing_material", "authenticated quarantine material"),
+        ("laundered_as_purchased", "authenticated quarantine material"),
+        ("confirmed_laundered_as_purchased", "authenticated quarantine material"),
+    ),
+)
+def test_zero_request_resume_requires_exact_quarantine_ledger_pairing(
+    tmp_path: Path,
+    tamper: str,
+    match: str,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_and_quarantined_resume_artifacts(
+            journal,
+            result_path=result_path,
+            quarantine_state=(
+                "submitted"
+                if tamper == "submitted"
+                else "queued_without_material"
+                if tamper == "missing_material"
+                else "confirmed"
+                if tamper == "confirmed_laundered_as_purchased"
+                else "available"
+            ),
+        )
+        if tamper == "non_resume":
+            run_card["resume"] = False
+        elif tamper == "nonzero_physical":
+            run_card["courtlistener_physical_requests"] = 1
+        elif tamper in {"laundered_as_purchased", "confirmed_laundered_as_purchased"}:
+            attempts = cast(list[dict[str, object]], result["attempts"])
+            attempts[1]["status"] = "purchased"
+            attempts[1]["reason"] = "fabricated_completed_status"
+            result["executed_purchase_count"] = 1
+            result["quarantined_material_count"] = 0
+            run_card["executed_purchase_count"] = 1
+            run_card["quarantined_material_count"] = 0
+
+        with pytest.raises(TerminalPurchaseFailureError, match=match):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
 def test_verified_mixed_disposition_emits_cap_bounded_99_case_precursor(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -733,6 +907,255 @@ def test_later_tranche_may_exclude_historical_terminal_failure(tmp_path: Path) -
     assert [record["candidate_id"] for record in authority.evidence_records] == [
         "case-100"
     ]
+
+
+def test_later_tranche_may_exclude_authenticated_historical_quarantine(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="12.20")
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        _terminal_and_quarantined_resume_artifacts(
+            journal,
+            result_path=first_root / "purchase-result.json",
+        )
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-100",
+            document_id="doc-100",
+            queue_status=6,
+            result_path=second_root / "purchase-result.json",
+        )
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                second_root / "purchase-result.json",
+                result=result,
+                run_card=run_card,
+            ),
+            purchase_run_card_path=second_root / "purchase-run-card.json",
+            purchase_journal=journal,
+        )
+
+    assert [record["candidate_id"] for record in authority.evidence_records] == [
+        "case-100"
+    ]
+
+
+def test_later_tranche_rejects_unauthenticated_historical_ambiguity(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="12.20")
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        _terminal_and_quarantined_resume_artifacts(
+            journal,
+            result_path=first_root / "purchase-result.json",
+            quarantine_state="queued_without_material",
+        )
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-100",
+            document_id="doc-100",
+            queue_status=6,
+            result_path=second_root / "purchase-result.json",
+        )
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="without exact authenticated quarantine material: doc-051",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    second_root / "purchase-result.json",
+                    result=result,
+                    run_card=run_card,
+                ),
+                purchase_run_card_path=second_root / "purchase-run-card.json",
+                purchase_journal=journal,
+            )
+
+
+def test_terminal_authority_accepts_exact_confirmed_purchased_attempt(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "purchase-result.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        _append_purchased_attempt(
+            journal,
+            result=result,
+            run_card=run_card,
+            result_path=result_path,
+            ledger_mode="confirmed",
+        )
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                result_path, result=result, run_card=run_card
+            ),
+            purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+
+    assert [record["candidate_id"] for record in authority.evidence_records] == [
+        "case-050"
+    ]
+
+
+def test_terminal_authority_accepts_authoritative_fee_purchased_attempt(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "purchase-result.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        _append_purchased_attempt(
+            journal,
+            result=result,
+            run_card=run_card,
+            result_path=result_path,
+            ledger_mode="authoritative",
+        )
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                result_path, result=result, run_card=run_card
+            ),
+            purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+
+    assert [record["candidate_id"] for record in authority.evidence_records] == [
+        "case-050"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("ledger_mode", "match"),
+    (
+        ("planned", "confirmed ordinary-public canonical ledger operation"),
+        ("wrong_candidate", "confirmed ordinary-public canonical ledger operation"),
+        ("invalid_confirmed", "differs from its canonical ledger response"),
+    ),
+)
+def test_purchased_attempt_requires_exact_confirmed_ledger_response(
+    tmp_path: Path,
+    ledger_mode: str,
+    match: str,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "purchase-result.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        _append_purchased_attempt(
+            journal,
+            result=result,
+            run_card=run_card,
+            result_path=result_path,
+            ledger_mode=ledger_mode,
+        )
+        with pytest.raises(TerminalPurchaseFailureError, match=match):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+@pytest.mark.parametrize(
+    "ledger_mode",
+    (
+        "malformed_fee_schema",
+        "invalid_fee_arithmetic",
+        "nonfinite_fee",
+        "negative_fee",
+        "fractional_cent_fee",
+        "over_reservation",
+        "unallowlisted_url",
+        "credentialed_url",
+        "nondefault_port",
+    ),
+)
+def test_purchased_attempt_rejects_invalid_fees_or_download_url(
+    tmp_path: Path,
+    ledger_mode: str,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "purchase-result.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        _append_purchased_attempt(
+            journal,
+            result=result,
+            run_card=run_card,
+            result_path=result_path,
+            ledger_mode=ledger_mode,
+        )
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="canonical ledger response",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
 
 
 @pytest.mark.parametrize("laundered_status", ("purchased", "quarantined"))
@@ -1547,7 +1970,7 @@ def test_cli_replays_full_projection_and_emits_provider_free_outputs(
     assert replayed_outputs == original_outputs
 
 
-def test_cli_derives_mixed_terminal_partition_and_publishes_99_case_precursor(
+def test_cli_derives_mixed_partition_without_nested_purchase_journal_lock(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1604,9 +2027,17 @@ def test_cli_derives_mixed_terminal_partition_and_publishes_99_case_precursor(
     monkeypatch.setattr(
         cli,
         "_verify_materializer_docket_decision_authority",
-        lambda **_kwargs: SimpleNamespace(
+        lambda **kwargs: SimpleNamespace(
             authority=disposition,
-            source_snapshots={},
+            partition={
+                "selected_document_count": 100,
+                "purchase_journal_state_sha256": "sha256:fixture",
+            },
+            purchase_policy=fixture["policy"],
+            ledger_path=fixture["policy"].canonical_ledger_path,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=receipt_path,
+            source_snapshots={purchase_result: purchase_result.read_bytes()},
         ),
     )
     monkeypatch.setattr(
@@ -1614,12 +2045,6 @@ def test_cli_derives_mixed_terminal_partition_and_publishes_99_case_precursor(
         "residual_terminal_exclusions_bytes",
         lambda authority, *, purchase_journal: terminal_bytes,
     )
-    monkeypatch.setattr(
-        cli,
-        "_replay_materialized_docket_decision_authority",
-        lambda descriptor: (descriptor.authority, ()),
-    )
-
     policy_path = tmp_path / "purchase-policy.json"
     policy_path.write_bytes(_canonical_json(dict(fixture["policy"].artifact)))
     receipt_path = tmp_path / "initialization.json"
@@ -1655,7 +2080,7 @@ def test_cli_derives_mixed_terminal_partition_and_publishes_99_case_precursor(
     original_planner = cli.plan_ranked_reserve_replacements
 
     def assert_freshness_precedes_planner(**kwargs: object) -> object:
-        assert freshness_checks == 1
+        assert freshness_checks == 2
         journal = cast(CaseDevPurchaseJournal, kwargs["purchase_journal"])
         assert journal.replacement_events() == ()
         if mutate_during_planning:
@@ -1671,6 +2096,70 @@ def test_cli_derives_mixed_terminal_partition_and_publishes_99_case_precursor(
     snapshot_manifest.parent.mkdir()
     for path in (purchase_result, purchase_run_card, snapshot_manifest):
         path.write_text("{}\n")
+    open_journal_count = 0
+    active_journal_count = 0
+    maximum_active_journal_count = 0
+
+    class _GuardedJournalContext:
+        def __init__(self, journal: CaseDevPurchaseJournal) -> None:
+            self.journal = journal
+
+        def __enter__(self) -> CaseDevPurchaseJournal:
+            nonlocal active_journal_count, maximum_active_journal_count
+            active_journal_count += 1
+            maximum_active_journal_count = max(
+                maximum_active_journal_count, active_journal_count
+            )
+            return self.journal
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc: BaseException | None,
+            traceback: object,
+        ) -> None:
+            nonlocal active_journal_count
+            try:
+                self.journal.close()
+            finally:
+                active_journal_count -= 1
+
+    def open_non_reentrant_journal(
+        *args: object, **kwargs: object
+    ) -> _GuardedJournalContext:
+        nonlocal open_journal_count
+        if active_journal_count:
+            raise AssertionError(
+                "CLI attempted to acquire a nested purchase-journal lock"
+            )
+        open_journal_count += 1
+        return _GuardedJournalContext(CaseDevPurchaseJournal(*args, **kwargs))  # type: ignore[arg-type]
+
+    monkeypatch.setattr(cli, "CaseDevPurchaseJournal", open_non_reentrant_journal)
+    partition_replays = 0
+
+    def replay_partition(
+        *,
+        authority: object,
+        purchase_journal: CaseDevPurchaseJournal,
+        selected_document_count: int,
+    ) -> Mapping[str, object]:
+        nonlocal partition_replays
+        partition_replays += 1
+        assert authority is disposition
+        assert purchase_journal.path == fixture["policy"].canonical_ledger_path
+        assert selected_document_count == 100
+        return {
+            "selected_document_count": 100,
+            "purchase_journal_state_sha256": "sha256:fixture",
+        }
+
+    monkeypatch.setattr(cli, "_docket_decision_partition_record", replay_partition)
+    monkeypatch.setattr(
+        cli,
+        "verified_docket_decision_source_records",
+        lambda authority, *, purchase_journal: (),
+    )
     outputs = {
         "result": tmp_path / "result.json",
         "active": tmp_path / "active.jsonl",
@@ -1743,7 +2232,10 @@ def test_cli_derives_mixed_terminal_partition_and_publishes_99_case_precursor(
     )
     assert result["terminal_disposition"]["partition_exhaustive"] is True
     assert result["terminal_disposition_sha256"].startswith("sha256:")
-    assert freshness_checks == 3
+    assert freshness_checks == 6
+    assert partition_replays == 4
+    assert open_journal_count == 4
+    assert maximum_active_journal_count == 1
     assert [
         json.loads(line)["candidate_id"]
         for line in outputs["replacement"].read_text().splitlines()
@@ -2084,6 +2576,327 @@ def _terminal_purchase_artifacts(
         },
     }
     return result, run_card
+
+
+def _terminal_and_quarantined_resume_artifacts(
+    journal: CaseDevPurchaseJournal,
+    *,
+    result_path: Path,
+    quarantine_state: str = "available",
+) -> tuple[dict[str, object], dict[str, object]]:
+    plan = MissingCoreBudgetPlan(
+        case_plans=(
+            _case_purchase_plan("case-050", "doc-050", journal),
+            _case_purchase_plan("case-051", "doc-051", journal),
+        ),
+        cost_per_document=journal.policy.per_document_reservation_usd,
+        max_projected_budget=journal.policy.per_document_reservation_usd * 2,
+        max_missing_core_documents_per_case=1,
+        dry_run=False,
+        target_case_count=2,
+    )
+    budget_plan_path = result_path.with_name("purchase-budget-plan.json")
+    budget_plan_path.write_bytes(_canonical_json(plan.to_record()))
+    journal.plan(plan)
+    journal.authorize_unknown_material_attempts(
+        {
+            "doc-051": {
+                "case_id": "case-051",
+                "selection_document_sha256": "a" * 64,
+            }
+        },
+        attempt_policy_sha256="b" * 64,
+    )
+    assert journal.submit("doc-050")
+    journal.queue(
+        "doc-050",
+        response={
+            "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+            "reservation_usd": "3.05",
+            "queue_id": "50",
+            "reservation_id": "reservation-50",
+        },
+    )
+    journal.fail(
+        "doc-050",
+        CourtListenerRecapFetchError("RECAP Fetch terminal queue status 3"),
+    )
+    assert journal.submit("doc-051")
+    if quarantine_state != "submitted":
+        journal.queue(
+            "doc-051",
+            response={
+                "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+                "reservation_usd": "3.05",
+                "queue_id": "51",
+                "reservation_id": "reservation-51",
+            },
+        )
+    if quarantine_state != "queued_without_material":
+        journal.mark_material_available_for_quarantine(
+            "doc-051",
+            provider_detail_sha256="c" * 64,
+            queue_response_sha256="d" * 64,
+            download_url_sha256="e" * 64,
+        )
+    if quarantine_state == "confirmed":
+        journal._connection.execute(  # pyright: ignore[reportPrivateUsage]
+            "UPDATE purchase_operations SET status='confirmed' "
+            "WHERE source_document_id='doc-051'"
+        )
+    result: dict[str, object] = {
+        "live": True,
+        "acknowledge_pacer_fees": True,
+        "capability": "document_level_purchase",
+        "dry_run": False,
+        "projected_cost_usd": "6.10",
+        "max_projected_budget_usd": "6.10",
+        "intended_purchase_count": 2,
+        "executed_purchase_count": 0,
+        "quarantined_material_count": 1,
+        "completed_purchase_count": 1,
+        "attempts": [
+            {
+                "candidate_id": "case-050",
+                "source_document_id": "doc-050",
+                "status": "provider_error",
+                "reason": "recap_fetch_status_3",
+                "fee_acknowledged": None,
+                "pacer_fees": None,
+                "download_url": None,
+                "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+            },
+            {
+                "candidate_id": "case-051",
+                "source_document_id": "doc-051",
+                "status": "quarantined",
+                "reason": "unknown_status_material_pending_clearance",
+                "fee_acknowledged": None,
+                "pacer_fees": None,
+                "download_url": None,
+                "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+            },
+        ],
+    }
+    run_card: dict[str, object] = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "purchase-missing-recap-fetch",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "resume": True,
+        "record_count": 2,
+        "input_paths": [str(budget_plan_path), "/frozen/selection.jsonl"],
+        "output_paths": [
+            str(result_path),
+            str(journal.policy.canonical_ledger_path),
+        ],
+        "paid_activity_requested": True,
+        "paid_activity_executed": False,
+        "generated_at": "2026-08-05T00:00:00Z",
+        "executed_purchase_count": 0,
+        "quarantined_material_count": 1,
+        "completed_purchase_count": 1,
+        "courtlistener_live": True,
+        "courtlistener_physical_requests": 0,
+        "courtlistener_rate_profile": "authenticated",
+        "courtlistener_request_budget_max_wait_seconds": 3700.0,
+        "courtlistener_request_ledger": "/private/request-ledger.sqlite3",
+        "courtlistener_reservations_this_phase": 0,
+        "courtlistener_reservations_total": 2,
+        "courtlistener_limits": {
+            "per_minute": 50,
+            "per_hour": 500,
+            "per_day": 1400,
+        },
+    }
+    return result, run_card
+
+
+def _append_purchased_attempt(
+    journal: CaseDevPurchaseJournal,
+    *,
+    result: dict[str, object],
+    run_card: dict[str, object],
+    result_path: Path,
+    ledger_mode: str,
+) -> None:
+    purchased_plan = MissingCoreBudgetPlan(
+        case_plans=(_case_purchase_plan("case-051", "doc-051", journal),),
+        cost_per_document=journal.policy.per_document_reservation_usd,
+        max_projected_budget=journal.policy.per_document_reservation_usd,
+        max_missing_core_documents_per_case=1,
+        dry_run=False,
+        target_case_count=1,
+    )
+    journal.plan(purchased_plan)
+    response: dict[str, object] = {
+        "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+        "reservation_usd": "3.05",
+        "download_url": "https://www.courtlistener.com/api/rest/v3/recap-documents/51/",
+    }
+    if ledger_mode in {
+        "authoritative",
+        "malformed_fee_schema",
+        "invalid_fee_arithmetic",
+        "over_reservation",
+    }:
+        response["actual_fees"] = {
+            "pacer_fee_usd": "1.05",
+            "service_fee_usd": "2.00",
+            "total_usd": "3.05",
+        }
+    if ledger_mode == "malformed_fee_schema":
+        cast(dict[str, object], response["actual_fees"])["unexpected"] = "0.00"
+    elif ledger_mode == "invalid_fee_arithmetic":
+        response["actual_fees"] = {
+            "pacer_fee_usd": "0.50",
+            "service_fee_usd": "0.50",
+            "total_usd": "1.50",
+        }
+    elif ledger_mode == "nonfinite_fee":
+        response["actual_fees"] = {
+            "pacer_fee_usd": "NaN",
+            "service_fee_usd": "1.00",
+            "total_usd": "1.00",
+        }
+    elif ledger_mode == "negative_fee":
+        response["actual_fees"] = {
+            "pacer_fee_usd": "-1.00",
+            "service_fee_usd": "2.00",
+            "total_usd": "1.00",
+        }
+    elif ledger_mode == "fractional_cent_fee":
+        response["actual_fees"] = {
+            "pacer_fee_usd": "1.001",
+            "service_fee_usd": "2.049",
+            "total_usd": "3.05",
+        }
+    elif ledger_mode == "over_reservation":
+        response["actual_fees"] = {
+            "pacer_fee_usd": "3.05",
+            "service_fee_usd": "0.95",
+            "total_usd": "4.00",
+        }
+    elif ledger_mode == "unallowlisted_url":
+        response["download_url"] = "https://example.invalid/purchased.pdf"
+    elif ledger_mode == "credentialed_url":
+        response["download_url"] = "https://user@www.courtlistener.com/purchased.pdf"
+    elif ledger_mode == "nondefault_port":
+        response["download_url"] = "https://storage.courtlistener.com:444/purchased.pdf"
+    elif ledger_mode == "authoritative":
+        response["download_url"] = "https://storage.courtlistener.com:443/purchased.pdf"
+    if ledger_mode != "planned":
+        assert journal.submit("doc-051")
+        ledger_response = (
+            {key: value for key, value in response.items() if key != "download_url"}
+            if ledger_mode == "invalid_confirmed"
+            else response
+        )
+        if "actual_fees" in ledger_response:
+            actual_fees = cast(Mapping[str, object], ledger_response["actual_fees"])
+            journal.confirm(
+                "doc-051",
+                response=ledger_response,
+                fees={
+                    "total_usd": (
+                        "3.05"
+                        if ledger_mode == "over_reservation"
+                        else str(actual_fees["total_usd"])
+                    )
+                },
+            )
+        else:
+            journal.queue("doc-051", response=ledger_response)
+            journal.confirm_reserved("doc-051", response=ledger_response)
+    if ledger_mode == "wrong_candidate":
+        journal._connection.execute(  # pyright: ignore[reportPrivateUsage]
+            "UPDATE purchase_operations SET candidate_id='case-999' "
+            "WHERE source_document_id='doc-051'"
+        )
+    attempts = cast(list[dict[str, object]], result["attempts"])
+    actual_fees = response.get("actual_fees")
+    attempts.append(
+        {
+            "candidate_id": "case-051",
+            "source_document_id": "doc-051",
+            "status": "purchased",
+            "reason": (
+                "confirmed_with_authoritative_fee_reconciliation"
+                if isinstance(actual_fees, Mapping)
+                else "confirmed_with_worst_case_reservation_pending_fee_reconciliation"
+            ),
+            "fee_acknowledged": True,
+            "pacer_fees": (
+                {str(key): str(value) for key, value in actual_fees.items()}
+                if isinstance(actual_fees, Mapping)
+                else {
+                    "pacer_fee_usd": "3.05",
+                    "service_fee_usd": "0.00",
+                    "total_usd": "3.05",
+                    "cost_basis": "worst_case_reservation",
+                }
+            ),
+            "download_url": response["download_url"],
+            "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+        }
+    )
+    result.update(
+        {
+            "projected_cost_usd": "6.10",
+            "max_projected_budget_usd": "6.10",
+            "intended_purchase_count": 2,
+            "executed_purchase_count": 1,
+            "completed_purchase_count": 1,
+        }
+    )
+    run_card.update(
+        {
+            "record_count": 2,
+            "executed_purchase_count": 1,
+            "completed_purchase_count": 1,
+        }
+    )
+    combined_plan = MissingCoreBudgetPlan(
+        case_plans=(
+            _case_purchase_plan("case-050", "doc-050", journal),
+            _case_purchase_plan("case-051", "doc-051", journal),
+        ),
+        cost_per_document=journal.policy.per_document_reservation_usd,
+        max_projected_budget=journal.policy.per_document_reservation_usd * 2,
+        max_missing_core_documents_per_case=1,
+        dry_run=False,
+        target_case_count=2,
+    )
+    result_path.with_name("purchase-budget-plan.json").write_bytes(
+        _canonical_json(combined_plan.to_record())
+    )
+
+
+def _prepend_zero_cost_case_plan(
+    result_path: Path,
+    *,
+    candidate_id: str,
+) -> dict[str, object]:
+    budget_plan_path = result_path.with_name("purchase-budget-plan.json")
+    plan = cast(dict[str, object], json.loads(budget_plan_path.read_bytes()))
+    case_plans = cast(list[dict[str, object]], plan["case_plans"])
+    case_plans.insert(
+        0,
+        {
+            "candidate_id": candidate_id,
+            "purchase_document_ids": [],
+            "missing_core_document_count": 0,
+            "estimated_purchase_count": 0,
+            "missing_core_roles": [],
+            "estimated_cost_usd": "0.00",
+            "audit_only_document_count": 1,
+            "dry_run": False,
+            "exclusion_reasons": [],
+        },
+    )
+    budget_plan_path.write_bytes(_canonical_json(plan))
+    return plan
 
 
 def _case_purchase_plan(
