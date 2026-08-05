@@ -35,7 +35,7 @@ from reportlab.platypus import (
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT / "docs/preprint/legalforecast-mtd-cycle-1.md"
-DEFAULT_OUTPUT = ROOT / "output/pdf/legalforecast-mtd-cycle-1-draft.pdf"
+DEFAULT_OUTPUT = ROOT / "docs/preprint/legalforecast-mtd-cycle-1-draft.pdf"
 
 PAGE_WIDTH, PAGE_HEIGHT = LETTER
 MARGIN_X = 0.72 * inch

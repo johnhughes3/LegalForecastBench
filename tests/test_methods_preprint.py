@@ -16,7 +16,7 @@ PACKAGE_README = ROOT / "docs/preprint/README.md"
 MANIFEST = ROOT / "docs/preprint/package-manifest.json"
 AUDIT = ROOT / "docs/preprint/citation-audit.json"
 RENDERER = ROOT / "scripts/render_methods_preprint.py"
-PDF = ROOT / "output/pdf/legalforecast-mtd-cycle-1-draft.pdf"
+PDF = ROOT / "docs/preprint/legalforecast-mtd-cycle-1-draft.pdf"
 
 OFFICIAL_LABEL = "Official LegalForecast-MTD Cycle 1 result"
 PENDING = "Pending audited Cycle 1 aggregate"
