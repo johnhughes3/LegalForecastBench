@@ -1514,6 +1514,9 @@ def _delivery_authority_fields(
         "reservation_retained": True,
         "no_paid_redispatch": True,
     }
+    # Recovery authenticates material availability at the time it was recorded;
+    # later billing settlement does not invalidate that delivery authority. Keep
+    # these accepted purchase states aligned with the journal-side validator.
     if (
         dict(recovery) != expected
         or operation.get("status") not in {"unknown", "confirmed", "failed"}

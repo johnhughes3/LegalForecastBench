@@ -581,6 +581,63 @@ def test_unknown_public_recovery_rejects_written_off_billing_state(
         assert "public_material_recovery" not in recovered
 
 
+@pytest.mark.parametrize(
+    ("disposition", "expected_status"),
+    (("failed", "failed"), ("write_off", "unknown")),
+)
+def test_unknown_public_recovery_survives_later_billing_reconciliation(
+    tmp_path: Path,
+    disposition: str,
+    expected_status: str,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        assert journal.submit("doc-1") is True
+        operation = journal.operation_evidence("doc-1")
+        assert operation is not None
+        journal.mark_unknown("doc-1", "ambiguous")
+        journal.mark_unknown_public_material_available(
+            "doc-1",
+            candidate_id="case-1",
+            operation_key=str(operation["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256="b" * 64,
+            download_url_sha256="c" * 64,
+        )
+        reconciliation = {
+            "source_document_id": "doc-1",
+            "disposition": disposition,
+            "source_type": "support_confirmation",
+            "source_reference": "support-ticket-123",
+            "pacer_fees": None,
+            "download_url": None,
+        }
+
+        journal.reconcile(reconciliation)
+
+        recovered = journal.operation_evidence("doc-1")
+        assert recovered is not None
+        assert recovered["status"] == expected_status
+        assert recovered["actual_usd"] is None
+        assert recovered["reconciliation"] == reconciliation
+        assert recovered["public_material_recovery"]["billing_status"] == "unknown"
+        assert journal.operation_records()[0]["public_material_recovery"] == (
+            recovered["public_material_recovery"]
+        )
+
+
 def test_unknown_public_recovery_converts_unreconciled_submitted_hold(
     tmp_path: Path,
 ) -> None:
