@@ -18,6 +18,7 @@ from legalforecast.ingestion.provenance_clearance import (
     canonical_json_bytes,
     exception_review_worksheet_v3,
 )
+from legalforecast.labeling.provider_journal import ProviderJournalError
 from reportlab.pdfgen.canvas import Canvas
 
 DisclosureModelReviewAuthorityError = (
@@ -562,6 +563,13 @@ def test_authenticated_review_retries_after_reconstruction_failure(
     public = public_disclosure_model_review_record(capability)
     assert public["journal_attempt_ordinal"] == 2
     assert public["authority_attempt_ordinal"] == 2
+
+    def unexpected_call(*_args: object) -> dict[str, object]:
+        raise AssertionError("settled retry must replay without another provider call")
+
+    replayed = _authenticate(tmp_path, transport=unexpected_call)
+    assert disclosure_model_review_provider_call_executed(replayed) is False
+    assert public_disclosure_model_review_record(replayed) == public
     with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
         rows = connection.execute(
             "SELECT attempt_ordinal, status FROM provider_attempts "
@@ -596,7 +604,7 @@ def test_reconstruction_failures_never_exceed_frozen_attempt_limit(
         ):
             _authenticate(tmp_path, transport=invalid_transport)
 
-    with pytest.raises(Exception, match="attempt limit is exhausted"):
+    with pytest.raises(ProviderJournalError, match="attempt limit is exhausted"):
         _authenticate(tmp_path, transport=invalid_transport)
 
     assert calls == 2

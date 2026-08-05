@@ -481,13 +481,18 @@ class ProviderAttemptJournal:
         ).fetchall()
         if not any(row["status"] == "reconstruction_failed" for row in rows):
             return max_attempts
-        if any(
-            row["status"] in {"settled", "validated_response", "response_received"}
-            for row in rows
-        ):
-            raise ProviderJournalError(
-                "reconstruction retry conflicts with a replayable provider response"
-            )
+        replayable = next(
+            (
+                row
+                for status in ("settled", "validated_response", "response_received")
+                for row in reversed(rows)
+                if row["status"] == status
+            ),
+            None,
+        )
+        if replayable is not None:
+            self._durable_ordinals[1] = int(replayable["attempt_ordinal"])
+            return 1
         remaining = max_attempts - len(rows)
         if remaining <= 0:
             raise ProviderJournalError(
