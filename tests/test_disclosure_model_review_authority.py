@@ -527,3 +527,82 @@ def test_authenticated_review_rejects_noncanonical_semantic_output(
         DisclosureModelReviewAuthorityError, match="not exact canonical JSON"
     ):
         _authenticate(tmp_path, transport=noncanonical)
+
+
+def test_authenticated_review_retries_after_reconstruction_failure(
+    tmp_path: Path,
+) -> None:
+    plan, _plan_bytes, _worksheet, _worksheet_bytes, _documents = _inputs()
+    document_sha256 = cast(
+        str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"]
+    )
+    invalid_payload = _provider_payload(document_sha256)
+    invalid_candidates = cast(list[dict[str, object]], invalid_payload["candidates"])
+    invalid_content = cast(dict[str, object], invalid_candidates[0]["content"])
+    invalid_parts = cast(list[dict[str, object]], invalid_content["parts"])
+    semantic = json.loads(cast(str, invalid_parts[0]["text"]))
+    invalid_parts[0]["text"] = json.dumps(semantic, indent=2) + "\n"
+    valid_payload = _provider_payload(document_sha256)
+    calls = 0
+
+    def improving_transport(_request: Request, _timeout: float) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return invalid_payload if calls == 1 else valid_payload
+
+    with pytest.raises(
+        DisclosureModelReviewAuthorityError, match="not exact canonical JSON"
+    ):
+        _authenticate(tmp_path, transport=improving_transport)
+
+    capability = _authenticate(tmp_path, transport=improving_transport)
+
+    assert calls == 2
+    assert disclosure_model_review_provider_call_executed(capability) is True
+    public = public_disclosure_model_review_record(capability)
+    assert public["journal_attempt_ordinal"] == 2
+    assert public["authority_attempt_ordinal"] == 2
+    with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [(1, "reconstruction_failed"), (2, "settled")]
+
+
+def test_reconstruction_failures_never_exceed_frozen_attempt_limit(
+    tmp_path: Path,
+) -> None:
+    plan, _plan_bytes, _worksheet, _worksheet_bytes, _documents = _inputs()
+    document_sha256 = cast(
+        str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"]
+    )
+    payload = _provider_payload(document_sha256)
+    candidates = cast(list[dict[str, object]], payload["candidates"])
+    content = cast(dict[str, object], candidates[0]["content"])
+    parts = cast(list[dict[str, object]], content["parts"])
+    semantic = json.loads(cast(str, parts[0]["text"]))
+    parts[0]["text"] = json.dumps(semantic, indent=2) + "\n"
+    calls = 0
+
+    def invalid_transport(_request: Request, _timeout: float) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return payload
+
+    for _ in range(2):
+        with pytest.raises(
+            DisclosureModelReviewAuthorityError, match="not exact canonical JSON"
+        ):
+            _authenticate(tmp_path, transport=invalid_transport)
+
+    with pytest.raises(Exception, match="attempt limit is exhausted"):
+        _authenticate(tmp_path, transport=invalid_transport)
+
+    assert calls == 2
+    with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [(1, "reconstruction_failed"), (2, "reconstruction_failed")]

@@ -148,6 +148,9 @@ def _authenticate_state(
     )
     journal, authority, handler = context.open()
     try:
+        remaining_attempts = journal.prepare_reconstruction_retry(
+            max_attempts=_MAX_ATTEMPTS
+        )
         response = complete_live_prompt(
             reviewer,
             batch_prompt.prompt_text,
@@ -155,7 +158,7 @@ def _authenticate_state(
             transport=transport,
             environ=environ,
             timeout_seconds=timeout_seconds,
-            max_attempts=_MAX_ATTEMPTS,
+            max_attempts=remaining_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=handler,
         )
