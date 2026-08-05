@@ -151,6 +151,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
+    CaseDevPurchaseSnapshot,
     initialize_case_dev_purchase_journal,
     read_case_dev_purchase_snapshot,
     require_approved_case_dev_purchase_policy,
@@ -40087,6 +40088,111 @@ def _recovered_public_lineage_digest(value: object, *, label: str) -> str:
     return value.removeprefix("sha256:")
 
 
+def _derive_recovered_public_lineage_rows(
+    recovery: Mapping[str, object],
+    *,
+    purchase_snapshot: CaseDevPurchaseSnapshot,
+    expected_manifest_path: Path,
+    expected_restriction_path: Path,
+) -> list[dict[str, object]]:
+    """Rebuild recovered-public evidence only from authenticated source bytes."""
+
+    raw_verified = recovery.get("verified_artifact_bytes")
+    raw_manifest_records = recovery.get("manifest_records")
+    recovery_run_card_path = recovery.get("run_card_path")
+    if (
+        not isinstance(raw_verified, Mapping)
+        or not isinstance(raw_manifest_records, Sequence)
+        or isinstance(raw_manifest_records, (str, bytes))
+        or not all(
+            isinstance(record, Mapping)
+            for record in cast(Sequence[object], raw_manifest_records)
+        )
+        or not isinstance(recovery_run_card_path, Path)
+    ):
+        raise CommandError("recovered-public verification lacks exact recovery bytes")
+    verified_bytes = cast(Mapping[str, bytes], raw_verified)
+    manifest_records = cast(Sequence[Mapping[str, Any]], raw_manifest_records)
+    try:
+        recovery_run_card_bytes = verified_bytes[
+            os.path.abspath(recovery_run_card_path)
+        ]
+        recovery_manifest_bytes = verified_bytes[
+            os.path.abspath(expected_manifest_path)
+        ]
+        restriction_bytes = verified_bytes[os.path.abspath(expected_restriction_path)]
+    except KeyError as exc:
+        raise CommandError(
+            "recovered-public verification lacks exact recovery bytes"
+        ) from exc
+    recovery_run_card = _projection_json_object(
+        recovery_run_card_bytes, source=recovery_run_card_path
+    )
+    raw_outputs = recovery_run_card.get("output_commitments")
+    if (
+        not isinstance(raw_outputs, Mapping)
+        or cast(Mapping[str, object], raw_outputs).get("purchase_state_sha256")
+        != purchase_snapshot.purchase_state_sha256
+    ):
+        raise CommandError("recovered-public purchase state changed after recovery")
+    operations = _materializer_record_index(
+        purchase_snapshot.operations, label="recovered-public purchase operations"
+    )
+    restrictions = _materializer_record_index(
+        _projection_jsonl_records(restriction_bytes, source=expected_restriction_path),
+        label="recovered-public restriction evidence",
+    )
+    recovery_run_card_sha256 = _recovered_public_lineage_digest(
+        _bytes_sha256(recovery_run_card_bytes), label="recovery run card"
+    )
+    recovery_manifest_sha256 = _recovered_public_lineage_digest(
+        _bytes_sha256(recovery_manifest_bytes), label="recovery manifest"
+    )
+    recovery_restriction_sha256 = _recovered_public_lineage_digest(
+        _bytes_sha256(restriction_bytes), label="recovery restriction evidence"
+    )
+    lineage_rows: list[dict[str, object]] = []
+    for manifest_record in manifest_records:
+        key = _materializer_record_key(manifest_record)
+        operation = operations.get(key)
+        restriction = restrictions.get(key)
+        if operation is None or restriction is None:
+            raise CommandError(
+                f"recovered-public recovery lacks exact purchase evidence: {key}"
+            )
+        material = operation.get("material_evidence")
+        operation_key = operation.get("operation_key")
+        fresh_recap_detail_sha256 = manifest_record.get("fresh_recap_detail_sha256")
+        if (
+            not isinstance(material, Mapping)
+            or not isinstance(operation_key, str)
+            or operation_key != manifest_record.get("purchase_operation_key")
+            or not isinstance(fresh_recap_detail_sha256, str)
+            or cast(Mapping[str, object], material).get("provider_detail_sha256")
+            != fresh_recap_detail_sha256
+            or restriction.get("fresh_recap_detail_sha256") != fresh_recap_detail_sha256
+        ):
+            raise CommandError(
+                f"recovered-public purchase or fresh-detail identity changed: {key}"
+            )
+        lineage_rows.append(
+            {
+                "candidate_id": key[0],
+                "source_document_id": key[1],
+                "recovery_run_card_sha256": recovery_run_card_sha256,
+                "recovery_manifest_sha256": recovery_manifest_sha256,
+                "recovery_restriction_evidence_sha256": (recovery_restriction_sha256),
+                "purchase_state_sha256": purchase_snapshot.purchase_state_sha256,
+                "purchase_operation_sha256": _recovered_public_lineage_digest(
+                    _canonical_json_sha256(operation), label="purchase operation"
+                ),
+                "purchase_operation_key": operation_key,
+                "fresh_recap_detail_sha256": fresh_recap_detail_sha256,
+            }
+        )
+    return lineage_rows
+
+
 def _verified_recovered_public_clearance_capability(
     args: argparse.Namespace,
     *,
@@ -40190,78 +40296,12 @@ def _verified_recovered_public_clearance_capability(
         raise CommandError("recovered-public verification lacks exact recovery bytes")
     verified_bytes = cast(Mapping[str, bytes], raw_verified)
     run_card_bytes = verified_bytes[os.path.abspath(run_card_path)]
-    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
-    raw_outputs = run_card.get("output_commitments")
-    if (
-        not isinstance(raw_outputs, Mapping)
-        or cast(Mapping[str, object], raw_outputs).get("purchase_state_sha256")
-        != purchase_snapshot.purchase_state_sha256
-    ):
-        raise CommandError("recovered-public purchase state changed after recovery")
-    operations = _materializer_record_index(
-        purchase_snapshot.operations, label="recovered-public purchase operations"
+    lineage_rows = _derive_recovered_public_lineage_rows(
+        recovery,
+        purchase_snapshot=purchase_snapshot,
+        expected_manifest_path=expected_manifest_path,
+        expected_restriction_path=expected_restriction_path,
     )
-    manifest_records = cast(Sequence[Mapping[str, Any]], recovery["manifest_records"])
-    restriction_records = _projection_jsonl_records(
-        verified_bytes[os.path.abspath(expected_restriction_path)],
-        source=expected_restriction_path,
-    )
-    restrictions = _materializer_record_index(
-        restriction_records, label="recovered-public restriction evidence"
-    )
-    lineage_rows: list[dict[str, object]] = []
-    for manifest_record in manifest_records:
-        key = _materializer_record_key(manifest_record)
-        operation = operations.get(key)
-        restriction = restrictions.get(key)
-        if operation is None or restriction is None:
-            raise CommandError(
-                f"recovered-public recovery lacks exact purchase evidence: {key}"
-            )
-        material = operation.get("material_evidence")
-        if (
-            not isinstance(material, Mapping)
-            or operation.get("operation_key")
-            != manifest_record.get("purchase_operation_key")
-            or cast(Mapping[str, object], material).get("provider_detail_sha256")
-            != manifest_record.get("fresh_recap_detail_sha256")
-            or restriction.get("fresh_recap_detail_sha256")
-            != manifest_record.get("fresh_recap_detail_sha256")
-        ):
-            raise CommandError(
-                f"recovered-public purchase or fresh-detail identity changed: {key}"
-            )
-        lineage_rows.append(
-            {
-                "candidate_id": key[0],
-                "source_document_id": key[1],
-                "recovery_run_card_sha256": _recovered_public_lineage_digest(
-                    _bytes_sha256(run_card_bytes), label="recovery run card"
-                ),
-                "recovery_manifest_sha256": _recovered_public_lineage_digest(
-                    _bytes_sha256(
-                        verified_bytes[os.path.abspath(expected_manifest_path)]
-                    ),
-                    label="recovery manifest",
-                ),
-                "recovery_restriction_evidence_sha256": (
-                    _recovered_public_lineage_digest(
-                        _bytes_sha256(
-                            verified_bytes[os.path.abspath(expected_restriction_path)]
-                        ),
-                        label="recovery restriction evidence",
-                    )
-                ),
-                "purchase_state_sha256": purchase_snapshot.purchase_state_sha256,
-                "purchase_operation_sha256": _recovered_public_lineage_digest(
-                    _canonical_json_sha256(operation), label="purchase operation"
-                ),
-                "purchase_operation_key": cast(str, operation["operation_key"]),
-                "fresh_recap_detail_sha256": cast(
-                    str, manifest_record["fresh_recap_detail_sha256"]
-                ),
-            }
-        )
     capability = _issue_recovered_public_clearance_capability(lineage_rows)
     authority: dict[str, object] = {
         "kind": "verified_recap_fetch_recovery",
@@ -43139,6 +43179,11 @@ def _verify_provider_free_provenance_quarantine_run_card(
     recovery_input_paths: tuple[Path, ...] = ()
     recovery_capability: object | None = None
     recovery: Mapping[str, object] | None = None
+    purchase_policy_path: Path | None = None
+    initialization_receipt_path: Path | None = None
+    recovery_cohort_policy_path: Path | None = None
+    ledger_path: Path | None = None
+    state_sha256: str | None = None
     if recovered_authority is not None:
         if (
             set(recovered_authority)
@@ -43175,15 +43220,16 @@ def _verify_provider_free_provenance_quarantine_run_card(
             raise CommandError("recovered-public authority lacks purchase ledger")
         ledger_commitment = cast(Mapping[str, object], raw_ledger)
         ledger_path_text = ledger_commitment.get("path")
-        state_sha256 = ledger_commitment.get("purchase_state_sha256")
+        raw_state_sha256 = ledger_commitment.get("purchase_state_sha256")
         if (
             not isinstance(ledger_path_text, str)
             or not ledger_path_text
-            or not isinstance(state_sha256, str)
-            or re.fullmatch(r"[0-9a-f]{64}", state_sha256) is None
+            or not isinstance(raw_state_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", raw_state_sha256) is None
         ):
             raise CommandError("invalid recovered-public purchase ledger commitment")
         ledger_path = Path(ledger_path_text)
+        state_sha256 = raw_state_sha256
         selection_records = _projection_jsonl_records(
             _read_singly_linked_regular_input(
                 selection_path, label="recovered-public selection"
@@ -43292,7 +43338,15 @@ def _verify_provider_free_provenance_quarantine_run_card(
         )
         if recovered_authority is not None:
             raw_documents = frozen_plan.get("documents")
-            if not isinstance(raw_documents, list) or recovery is None:
+            if (
+                not isinstance(raw_documents, list)
+                or recovery is None
+                or purchase_policy_path is None
+                or initialization_receipt_path is None
+                or recovery_cohort_policy_path is None
+                or ledger_path is None
+                or state_sha256 is None
+            ):
                 raise ProvenanceClearanceError(
                     "recovered-public routing plan lacks documents"
                 )
@@ -43307,46 +43361,81 @@ def _verify_provider_free_provenance_quarantine_run_card(
                 )
                 if isinstance(raw_lineage, Mapping):
                     lineage_rows.append(cast(Mapping[str, object], raw_lineage))
-            if len(lineage_rows) != recovered_authority.get("document_count"):
-                raise ProvenanceClearanceError(
-                    "recovered-public authority coverage changed"
+            purchase_policy_bytes = _read_singly_linked_regular_input(
+                purchase_policy_path, label="recovered-public purchase policy"
+            )
+            recovery_cohort_policy_bytes = _read_singly_linked_regular_input(
+                recovery_cohort_policy_path,
+                label="recovered-public cohort policy",
+            )
+            purchase_policy = verify_case_dev_purchase_policy(
+                _projection_json_object(
+                    purchase_policy_bytes, source=purchase_policy_path
                 )
+            )
+            require_approved_case_dev_purchase_policy(purchase_policy)
+            verify_case_dev_purchase_policy_cohort_binding(
+                purchase_policy,
+                _projection_json_object(
+                    recovery_cohort_policy_bytes,
+                    source=recovery_cohort_policy_path,
+                ),
+            )
+            if ledger_path.resolve() != purchase_policy.canonical_ledger_path:
+                raise CommandError(
+                    "recovered-public ledger conflicts with the canonical policy "
+                    "locator"
+                )
+            purchase_snapshot = read_case_dev_purchase_snapshot(
+                ledger_path,
+                policy=purchase_policy,
+                initialization_receipt_path=initialization_receipt_path,
+            )
+            expected_lineage_rows = _derive_recovered_public_lineage_rows(
+                recovery,
+                purchase_snapshot=purchase_snapshot,
+                expected_manifest_path=paths["download_manifest"],
+                expected_restriction_path=paths["restriction_evidence"],
+            )
             recovery_bytes = cast(
                 Mapping[str, bytes], recovery["verified_artifact_bytes"]
             )
-            expected_common = {
-                "recovery_run_card_sha256": _recovered_public_lineage_digest(
-                    _bytes_sha256(
-                        recovery_bytes[
-                            os.path.abspath(cast(Path, recovery["run_card_path"]))
-                        ]
-                    ),
-                    label="recovery run card",
+            expected_authority = {
+                "recovery_manifest_sha256": _bytes_sha256(
+                    recovery_bytes[
+                        os.path.abspath(cast(Path, recovery["manifest_path"]))
+                    ]
                 ),
-                "recovery_manifest_sha256": _recovered_public_lineage_digest(
-                    recovered_authority.get("recovery_manifest_sha256"),
-                    label="recovery manifest",
+                "recovery_restriction_evidence_sha256": _bytes_sha256(
+                    recovery_bytes[
+                        os.path.abspath(cast(Path, recovery["restriction_path"]))
+                    ]
                 ),
-                "recovery_restriction_evidence_sha256": (
-                    _recovered_public_lineage_digest(
-                        recovered_authority.get("recovery_restriction_evidence_sha256"),
-                        label="recovery restriction evidence",
-                    )
-                ),
-                "purchase_state_sha256": cast(
-                    Mapping[str, object], recovered_authority["purchase_ledger"]
-                ).get("purchase_state_sha256"),
             }
-            if any(
-                lineage.get(field) != value
-                for lineage in lineage_rows
-                for field, value in expected_common.items()
+            if (
+                type(recovered_authority.get("document_count")) is not int
+                or recovered_authority.get("document_count")
+                != len(expected_lineage_rows)
+                or any(
+                    recovered_authority.get(field) != value
+                    for field, value in expected_authority.items()
+                )
+                or state_sha256 != purchase_snapshot.purchase_state_sha256
+            ):
+                raise ProvenanceClearanceError(
+                    "recovered-public authority evidence changed"
+                )
+            if _materializer_record_index(
+                lineage_rows, label="recovered-public routing lineage"
+            ) != _materializer_record_index(
+                expected_lineage_rows,
+                label="authenticated recovered-public lineage",
             ):
                 raise ProvenanceClearanceError(
                     "recovered-public routing lineage changed"
                 )
             recovery_capability = _issue_recovered_public_clearance_capability(
-                lineage_rows
+                expected_lineage_rows
             )
         plan = build_provenance_clearance_plan_v3(
             _projection_jsonl_records(
@@ -43431,6 +43520,8 @@ def _verify_provider_free_provenance_quarantine_run_card(
             document_snapshot, document_root=document_root
         )
     except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
         CohortPolicyError,
         OSError,
         ProvenanceClearanceError,

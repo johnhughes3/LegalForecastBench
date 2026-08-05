@@ -677,6 +677,121 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     assert paths["manifest"] in clearance_inputs
     assert paths["relevance"] in clearance_inputs
 
+    routing_plan_path = paths["output"] / "disclosure-provenance-plan.json"
+    worksheet_path = paths["output"] / "disclosure-exception-worksheet.json"
+    quarantine_path = clearance_root / "disclosure-quarantine.jsonl"
+    replay_artifacts = (
+        routing_plan_path,
+        worksheet_path,
+        clearance_path,
+        quarantine_path,
+        clearance_run_card_path,
+    )
+    original_artifacts = {path: path.read_bytes() for path in replay_artifacts}
+
+    def write_tampered_replay_artifacts(field: str, value: str) -> None:
+        tampered_plan = cast(
+            dict[str, object], json.loads(original_artifacts[routing_plan_path])
+        )
+        documents = cast(list[dict[str, object]], tampered_plan["documents"])
+        recovered_document = next(
+            document
+            for document in documents
+            if document["source_document_id"] == "auto"
+        )
+        recovered_lineage = cast(
+            dict[str, object], recovered_document["recovered_public_lineage"]
+        )
+        recovered_lineage[field] = value
+        tampered_plan["document_set_sha256"] = hashlib.sha256(
+            cli_module.canonical_json_bytes(documents)
+        ).hexdigest()
+        plan_bytes = cli_module.canonical_json_bytes(tampered_plan)
+        routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        tampered_worksheet = cli_module.exception_review_worksheet_v3(tampered_plan)
+        worksheet_bytes = cli_module.canonical_json_bytes(tampered_worksheet)
+        records = cli_module.build_provider_free_quarantine_records_v3(
+            tampered_plan, routing_plan_sha256=routing_plan_sha256
+        )
+        clearance_bytes = b"".join(
+            cli_module.canonical_json_bytes(record.to_record()) for record in records
+        )
+        quarantine_bytes = b"".join(
+            cli_module.canonical_json_bytes(record.to_record())
+            for record in records
+            if record.status == "quarantined"
+        )
+        tampered_run_card = cast(
+            dict[str, object],
+            json.loads(original_artifacts[clearance_run_card_path]),
+        )
+        source_commitments = cast(
+            dict[str, object], tampered_run_card["source_commitments"]
+        )
+        cast(dict[str, object], source_commitments["routing_plan"])["sha256"] = (
+            "sha256:" + routing_plan_sha256
+        )
+        cast(dict[str, object], source_commitments["exception_worksheet"])["sha256"] = (
+            "sha256:" + hashlib.sha256(worksheet_bytes).hexdigest()
+        )
+        output_commitments = cast(
+            dict[str, object], tampered_run_card["output_commitments"]
+        )
+        cast(dict[str, object], output_commitments["disclosure_clearance"])[
+            "sha256"
+        ] = "sha256:" + hashlib.sha256(clearance_bytes).hexdigest()
+        cast(dict[str, object], output_commitments["disclosure_quarantine"])[
+            "sha256"
+        ] = "sha256:" + hashlib.sha256(quarantine_bytes).hexdigest()
+        disposition_policy = cast(
+            dict[str, object], tampered_run_card["disposition_policy"]
+        )
+        disposition_policy["routing_plan_sha256"] = "sha256:" + routing_plan_sha256
+        disposition_policy["exception_worksheet_sha256"] = (
+            "sha256:" + hashlib.sha256(worksheet_bytes).hexdigest()
+        )
+        routing_plan_path.write_bytes(plan_bytes)
+        worksheet_path.write_bytes(worksheet_bytes)
+        clearance_path.write_bytes(clearance_bytes)
+        quarantine_path.write_bytes(quarantine_bytes)
+        clearance_run_card_path.write_bytes(
+            cli_module.canonical_json_bytes(tampered_run_card)
+        )
+
+    for field, value in (
+        ("purchase_operation_sha256", "7" * 64),
+        ("purchase_operation_key", "11111111-1111-4111-8111-111111111111"),
+    ):
+        for artifact_path, payload in original_artifacts.items():
+            artifact_path.write_bytes(payload)
+        write_tampered_replay_artifacts(field, value)
+        with pytest.raises(
+            cli_module.CommandError, match="recovered-public routing lineage changed"
+        ):
+            cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+                clearance_path=clearance_path,
+                clearance_run_card_path=clearance_run_card_path,
+            )
+
+    for artifact_path, payload in original_artifacts.items():
+        artifact_path.write_bytes(payload)
+    changed_operation = {**operation, "authenticated_journal_revision": 2}
+    monkeypatch.setattr(
+        cli_module,
+        "read_case_dev_purchase_snapshot",
+        lambda *_a, **_k: Namespace(
+            purchase_state_sha256=purchase_state_sha256,
+            operations=(changed_operation,),
+        ),
+    )
+    with pytest.raises(
+        cli_module.CommandError, match="recovered-public routing lineage changed"
+    ):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=clearance_run_card_path,
+        )
+
 
 def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
