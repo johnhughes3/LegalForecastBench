@@ -39,6 +39,10 @@ from legalforecast.ingestion.recap_fetch_attempt_policy import (
     RECAP_FETCH_ATTEMPT_POLICY_VERSION,
     generate_recap_fetch_attempt_policy,
 )
+from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
+    RecapFetchQuarantineRecoveryError,
+    project_purchased_case_relevance,
+)
 from legalforecast.ingestion.resolved_post_recovery import (
     AuthenticatedClearanceLineage,
     ResolvedPostRecoveryError,
@@ -175,7 +179,7 @@ def test_purchased_case_relevance_projects_only_recovered_manifest_keys() -> Non
         for document_id in ("paid-a", "paid-b")
     ]
 
-    projected = cli._project_purchased_case_relevance(relevance, manifest)
+    projected = project_purchased_case_relevance(relevance, manifest)
 
     assert projected == (
         {
@@ -195,8 +199,25 @@ def test_purchased_case_relevance_projects_only_recovered_manifest_keys() -> Non
     )
 
 
-@pytest.mark.parametrize("mutation", ["duplicate", "missing", "free_phase"])
-def test_purchased_case_relevance_rejects_invalid_coverage(mutation: str) -> None:
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("duplicate_recovery", "recovered quarantine manifest repeats a document"),
+        ("free_phase", "recovered quarantine manifest includes a non-purchased row"),
+        ("duplicate_candidate", "target case relevance repeats a candidate"),
+        ("missing_documents", "target case relevance lacks documents"),
+        ("invalid_document", "target case relevance has invalid document row"),
+        ("duplicate_document", "target case relevance repeats a document"),
+        (
+            "missing_coverage",
+            "recovered quarantine document lacks target case relevance",
+        ),
+    ],
+)
+def test_purchased_case_relevance_rejects_invalid_coverage(
+    mutation: str,
+    message: str,
+) -> None:
     relevance = [
         {
             "candidate_id": "case-1",
@@ -210,15 +231,43 @@ def test_purchased_case_relevance_rejects_invalid_coverage(mutation: str) -> Non
             "free_or_purchased": "purchased",
         }
     ]
-    if mutation == "duplicate":
+    if mutation == "duplicate_recovery":
         manifest.append(dict(manifest[0]))
-    elif mutation == "missing":
-        manifest[0]["source_document_id"] = "absent"
-    else:
+    elif mutation == "free_phase":
         manifest[0]["free_or_purchased"] = "free"
+    elif mutation == "duplicate_candidate":
+        relevance.append(dict(relevance[0]))
+    elif mutation == "missing_documents":
+        relevance[0].pop("documents")
+    elif mutation == "invalid_document":
+        relevance[0]["documents"] = ["invalid"]
+    elif mutation == "duplicate_document":
+        relevance[0]["documents"] = [
+            {"source_document_id": "paid"},
+            {"source_document_id": "paid"},
+        ]
+    else:
+        manifest[0]["source_document_id"] = "absent"
 
-    with pytest.raises(cli.CommandError):
-        cli._project_purchased_case_relevance(relevance, manifest)
+    with pytest.raises(RecapFetchQuarantineRecoveryError, match=message):
+        project_purchased_case_relevance(relevance, manifest)
+
+
+def test_cli_purchased_case_relevance_preserves_domain_error_message() -> None:
+    with pytest.raises(
+        cli.CommandError,
+        match="recovered quarantine manifest includes a non-purchased row",
+    ):
+        cli._project_purchased_case_relevance(
+            [],
+            [
+                {
+                    "candidate_id": "case-1",
+                    "source_document_id": "document-1",
+                    "free_or_purchased": "free",
+                }
+            ],
+        )
 
 
 def test_quarantine_materializer_binds_clearance_to_recovery_sources(

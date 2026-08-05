@@ -237,6 +237,96 @@ def write_recap_fetch_restriction_evidence(
     write_recap_fetch_quarantine_manifest(path, records)
 
 
+def project_purchased_case_relevance(
+    case_relevance: Sequence[Mapping[str, Any]],
+    recovered_manifest: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, object], ...]:
+    """Filter authenticated target relevance to exactly recovered purchased keys."""
+
+    recovered_keys = {_purchased_relevance_key(record) for record in recovered_manifest}
+    if len(recovered_keys) != len(recovered_manifest):
+        raise RecapFetchQuarantineRecoveryError(
+            "recovered quarantine manifest repeats a document"
+        )
+    if any(
+        record.get("free_or_purchased") != "purchased" for record in recovered_manifest
+    ):
+        raise RecapFetchQuarantineRecoveryError(
+            "recovered quarantine manifest includes a non-purchased row"
+        )
+    seen_candidates: set[str] = set()
+    seen_documents: set[tuple[str, str]] = set()
+    projected: list[dict[str, object]] = []
+    for raw_case in case_relevance:
+        candidate_id = _required_projection_text(raw_case, "candidate_id")
+        if candidate_id in seen_candidates:
+            raise RecapFetchQuarantineRecoveryError(
+                "target case relevance repeats a candidate"
+            )
+        seen_candidates.add(candidate_id)
+        raw_documents = raw_case.get("documents")
+        if not isinstance(raw_documents, list):
+            raise RecapFetchQuarantineRecoveryError(
+                "target case relevance lacks documents"
+            )
+        selected_documents: list[dict[str, object]] = []
+        for raw_document in cast(list[object], raw_documents):
+            if not isinstance(raw_document, Mapping):
+                raise RecapFetchQuarantineRecoveryError(
+                    "target case relevance has invalid document row"
+                )
+            document = dict(cast(Mapping[str, object], raw_document))
+            key = (
+                candidate_id,
+                _required_projection_text(document, "source_document_id"),
+            )
+            if key in seen_documents:
+                raise RecapFetchQuarantineRecoveryError(
+                    "target case relevance repeats a document"
+                )
+            seen_documents.add(key)
+            if key in recovered_keys:
+                selected_documents.append(document)
+        if selected_documents:
+            projected_case = dict(raw_case)
+            projected_case["documents"] = selected_documents
+            projected.append(projected_case)
+    missing = recovered_keys - seen_documents
+    if missing:
+        raise RecapFetchQuarantineRecoveryError(
+            "recovered quarantine document lacks target case relevance: "
+            f"{sorted(missing)}"
+        )
+    projected_keys = {
+        (str(case["candidate_id"]), str(document["source_document_id"]))
+        for case in projected
+        for document in cast(list[dict[str, object]], case["documents"])
+    }
+    if projected_keys != recovered_keys:
+        raise RecapFetchQuarantineRecoveryError(
+            "purchased case-relevance projection coverage mismatch"
+        )
+    return tuple(projected)
+
+
+def _purchased_relevance_key(record: Mapping[str, Any]) -> tuple[str, str]:
+    return (
+        _required_projection_text(record, "candidate_id"),
+        _required_projection_text(record, "source_document_id"),
+    )
+
+
+def _required_projection_text(record: Mapping[str, Any], field_name: str) -> str:
+    if field_name not in record:
+        raise RecapFetchQuarantineRecoveryError(f"{field_name} is required")
+    value = record[field_name]
+    if not isinstance(value, str) or not value.strip():
+        raise RecapFetchQuarantineRecoveryError(
+            f"{field_name} must be a non-empty string"
+        )
+    return value
+
+
 def build_recap_fetch_disclosure_review_requests(
     manifest_records: Sequence[Mapping[str, Any]],
     restriction_records: Sequence[Mapping[str, Any]],

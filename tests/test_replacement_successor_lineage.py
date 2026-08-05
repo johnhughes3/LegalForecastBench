@@ -9,6 +9,9 @@ from typing import Any
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
+    project_purchased_case_relevance,
+)
 from legalforecast.ingestion.snapshot_reconciliation import (
     SnapshotReconciliation,
     SnapshotReconciliationError,
@@ -453,7 +456,7 @@ def test_authority_bound_replacement_selection_is_valid_recovery_relevance() -> 
         }
     ]
 
-    projected = cli._project_purchased_case_relevance(
+    projected = project_purchased_case_relevance(
         replacement_selection,
         recovered,
     )
