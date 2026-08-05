@@ -169,9 +169,8 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `docs/`: methods, labeling protocol, official-run runbook, reproduction/audit guide, schema contracts, and community/adapter docs — start at [docs/README.md](docs/README.md).
 - `tests/`: synthetic fixtures and regression coverage.
 - `scripts/`: release check, release bundle build, and offline adapter probes.
-- `manifests/`: acquisition-cycle templates rendered into immutable cycle configs.
+- `manifests/`: acquisition-cycle templates rendered into immutable cycle configs, plus the committed RECAP fetch broker, attempt, and purchase policies under `recap-fetch-policies/`.
 - `model_registries/`: frozen per-cycle model registries — evaluation candidates, labeling and Stage B judge panels, disclosure reviewer, and provider caps.
-- `config/`: committed RECAP fetch broker, attempt, and purchase policies.
 - `infra/`: Terraform roots for the official evaluation boundary, paid-labeling authority, and shared provider authority table.
 - `MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
 
