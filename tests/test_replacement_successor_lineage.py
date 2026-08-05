@@ -9,6 +9,11 @@ from typing import Any
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion.snapshot_reconciliation import (
+    SnapshotReconciliation,
+    SnapshotReconciliationError,
+    validate_acquisition_discovery_reconciliation,
+)
 
 
 def _write_json(path: Path, value: object) -> Path:
@@ -457,16 +462,22 @@ def test_authority_bound_replacement_selection_is_valid_recovery_relevance() -> 
 
 
 def test_finalize_reconciliation_rejects_selected_excluded_overlap() -> None:
-    reconciliation = SimpleNamespace(
+    reconciliation = SnapshotReconciliation(
         accepted_count=2,
         excluded_count=0,
         processed_count=2,
+        cycle_hash="a" * 64,
+        batch_id="batch-1",
+        batch_digest="b" * 64,
+        snapshot_id="snapshot-1",
+        manifest_sha256="c" * 64,
+        cycle_store_path="/controlled/cycle.sqlite3",
     )
     with pytest.raises(
-        cli.CommandError,
+        SnapshotReconciliationError,
         match="selected xor excluded",
     ):
-        cli._validate_acquisition_discovery_reconciliation(
+        validate_acquisition_discovery_reconciliation(
             screened_case_records=[
                 {"candidate": {"docket_id": "selected"}},
                 {"candidate": {"docket_id": "other"}},
