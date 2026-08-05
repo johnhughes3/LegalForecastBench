@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import cast
 
 import legalforecast.cli as cli_module
+import legalforecast.ingestion.provenance_clearance as provenance_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.disclosure_clearance import (
@@ -209,6 +210,7 @@ def _install_document_scanner(
             restriction_evidence_bytes=cast(bytes, typed["restriction_evidence_bytes"]),
             case_relevance_bytes=cast(bytes, typed["case_relevance_bytes"]),
             document_scanner=fixture_scanner,
+            verified_recovery_capability=typed.get("verified_recovery_capability"),
         )
 
     monkeypatch.setattr(
@@ -430,6 +432,130 @@ def test_provenance_planner_v3_emits_reviewer_neutral_artifacts_and_resumes(
     assert snapshots == {
         path: (path.read_bytes(), path.stat().st_ino) for path in output_paths
     }
+
+
+def test_recovered_public_capability_flows_through_planner_and_finalizer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = _inputs(tmp_path)
+    operation_key = "00000000-0000-4000-8000-000000000000"
+    fresh_sha = "2" * 64
+    manifest = [
+        json.loads(line) for line in paths["manifest"].read_text().splitlines()
+    ]
+    restrictions = [
+        json.loads(line) for line in paths["restrictions"].read_text().splitlines()
+    ]
+    requests = [
+        json.loads(line) for line in paths["requests"].read_text().splitlines()
+    ]
+    relevance = json.loads(paths["relevance"].read_text())
+    manifest[0].update(
+        {
+            "free_or_purchased": "purchased",
+            "source_provider": "courtlistener_recap_fetch",
+            "source_url": None,
+            "purchase_operation_key": operation_key,
+            "fresh_recap_detail_sha256": fresh_sha,
+        }
+    )
+    restrictions[0].update(
+        {
+            "schema_version": "legalforecast.post_recovery_restriction_evidence.v1",
+            "source_provider": "courtlistener_recap_fetch_fresh_detail",
+            "fresh_recap_detail_sha256": fresh_sha,
+            "is_available": True,
+            "is_sealed": False,
+            "is_private": None,
+            "redaction_or_seal_status": "public",
+            "restriction_status": "public",
+            "restriction_evidence": [
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+            ],
+        }
+    )
+    requests[0].update(
+        {
+            "free_or_purchased": "purchased",
+            "restriction_status": "public",
+            "restriction_evidence": restrictions[0]["restriction_evidence"],
+        }
+    )
+    relevance["documents"][0]["source_url_or_reference"] = "recap-document:auto"
+    _jsonl(paths["manifest"], manifest)
+    _jsonl(paths["restrictions"], restrictions)
+    _jsonl(paths["requests"], requests)
+    _jsonl(paths["relevance"], [relevance])
+    lineage = {
+        "candidate_id": "case-a",
+        "source_document_id": "auto",
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": "4" * 64,
+        "recovery_restriction_evidence_sha256": "5" * 64,
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": "7" * 64,
+        "purchase_operation_key": operation_key,
+        "fresh_recap_detail_sha256": fresh_sha,
+    }
+    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
+        [lineage]
+    )
+    authority = {"kind": "verified_recap_fetch_recovery", "document_count": 1}
+    monkeypatch.setattr(
+        cli_module,
+        "_verified_recovered_public_clearance_capability",
+        lambda *_args, **_kwargs: (capability, authority, ()),
+    )
+    _install_document_scanner(monkeypatch)
+
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    plan = json.loads(
+        (paths["output"] / "disclosure-provenance-plan.json").read_text()
+    )
+    auto_plan = next(
+        row for row in plan["documents"] if row["source_document_id"] == "auto"
+    )
+    assert auto_plan["route"] == "auto_clear"
+    assert auto_plan["recovered_public_lineage"] == lineage
+
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    clearance_root = tmp_path / "provider-free-clearance"
+    assert (
+        main(
+            _provider_free_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+            )
+        )
+        == 0
+    )
+    records = [
+        json.loads(line)
+        for line in (clearance_root / "disclosure-clearance.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    auto = next(row for row in records if row["source_document_id"] == "auto")
+    assert auto["status"] == "cleared"
+    assert auto["clearance_basis"] == "provider_free_recovered_public"
+    assert auto["controlled_store_provenance"] == (
+        "courtlistener-rest://recap-documents/auto"
+    )
+    assert auto["recovered_public_lineage"] == lineage
+    run_card = json.loads(
+        (
+            clearance_root / "run-cards/finalize-provenance-quarantine.json"
+        ).read_text()
+    )
+    assert run_card["human_review_requested"] is False
+    assert run_card["human_review_executed"] is False
+    assert run_card["recovered_public_authority"] == authority
 
 
 def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(

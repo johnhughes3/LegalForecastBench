@@ -23,6 +23,9 @@ from legalforecast.ingestion.disclosure_clearance import (
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthority,
 )
+from legalforecast.ingestion.provenance_clearance import (
+    _consume_recovered_public_clearance_capability,  # pyright: ignore[reportPrivateUsage]
+)
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     BOUNDED_FETCH_ATTEMPT_AUTHORITY,
     RECAP_FETCH_ATTEMPT_POLICY_VERSION,
@@ -34,6 +37,9 @@ from legalforecast.ingestion.recap_fetch_broker import (
 
 RESOLVED_POST_RECOVERY_SCHEMA_VERSION = (
     "legalforecast.resolved_post_recovery_public_document.v1"
+)
+RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2 = (
+    "legalforecast.resolved_post_recovery_public_document.v2"
 )
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
 FRESH_PUBLIC_RESTRICTION_SCHEMA_VERSION = (
@@ -626,10 +632,21 @@ def _build_resolved_post_recovery_documents_core(
     restriction_artifact_bytes: bytes,
     allow_test_service_identity: bool = False,
     verified_lineage_capability: object | None = None,
+    verified_recovery_capability: object | None = None,
 ) -> tuple[dict[str, object], ...]:
     """Build exact resolved records for every unknown-origin selected document."""
 
-    if verified_lineage_capability is not None:
+    recovered_lineages: Mapping[tuple[str, str], Mapping[str, object]] | None = None
+    if verified_recovery_capability is not None:
+        if verified_lineage_capability is not None:
+            raise ResolvedPostRecoveryError(
+                "conflicting authenticated clearance capabilities"
+            )
+        recovered_lineages = _consume_recovered_public_clearance_capability(
+            verified_recovery_capability
+        )
+        clearance_lineage = None
+    elif verified_lineage_capability is not None:
         clearance_lineage = _bind_internal_verified_provenance_lineage(
             _consume_verified_lineage_capability(verified_lineage_capability),
             clearance_records=clearance_records,
@@ -695,6 +712,15 @@ def _build_resolved_post_recovery_documents_core(
         operation = operations[key]
         download = downloads[key]
         clearance = clearances[key]
+        if recovered_lineages is not None:
+            raw_recovered_lineage = clearance.get("recovered_public_lineage")
+            if (
+                not isinstance(raw_recovered_lineage, Mapping)
+                or recovered_lineages.get(key) != raw_recovered_lineage
+            ):
+                raise ResolvedPostRecoveryError(
+                    f"recovered-public clearance capability changed: {key}"
+                )
         restriction_rows = restrictions[key]
         selection_sha256 = _sha256(selection_document)
         if attempt["selection_document_sha256"] != selection_sha256:
@@ -725,7 +751,11 @@ def _build_resolved_post_recovery_documents_core(
         receipt = _terminal_delivery_receipt(operation, key=key)
         material = _mapping(operation.get("material_evidence"), "material evidence")
         record: dict[str, object] = {
-            "schema_version": RESOLVED_POST_RECOVERY_SCHEMA_VERSION,
+            "schema_version": (
+                RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
+                if recovered_lineages is not None
+                else RESOLVED_POST_RECOVERY_SCHEMA_VERSION
+            ),
             "candidate_id": candidate_id,
             "source_document_id": document_id,
             "recovery_origin": UNKNOWN_RECOVERY_ORIGIN,
@@ -751,16 +781,13 @@ def _build_resolved_post_recovery_documents_core(
             "content_sha256": _required_sha(download.get("sha256"), "content"),
             "byte_count": _positive_int(download.get("byte_count"), "byte_count"),
             "clearance_record_sha256": _sha256(clearance),
-            "clearance_run_card_sha256": (clearance_lineage.clearance_run_card_sha256),
-            "clearance_artifact_sha256": (clearance_lineage.clearance_artifact_sha256),
-            "reviews_artifact_sha256": clearance_lineage.reviews_artifact_sha256,
-            "review_receipt_sha256": clearance_lineage.review_receipt_sha256,
-            "cohort_policy_artifact_sha256": (
-                clearance_lineage.cohort_policy_artifact_sha256
+            "clearance_run_card_sha256": _bytes_sha256(clearance_run_card_bytes),
+            "clearance_artifact_sha256": _bytes_sha256(clearance_artifact_bytes),
+            "cohort_policy_artifact_sha256": _bytes_sha256(
+                cohort_policy_artifact_bytes
             ),
-            "review_authority_sha256": clearance_lineage.review_authority_sha256,
-            "restriction_evidence_artifact_sha256": (
-                clearance_lineage.restriction_evidence_artifact_sha256
+            "restriction_evidence_artifact_sha256": _bytes_sha256(
+                restriction_artifact_bytes
             ),
             "restriction_evidence_rows_sha256": _sha256(restriction_rows),
             "fresh_detail_public_evidence_sha256": _sha256(fresh_public),
@@ -768,6 +795,26 @@ def _build_resolved_post_recovery_documents_core(
             "parser_eligible": True,
             "packet_eligible": True,
         }
+        if recovered_lineages is not None:
+            record.update(
+                {
+                    "clearance_basis": "provider_free_recovered_public",
+                    "recovered_public_lineage": dict(recovered_lineages[key]),
+                }
+            )
+        else:
+            assert clearance_lineage is not None
+            record.update(
+                {
+                    "reviews_artifact_sha256": (
+                        clearance_lineage.reviews_artifact_sha256
+                    ),
+                    "review_receipt_sha256": clearance_lineage.review_receipt_sha256,
+                    "review_authority_sha256": (
+                        clearance_lineage.review_authority_sha256
+                    ),
+                }
+            )
         record["record_sha256"] = _sha256(record)
         output.append(record)
     return tuple(output)
@@ -782,6 +829,18 @@ def _build_resolved_post_recovery_documents_with_authenticated_lineage(  # pyrig
     return _build_resolved_post_recovery_documents_core(
         **kwargs,
         verified_lineage_capability=verified_lineage_capability,
+    )
+
+
+def _build_resolved_recovered_public(  # pyright: ignore[reportUnusedFunction]
+    *, verified_recovery_capability: object | None = None, **kwargs: Any
+) -> tuple[dict[str, object], ...]:
+    """Build through the verifier-issued recovered-public capability path."""
+
+    _consume_recovered_public_clearance_capability(verified_recovery_capability)
+    return _build_resolved_post_recovery_documents_core(
+        **kwargs,
+        verified_recovery_capability=verified_recovery_capability,
     )
 
 
@@ -871,10 +930,21 @@ def _require_resolved_post_recovery_documents_core(
     restriction_artifact_bytes: bytes,
     allow_test_service_identity: bool = False,
     verified_lineage_capability: object | None = None,
+    verified_recovery_capability: object | None = None,
 ) -> None:
     """Require exact resolved coverage whenever selection originated unknown."""
 
-    if verified_lineage_capability is not None:
+    recovered_lineages: Mapping[tuple[str, str], Mapping[str, object]] | None = None
+    if verified_recovery_capability is not None:
+        if verified_lineage_capability is not None:
+            raise ResolvedPostRecoveryError(
+                "conflicting authenticated clearance capabilities"
+            )
+        recovered_lineages = _consume_recovered_public_clearance_capability(
+            verified_recovery_capability
+        )
+        lineage = None
+    elif verified_lineage_capability is not None:
         lineage = _bind_internal_verified_provenance_lineage(
             _consume_verified_lineage_capability(verified_lineage_capability),
             clearance_records=clearance_records,
@@ -949,17 +1019,34 @@ def _require_resolved_post_recovery_documents_core(
                 f"resolved document lacks restriction evidence: {key}"
             )
         expected_external = {
-            "clearance_run_card_sha256": lineage.clearance_run_card_sha256,
-            "clearance_artifact_sha256": lineage.clearance_artifact_sha256,
-            "reviews_artifact_sha256": lineage.reviews_artifact_sha256,
-            "review_receipt_sha256": lineage.review_receipt_sha256,
-            "cohort_policy_artifact_sha256": (lineage.cohort_policy_artifact_sha256),
-            "review_authority_sha256": lineage.review_authority_sha256,
-            "restriction_evidence_artifact_sha256": (
-                lineage.restriction_evidence_artifact_sha256
+            "clearance_run_card_sha256": _bytes_sha256(clearance_run_card_bytes),
+            "clearance_artifact_sha256": _bytes_sha256(clearance_artifact_bytes),
+            "cohort_policy_artifact_sha256": _bytes_sha256(
+                cohort_policy_artifact_bytes
+            ),
+            "restriction_evidence_artifact_sha256": _bytes_sha256(
+                restriction_artifact_bytes
             ),
             "restriction_evidence_rows_sha256": _sha256(restriction_rows),
         }
+        if recovered_lineages is not None:
+            if record.get(
+                "clearance_basis"
+            ) != "provider_free_recovered_public" or record.get(
+                "recovered_public_lineage"
+            ) != recovered_lineages.get(key):
+                raise ResolvedPostRecoveryError(
+                    f"resolved recovered-public lineage changed: {key}"
+                )
+        else:
+            assert lineage is not None
+            expected_external.update(
+                {
+                    "reviews_artifact_sha256": lineage.reviews_artifact_sha256,
+                    "review_receipt_sha256": lineage.review_receipt_sha256,
+                    "review_authority_sha256": lineage.review_authority_sha256,
+                }
+            )
         if any(record.get(name) != value for name, value in expected_external.items()):
             raise ResolvedPostRecoveryError(
                 f"resolved document external lineage changed: {key}"
@@ -984,6 +1071,18 @@ def _require_resolved_post_recovery_documents_with_authenticated_lineage(  # pyr
     _require_resolved_post_recovery_documents_core(
         **kwargs,
         verified_lineage_capability=verified_lineage_capability,
+    )
+
+
+def _require_resolved_recovered_public(  # pyright: ignore[reportUnusedFunction]
+    *, verified_recovery_capability: object | None = None, **kwargs: Any
+) -> None:
+    """Require resolved rows through recovered-public verifier authority."""
+
+    _consume_recovered_public_clearance_capability(verified_recovery_capability)
+    _require_resolved_post_recovery_documents_core(
+        **kwargs,
+        verified_recovery_capability=verified_recovery_capability,
     )
 
 
@@ -1483,8 +1582,22 @@ def _fresh_public_restriction_record_from_resolved(
 def _validate_resolved_record(
     record: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
+    recovered_public = (
+        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
+        and record.get("clearance_basis") == "provider_free_recovered_public"
+    )
     if (
-        record.get("schema_version") != RESOLVED_POST_RECOVERY_SCHEMA_VERSION
+        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
+    ) != recovered_public:
+        raise ResolvedPostRecoveryError(
+            f"resolved document schema does not match clearance basis: {key}"
+        )
+    if (
+        record.get("schema_version")
+        not in {
+            RESOLVED_POST_RECOVERY_SCHEMA_VERSION,
+            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2,
+        }
         or record.get("candidate_id") != key[0]
         or record.get("source_document_id") != key[1]
         or record.get("recovery_origin") != UNKNOWN_RECOVERY_ORIGIN
@@ -1493,7 +1606,7 @@ def _validate_resolved_record(
         or record.get("packet_eligible") is not True
     ):
         raise ResolvedPostRecoveryError(f"resolved document is invalid: {key}")
-    for field in (
+    digest_fields = [
         "purchase_policy_sha256",
         "attempt_policy_sha256",
         "selection_document_sha256",
@@ -1507,14 +1620,26 @@ def _validate_resolved_record(
         "clearance_record_sha256",
         "clearance_run_card_sha256",
         "clearance_artifact_sha256",
-        "reviews_artifact_sha256",
-        "review_receipt_sha256",
         "cohort_policy_artifact_sha256",
-        "review_authority_sha256",
         "restriction_evidence_artifact_sha256",
         "restriction_evidence_rows_sha256",
         "fresh_detail_public_evidence_sha256",
-    ):
+    ]
+    if recovered_public:
+        raw_lineage = record.get("recovered_public_lineage")
+        if not isinstance(raw_lineage, Mapping):
+            raise ResolvedPostRecoveryError(
+                f"resolved recovered-public lineage is invalid: {key}"
+            )
+    else:
+        digest_fields.extend(
+            (
+                "reviews_artifact_sha256",
+                "review_receipt_sha256",
+                "review_authority_sha256",
+            )
+        )
+    for field in digest_fields:
         _required_sha(record.get(field), field)
     _uuid4(record.get("operation_key"))
     _positive_int(record.get("byte_count"), "byte_count")

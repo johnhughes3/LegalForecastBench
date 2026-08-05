@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli
+import legalforecast.ingestion.provenance_clearance as provenance_module
 import legalforecast.ingestion.recap_fetch_attempt_policy as attempt_policy_module
 import legalforecast.ingestion.resolved_post_recovery as resolved_module
 import pytest
@@ -48,6 +49,12 @@ from legalforecast.ingestion.resolved_post_recovery import (
     require_resolved_post_recovery_operation_bindings,
     require_resolved_post_recovery_parse_requests,
     write_resolved_post_recovery_documents,
+)
+from legalforecast.ingestion.resolved_post_recovery import (
+    _build_resolved_recovered_public as build_recovered,
+)
+from legalforecast.ingestion.resolved_post_recovery import (
+    _require_resolved_recovered_public as require_recovered,
 )
 from tests.disclosure_review_fixtures import (
     service_review_signer,
@@ -484,6 +491,98 @@ def test_omitted_or_tampered_resolved_lineage_fails_closed() -> None:
             clearance_records=inputs["clearance_records"],
             resolved_records=[tampered],
             **_external_kwargs(inputs),
+        )
+
+
+def test_recovered_public_capability_builds_and_requires_resolved_v2() -> None:
+    inputs = _inputs()
+    operation = inputs["purchase_operation_records"][0]
+    lineage = {
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": "4" * 64,
+        "recovery_restriction_evidence_sha256": "5" * 64,
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": _hash(operation),
+        "purchase_operation_key": operation["operation_key"],
+        "fresh_recap_detail_sha256": "2" * 64,
+    }
+    clearance = deepcopy(inputs["clearance_records"][0])
+    clearance.update(
+        {
+            "restriction_evidence": [
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+            ],
+            "reviewer_id": None,
+            "controlled_store_provenance": ("courtlistener-rest://recap-documents/123"),
+            "reviewed_at": None,
+            "clearance_basis": "provider_free_recovered_public",
+            "routing_plan_sha256": "7" * 64,
+            "recovered_public_lineage": lineage,
+        }
+    )
+    clearance_bytes = _jsonl_bytes([clearance])
+    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
+        [lineage]
+    )
+    kwargs = {
+        **inputs,
+        "clearance_records": [clearance],
+        "clearance_artifact_bytes": clearance_bytes,
+    }
+    records = build_recovered(
+        **kwargs,
+        verified_recovery_capability=capability,
+    )
+
+    assert records[0]["schema_version"] == (
+        "legalforecast.resolved_post_recovery_public_document.v2"
+    )
+    assert records[0]["clearance_basis"] == "provider_free_recovered_public"
+    assert records[0]["recovered_public_lineage"] == lineage
+    assert "review_authority_sha256" not in records[0]
+    assert "reviews_artifact_sha256" not in records[0]
+    require_recovered(
+        selection_records=inputs["selection_records"],
+        download_records=inputs["download_records"],
+        clearance_records=[clearance],
+        resolved_records=records,
+        **_external_kwargs(kwargs),
+        verified_recovery_capability=capability,
+    )
+
+    changed = deepcopy(records[0])
+    changed["recovered_public_lineage"]["purchase_operation_sha256"] = "8" * 64
+    changed["record_sha256"] = _hash(
+        {name: value for name, value in changed.items() if name != "record_sha256"}
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="recovered-public lineage"):
+        require_recovered(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=[clearance],
+            resolved_records=[changed],
+            **_external_kwargs(kwargs),
+            verified_recovery_capability=capability,
+        )
+
+    wrong_basis = deepcopy(records[0])
+    wrong_basis["clearance_basis"] = "affirmative_public_provenance"
+    wrong_basis["record_sha256"] = _hash(
+        {name: value for name, value in wrong_basis.items() if name != "record_sha256"}
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="schema does not match"):
+        require_recovered(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=[clearance],
+            resolved_records=[wrong_basis],
+            **_external_kwargs(kwargs),
+            verified_recovery_capability=capability,
         )
 
 

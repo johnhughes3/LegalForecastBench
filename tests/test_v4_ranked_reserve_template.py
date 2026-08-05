@@ -116,6 +116,57 @@ def test_v4_ranked_reserve_template_never_writes_frozen_evidence(
         assert "--allow-network" not in stage.arguments
 
 
+def test_v4_paid_disclosure_is_verified_provider_free_v3(
+    tmp_path: Path,
+) -> None:
+    _, config = _render(tmp_path)
+    stages = {stage.stage_id: stage for stage in config.stages}
+    plan = stages["plan-paid-disclosure"]
+    finalize = stages["clear-paid-documents"]
+    commands = [stage.command for stage in config.stages]
+    recovery_card = str(
+        tmp_path
+        / "successor-v4"
+        / "08-recovery"
+        / "run-cards"
+        / "recover-recap-fetch-quarantine.json"
+    )
+    finalizer_card = str(
+        tmp_path
+        / "successor-v4"
+        / "10-paid-clearance"
+        / "run-cards"
+        / "finalize-provenance-quarantine.json"
+    )
+
+    assert "record-disclosure-review-decisions" not in commands
+    assert plan.boundary.value == "provider_free"
+    assert _argument_value(plan, "--schema-version") == "v3"
+    assert _argument_value(plan, "--recovery-run-card") == recovery_card
+    assert finalize.command == "finalize-provenance-quarantine"
+    assert finalize.boundary.value == "provider_free"
+    assert finalize.run_card_stage == "finalize-provenance-quarantine"
+    assert str(finalize.run_card) == finalizer_card
+    assert _argument_value(finalize, "--recovery-run-card") == recovery_card
+    for stage in (plan, finalize):
+        for option in (
+            "--selection",
+            "--purchase-policy",
+            "--purchase-ledger",
+            "--purchase-ledger-initialization-receipt",
+            "--recovery-cohort-policy",
+        ):
+            assert option in stage.arguments
+    for stage_id in ("resolve-recovered-documents", "materialize-cleared-documents"):
+        stage = stages[stage_id]
+        option = (
+            "--clearance-run-card"
+            if stage_id == "resolve-recovered-documents"
+            else "--purchased-clearance-run-card"
+        )
+        assert _argument_value(stage, option) == finalizer_card
+
+
 def test_v4_ranked_reserve_template_runs_ordered_local_stage_b_shards(
     tmp_path: Path,
 ) -> None:
