@@ -830,6 +830,21 @@ def test_checked_in_replacement_corpus_continues_from_reprojected_exact_100(
     assert materialize.arguments[
         materialize.arguments.index("--purchased-recovery-root") + 1
     ] == str(assignments["REPLACEMENT_ROOT"] / "11-consolidated-recovery")
+    assert materialize.arguments[
+        materialize.arguments.index("--purchase-result") + 1
+    ] == str(
+        assignments["ARTIFACT_ROOT"]
+        / "07-purchase"
+        / "courtlistener-recap-fetch-purchases.json"
+    )
+    assert materialize.arguments[
+        materialize.arguments.index("--purchase-run-card") + 1
+    ] == str(
+        assignments["ARTIFACT_ROOT"]
+        / "07-purchase"
+        / "run-cards"
+        / "purchase-missing-recap-fetch.json"
+    )
     selection_consumers = [
         stage for stage in config.stages if "--selection" in stage.arguments
     ]

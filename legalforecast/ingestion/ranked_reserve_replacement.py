@@ -10,12 +10,18 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
+from legalforecast.ingestion.docket_decision_text_source import (
+    DocketDecisionTextSourceError,
+    VerifiedTerminalPurchaseDispositionAuthority,
+    verified_residual_terminal_records,
+    verified_terminal_purchase_disposition_record,
+)
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
@@ -32,6 +38,9 @@ JsonRecord = dict[str, Any]
 TERMINAL_EXCLUSION_SCHEMA_VERSION = "legalforecast.ranked_reserve_terminal_exclusion.v1"
 REPLACEMENT_EVENT_SCHEMA_VERSION = "legalforecast.ranked_reserve_replacement_event.v1"
 RESULT_SCHEMA_VERSION = "legalforecast.ranked_reserve_replacement_result.v1"
+AUTHENTICATED_RESULT_SCHEMA_VERSION = (
+    "legalforecast.ranked_reserve_replacement_result.v2"
+)
 _PROJECTION_SCHEMA_VERSION = "legalforecast.target_cohort_projection.v1"
 _RESERVE_SCHEMA_VERSION = "legalforecast.target_cohort_ranked_reserve.v1"
 _FROZEN_SELECTED_COUNT = 100
@@ -74,6 +83,7 @@ class RankedReserveReplacementPlan:
     purchase_journal_state_sha256: str
     hard_cap: Decimal
     terminal_exclusions_sha256: str
+    terminal_disposition: JsonRecord | None
     active_selection: tuple[JsonRecord, ...]
     replacement_selection: tuple[JsonRecord, ...]
     successor_exclusions: tuple[JsonRecord, ...]
@@ -125,6 +135,10 @@ def plan_ranked_reserve_replacements(
     terminal_purchase_failure_authority: (
         VerifiedTerminalPurchaseFailureAuthority | None
     ) = None,
+    terminal_purchase_disposition_authority: (
+        VerifiedTerminalPurchaseDispositionAuthority | None
+    ) = None,
+    precommit_revalidator: Callable[[], None] | None = None,
 ) -> RankedReserveReplacementPlan:
     """Plan deterministic reserve promotions from explicit terminal evidence.
 
@@ -265,6 +279,7 @@ def plan_ranked_reserve_replacements(
     all_terminal_by_id: dict[str, JsonRecord] = {}
     used_reserves: set[str] = set()
     event_hashes: list[str] = []
+    event_hash_by_displaced: dict[str, str] = {}
     reserved = Decimal("0.00")
     for event in prior_events:
         displaced_id = cast(str, event["displaced_candidate_id"])
@@ -286,21 +301,56 @@ def plan_ranked_reserve_replacements(
         event_documents = cast(list[str], event["purchase_document_ids"])
         for document_id in event_documents:
             operation = operation_by_document.get(document_id)
-            if operation is None or not _operation_commits_spend(operation):
+            commits_cap = (
+                False if operation is None else _operation_cap_amount(operation)[0]
+            )
+            if not commits_cap:
                 reserved += policy.per_document_reservation_usd
-        event_hashes.append(_digest(event.get("record_sha256"), "event record hash"))
+        event_hash = _digest(event.get("record_sha256"), "event record hash")
+        event_hashes.append(event_hash)
+        event_hash_by_displaced[displaced_id] = event_hash
 
     available_before_new = policy.hard_cap_usd - committed - reserved
     if available_before_new < 0:
         raise RankedReserveReplacementError(
             "durable replacement reservations exceed the purchase-policy hard cap"
         )
-    try:
-        verified_retrieval_records = verified_terminal_retrieval_records(
-            terminal_purchase_failure_authority,
-            purchase_journal=purchase_journal,
+    if (
+        terminal_purchase_failure_authority is not None
+        and terminal_purchase_disposition_authority is not None
+    ):
+        raise RankedReserveReplacementError(
+            "terminal purchase failure and disposition authorities are mutually "
+            "exclusive"
         )
-    except TerminalPurchaseFailureError as exc:
+    if (
+        terminal_purchase_disposition_authority is not None
+        and precommit_revalidator is None
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated terminal disposition requires a precommit revalidator"
+        )
+    terminal_disposition: JsonRecord | None = None
+    try:
+        verified_retrieval_records = (
+            verified_residual_terminal_records(
+                terminal_purchase_disposition_authority,
+                purchase_journal=purchase_journal,
+            )
+            if terminal_purchase_disposition_authority is not None
+            else verified_terminal_retrieval_records(
+                terminal_purchase_failure_authority,
+                purchase_journal=purchase_journal,
+            )
+        )
+        if terminal_purchase_disposition_authority is not None:
+            terminal_disposition = dict(
+                verified_terminal_purchase_disposition_record(
+                    terminal_purchase_disposition_authority,
+                    purchase_journal=purchase_journal,
+                )
+            )
+    except (DocketDecisionTextSourceError, TerminalPurchaseFailureError) as exc:
         raise RankedReserveReplacementError(str(exc)) from exc
     terminal_by_id = _verify_terminal_records(
         terminal_records,
@@ -325,22 +375,66 @@ def plan_ranked_reserve_replacements(
             raise RankedReserveReplacementError(
                 "terminal exclusion replay conflicts with the durable event"
             )
+    tranche_budget_cap = available_before_new
+    if terminal_purchase_disposition_authority is not None:
+        prior_tranche_events = tuple(
+            event
+            for event in prior_events
+            if cast(str, event["displaced_candidate_id"]) in terminal_by_id
+        )
+        if prior_tranche_events:
+            prior_caps = {
+                _money_decimal(
+                    event.get("tranche_max_projected_budget_usd"),
+                    "authenticated tranche budget cap",
+                )
+                for event in prior_tranche_events
+            }
+            if len(prior_caps) != 1:
+                raise RankedReserveReplacementError(
+                    "authenticated durable events disagree on tranche budget cap"
+                )
+            tranche_budget_cap = prior_caps.pop()
+            prior_tranche_encumbrance = Decimal("0.00")
+            for event in prior_tranche_events:
+                for document_id in cast(list[str], event["purchase_document_ids"]):
+                    operation = operation_by_document.get(document_id)
+                    commits_cap, cap_amount = (
+                        (False, Decimal("0.00"))
+                        if operation is None
+                        else _operation_cap_amount(operation)
+                    )
+                    prior_tranche_encumbrance += (
+                        cap_amount
+                        if commits_cap
+                        else policy.per_document_reservation_usd
+                    )
+            if tranche_budget_cap != available_before_new + prior_tranche_encumbrance:
+                raise RankedReserveReplacementError(
+                    "authenticated durable tranche budget cap no longer reconciles"
+                )
     remaining = [
         candidate_id
         for candidate_id in reserve_ids
         if candidate_id not in used_reserves
     ]
     new_events: list[tuple[str, JsonRecord]] = []
-    newly_promoted_ids: list[str] = []
+    new_displaced_ids: list[str] = []
+    unfilled_terminal_ids: list[str] = []
     for displaced_id in sorted(terminal_by_id):
         if displaced_id in promoted_by_displaced:
             continue
         terminal = terminal_by_id[displaced_id]
         if not remaining:
-            raise RankedReserveReplacementError(
-                "ranked reserve is exhausted before all terminal exclusions "
-                "are replaced"
-            )
+            if terminal_purchase_disposition_authority is None:
+                raise RankedReserveReplacementError(
+                    "ranked reserve is exhausted before all terminal exclusions "
+                    "are replaced"
+                )
+            _remove_displaced(active, displaced_id=displaced_id)
+            all_terminal_by_id[displaced_id] = terminal
+            unfilled_terminal_ids.append(displaced_id)
+            continue
         promoted_id = remaining.pop(0)
         reserve_record = reserve_by_id[promoted_id]
         purchase_document_ids = cast(list[str], reserve_record["purchase_document_ids"])
@@ -354,9 +448,19 @@ def plan_ranked_reserve_replacements(
         cost = _money_decimal(reserve_record["estimated_cost_usd"], "reserve cost")
         projected_total = committed + reserved + cost
         if projected_total > policy.hard_cap_usd:
-            raise RankedReserveReplacementError(
-                "next ranked reserve exceeds remaining purchase-policy headroom"
-            )
+            if terminal_purchase_disposition_authority is None:
+                raise RankedReserveReplacementError(
+                    "next ranked reserve exceeds remaining purchase-policy headroom"
+                )
+            # Rank order is frozen.  Once the next rank is unaffordable, later
+            # ranks cannot be inspected or promoted.  The authenticated
+            # terminal candidate is removed so the result is an explicit
+            # incomplete precursor rather than a falsely complete cohort.
+            remaining.insert(0, promoted_id)
+            _remove_displaced(active, displaced_id=displaced_id)
+            all_terminal_by_id[displaced_id] = terminal
+            unfilled_terminal_ids.append(displaced_id)
+            continue
         payload: JsonRecord = {
             "schema_version": REPLACEMENT_EVENT_SCHEMA_VERSION,
             "projection_sha256": projection_sha256,
@@ -372,8 +476,11 @@ def plan_ranked_reserve_replacements(
             "paid_activity_requested": False,
             "paid_activity_executed": False,
         }
+        if terminal_purchase_disposition_authority is not None:
+            payload["tranche_max_projected_budget_usd"] = _money(tranche_budget_cap)
         event_key = _canonical_sha256([projection_sha256, displaced_id])
         new_events.append((event_key, payload))
+        new_displaced_ids.append(displaced_id)
         _apply_promotion(
             active,
             displaced_id=displaced_id,
@@ -382,11 +489,31 @@ def plan_ranked_reserve_replacements(
         promoted_by_displaced[displaced_id] = promoted_id
         all_terminal_by_id[displaced_id] = terminal
         used_reserves.add(promoted_id)
-        newly_promoted_ids.append(promoted_id)
         reserved += cost
 
+    tranche_source_ids = (
+        terminal_by_id
+        if terminal_purchase_disposition_authority is not None
+        else new_displaced_ids
+    )
+    tranche_displaced_ids = tuple(
+        sorted(
+            (
+                displaced_id
+                for displaced_id in tranche_source_ids
+                if displaced_id in promoted_by_displaced
+            ),
+            key=lambda displaced_id: cast(
+                int,
+                reserve_by_id[promoted_by_displaced[displaced_id]]["reserve_rank"],
+            ),
+        )
+    )
+    tranche_promoted_ids = tuple(
+        promoted_by_displaced[displaced_id] for displaced_id in tranche_displaced_ids
+    )
     replacement_selection = tuple(
-        dict(source_by_id[candidate_id]) for candidate_id in newly_promoted_ids
+        dict(source_by_id[candidate_id]) for candidate_id in tranche_promoted_ids
     )
     successor_exclusions = _successor_exclusions(
         original_exclusions,
@@ -398,10 +525,10 @@ def plan_ranked_reserve_replacements(
         active,
         successor_exclusions,
         expected_source_ids=set(source_ids),
-        expected_selected_count=len(selected),
+        expected_selected_count=len(selected) - len(unfilled_terminal_ids),
     )
     case_plans = tuple(
-        _case_plan(reserve_by_id[candidate_id]) for candidate_id in newly_promoted_ids
+        _case_plan(reserve_by_id[candidate_id]) for candidate_id in tranche_promoted_ids
     )
     max_documents = max(
         (plan.missing_core_document_count for plan in case_plans), default=1
@@ -409,7 +536,11 @@ def plan_ranked_reserve_replacements(
     replacement_plan = MissingCoreBudgetPlan(
         case_plans=case_plans,
         cost_per_document=policy.per_document_reservation_usd,
-        max_projected_budget=available_before_new,
+        max_projected_budget=(
+            tranche_budget_cap
+            if terminal_purchase_disposition_authority is not None
+            else available_before_new
+        ),
         max_missing_core_documents_per_case=max_documents,
         dry_run=False,
         target_case_count=len(case_plans),
@@ -419,12 +550,18 @@ def plan_ranked_reserve_replacements(
         raise RankedReserveReplacementError("replacement reservations exceed hard cap")
 
     # All validation and budget decisions precede the first journal mutation.
-    tranche_event_hashes: list[str] = []
+    if precommit_revalidator is not None:
+        precommit_revalidator()
     for event_key, payload in new_events:
         stored = purchase_journal.append_replacement_event(event_key, payload)
         event_hash = _digest(stored.get("record_sha256"), "event record hash")
         event_hashes.append(event_hash)
-        tranche_event_hashes.append(event_hash)
+        event_hash_by_displaced[cast(str, payload["displaced_candidate_id"])] = (
+            event_hash
+        )
+    tranche_event_hashes = tuple(
+        event_hash_by_displaced[displaced_id] for displaced_id in tranche_displaced_ids
+    )
 
     return RankedReserveReplacementPlan(
         projection_sha256=projection_sha256,
@@ -433,6 +570,7 @@ def plan_ranked_reserve_replacements(
         purchase_journal_state_sha256=purchase_journal_state_sha256,
         hard_cap=policy.hard_cap_usd,
         terminal_exclusions_sha256=terminal_digest,
+        terminal_disposition=terminal_disposition,
         active_selection=tuple(active),
         replacement_selection=replacement_selection,
         successor_exclusions=successor_exclusions,
@@ -444,7 +582,7 @@ def plan_ranked_reserve_replacements(
             plan.purchase_document_ids for plan in case_plans
         ),
         replacement_event_record_sha256s=tuple(event_hashes),
-        tranche_event_record_sha256s=tuple(tranche_event_hashes),
+        tranche_event_record_sha256s=tranche_event_hashes,
     )
 
 
@@ -486,8 +624,12 @@ def bind_ranked_reserve_outputs(
         raise RankedReserveReplacementError(
             "replacement budget-plan output differs from the planned record"
         )
-    return {
-        "schema_version": RESULT_SCHEMA_VERSION,
+    result: JsonRecord = {
+        "schema_version": (
+            AUTHENTICATED_RESULT_SCHEMA_VERSION
+            if plan.terminal_disposition is not None
+            else RESULT_SCHEMA_VERSION
+        ),
         "projection_sha256": plan.projection_sha256,
         "cycle_id": plan.cycle_id,
         "purchase_policy_sha256": plan.purchase_policy_sha256,
@@ -513,6 +655,12 @@ def bind_ranked_reserve_outputs(
         "freeze_authorized": False,
         "dispatch_authorized": False,
     }
+    if plan.terminal_disposition is not None:
+        result["terminal_disposition"] = dict(plan.terminal_disposition)
+        result["terminal_disposition_sha256"] = _canonical_sha256(
+            plan.terminal_disposition
+        )
+    return result
 
 
 def _replacement_events(
@@ -787,6 +935,23 @@ def _apply_promotion(
     selection[positions[0]] = dict(promoted_record)
 
 
+def _remove_displaced(
+    selection: list[JsonRecord],
+    *,
+    displaced_id: str,
+) -> None:
+    positions = [
+        index
+        for index, record in enumerate(selection)
+        if _candidate_id(record, "active selection") == displaced_id
+    ]
+    if len(positions) != 1:
+        raise RankedReserveReplacementError(
+            "unfilled terminal candidate is not uniquely active in the selection"
+        )
+    selection.pop(positions[0])
+
+
 def _jsonl_records(payload: bytes, source: str) -> list[JsonRecord]:
     if payload and not payload.endswith(b"\n"):
         raise RankedReserveReplacementError(f"{source} lacks a terminal newline")
@@ -867,19 +1032,26 @@ def _money_decimal(value: object, source: str) -> Decimal:
     return amount
 
 
-def _operation_commits_spend(operation: Mapping[str, Any]) -> bool:
-    """Mirror the canonical journal's committed-amount status treatment."""
+def _operation_cap_amount(operation: Mapping[str, Any]) -> tuple[bool, Decimal]:
+    """Return whether and how much this operation contributes to the cycle cap."""
 
     status = operation.get("status")
-    return (
-        status == "confirmed"
-        or status in {"submitted", "queued", "unknown"}
-        or (
-            status == "failed"
-            and operation.get("response") is not None
-            and operation.get("reconciliation") is None
-        )
+    reservation = _money_decimal(operation.get("reservation_usd"), "reservation")
+    actual_raw = operation.get("actual_usd")
+    actual = (
+        Decimal("0.00")
+        if actual_raw is None
+        else _money_decimal(actual_raw, "actual purchase cost")
     )
+    if status == "confirmed":
+        return True, actual if actual_raw is not None else reservation
+    if status in {"submitted", "queued", "unknown"} or (
+        status == "failed"
+        and operation.get("response") is not None
+        and operation.get("reconciliation") is None
+    ):
+        return True, max(reservation, actual)
+    return False, Decimal("0.00")
 
 
 def _money(value: Decimal) -> str:

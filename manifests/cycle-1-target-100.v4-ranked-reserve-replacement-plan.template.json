@@ -7,7 +7,8 @@
     "FROZEN_V4_ROOT",
     "INITIAL_PRIVATE_ROOT",
     "PURCHASE_AUTHORITY_ROOT",
-    "TERMINAL_EVIDENCE_ROOT"
+    "PURCHASE_RESULT_ROOT",
+    "SCREENING_SNAPSHOT_ROOT"
   ],
   "command": {
     "name": "plan-ranked-reserve-replacements",
@@ -23,10 +24,12 @@
       "${PURCHASE_AUTHORITY_ROOT}/cycle-1-target100-recap-fetch-purchase-ledger.sqlite3",
       "--purchase-ledger-initialization-receipt",
       "${PURCHASE_AUTHORITY_ROOT}/purchase-ledger-initialization.json",
-      "--terminal-exclusions",
-      "${TERMINAL_EVIDENCE_ROOT}/terminal-candidate-exclusions.jsonl",
-      "--terminal-exclusions-sha256-file",
-      "${TERMINAL_EVIDENCE_ROOT}/terminal-candidate-exclusions.sha256",
+      "--purchase-result",
+      "${PURCHASE_RESULT_ROOT}/courtlistener-recap-fetch-purchases.json",
+      "--purchase-run-card",
+      "${PURCHASE_RESULT_ROOT}/run-cards/purchase-missing-recap-fetch.json",
+      "--screening-snapshot-manifest",
+      "${SCREENING_SNAPSHOT_ROOT}/manifest.json",
       "--output",
       "${CONTINUATION_ROOT}/replacement-result.json",
       "--active-selection-output",

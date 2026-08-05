@@ -15,6 +15,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
@@ -33,6 +34,13 @@ from legalforecast.ingestion.clearance_replacement import (
 )
 from legalforecast.ingestion.cohort_policy import CohortPolicyError
 from legalforecast.ingestion.disclosure_review_bundle import read_unique_regular_file
+from legalforecast.ingestion.docket_decision_text_source import (
+    DocketDecisionTextSourceError,
+    validate_terminal_purchase_disposition_record,
+)
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    AUTHENTICATED_RESULT_SCHEMA_VERSION as _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA,
+)
 from legalforecast.ingestion.ranked_reserve_replacement import (
     REPLACEMENT_EVENT_SCHEMA_VERSION as _RANKED_RESERVE_EVENT_SCHEMA,
 )
@@ -1838,12 +1846,48 @@ def _verify_ranked_result_identity(result: Mapping[str, object]) -> None:
         "freeze_authorized",
         "dispatch_authorized",
     }
-    if set(result) != expected or result.get("schema_version") != (
-        _RANKED_RESERVE_RESULT_SCHEMA
-    ):
+    schema_version = result.get("schema_version")
+    if schema_version == _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA:
+        expected |= {"terminal_disposition", "terminal_disposition_sha256"}
+    if set(result) != expected or schema_version not in {
+        _RANKED_RESERVE_RESULT_SCHEMA,
+        _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA,
+    }:
         raise ReplacementPurchaseApprovalError(
             "ranked replacement result has unsupported or incomplete fields"
         )
+    if schema_version == _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA:
+        try:
+            disposition = validate_terminal_purchase_disposition_record(
+                result.get("terminal_disposition")
+            )
+        except DocketDecisionTextSourceError as exc:
+            raise ReplacementPurchaseApprovalError(str(exc)) from exc
+        if result.get("terminal_disposition_sha256") != (
+            "sha256:"
+            + hashlib.sha256(
+                canonical_json_value_bytes(
+                    disposition,
+                    error_type=ReplacementPurchaseApprovalError,
+                    error_message="terminal disposition is not canonical JSON",
+                )
+            ).hexdigest()
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement terminal disposition commitment mismatch"
+            )
+        if disposition.get("residual_terminal_exclusions_sha256") != result.get(
+            "terminal_exclusions_sha256"
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement residual exclusion commitment mismatch"
+            )
+        if disposition.get("purchase_journal_state_sha256") != result.get(
+            "purchase_journal_state_sha256"
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement terminal disposition targets another journal state"
+            )
     for field in (
         "provider_activity_requested",
         "paid_activity_requested",
