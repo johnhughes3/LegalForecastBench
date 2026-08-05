@@ -40074,6 +40074,19 @@ def _require_provenance_document_snapshot_unchanged(
         raise CommandError("disclosure document bytes changed during execution")
 
 
+def _recovered_public_lineage_digest(value: object, *, label: str) -> str:
+    """Convert one canonical artifact commitment to the bare lineage form."""
+
+    if (
+        not isinstance(value, str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", value) is None
+    ):
+        raise ProvenanceClearanceError(
+            f"recovered-public {label} must be a canonical SHA-256 commitment"
+        )
+    return value.removeprefix("sha256:")
+
+
 def _verified_recovered_public_clearance_capability(
     args: argparse.Namespace,
     *,
@@ -40222,15 +40235,27 @@ def _verified_recovered_public_clearance_capability(
             {
                 "candidate_id": key[0],
                 "source_document_id": key[1],
-                "recovery_run_card_sha256": _bytes_sha256(run_card_bytes),
-                "recovery_manifest_sha256": _bytes_sha256(
-                    verified_bytes[os.path.abspath(expected_manifest_path)]
+                "recovery_run_card_sha256": _recovered_public_lineage_digest(
+                    _bytes_sha256(run_card_bytes), label="recovery run card"
                 ),
-                "recovery_restriction_evidence_sha256": _bytes_sha256(
-                    verified_bytes[os.path.abspath(expected_restriction_path)]
+                "recovery_manifest_sha256": _recovered_public_lineage_digest(
+                    _bytes_sha256(
+                        verified_bytes[os.path.abspath(expected_manifest_path)]
+                    ),
+                    label="recovery manifest",
+                ),
+                "recovery_restriction_evidence_sha256": (
+                    _recovered_public_lineage_digest(
+                        _bytes_sha256(
+                            verified_bytes[os.path.abspath(expected_restriction_path)]
+                        ),
+                        label="recovery restriction evidence",
+                    )
                 ),
                 "purchase_state_sha256": purchase_snapshot.purchase_state_sha256,
-                "purchase_operation_sha256": _canonical_json_sha256(operation),
+                "purchase_operation_sha256": _recovered_public_lineage_digest(
+                    _canonical_json_sha256(operation), label="purchase operation"
+                ),
                 "purchase_operation_key": cast(str, operation["operation_key"]),
                 "fresh_recap_detail_sha256": cast(
                     str, manifest_record["fresh_recap_detail_sha256"]
@@ -42452,7 +42477,14 @@ def _authenticated_clearance_lineage_inputs(
             if isinstance(authority, Mapping)
             else None
         )
-        if authority_kind == "provenance_first_with_john_exceptions":
+        provider_free_run_card = (
+            run_card.get("schema_version")
+            == "legalforecast.provenance_quarantine_clearance_run_card.v1"
+        )
+        if (
+            authority_kind == "provenance_first_with_john_exceptions"
+            or provider_free_run_card
+        ):
             clearance_snapshot = _capture_clearance_artifact_snapshot(
                 run_card=run_card,
                 run_card_path=clearance_run_card_path,
@@ -42488,9 +42520,18 @@ def _authenticated_clearance_lineage_inputs(
                 raise ResolvedPostRecoveryError(
                     "clear-disclosures committed different restriction evidence"
                 )
-            paths = tuple(
-                cast(Path, lineage[name])
-                for name in (
+            lineage_path_names = (
+                (
+                    "manifest_path",
+                    "case_relevance_path",
+                    "restriction_path",
+                    "requests_path",
+                    "worksheet_path",
+                    "routing_plan_path",
+                    "cohort_policy_path",
+                )
+                if provider_free_run_card
+                else (
                     "manifest_path",
                     "restriction_path",
                     "requests_path",
@@ -42501,6 +42542,7 @@ def _authenticated_clearance_lineage_inputs(
                     "cohort_policy_path",
                 )
             )
+            paths = tuple(cast(Path, lineage[name]) for name in lineage_path_names)
             return (
                 _materializer_clearance_lineage_kwargs(
                     clearance_path=clearance_path,
@@ -43273,16 +43315,23 @@ def _verify_provider_free_provenance_quarantine_run_card(
                 Mapping[str, bytes], recovery["verified_artifact_bytes"]
             )
             expected_common = {
-                "recovery_run_card_sha256": _bytes_sha256(
-                    recovery_bytes[
-                        os.path.abspath(cast(Path, recovery["run_card_path"]))
-                    ]
+                "recovery_run_card_sha256": _recovered_public_lineage_digest(
+                    _bytes_sha256(
+                        recovery_bytes[
+                            os.path.abspath(cast(Path, recovery["run_card_path"]))
+                        ]
+                    ),
+                    label="recovery run card",
                 ),
-                "recovery_manifest_sha256": recovered_authority.get(
-                    "recovery_manifest_sha256"
+                "recovery_manifest_sha256": _recovered_public_lineage_digest(
+                    recovered_authority.get("recovery_manifest_sha256"),
+                    label="recovery manifest",
                 ),
-                "recovery_restriction_evidence_sha256": recovered_authority.get(
-                    "recovery_restriction_evidence_sha256"
+                "recovery_restriction_evidence_sha256": (
+                    _recovered_public_lineage_digest(
+                        recovered_authority.get("recovery_restriction_evidence_sha256"),
+                        label="recovery restriction evidence",
+                    )
                 ),
                 "purchase_state_sha256": cast(
                     Mapping[str, object], recovered_authority["purchase_ledger"]
