@@ -200,6 +200,7 @@ from legalforecast.ingestion.cohort_document_materializer import (
     prepare_cohort_document_materialization,
     prepare_non_symlink_directory,
     publish_cohort_documents,
+    require_materializer_artifact,
     require_non_symlink_components,
     validate_materializer_writable_paths,
 )
@@ -39493,13 +39494,9 @@ def _snapshot_committed_file(
 
 def _require_materializer_artifact(path: Path, *, label: str) -> None:
     try:
-        require_non_symlink_components(path)
+        require_materializer_artifact(path, label=label)
     except CohortDocumentMaterializationError as exc:
         raise CommandError(str(exc)) from exc
-    if path.is_symlink() or not path.is_file():
-        raise CommandError(f"{label} must be a regular non-symlink file: {path}")
-    if path.stat(follow_symlinks=False).st_nlink != 1:
-        raise CommandError(f"{label} must not be hardlinked: {path}")
 
 
 def _require_unique_materializer_keys(

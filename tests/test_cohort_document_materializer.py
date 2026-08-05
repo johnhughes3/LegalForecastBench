@@ -17,6 +17,7 @@ from legalforecast.ingestion.cohort_document_materializer import (
     cleanup_orphaned_cohort_document_temporaries,
     prepare_cohort_document_materialization,
     publish_cohort_documents,
+    require_materializer_artifact,
     validate_materializer_writable_paths,
 )
 
@@ -174,6 +175,73 @@ def test_materializer_writable_path_validation_preserves_cli_error_contract(
     assert str(exc_info.value) == (
         "materializer writable paths must be pairwise distinct"
     )
+
+
+def test_materializer_artifact_validation_accepts_regular_single_link_file(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "artifact.json"
+    artifact.write_text("{}\n", encoding="utf-8")
+
+    require_materializer_artifact(artifact, label="test artifact")
+
+
+def test_materializer_artifact_validation_rejects_symlink_component(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.json"
+    target.write_text("{}\n", encoding="utf-8")
+    artifact = tmp_path / "artifact.json"
+    artifact.symlink_to(target)
+
+    with pytest.raises(CohortDocumentMaterializationError) as exc_info:
+        require_materializer_artifact(artifact, label="test artifact")
+
+    assert str(exc_info.value) == f"symlink in trusted root path: {artifact}"
+
+
+@pytest.mark.parametrize("kind", ("missing", "directory"))
+def test_materializer_artifact_validation_rejects_non_file(
+    tmp_path: Path,
+    kind: str,
+) -> None:
+    artifact = tmp_path / "artifact"
+    if kind == "directory":
+        artifact.mkdir()
+
+    with pytest.raises(CohortDocumentMaterializationError) as exc_info:
+        require_materializer_artifact(artifact, label="test artifact")
+
+    assert str(exc_info.value) == (
+        f"test artifact must be a regular non-symlink file: {artifact}"
+    )
+
+
+def test_materializer_artifact_validation_rejects_hardlink(tmp_path: Path) -> None:
+    source = tmp_path / "source.json"
+    source.write_text("{}\n", encoding="utf-8")
+    artifact = tmp_path / "artifact.json"
+    artifact.hardlink_to(source)
+
+    with pytest.raises(CohortDocumentMaterializationError) as exc_info:
+        require_materializer_artifact(artifact, label="test artifact")
+
+    assert str(exc_info.value) == f"test artifact must not be hardlinked: {artifact}"
+
+
+def test_materializer_artifact_validation_preserves_cli_error_contract(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+
+    with pytest.raises(cli.CommandError) as exc_info:
+        cli._require_materializer_artifact(artifact, label="test artifact")
+
+    assert str(exc_info.value) == (
+        f"test artifact must be a regular non-symlink file: {artifact}"
+    )
+    assert isinstance(exc_info.value.__cause__, CohortDocumentMaterializationError)
 
 
 def test_materialize_cohort_documents_help_is_authoritative(
