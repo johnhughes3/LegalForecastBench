@@ -78,6 +78,16 @@ class LiveModelResponseError(LiveModelSolverError):
     """Raised when a provider response is malformed or incomplete."""
 
 
+@dataclass(frozen=True, slots=True)
+class ValidatedProviderResponseFields:
+    """Provider response fields extracted under the live solver's exact rules."""
+
+    raw_output: str
+    input_tokens: int
+    output_tokens: int
+    served_model_version: str
+
+
 class LiveModelTransport(Protocol):
     """Callable transport used to make tests network-free."""
 
@@ -248,10 +258,11 @@ def complete_live_prompt(
     )
     latency_ms = (time.perf_counter() - started) * 1000
     try:
-        raw_output = provider.extract_output(payload)
-        input_tokens, output_tokens = provider.extract_usage(payload)
-        served_model_version = provider.extract_served_version(payload)
-        _validate_served_model_version(registry_entry, served_model_version)
+        response_fields = validate_provider_response_fields(registry_entry, payload)
+        raw_output = response_fields.raw_output
+        input_tokens = response_fields.input_tokens
+        output_tokens = response_fields.output_tokens
+        served_model_version = response_fields.served_model_version
         response_verification = verify_provider_response(
             payload,
             provider=registry_entry.provider,
@@ -430,6 +441,25 @@ def _provider_config(provider: str) -> _ProviderConfig:
             extract_served_version=_gemini_served_model_version,
         )
     raise LiveModelConfigError(f"unsupported provider: {provider}")
+
+
+def validate_provider_response_fields(
+    registry_entry: ModelRegistryEntry,
+    payload: Mapping[str, object],
+) -> ValidatedProviderResponseFields:
+    """Extract and validate the fields used to settle one provider response."""
+
+    provider = _provider_config(registry_entry.provider)
+    raw_output = provider.extract_output(payload)
+    input_tokens, output_tokens = provider.extract_usage(payload)
+    served_model_version = provider.extract_served_version(payload)
+    _validate_served_model_version(registry_entry, served_model_version)
+    return ValidatedProviderResponseFields(
+        raw_output=raw_output,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        served_model_version=served_model_version,
+    )
 
 
 def _prompt_with_controlled_docket_context(

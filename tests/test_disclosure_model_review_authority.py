@@ -507,7 +507,7 @@ def test_capability_consumer_rejects_tampered_local_raw_response(
         private_disclosure_model_review_records(capability)
 
 
-def test_authenticated_review_rejects_noncanonical_semantic_output(
+def test_authenticated_review_accepts_strict_noncanonical_semantic_output(
     tmp_path: Path,
 ) -> None:
     plan, _plan_bytes, _worksheet, _worksheet_bytes, _documents = _inputs()
@@ -524,10 +524,14 @@ def test_authenticated_review_rejects_noncanonical_semantic_output(
     def noncanonical(_request: Request, _timeout: float) -> dict[str, object]:
         return payload
 
-    with pytest.raises(
-        DisclosureModelReviewAuthorityError, match="not exact canonical JSON"
-    ):
-        _authenticate(tmp_path, transport=noncanonical)
+    capability = _authenticate(tmp_path, transport=noncanonical)
+
+    assert disclosure_model_review_provider_call_executed(capability) is True
+    [private_record] = private_disclosure_model_review_records(capability)
+    assert (
+        private_record["batch_response_sha256"]
+        == hashlib.sha256(cast(str, parts[0]["text"]).encode()).hexdigest()
+    )
 
 
 def test_authenticated_review_retries_after_reconstruction_failure(
@@ -542,7 +546,10 @@ def test_authenticated_review_retries_after_reconstruction_failure(
     invalid_content = cast(dict[str, object], invalid_candidates[0]["content"])
     invalid_parts = cast(list[dict[str, object]], invalid_content["parts"])
     semantic = json.loads(cast(str, invalid_parts[0]["text"]))
-    invalid_parts[0]["text"] = json.dumps(semantic, indent=2) + "\n"
+    cast(list[dict[str, object]], semantic["items"])[0]["decision"] = "invalid"
+    invalid_parts[0]["text"] = (
+        json.dumps(semantic, sort_keys=True, separators=(",", ":")) + "\n"
+    )
     valid_payload = _provider_payload(document_sha256)
     calls = 0
 
@@ -551,9 +558,7 @@ def test_authenticated_review_retries_after_reconstruction_failure(
         calls += 1
         return invalid_payload if calls == 1 else valid_payload
 
-    with pytest.raises(
-        DisclosureModelReviewAuthorityError, match="not exact canonical JSON"
-    ):
+    with pytest.raises(Exception, match="decision is invalid"):
         _authenticate(tmp_path, transport=improving_transport)
 
     capability = _authenticate(tmp_path, transport=improving_transport)
@@ -590,7 +595,10 @@ def test_reconstruction_failures_never_exceed_frozen_attempt_limit(
     content = cast(dict[str, object], candidates[0]["content"])
     parts = cast(list[dict[str, object]], content["parts"])
     semantic = json.loads(cast(str, parts[0]["text"]))
-    parts[0]["text"] = json.dumps(semantic, indent=2) + "\n"
+    cast(list[dict[str, object]], semantic["items"])[0]["decision"] = "invalid"
+    parts[0]["text"] = (
+        json.dumps(semantic, sort_keys=True, separators=(",", ":")) + "\n"
+    )
     calls = 0
 
     def invalid_transport(_request: Request, _timeout: float) -> dict[str, object]:
@@ -599,9 +607,7 @@ def test_reconstruction_failures_never_exceed_frozen_attempt_limit(
         return payload
 
     for _ in range(2):
-        with pytest.raises(
-            DisclosureModelReviewAuthorityError, match="not exact canonical JSON"
-        ):
+        with pytest.raises(Exception, match="decision is invalid"):
             _authenticate(tmp_path, transport=invalid_transport)
 
     with pytest.raises(ProviderJournalError, match="attempt limit is exhausted"):
@@ -614,3 +620,285 @@ def test_reconstruction_failures_never_exceed_frozen_attempt_limit(
             "ORDER BY attempt_ordinal"
         ).fetchall()
     assert rows == [(1, "reconstruction_failed"), (2, "reconstruction_failed")]
+
+
+def test_corrected_reconstruction_recovers_latest_response_without_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_validator = authority_module._validate_semantic
+
+    def legacy_rejection(*_args: object, **_kwargs: object) -> object:
+        raise DisclosureModelReviewAuthorityError(
+            "provider semantic output is not exact canonical JSON"
+        )
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", legacy_rejection)
+    calls = 0
+
+    def transport(_request: Request, _timeout: float) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        plan, _plan_bytes, _worksheet, _worksheet_bytes, _documents = _inputs()
+        return _provider_payload(
+            cast(str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"])
+        )
+
+    for _ in range(2):
+        with pytest.raises(
+            DisclosureModelReviewAuthorityError, match="not exact canonical JSON"
+        ):
+            _authenticate(tmp_path, transport=transport)
+    assert calls == 2
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", original_validator)
+
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+    capability = replay_authenticated_disclosure_model_review(
+        routing_plan=plan,
+        routing_plan_bytes=plan_bytes,
+        worksheet=worksheet,
+        worksheet_bytes=worksheet_bytes,
+        document_bytes_by_key=documents,
+        provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+        provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+    )
+
+    assert calls == 2
+    assert disclosure_model_review_provider_call_executed(capability) is False
+    assert (
+        public_disclosure_model_review_record(capability)["journal_attempt_ordinal"]
+        == 2
+    )
+    with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status, failure_message "
+            "FROM provider_attempts ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [
+        (
+            1,
+            "reconstruction_failed",
+            "provider semantic output is not exact canonical JSON",
+        ),
+        (2, "settled", "provider semantic output is not exact canonical JSON"),
+    ]
+
+
+def test_provider_free_recovery_uses_older_valid_failed_response(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_validator = authority_module._validate_semantic
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+    document_sha256 = cast(
+        str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"]
+    )
+    valid_payload = _provider_payload(document_sha256)
+    invalid_payload = _provider_payload(document_sha256)
+    candidates = cast(list[dict[str, object]], invalid_payload["candidates"])
+    content = cast(dict[str, object], candidates[0]["content"])
+    parts = cast(list[dict[str, object]], content["parts"])
+    semantic = json.loads(cast(str, parts[0]["text"]))
+    cast(list[dict[str, object]], semantic["items"])[0]["decision"] = "invalid"
+    parts[0]["text"] = (
+        json.dumps(semantic, sort_keys=True, separators=(",", ":")) + "\n"
+    )
+
+    def legacy_rejection(*_args: object, **_kwargs: object) -> object:
+        raise DisclosureModelReviewAuthorityError("legacy canonical rejection")
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", legacy_rejection)
+    with pytest.raises(DisclosureModelReviewAuthorityError):
+        _authenticate(tmp_path, transport=lambda *_args: valid_payload)
+
+    validation_calls = 0
+
+    def reject_recovery_then_validate(*args: object, **kwargs: object) -> object:
+        nonlocal validation_calls
+        validation_calls += 1
+        if validation_calls == 1:
+            raise DisclosureModelReviewAuthorityError("defer old response")
+        return original_validator(*args, **kwargs)  # type: ignore[no-any-return]
+
+    monkeypatch.setattr(
+        authority_module, "_validate_semantic", reject_recovery_then_validate
+    )
+    with pytest.raises(Exception, match="decision is invalid"):
+        _authenticate(tmp_path, transport=lambda *_args: invalid_payload)
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", original_validator)
+    capability = replay_authenticated_disclosure_model_review(
+        routing_plan=plan,
+        routing_plan_bytes=plan_bytes,
+        worksheet=worksheet,
+        worksheet_bytes=worksheet_bytes,
+        document_bytes_by_key=documents,
+        provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+        provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+    )
+
+    assert (
+        public_disclosure_model_review_record(capability)["journal_attempt_ordinal"]
+        == 1
+    )
+    with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [(1, "settled"), (2, "reconstruction_failed")]
+
+
+def test_provider_free_recovery_rejects_tampered_served_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_validator = authority_module._validate_semantic
+
+    def legacy_rejection(*_args: object, **_kwargs: object) -> object:
+        raise DisclosureModelReviewAuthorityError("legacy canonical rejection")
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", legacy_rejection)
+    with pytest.raises(DisclosureModelReviewAuthorityError):
+        _authenticate(tmp_path)
+    monkeypatch.setattr(authority_module, "_validate_semantic", original_validator)
+
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    with sqlite3.connect(journal_path) as connection:
+        [(raw_response_json,)] = connection.execute(
+            "SELECT raw_response_json FROM provider_attempts"
+        ).fetchall()
+        raw_response = json.loads(raw_response_json)
+        raw_response["modelVersion"] = "models/substituted"
+        connection.execute(
+            "UPDATE provider_attempts SET raw_response_json = ?",
+            (json.dumps(raw_response, sort_keys=True, separators=(",", ":")),),
+        )
+
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+    with pytest.raises(
+        DisclosureModelReviewAuthorityError,
+        match="recovered provider envelope is invalid",
+    ):
+        replay_authenticated_disclosure_model_review(
+            routing_plan=plan,
+            routing_plan_bytes=plan_bytes,
+            worksheet=worksheet,
+            worksheet_bytes=worksheet_bytes,
+            document_bytes_by_key=documents,
+            provider_journal_path=journal_path,
+            provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+        )
+
+
+def test_provider_free_recovery_reuses_exact_live_envelope_parser(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_validator = authority_module._validate_semantic
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+    document_sha256 = cast(
+        str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"]
+    )
+    payload = _provider_payload(document_sha256)
+    payload["modelVersion"] = " models/GEMINI-3.5-FLASH "
+    candidates = cast(list[dict[str, object]], payload["candidates"])
+    content = cast(dict[str, object], candidates[0]["content"])
+    parts = cast(list[object], content["parts"])
+    parts.insert(0, "provider metadata ignored by the live text extractor")
+
+    def legacy_rejection(*_args: object, **_kwargs: object) -> object:
+        raise DisclosureModelReviewAuthorityError("legacy canonical rejection")
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", legacy_rejection)
+    with pytest.raises(DisclosureModelReviewAuthorityError):
+        _authenticate(tmp_path, transport=lambda *_args: payload)
+    monkeypatch.setattr(authority_module, "_validate_semantic", original_validator)
+
+    capability = replay_authenticated_disclosure_model_review(
+        routing_plan=plan,
+        routing_plan_bytes=plan_bytes,
+        worksheet=worksheet,
+        worksheet_bytes=worksheet_bytes,
+        document_bytes_by_key=documents,
+        provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+        provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+    )
+
+    assert (
+        public_disclosure_model_review_record(capability)["served_model_version"]
+        == "models/GEMINI-3.5-FLASH"
+    )
+
+
+def test_provider_free_recovery_does_not_retry_still_invalid_response(
+    tmp_path: Path,
+) -> None:
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+    document_sha256 = cast(
+        str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"]
+    )
+    payload = _provider_payload(document_sha256)
+    candidates = cast(list[dict[str, object]], payload["candidates"])
+    content = cast(dict[str, object], candidates[0]["content"])
+    parts = cast(list[dict[str, object]], content["parts"])
+    semantic = json.loads(cast(str, parts[0]["text"]))
+    cast(list[dict[str, object]], semantic["items"])[0]["decision"] = "invalid"
+    parts[0]["text"] = (
+        json.dumps(semantic, sort_keys=True, separators=(",", ":")) + "\n"
+    )
+
+    def invalid_transport(_request: Request, _timeout: float) -> dict[str, object]:
+        return payload
+
+    with pytest.raises(Exception, match="decision is invalid"):
+        _authenticate(tmp_path, transport=invalid_transport)
+
+    with pytest.raises(
+        DisclosureModelReviewAuthorityError,
+        match="no provider-free validated response",
+    ):
+        replay_authenticated_disclosure_model_review(
+            routing_plan=plan,
+            routing_plan_bytes=plan_bytes,
+            worksheet=worksheet,
+            worksheet_bytes=worksheet_bytes,
+            document_bytes_by_key=documents,
+            provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+            provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+        )
+
+    with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts"
+        ).fetchall()
+    assert rows == [(1, "reconstruction_failed")]
+
+
+@pytest.mark.parametrize(
+    "raw_output",
+    [
+        '{"schema_version":"legalforecast.disclosure_model_review_batch_response.v1",'
+        '"schema_version":"legalforecast.disclosure_model_review_batch_response.v1"}',
+        '{"document_count":NaN,"items":[],"model_id":"gemini-3.5-flash",'
+        '"model_version":"gemini-3.5-flash",'
+        '"schema_version":"legalforecast.disclosure_model_review_batch_response.v1"}',
+        "{} trailing",
+        "{}",
+    ],
+    ids=("duplicate-key", "nonfinite", "trailing-data", "schema-invalid"),
+)
+def test_semantic_recovery_rejects_unsafe_json_domains(
+    tmp_path: Path, raw_output: str
+) -> None:
+    plan, _plan_bytes, _worksheet, _worksheet_bytes, _documents = _inputs()
+    payload = _provider_payload(
+        cast(str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"])
+    )
+    candidates = cast(list[dict[str, object]], payload["candidates"])
+    content = cast(dict[str, object], candidates[0]["content"])
+    parts = cast(list[dict[str, object]], content["parts"])
+    parts[0]["text"] = raw_output
+
+    def invalid_transport(_request: Request, _timeout: float) -> dict[str, object]:
+        return payload
+
+    with pytest.raises(ValueError):
+        _authenticate(tmp_path, transport=invalid_transport)

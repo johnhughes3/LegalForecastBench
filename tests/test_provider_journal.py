@@ -588,6 +588,137 @@ def test_journal_terminalizes_invalid_reconstruction_without_losing_accounting(
             )
 
 
+def test_journal_commits_authenticated_reconstruction_recovery(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    raw_response_json: str
+    normalized_response_json: str
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "{}"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="{}",
+        )
+        journal.record_reconstruction_failure(ValueError("legacy local validator"))
+        with sqlite3.connect(path) as connection:
+            row = connection.execute(
+                "SELECT raw_response_json, normalized_response_json "
+                "FROM provider_attempts WHERE attempt_ordinal = 1"
+            ).fetchone()
+        assert row is not None
+        raw_response_json, normalized_response_json = row
+
+        journal.commit_reconstruction_recovery(
+            1,
+            raw_response_json=raw_response_json,
+            normalized_response_json=normalized_response_json,
+            record={"schema_version": "test.reconstruction.v1"},
+        )
+        journal.commit_reconstruction_recovery(
+            1,
+            raw_response_json=raw_response_json,
+            normalized_response_json=normalized_response_json,
+            record={"schema_version": "test.reconstruction.v1"},
+        )
+
+    with sqlite3.connect(path) as connection:
+        row = connection.execute(
+            "SELECT status, reconstructed_result_json, failure_type, failure_message "
+            "FROM provider_attempts WHERE attempt_ordinal = 1"
+        ).fetchone()
+    assert row == (
+        "settled",
+        '{"schema_version":"test.reconstruction.v1"}',
+        "ValueError",
+        "legacy local validator",
+    )
+
+
+def test_journal_reconstruction_recovery_rejects_changed_response(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "{}"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="{}",
+        )
+        journal.record_reconstruction_failure(ValueError("legacy local validator"))
+
+        with pytest.raises(
+            ProviderJournalError,
+            match="reconstruction recovery response evidence changed",
+        ):
+            journal.commit_reconstruction_recovery(
+                1,
+                raw_response_json='{"output_text":"substituted"}',
+                normalized_response_json=(
+                    '{"actual_cost_usd":0.01,"input_tokens":10,'
+                    '"output_tokens":2,"raw_output":"{}"}'
+                ),
+                record={"schema_version": "test.reconstruction.v1"},
+            )
+
+
+def test_journal_reconstruction_recovery_rejects_competing_response(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "first"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="first",
+        )
+        journal.record_reconstruction_failure(ValueError("legacy local validator"))
+        with sqlite3.connect(path) as connection:
+            evidence = connection.execute(
+                "SELECT raw_response_json, normalized_response_json "
+                "FROM provider_attempts WHERE attempt_ordinal = 1"
+            ).fetchone()
+        assert evidence is not None
+
+        with _journal(path) as concurrent:
+            assert concurrent.prepare_reconstruction_retry(max_attempts=2) == 1
+            concurrent.run_attempt(1, lambda: {"output_text": "second"})
+            concurrent.settle_attempt(
+                1,
+                input_tokens=10,
+                output_tokens=2,
+                actual_cost_usd=0.01,
+                raw_output="second",
+            )
+
+        with pytest.raises(
+            ProviderJournalError,
+            match="conflicts with another authoritative response",
+        ):
+            journal.commit_reconstruction_recovery(
+                1,
+                raw_response_json=evidence[0],
+                normalized_response_json=evidence[1],
+                record={"schema_version": "test.reconstruction.v1"},
+            )
+
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [(1, "reconstruction_failed"), (2, "validated_response")]
+
+
 def test_ambiguous_attempt_retains_reservation_and_blocks_cap(tmp_path: Path) -> None:
     path = tmp_path / "provider-attempts.sqlite3"
     with _journal(path, reservation=0.6, cap=1.0) as journal:

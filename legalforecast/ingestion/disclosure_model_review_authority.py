@@ -13,8 +13,10 @@ from typing import Any, cast
 from weakref import WeakKeyDictionary
 
 from legalforecast.evals.live_model_solver import (
+    LiveModelResponseError,
     LiveModelTransport,
     complete_live_prompt,
+    validate_provider_response_fields,
 )
 from legalforecast.evals.model_registry import ModelRegistry, ModelRegistryEntry
 from legalforecast.evals.provider_spend_attempt_handler import (
@@ -29,6 +31,7 @@ from legalforecast.evals.provider_spend_control import (
 )
 from legalforecast.ingestion.disclosure_model_review import (
     DisclosureModelReviewDecision,
+    DisclosureModelReviewError,
     build_marker_page_prompt,
     build_model_review_batch_prompt,
     build_public_model_review_decision,
@@ -111,6 +114,7 @@ def _authenticate_state(
     environ: Mapping[str, str] | None = None,
     timeout_seconds: float = 120.0,
     retry_backoff_seconds: float = 2.0,
+    provider_free_only: bool = False,
 ) -> _CapabilityState:
     """Execute or cross-store-adopt one frozen Gemini review."""
 
@@ -148,6 +152,42 @@ def _authenticate_state(
     )
     journal, authority, handler = context.open()
     try:
+        recovered = _recover_failed_reconstruction(
+            journal=journal,
+            authority=authority,
+            context=context,
+            batch_prompt=batch_prompt,
+            reviewer=reviewer,
+            caps=caps,
+            evaluated_registry_sha256=evaluated_registry_sha256,
+            caps_sha256=caps_sha256,
+            routing_plan_bytes=routing_plan_bytes,
+            worksheet_bytes=worksheet_bytes,
+        )
+        if recovered is not None:
+            (
+                local_ordinal,
+                journal_ordinal,
+                authority_ordinal,
+                public_record,
+                private_records,
+            ) = recovered
+            return _capability_state(
+                inputs=inputs,
+                frozen_source_root=frozen_source_root,
+                provider_journal_path=provider_journal_path,
+                provider_spend_authority_path=provider_spend_authority_path,
+                local_attempt_ordinal=local_ordinal,
+                journal_attempt_ordinal=journal_ordinal,
+                authority_attempt_ordinal=authority_ordinal,
+                provider_call_executed=False,
+                public_record=public_record,
+                private_records=private_records,
+            )
+        if provider_free_only and not _journal_has_provider_free_replay(journal):
+            raise DisclosureModelReviewAuthorityError(
+                "provider journal has no provider-free validated response"
+            )
         remaining_attempts = journal.prepare_reconstruction_retry(
             max_attempts=_MAX_ATTEMPTS
         )
@@ -223,15 +263,42 @@ def _authenticate_state(
         journal.close()
         authority.close()
 
+    return _capability_state(
+        inputs=inputs,
+        frozen_source_root=frozen_source_root,
+        provider_journal_path=provider_journal_path,
+        provider_spend_authority_path=provider_spend_authority_path,
+        local_attempt_ordinal=local_ordinal,
+        journal_attempt_ordinal=journal_ordinal,
+        authority_attempt_ordinal=authority_ordinal,
+        provider_call_executed=response.request_count > 0,
+        public_record=public_record,
+        private_records=private_records,
+    )
+
+
+def _capability_state(
+    *,
+    inputs: _FrozenInputs,
+    frozen_source_root: Path | None,
+    provider_journal_path: str | Path,
+    provider_spend_authority_path: str | Path,
+    local_attempt_ordinal: int,
+    journal_attempt_ordinal: int,
+    authority_attempt_ordinal: int,
+    provider_call_executed: bool,
+    public_record: Mapping[str, object],
+    private_records: tuple[dict[str, object], ...],
+) -> _CapabilityState:
     return _CapabilityState(
         inputs=inputs,
         frozen_source_root=frozen_source_root,
         provider_journal_path=Path(provider_journal_path).resolve(),
         provider_spend_authority_path=Path(provider_spend_authority_path).resolve(),
-        local_attempt_ordinal=local_ordinal,
-        journal_attempt_ordinal=journal_ordinal,
-        authority_attempt_ordinal=authority_ordinal,
-        provider_call_executed=response.request_count > 0,
+        local_attempt_ordinal=local_attempt_ordinal,
+        journal_attempt_ordinal=journal_attempt_ordinal,
+        authority_attempt_ordinal=authority_attempt_ordinal,
+        provider_call_executed=provider_call_executed,
         public_bytes=_canonical_bytes(public_record),
         private_bytes=_canonical_bytes(list(private_records)),
     )
@@ -353,6 +420,215 @@ def _execution_context(
     )
 
 
+def _recover_failed_reconstruction(
+    *,
+    journal: ProviderAttemptJournal,
+    authority: SqliteProviderSpendAuthority,
+    context: _ExecutionContext,
+    batch_prompt: Any,
+    reviewer: ModelRegistryEntry,
+    caps: Any,
+    evaluated_registry_sha256: str,
+    caps_sha256: str,
+    routing_plan_bytes: bytes,
+    worksheet_bytes: bytes,
+) -> (
+    tuple[
+        int,
+        int,
+        int,
+        dict[str, object],
+        tuple[dict[str, object], ...],
+    ]
+    | None
+):
+    """Revalidate one exact failed response without transport or a new attempt."""
+
+    with sqlite3.connect(
+        f"file:{journal.path.resolve()}?mode=ro", uri=True
+    ) as connection:
+        preferred = connection.execute(
+            "SELECT 1 FROM provider_attempts WHERE logical_call_key = ? "
+            "AND status IN ('settled', 'validated_response', 'response_received') "
+            "LIMIT 1",
+            (journal.identity.logical_call_key,),
+        ).fetchone()
+        if preferred is not None:
+            return None
+        rows = connection.execute(
+            "SELECT attempt_ordinal, authority_attempt_ordinal, raw_response_json, "
+            "normalized_response_json FROM provider_attempts "
+            "WHERE logical_call_key = ? AND status = 'reconstruction_failed' "
+            "AND raw_response_json IS NOT NULL "
+            "AND normalized_response_json IS NOT NULL "
+            "ORDER BY attempt_ordinal DESC",
+            (journal.identity.logical_call_key,),
+        ).fetchall()
+    for row in rows:
+        recovered = _recover_failed_reconstruction_row(
+            row=row,
+            journal=journal,
+            authority=authority,
+            context=context,
+            batch_prompt=batch_prompt,
+            reviewer=reviewer,
+            caps=caps,
+            evaluated_registry_sha256=evaluated_registry_sha256,
+            caps_sha256=caps_sha256,
+            routing_plan_bytes=routing_plan_bytes,
+            worksheet_bytes=worksheet_bytes,
+        )
+        if recovered is not None:
+            return recovered
+    return None
+
+
+def _recover_failed_reconstruction_row(
+    *,
+    row: tuple[object, ...],
+    journal: ProviderAttemptJournal,
+    authority: SqliteProviderSpendAuthority,
+    context: _ExecutionContext,
+    batch_prompt: Any,
+    reviewer: ModelRegistryEntry,
+    caps: Any,
+    evaluated_registry_sha256: str,
+    caps_sha256: str,
+    routing_plan_bytes: bytes,
+    worksheet_bytes: bytes,
+) -> (
+    tuple[
+        int,
+        int,
+        int,
+        dict[str, object],
+        tuple[dict[str, object], ...],
+    ]
+    | None
+):
+    journal_ordinal = _positive_integer(row[0], "journal_attempt_ordinal")
+    authority_ordinal = _positive_integer(row[1], "authority_attempt_ordinal")
+    raw_response_json = _required_stored_json(row[2], "raw provider response")
+    normalized_response_json = _required_stored_json(
+        row[3], "normalized provider response"
+    )
+    raw = _json_object(raw_response_json.encode(), "raw provider response")
+    normalized = _json_object(
+        normalized_response_json.encode(), "normalized provider response"
+    )
+    raw_output = _required_text(normalized, "raw_output")
+    input_tokens = _integer(normalized.get("input_tokens"), "input_tokens")
+    output_tokens = _integer(normalized.get("output_tokens"), "output_tokens")
+    actual_cost = _number(normalized.get("actual_cost_usd"), "actual_cost_usd")
+    served_version = _validate_recovery_provider_envelope(
+        raw,
+        reviewer=reviewer,
+        raw_output=raw_output,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+    _verify_normalized(
+        raw,
+        normalized,
+        raw_output=raw_output,
+        served_model_version=served_version,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        actual_cost_usd=actual_cost,
+    )
+    try:
+        decisions, private_records = _validate_semantic(
+            raw_output,
+            batch_prompt=batch_prompt,
+            reviewer=reviewer,
+        )
+    except (DisclosureModelReviewAuthorityError, DisclosureModelReviewError):
+        return None
+    public_record = _public_record(
+        cycle_id=caps.cycle_id,
+        routing_plan_sha256=_sha256(routing_plan_bytes),
+        worksheet_sha256=_sha256(worksheet_bytes),
+        evaluated_registry_sha256=evaluated_registry_sha256,
+        provider_cycle_caps_sha256=caps_sha256,
+        provider_envelope_sha256=_sha256(_canonical_bytes(raw, newline=False)),
+        served_model_version=served_version,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        actual_cost_usd=actual_cost,
+        journal_attempt_ordinal=journal_ordinal,
+        authority_attempt_ordinal=authority_ordinal,
+        decisions=decisions,
+    )
+    lease = authority.adopt_attempt(
+        context.spend_key,
+        attempt_ordinal=authority_ordinal,
+    )
+    authority.record_response(
+        lease,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        actual_microusd=math.ceil(actual_cost * 1_000_000),
+        response_sha256=_sha256(raw_output.encode()),
+    )
+    journal.commit_reconstruction_recovery(
+        journal_ordinal,
+        raw_response_json=raw_response_json,
+        normalized_response_json=normalized_response_json,
+        record={
+            "schema_version": PRIVATE_RECORDS_SCHEMA_VERSION,
+            "public_record_sha256": _sha256(_canonical_bytes(public_record)),
+            "private_records_sha256": _sha256(_canonical_bytes(list(private_records))),
+        },
+    )
+    return (
+        1,
+        journal_ordinal,
+        authority_ordinal,
+        public_record,
+        private_records,
+    )
+
+
+def _validate_recovery_provider_envelope(
+    raw: Mapping[str, object],
+    *,
+    reviewer: ModelRegistryEntry,
+    raw_output: str,
+    input_tokens: int,
+    output_tokens: int,
+) -> str:
+    """Bind recovered journal metadata to frozen identity and spend evidence."""
+
+    try:
+        extracted = validate_provider_response_fields(reviewer, raw)
+    except LiveModelResponseError as exc:
+        raise DisclosureModelReviewAuthorityError(
+            "recovered provider envelope is invalid"
+        ) from exc
+    if (
+        extracted.raw_output != raw_output
+        or extracted.input_tokens != input_tokens
+        or extracted.output_tokens != output_tokens
+    ):
+        raise DisclosureModelReviewAuthorityError(
+            "recovered provider envelope differs from spend-bound response evidence"
+        )
+    return extracted.served_model_version
+
+
+def _journal_has_provider_free_replay(journal: ProviderAttemptJournal) -> bool:
+    with sqlite3.connect(
+        f"file:{journal.path.resolve()}?mode=ro", uri=True
+    ) as connection:
+        row = connection.execute(
+            "SELECT 1 FROM provider_attempts WHERE logical_call_key = ? "
+            "AND status IN ('settled', 'validated_response', 'response_received') "
+            "AND raw_response_json IS NOT NULL LIMIT 1",
+            (journal.identity.logical_call_key,),
+        ).fetchone()
+    return row is not None
+
+
 def _substantive_replay(state: _CapabilityState) -> None:
     reviewer, evaluated_sha, caps, caps_sha = _frozen_authorities(
         source_root=state.frozen_source_root
@@ -395,7 +671,13 @@ def _substantive_replay(state: _CapabilityState) -> None:
         input_tokens = _integer(normalized.get("input_tokens"), "input_tokens")
         output_tokens = _integer(normalized.get("output_tokens"), "output_tokens")
         actual_cost = _number(normalized.get("actual_cost_usd"), "actual_cost_usd")
-        served_version = _required_text(raw, "modelVersion")
+        served_version = _validate_recovery_provider_envelope(
+            raw,
+            reviewer=reviewer,
+            raw_output=raw_output,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
         _verify_normalized(
             raw,
             normalized,
@@ -512,10 +794,14 @@ def _require_replayable_stores(
             journal_row = connection.execute(
                 "SELECT attempt_ordinal, authority_attempt_ordinal "
                 "FROM provider_attempts WHERE logical_call_key = ? "
-                "AND status IN ('settled', 'validated_response') "
+                "AND status IN ("
+                "'settled', 'validated_response', 'reconstruction_failed'"
+                ") "
                 "AND raw_response_json IS NOT NULL "
                 "AND normalized_response_json IS NOT NULL "
-                "ORDER BY attempt_ordinal DESC LIMIT 1",
+                "ORDER BY CASE status "
+                "WHEN 'settled' THEN 0 WHEN 'validated_response' THEN 1 ELSE 2 END, "
+                "attempt_ordinal DESC LIMIT 1",
                 (context.journal_identity.logical_call_key,),
             ).fetchone()
         if journal_row is None or journal_row[1] is None:
@@ -618,10 +904,6 @@ def _validate_semantic(
     reviewer: ModelRegistryEntry,
 ) -> tuple[tuple[DisclosureModelReviewDecision, ...], tuple[dict[str, object], ...]]:
     semantic = _json_object(raw_output.encode(), "provider semantic output")
-    if raw_output.encode() != _canonical_bytes(semantic):
-        raise DisclosureModelReviewAuthorityError(
-            "provider semantic output is not exact canonical JSON"
-        )
     reviews = validate_model_review_batch_response(
         semantic,
         response_bytes=raw_output.encode(),
@@ -668,12 +950,18 @@ def _verify_normalized(
     output_tokens: int,
     actual_cost_usd: float,
 ) -> None:
-    if raw.get("modelVersion") != served_model_version or (
-        normalized.get("raw_output"),
-        normalized.get("input_tokens"),
-        normalized.get("output_tokens"),
-        normalized.get("actual_cost_usd"),
-    ) != (raw_output, input_tokens, output_tokens, actual_cost_usd):
+    raw_served_version = raw.get("modelVersion")
+    if (
+        not isinstance(raw_served_version, str)
+        or raw_served_version.strip() != served_model_version
+        or (
+            normalized.get("raw_output"),
+            normalized.get("input_tokens"),
+            normalized.get("output_tokens"),
+            normalized.get("actual_cost_usd"),
+        )
+        != (raw_output, input_tokens, output_tokens, actual_cost_usd)
+    ):
         raise DisclosureModelReviewAuthorityError(
             "cross-store provider response readback differs"
         )
@@ -764,9 +1052,27 @@ def _integer(value: object, label: str) -> int:
 
 
 def _number(value: object, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not math.isfinite(value)
+        or value < 0
+    ):
         raise DisclosureModelReviewAuthorityError(f"{label} must be non-negative")
     return float(value)
+
+
+def _positive_integer(value: object, label: str) -> int:
+    parsed = _integer(value, label)
+    if parsed == 0:
+        raise DisclosureModelReviewAuthorityError(f"{label} must be positive")
+    return parsed
+
+
+def _required_stored_json(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise DisclosureModelReviewAuthorityError(f"{label} is absent")
+    return value
 
 
 def _json_object(data: bytes, label: str) -> dict[str, object]:
@@ -787,8 +1093,17 @@ def _json_value(data: bytes, label: str) -> object:
             result[key] = value
         return result
 
+    def reject_constant(value: str) -> object:
+        raise DisclosureModelReviewAuthorityError(
+            f"{label} contains non-finite JSON number: {value}"
+        )
+
     try:
-        return json.loads(data.decode(), object_pairs_hook=pairs)
+        return json.loads(
+            data.decode(),
+            object_pairs_hook=pairs,
+            parse_constant=reject_constant,
+        )
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise DisclosureModelReviewAuthorityError(f"{label} is malformed") from exc
 
@@ -866,6 +1181,7 @@ def _verifier_owned_capability_boundary() -> tuple[
             transport=forbidden_transport,
             environ={"GEMINI_API_KEY": "replay-only-no-network"},
             retry_backoff_seconds=0.0,
+            provider_free_only=True,
         )
         return issue(state)
 
