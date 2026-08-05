@@ -1707,10 +1707,6 @@ class CaseDevPurchaseJournal:
                     raise CaseDevPurchaseLedgerError(
                         f"unknown-attempt candidate identity conflicts: {document_id}"
                     )
-                if str(row["status"]) != "planned":
-                    raise CaseDevPurchaseLedgerError(
-                        "unknown-attempt authority must be bound before submit"
-                    )
                 material = self._material(document_id)
                 if material is None:
                     raise CaseDevPurchaseLedgerError(
@@ -1728,6 +1724,10 @@ class CaseDevPurchaseJournal:
                             "unknown-attempt authority is immutable"
                         )
                     continue
+                if str(row["status"]) != "planned":
+                    raise CaseDevPurchaseLedgerError(
+                        "unknown-attempt authority must be bound before submit"
+                    )
                 if authority != "ordinary_public" or prior_policy is not None:
                     raise CaseDevPurchaseLedgerError(
                         "purchase material authority is invalid"

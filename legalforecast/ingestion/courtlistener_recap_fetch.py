@@ -21,6 +21,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
+    PurchaseMaterialState,
 )
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
@@ -568,6 +569,22 @@ class CourtListenerRecapFetchClient:
     ) -> CaseDevPacerPurchaseAttempt:
         evidence = self.journal.operation_evidence(document_id)
         status = None if evidence is None else str(evidence["status"])
+        if (
+            evidence is not None
+            and evidence.get("material_authority") == "unknown_status_attempt"
+            and evidence.get("material_state")
+            in {
+                PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE,
+                PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE,
+                PurchaseMaterialState.CLEARED_PUBLIC,
+            }
+        ):
+            return _attempt(
+                candidate_id,
+                document_id,
+                CaseDevPacerPurchaseStatus.QUARANTINED,
+                "unknown_status_material_pending_clearance",
+            )
         if status == "confirmed":
             assert evidence is not None
             if evidence.get("material_authority") == "unknown_status_attempt":

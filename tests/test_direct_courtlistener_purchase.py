@@ -36,6 +36,9 @@ from legalforecast.ingestion.missing_core_budget import (
 from legalforecast.ingestion.purchase_approval import (
     replay_approved_purchase_policy,
 )
+from legalforecast.ingestion.recap_fetch_attempt_policy import (
+    UNKNOWN_STATUS_EVIDENCE,
+)
 from tests.purchase_approval_fixtures import (
     allow_historical_v1_algorithm_fixtures,
     build_approved_purchase_fixture,
@@ -351,6 +354,74 @@ def test_direct_queued_resume_polls_without_duplicate_paid_post(
 
     assert second.executed_purchase_count == 1
     assert second_paid.calls == []
+
+
+def test_direct_quarantined_resume_uses_durable_material_without_network(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    authority = {
+        "123": {
+            "case_id": "case-1",
+            "selection_document_sha256": "a" * 64,
+        }
+    }
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        journal.authorize_unknown_material_attempts(
+            authority, attempt_policy_sha256="b" * 64
+        )
+        assert journal.submit("123") is True
+        journal.queue(
+            "123",
+            response={
+                "source_provider": "courtlistener.recap-fetch+pacer",
+                "reservation_usd": "3.05",
+                "queue_id": "77",
+                "reservation_id": "direct:fixture",
+            },
+        )
+        journal.mark_material_available_for_quarantine(
+            "123",
+            provider_detail_sha256="c" * 64,
+            queue_response_sha256="d" * 64,
+            download_url_sha256="e" * 64,
+        )
+
+    paid = _RecordingPaidTransport()
+    public = FixtureRecapFetchTransport([])
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=public,
+            purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
+                _direct_config(), transport=paid
+            ),
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents={
+                "123": {
+                    "redaction_or_seal_status": "unknown",
+                    "is_sealed": None,
+                    "is_private": None,
+                    "is_available": False,
+                    "availability_status": "unavailable",
+                    "requires_paid_recovery": True,
+                    "restriction_evidence": list(UNKNOWN_STATUS_EVIDENCE),
+                }
+            },
+            attempt_documents=authority,
+            attempt_policy_sha256="b" * 64,
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+
+    assert result.completed_purchase_count == result.intended_purchase_count == 1
+    assert result.attempts[0].status.value == "quarantined"
+    assert paid.calls == []
+    assert public.requests == []
 
 
 @pytest.mark.parametrize(
