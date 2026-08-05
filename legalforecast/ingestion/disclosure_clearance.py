@@ -533,16 +533,25 @@ def _require_clearance_restriction(
         return
     if basis == "provider_free_recovered_public":
         evidence_value = row.get("restriction_evidence")
-        expected = {
-            "courtlistener_recap_fetch_fresh_detail_exact_match",
-            "courtlistener_recap_fetch_is_available_true",
-            "courtlistener_recap_fetch_is_sealed_false",
-            "courtlistener_recap_fetch_no_positive_private_marker",
+        accepted = {
+            (
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+            ),
+            (
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_unknown",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+                "courtlistener_recap_fetch_public_download_url_allowlisted",
+            ),
         }
         if (
             row.get("restriction_status") != "public"
             or not isinstance(evidence_value, (list, tuple))
-            or tuple(cast(Sequence[str], evidence_value)) != tuple(sorted(expected))
+            or tuple(cast(Sequence[str], evidence_value)) not in accepted
         ):
             raise DisclosureClearanceError(
                 f"recovered-public {label} lacks exact public evidence: {key}"

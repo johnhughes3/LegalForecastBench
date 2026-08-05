@@ -669,7 +669,11 @@ def test_v3_document_rejects_non_integer_byte_count(
         ),
         ("restriction_status", 0, "restriction_status must be a non-empty string"),
         ("is_sealed", "false", "restriction is_sealed must be bool or null"),
+        ("is_sealed", 0, "restriction is_sealed must be bool or null"),
+        ("is_sealed", 1, "restriction is_sealed must be bool or null"),
         ("is_private", 0, "restriction is_private must be bool or null"),
+        ("is_private", 1, "restriction is_private must be bool or null"),
+        ("is_private", "false", "restriction is_private must be bool or null"),
         ("model_visible", 1, "visibility model_visible must be bool"),
         (
             "contains_target_outcome",

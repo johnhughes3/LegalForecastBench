@@ -40,6 +40,9 @@ CASE_DEV_PURCHASE_POLICY_V2_SCHEMA_VERSION = "legalforecast.case_dev_purchase_po
 PURCHASE_LEDGER_INITIALIZATION_SCHEMA_VERSION = (
     "legalforecast.purchase_ledger_initialization.v1"
 )
+UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION = (
+    "legalforecast.unknown_public_material_recovery.v1"
+)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _INITIALIZATION_ID = re.compile(r"[0-9a-f]{32}")
 _CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
@@ -95,6 +98,12 @@ CREATE TABLE IF NOT EXISTS purchase_material_state (
     byte_count INTEGER,
     clearance_record_sha256 TEXT,
     resolved_record_sha256 TEXT
+);
+CREATE TABLE IF NOT EXISTS unknown_public_material_recoveries (
+    source_document_id TEXT PRIMARY KEY
+        REFERENCES purchase_operations(source_document_id) ON DELETE RESTRICT,
+    record_json TEXT NOT NULL,
+    record_sha256 TEXT NOT NULL UNIQUE
 );
 """
 
@@ -1752,19 +1761,34 @@ class CaseDevPurchaseJournal:
         self._connection.commit()
 
     def require_reconciled(self) -> None:
-        row = self._connection.execute(
-            """SELECT source_document_id, status FROM purchase_operations
+        rows = self._connection.execute(
+            """SELECT * FROM purchase_operations
             WHERE status='submitted' OR
               (status='unknown' AND reconciliation_json IS NULL)
-            ORDER BY source_document_id LIMIT 1"""
-        ).fetchone()
-        if row is not None:
-            identity = row["source_document_id"]
+            ORDER BY source_document_id"""
+        ).fetchall()
+        for row in rows:
+            identity = str(row["source_document_id"])
+            material = self._material(identity)
+            recovery = self._unknown_public_recovery(identity)
+            if (
+                row["status"] == "unknown"
+                and material is not None
+                and recovery is not None
+            ):
+                _validate_unknown_public_recovery_record(
+                    recovery,
+                    row,
+                    material,
+                    purchase_policy_sha256=self.policy.policy_sha256,
+                )
+                continue
             status = row["status"]
             raise CaseDevPurchaseReconciliationRequired(
                 f"document {identity} has {status} paid outcome; "
-                "billing receipt, statement export, support confirmation, or a "
-                "counted write-off is required before any reissue"
+                "billing receipt, statement export, support confirmation, counted "
+                "write-off, or authenticated public-material recovery is required "
+                "before another paid dispatch"
             )
 
     def submit(
@@ -1985,6 +2009,145 @@ class CaseDevPurchaseJournal:
             raise
         self._connection.commit()
 
+    def mark_unknown_public_material_available(
+        self,
+        document_id: str,
+        *,
+        candidate_id: str,
+        operation_key: str,
+        attempt_policy_sha256: str,
+        attempt_document_sha256: str,
+        provider_detail_sha256: str,
+        download_url_sha256: str,
+    ) -> None:
+        """Bind fresh public material to one ambiguous direct purchase.
+
+        The record resolves only whether another paid POST is necessary.  It
+        deliberately leaves the operation ``unknown``, retains its worst-case
+        reservation, and makes no assertion about the provider's final bill.
+        """
+
+        for label, digest in (
+            ("attempt policy", attempt_policy_sha256),
+            ("attempt document", attempt_document_sha256),
+            ("provider detail", provider_detail_sha256),
+            ("download URL", download_url_sha256),
+        ):
+            if _SHA256.fullmatch(digest) is None:
+                raise CaseDevPurchaseLedgerError(
+                    f"{label} digest must be lowercase SHA-256"
+                )
+        record = {
+            "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+            "candidate_id": candidate_id,
+            "source_document_id": document_id,
+            "operation_key": operation_key,
+            "purchase_policy_sha256": self.policy.policy_sha256,
+            "attempt_policy_sha256": attempt_policy_sha256,
+            "attempt_document_sha256": attempt_document_sha256,
+            "provider_detail_sha256": provider_detail_sha256,
+            "download_url_sha256": download_url_sha256,
+            "billing_status": "unknown",
+            "reservation_retained": True,
+            "no_paid_redispatch": True,
+        }
+        canonical_record = _canonical(record)
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            operation = self._operation(document_id)
+            material = self._material(document_id)
+            if operation is None or material is None:
+                raise CaseDevPurchaseLedgerError("purchase operation is missing")
+            if (
+                str(operation["candidate_id"]) != candidate_id
+                or operation["operation_key"] != operation_key
+                or str(operation["status"]) not in {"submitted", "unknown"}
+                or operation["actual_usd"] is not None
+                or operation["reconciliation_json"] is not None
+                or str(material["authority"]) != "unknown_status_attempt"
+                or material["attempt_policy_sha256"] != attempt_policy_sha256
+                or material["attempt_document_sha256"] != attempt_document_sha256
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public recovery operation identity conflicts"
+                )
+            prior_recovery = self._unknown_public_recovery(document_id)
+            if prior_recovery is not None and dict(prior_recovery) != record:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public recovery replay conflicts"
+                )
+            if str(material["status"]) == (
+                PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value
+            ):
+                if (
+                    operation["reconciliation_json"] is not None
+                    or prior_recovery is None
+                    or material["provider_detail_sha256"] != provider_detail_sha256
+                    or material["download_url_sha256"] != download_url_sha256
+                    or material["queue_response_sha256"] is not None
+                ):
+                    raise CaseDevPurchaseLedgerError(
+                        "unknown public recovery replay conflicts"
+                    )
+                self._connection.commit()
+                return
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='unknown'
+                WHERE source_document_id=?
+                  AND status IN ('submitted','unknown')
+                  AND actual_usd IS NULL
+                  AND reconciliation_json IS NULL""",
+                (document_id,),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public recovery billing transition failed"
+                )
+            cursor = self._connection.execute(
+                """UPDATE purchase_material_state
+                SET status=?, provider_detail_sha256=?, download_url_sha256=?
+                WHERE source_document_id=?
+                  AND authority='unknown_status_attempt'
+                  AND status='not_recovered'
+                  AND queue_response_sha256 IS NULL
+                  AND EXISTS (
+                    SELECT 1 FROM purchase_operations AS o
+                    WHERE o.source_document_id=
+                        purchase_material_state.source_document_id
+                      AND o.status='unknown'
+                      AND o.actual_usd IS NULL
+                      AND o.reconciliation_json IS NULL
+                  )""",
+                (
+                    PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value,
+                    provider_detail_sha256,
+                    download_url_sha256,
+                    document_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public recovery requires unavailable material"
+                )
+            cursor = self._connection.execute(
+                """INSERT INTO unknown_public_material_recoveries(
+                    source_document_id, record_json, record_sha256)
+                VALUES (?, ?, ?)""",
+                (
+                    document_id,
+                    canonical_record,
+                    hashlib.sha256(canonical_record.encode()).hexdigest(),
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public recovery evidence transition failed"
+                )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
     def record_quarantined_material_bytes(
         self,
         document_id: str,
@@ -2164,7 +2327,7 @@ class CaseDevPurchaseJournal:
             if row["response_json"] is None
             else cast(Mapping[str, Any], json.loads(str(row["response_json"])))
         )
-        return {
+        evidence: dict[str, Any] = {
             "candidate_id": str(row["candidate_id"]),
             "status": str(row["status"]),
             "operation_key": (
@@ -2215,6 +2378,16 @@ class CaseDevPurchaseJournal:
                 else str(material["resolved_record_sha256"])
             ),
         }
+        public_recovery = self._unknown_public_recovery(document_id)
+        if public_recovery is not None:
+            _validate_unknown_public_recovery_record(
+                public_recovery,
+                row,
+                material,
+                purchase_policy_sha256=self.policy.policy_sha256,
+            )
+            evidence["public_material_recovery"] = dict(public_recovery)
+        return evidence
 
     def record_broker_receipt(
         self, document_id: str, receipt: Mapping[str, Any]
@@ -2626,72 +2799,15 @@ class CaseDevPurchaseJournal:
             m.attempt_document_sha256,
             m.provider_detail_sha256, m.queue_response_sha256,
             m.download_url_sha256, m.content_sha256, m.byte_count,
-            m.clearance_record_sha256, m.resolved_record_sha256
+            m.clearance_record_sha256, m.resolved_record_sha256,
+            r.record_json AS public_recovery_json
             FROM purchase_operations AS o
             JOIN purchase_material_state AS m USING(source_document_id)
+            LEFT JOIN unknown_public_material_recoveries AS r
+                USING(source_document_id)
             ORDER BY o.source_document_id"""
         ).fetchall()
-        return tuple(
-            MappingProxyType(
-                {
-                    "source_document_id": str(row["source_document_id"]),
-                    "candidate_id": str(row["candidate_id"]),
-                    "reservation_usd": str(row["reservation_usd"]),
-                    "status": str(row["status"]),
-                    "operation_key": (
-                        None
-                        if row["operation_key"] is None
-                        else str(row["operation_key"])
-                    ),
-                    "actual_usd": (
-                        None if row["actual_usd"] is None else str(row["actual_usd"])
-                    ),
-                    "response": (
-                        None
-                        if row["response_json"] is None
-                        else json.loads(str(row["response_json"]))
-                    ),
-                    "error": None if row["error"] is None else str(row["error"]),
-                    "reconciliation": (
-                        None
-                        if row["reconciliation_json"] is None
-                        else json.loads(str(row["reconciliation_json"]))
-                    ),
-                    "material_authority": str(row["material_authority"]),
-                    "material_state": str(row["material_status"]),
-                    "attempt_policy_sha256": (
-                        None
-                        if row["attempt_policy_sha256"] is None
-                        else str(row["attempt_policy_sha256"])
-                    ),
-                    "attempt_document_sha256": (
-                        None
-                        if row["attempt_document_sha256"] is None
-                        else str(row["attempt_document_sha256"])
-                    ),
-                    "material_evidence": (
-                        {
-                            key: row[key]
-                            for key in (
-                                "provider_detail_sha256",
-                                "queue_response_sha256",
-                                "download_url_sha256",
-                                "content_sha256",
-                                "byte_count",
-                                "clearance_record_sha256",
-                            )
-                            if row[key] is not None
-                        }
-                    ),
-                    "resolved_document_sha256": (
-                        None
-                        if row["resolved_record_sha256"] is None
-                        else str(row["resolved_record_sha256"])
-                    ),
-                }
-            )
-            for row in rows
-        )
+        return tuple(_purchase_operation_record(row) for row in rows)
 
     def candidate_committed_amount_usd(self, candidate_id: str) -> str:
         """Return journal-derived committed spend for one candidate.
@@ -3004,6 +3120,17 @@ class CaseDevPurchaseJournal:
             (document_id,),
         ).fetchone()
 
+    def _unknown_public_recovery(self, document_id: str) -> Mapping[str, object] | None:
+        row = self._connection.execute(
+            """SELECT record_json, record_sha256
+            FROM unknown_public_material_recoveries
+            WHERE source_document_id=?""",
+            (document_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return _decode_unknown_public_recovery_row(row)
+
     def _candidate_cap_amount(self, candidate_id: str) -> Decimal:
         rows = self._connection.execute(
             """SELECT status, reservation_usd, actual_usd, response_json,
@@ -3045,6 +3172,7 @@ class CaseDevPurchaseJournal:
         if schema_row is not None and "'queued'" not in str(schema_row["sql"]):
             self._migrate_purchase_operations_for_queued_state()
         self._connection.executescript(_PURCHASE_MATERIAL_SCHEMA_SQL)
+        _verify_unknown_public_recovery_schema(self._connection)
         self._migrate_purchase_material_state()
 
     def _migrate_purchase_material_state(self) -> None:
@@ -3125,7 +3253,9 @@ class CaseDevPurchaseJournal:
 
     def _validate_material_state_rows(self) -> None:
         """Refuse malformed or contradictory material state after migration."""
-        _validate_purchase_material_state_rows(self._connection)
+        _validate_purchase_material_state_rows(
+            self._connection, purchase_policy_sha256=self.policy.policy_sha256
+        )
 
     def _migrate_purchase_operations_for_queued_state(self) -> None:
         """Add the asynchronous state without losing an existing cycle ledger."""
@@ -3161,7 +3291,20 @@ class CaseDevPurchaseJournal:
         )
 
 
-def _validate_purchase_material_state_rows(connection: sqlite3.Connection) -> None:
+def _validate_purchase_material_state_rows(
+    connection: sqlite3.Connection, *, purchase_policy_sha256: str | None = None
+) -> None:
+    if purchase_policy_sha256 is None:
+        policy_row = connection.execute(
+            "SELECT purchase_policy_sha256 FROM purchase_ledger WHERE singleton=1"
+        ).fetchone()
+        if policy_row is not None:
+            purchase_policy_sha256 = str(policy_row["purchase_policy_sha256"])
+    if (
+        purchase_policy_sha256 is None
+        or _SHA256.fullmatch(purchase_policy_sha256) is None
+    ):
+        raise CaseDevPurchaseLedgerError("purchase ledger policy identity is invalid")
     rows = connection.execute(
         """SELECT source_document_id, authority, status,
         attempt_policy_sha256, attempt_document_sha256, provider_detail_sha256,
@@ -3236,6 +3379,39 @@ def _validate_purchase_material_state_rows(connection: sqlite3.Connection) -> No
         )
         has_availability = all(row[field] is not None for field in evidence_fields)
         has_any_availability = any(row[field] is not None for field in evidence_fields)
+        if (
+            authority == "unknown_status_attempt"
+            and row["provider_detail_sha256"] is not None
+            and row["queue_response_sha256"] is None
+            and row["download_url_sha256"] is not None
+        ):
+            operation = connection.execute(
+                """SELECT * FROM purchase_operations
+                WHERE source_document_id=?""",
+                (document_id,),
+            ).fetchone()
+            if operation is None:
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase material state evidence is contradictory: {document_id}"
+                )
+            recovery_row = connection.execute(
+                """SELECT record_json, record_sha256
+                FROM unknown_public_material_recoveries
+                WHERE source_document_id=?""",
+                (document_id,),
+            ).fetchone()
+            if recovery_row is None:
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase material state evidence is contradictory: {document_id}"
+                )
+            recovery = _decode_unknown_public_recovery_row(recovery_row)
+            _validate_unknown_public_recovery_record(
+                recovery,
+                operation,
+                row,
+                purchase_policy_sha256=purchase_policy_sha256,
+            )
+            has_availability = True
         has_bytes = row["content_sha256"] is not None and byte_count is not None
         has_clearance = (
             row["clearance_record_sha256"] is not None and resolved is not None
@@ -3283,6 +3459,37 @@ def _validate_purchase_material_state_rows(connection: sqlite3.Connection) -> No
             raise CaseDevPurchaseLedgerError(
                 f"cleared material lacks confirmed immutable lineage: {document_id}"
             )
+    if not _table_exists(connection, "unknown_public_material_recoveries"):
+        return
+    recovery_rows = connection.execute(
+        """SELECT r.record_json, r.record_sha256, o.*,
+        m.authority, m.status AS material_status,
+        m.attempt_policy_sha256, m.attempt_document_sha256,
+        m.provider_detail_sha256, m.queue_response_sha256,
+        m.download_url_sha256, m.content_sha256, m.byte_count,
+        m.clearance_record_sha256, m.resolved_record_sha256
+        FROM unknown_public_material_recoveries AS r
+        JOIN purchase_operations AS o USING(source_document_id)
+        JOIN purchase_material_state AS m USING(source_document_id)
+        ORDER BY r.source_document_id"""
+    ).fetchall()
+    for row in recovery_rows:
+        recovery = _decode_unknown_public_recovery_row(row)
+        material = {
+            "authority": row["authority"],
+            "status": row["material_status"],
+            "attempt_policy_sha256": row["attempt_policy_sha256"],
+            "attempt_document_sha256": row["attempt_document_sha256"],
+            "provider_detail_sha256": row["provider_detail_sha256"],
+            "queue_response_sha256": row["queue_response_sha256"],
+            "download_url_sha256": row["download_url_sha256"],
+        }
+        _validate_unknown_public_recovery_record(
+            recovery,
+            row,
+            material,
+            purchase_policy_sha256=purchase_policy_sha256,
+        )
 
 
 def read_case_dev_purchase_snapshot(
@@ -3462,6 +3669,8 @@ def _verify_purchase_snapshot_schema(connection: sqlite3.Connection) -> None:
             raise CaseDevPurchaseLedgerError(
                 f"purchase ledger {table} schema is not an exact supported version"
             )
+    if _table_exists(connection, "unknown_public_material_recoveries"):
+        _verify_unknown_public_recovery_schema(connection)
     if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
         raise CaseDevPurchaseLedgerError(
             "purchase ledger failed foreign-key validation"
@@ -3535,56 +3744,134 @@ def _verify_purchase_snapshot_schema(connection: sqlite3.Connection) -> None:
 def _read_purchase_operation_records(
     connection: sqlite3.Connection,
 ) -> tuple[Mapping[str, Any], ...]:
+    recovery_projection = (
+        "r.record_json AS public_recovery_json"
+        if _table_exists(connection, "unknown_public_material_recoveries")
+        else "NULL AS public_recovery_json"
+    )
+    recovery_join = (
+        "LEFT JOIN unknown_public_material_recoveries AS r USING(source_document_id)"
+        if _table_exists(connection, "unknown_public_material_recoveries")
+        else ""
+    )
     rows = connection.execute(
-        """SELECT o.source_document_id, o.candidate_id, o.reservation_usd,
+        f"""SELECT o.source_document_id, o.candidate_id, o.reservation_usd,
         o.status, o.operation_key, o.actual_usd, o.response_json, o.error,
         o.reconciliation_json, m.authority AS material_authority,
         m.status AS material_status, m.attempt_policy_sha256,
         m.attempt_document_sha256, m.provider_detail_sha256,
         m.queue_response_sha256, m.download_url_sha256, m.content_sha256,
-        m.byte_count, m.clearance_record_sha256, m.resolved_record_sha256
+        m.byte_count, m.clearance_record_sha256, m.resolved_record_sha256,
+        {recovery_projection}
         FROM purchase_operations AS o
         JOIN purchase_material_state AS m USING(source_document_id)
+        {recovery_join}
         ORDER BY o.source_document_id"""
     ).fetchall()
     return tuple(_purchase_operation_record(row) for row in rows)
 
 
 def _purchase_operation_record(row: sqlite3.Row) -> Mapping[str, Any]:
-    return MappingProxyType(
-        {
-            "source_document_id": str(row["source_document_id"]),
-            "candidate_id": str(row["candidate_id"]),
-            "reservation_usd": str(row["reservation_usd"]),
-            "status": str(row["status"]),
-            "operation_key": _optional_row_str(row, "operation_key"),
-            "actual_usd": _optional_row_str(row, "actual_usd"),
-            "response": _optional_row_json(row, "response_json"),
-            "error": _optional_row_str(row, "error"),
-            "reconciliation": _optional_row_json(row, "reconciliation_json"),
-            "material_authority": str(row["material_authority"]),
-            "material_state": str(row["material_status"]),
-            "attempt_policy_sha256": _optional_row_str(row, "attempt_policy_sha256"),
-            "attempt_document_sha256": _optional_row_str(
-                row, "attempt_document_sha256"
-            ),
-            "material_evidence": {
-                key: row[key]
-                for key in (
-                    "provider_detail_sha256",
-                    "queue_response_sha256",
-                    "download_url_sha256",
-                    "content_sha256",
-                    "byte_count",
-                    "clearance_record_sha256",
-                )
-                if row[key] is not None
-            },
-            "resolved_document_sha256": _optional_row_str(
-                row, "resolved_record_sha256"
-            ),
-        }
+    record: dict[str, Any] = {
+        "source_document_id": str(row["source_document_id"]),
+        "candidate_id": str(row["candidate_id"]),
+        "reservation_usd": str(row["reservation_usd"]),
+        "status": str(row["status"]),
+        "operation_key": _optional_row_str(row, "operation_key"),
+        "actual_usd": _optional_row_str(row, "actual_usd"),
+        "response": _optional_row_json(row, "response_json"),
+        "error": _optional_row_str(row, "error"),
+        "reconciliation": _optional_row_json(row, "reconciliation_json"),
+        "material_authority": str(row["material_authority"]),
+        "material_state": str(row["material_status"]),
+        "attempt_policy_sha256": _optional_row_str(row, "attempt_policy_sha256"),
+        "attempt_document_sha256": _optional_row_str(row, "attempt_document_sha256"),
+        "material_evidence": {
+            key: row[key]
+            for key in (
+                "provider_detail_sha256",
+                "queue_response_sha256",
+                "download_url_sha256",
+                "content_sha256",
+                "byte_count",
+                "clearance_record_sha256",
+            )
+            if row[key] is not None
+        },
+        "resolved_document_sha256": _optional_row_str(row, "resolved_record_sha256"),
+    }
+    recovery_json = row["public_recovery_json"]
+    if recovery_json is not None:
+        recovery = json.loads(str(recovery_json))
+        if not isinstance(recovery, Mapping):
+            raise CaseDevPurchaseLedgerError(
+                "unknown public recovery record must be an object"
+            )
+        record["public_material_recovery"] = dict(cast(Mapping[str, object], recovery))
+    return MappingProxyType(record)
+
+
+def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
+    return (
+        connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        ).fetchone()
+        is not None
     )
+
+
+def _verify_unknown_public_recovery_schema(connection: sqlite3.Connection) -> None:
+    recovery_column_rows = connection.execute(
+        "PRAGMA table_info(unknown_public_material_recoveries)"
+    ).fetchall()
+    recovery_columns = {
+        str(row["name"]): (str(row["type"]), int(row["notnull"]), int(row["pk"]))
+        for row in recovery_column_rows
+    }
+    if recovery_columns != {
+        "source_document_id": ("TEXT", 0, 1),
+        "record_json": ("TEXT", 1, 0),
+        "record_sha256": ("TEXT", 1, 0),
+    }:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger unknown public recovery schema is unsupported"
+        )
+    recovery_foreign_keys = connection.execute(
+        "PRAGMA foreign_key_list(unknown_public_material_recoveries)"
+    ).fetchall()
+    if len(recovery_foreign_keys) != 1:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger unknown public recovery foreign key is unsupported"
+        )
+    foreign_key = recovery_foreign_keys[0]
+    if (
+        str(foreign_key["table"]) != "purchase_operations"
+        or str(foreign_key["from"]) != "source_document_id"
+        or str(foreign_key["to"]) != "source_document_id"
+        or str(foreign_key["on_delete"]).upper() != "RESTRICT"
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger unknown public recovery foreign key is unsupported"
+        )
+    unique_indexes: set[tuple[str, ...]] = set()
+    for index in connection.execute(
+        "PRAGMA index_list(unknown_public_material_recoveries)"
+    ).fetchall():
+        if int(index["unique"]) != 1:
+            continue
+        index_name = str(index["name"]).replace('"', '""')
+        unique_indexes.add(
+            tuple(
+                str(row["name"])
+                for row in connection.execute(
+                    f'PRAGMA index_info("{index_name}")'
+                ).fetchall()
+            )
+        )
+    if unique_indexes != {("source_document_id",), ("record_sha256",)}:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger unknown public recovery uniqueness is unsupported"
+        )
 
 
 def _optional_row_str(row: sqlite3.Row, field: str) -> str | None:
@@ -4442,6 +4729,74 @@ def _policy_money(value: object, label: str) -> Decimal:
 
 def _canonical(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _validate_unknown_public_recovery_record(
+    record: Mapping[str, object],
+    operation: Mapping[str, object] | sqlite3.Row,
+    material: Mapping[str, object] | sqlite3.Row,
+    *,
+    purchase_policy_sha256: str,
+) -> None:
+    expected = {
+        "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+        "candidate_id": operation["candidate_id"],
+        "source_document_id": operation["source_document_id"],
+        "operation_key": operation["operation_key"],
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "attempt_policy_sha256": material["attempt_policy_sha256"],
+        "attempt_document_sha256": material["attempt_document_sha256"],
+        "provider_detail_sha256": material["provider_detail_sha256"],
+        "download_url_sha256": material["download_url_sha256"],
+        "billing_status": "unknown",
+        "reservation_retained": True,
+        "no_paid_redispatch": True,
+    }
+    if (
+        dict(record) != expected
+        or operation["status"] not in {"unknown", "confirmed", "failed"}
+        or (
+            operation["status"] in {"unknown", "failed"}
+            and operation["actual_usd"] is not None
+        )
+        or material["authority"] != "unknown_status_attempt"
+        or material["status"]
+        not in {
+            PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value,
+            PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE.value,
+            PurchaseMaterialState.CLEARED_PUBLIC.value,
+        }
+        or material["queue_response_sha256"] is not None
+        or any(
+            _SHA256.fullmatch(str(expected[field])) is None
+            for field in (
+                "attempt_policy_sha256",
+                "attempt_document_sha256",
+                "purchase_policy_sha256",
+                "provider_detail_sha256",
+                "download_url_sha256",
+            )
+        )
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery record conflicts with purchase authority"
+        )
+
+
+def _decode_unknown_public_recovery_row(
+    row: Mapping[str, object] | sqlite3.Row,
+) -> Mapping[str, object]:
+    payload = str(row["record_json"])
+    if hashlib.sha256(payload.encode()).hexdigest() != row["record_sha256"]:
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery record hash is invalid"
+        )
+    decoded = json.loads(payload)
+    if not isinstance(decoded, Mapping):
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery record must be an object"
+        )
+    return cast(Mapping[str, object], decoded)
 
 
 def _hash(value: object) -> str:

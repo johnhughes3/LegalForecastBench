@@ -593,6 +593,11 @@ class CourtListenerRecapFetchClient:
                 attempt_policy_sha256=attempt_policy_sha256,
             )
         self._recover_receipts(intended)
+        self._recover_direct_unknown_public_material(
+            intended,
+            attempt_documents=attempt_documents,
+            attempt_policy_sha256=attempt_policy_sha256,
+        )
         self.journal.require_reconciled()
         attempts: list[CaseDevPacerPurchaseAttempt] = []
         for index, (candidate_id, document_id) in enumerate(intended):
@@ -815,6 +820,67 @@ class CourtListenerRecapFetchClient:
             except (BrokerOutcomeUnknown, CourtListenerRecapFetchOutcomeUnknown):
                 continue
             self.apply_broker_receipt(document_id, receipt)
+
+    def _recover_direct_unknown_public_material(
+        self,
+        intended: Sequence[tuple[str, str]],
+        *,
+        attempt_documents: Mapping[str, Mapping[str, str]],
+        attempt_policy_sha256: str | None,
+    ) -> None:
+        """Resolve only material availability before the paid-resume gate."""
+
+        if not isinstance(
+            self.purchase_broker, DirectCourtListenerRecapFetchPurchaseBroker
+        ):
+            return
+        for candidate_id, document_id in intended:
+            operation = self.journal.operation_evidence(document_id)
+            if (
+                operation is None
+                or operation.get("status") not in {"submitted", "unknown"}
+                or operation.get("material_authority") != "unknown_status_attempt"
+                or operation.get("material_state")
+                is not (PurchaseMaterialState.NOT_RECOVERED)
+            ):
+                continue
+            attempt = attempt_documents.get(document_id)
+            if attempt is None or attempt_policy_sha256 is None:
+                raise CourtListenerRecapFetchError(
+                    f"direct unknown recovery lacks attempt authority: {document_id}"
+                )
+            selection_document_sha256 = attempt.get("selection_document_sha256")
+            if (
+                attempt.get("case_id") != candidate_id
+                or operation.get("candidate_id") != candidate_id
+                or operation.get("attempt_policy_sha256") != attempt_policy_sha256
+                or operation.get("attempt_document_sha256") != selection_document_sha256
+                or not isinstance(selection_document_sha256, str)
+            ):
+                raise CourtListenerRecapFetchError(
+                    f"direct unknown recovery authority conflicts: {document_id}"
+                )
+            detail = self._request(
+                "GET",
+                f"/recap-documents/{_identifier(document_id)}/",
+                {},
+                paid=False,
+            )
+            _verify_recap_document(detail, document_id)
+            if detail.get("is_available") is not True:
+                continue
+            download_url = verified_public_recap_download_url(detail, document_id)
+            self.journal.mark_unknown_public_material_available(
+                document_id,
+                candidate_id=candidate_id,
+                operation_key=str(operation["operation_key"]),
+                attempt_policy_sha256=attempt_policy_sha256,
+                attempt_document_sha256=selection_document_sha256,
+                provider_detail_sha256=_sha256_json(detail),
+                download_url_sha256=hashlib.sha256(
+                    download_url.encode("utf-8")
+                ).hexdigest(),
+            )
 
     def apply_broker_receipt(
         self, document_id: str, receipt: Mapping[str, Any]
@@ -1212,6 +1278,31 @@ def verified_recap_download_url(payload: Mapping[str, Any], document_id: str) ->
     """Return an ephemeral allowlisted URL for exact available public material."""
 
     return _verified_download(payload, document_id)
+
+
+def verified_public_recap_download_url(
+    payload: Mapping[str, Any], document_id: str
+) -> str:
+    """Return a URL only for exact affirmative public provider evidence."""
+
+    if "is_sealed" not in payload:
+        raise CourtListenerRecapFetchError(
+            "public RECAP detail omits explicit seal status"
+        )
+    _verify_recap_document(payload, document_id)
+    if (
+        payload.get("is_available") is not True
+        or not _is_false_or_none(payload.get("is_sealed"))
+        or not _is_false_or_none(payload.get("is_private"))
+    ):
+        raise CourtListenerRecapFetchError(
+            "RECAP document lacks exact affirmative public evidence"
+        )
+    return _verified_download(payload, document_id)
+
+
+def _is_false_or_none(value: object) -> bool:
+    return value is False or value is None
 
 
 def _purchased_attempt(

@@ -12,12 +12,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
+    UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
     PurchaseMaterialState,
@@ -27,7 +29,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchConfig,
     CourtListenerRecapFetchError,
     RecapFetchTransport,
-    verified_recap_download_url,
+    verified_public_recap_download_url,
 )
 from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadError,
@@ -39,12 +41,20 @@ SCHEMA_VERSION = "legalforecast.recap_fetch_quarantine_recovery.v1"
 RESTRICTION_SCHEMA_VERSION = "legalforecast.post_recovery_restriction_evidence.v1"
 REVIEW_REQUEST_SCHEMA_VERSION = "legalforecast.disclosure_review_request.v1"
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 _RETRYABLE = frozenset({429, 500, 502, 503, 504})
 _FRESH_PUBLIC_EVIDENCE = (
     "courtlistener_recap_fetch_fresh_detail_exact_match",
     "courtlistener_recap_fetch_is_available_true",
     "courtlistener_recap_fetch_is_sealed_false",
     "courtlistener_recap_fetch_no_positive_private_marker",
+)
+_FRESH_PUBLIC_UNKNOWN_SEAL_EVIDENCE = (
+    "courtlistener_recap_fetch_fresh_detail_exact_match",
+    "courtlistener_recap_fetch_is_available_true",
+    "courtlistener_recap_fetch_is_sealed_unknown",
+    "courtlistener_recap_fetch_no_positive_private_marker",
+    "courtlistener_recap_fetch_public_download_url_allowlisted",
 )
 
 
@@ -94,6 +104,9 @@ def recover_recap_fetch_quarantine_documents(
             candidate_id=candidate_id,
             document_id=document_id,
             attempt_policy_sha256=attempt_policy_sha256,
+            selection_document_sha256=_selection_document_sha256(
+                authority, document_id=document_id
+            ),
         )
         destination = _destination(output_root, candidate_id, document_id)
         detail = _fresh_detail(
@@ -103,8 +116,27 @@ def recover_recap_fetch_quarantine_documents(
             before_request=before_request,
         )
         detail_digest = _sha256_json(detail)
+        _require_fresh_public_detail(detail, document_id)
         download_url = _verified_download_url(detail, document_id)
         url_digest = hashlib.sha256(download_url.encode("utf-8")).hexdigest()
+        if operation["material_state"] is PurchaseMaterialState.NOT_RECOVERED:
+            journal.mark_unknown_public_material_available(
+                document_id,
+                candidate_id=candidate_id,
+                operation_key=str(operation["operation_key"]),
+                attempt_policy_sha256=attempt_policy_sha256,
+                attempt_document_sha256=_selection_document_sha256(
+                    authority, document_id=document_id
+                ),
+                provider_detail_sha256=detail_digest,
+                download_url_sha256=url_digest,
+            )
+            refreshed = journal.operation_evidence(document_id)
+            if refreshed is None:
+                raise CaseDevPurchaseLedgerError(
+                    "purchase operation disappeared during public recovery"
+                )
+            operation = refreshed
         evidence = _mapping(operation.get("material_evidence"), "material evidence")
         if detail_digest != evidence.get(
             "provider_detail_sha256"
@@ -113,7 +145,6 @@ def recover_recap_fetch_quarantine_documents(
                 "fresh CourtListener material conflicts with delivery commitment: "
                 f"{document_id}"
             )
-        _require_fresh_public_detail(detail, document_id)
         restrictions.append(
             _restriction_record(
                 candidate_id=candidate_id,
@@ -244,14 +275,20 @@ def build_recap_fetch_disclosure_review_requests(
             restriction.get("schema_version") != RESTRICTION_SCHEMA_VERSION
             or restriction.get("restriction_status") != "public"
             or restriction.get("redaction_or_seal_status") != "public"
-            or restriction.get("is_sealed") is not False
-            or restriction.get("is_private") not in {False, None}
+            or not _is_false_or_none(restriction.get("is_sealed"))
+            or not _is_false_or_none(restriction.get("is_private"))
             or not isinstance(evidence, Sequence)
             or isinstance(evidence, (str, bytes))
             or not evidence
             or not all(
                 isinstance(item, str) and item
                 for item in cast(Sequence[object], evidence)
+            )
+            or tuple(cast(Sequence[str], evidence))
+            != (
+                _FRESH_PUBLIC_EVIDENCE
+                if restriction.get("is_sealed") is False
+                else _FRESH_PUBLIC_UNKNOWN_SEAL_EVIDENCE
             )
         ):
             raise RecapFetchQuarantineRecoveryError(
@@ -310,15 +347,18 @@ def _validate_operation(
     candidate_id: str,
     document_id: str,
     attempt_policy_sha256: str,
+    selection_document_sha256: str,
 ) -> None:
     state = operation.get("material_state")
     if (
         operation.get("candidate_id") != candidate_id
         or operation.get("material_authority") != UNKNOWN_RECOVERY_ORIGIN
         or operation.get("attempt_policy_sha256") != attempt_policy_sha256
+        or operation.get("attempt_document_sha256") != selection_document_sha256
         or not isinstance(operation.get("operation_key"), str)
         or state
         not in {
+            PurchaseMaterialState.NOT_RECOVERED,
             PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE,
             PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE,
             PurchaseMaterialState.CLEARED_PUBLIC,
@@ -327,17 +367,86 @@ def _validate_operation(
         raise RecapFetchQuarantineRecoveryError(
             f"purchase lacks recoverable unknown-origin material: {document_id}"
         )
+    if state is PurchaseMaterialState.NOT_RECOVERED:
+        if (
+            operation.get("status") != "unknown"
+            or operation.get("reconciliation") is not None
+            or operation.get("material_evidence")
+        ):
+            raise RecapFetchQuarantineRecoveryError(
+                f"purchase lacks recoverable unknown-origin material: {document_id}"
+            )
+        return
     evidence = _mapping(operation.get("material_evidence"), "material evidence")
-    for field in (
-        "provider_detail_sha256",
-        "queue_response_sha256",
-        "download_url_sha256",
-    ):
+    for field in ("provider_detail_sha256", "download_url_sha256"):
         value = evidence.get(field)
         if not isinstance(value, str) or len(value) != 64:
             raise RecapFetchQuarantineRecoveryError(
                 f"purchase material lacks {field}: {document_id}"
             )
+    queue_sha256 = evidence.get("queue_response_sha256")
+    recovery = operation.get("public_material_recovery")
+    has_queue = isinstance(queue_sha256, str) and len(queue_sha256) == 64
+    has_public_recovery = _is_bound_public_recovery(
+        recovery,
+        operation=operation,
+        candidate_id=candidate_id,
+        document_id=document_id,
+        attempt_policy_sha256=attempt_policy_sha256,
+        selection_document_sha256=selection_document_sha256,
+    )
+    if has_queue == has_public_recovery:
+        raise RecapFetchQuarantineRecoveryError(
+            f"purchase material lacks one exact delivery authority: {document_id}"
+        )
+
+
+def _selection_document_sha256(
+    authority: Mapping[str, str], *, document_id: str
+) -> str:
+    digest = authority.get("selection_document_sha256")
+    if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+        raise RecapFetchQuarantineRecoveryError(
+            f"attempt authority lacks selection document identity: {document_id}"
+        )
+    return digest
+
+
+def _is_bound_public_recovery(
+    value: object,
+    *,
+    operation: Mapping[str, Any],
+    candidate_id: str,
+    document_id: str,
+    attempt_policy_sha256: str,
+    selection_document_sha256: str,
+) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    recovery = cast(Mapping[str, object], value)
+    evidence = _mapping(operation.get("material_evidence"), "material evidence")
+    return (
+        recovery
+        == {
+            "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+            "candidate_id": candidate_id,
+            "source_document_id": document_id,
+            "operation_key": operation.get("operation_key"),
+            "purchase_policy_sha256": recovery.get("purchase_policy_sha256"),
+            "attempt_policy_sha256": attempt_policy_sha256,
+            "attempt_document_sha256": selection_document_sha256,
+            "provider_detail_sha256": evidence.get("provider_detail_sha256"),
+            "download_url_sha256": evidence.get("download_url_sha256"),
+            "billing_status": "unknown",
+            "reservation_retained": True,
+            "no_paid_redispatch": True,
+        }
+        and isinstance(recovery.get("purchase_policy_sha256"), str)
+        and (
+            _SHA256.fullmatch(cast(str, recovery.get("purchase_policy_sha256")))
+            is not None
+        )
+    )
 
 
 def _fresh_detail(
@@ -375,16 +484,17 @@ def _verified_download_url(payload: Mapping[str, Any], document_id: str) -> str:
     # Keep this validation local so the controlled recovery boundary does not
     # expose or return a raw URL to any manifest-producing caller.
     try:
-        return verified_recap_download_url(payload, document_id)
+        return verified_public_recap_download_url(payload, document_id)
     except CourtListenerRecapFetchError as exc:
         raise RecapFetchQuarantineRecoveryError(str(exc)) from exc
 
 
 def _require_fresh_public_detail(detail: Mapping[str, Any], document_id: str) -> None:
     if (
-        detail.get("is_available") is not True
-        or detail.get("is_sealed") is not False
-        or detail.get("is_private") not in {False, None}
+        "is_sealed" not in detail
+        or detail.get("is_available") is not True
+        or not _is_false_or_none(detail.get("is_sealed"))
+        or not _is_false_or_none(detail.get("is_private"))
     ):
         raise RecapFetchQuarantineRecoveryError(
             f"fresh CourtListener detail is not explicitly public: {document_id}"
@@ -493,6 +603,12 @@ def _restriction_record(
     detail: Mapping[str, Any],
     detail_sha256: str,
 ) -> Mapping[str, Any]:
+    is_sealed = detail.get("is_sealed")
+    evidence = (
+        _FRESH_PUBLIC_EVIDENCE
+        if is_sealed is False
+        else _FRESH_PUBLIC_UNKNOWN_SEAL_EVIDENCE
+    )
     return {
         "schema_version": RESTRICTION_SCHEMA_VERSION,
         "candidate_id": candidate_id,
@@ -500,12 +616,16 @@ def _restriction_record(
         "source_provider": "courtlistener_recap_fetch_fresh_detail",
         "fresh_recap_detail_sha256": detail_sha256,
         "is_available": True,
-        "is_sealed": False,
+        "is_sealed": is_sealed,
         "is_private": detail.get("is_private"),
         "redaction_or_seal_status": "public",
         "restriction_status": "public",
-        "restriction_evidence": list(_FRESH_PUBLIC_EVIDENCE),
+        "restriction_evidence": list(evidence),
     }
+
+
+def _is_false_or_none(value: object) -> bool:
+    return value is False or value is None
 
 
 def _mapping(value: object, label: str) -> Mapping[str, Any]:
