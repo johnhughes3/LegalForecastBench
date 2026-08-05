@@ -178,10 +178,20 @@ def test_materializer_writable_path_validation_preserves_cli_error_contract(
 
 
 def test_materializer_artifact_validation_accepts_regular_single_link_file(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact = tmp_path / "artifact.json"
     artifact.write_text("{}\n", encoding="utf-8")
+
+    def reject_is_file(_path: Path) -> bool:
+        pytest.fail("artifact validation must reuse lstat metadata")
+
+    def reject_stat(_path: Path, *, follow_symlinks: bool = True) -> os.stat_result:
+        del follow_symlinks
+        pytest.fail("artifact validation must reuse lstat metadata")
+
+    monkeypatch.setattr(Path, "is_file", reject_is_file)
+    monkeypatch.setattr(Path, "stat", reject_stat)
 
     require_materializer_artifact(artifact, label="test artifact")
 
@@ -241,6 +251,21 @@ def test_materializer_artifact_validation_preserves_cli_error_contract(
     assert str(exc_info.value) == (
         f"test artifact must be a regular non-symlink file: {artifact}"
     )
+    assert exc_info.value.__cause__ is None
+
+
+def test_materializer_artifact_validation_preserves_cli_component_error_cause(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.json"
+    target.write_text("{}\n", encoding="utf-8")
+    artifact = tmp_path / "artifact.json"
+    artifact.symlink_to(target)
+
+    with pytest.raises(cli.CommandError) as exc_info:
+        cli._require_materializer_artifact(artifact, label="test artifact")
+
+    assert str(exc_info.value) == f"symlink in trusted root path: {artifact}"
     assert isinstance(exc_info.value.__cause__, CohortDocumentMaterializationError)
 
 

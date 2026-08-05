@@ -196,6 +196,7 @@ from legalforecast.ingestion.cohort_document_materializer import (
     CohortDocumentMaterialization,
     CohortDocumentMaterializationError,
     DocumentSource,
+    MaterializerArtifactValidationError,
     cleanup_orphaned_cohort_document_temporaries,
     prepare_cohort_document_materialization,
     prepare_non_symlink_directory,
@@ -39495,8 +39496,13 @@ def _snapshot_committed_file(
 def _require_materializer_artifact(path: Path, *, label: str) -> None:
     try:
         require_materializer_artifact(path, label=label)
+    except MaterializerArtifactValidationError as exc:
+        message = str(exc)
     except CohortDocumentMaterializationError as exc:
         raise CommandError(str(exc)) from exc
+    else:
+        return
+    raise CommandError(message)
 
 
 def _require_unique_materializer_keys(
