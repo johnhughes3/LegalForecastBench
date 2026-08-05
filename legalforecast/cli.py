@@ -713,6 +713,7 @@ from legalforecast.ingestion.snapshot_quarantine import (
 from legalforecast.ingestion.snapshot_reconciliation import (
     SnapshotReconciliation,
     SnapshotReconciliationError,
+    validate_acquisition_discovery_reconciliation,
     verify_saturated_snapshot_reconciliation,
 )
 from legalforecast.ingestion.snapshot_replay import (
@@ -54210,15 +54211,15 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         )
         complete_ledger_records = ledger.to_records()
         try:
-            _validate_acquisition_discovery_reconciliation(
+            validate_acquisition_discovery_reconciliation(
                 screened_case_records=screened_case_records,
                 discovery_reconciliation=discovery_reconciliation,
                 discovery_exclusion_records=discovery_exclusion_records,
                 selection_records=selection_records,
                 complete_ledger_records=complete_ledger_records,
             )
-        except CommandError:
-            raise
+        except SnapshotReconciliationError as exc:
+            raise CommandError(str(exc)) from exc
 
         official_entries = require_official_registry_entries(
             packet_plan_replay.model_registry.entries
@@ -54471,90 +54472,6 @@ def _readiness_exclusion_stage(reason: str) -> str:
     if reason == "outcome_leakage":
         return "leakage"
     return "eligibility"
-
-
-def _validate_acquisition_discovery_reconciliation(
-    *,
-    screened_case_records: Sequence[Mapping[str, Any]],
-    discovery_reconciliation: SnapshotReconciliation,
-    discovery_exclusion_records: Sequence[Mapping[str, Any]],
-    selection_records: Sequence[Mapping[str, Any]],
-    complete_ledger_records: Sequence[Mapping[str, Any]],
-) -> None:
-    screened_ids = tuple(
-        _required_str(_required_record(record, "candidate"), "docket_id")
-        for record in screened_case_records
-    )
-    discovery_exclusion_ids = tuple(
-        _required_str(record, "candidate_id") for record in discovery_exclusion_records
-    )
-    selection_ids = tuple(
-        _required_str(record, "candidate_id") for record in selection_records
-    )
-    ledger_ids = tuple(
-        _required_str(record, "candidate_id") for record in complete_ledger_records
-    )
-    for label, candidate_ids in (
-        ("screened cases", screened_ids),
-        ("discovery exclusions", discovery_exclusion_ids),
-        ("selection", selection_ids),
-        ("complete exclusion ledger", ledger_ids),
-    ):
-        if len(candidate_ids) != len(set(candidate_ids)):
-            raise CommandError(f"duplicate candidate_id in {label}")
-
-    accepted_count = discovery_reconciliation.accepted_count
-    excluded_count = discovery_reconciliation.excluded_count
-    processed_count = discovery_reconciliation.processed_count
-    if accepted_count != len(screened_ids):
-        raise CommandError(
-            "discovery accepted_case_count does not match screened-cases JSONL"
-        )
-    if excluded_count != len(discovery_exclusion_ids):
-        raise CommandError(
-            "discovery excluded_case_count does not match discovery-exclusions JSONL"
-        )
-    if processed_count != accepted_count + excluded_count:
-        raise CommandError(
-            "discovery processed_candidate_count must equal accepted plus excluded"
-        )
-
-    screened = set(screened_ids)
-    discovery_excluded = set(discovery_exclusion_ids)
-    if screened & discovery_excluded:
-        raise CommandError(
-            "candidate appears in both screened and discovery exclusions"
-        )
-    discovered = screened | discovery_excluded
-    if len(discovered) != processed_count:
-        raise CommandError(
-            "discovery candidate IDs do not reconcile to processed count"
-        )
-
-    selected = set(selection_ids)
-    ledgered = set(ledger_ids)
-    overlap = sorted(selected & ledgered)
-    if overlap:
-        raise CommandError(
-            "screened candidates must be selected xor excluded; overlap="
-            + ", ".join(overlap)
-        )
-    unknown_selected = sorted(selected - screened)
-    if unknown_selected:
-        raise CommandError(
-            "selected candidates absent from screened discovery: "
-            + ", ".join(unknown_selected)
-        )
-    unknown_ledgered = sorted(ledgered - discovered)
-    if unknown_ledgered:
-        raise CommandError(
-            "ledger candidates absent from discovery: " + ", ".join(unknown_ledgered)
-        )
-    unreconciled = sorted(screened - selected - ledgered)
-    if unreconciled:
-        raise CommandError(
-            "unreconciled screened candidates: " + ", ".join(unreconciled)
-        )
 
 
 def _registry_entry_for_key(

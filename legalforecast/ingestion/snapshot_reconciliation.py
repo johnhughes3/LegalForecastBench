@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -61,6 +61,116 @@ class SnapshotReconciliation:
             "manifest_sha256": self.manifest_sha256,
             "cycle_store_path": self.cycle_store_path,
         }
+
+
+def validate_acquisition_discovery_reconciliation(
+    *,
+    screened_case_records: Sequence[Mapping[str, Any]],
+    discovery_reconciliation: SnapshotReconciliation,
+    discovery_exclusion_records: Sequence[Mapping[str, Any]],
+    selection_records: Sequence[Mapping[str, Any]],
+    complete_ledger_records: Sequence[Mapping[str, Any]],
+) -> None:
+    """Validate that discovery candidates form a closed final partition."""
+
+    screened_ids = tuple(
+        _required_partition_text(
+            _required_partition_mapping(record, "candidate"), "docket_id"
+        )
+        for record in screened_case_records
+    )
+    discovery_exclusion_ids = tuple(
+        _required_partition_text(record, "candidate_id")
+        for record in discovery_exclusion_records
+    )
+    selection_ids = tuple(
+        _required_partition_text(record, "candidate_id") for record in selection_records
+    )
+    ledger_ids = tuple(
+        _required_partition_text(record, "candidate_id")
+        for record in complete_ledger_records
+    )
+    for label, candidate_ids in (
+        ("screened cases", screened_ids),
+        ("discovery exclusions", discovery_exclusion_ids),
+        ("selection", selection_ids),
+        ("complete exclusion ledger", ledger_ids),
+    ):
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise SnapshotReconciliationError(f"duplicate candidate_id in {label}")
+
+    accepted_count = discovery_reconciliation.accepted_count
+    excluded_count = discovery_reconciliation.excluded_count
+    processed_count = discovery_reconciliation.processed_count
+    if accepted_count != len(screened_ids):
+        raise SnapshotReconciliationError(
+            "discovery accepted_case_count does not match screened-cases JSONL"
+        )
+    if excluded_count != len(discovery_exclusion_ids):
+        raise SnapshotReconciliationError(
+            "discovery excluded_case_count does not match discovery-exclusions JSONL"
+        )
+    if processed_count != accepted_count + excluded_count:
+        raise SnapshotReconciliationError(
+            "discovery processed_candidate_count must equal accepted plus excluded"
+        )
+
+    screened = set(screened_ids)
+    discovery_excluded = set(discovery_exclusion_ids)
+    if screened & discovery_excluded:
+        raise SnapshotReconciliationError(
+            "candidate appears in both screened and discovery exclusions"
+        )
+    discovered = screened | discovery_excluded
+    if len(discovered) != processed_count:
+        raise SnapshotReconciliationError(
+            "discovery candidate IDs do not reconcile to processed count"
+        )
+
+    selected = set(selection_ids)
+    ledgered = set(ledger_ids)
+    overlap = sorted(selected & ledgered)
+    if overlap:
+        raise SnapshotReconciliationError(
+            "screened candidates must be selected xor excluded; overlap="
+            + ", ".join(overlap)
+        )
+    unknown_selected = sorted(selected - screened)
+    if unknown_selected:
+        raise SnapshotReconciliationError(
+            "selected candidates absent from screened discovery: "
+            + ", ".join(unknown_selected)
+        )
+    unknown_ledgered = sorted(ledgered - discovered)
+    if unknown_ledgered:
+        raise SnapshotReconciliationError(
+            "ledger candidates absent from discovery: " + ", ".join(unknown_ledgered)
+        )
+    unreconciled = sorted(screened - selected - ledgered)
+    if unreconciled:
+        raise SnapshotReconciliationError(
+            "unreconciled screened candidates: " + ", ".join(unreconciled)
+        )
+
+
+def _required_partition_mapping(
+    record: Mapping[str, Any], field_name: str
+) -> Mapping[str, Any]:
+    if field_name not in record:
+        raise SnapshotReconciliationError(f"{field_name} is required")
+    value = record[field_name]
+    if not isinstance(value, Mapping):
+        raise SnapshotReconciliationError(f"{field_name} must be an object")
+    return cast(Mapping[str, Any], value)
+
+
+def _required_partition_text(record: Mapping[str, Any], field_name: str) -> str:
+    if field_name not in record:
+        raise SnapshotReconciliationError(f"{field_name} is required")
+    value = record[field_name]
+    if not isinstance(value, str) or not value.strip():
+        raise SnapshotReconciliationError(f"{field_name} must be a non-empty string")
+    return value
 
 
 def verify_saturated_snapshot_reconciliation(

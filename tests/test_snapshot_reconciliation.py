@@ -8,10 +8,190 @@ from typing import Any
 import pytest
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.snapshot_reconciliation import (
+    SnapshotReconciliation,
     SnapshotReconciliationError,
+    validate_acquisition_discovery_reconciliation,
     verify_saturated_snapshot_reconciliation,
 )
 from legalforecast.protocol import sha256_file
+
+
+def _discovery_reconciliation(
+    *,
+    accepted_count: int = 2,
+    excluded_count: int = 1,
+    processed_count: int = 3,
+) -> SnapshotReconciliation:
+    return SnapshotReconciliation(
+        accepted_count=accepted_count,
+        excluded_count=excluded_count,
+        processed_count=processed_count,
+        cycle_hash="a" * 64,
+        batch_id="batch-1",
+        batch_digest="b" * 64,
+        snapshot_id="snapshot-1",
+        manifest_sha256="c" * 64,
+        cycle_store_path="/controlled/cycle.sqlite3",
+    )
+
+
+def _screened(candidate_id: str) -> dict[str, object]:
+    return {"candidate": {"docket_id": candidate_id}}
+
+
+def _candidate(candidate_id: str) -> dict[str, object]:
+    return {"candidate_id": candidate_id}
+
+
+def test_validate_acquisition_discovery_reconciliation_accepts_closed_partition() -> (
+    None
+):
+    validate_acquisition_discovery_reconciliation(
+        screened_case_records=[_screened("selected"), _screened("ledgered")],
+        discovery_reconciliation=_discovery_reconciliation(),
+        discovery_exclusion_records=[_candidate("discovery-excluded")],
+        selection_records=[_candidate("selected")],
+        complete_ledger_records=[
+            _candidate("ledgered"),
+            _candidate("discovery-excluded"),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("records", "message"),
+    [
+        ("screened", "duplicate candidate_id in screened cases"),
+        ("discovery", "duplicate candidate_id in discovery exclusions"),
+        ("selection", "duplicate candidate_id in selection"),
+        ("ledger", "duplicate candidate_id in complete exclusion ledger"),
+    ],
+)
+def test_validate_acquisition_discovery_reconciliation_rejects_duplicate_ids(
+    records: str,
+    message: str,
+) -> None:
+    screened = [_screened("selected"), _screened("ledgered")]
+    discovery = [_candidate("discovery-excluded")]
+    selection = [_candidate("selected")]
+    ledger = [_candidate("ledgered"), _candidate("discovery-excluded")]
+    targets = {
+        "screened": screened,
+        "discovery": discovery,
+        "selection": selection,
+        "ledger": ledger,
+    }
+    targets[records].append(targets[records][0])
+
+    with pytest.raises(SnapshotReconciliationError, match=message):
+        validate_acquisition_discovery_reconciliation(
+            screened_case_records=screened,
+            discovery_reconciliation=_discovery_reconciliation(),
+            discovery_exclusion_records=discovery,
+            selection_records=selection,
+            complete_ledger_records=ledger,
+        )
+
+
+@pytest.mark.parametrize(
+    ("reconciliation", "message"),
+    [
+        (
+            _discovery_reconciliation(accepted_count=3),
+            "accepted_case_count does not match screened-cases JSONL",
+        ),
+        (
+            _discovery_reconciliation(excluded_count=2),
+            "excluded_case_count does not match discovery-exclusions JSONL",
+        ),
+        (
+            _discovery_reconciliation(processed_count=4),
+            "processed_candidate_count must equal accepted plus excluded",
+        ),
+    ],
+)
+def test_validate_acquisition_discovery_reconciliation_rejects_count_mismatch(
+    reconciliation: SnapshotReconciliation,
+    message: str,
+) -> None:
+    with pytest.raises(SnapshotReconciliationError, match=message):
+        validate_acquisition_discovery_reconciliation(
+            screened_case_records=[_screened("selected"), _screened("ledgered")],
+            discovery_reconciliation=reconciliation,
+            discovery_exclusion_records=[_candidate("discovery-excluded")],
+            selection_records=[_candidate("selected")],
+            complete_ledger_records=[
+                _candidate("ledgered"),
+                _candidate("discovery-excluded"),
+            ],
+        )
+
+
+@pytest.mark.parametrize(
+    ("screened", "discovery", "selection", "ledger", "message"),
+    [
+        (
+            ["candidate"],
+            ["candidate"],
+            [],
+            [],
+            "candidate appears in both screened and discovery exclusions",
+        ),
+        (
+            ["candidate"],
+            ["excluded"],
+            ["candidate"],
+            ["candidate", "excluded"],
+            "screened candidates must be selected xor excluded",
+        ),
+        (
+            ["candidate"],
+            ["excluded"],
+            ["unknown"],
+            ["candidate", "excluded"],
+            "selected candidates absent from screened discovery: unknown",
+        ),
+        (
+            ["candidate"],
+            ["excluded"],
+            ["candidate"],
+            ["excluded", "unknown"],
+            "ledger candidates absent from discovery: unknown",
+        ),
+        (
+            ["selected", "unreconciled"],
+            ["excluded"],
+            ["selected"],
+            ["excluded"],
+            "unreconciled screened candidates: unreconciled",
+        ),
+    ],
+)
+def test_validate_acquisition_discovery_reconciliation_rejects_open_partition(
+    screened: list[str],
+    discovery: list[str],
+    selection: list[str],
+    ledger: list[str],
+    message: str,
+) -> None:
+    with pytest.raises(SnapshotReconciliationError, match=message):
+        validate_acquisition_discovery_reconciliation(
+            screened_case_records=[
+                _screened(candidate_id) for candidate_id in screened
+            ],
+            discovery_reconciliation=_discovery_reconciliation(
+                accepted_count=len(screened),
+                excluded_count=len(discovery),
+                processed_count=len(screened) + len(discovery),
+            ),
+            discovery_exclusion_records=[
+                _candidate(candidate_id) for candidate_id in discovery
+            ],
+            selection_records=[_candidate(candidate_id) for candidate_id in selection],
+            complete_ledger_records=[
+                _candidate(candidate_id) for candidate_id in ledger
+            ],
+        )
 
 
 def test_verify_saturated_snapshot_reconciliation_accepts_current_snapshot_shape(
