@@ -12,17 +12,24 @@ from urllib.request import Request
 import legalforecast.ingestion.disclosure_model_review_authority as authority_module
 import pytest
 from legalforecast.evals.live_model_solver import LiveModelProviderError
-from legalforecast.ingestion.disclosure_model_review_authority import (
-    DisclosureModelReviewAuthorityError,
-    authenticate_disclosure_model_review,
-    private_disclosure_model_review_records,
-    public_disclosure_model_review_record,
-)
 from legalforecast.ingestion.provenance_clearance import (
     canonical_json_bytes,
     exception_review_worksheet_v3,
 )
 from reportlab.pdfgen.canvas import Canvas
+
+DisclosureModelReviewAuthorityError = (
+    authority_module.DisclosureModelReviewAuthorityError
+)
+authenticate_disclosure_model_review = (
+    authority_module.authenticate_disclosure_model_review
+)
+private_disclosure_model_review_records = (
+    authority_module.private_disclosure_model_review_records
+)
+public_disclosure_model_review_record = (
+    authority_module.public_disclosure_model_review_record
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 CYCLE_ID = "cycle-1-target-100-2026-07-25"
@@ -268,6 +275,34 @@ def test_frozen_authority_identity_is_verifier_owned(
         DisclosureModelReviewAuthorityError, match="frozen artifact differs"
     ):
         _authenticate(tmp_path)
+
+
+def test_explicit_source_root_supports_installed_wheel_layout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installed_root = tmp_path / "installed-authority-data"
+    for relative_path in (
+        "model_registries/cycle-1-disclosure-reviewer-2026-07-27.json",
+        "model_registries/cycle-1-2026-06-30.json",
+        "model_registries/cycle-1-target-100-provider-caps-base-2026-07-28.json",
+    ):
+        destination = installed_root / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((ROOT / relative_path).read_bytes())
+    missing = tmp_path / "site-packages-without-repository-data"
+    monkeypatch.setattr(authority_module, "_REVIEWER_REGISTRY", missing / "reviewer")
+    monkeypatch.setattr(authority_module, "_EVALUATED_REGISTRY", missing / "evaluated")
+    monkeypatch.setattr(authority_module, "_PROVIDER_CYCLE_CAPS", missing / "caps")
+
+    capability = _authenticate(tmp_path, source_root=installed_root)
+
+    assert public_disclosure_model_review_record(capability)["decision_count"] == 1
+
+
+def test_logical_call_identity_separates_input_boundaries() -> None:
+    assert authority_module._logical_call_id(
+        b"routing-plan-prefix", b"worksheet"
+    ) != authority_module._logical_call_id(b"routing-plan", b"-prefixworksheet")
 
 
 def test_module_exposes_no_direct_capability_issuer() -> None:

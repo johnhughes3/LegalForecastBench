@@ -10,6 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
+from weakref import WeakKeyDictionary
 
 from legalforecast.evals.live_model_solver import (
     LiveModelTransport,
@@ -84,6 +85,7 @@ class _FrozenInputs:
 @dataclass(frozen=True, slots=True)
 class _CapabilityState:
     inputs: _FrozenInputs
+    frozen_source_root: Path | None
     provider_journal_path: Path
     provider_spend_authority_path: Path
     local_attempt_ordinal: int
@@ -102,6 +104,7 @@ def _authenticate_state(
     document_bytes_by_key: Mapping[tuple[str, str], bytes],
     provider_journal_path: str | Path,
     provider_spend_authority_path: str | Path,
+    source_root: str | Path | None = None,
     transport: LiveModelTransport | None = None,
     environ: Mapping[str, str] | None = None,
     timeout_seconds: float = 120.0,
@@ -109,7 +112,10 @@ def _authenticate_state(
 ) -> _CapabilityState:
     """Execute or cross-store-adopt one frozen Gemini review."""
 
-    reviewer, evaluated_registry_sha256, caps, caps_sha256 = _frozen_authorities()
+    frozen_source_root = None if source_root is None else Path(source_root).resolve()
+    reviewer, evaluated_registry_sha256, caps, caps_sha256 = _frozen_authorities(
+        source_root=frozen_source_root
+    )
     inputs, documents = _validate_inputs(
         routing_plan=routing_plan,
         routing_plan_bytes=routing_plan_bytes,
@@ -209,6 +215,7 @@ def _authenticate_state(
 
     return _CapabilityState(
         inputs=inputs,
+        frozen_source_root=frozen_source_root,
         provider_journal_path=Path(provider_journal_path).resolve(),
         provider_spend_authority_path=Path(provider_spend_authority_path).resolve(),
         local_attempt_ordinal=local_ordinal,
@@ -287,7 +294,7 @@ def _execution_context(
     provider_journal_path: Path,
     provider_spend_authority_path: Path,
 ) -> _ExecutionContext:
-    logical_id = _sha256(routing_plan_bytes + worksheet_bytes)
+    logical_id = _logical_call_id(routing_plan_bytes, worksheet_bytes)
     reservation = conservative_reservation_microusd(
         context_limit=reviewer.context_limit,
         max_output_tokens=reviewer.max_output_tokens,
@@ -336,7 +343,9 @@ def _execution_context(
 
 
 def _substantive_replay(state: _CapabilityState) -> None:
-    reviewer, evaluated_sha, caps, caps_sha = _frozen_authorities()
+    reviewer, evaluated_sha, caps, caps_sha = _frozen_authorities(
+        source_root=state.frozen_source_root
+    )
     plan = _json_object(state.inputs.routing_plan_bytes, "routing plan")
     worksheet = _json_object(state.inputs.worksheet_bytes, "worksheet")
     document_map = dict(state.inputs.documents)
@@ -425,10 +434,13 @@ def _substantive_replay(state: _CapabilityState) -> None:
         authority.close()
 
 
-def _frozen_authorities() -> tuple[ModelRegistryEntry, str, Any, str]:
-    reviewer_bytes = _read_frozen(_REVIEWER_REGISTRY, REVIEWER_REGISTRY_SHA256)
-    evaluated_bytes = _read_frozen(_EVALUATED_REGISTRY, EVALUATED_REGISTRY_SHA256)
-    caps_bytes = _read_frozen(_PROVIDER_CYCLE_CAPS, PROVIDER_CYCLE_CAPS_SHA256)
+def _frozen_authorities(
+    *, source_root: Path | None = None
+) -> tuple[ModelRegistryEntry, str, Any, str]:
+    reviewer_path, evaluated_path, caps_path = _frozen_paths(source_root)
+    reviewer_bytes = _read_frozen(reviewer_path, REVIEWER_REGISTRY_SHA256)
+    evaluated_bytes = _read_frozen(evaluated_path, EVALUATED_REGISTRY_SHA256)
+    caps_bytes = _read_frozen(caps_path, PROVIDER_CYCLE_CAPS_SHA256)
     reviewer_registry = _registry(reviewer_bytes, "reviewer registry")
     evaluated = _registry(evaluated_bytes, "evaluated registry")
     if len(reviewer_registry.entries) != 1:
@@ -450,8 +462,19 @@ def _frozen_authorities() -> tuple[ModelRegistryEntry, str, Any, str]:
         raise DisclosureModelReviewAuthorityError(
             "reviewer is not provider, model, and registry-key disjoint"
         )
-    caps = load_provider_cycle_caps_bytes(caps_bytes, source=_PROVIDER_CYCLE_CAPS)
+    caps = load_provider_cycle_caps_bytes(caps_bytes, source=caps_path)
     return reviewer, EVALUATED_REGISTRY_SHA256, caps, PROVIDER_CYCLE_CAPS_SHA256
+
+
+def _frozen_paths(source_root: Path | None) -> tuple[Path, Path, Path]:
+    if source_root is None:
+        return _REVIEWER_REGISTRY, _EVALUATED_REGISTRY, _PROVIDER_CYCLE_CAPS
+    root = source_root.resolve()
+    return (
+        root / "model_registries/cycle-1-disclosure-reviewer-2026-07-27.json",
+        root / "model_registries/cycle-1-2026-06-30.json",
+        root / "model_registries/cycle-1-target-100-provider-caps-base-2026-07-28.json",
+    )
 
 
 def _validate_inputs(
@@ -681,13 +704,23 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _logical_call_id(routing_plan_bytes: bytes, worksheet_bytes: bytes) -> str:
+    """Bind the two frozen inputs without ambiguous concatenation boundaries."""
+
+    return _sha256(
+        b"legalforecast.disclosure-review.logical-call.v1\0"
+        + bytes.fromhex(_sha256(routing_plan_bytes))
+        + bytes.fromhex(_sha256(worksheet_bytes))
+    )
+
+
 def _verifier_owned_capability_boundary() -> tuple[Any, Any, Any]:
     """Close capability construction and state adoption over verifier-only data."""
 
     class AuthenticatedCapability:
-        __slots__ = ()
+        __slots__ = ("__weakref__",)
 
-    states: dict[object, _CapabilityState] = {}
+    states: WeakKeyDictionary[object, _CapabilityState] = WeakKeyDictionary()
 
     def consume(capability: object) -> _CapabilityState:
         if type(capability) is not AuthenticatedCapability:
