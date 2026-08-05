@@ -7092,7 +7092,7 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
     parser.add_argument(
         "--acknowledge-pacer-fees",
         action="store_true",
-        help="Acknowledge that the brokered request may incur PACER fees.",
+        help="Acknowledge that the paid request may incur PACER fees.",
     )
     parser.set_defaults(handler=_cmd_acquisition_purchase_missing_recap_fetch)
 
