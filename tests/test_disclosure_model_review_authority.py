@@ -109,8 +109,8 @@ def _response(document_sha256: str) -> dict[str, object]:
         "model_version": "gemini-3.5-flash",
         "decision": "cleared",
         "sensitive_content": "absent",
-        "supporting_page_number": 1,
-        "supporting_excerpt": "medical record cited only as a public allegation",
+        "supporting_page_number": None,
+        "supporting_excerpt": None,
     }
 
 
@@ -156,7 +156,6 @@ def _inputs() -> tuple[
 
 def _provider_payload(document_sha256: str) -> dict[str, object]:
     item = _response(document_sha256)
-    item["supporting_page_number"] = 1
     semantic = {
         "schema_version": "legalforecast.disclosure_model_review_batch_response.v1",
         "model_id": "gemini-3.5-flash",
@@ -217,9 +216,8 @@ def test_authenticated_review_journals_before_parse_and_projects_by_capability(
     assert "supporting_excerpt" not in serialized_public
     assert "raw_output" not in serialized_public
     assert "prompt_text" not in serialized_public
-    assert private[0]["supporting_excerpt"] == (
-        "medical record cited only as a public allegation"
-    )
+    assert private[0]["supporting_page_number"] is None
+    assert private[0]["supporting_excerpt"] is None
 
     with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
         row = connection.execute(
@@ -682,6 +680,73 @@ def test_corrected_reconstruction_recovers_latest_response_without_provider(
         ),
         (2, "settled", "provider semantic output is not exact canonical JSON"),
     ]
+
+
+def test_provider_free_recovery_accepts_exact_prompt_schema_echo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_validator = authority_module._validate_semantic
+    plan, plan_bytes, worksheet, worksheet_bytes, documents = _inputs()
+    document_sha256 = cast(
+        str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"]
+    )
+    payload = _provider_payload(document_sha256)
+    candidates = cast(list[dict[str, object]], payload["candidates"])
+    content = cast(dict[str, object], candidates[0]["content"])
+    parts = cast(list[dict[str, object]], content["parts"])
+    semantic = json.loads(cast(str, parts[0]["text"]))
+    semantic["schema_version"] = "legalforecast.disclosure_model_review_batch_prompt.v1"
+    semantic["response_schema_version"] = (
+        "legalforecast.disclosure_model_review_batch_response.v1"
+    )
+    [item] = cast(list[dict[str, object]], semantic["items"])
+    item["decision"] = "quarantined"
+    item["sensitive_content"] = "present"
+    item["supporting_page_number"] = 1
+    item["supporting_excerpt"] = "medical  record cited only as a public allegation"
+    raw_output = json.dumps(semantic, indent=2) + "\n"
+    parts[0]["text"] = raw_output
+
+    def legacy_rejection(*_args: object, **_kwargs: object) -> object:
+        raise DisclosureModelReviewAuthorityError(
+            "provider semantic output is not exact canonical JSON"
+        )
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", legacy_rejection)
+    for _ in range(2):
+        with pytest.raises(DisclosureModelReviewAuthorityError):
+            _authenticate(tmp_path, transport=lambda *_args: payload)
+    monkeypatch.setattr(authority_module, "_validate_semantic", original_validator)
+
+    capability = replay_authenticated_disclosure_model_review(
+        routing_plan=plan,
+        routing_plan_bytes=plan_bytes,
+        worksheet=worksheet,
+        worksheet_bytes=worksheet_bytes,
+        document_bytes_by_key=documents,
+        provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+        provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+    )
+
+    assert disclosure_model_review_provider_call_executed(capability) is False
+    [private_record] = private_disclosure_model_review_records(capability)
+    assert private_record["status"] == "quarantined"
+    assert private_record["supporting_page_number"] is None
+    assert private_record["supporting_excerpt"] is None
+    assert (
+        private_record["schema_version"]
+        == "legalforecast.disclosure_model_review_private_review.v2"
+    )
+    assert (
+        private_record["batch_response_sha256"]
+        == hashlib.sha256(raw_output.encode()).hexdigest()
+    )
+    with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [(1, "reconstruction_failed"), (2, "settled")]
 
 
 def test_provider_free_recovery_uses_older_valid_failed_response(

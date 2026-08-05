@@ -41709,7 +41709,11 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
         )
         authority = public_disclosure_model_review_record(capability)
         private_records = private_disclosure_model_review_records(capability)
-    except (DisclosureModelReviewAuthorityError, OSError) as exc:
+    except (
+        DisclosureModelReviewAuthorityError,
+        OSError,
+        ProviderJournalError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
     authority_bytes = canonical_json_bytes(authority)
     private_bytes = canonical_json_bytes(list(private_records))

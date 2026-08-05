@@ -49,7 +49,7 @@ from legalforecast.labeling.provider_journal import (
 
 AUTHORITY_SCHEMA_VERSION = "legalforecast.disclosure_model_review_authority.v2"
 PRIVATE_RECORDS_SCHEMA_VERSION = (
-    "legalforecast.disclosure_model_review_authority_private.v1"
+    "legalforecast.disclosure_model_review_authority_private.v2"
 )
 REVIEWER_REGISTRY_SHA256 = (
     "f577faab344745d9dcffc4bc0662901e7f511a2a0e0fa58c2e611fe348846e03"

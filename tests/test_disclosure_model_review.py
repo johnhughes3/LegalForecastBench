@@ -120,8 +120,8 @@ def _response(document_sha256: str) -> dict[str, object]:
         "model_version": "gemini-3.5-flash",
         "decision": "cleared",
         "sensitive_content": "absent",
-        "supporting_page_number": 2,
-        "supporting_excerpt": "medical record cited only as a public allegation",
+        "supporting_page_number": None,
+        "supporting_excerpt": None,
     }
 
 
@@ -219,6 +219,12 @@ def test_response_validation_and_public_projection_do_not_leak_raw_text() -> Non
         validated.to_private_record()["reviewer_registry_entry_sha256"]
         == public["reviewer_registry_entry_sha256"]
     )
+    assert (
+        validated.to_private_record()["schema_version"]
+        == "legalforecast.disclosure_model_review_private_review.v2"
+    )
+    assert validated.supporting_page_number is None
+    assert validated.supporting_excerpt is None
     assert set(public) == {
         "schema_version",
         "candidate_id",
@@ -241,8 +247,8 @@ def test_response_validation_and_public_projection_do_not_leak_raw_text() -> Non
         ("document_sha256", "b" * 64, "document"),
         ("sensitive_content", "uncertain", "uncertain"),
         ("decision", "quarantined", "contradicts"),
-        ("supporting_page_number", 1, "marker page"),
-        ("supporting_excerpt", "not present", "excerpt"),
+        ("supporting_page_number", 1, "support"),
+        ("supporting_excerpt", "not present", "support"),
         ("extra", "field", "shape"),
     ],
 )
@@ -271,15 +277,16 @@ def test_response_rejects_substitution_uncertainty_and_extra_fields(
 
 
 @pytest.mark.parametrize(
-    ("excerpt", "match"),
+    "excerpt",
     [
-        ("medical", "length"),
-        ("record cited only as a public allegation", "marker"),
-        ("medical record " + ("x" * 240), "length"),
+        "medical",
+        "record cited only as a public allegation",
+        "medical record " + ("x" * 240),
     ],
+    ids=("too-short", "missing-marker", "too-long"),
 )
-def test_response_rejects_weak_or_unbounded_supporting_excerpt(
-    excerpt: str, match: str
+def test_quarantined_response_discards_unverified_supporting_excerpt(
+    excerpt: str,
 ) -> None:
     page_text = "medical record cited only as a public allegation " + ("x" * 240)
     data = _pdf(page_text)
@@ -292,10 +299,130 @@ def test_response_rejects_weak_or_unbounded_supporting_excerpt(
     }
     prompt = build_marker_page_prompt(row, document_bytes=data)
     response = _response(hashlib.sha256(data).hexdigest())
+    response["decision"] = "quarantined"
+    response["sensitive_content"] = "present"
     response["supporting_page_number"] = 1
     response["supporting_excerpt"] = excerpt
 
+    validated = validate_model_review_semantic_response(
+        response,
+        response_bytes=(
+            json.dumps(response, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode(),
+        prompt=prompt,
+        reviewer=_reviewer(),
+        batch_prompt_sha256="e" * 64,
+        batch_response_sha256="f" * 64,
+    )
+
+    assert validated.status == "quarantined"
+    assert validated.supporting_page_number is None
+    assert validated.supporting_excerpt is None
+
+
+@pytest.mark.parametrize(
+    ("decision", "sensitive_content", "match"),
+    [
+        ("cleared", "present", "contradicts"),
+        ("cleared", "uncertain", "uncertain"),
+        ("quarantined", "absent", "contradicts"),
+    ],
+)
+def test_response_rejects_invalid_decision_sensitive_content_cross_product(
+    decision: str, sensitive_content: str, match: str
+) -> None:
+    data = _pdf("medical record cited only as a public allegation")
+    row = _row(data)
+    row["disclosure_pdf_scan"] = {
+        **dict(row["disclosure_pdf_scan"]),  # type: ignore[arg-type]
+        "parsed_page_count": 1,
+        "text_scanned_page_numbers": [1],
+        "text_scanned_page_count": 1,
+    }
+    prompt = build_marker_page_prompt(row, document_bytes=data)
+    response = _response(hashlib.sha256(data).hexdigest())
+    response["decision"] = decision
+    response["sensitive_content"] = sensitive_content
+
     with pytest.raises(DisclosureModelReviewError, match=match):
+        validate_model_review_semantic_response(
+            response,
+            response_bytes=(
+                json.dumps(response, sort_keys=True, separators=(",", ":")) + "\n"
+            ).encode(),
+            prompt=prompt,
+            reviewer=_reviewer(),
+            batch_prompt_sha256="e" * 64,
+            batch_response_sha256="f" * 64,
+        )
+
+
+@pytest.mark.parametrize("sensitive_content", ["present", "uncertain"])
+def test_quarantined_response_accepts_explicit_null_support(
+    sensitive_content: str,
+) -> None:
+    data = _pdf("medical record cited only as a public allegation")
+    row = _row(data)
+    row["disclosure_pdf_scan"] = {
+        **dict(row["disclosure_pdf_scan"]),  # type: ignore[arg-type]
+        "parsed_page_count": 1,
+        "text_scanned_page_numbers": [1],
+        "text_scanned_page_count": 1,
+    }
+    prompt = build_marker_page_prompt(row, document_bytes=data)
+    response = _response(hashlib.sha256(data).hexdigest())
+    response["decision"] = "quarantined"
+    response["sensitive_content"] = sensitive_content
+
+    validated = validate_model_review_semantic_response(
+        response,
+        response_bytes=(
+            json.dumps(response, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode(),
+        prompt=prompt,
+        reviewer=_reviewer(),
+        batch_prompt_sha256="e" * 64,
+        batch_response_sha256="f" * 64,
+    )
+
+    assert validated.status == "quarantined"
+    assert validated.supporting_page_number is None
+    assert validated.supporting_excerpt is None
+
+
+@pytest.mark.parametrize(
+    ("page_number", "excerpt"),
+    (
+        (1, None),
+        (None, "medical record cited only as a public allegation"),
+        ("1", "medical record cited only as a public allegation"),
+        (True, "medical record cited only as a public allegation"),
+        (0, "medical record cited only as a public allegation"),
+        (1, 123),
+        (1, ""),
+        (1, " medical record cited only as a public allegation"),
+    ),
+)
+def test_quarantined_response_rejects_malformed_support_pair(
+    page_number: object,
+    excerpt: object,
+) -> None:
+    data = _pdf("medical record cited only as a public allegation")
+    row = _row(data)
+    row["disclosure_pdf_scan"] = {
+        **dict(row["disclosure_pdf_scan"]),  # type: ignore[arg-type]
+        "parsed_page_count": 1,
+        "text_scanned_page_numbers": [1],
+        "text_scanned_page_count": 1,
+    }
+    prompt = build_marker_page_prompt(row, document_bytes=data)
+    response = _response(hashlib.sha256(data).hexdigest())
+    response["decision"] = "quarantined"
+    response["sensitive_content"] = "present"
+    response["supporting_page_number"] = page_number
+    response["supporting_excerpt"] = excerpt
+
+    with pytest.raises(DisclosureModelReviewError, match="well-typed pair"):
         validate_model_review_semantic_response(
             response,
             response_bytes=(
@@ -437,7 +564,6 @@ def test_fourteen_documents_form_one_batch_prompt_and_one_raw_response() -> None
     for prompt in prompts:
         item = _response(prompt.document_sha256)
         item["candidate_id"] = prompt.candidate_id
-        item["supporting_page_number"] = 1
         items.append(item)
     response: dict[str, object] = {
         "schema_version": "legalforecast.disclosure_model_review_batch_response.v1",
@@ -477,7 +603,6 @@ def _single_document_batch() -> tuple[
     prompt = build_marker_page_prompt(row, document_bytes=data)
     batch = build_model_review_batch_prompt([prompt], reviewer=_reviewer())
     item = _response(prompt.document_sha256)
-    item["supporting_page_number"] = 1
     return batch, {
         "schema_version": "legalforecast.disclosure_model_review_batch_response.v1",
         "model_id": "gemini-3.5-flash",
@@ -485,6 +610,25 @@ def _single_document_batch() -> tuple[
         "document_count": 1,
         "items": [item],
     }
+
+
+def test_batch_response_discards_prompted_clearance_support() -> None:
+    batch, response = _single_document_batch()
+    items = cast(list[dict[str, object]], response["items"])
+    items[0]["supporting_page_number"] = 1
+    items[0]["supporting_excerpt"] = "medical record cited only as a public allegation"
+    response_bytes = json.dumps(response).encode()
+
+    validated = validate_model_review_batch_response(
+        response,
+        response_bytes=response_bytes,
+        batch_prompt=batch,
+        reviewer=_reviewer(),
+    )
+
+    assert validated[0].status == "cleared"
+    assert validated[0].supporting_page_number is None
+    assert validated[0].supporting_excerpt is None
 
 
 @pytest.mark.parametrize("document_count", [True, 1.0, "1", -1])
@@ -518,6 +662,57 @@ def test_batch_response_rejects_nested_duplicate_json_key() -> None:
         validate_model_review_batch_response(
             response,
             response_bytes=duplicate,
+            batch_prompt=batch,
+            reviewer=_reviewer(),
+        )
+
+
+def test_batch_response_accepts_exact_prompt_schema_echo() -> None:
+    batch, response = _single_document_batch()
+    response["schema_version"] = "legalforecast.disclosure_model_review_batch_prompt.v1"
+    response["response_schema_version"] = (
+        "legalforecast.disclosure_model_review_batch_response.v1"
+    )
+    response_bytes = json.dumps(response, indent=2).encode()
+
+    [review] = validate_model_review_batch_response(
+        response,
+        response_bytes=response_bytes,
+        batch_prompt=batch,
+        reviewer=_reviewer(),
+    )
+
+    assert review.batch_response_sha256 == hashlib.sha256(response_bytes).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("schema_version", "response_schema_version"),
+    [
+        (
+            "legalforecast.disclosure_model_review_batch_response.v1",
+            "legalforecast.disclosure_model_review_batch_response.v1",
+        ),
+        (
+            "legalforecast.disclosure_model_review_batch_prompt.v1",
+            "legalforecast.disclosure_model_review_response.v1",
+        ),
+        (
+            "legalforecast.disclosure_model_review_prompt.v1",
+            "legalforecast.disclosure_model_review_batch_response.v1",
+        ),
+    ],
+)
+def test_batch_response_rejects_inexact_prompt_schema_echo(
+    schema_version: str, response_schema_version: str
+) -> None:
+    batch, response = _single_document_batch()
+    response["schema_version"] = schema_version
+    response["response_schema_version"] = response_schema_version
+
+    with pytest.raises(DisclosureModelReviewError, match="invalid model batch"):
+        validate_model_review_batch_response(
+            response,
+            response_bytes=json.dumps(response).encode(),
             batch_prompt=batch,
             reviewer=_reviewer(),
         )

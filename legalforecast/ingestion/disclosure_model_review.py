@@ -28,7 +28,7 @@ BATCH_RESPONSE_SCHEMA_VERSION = (
     "legalforecast.disclosure_model_review_batch_response.v1"
 )
 PRIVATE_REVIEW_SCHEMA_VERSION = (
-    "legalforecast.disclosure_model_review_private_review.v1"
+    "legalforecast.disclosure_model_review_private_review.v2"
 )
 DECISION_SCHEMA_VERSION = "legalforecast.disclosure_model_review_decision.v1"
 
@@ -114,11 +114,11 @@ class ValidatedDisclosureModelReview:
     batch_response_sha256: str
     reviewer_registry_entry_sha256: str
     status: str
-    supporting_page_number: int
-    supporting_excerpt: str
+    supporting_page_number: int | None
+    supporting_excerpt: str | None
 
     def to_private_record(self) -> dict[str, object]:
-        """Return the canonical private record, including verbatim support."""
+        """Return the canonical private record with only verified support."""
 
         return {
             "schema_version": PRIVATE_REVIEW_SCHEMA_VERSION,
@@ -465,31 +465,49 @@ def validate_model_review_semantic_response(
         raise DisclosureModelReviewError(
             "model response decision contradicts sensitive-content finding"
         )
-    page_number = _positive_int(
-        response.get("supporting_page_number"), "supporting_page_number"
-    )
     pages = {page.page_number: page.text for page in prompt.marker_pages}
-    if page_number not in pages:
-        raise DisclosureModelReviewError(
-            "model response supporting page is not an exact marker page"
+    page_number: int | None = None
+    excerpt: str | None = None
+    raw_page_number = response.get("supporting_page_number")
+    raw_excerpt = response.get("supporting_excerpt")
+    if (raw_page_number is None) != (raw_excerpt is None) or (
+        raw_page_number is not None
+        and (
+            type(raw_page_number) is not int
+            or raw_page_number <= 0
+            or not isinstance(raw_excerpt, str)
+            or raw_excerpt.strip() != raw_excerpt
+            or not raw_excerpt
         )
-    page_text = pages[page_number]
-    excerpt = _required_text(response, "supporting_excerpt")
-    minimum_excerpt_characters = min(_MIN_SUPPORTING_EXCERPT_CHARACTERS, len(page_text))
-    if not (
-        minimum_excerpt_characters <= len(excerpt) <= _MAX_SUPPORTING_EXCERPT_CHARACTERS
     ):
         raise DisclosureModelReviewError(
-            "model response supporting excerpt length is outside the closed bound"
+            "model response support must be null or a well-typed pair"
         )
-    if excerpt not in page_text:
-        raise DisclosureModelReviewError(
-            "model response supporting excerpt is not verbatim marker-page text"
+    # Clearance is already supported by the absence finding, so discard any
+    # prompted support pair. Quarantine is conservative; retain its support
+    # only when it can be verified against the marker page. In both cases the
+    # raw provider bytes and hashes remain unchanged.
+    if (
+        decision == "quarantined"
+        and raw_page_number is not None
+        and raw_page_number in pages
+    ):
+        assert type(raw_page_number) is int
+        assert isinstance(raw_excerpt, str)
+        page_text = pages[raw_page_number]
+        minimum_excerpt_characters = min(
+            _MIN_SUPPORTING_EXCERPT_CHARACTERS, len(page_text)
         )
-    if not (set(disclosure_markers_for_text(excerpt)) & set(prompt.marker_categories)):
-        raise DisclosureModelReviewError(
-            "model response supporting excerpt does not contain a declared marker"
-        )
+        if (
+            minimum_excerpt_characters
+            <= len(raw_excerpt)
+            <= _MAX_SUPPORTING_EXCERPT_CHARACTERS
+            and raw_excerpt in page_text
+            and set(disclosure_markers_for_text(raw_excerpt))
+            & set(prompt.marker_categories)
+        ):
+            page_number = raw_page_number
+            excerpt = raw_excerpt
     return ValidatedDisclosureModelReview(
         candidate_id=prompt.candidate_id,
         source_document_id=prompt.source_document_id,
@@ -544,11 +562,20 @@ def validate_model_review_batch_response(
         "document_count",
         "items",
     }
+    prompt_schema_echo_fields = expected_fields | {"response_schema_version"}
+    standard_response_envelope = (
+        set(response) == expected_fields
+        and response.get("schema_version") == BATCH_RESPONSE_SCHEMA_VERSION
+    )
+    exact_prompt_schema_echo = (
+        set(response) == prompt_schema_echo_fields
+        and response.get("schema_version") == BATCH_PROMPT_SCHEMA_VERSION
+        and response.get("response_schema_version") == BATCH_RESPONSE_SCHEMA_VERSION
+    )
     raw_items_value = response.get("items")
     document_count = _nonnegative_int(response.get("document_count"), "document_count")
     if (
-        set(response) != expected_fields
-        or response.get("schema_version") != BATCH_RESPONSE_SCHEMA_VERSION
+        not (standard_response_envelope or exact_prompt_schema_echo)
         or response.get("model_id") != reviewer.model_id
         or response.get("model_version") != reviewer.model_version_or_snapshot
         or document_count != len(batch_prompt.prompts)
