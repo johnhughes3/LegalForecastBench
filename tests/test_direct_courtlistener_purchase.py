@@ -288,6 +288,41 @@ def test_direct_timeout_is_unknown_and_cannot_replay_paid_post(
     assert second_broker.paid_dispatch_count == 0
 
 
+def test_direct_malformed_paid_response_is_durably_unknown(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    malformed = _RecordingPaidTransport(
+        error=CourtListenerRecapFetchError("response was not valid JSON")
+    )
+    direct = DirectCourtListenerRecapFetchPurchaseBroker(
+        _direct_config(), transport=malformed
+    )
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [_response("GET", "/recap-documents/123/", {"id": 123})]
+            ),
+            purchase_broker=direct,
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=_public_documents(),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+        assert journal.statuses() == {"123": "unknown"}
+        assert journal.committed_amount_usd == "3.05"
+
+    assert len(malformed.calls) == 1
+    assert direct.paid_dispatch_count == 1
+    assert result.attempts[0].status.value == "unknown"
+    assert result.attempts[0].reason == "purchase_outcome_unknown"
+
+
 def test_direct_queued_resume_polls_without_duplicate_paid_post(
     tmp_path: Path,
 ) -> None:

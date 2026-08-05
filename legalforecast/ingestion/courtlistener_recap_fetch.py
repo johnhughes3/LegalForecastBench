@@ -407,7 +407,7 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
                 headers=headers,
                 timeout_seconds=self.config.timeout_seconds,
             )
-        except (CourtListenerRecapFetchOutcomeUnknown, OSError, ValueError) as exc:
+        except (CourtListenerRecapFetchError, OSError, ValueError) as exc:
             raise BrokerOutcomeUnknown(
                 "direct CourtListener purchase outcome is unknown"
             ) from exc
