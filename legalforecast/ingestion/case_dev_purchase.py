@@ -3742,6 +3742,12 @@ class CaseDevPacerPurchaseResult:
             if attempt.status is CaseDevPacerPurchaseStatus.QUARANTINED
         )
 
+    @property
+    def completed_purchase_count(self) -> int:
+        """Count paid requests completed into public or quarantined material."""
+
+        return self.executed_purchase_count + self.quarantined_material_count
+
     def to_record(self) -> dict[str, Any]:
         return {
             "live": self.live,
@@ -3753,6 +3759,7 @@ class CaseDevPacerPurchaseResult:
             "intended_purchase_count": self.intended_purchase_count,
             "executed_purchase_count": self.executed_purchase_count,
             "quarantined_material_count": self.quarantined_material_count,
+            "completed_purchase_count": self.completed_purchase_count,
             "attempts": [attempt.to_record() for attempt in self.attempts],
         }
 

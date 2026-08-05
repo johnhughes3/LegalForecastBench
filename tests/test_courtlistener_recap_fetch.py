@@ -283,6 +283,7 @@ def test_private_null_recap_evidence_requires_attempt_policy_and_quarantine(
 
     assert result.executed_purchase_count == 0
     assert result.quarantined_material_count == 1
+    assert result.completed_purchase_count == result.intended_purchase_count
 
 
 def test_live_fails_closed_without_budget_broker_before_paid_submission(

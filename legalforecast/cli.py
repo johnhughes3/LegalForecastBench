@@ -38947,10 +38947,11 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         extra={
             "executed_purchase_count": result.executed_purchase_count,
             "quarantined_material_count": result.quarantined_material_count,
+            "completed_purchase_count": result.completed_purchase_count,
             **rate_evidence,
         },
     )
-    return 0 if result.executed_purchase_count == result.intended_purchase_count else 2
+    return 0 if result.completed_purchase_count == result.intended_purchase_count else 2
 
 
 def _authenticated_target_projection_inputs(
