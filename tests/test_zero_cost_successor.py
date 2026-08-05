@@ -11,6 +11,7 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    ranked_reserve_canonical_sha256,
     ranked_reserve_result_bytes,
 )
 from legalforecast.ingestion.zero_cost_successor import (
@@ -86,11 +87,12 @@ def _fixture() -> Fixture:
         "purchase_policy_sha256": "sha256:" + "2" * 64,
         "purchase_journal_state_sha256": "sha256:" + "3" * 64,
         "hard_cap_usd": "567.30",
-        "terminal_exclusions_sha256": disposition[
-            "residual_terminal_exclusions_sha256"
-        ],
+        "terminal_exclusions_sha256": "sha256:"
+        + str(disposition["residual_terminal_exclusions_sha256"]).removeprefix(
+            "sha256:"
+        ),
         "terminal_disposition": disposition,
-        "terminal_disposition_sha256": _sha(canonical_json_bytes(disposition)),
+        "terminal_disposition_sha256": ranked_reserve_canonical_sha256(disposition),
         "active_selection_sha256": _sha(active_bytes),
         "replacement_selection_sha256": _sha(replacement_bytes),
         "successor_exclusions_sha256": _sha(exclusion_bytes),
@@ -197,6 +199,37 @@ def test_projects_exact_100_from_first_fully_cleared_frozen_candidate() -> None:
     assert successor.state["selected_case_count"] == 100
     assert successor.state["provider_activity_executed"] is False
     assert successor.state["evaluation_authorized"] is False
+    assert (
+        successor.config["source_commitments"]["screening_snapshot_manifest"]
+        == "sha256:" + "d" * 64
+    )
+
+
+def test_accepts_parent_scoped_case_relevance_documents() -> None:
+    fixture = _fixture()
+    for record in fixture.kwargs["case_relevance"]:
+        for document in record["documents"]:
+            document.pop("candidate_id", None)
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
+
+    assert successor.state["selected_case_count"] == 100
+
+
+@pytest.mark.parametrize("nested_candidate_id", ["", None])
+def test_rejects_invalid_explicit_nested_candidate_id(
+    nested_candidate_id: object,
+) -> None:
+    fixture = _fixture()
+    selected_relevance = next(
+        record
+        for record in fixture.kwargs["case_relevance"]
+        if record["candidate_id"] == "case-003"
+    )
+    selected_relevance["documents"][0]["candidate_id"] = nested_candidate_id
+
+    with pytest.raises(ZeroCostSuccessorError, match="non-empty string"):
+        project_zero_cost_successor(**fixture.kwargs)
 
 
 def test_rejects_compact_ranked_result_bytes() -> None:
@@ -211,6 +244,19 @@ def test_ranked_result_serializer_has_explicit_ascii_contract() -> None:
     payload = ranked_reserve_result_bytes({"note": "résumé"})
 
     assert payload == b'{\n  "note": "r\\u00e9sum\\u00e9"\n}\n'
+
+
+def test_rejects_newline_terminated_terminal_disposition_digest() -> None:
+    fixture = _fixture()
+    fixture.ranked_result["terminal_disposition_sha256"] = _sha(
+        canonical_json_bytes(fixture.ranked_result["terminal_disposition"])
+    )
+    fixture.refresh()
+
+    with pytest.raises(
+        ZeroCostSuccessorError, match="terminal disposition commitment mismatch"
+    ):
+        project_zero_cost_successor(**fixture.kwargs)
 
 
 def test_rejects_extra_successor_commitment_keys() -> None:
@@ -283,6 +329,9 @@ def test_selects_earlier_candidate_when_every_document_is_cleared() -> None:
         if row["candidate_id"] == "70525291":
             row["status"] = "cleared"
     fixture.refresh()
+    fixture.kwargs["authenticated_ranked_result"] = json.loads(
+        fixture.kwargs["ranked_result_bytes"]
+    )
 
     successor = project_zero_cost_successor(**fixture.kwargs)
 
@@ -305,6 +354,104 @@ def test_rejects_partial_candidate_document_coverage() -> None:
     fixture.refresh()
 
     with pytest.raises(ZeroCostSuccessorError, match="document coverage"):
+        project_zero_cost_successor(**fixture.kwargs)
+
+
+def test_accepts_unacquired_paid_recovery_gap() -> None:
+    fixture = _fixture()
+    selected = next(row for row in fixture.active if row["candidate_id"] == "case-010")
+    relevance = next(
+        row
+        for row in fixture.kwargs["case_relevance"]
+        if row["candidate_id"] == "case-010"
+    )
+    document_id = str(selected["documents"][0]["source_document_id"])
+    for document in (selected["documents"][0], relevance["documents"][0]):
+        document["availability_status"] = "unavailable"
+        document["requires_paid_recovery"] = True
+    fixture.manifest[:] = [
+        row
+        for row in fixture.manifest
+        if (row["candidate_id"], row["source_document_id"]) != ("case-010", document_id)
+    ]
+    fixture.clearance[:] = [
+        row
+        for row in fixture.clearance
+        if (row["candidate_id"], row["source_document_id"]) != ("case-010", document_id)
+    ]
+    fixture.restrictions[:] = [
+        row
+        for row in fixture.restrictions
+        if (row["candidate_id"], row["source_document_id"]) != ("case-010", document_id)
+    ]
+    fixture.refresh()
+    fixture.kwargs["authenticated_ranked_result"] = json.loads(
+        fixture.kwargs["ranked_result_bytes"]
+    )
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
+
+    assert ("case-010", document_id) not in {
+        (row["candidate_id"], row["source_document_id"])
+        for row in successor.download_manifest
+    }
+
+
+def test_rejects_unacquired_free_document() -> None:
+    fixture = _fixture()
+    manifest_row = next(
+        row for row in fixture.manifest if row["candidate_id"] == "case-010"
+    )
+    key = (manifest_row["candidate_id"], manifest_row["source_document_id"])
+    fixture.manifest[:] = [
+        row
+        for row in fixture.manifest
+        if (row["candidate_id"], row["source_document_id"]) != key
+    ]
+    fixture.clearance[:] = [
+        row
+        for row in fixture.clearance
+        if (row["candidate_id"], row["source_document_id"]) != key
+    ]
+    fixture.restrictions[:] = [
+        row
+        for row in fixture.restrictions
+        if (row["candidate_id"], row["source_document_id"]) != key
+    ]
+    fixture.refresh()
+
+    with pytest.raises(ZeroCostSuccessorError, match="not a paid-recovery gap"):
+        project_zero_cost_successor(**fixture.kwargs)
+
+
+def test_rejects_paid_gap_marker_missing_from_case_relevance() -> None:
+    fixture = _fixture()
+    selected = next(row for row in fixture.active if row["candidate_id"] == "case-010")
+    document_id = str(selected["documents"][0]["source_document_id"])
+    selected["documents"][0]["availability_status"] = "unavailable"
+    selected["documents"][0]["requires_paid_recovery"] = True
+    key = ("case-010", document_id)
+    fixture.manifest[:] = [
+        row
+        for row in fixture.manifest
+        if (row["candidate_id"], row["source_document_id"]) != key
+    ]
+    fixture.clearance[:] = [
+        row
+        for row in fixture.clearance
+        if (row["candidate_id"], row["source_document_id"]) != key
+    ]
+    fixture.restrictions[:] = [
+        row
+        for row in fixture.restrictions
+        if (row["candidate_id"], row["source_document_id"]) != key
+    ]
+    fixture.refresh()
+    fixture.kwargs["authenticated_ranked_result"] = json.loads(
+        fixture.kwargs["ranked_result_bytes"]
+    )
+
+    with pytest.raises(ZeroCostSuccessorError, match="not a paid-recovery gap"):
         project_zero_cost_successor(**fixture.kwargs)
 
 
@@ -733,7 +880,7 @@ def _disposition() -> dict[str, Any]:
         "purchase_run_card_sha256": "sha256:" + "b" * 64,
         "purchase_journal_state_sha256": "sha256:" + "3" * 64,
         "selection_payload_sha256": "sha256:" + "c" * 64,
-        "snapshot_manifest_sha256": "sha256:" + "d" * 64,
+        "snapshot_manifest_sha256": "d" * 64,
         "terminal_candidate_count": 7,
         "terminal_failure_pair_count": 7,
         "terminal_failure_pairs": terminal,
@@ -744,7 +891,7 @@ def _disposition() -> dict[str, Any]:
         "residual_candidate_count": 3,
         "residual_failure_pair_count": 3,
         "residual_failure_pairs": residual,
-        "residual_terminal_exclusions_sha256": "sha256:" + "f" * 64,
+        "residual_terminal_exclusions_sha256": "f" * 64,
         "partition_disjoint": True,
         "partition_exhaustive": True,
         "model_visible": False,

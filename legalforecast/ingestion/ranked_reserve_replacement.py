@@ -1096,7 +1096,17 @@ def _bytes_sha256(payload: bytes) -> str:
 
 
 def _canonical_sha256(value: object) -> str:
+    return ranked_reserve_canonical_sha256(value)
+
+
+def ranked_reserve_canonical_sha256(value: object) -> str:
+    """Hash a semantic value with the ranked-reserve commitment contract."""
+
     payload = json.dumps(
-        value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode()
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+        allow_nan=False,
+    ).encode("utf-8")
     return _bytes_sha256(payload)
