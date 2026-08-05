@@ -10,6 +10,7 @@ import importlib.metadata
 import json
 import math
 import os
+import secrets
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -44,6 +45,7 @@ from legalforecast.multiharness.tool_protocol import (
 )
 
 _TOOL_CALL_TIMEOUT_SECONDS = 60.0
+_FAILURE_RECEIPT_SCHEMA_VERSION = "legalforecast.claude_adapter_failure.v1"
 
 
 class StdioToolTransport:
@@ -308,6 +310,17 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--output", type=Path, required=True)
         command.add_argument("--workspace", type=Path, required=True)
     args = parser.parse_args(argv)
+    failure_attempt_id = (
+        secrets.token_hex(16) if args.phase == "run-with-tools" else None
+    )
+    failure_receipt_path = (
+        _safe_failure_receipt_path(args.workspace, failure_attempt_id)
+        if failure_attempt_id is not None
+        else None
+    )
+    if args.phase == "run-with-tools" and failure_receipt_path is None:
+        print("Claude Agent SDK adapter failed closed", file=sys.stderr)
+        return 1
     try:
         if args.phase == "capabilities":
             write_json_object(args.output, build_capabilities().to_record())
@@ -331,9 +344,93 @@ def main(argv: list[str] | None = None) -> int:
             )
         write_json_object(args.output, result.to_record())
         return 0
-    except Exception:
+    except Exception as exc:
+        if failure_receipt_path is not None and failure_attempt_id is not None:
+            _write_failure_receipt(failure_receipt_path, failure_attempt_id, exc)
         print("Claude Agent SDK adapter failed closed", file=sys.stderr)
         return 1
+
+
+def _write_failure_receipt(path: Path, attempt_id: str, error: Exception) -> None:
+    """Persist only a bounded failure stage beneath the private log tree."""
+
+    try:
+        safe_path = _safe_failure_receipt_path(path.parent.parent, attempt_id)
+        if safe_path != path:
+            return
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        path.parent.chmod(0o700)
+        write_json_object(
+            path,
+            {
+                "attempt_id": attempt_id,
+                "schema_version": _FAILURE_RECEIPT_SCHEMA_VERSION,
+                "stage": _failure_stage(error),
+            },
+        )
+        path.chmod(0o600)
+    except OSError:
+        return
+
+
+def _safe_failure_receipt_path(workspace: Path, attempt_id: str) -> Path | None:
+    """Resolve a receipt target without following workspace-local symlinks."""
+
+    try:
+        if workspace.is_symlink() or (workspace.exists() and not workspace.is_dir()):
+            return None
+        workspace_root = workspace.resolve(strict=False)
+        private_logs = workspace / "private-logs"
+        if private_logs.is_symlink() or (
+            private_logs.exists() and not private_logs.is_dir()
+        ):
+            return None
+        private_logs_root = private_logs.resolve(strict=False)
+        if private_logs_root != workspace_root / "private-logs":
+            return None
+        if len(attempt_id) != 32 or any(
+            char not in "0123456789abcdef" for char in attempt_id
+        ):
+            return None
+        path = private_logs / f"claude-adapter-failure-{attempt_id}.json"
+        if path.exists() or path.is_symlink():
+            return None
+        return path
+    except OSError:
+        return None
+
+
+def _failure_stage(error: Exception) -> str:
+    """Map internal failures onto a content-free diagnostic vocabulary."""
+
+    if not isinstance(error, ClaudeAgentSDKAdapterError):
+        return "adapter_validation"
+    message = str(error)
+    if "structured output" in message or "case assessment" in message:
+        return "structured_output"
+    if "usage" in message or "cost" in message:
+        return "usage_accounting"
+    if "no terminal result" in message or "multiple terminal result" in message:
+        return "sdk_request"
+    if "terminal result" in message:
+        return "sdk_terminal"
+    if "served model" in message or "model identity" in message:
+        return "model_identity"
+    if (
+        "host tool" in message
+        or "canonical task tool" in message
+        or "solver prompt read" in message
+    ):
+        return "tool_contract"
+    if "SDK request" in message or "assistant response" in message:
+        return "sdk_request"
+    if (
+        "provider environment" in message
+        or "API-key" in message
+        or "ANTHROPIC_API_KEY" in message
+    ):
+        return "provider_auth"
+    return "adapter_validation"
 
 
 def _import_sdk() -> Any:

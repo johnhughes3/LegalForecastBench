@@ -26,6 +26,7 @@ from legalforecast.multiharness.claude_agent_sdk import (
 )
 from legalforecast.multiharness.claude_agent_sdk_cli import (
     PinnedClaudeSDKExecutor,
+    _failure_stage,  # pyright: ignore[reportPrivateUsage]
     build_claude_agent_options,
 )
 from legalforecast.multiharness.claude_agent_sdk_cli import (
@@ -576,6 +577,14 @@ def test_cli_missing_key_fails_with_constant_public_error(
 ) -> None:
     request_path = tmp_path / "request.json"
     request_path.write_text(json.dumps(_request().to_record()), encoding="utf-8")
+    stale_receipt_path = (
+        tmp_path
+        / "workspace"
+        / "private-logs"
+        / "claude-adapter-failure-00000000000000000000000000000000.json"
+    )
+    stale_receipt_path.parent.mkdir(parents=True)
+    stale_receipt_path.write_text("stale receipt", encoding="utf-8")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
@@ -597,6 +606,90 @@ def test_cli_missing_key_fails_with_constant_public_error(
     assert captured.out == ""
     assert captured.err == "Claude Agent SDK adapter failed closed\n"
     assert not (tmp_path / "result.json").exists()
+    receipt_paths = tuple(
+        path
+        for path in stale_receipt_path.parent.glob("claude-adapter-failure-*.json")
+        if path != stale_receipt_path
+    )
+    assert len(receipt_paths) == 1
+    receipt_path = receipt_paths[0]
+    assert json.loads(receipt_path.read_text(encoding="utf-8")) == {
+        "attempt_id": receipt_path.stem.removeprefix("claude-adapter-failure-"),
+        "schema_version": "legalforecast.claude_adapter_failure.v1",
+        "stage": "provider_auth",
+    }
+    assert stale_receipt_path.read_text(encoding="utf-8") == "stale receipt"
+    assert receipt_path.stat().st_mode & 0o777 == 0o600
+
+
+def test_cli_does_not_mutate_symlinked_private_log_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    request_path = tmp_path / "request.json"
+    request_path.write_text(json.dumps(_request().to_record()), encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    external_receipt = external / "claude-adapter-failure-sentinel.json"
+    external_receipt.write_text("external sentinel", encoding="utf-8")
+    (workspace / "private-logs").symlink_to(external, target_is_directory=True)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+
+    def fail_if_called(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("provider executor must not run for an unsafe workspace")
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.claude_agent_sdk_cli.run_claude_agent_sdk",
+        fail_if_called,
+    )
+
+    status = adapter_main(
+        [
+            "run-with-tools",
+            "--request",
+            str(request_path),
+            "--output",
+            str(tmp_path / "result.json"),
+            "--workspace",
+            str(workspace),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 1
+    assert captured.err == "Claude Agent SDK adapter failed closed\n"
+    assert external_receipt.read_text(encoding="utf-8") == "external sentinel"
+    assert {path.name for path in external.iterdir()} == {
+        "claude-adapter-failure-sentinel.json"
+    }
+
+
+@pytest.mark.parametrize(
+    ("message", "stage"),
+    (
+        ("Claude Agent SDK terminal result was not successful", "sdk_terminal"),
+        ("Claude Agent SDK returned no terminal result", "sdk_request"),
+        ("Claude Agent SDK returned multiple terminal results", "sdk_request"),
+        ("Claude Agent SDK usage is invalid", "usage_accounting"),
+        (
+            "Claude Agent SDK served model identity changed within one run",
+            "model_identity",
+        ),
+        (
+            "Claude Agent SDK must complete exactly one solver prompt read",
+            "tool_contract",
+        ),
+        ("Claude Agent SDK structured output is invalid", "structured_output"),
+        ("unexpected adapter failure", "adapter_validation"),
+    ),
+)
+def test_failure_stage_is_bounded_and_content_free(message: str, stage: str) -> None:
+    assert _failure_stage(ClaudeAgentSDKAdapterError(message)) == stage
 
 
 def _request(
