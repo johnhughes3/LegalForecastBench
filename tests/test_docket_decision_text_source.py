@@ -5,8 +5,9 @@ import hashlib
 import json
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import legalforecast.ingestion.docket_decision_text_source as source_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
@@ -20,6 +21,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
 )
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
+    CourtListenerWebParseError,
     parse_courtlistener_docket_html,
 )
 from legalforecast.ingestion.docket_decision_text_source import (
@@ -234,6 +236,56 @@ def test_replays_raw_html_decision_with_policy_rebind() -> None:
         "raw_artifact_retrieved_at",
         "policy_rebind",
     }
+
+
+def test_normalizes_raw_parser_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    selection, snapshot = _fixture(raw=True)
+
+    def fail_parse(*args: object, **kwargs: object) -> None:
+        raise CourtListenerWebParseError("synthetic parser failure")
+
+    monkeypatch.setattr(source_module, "parse_courtlistener_docket_html", fail_parse)
+
+    with pytest.raises(
+        DocketDecisionTextSourceError,
+        match="raw CourtListener HTML cannot be replayed",
+    ):
+        replay_docket_decision_source_lineage(
+            selection_records=[selection],
+            selection_payload_sha256=_SELECTION_SHA,
+            screening_snapshot=snapshot,
+            candidate_id="72192698",
+            unavailable_recap_document_id="485754024",
+        )
+
+
+@pytest.mark.parametrize(
+    ("collaborator", "message"),
+    (
+        ("screen_courtlistener_docket_for_mtd_decision", "MTD screen"),
+        ("link_mtd_dispositions", "motion linkage"),
+    ),
+)
+def test_normalizes_screen_and_linkage_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    collaborator: str,
+    message: str,
+) -> None:
+    selection, snapshot = _fixture(raw=False)
+
+    def fail_replay(*args: object, **kwargs: object) -> None:
+        raise ValueError("synthetic collaborator failure")
+
+    monkeypatch.setattr(source_module, collaborator, fail_replay)
+
+    with pytest.raises(DocketDecisionTextSourceError, match=message):
+        replay_docket_decision_source_lineage(
+            selection_records=[selection],
+            selection_payload_sha256=_SELECTION_SHA,
+            screening_snapshot=snapshot,
+            candidate_id="71942225",
+            unavailable_recap_document_id="487196517",
+        )
 
 
 def test_raw_replay_preserves_the_frozen_decision_window_upper_bound() -> None:
@@ -810,6 +862,10 @@ def test_linkage_projection_ignores_only_nonactual_procedural_dispositions() -> 
         "auxiliary_decision",
         "entry_restricted",
         "document_restricted",
+        "selection_source_url",
+        "selection_source_reference",
+        "selection_source_provider",
+        "selection_restriction_evidence",
         "sealed_selection",
         "private_selection",
         "model_visible",
@@ -857,6 +913,14 @@ def test_rejects_identity_screen_linkage_restriction_and_visibility_tamper(
         decision["restriction_markers"] = ["sealed"]
     elif mutation == "document_restricted":
         decision["documents"][0]["restriction_markers"] = ["private"]
+    elif mutation == "selection_source_url":
+        selected_document["source_url"] = "https://example.test/wrong"
+    elif mutation == "selection_source_reference":
+        selected_document["source_url_or_reference"] = "https://example.test/wrong"
+    elif mutation == "selection_source_provider":
+        selected_document["source_provider"] = "other"
+    elif mutation == "selection_restriction_evidence":
+        selected_document["restriction_evidence"].append("restricted")
     elif mutation == "sealed_selection":
         selected_document["is_sealed"] = True
     elif mutation == "private_selection":
@@ -887,7 +951,9 @@ def test_rejects_identity_screen_linkage_restriction_and_visibility_tamper(
         "duplicate_entries",
         "entry_count",
         "rest_document_id",
+        "rest_document_id_leading_zero",
         "rest_entry_id",
+        "rest_entry_id_leading_zero",
         "rest_url",
         "raw_and_rest",
     ),
@@ -906,8 +972,12 @@ def test_rejects_incomplete_or_tampered_rest_source(mutation: str) -> None:
         proof["entry_count"] += 1
     elif mutation == "rest_document_id":
         screen["decision_entry_evidence"]["id"] = 1
+    elif mutation == "rest_document_id_leading_zero":
+        screen["decision_entry_evidence"]["id"] = "0487196517"
     elif mutation == "rest_entry_id":
         screen["decision_entry_evidence"]["docket_entry_id"] = 1
+    elif mutation == "rest_entry_id_leading_zero":
+        screen["decision_entry_evidence"]["docket_entry_id"] = "0471775493"
     elif mutation == "rest_url":
         screen["decision_entry_evidence"]["absolute_url"] = "/docket/other/40/x/"
     elif mutation == "raw_and_rest":
@@ -1311,7 +1381,7 @@ def _fixture(*, raw: bool) -> tuple[dict[str, Any], VerifiedScreeningSnapshot]:
                 },
             }
         )
-    selection = {
+    selection: dict[str, Any] = {
         "candidate_id": docket_id,
         "case_id": docket_id,
         "selected": True,
@@ -1341,6 +1411,26 @@ def _fixture(*, raw: bool) -> tuple[dict[str, Any], VerifiedScreeningSnapshot]:
             }
         ],
     }
+    if not raw:
+        document = cast(dict[str, Any], selection["documents"][0])
+        source_url = (
+            f"https://www.courtlistener.com/api/rest/v4/recap-documents/{document_id}/"
+        )
+        document.update(
+            {
+                "source_provider": "courtlistener+recap-fetch",
+                "source_url": source_url,
+                "source_url_or_reference": source_url,
+                "restriction_evidence": [
+                    "courtlistener_rest_docket_exact_match",
+                    "courtlistener_rest_docket_entry_exact_match",
+                    "courtlistener_rest_recap_document_exact_match",
+                    "courtlistener_rest_recap_document_is_available_false",
+                    "courtlistener_rest_recap_document_seal_status_unknown",
+                    "courtlistener_rest_no_positive_restriction_marker",
+                ],
+            }
+        )
     snapshot = VerifiedScreeningSnapshot(
         manifest={
             "cycle_hash": _CYCLE_SHA,

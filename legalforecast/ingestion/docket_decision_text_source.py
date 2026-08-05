@@ -23,6 +23,7 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
     CourtListenerWebDocument,
+    CourtListenerWebParseError,
     parse_courtlistener_docket_html,
 )
 from legalforecast.ingestion.docket_sync import NormalizedDocketEntry
@@ -556,26 +557,10 @@ def _selected_terminal_decision_failure_ids(
     matched: list[str] = []
     for document_id in terminal_document_ids:
         document = documents_by_id.get(document_id)
-        if document is None or document.get("document_role") != "decision":
-            continue
-        required = {
-            "candidate_id": selection.get("candidate_id"),
-            "contains_target_outcome": True,
-            "model_visible": False,
-            "is_predecision_material": False,
-            "availability_status": "unavailable",
-            "is_available": False,
-            "requires_paid_recovery": True,
-        }
-        if any(document.get(key) != expected for key, expected in required.items()):
-            continue
-        if document.get("is_sealed") is True or document.get("is_private") is True:
-            continue
-        if document.get("redaction_or_seal_status") in {
-            "sealed",
-            "restricted",
-            "private",
-        }:
+        if document is None or not _is_eligible_audit_only_decision_document(
+            document,
+            candidate_id=selection.get("candidate_id"),
+        ):
             continue
         matched.append(document_id)
     return tuple(matched)
@@ -863,11 +848,16 @@ def _raw_html_source_page(
             "raw CourtListener HTML is not UTF-8"
         ) from exc
     strict_screen = _mapping(evidence.get("mtd_decision_screen"), "strict screen")
-    page = parse_courtlistener_docket_html(
-        raw_html,
-        source_url=_required_string(strict_screen.get("source_url"), "source URL"),
-        docket_id=docket_id,
-    )
+    try:
+        page = parse_courtlistener_docket_html(
+            raw_html,
+            source_url=_required_string(strict_screen.get("source_url"), "source URL"),
+            docket_id=docket_id,
+        )
+    except CourtListenerWebParseError as exc:
+        raise DocketDecisionTextSourceError(
+            "raw CourtListener HTML cannot be replayed"
+        ) from exc
     if not _raw_entries_equivalent(
         cast(list[object], page.to_record()["entries"]),
         evidence.get("selected_entries"),
@@ -1109,13 +1099,18 @@ def _rerun_semantic_screen_and_linkage(
         raise DocketDecisionTextSourceError(
             "decision window end predates the eligibility anchor"
         )
-    replayed_screen = screen_courtlistener_docket_for_mtd_decision(
-        page,
-        candidate_text=_required_string(metadata.get("case_name"), "case name"),
-        court_id=_required_string(metadata.get("court"), "court"),
-        decision_filed_on_or_after=anchor_date,
-        decision_filed_on_or_before=decision_window_end,
-    ).to_record()
+    try:
+        replayed_screen = screen_courtlistener_docket_for_mtd_decision(
+            page,
+            candidate_text=_required_string(metadata.get("case_name"), "case name"),
+            court_id=_required_string(metadata.get("court"), "court"),
+            decision_filed_on_or_after=anchor_date,
+            decision_filed_on_or_before=decision_window_end,
+        ).to_record()
+    except ValueError as exc:
+        raise DocketDecisionTextSourceError(
+            "production MTD screen cannot be replayed"
+        ) from exc
     if replayed_screen != evidence.get("mtd_decision_screen"):
         raise DocketDecisionTextSourceError(
             "production MTD screen does not reproduce the frozen strict decision"
@@ -1139,11 +1134,18 @@ def _rerun_semantic_screen_and_linkage(
         for entry in page.entries
     )
     expected_linkage = _mapping(evidence.get("motion_linkage"), "motion linkage")
-    replayed_linkage = link_mtd_dispositions(
-        normalized,
-        candidate_id=docket_id,
-        case_id=_required_string(expected_linkage.get("case_id"), "linkage case ID"),
-    ).to_record()
+    try:
+        replayed_linkage = link_mtd_dispositions(
+            normalized,
+            candidate_id=docket_id,
+            case_id=_required_string(
+                expected_linkage.get("case_id"), "linkage case ID"
+            ),
+        ).to_record()
+    except ValueError as exc:
+        raise DocketDecisionTextSourceError(
+            "production motion linkage cannot be replayed"
+        ) from exc
     actual_decision_ids = _strict_actual_decision_row_ids(evidence)
     if (
         _linkage_actual_decision_projection(
@@ -1261,6 +1263,11 @@ def _verify_source_identity(
     _positive_intish(rest.get("id"), "REST evidence document ID")
     _positive_intish(rest.get("docket_entry_id"), "REST evidence docket entry ID")
     _canonical_date(rest.get("entry_date_filed"), "REST evidence entry date")
+    _verify_rest_selection_document_identity(
+        decision_document,
+        docket_id=docket_id,
+        unavailable_recap_document_id=unavailable_recap_document_id,
+    )
     if rest_entry_number == entry_number:
         expected = {
             "description": decision_entry.get("text"),
@@ -1279,11 +1286,6 @@ def _verify_source_identity(
                 "REST decision-entry evidence differs from the frozen selection"
             )
         return
-    _verify_rest_selection_document_identity(
-        decision_document,
-        docket_id=docket_id,
-        unavailable_recap_document_id=unavailable_recap_document_id,
-    )
 
 
 def _selection_description_matches_entry(
@@ -1463,8 +1465,23 @@ def _selected_decision_document(
             "terminal decision document is absent or duplicated in the selection"
         )
     document = matches[0]
+    if not _is_eligible_audit_only_decision_document(
+        document,
+        candidate_id=selection.get("candidate_id"),
+    ):
+        raise DocketDecisionTextSourceError(
+            "selected terminal document is not the unavailable audit-only decision"
+        )
+    return document
+
+
+def _is_eligible_audit_only_decision_document(
+    document: Mapping[str, Any],
+    *,
+    candidate_id: object,
+) -> bool:
     required = {
-        "candidate_id": selection.get("candidate_id"),
+        "candidate_id": candidate_id,
         "document_role": "decision",
         "contains_target_outcome": True,
         "model_visible": False,
@@ -1473,15 +1490,13 @@ def _selected_decision_document(
         "is_available": False,
         "requires_paid_recovery": True,
     }
-    if any(document.get(key) != value for key, value in required.items()):
-        raise DocketDecisionTextSourceError(
-            "selected terminal document is not the unavailable audit-only decision"
-        )
-    if document.get("is_sealed") is True or document.get("is_private") is True:
-        raise DocketDecisionTextSourceError("selected decision document is restricted")
-    if document.get("redaction_or_seal_status") in {"sealed", "restricted", "private"}:
-        raise DocketDecisionTextSourceError("selected decision document is restricted")
-    return document
+    return not (
+        any(document.get(key) != value for key, value in required.items())
+        or document.get("is_sealed") is True
+        or document.get("is_private") is True
+        or document.get("redaction_or_seal_status")
+        in {"sealed", "restricted", "private"}
+    )
 
 
 def _validate_closed_source_record(record: Mapping[str, Any]) -> None:
@@ -1710,6 +1725,10 @@ def _positive_int(value: object, label: str) -> int:
 
 def _positive_intish(value: object, label: str) -> int:
     if isinstance(value, str) and value.isascii() and value.isdigit():
+        if value.startswith("0"):
+            raise DocketDecisionTextSourceError(
+                f"{label} must use canonical integer notation"
+            )
         value = int(value)
     return _positive_int(value, label)
 
