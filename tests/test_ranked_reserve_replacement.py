@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import hashlib
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TypedDict, cast
@@ -46,7 +45,39 @@ from legalforecast.selection.exclusion_ledger import (
     ExclusionStage,
     merge_exclusion_ledger_records,
 )
-from tests.purchase_approval_fixtures import allow_historical_v1_algorithm_fixtures
+from tests.purchase_approval_fixtures import (
+    allow_historical_v1_algorithm_fixtures,
+)
+from tests.purchase_approval_fixtures import (
+    canonical_json_bytes as _canonical_json,
+)
+from tests.purchase_approval_fixtures import (
+    canonical_sha256 as _canonical_sha,
+)
+from tests.purchase_approval_fixtures import (
+    jsonl_bytes as _jsonl,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_omission as _omission,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_reserve as _reserve,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_selection as _selection,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_terminal_bytes as _terminal_bytes,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_terminal_record as _terminal_record,
+)
+from tests.purchase_approval_fixtures import (
+    sha256_uri as _sha,
+)
+from tests.purchase_approval_fixtures import (
+    terminal_disposition_record as _disposition_record,
+)
 
 
 @pytest.fixture
@@ -1831,114 +1862,6 @@ def _fixture(
     }
 
 
-def _selection(index: int) -> dict[str, object]:
-    candidate_id = f"case-{index:03d}"
-    return {
-        "candidate_id": candidate_id,
-        "case_id": candidate_id,
-        "court": "court-a",
-        "decision_date": "2026-07-01",
-        "documents": [],
-    }
-
-
-def _reserve(index: int, *, document_count: int = 1) -> dict[str, object]:
-    candidate_id = f"case-{index:03d}"
-    rank = index - 99
-    document_ids = (
-        [f"doc-{index:03d}"]
-        if document_count == 1
-        else [f"doc-{index:03d}-{offset}" for offset in range(document_count)]
-    )
-    estimated_cost = f"{document_count * 3.05:.2f}"
-    return {
-        "schema_version": "legalforecast.target_cohort_ranked_reserve.v1",
-        "reserve_rank": rank,
-        "frontier_rank": 100 + rank,
-        "candidate_id": candidate_id,
-        "case_id": candidate_id,
-        "court": "court-a",
-        "decision_date": "2026-07-01",
-        "missing_core_document_count": document_count,
-        "missing_core_roles": ["complaint"],
-        "purchase_document_ids": document_ids,
-        "estimated_cost_usd": estimated_cost,
-        "ranking_key": [document_count, estimated_cost, candidate_id],
-    }
-
-
-def _omission(index: int) -> dict[str, object]:
-    candidate_id = f"case-{index:03d}"
-    return {
-        "candidate_id": candidate_id,
-        "case_id": candidate_id,
-        "court": "court-a",
-        "decision_date": None,
-        "notes": (
-            "Candidate was outside the deterministic cheapest exact-cohort prefix."
-        ),
-        "primary_exclusion_reason": "target_cohort_frontier_omitted",
-        "reason": "target_cohort_frontier_omitted",
-        "related_family_id": None,
-        "secondary_exclusion_reasons": [],
-        "source_document_ids": [],
-        "source_entry_ids": [],
-        "stage": "extraction",
-    }
-
-
-def _disposition_record(
-    *,
-    residual_sha256: str,
-    purchase_journal_state_sha256: str = "sha256:" + "3" * 64,
-    candidate_ids: tuple[str, ...] = ("case-050", "case-051", "case-052"),
-) -> dict[str, object]:
-    terminal_pairs = [
-        {"candidate_id": candidate_id, "source_document_id": f"doc-{candidate_id[5:]}"}
-        for candidate_id in candidate_ids
-    ]
-    return {
-        "schema_version": "legalforecast.terminal_purchase_disposition.v1",
-        "purchase_result_sha256": "sha256:" + "1" * 64,
-        "purchase_run_card_sha256": "sha256:" + "2" * 64,
-        "purchase_journal_state_sha256": purchase_journal_state_sha256,
-        "selection_payload_sha256": "sha256:" + "4" * 64,
-        "snapshot_manifest_sha256": "sha256:" + "5" * 64,
-        "terminal_candidate_count": len(candidate_ids),
-        "terminal_failure_pair_count": len(candidate_ids),
-        "terminal_failure_pairs": terminal_pairs,
-        "docket_retained_candidate_count": 0,
-        "docket_retained_failure_pair_count": 0,
-        "docket_retained_failure_pairs": [],
-        "docket_decision_sources_sha256": "sha256:" + "6" * 64,
-        "residual_candidate_count": len(candidate_ids),
-        "residual_failure_pair_count": len(candidate_ids),
-        "residual_failure_pairs": terminal_pairs,
-        "residual_terminal_exclusions_sha256": residual_sha256,
-        "partition_disjoint": True,
-        "partition_exhaustive": True,
-        "model_visible": False,
-        "audit_only": True,
-    }
-
-
-def _terminal_record(candidate_id: str) -> dict[str, object]:
-    return {
-        "schema_version": "legalforecast.ranked_reserve_terminal_exclusion.v1",
-        "candidate_id": candidate_id,
-        "reason": "stage_a_boundary_unresolvable",
-        "source_stage": "apply-unitization-review",
-        "source_artifact_sha256": "sha256:" + "2" * 64,
-        "source_record_sha256": "sha256:" + "3" * 64,
-        "terminal": True,
-        "retryable": False,
-    }
-
-
-def _terminal_bytes(candidate_id: str) -> bytes:
-    return _jsonl((_terminal_record(candidate_id),))
-
-
 def _terminal_purchase_artifacts(
     journal: CaseDevPurchaseJournal,
     *,
@@ -2067,30 +1990,3 @@ def _write_purchase_artifacts(
         _canonical_json(run_card)
     )
     return result_path
-
-
-def _jsonl(records: Iterable[Mapping[str, object]]) -> bytes:
-    return b"".join(
-        json.dumps(
-            record, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-        ).encode()
-        + b"\n"
-        for record in records
-    )
-
-
-def _sha(payload: bytes) -> str:
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
-
-
-def _canonical_sha(value: object) -> str:
-    payload = json.dumps(
-        value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode()
-    return _sha(payload)
-
-
-def _canonical_json(value: object) -> bytes:
-    return (
-        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True).encode() + b"\n"
-    )

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -45,6 +47,161 @@ class CompletedProjectionFixture:
     root: Path
     selection: Path
     budget_plan: Path
+
+
+def ranked_selection(index: int) -> dict[str, object]:
+    """Return a canonical selected-row fixture for ranked-reserve tests."""
+
+    candidate_id = f"case-{index:03d}"
+    return {
+        "candidate_id": candidate_id,
+        "case_id": candidate_id,
+        "court": "court-a",
+        "decision_date": "2026-07-01",
+        "documents": [],
+    }
+
+
+def ranked_reserve(index: int, *, document_count: int = 1) -> dict[str, object]:
+    """Return a canonical ranked-reserve row fixture."""
+
+    candidate_id = f"case-{index:03d}"
+    rank = index - 99
+    document_ids = (
+        [f"doc-{index:03d}"]
+        if document_count == 1
+        else [f"doc-{index:03d}-{offset}" for offset in range(document_count)]
+    )
+    estimated_cost = f"{document_count * 3.05:.2f}"
+    return {
+        "schema_version": "legalforecast.target_cohort_ranked_reserve.v1",
+        "reserve_rank": rank,
+        "frontier_rank": 100 + rank,
+        "candidate_id": candidate_id,
+        "case_id": candidate_id,
+        "court": "court-a",
+        "decision_date": "2026-07-01",
+        "missing_core_document_count": document_count,
+        "missing_core_roles": ["complaint"],
+        "purchase_document_ids": document_ids,
+        "estimated_cost_usd": estimated_cost,
+        "ranking_key": [document_count, estimated_cost, candidate_id],
+    }
+
+
+def ranked_omission(index: int) -> dict[str, object]:
+    """Return a canonical frontier-omission fixture."""
+
+    candidate_id = f"case-{index:03d}"
+    return {
+        "candidate_id": candidate_id,
+        "case_id": candidate_id,
+        "court": "court-a",
+        "decision_date": None,
+        "notes": (
+            "Candidate was outside the deterministic cheapest exact-cohort prefix."
+        ),
+        "primary_exclusion_reason": "target_cohort_frontier_omitted",
+        "reason": "target_cohort_frontier_omitted",
+        "related_family_id": None,
+        "secondary_exclusion_reasons": [],
+        "source_document_ids": [],
+        "source_entry_ids": [],
+        "stage": "extraction",
+    }
+
+
+def ranked_terminal_record(candidate_id: str) -> dict[str, object]:
+    """Return canonical terminal-exclusion evidence for a ranked candidate."""
+
+    return {
+        "schema_version": "legalforecast.ranked_reserve_terminal_exclusion.v1",
+        "candidate_id": candidate_id,
+        "reason": "stage_a_boundary_unresolvable",
+        "source_stage": "apply-unitization-review",
+        "source_artifact_sha256": "sha256:" + "2" * 64,
+        "source_record_sha256": "sha256:" + "3" * 64,
+        "terminal": True,
+        "retryable": False,
+    }
+
+
+def ranked_terminal_bytes(candidate_id: str) -> bytes:
+    """Encode one canonical ranked terminal-exclusion record as JSONL."""
+
+    return jsonl_bytes((ranked_terminal_record(candidate_id),))
+
+
+def terminal_disposition_record(
+    *,
+    residual_sha256: str,
+    purchase_journal_state_sha256: str = "sha256:" + "3" * 64,
+    candidate_ids: tuple[str, ...] = ("case-050", "case-051", "case-052"),
+) -> dict[str, object]:
+    """Return a canonical terminal purchase disposition fixture."""
+
+    terminal_pairs = [
+        {"candidate_id": candidate_id, "source_document_id": f"doc-{candidate_id[5:]}"}
+        for candidate_id in candidate_ids
+    ]
+    return {
+        "schema_version": "legalforecast.terminal_purchase_disposition.v1",
+        "purchase_result_sha256": "sha256:" + "1" * 64,
+        "purchase_run_card_sha256": "sha256:" + "2" * 64,
+        "purchase_journal_state_sha256": purchase_journal_state_sha256,
+        "selection_payload_sha256": "sha256:" + "4" * 64,
+        "snapshot_manifest_sha256": "sha256:" + "5" * 64,
+        "terminal_candidate_count": len(candidate_ids),
+        "terminal_failure_pair_count": len(candidate_ids),
+        "terminal_failure_pairs": terminal_pairs,
+        "docket_retained_candidate_count": 0,
+        "docket_retained_failure_pair_count": 0,
+        "docket_retained_failure_pairs": [],
+        "docket_decision_sources_sha256": "sha256:" + "6" * 64,
+        "residual_candidate_count": len(candidate_ids),
+        "residual_failure_pair_count": len(candidate_ids),
+        "residual_failure_pairs": terminal_pairs,
+        "residual_terminal_exclusions_sha256": residual_sha256,
+        "partition_disjoint": True,
+        "partition_exhaustive": True,
+        "model_visible": False,
+        "audit_only": True,
+    }
+
+
+def jsonl_bytes(records: Iterable[Mapping[str, object]]) -> bytes:
+    """Encode fixture records as canonical line-delimited JSON."""
+
+    return b"".join(
+        json.dumps(
+            record, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        ).encode()
+        + b"\n"
+        for record in records
+    )
+
+
+def sha256_uri(payload: bytes) -> str:
+    """Return a SHA-256 URI for fixture bytes."""
+
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def canonical_sha256(value: object) -> str:
+    """Return a SHA-256 URI over canonical compact JSON bytes."""
+
+    payload = json.dumps(
+        value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode()
+    return sha256_uri(payload)
+
+
+def canonical_json_bytes(value: object) -> bytes:
+    """Encode a fixture value as stable pretty-printed JSON bytes."""
+
+    return (
+        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True).encode() + b"\n"
+    )
 
 
 def build_completed_projection_fixture(

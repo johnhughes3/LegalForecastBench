@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -12,6 +12,7 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
+    CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
     initialize_case_dev_purchase_journal,
     verify_approved_purchase_input_bytes,
@@ -52,26 +53,46 @@ from legalforecast.ingestion.replacement_purchase_approval import (
     verify_replacement_purchase_authority,
 )
 from tests.purchase_approval_fixtures import (
+    ApprovedPurchaseFixture,
     build_approved_purchase_fixture,
     build_completed_projection_fixture,
 )
+from tests.purchase_approval_fixtures import (
+    canonical_json_bytes as _ranked_canonical_json,
+)
+from tests.purchase_approval_fixtures import (
+    canonical_sha256 as _ranked_canonical_sha,
+)
+from tests.purchase_approval_fixtures import (
+    jsonl_bytes as _ranked_jsonl,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_omission as _ranked_omission,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_reserve as _ranked_reserve,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_selection as _ranked_selection,
+)
+from tests.purchase_approval_fixtures import (
+    ranked_terminal_bytes as _ranked_terminal_bytes,
+)
+from tests.purchase_approval_fixtures import (
+    sha256_uri as _sha256_uri,
+)
+from tests.purchase_approval_fixtures import (
+    terminal_disposition_record as _ranked_disposition_record,
+)
 from tests.test_clearance_replacement_loop import _clearance, _confirm_candidate
-from tests.test_ranked_reserve_replacement import (
-    _canonical_json as _ranked_canonical_json,
-)
-from tests.test_ranked_reserve_replacement import (
-    _canonical_sha as _ranked_canonical_sha,
-)
-from tests.test_ranked_reserve_replacement import (
-    _disposition_record as _ranked_disposition_record,
-)
-from tests.test_ranked_reserve_replacement import _jsonl as _ranked_jsonl
-from tests.test_ranked_reserve_replacement import _omission as _ranked_omission
-from tests.test_ranked_reserve_replacement import _reserve as _ranked_reserve
-from tests.test_ranked_reserve_replacement import _selection as _ranked_selection
-from tests.test_ranked_reserve_replacement import (
-    _terminal_bytes as _ranked_terminal_bytes,
-)
+
+
+@dataclass(frozen=True)
+class _RankedApprovalSetup:
+    approved: ApprovedPurchaseFixture
+    policy_artifact: dict[str, Any]
+    policy: CaseDevPurchasePolicy
+    cohort_artifact: dict[str, Any]
 
 
 def _request() -> ReplacementPurchaseApprovalRequest:
@@ -117,28 +138,11 @@ def _ranked_authority_fixture(
 ) -> dict[str, Any]:
     """Build exact ranked planner, budget-producer, and output-binder artifacts."""
 
-    projection = build_completed_projection_fixture(
-        tmp_path / "ranked-projection",
-        monkeypatch=monkeypatch,
-    )
-    approved = build_approved_purchase_fixture(
-        tmp_path / "ranked-initial-authority",
-        target_cohort_root=projection.root,
-    )
-    policy_artifact = json.loads(approved.policy.read_text(encoding="utf-8"))
-    policy = verify_case_dev_purchase_policy(policy_artifact)
-    cohort_artifact = json.loads(approved.cohort_policy.read_text(encoding="utf-8"))
-    initialize_case_dev_purchase_journal(
-        policy.canonical_ledger_path,
-        policy=policy,
-        receipt_path=approved.initialization_receipt,
-        purchase_policy_file_sha256="sha256:"
-        + hashlib.sha256(approved.policy.read_bytes()).hexdigest(),
-        cohort_policy_file_sha256="sha256:"
-        + hashlib.sha256(approved.cohort_policy.read_bytes()).hexdigest(),
-        initialized_at="2026-08-04T19:00:00Z",
-        controlled_private_root=approved.controlled_private_root,
-    )
+    setup = _ranked_approval_setup(tmp_path, monkeypatch=monkeypatch)
+    approved = setup.approved
+    policy_artifact = setup.policy_artifact
+    policy = setup.policy
+    cohort_artifact = setup.cohort_artifact
     projection_sha256 = "sha256:" + "7" * 64
     selected = tuple(_ranked_selection(index) for index in range(100))
     reserves = tuple(_ranked_reserve(index) for index in range(100, 105))
@@ -252,6 +256,40 @@ def _over_cap_ranked_authority_fixture(
 ) -> dict[str, Any]:
     """Build canonical budget bytes around a deliberately invalid durable event."""
 
+    setup = _ranked_approval_setup(tmp_path, monkeypatch=monkeypatch)
+    approved = setup.approved
+    policy_artifact = setup.policy_artifact
+    policy = setup.policy
+    cohort_artifact = setup.cohort_artifact
+    projection_sha256 = "sha256:" + "7" * 64
+    candidate_id = "ranked-reserve-candidate"
+    reservation = policy.per_document_reservation_usd
+    over_cap_count = int(policy.max_per_case_usd / reservation) + 1
+    document_ids = [
+        f"ranked-reserve-document-{index}" for index in range(over_cap_count)
+    ]
+    cost = reservation * len(document_ids)
+    assert cost > policy.max_per_case_usd
+    return _build_over_cap_ranked_artifacts(
+        tmp_path,
+        approved=approved,
+        policy_artifact=policy_artifact,
+        policy=policy,
+        cohort_artifact=cohort_artifact,
+        projection_sha256=projection_sha256,
+        candidate_id=candidate_id,
+        document_ids=document_ids,
+        cost=cost,
+    )
+
+
+def _ranked_approval_setup(
+    tmp_path: Path,
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+) -> _RankedApprovalSetup:
+    """Build and initialize the authority inputs shared by ranked fixtures."""
+
     projection = build_completed_projection_fixture(
         tmp_path / "ranked-projection",
         monkeypatch=monkeypatch,
@@ -272,10 +310,26 @@ def _over_cap_ranked_authority_fixture(
         initialized_at="2026-08-04T19:00:00Z",
         controlled_private_root=approved.controlled_private_root,
     )
-    projection_sha256 = "sha256:" + "7" * 64
-    candidate_id = "ranked-reserve-candidate"
-    document_ids = [f"ranked-reserve-document-{index}" for index in range(25)]
-    cost = policy.per_document_reservation_usd * len(document_ids)
+    return _RankedApprovalSetup(
+        approved=approved,
+        policy_artifact=policy_artifact,
+        policy=policy,
+        cohort_artifact=cohort_artifact,
+    )
+
+
+def _build_over_cap_ranked_artifacts(
+    tmp_path: Path,
+    *,
+    approved: ApprovedPurchaseFixture,
+    policy_artifact: dict[str, Any],
+    policy: CaseDevPurchasePolicy,
+    cohort_artifact: dict[str, Any],
+    projection_sha256: str,
+    candidate_id: str,
+    document_ids: list[str],
+    cost: Decimal,
+) -> dict[str, Any]:
     with CaseDevPurchaseJournal(
         policy.canonical_ledger_path,
         policy=policy,
@@ -375,10 +429,6 @@ def _over_cap_ranked_authority_fixture(
         "result_path": result_path,
         "projection_sha256": projection_sha256,
     }
-
-
-def _sha256_uri(payload: bytes) -> str:
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 def _build_ranked_request(
@@ -619,9 +669,14 @@ def test_explicit_clearance_source_uses_closed_v2_request_schema() -> None:
             "sha256:" + "4" * 64,
             "legacy authority cannot be mixed with a v2 source commitment",
         ),
+        (
+            "ranked_reserve_projection",
+            "sha256:" + "5" * 64,
+            "source authority SHA-256 is not canonical",
+        ),
     ),
 )
-def test_request_hash_rejects_incomplete_source_authority(
+def test_request_record_rejects_invalid_source_authority(
     source_authority_kind: str | None,
     source_authority_sha256: str | None,
     expected: str,
@@ -633,7 +688,7 @@ def test_request_hash_rejects_incomplete_source_authority(
     )
 
     with pytest.raises(ReplacementPurchaseApprovalError, match=expected):
-        _ = request.request_sha256
+        request.to_record()
 
 
 def test_v1_replacement_evidence_remains_byte_compatible(tmp_path: Path) -> None:

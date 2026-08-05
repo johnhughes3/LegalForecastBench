@@ -382,7 +382,7 @@ def build_replacement_purchase_approval_request(
         )
     except (ClearanceReplacementError, OSError, ValueError) as exc:
         raise ReplacementPurchaseApprovalError(str(exc)) from exc
-    frontier_sha256 = _sha(frontier["policy_sha256"], "source_authority_sha256")
+    frontier_sha256 = _sha(frontier["policy_sha256"], "frontier_sha256")
     if (
         authority_kind is not None
         and source_authority_sha256 is not None
