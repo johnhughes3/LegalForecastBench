@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TypedDict, cast
 
 import legalforecast.cli as cli
-import legalforecast.ingestion.terminal_purchase_failure as terminal_failure_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseStatus,
@@ -34,6 +33,9 @@ from legalforecast.ingestion.terminal_purchase_failure import (
     VerifiedTerminalPurchaseFailureAuthority,
     terminal_retrieval_exclusions_bytes,
     verify_terminal_purchase_failure_authority,
+)
+from legalforecast.ingestion.terminal_purchase_failure import (
+    _issue as issue_terminal_purchase_failure_authority,  # pyright: ignore[reportPrivateUsage]
 )
 from legalforecast.selection.exclusion_ledger import (
     ExclusionStage,
@@ -319,7 +321,7 @@ def test_importable_issuer_cannot_forge_planner_authority(tmp_path: Path) -> Non
         run_card_bytes = result_path.with_name("purchase-run-card.json").read_bytes()
         budget_plan_path = result_path.with_name("purchase-budget-plan.json")
         budget_plan_bytes = budget_plan_path.read_bytes()
-        forged = terminal_failure_module._issue(  # pyright: ignore[reportPrivateUsage]
+        forged = issue_terminal_purchase_failure_authority(  # pyright: ignore[reportPrivateUsage]
             evidence_bytes=b'{"forged":true}\n',
             terminal_exclusions_bytes=forged_terminal_bytes,
             purchase_result_sha256=_sha(result_bytes),
@@ -373,6 +375,12 @@ def test_result_cannot_differ_from_committed_budget_tranche(tmp_path: Path) -> N
             document_id="doc-051",
             queue_status=6,
             result_path=tmp_path / "other-result.json",
+        )
+        assert (
+            json.loads((tmp_path / "purchase-budget-plan.json").read_bytes())[
+                "case_plans"
+            ][0]["candidate_id"]
+            == "case-051"
         )
         with pytest.raises(
             TerminalPurchaseFailureError,
@@ -531,6 +539,36 @@ def test_retryable_queue_status_cannot_issue_terminal_authority(
         with pytest.raises(
             TerminalPurchaseFailureError,
             match="retryable or unresolved purchase attempt",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+def test_unbounded_queue_status_digits_raise_domain_error(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        attempts = cast(list[dict[str, object]], result["attempts"])
+        attempts[0]["reason"] = "recap_fetch_status_" + "9" * 5000
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="lacks a nonretryable CourtListener queue status",
         ):
             verify_terminal_purchase_failure_authority(
                 purchase_result_path=_write_purchase_artifacts(
@@ -1396,7 +1434,7 @@ def _terminal_purchase_artifacts(
         document_id,
         response={
             "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
-            "reservation_usd": "3.05",
+            "reservation_usd": (f"{journal.policy.per_document_reservation_usd:.2f}"),
             "queue_id": "77",
             "reservation_id": "reservation-1",
         },

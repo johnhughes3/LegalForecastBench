@@ -515,7 +515,10 @@ def _verify_completed_run_card(
         "paid_activity_executed": True,
         "courtlistener_live": True,
     }
-    if any(card.get(name) != value for name, value in required.items()):
+    if any(
+        not _required_value_matches(card.get(name), value)
+        for name, value in required.items()
+    ):
         raise TerminalPurchaseFailureError(
             "terminal authority requires a completed purchase run card"
         )
@@ -620,7 +623,10 @@ def _verify_result_summary(
         "capability": "document_level_purchase",
         "dry_run": False,
     }
-    if any(result.get(name) != value for name, value in required.items()):
+    if any(
+        not _required_value_matches(result.get(name), value)
+        for name, value in required.items()
+    ):
         raise TerminalPurchaseFailureError(
             "terminal authority requires an executed document-level purchase result"
         )
@@ -788,8 +794,9 @@ def _terminal_queue_status(reason: object) -> int:
             "provider error lacks a nonretryable CourtListener queue status"
         )
     patterns = (
-        r"recap_fetch_status_([0-9]+)",
-        r"CourtListenerRecapFetchError: RECAP Fetch terminal queue status ([0-9]+)",
+        r"recap_fetch_status_([0-9]{1,3})",
+        r"CourtListenerRecapFetchError: RECAP Fetch terminal queue status "
+        r"([0-9]{1,3})",
     )
     match = next(
         (
@@ -967,6 +974,12 @@ def _has_exact_keys(record: Mapping[str, object], expected: frozenset[str]) -> b
     return len(record) == len(expected) and all(name in expected for name in record)
 
 
+def _required_value_matches(actual: object, expected: object) -> bool:
+    if isinstance(expected, bool):
+        return actual is expected
+    return actual == expected
+
+
 def _string_list(value: object, source: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not value:
         raise TerminalPurchaseFailureError(f"{source} are invalid")
@@ -1068,7 +1081,11 @@ def _canonical_jsonl(records: Sequence[Mapping[str, object]]) -> bytes:
 
 def _canonical_sha256(value: object) -> str:
     payload = json.dumps(
-        value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+        allow_nan=False,
     ).encode()
     return _bytes_sha256(payload)
 
