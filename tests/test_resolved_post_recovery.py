@@ -289,12 +289,166 @@ def test_build_and_require_exact_unknown_origin_lineage() -> None:
     assert records[0]["parser_eligible"] is True
     assert records[0]["packet_eligible"] is True
     assert records[0]["broker_receipt_state"] == "delivered_but_unreconciled"
+    assert "delivery_authority" not in records[0]
     require_resolved_post_recovery_documents(
         selection_records=inputs["selection_records"],
         download_records=inputs["download_records"],
         clearance_records=inputs["clearance_records"],
         resolved_records=records,
         **_external_kwargs(inputs),
+    )
+
+
+def test_build_and_require_authenticated_public_material_delivery_authority() -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    material = operation["material_evidence"]
+    del material["queue_response_sha256"]
+    operation["status"] = "unknown"
+    operation["response"] = None
+    operation["actual_usd"] = None
+    operation["reconciliation"] = None
+    operation["public_material_recovery"] = {
+        "schema_version": "legalforecast.unknown_public_material_recovery.v1",
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "operation_key": operation["operation_key"],
+        "purchase_policy_sha256": "1" * 64,
+        "attempt_policy_sha256": operation["attempt_policy_sha256"],
+        "attempt_document_sha256": operation["attempt_document_sha256"],
+        "provider_detail_sha256": material["provider_detail_sha256"],
+        "download_url_sha256": material["download_url_sha256"],
+        "billing_status": "unknown",
+        "reservation_retained": True,
+        "no_paid_redispatch": True,
+    }
+    inputs["purchase_operation_records"] = [operation]
+
+    records = build_resolved_post_recovery_documents(**inputs)
+
+    assert records[0]["delivery_authority"] == (
+        "authenticated_public_material_recovery"
+    )
+    assert records[0]["schema_version"] == (
+        "legalforecast.resolved_post_recovery_public_document.v3"
+    )
+    assert "clearance_basis" not in records[0]
+    assert records[0]["purchase_policy_sha256"] == "1" * 64
+    assert records[0]["public_material_recovery_sha256"] == _hash(
+        operation["public_material_recovery"]
+    )
+    assert "broker_receipt_sha256" not in records[0]
+    assert "queue_response_sha256" not in records[0]
+    require_resolved_post_recovery_documents(
+        selection_records=inputs["selection_records"],
+        download_records=inputs["download_records"],
+        clearance_records=inputs["clearance_records"],
+        resolved_records=records,
+        **_external_kwargs(inputs),
+    )
+    require_resolved_post_recovery_operation_bindings(
+        purchase_operation_records=[operation], resolved_records=records
+    )
+
+    wrong_policy = deepcopy(operation)
+    wrong_policy["public_material_recovery"]["purchase_policy_sha256"] = "9" * 64
+    with pytest.raises(
+        ResolvedPostRecoveryError, match="purchase policy differs from attempt"
+    ):
+        build_resolved_post_recovery_documents(
+            **{**inputs, "purchase_operation_records": [wrong_policy]}
+        )
+
+    contradictory_queue = deepcopy(operation)
+    contradictory_queue["material_evidence"]["queue_response_sha256"] = "3" * 64
+    with pytest.raises(ResolvedPostRecoveryError, match="conflicts with purchase"):
+        build_resolved_post_recovery_documents(
+            **{**inputs, "purchase_operation_records": [contradictory_queue]}
+        )
+
+    wrong_basis = deepcopy(records[0])
+    wrong_basis["clearance_basis"] = "affirmative_public_provenance"
+    wrong_basis["record_sha256"] = _hash(
+        {name: value for name, value in wrong_basis.items() if name != "record_sha256"}
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="schema does not match"):
+        require_resolved_post_recovery_documents(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=inputs["clearance_records"],
+            resolved_records=[wrong_basis],
+            **_external_kwargs(inputs),
+        )
+
+    contradictory_provider_free_basis = deepcopy(records[0])
+    contradictory_provider_free_basis["clearance_basis"] = (
+        "provider_free_recovered_public"
+    )
+    contradictory_provider_free_basis["record_sha256"] = _hash(
+        {
+            name: value
+            for name, value in contradictory_provider_free_basis.items()
+            if name != "record_sha256"
+        }
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="recovered-public lineage"):
+        require_resolved_post_recovery_documents(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=inputs["clearance_records"],
+            resolved_records=[contradictory_provider_free_basis],
+            **_external_kwargs(inputs),
+        )
+
+
+@pytest.mark.parametrize(
+    ("status", "actual_usd", "reconciliation"),
+    (
+        ("failed", None, {"disposition": "failed"}),
+        ("unknown", None, {"disposition": "write_off"}),
+        ("confirmed", "3.05", {"disposition": "confirmed"}),
+    ),
+)
+def test_public_material_authority_survives_later_billing_settlement(
+    status: str,
+    actual_usd: str | None,
+    reconciliation: dict[str, str],
+) -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    material = operation["material_evidence"]
+    del material["queue_response_sha256"]
+    operation.update(
+        {
+            "status": status,
+            "actual_usd": actual_usd,
+            "reconciliation": reconciliation,
+            "response": {"broker_receipts": [{"billing_only": True}]},
+            "public_material_recovery": {
+                "schema_version": ("legalforecast.unknown_public_material_recovery.v1"),
+                "candidate_id": "case-1",
+                "source_document_id": "123",
+                "operation_key": operation["operation_key"],
+                "purchase_policy_sha256": "1" * 64,
+                "attempt_policy_sha256": operation["attempt_policy_sha256"],
+                "attempt_document_sha256": operation["attempt_document_sha256"],
+                "provider_detail_sha256": material["provider_detail_sha256"],
+                "download_url_sha256": material["download_url_sha256"],
+                "billing_status": "unknown",
+                "reservation_retained": True,
+                "no_paid_redispatch": True,
+            },
+        }
+    )
+    inputs["purchase_operation_records"] = [operation]
+
+    records = build_resolved_post_recovery_documents(**inputs)
+
+    assert records[0]["delivery_authority"] == (
+        "authenticated_public_material_recovery"
+    )
+    require_resolved_post_recovery_operation_bindings(
+        purchase_operation_records=[operation], resolved_records=records
     )
 
 
@@ -747,6 +901,32 @@ def test_fresh_restriction_artifact_and_public_proof_tamper_fail() -> None:
                 "clearance_run_card": run_card,
                 "clearance_run_card_bytes": _object_bytes(run_card),
             }
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("is_sealed", 0),
+        ("is_sealed", 1),
+        ("is_sealed", "false"),
+        ("is_private", 0),
+        ("is_private", 1),
+        ("is_private", "false"),
+    ),
+)
+def test_fresh_public_restriction_rejects_non_boolean_markers(
+    field: str, value: object
+) -> None:
+    inputs = _inputs()
+    restriction = deepcopy(inputs["restriction_records"][0])
+    restriction[field] = value
+
+    with pytest.raises(ResolvedPostRecoveryError, match="fresh-detail public proof"):
+        resolved_module._fresh_public_restriction_record(  # pyright: ignore[reportPrivateUsage]
+            [restriction],
+            key=("case-1", "123"),
+            operation=inputs["purchase_operation_records"][0],
         )
 
 
@@ -1720,6 +1900,7 @@ def _inputs() -> dict[str, Any]:
     }
     attempt_policy: dict[str, object] = {
         "authority": BOUNDED_FETCH_ATTEMPT_AUTHORITY,
+        "purchase_policy_sha256": "1" * 64,
         "allowed_documents": [
             {
                 "case_id": "case-1",

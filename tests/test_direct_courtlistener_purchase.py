@@ -30,6 +30,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     RecordedRecapFetchResponse,
 )
 from legalforecast.ingestion.courtlistener_request_budget import (
+    CourtListenerRequestBudget,
     CourtListenerRequestBudgetExhausted,
 )
 from legalforecast.ingestion.missing_core_budget import (
@@ -519,6 +520,179 @@ def test_direct_timeout_is_unknown_and_cannot_replay_paid_post(
             )
     assert replay_transport.calls == []
     assert second_broker.paid_dispatch_count == 0
+
+
+def test_direct_resume_recovers_public_unknown_before_gate_then_posts_only_later(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    plan = _plan(("123", "124"))
+    authority = {
+        "123": {
+            "case_id": "case-1",
+            "selection_document_sha256": "a" * 64,
+        }
+    }
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(plan)
+        journal.authorize_unknown_material_attempts(
+            authority, attempt_policy_sha256="b" * 64
+        )
+        assert journal.submit("123") is True
+        journal.mark_unknown("123", "ambiguous HTTP 400 after dispatch")
+
+    request_budget = CourtListenerRequestBudget(tmp_path / "requests.sqlite3")
+    paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 88})]
+    )
+    public = FixtureRecapFetchTransport(
+        [
+            _response(
+                "GET",
+                "/recap-documents/123/",
+                {
+                    "id": 123,
+                    "is_available": True,
+                    "is_sealed": None,
+                    "is_private": False,
+                    "filepath_local": "https://storage.courtlistener.com/123.pdf",
+                },
+            ),
+            _response("GET", "/recap-documents/124/", {"id": 124}),
+            _response("GET", "/recap-fetch/88/", {"status": 2}),
+            _response(
+                "GET",
+                "/recap-documents/124/",
+                {
+                    "id": 124,
+                    "is_available": True,
+                    "filepath_local": "https://storage.courtlistener.com/124.pdf",
+                },
+            ),
+        ]
+    )
+    direct = DirectCourtListenerRecapFetchPurchaseBroker(
+        _direct_config(),
+        transport=paid,
+        before_request=request_budget.before_request,
+    )
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=public,
+            purchase_broker=direct,
+            before_request=request_budget.before_request,
+        ).execute_purchase_plan(
+            plan,
+            public_documents={
+                "123": {
+                    "redaction_or_seal_status": "unknown",
+                    "is_sealed": None,
+                    "is_private": None,
+                    "is_available": False,
+                    "availability_status": "unavailable",
+                    "requires_paid_recovery": True,
+                    "restriction_evidence": list(UNKNOWN_STATUS_EVIDENCE),
+                },
+                "124": _public_documents(("124",))["124"],
+            },
+            attempt_documents=authority,
+            attempt_policy_sha256="b" * 64,
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+        unknown = journal.operation_evidence("123")
+        assert unknown is not None
+        assert unknown["status"] == "unknown"
+        assert unknown["reconciliation"] is None
+        assert unknown["public_material_recovery"]["reservation_retained"] is True
+        assert journal.committed_amount_usd == "6.10"
+
+    assert [attempt.status.value for attempt in result.attempts] == [
+        "quarantined",
+        "purchased",
+    ]
+    assert len(paid.calls) == 1
+    assert paid.calls[0]["form"]["recap_document"] == "124"
+    assert direct.paid_dispatch_count == 1
+    assert request_budget.local_reservations == 5
+    assert request_budget.total_reservations() == 5
+
+
+def test_direct_resume_unavailable_unknown_remains_blocked_without_paid_retry(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    authority = {
+        "123": {
+            "case_id": "case-1",
+            "selection_document_sha256": "a" * 64,
+        }
+    }
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        journal.authorize_unknown_material_attempts(
+            authority, attempt_policy_sha256="b" * 64
+        )
+        assert journal.submit("123") is True
+        journal.mark_unknown("123", "ambiguous HTTP 400 after dispatch")
+
+    paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 88})]
+    )
+    public = FixtureRecapFetchTransport(
+        [
+            _response(
+                "GET",
+                "/recap-documents/123/",
+                {
+                    "id": 123,
+                    "is_available": False,
+                    "is_sealed": None,
+                    "is_private": None,
+                },
+            )
+        ]
+    )
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        with pytest.raises(
+            CaseDevPurchaseReconciliationRequired, match="unknown paid outcome"
+        ):
+            CourtListenerRecapFetchClient(
+                _public_config(),
+                journal=journal,
+                transport=public,
+                purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
+                    _direct_config(), transport=paid
+                ),
+            ).execute_purchase_plan(
+                _plan(),
+                public_documents={
+                    "123": {
+                        "redaction_or_seal_status": "unknown",
+                        "is_sealed": None,
+                        "is_private": None,
+                        "is_available": False,
+                        "availability_status": "unavailable",
+                        "requires_paid_recovery": True,
+                        "restriction_evidence": list(UNKNOWN_STATUS_EVIDENCE),
+                    }
+                },
+                attempt_documents=authority,
+                attempt_policy_sha256="b" * 64,
+                live=True,
+                acknowledge_pacer_fees=True,
+            )
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        assert operation["material_state"].value == "not_recovered"
+        assert "public_material_recovery" not in operation
+
+    assert paid.calls == []
+    assert public.requests == [("GET", "/recap-documents/123/", {})]
 
 
 def test_direct_malformed_paid_response_is_durably_unknown(

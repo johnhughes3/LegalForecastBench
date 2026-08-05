@@ -13,6 +13,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.ingestion.case_dev_purchase import (
+    UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+)
 from legalforecast.ingestion.disclosure_clearance import (
     SCHEMA_VERSION,
     DisclosureClearanceError,
@@ -41,6 +44,9 @@ RESOLVED_POST_RECOVERY_SCHEMA_VERSION = (
 RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2 = (
     "legalforecast.resolved_post_recovery_public_document.v2"
 )
+RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3 = (
+    "legalforecast.resolved_post_recovery_public_document.v3"
+)
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
 FRESH_PUBLIC_RESTRICTION_SCHEMA_VERSION = (
     "legalforecast.post_recovery_restriction_evidence.v1"
@@ -50,6 +56,13 @@ FRESH_PUBLIC_RESTRICTION_EVIDENCE = (
     "courtlistener_recap_fetch_is_available_true",
     "courtlistener_recap_fetch_is_sealed_false",
     "courtlistener_recap_fetch_no_positive_private_marker",
+)
+FRESH_PUBLIC_UNKNOWN_SEAL_EVIDENCE = (
+    "courtlistener_recap_fetch_fresh_detail_exact_match",
+    "courtlistener_recap_fetch_is_available_true",
+    "courtlistener_recap_fetch_is_sealed_unknown",
+    "courtlistener_recap_fetch_no_positive_private_marker",
+    "courtlistener_recap_fetch_public_download_url_allowlisted",
 )
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -682,7 +695,9 @@ def _build_resolved_post_recovery_documents_core(
             restriction_artifact_bytes=restriction_artifact_bytes,
             allow_test_service_identity=allow_test_service_identity,
         )
-    policy_sha256, attempt_documents = _attempt_documents(attempt_policy_artifact)
+    policy_sha256, purchase_policy_sha256, attempt_documents = _attempt_documents(
+        attempt_policy_artifact
+    )
     unknown_selection = _unknown_selection(selection_records)
     if set(attempt_documents) != set(unknown_selection):
         raise ResolvedPostRecoveryError(
@@ -748,29 +763,32 @@ def _build_resolved_post_recovery_documents_core(
         _validate_recovered_public_clearance_lineage(
             clearance, operation=operation, fresh_public=fresh_public, key=key
         )
-        receipt = _terminal_delivery_receipt(operation, key=key)
         material = _mapping(operation.get("material_evidence"), "material evidence")
-        record: dict[str, object] = {
-            "schema_version": (
+        delivery_authority = _delivery_authority_fields(
+            operation,
+            key=key,
+            expected_purchase_policy_sha256=purchase_policy_sha256,
+        )
+        schema_version = (
+            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
+            if delivery_authority.get("delivery_authority")
+            == "authenticated_public_material_recovery"
+            else (
                 RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
                 if recovered_lineages is not None
                 else RESOLVED_POST_RECOVERY_SCHEMA_VERSION
-            ),
+            )
+        )
+        record: dict[str, object] = {
+            "schema_version": schema_version,
             "candidate_id": candidate_id,
             "source_document_id": document_id,
             "recovery_origin": UNKNOWN_RECOVERY_ORIGIN,
-            "purchase_policy_sha256": _required_sha(
-                receipt.get("purchase_policy_sha256"), "purchase policy"
-            ),
             "attempt_policy_sha256": policy_sha256,
             "selection_document_sha256": selection_sha256,
             "purchase_operation_sha256": _sha256(operation),
             "operation_key": _uuid4(operation.get("operation_key")),
-            "broker_receipt_sha256": _sha256(receipt),
-            "broker_receipt_state": _required_text(receipt.get("state"), "state"),
-            "queue_response_sha256": _required_sha(
-                material.get("queue_response_sha256"), "queue response"
-            ),
+            **delivery_authority,
             "fresh_recap_detail_sha256": _required_sha(
                 material.get("provider_detail_sha256"), "fresh RECAP detail"
             ),
@@ -1160,11 +1178,6 @@ def require_resolved_post_recovery_operation_bindings(
             raise ResolvedPostRecoveryError(
                 f"canonical purchase material state is not resolvable: {key}"
             )
-        terminal_receipt = _terminal_delivery_receipt(operation, key=key)
-        if _sha256(terminal_receipt) != record.get("broker_receipt_sha256"):
-            raise ResolvedPostRecoveryError(
-                f"resolved broker receipt is not the current terminal receipt: {key}"
-            )
         material = _mapping(operation.get("material_evidence"), "material evidence")
         expected = {
             "candidate_id": operation.get("candidate_id"),
@@ -1172,11 +1185,11 @@ def require_resolved_post_recovery_operation_bindings(
             "operation_key": operation.get("operation_key"),
             "attempt_policy_sha256": operation.get("attempt_policy_sha256"),
             "selection_document_sha256": operation.get("attempt_document_sha256"),
-            "queue_response_sha256": material.get("queue_response_sha256"),
             "fresh_recap_detail_sha256": material.get("provider_detail_sha256"),
             "download_url_sha256": material.get("download_url_sha256"),
             "content_sha256": material.get("content_sha256"),
             "byte_count": material.get("byte_count"),
+            **_delivery_authority_fields(operation, key=key),
         }
         if any(record.get(name) != value for name, value in expected.items()):
             raise ResolvedPostRecoveryError(
@@ -1291,7 +1304,7 @@ def _unknown_selection(
 
 def _attempt_documents(
     artifact: Mapping[str, object],
-) -> tuple[str, dict[tuple[str, str], Mapping[str, str]]]:
+) -> tuple[str, str, dict[tuple[str, str], Mapping[str, str]]]:
     if artifact.get("schema_version") != RECAP_FETCH_ATTEMPT_POLICY_VERSION:
         raise ResolvedPostRecoveryError("attempt policy schema is invalid")
     policy = _mapping(artifact.get("policy"), "attempt policy")
@@ -1300,6 +1313,9 @@ def _attempt_documents(
         raise ResolvedPostRecoveryError("attempt policy hash is invalid")
     if policy.get("authority") != BOUNDED_FETCH_ATTEMPT_AUTHORITY:
         raise ResolvedPostRecoveryError("attempt policy authority is invalid")
+    purchase_policy_sha256 = _required_sha(
+        policy.get("purchase_policy_sha256"), "purchase policy"
+    )
     raw_documents = policy.get("allowed_documents")
     if not isinstance(raw_documents, list):
         raise ResolvedPostRecoveryError("attempt policy documents must be a list")
@@ -1330,7 +1346,7 @@ def _attempt_documents(
                 row.get("selection_document_sha256"), "selection document"
             )
         }
-    return policy_sha256, output
+    return policy_sha256, purchase_policy_sha256, output
 
 
 def _validate_operation(
@@ -1355,12 +1371,12 @@ def _validate_operation(
     material = _mapping(operation.get("material_evidence"), "material evidence")
     for field in (
         "provider_detail_sha256",
-        "queue_response_sha256",
         "download_url_sha256",
         "content_sha256",
     ):
         _required_sha(material.get(field), field)
     _positive_int(material.get("byte_count"), "byte_count")
+    _delivery_authority_fields(operation, key=key)
 
 
 def _terminal_delivery_receipt(
@@ -1437,6 +1453,87 @@ def _terminal_delivery_receipt(
             f"purchase broker receipt terminal state is not delivery: {key}"
         )
     return terminal
+
+
+def _delivery_authority_fields(
+    operation: Mapping[str, Any],
+    *,
+    key: tuple[str, str],
+    expected_purchase_policy_sha256: str | None = None,
+) -> dict[str, object]:
+    """Return one exact delivery authority without synthesizing broker evidence."""
+
+    material = _mapping(operation.get("material_evidence"), "material evidence")
+    raw_public_recovery = operation.get("public_material_recovery")
+    if raw_public_recovery is None:
+        receipt = _terminal_delivery_receipt(operation, key=key)
+        purchase_policy_sha256 = _required_sha(
+            receipt.get("purchase_policy_sha256"), "purchase policy"
+        )
+        if (
+            expected_purchase_policy_sha256 is not None
+            and purchase_policy_sha256 != expected_purchase_policy_sha256
+        ):
+            raise ResolvedPostRecoveryError(
+                f"purchase policy differs from attempt authority: {key}"
+            )
+        return {
+            "purchase_policy_sha256": purchase_policy_sha256,
+            "broker_receipt_sha256": _sha256(receipt),
+            "broker_receipt_state": _required_text(receipt.get("state"), "state"),
+            "queue_response_sha256": _required_sha(
+                material.get("queue_response_sha256"), "queue response"
+            ),
+        }
+    if not isinstance(raw_public_recovery, Mapping):
+        raise ResolvedPostRecoveryError(
+            f"public material recovery authority is invalid: {key}"
+        )
+    recovery = cast(Mapping[str, object], raw_public_recovery)
+    purchase_policy_sha256 = _required_sha(
+        recovery.get("purchase_policy_sha256"), "purchase policy"
+    )
+    if (
+        expected_purchase_policy_sha256 is not None
+        and purchase_policy_sha256 != expected_purchase_policy_sha256
+    ):
+        raise ResolvedPostRecoveryError(
+            f"purchase policy differs from attempt authority: {key}"
+        )
+    expected = {
+        "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+        "candidate_id": key[0],
+        "source_document_id": key[1],
+        "operation_key": operation.get("operation_key"),
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "attempt_policy_sha256": operation.get("attempt_policy_sha256"),
+        "attempt_document_sha256": operation.get("attempt_document_sha256"),
+        "provider_detail_sha256": material.get("provider_detail_sha256"),
+        "download_url_sha256": material.get("download_url_sha256"),
+        "billing_status": "unknown",
+        "reservation_retained": True,
+        "no_paid_redispatch": True,
+    }
+    # Recovery authenticates material availability at the time it was recorded;
+    # later billing settlement does not invalidate that delivery authority. Keep
+    # these accepted purchase states aligned with the journal-side validator.
+    if (
+        dict(recovery) != expected
+        or operation.get("status") not in {"unknown", "confirmed", "failed"}
+        or (
+            operation.get("status") in {"unknown", "failed"}
+            and operation.get("actual_usd") is not None
+        )
+        or material.get("queue_response_sha256") is not None
+    ):
+        raise ResolvedPostRecoveryError(
+            f"public material recovery authority conflicts with purchase: {key}"
+        )
+    return {
+        "delivery_authority": "authenticated_public_material_recovery",
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "public_material_recovery_sha256": _sha256(recovery),
+    }
 
 
 def _validate_download(
@@ -1518,6 +1615,25 @@ def _validate_recovered_public_clearance_lineage(
         )
 
 
+def _is_fresh_public_restriction_evidence(
+    value: object, *, is_sealed: bool | None
+) -> bool:
+    expected = (
+        FRESH_PUBLIC_RESTRICTION_EVIDENCE
+        if is_sealed is False
+        else FRESH_PUBLIC_UNKNOWN_SEAL_EVIDENCE
+    )
+    return (
+        isinstance(value, Sequence)
+        and not isinstance(value, (str, bytes))
+        and tuple(cast(Sequence[object], value)) == expected
+    )
+
+
+def _is_false_or_none(value: object) -> bool:
+    return value is False or value is None
+
+
 def _fresh_public_restriction_record(
     records: Sequence[Mapping[str, Any]],
     *,
@@ -1535,12 +1651,14 @@ def _fresh_public_restriction_record(
         and record.get("fresh_recap_detail_sha256")
         == material.get("provider_detail_sha256")
         and record.get("is_available") is True
-        and record.get("is_sealed") is False
-        and record.get("is_private") in {False, None}
+        and _is_false_or_none(record.get("is_sealed"))
+        and _is_false_or_none(record.get("is_private"))
         and record.get("redaction_or_seal_status") == "public"
         and record.get("restriction_status") == "public"
-        and record.get("restriction_evidence")
-        == list(FRESH_PUBLIC_RESTRICTION_EVIDENCE)
+        and _is_fresh_public_restriction_evidence(
+            record.get("restriction_evidence"),
+            is_sealed=cast(bool | None, record.get("is_sealed")),
+        )
     ]
     if len(matches) != 1:
         raise ResolvedPostRecoveryError(
@@ -1565,12 +1683,14 @@ def _fresh_public_restriction_record_from_resolved(
         and record.get("fresh_recap_detail_sha256")
         == resolved_record.get("fresh_recap_detail_sha256")
         and record.get("is_available") is True
-        and record.get("is_sealed") is False
-        and record.get("is_private") in {False, None}
+        and _is_false_or_none(record.get("is_sealed"))
+        and _is_false_or_none(record.get("is_private"))
         and record.get("redaction_or_seal_status") == "public"
         and record.get("restriction_status") == "public"
-        and record.get("restriction_evidence")
-        == list(FRESH_PUBLIC_RESTRICTION_EVIDENCE)
+        and _is_fresh_public_restriction_evidence(
+            record.get("restriction_evidence"),
+            is_sealed=cast(bool | None, record.get("is_sealed")),
+        )
     ]
     if len(matches) != 1:
         raise ResolvedPostRecoveryError(
@@ -1582,13 +1702,23 @@ def _fresh_public_restriction_record_from_resolved(
 def _validate_resolved_record(
     record: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
-    recovered_public = (
-        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
+    schema_version = record.get("schema_version")
+    provider_free_recovered_public = (
+        schema_version
+        in {
+            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2,
+            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3,
+        }
         and record.get("clearance_basis") == "provider_free_recovered_public"
     )
     if (
-        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
-    ) != recovered_public:
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2
+        and not provider_free_recovered_public
+    ) or (
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
+        and record.get("clearance_basis")
+        not in {None, "provider_free_recovered_public"}
+    ):
         raise ResolvedPostRecoveryError(
             f"resolved document schema does not match clearance basis: {key}"
         )
@@ -1597,6 +1727,7 @@ def _validate_resolved_record(
         not in {
             RESOLVED_POST_RECOVERY_SCHEMA_VERSION,
             RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2,
+            RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3,
         }
         or record.get("candidate_id") != key[0]
         or record.get("source_document_id") != key[1]
@@ -1611,8 +1742,6 @@ def _validate_resolved_record(
         "attempt_policy_sha256",
         "selection_document_sha256",
         "purchase_operation_sha256",
-        "broker_receipt_sha256",
-        "queue_response_sha256",
         "fresh_recap_detail_sha256",
         "download_url_sha256",
         "download_record_sha256",
@@ -1625,20 +1754,58 @@ def _validate_resolved_record(
         "restriction_evidence_rows_sha256",
         "fresh_detail_public_evidence_sha256",
     ]
-    if recovered_public:
-        raw_lineage = record.get("recovered_public_lineage")
+    delivery_authority = record.get("delivery_authority")
+    broker_fields = {
+        "broker_receipt_sha256",
+        "broker_receipt_state",
+        "queue_response_sha256",
+    }
+    public_fields = {"public_material_recovery_sha256"}
+    if record.get("schema_version") in {
+        RESOLVED_POST_RECOVERY_SCHEMA_VERSION,
+        RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2,
+    }:
+        if (
+            delivery_authority is not None
+            or not broker_fields.issubset(record)
+            or public_fields.intersection(record)
+        ):
+            raise ResolvedPostRecoveryError(
+                f"resolved broker delivery authority is invalid: {key}"
+            )
+        digest_fields.extend(("broker_receipt_sha256", "queue_response_sha256"))
+        _required_text(record.get("broker_receipt_state"), "broker receipt state")
+    elif delivery_authority == "authenticated_public_material_recovery":
+        if not public_fields.issubset(record) or broker_fields.intersection(record):
+            raise ResolvedPostRecoveryError(
+                f"resolved public delivery authority is invalid: {key}"
+            )
+        digest_fields.append("public_material_recovery_sha256")
+    else:
+        raise ResolvedPostRecoveryError(
+            f"resolved document delivery authority is invalid: {key}"
+        )
+    raw_lineage = record.get("recovered_public_lineage")
+    review_fields = (
+        "reviews_artifact_sha256",
+        "review_receipt_sha256",
+        "review_authority_sha256",
+    )
+    if provider_free_recovered_public:
         if not isinstance(raw_lineage, Mapping):
             raise ResolvedPostRecoveryError(
                 f"resolved recovered-public lineage is invalid: {key}"
             )
-    else:
-        digest_fields.extend(
-            (
-                "reviews_artifact_sha256",
-                "review_receipt_sha256",
-                "review_authority_sha256",
+        if any(field in record for field in review_fields):
+            raise ResolvedPostRecoveryError(
+                f"resolved recovered-public lineage is contradictory: {key}"
             )
-        )
+    else:
+        if raw_lineage is not None:
+            raise ResolvedPostRecoveryError(
+                f"resolved review lineage is contradictory: {key}"
+            )
+        digest_fields.extend(review_fields)
     for field in digest_fields:
         _required_sha(record.get(field), field)
     _uuid4(record.get("operation_key"))

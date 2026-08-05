@@ -337,6 +337,390 @@ def test_unknown_material_clearance_is_independent_of_unresolved_billing(
         assert journal.committed_amount_usd == "3.05"
 
 
+def test_unknown_public_recovery_retains_billing_hold_and_unblocks_other_plans(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    authority = {
+        "doc-1": {
+            "case_id": "case-1",
+            "selection_document_sha256": "9" * 64,
+        }
+    }
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1", "doc-2")))
+        journal.authorize_unknown_material_attempts(
+            authority, attempt_policy_sha256="a" * 64
+        )
+        assert journal.submit("doc-1") is True
+        operation = journal.operation_evidence("doc-1")
+        assert operation is not None
+        operation_key = str(operation["operation_key"])
+        journal.mark_unknown("doc-1", "ambiguous HTTP 400 after dispatch")
+
+        journal.mark_unknown_public_material_available(
+            "doc-1",
+            candidate_id="case-1",
+            operation_key=operation_key,
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256="b" * 64,
+            download_url_sha256="c" * 64,
+        )
+
+        recovered = journal.operation_evidence("doc-1")
+        assert recovered is not None
+        assert recovered["status"] == "unknown"
+        assert recovered["actual_usd"] is None
+        assert recovered["material_state"] is (
+            PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE
+        )
+        assert recovered["material_evidence"] == {
+            "provider_detail_sha256": "b" * 64,
+            "download_url_sha256": "c" * 64,
+        }
+        assert recovered["reconciliation"] is None
+        recovery = recovered["public_material_recovery"]
+        assert recovery == {
+            "attempt_document_sha256": "9" * 64,
+            "attempt_policy_sha256": "a" * 64,
+            "billing_status": "unknown",
+            "candidate_id": "case-1",
+            "download_url_sha256": "c" * 64,
+            "no_paid_redispatch": True,
+            "operation_key": operation_key,
+            "purchase_policy_sha256": policy.policy_sha256,
+            "provider_detail_sha256": "b" * 64,
+            "reservation_retained": True,
+            "schema_version": "legalforecast.unknown_public_material_recovery.v1",
+            "source_document_id": "doc-1",
+        }
+        assert journal.committed_amount_usd == "3.05"
+        journal.require_reconciled()
+        assert journal.submit("doc-2") is True
+
+
+def test_unknown_public_recovery_rejects_forgery_unavailable_and_conflicting_replay(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        assert journal.submit("doc-1") is True
+        operation = journal.operation_evidence("doc-1")
+        assert operation is not None
+        operation_key = str(operation["operation_key"])
+        journal.mark_unknown("doc-1", "ambiguous")
+
+        kwargs = {
+            "candidate_id": "case-1",
+            "operation_key": operation_key,
+            "attempt_policy_sha256": "a" * 64,
+            "attempt_document_sha256": "9" * 64,
+            "provider_detail_sha256": "b" * 64,
+            "download_url_sha256": "c" * 64,
+        }
+        with pytest.raises(CaseDevPurchaseLedgerError, match="operation identity"):
+            journal.mark_unknown_public_material_available(
+                "doc-1", **{**kwargs, "operation_key": "0" * 36}
+            )
+        with pytest.raises(CaseDevPurchaseLedgerError, match="unknown paid outcome"):
+            journal.require_reconciled()
+
+        journal.mark_unknown_public_material_available("doc-1", **kwargs)
+        journal.mark_unknown_public_material_available("doc-1", **kwargs)
+        with pytest.raises(CaseDevPurchaseLedgerError, match="replay conflicts"):
+            journal.mark_unknown_public_material_available(
+                "doc-1", **{**kwargs, "provider_detail_sha256": "d" * 64}
+            )
+
+    connection = sqlite3.connect(ledger)
+    record = json.loads(
+        connection.execute(
+            "SELECT record_json FROM unknown_public_material_recoveries"
+        ).fetchone()[0]
+    )
+    record["candidate_id"] = "case-forged"
+    connection.execute(
+        "UPDATE unknown_public_material_recoveries SET record_json=?",
+        (json.dumps(record, sort_keys=True, separators=(",", ":")),),
+    )
+    connection.commit()
+    connection.close()
+    with pytest.raises(CaseDevPurchaseLedgerError, match="record hash"):
+        with CaseDevPurchaseJournal(
+            ledger, policy=policy, allow_create=True
+        ) as journal:
+            journal.require_reconciled()
+
+
+@pytest.mark.parametrize(
+    ("ddl", "error"),
+    (
+        (
+            """CREATE TABLE unknown_public_material_recoveries (
+            source_document_id TEXT UNIQUE,
+            record_json TEXT NOT NULL,
+            record_sha256 TEXT NOT NULL UNIQUE,
+            FOREIGN KEY(source_document_id) REFERENCES purchase_operations(
+                source_document_id) ON DELETE RESTRICT)""",
+            "schema is unsupported",
+        ),
+        (
+            """CREATE TABLE unknown_public_material_recoveries (
+            source_document_id TEXT PRIMARY KEY REFERENCES purchase_operations(
+                source_document_id) ON DELETE CASCADE,
+            record_json TEXT NOT NULL,
+            record_sha256 TEXT NOT NULL UNIQUE)""",
+            "foreign key is unsupported",
+        ),
+    ),
+)
+def test_unknown_public_recovery_rejects_malformed_table_constraints(
+    tmp_path: Path, ddl: str, error: str
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True):
+        pass
+    connection = sqlite3.connect(ledger)
+    connection.execute("DROP TABLE unknown_public_material_recoveries")
+    connection.execute(ddl)
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match=error):
+        with CaseDevPurchaseJournal(ledger, policy=policy):
+            pass
+
+
+def test_unknown_public_recovery_rejects_duplicate_digest_capable_schema(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1", "doc-2")))
+    connection = sqlite3.connect(ledger)
+    connection.execute("DROP TABLE unknown_public_material_recoveries")
+    connection.execute(
+        """CREATE TABLE unknown_public_material_recoveries (
+        source_document_id TEXT PRIMARY KEY REFERENCES purchase_operations(
+            source_document_id) ON DELETE RESTRICT,
+        record_json TEXT NOT NULL,
+        record_sha256 TEXT NOT NULL)"""
+    )
+    connection.executemany(
+        """INSERT INTO unknown_public_material_recoveries(
+        source_document_id, record_json, record_sha256) VALUES (?, '{}', ?)""",
+        (("doc-1", "a" * 64), ("doc-2", "a" * 64)),
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="uniqueness is unsupported"):
+        with CaseDevPurchaseJournal(ledger, policy=policy):
+            pass
+
+
+def test_unknown_public_recovery_rejects_written_off_billing_state(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        assert journal.submit("doc-1") is True
+        operation = journal.operation_evidence("doc-1")
+        assert operation is not None
+        journal.mark_unknown("doc-1", "ambiguous")
+        journal.reconcile(
+            {
+                "source_document_id": "doc-1",
+                "disposition": "write_off",
+                "source_type": "support_confirmation",
+                "source_reference": "support-ticket-123",
+                "pacer_fees": None,
+                "download_url": None,
+            }
+        )
+
+        with pytest.raises(CaseDevPurchaseLedgerError, match="identity conflicts"):
+            journal.mark_unknown_public_material_available(
+                "doc-1",
+                candidate_id="case-1",
+                operation_key=str(operation["operation_key"]),
+                attempt_policy_sha256="a" * 64,
+                attempt_document_sha256="9" * 64,
+                provider_detail_sha256="b" * 64,
+                download_url_sha256="c" * 64,
+            )
+        recovered = journal.operation_evidence("doc-1")
+        assert recovered is not None
+        assert recovered["material_state"] is PurchaseMaterialState.NOT_RECOVERED
+        assert "public_material_recovery" not in recovered
+
+
+@pytest.mark.parametrize(
+    ("disposition", "expected_status"),
+    (("failed", "failed"), ("write_off", "unknown")),
+)
+def test_unknown_public_recovery_survives_later_billing_reconciliation(
+    tmp_path: Path,
+    disposition: str,
+    expected_status: str,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        assert journal.submit("doc-1") is True
+        operation = journal.operation_evidence("doc-1")
+        assert operation is not None
+        journal.mark_unknown("doc-1", "ambiguous")
+        journal.mark_unknown_public_material_available(
+            "doc-1",
+            candidate_id="case-1",
+            operation_key=str(operation["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256="b" * 64,
+            download_url_sha256="c" * 64,
+        )
+        reconciliation = {
+            "source_document_id": "doc-1",
+            "disposition": disposition,
+            "source_type": "support_confirmation",
+            "source_reference": "support-ticket-123",
+            "pacer_fees": None,
+            "download_url": None,
+        }
+
+        journal.reconcile(reconciliation)
+
+        recovered = journal.operation_evidence("doc-1")
+        assert recovered is not None
+        assert recovered["status"] == expected_status
+        assert recovered["actual_usd"] is None
+        assert recovered["reconciliation"] == reconciliation
+        assert recovered["public_material_recovery"]["billing_status"] == "unknown"
+        persisted_recovery = journal.operation_records()[0]["public_material_recovery"]
+        assert persisted_recovery == recovered["public_material_recovery"]
+
+
+def test_unknown_public_recovery_converts_unreconciled_submitted_hold(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        assert journal.submit("doc-1") is True
+        operation = journal.operation_evidence("doc-1")
+        assert operation is not None
+
+        journal.mark_unknown_public_material_available(
+            "doc-1",
+            candidate_id="case-1",
+            operation_key=str(operation["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256="b" * 64,
+            download_url_sha256="c" * 64,
+        )
+
+        recovered = journal.operation_evidence("doc-1")
+        assert recovered is not None
+        assert recovered["status"] == "unknown"
+        assert recovered["actual_usd"] is None
+        assert recovered["reconciliation"] is None
+        assert journal.committed_amount_usd == "3.05"
+        journal.require_reconciled()
+
+
+def test_operation_records_authenticates_public_recovery_digest(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        assert journal.submit("doc-1") is True
+        operation = journal.operation_evidence("doc-1")
+        assert operation is not None
+        journal.mark_unknown("doc-1", "ambiguous")
+        journal.mark_unknown_public_material_available(
+            "doc-1",
+            candidate_id="case-1",
+            operation_key=str(operation["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256="b" * 64,
+            download_url_sha256="c" * 64,
+        )
+
+        connection = sqlite3.connect(ledger)
+        connection.execute(
+            "UPDATE unknown_public_material_recoveries SET record_sha256=?",
+            ("d" * 64,),
+        )
+        connection.commit()
+        connection.close()
+
+        with pytest.raises(
+            CaseDevPurchaseLedgerError,
+            match="unknown public recovery record hash is invalid",
+        ):
+            journal.operation_records()
+
+
 def test_unknown_attempt_authority_is_exact_and_immutable(tmp_path: Path) -> None:
     ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))

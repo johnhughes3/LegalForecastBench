@@ -60,6 +60,15 @@ _RECOVERED_PUBLIC_EVIDENCE = frozenset(
         "courtlistener_recap_fetch_no_positive_private_marker",
     }
 )
+_RECOVERED_PUBLIC_UNKNOWN_SEAL_EVIDENCE = frozenset(
+    {
+        "courtlistener_recap_fetch_fresh_detail_exact_match",
+        "courtlistener_recap_fetch_is_available_true",
+        "courtlistener_recap_fetch_is_sealed_unknown",
+        "courtlistener_recap_fetch_public_download_url_allowlisted",
+        "courtlistener_recap_fetch_no_positive_private_marker",
+    }
+)
 _UUID4 = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 )
@@ -1156,12 +1165,14 @@ def _verified_recovered_public_document(
         or restriction.get("source_provider")
         != "courtlistener_recap_fetch_fresh_detail"
         or restriction.get("is_available") is not True
-        or restriction.get("is_sealed") is not False
-        or restriction.get("is_private") not in {False, None}
+        or not _is_false_or_none(restriction.get("is_sealed"))
+        or not _is_false_or_none(restriction.get("is_private"))
         or restriction.get("redaction_or_seal_status") != "public"
         or restriction.get("restriction_status") != "public"
-        or tuple(_text_list(restriction, "restriction_evidence"))
-        != tuple(sorted(_RECOVERED_PUBLIC_EVIDENCE))
+        or not _is_recovered_public_evidence(
+            _text_list(restriction, "restriction_evidence"),
+            is_sealed=cast(bool | None, restriction.get("is_sealed")),
+        )
         or not _visibility_contract_valid(visibility)
         or _positive_restriction(restriction)
     ):
@@ -1174,6 +1185,22 @@ def _verified_recovered_public_document(
         and source.get("purchase_operation_key")
         == lineage.get("purchase_operation_key")
     )
+
+
+def _is_recovered_public_evidence(
+    evidence: Sequence[str], *, is_sealed: bool | None
+) -> bool:
+    canonical = tuple(evidence)
+    expected = (
+        _RECOVERED_PUBLIC_EVIDENCE
+        if is_sealed is False
+        else _RECOVERED_PUBLIC_UNKNOWN_SEAL_EVIDENCE
+    )
+    return canonical == tuple(sorted(expected))
+
+
+def _is_false_or_none(value: object) -> bool:
+    return value is False or value is None
 
 
 def _validate_plan_document(row: Mapping[str, object], *, key: tuple[str, str]) -> None:
