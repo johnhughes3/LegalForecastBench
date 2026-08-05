@@ -381,6 +381,7 @@ from legalforecast.ingestion.docket_decision_text_source import (
     verified_docket_decision_document_keys,
     verified_docket_decision_source_records,
     verified_residual_terminal_records,
+    verified_terminal_purchase_disposition_record,
     verify_docket_decision_text_sources,
 )
 from legalforecast.ingestion.docket_live_fetch import (
@@ -777,6 +778,16 @@ from legalforecast.ingestion.terminal_subset_promotion import (
     read_pinned_terminal_selection_docket_ids,
     read_verified_promotion_raw,
     verify_terminal_subset_promotion_source,
+)
+from legalforecast.ingestion.zero_cost_successor import (
+    CONFIG_SCHEMA_VERSION as ZERO_COST_SUCCESSOR_CONFIG_SCHEMA,
+)
+from legalforecast.ingestion.zero_cost_successor import (
+    STATE_SCHEMA_VERSION as ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+)
+from legalforecast.ingestion.zero_cost_successor import (
+    ZeroCostSuccessorError,
+    project_zero_cost_successor,
 )
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
@@ -1783,6 +1794,19 @@ def build_parser() -> argparse.ArgumentParser:
     _add_plan_ranked_reserve_replacements_arguments(
         acquisition_plan_ranked_reserve_replacements
     )
+    acquisition_project_zero_cost_successor = acquisition_subparsers.add_parser(
+        "project-zero-cost-successor",
+        help=(
+            "Authenticate the exact 99-case ranked-reserve precursor and add the "
+            "first fully cleared candidate from the frozen zero-cost order."
+        ),
+        description=(
+            "Provider-free exact-100 projection. Replays the frozen target and "
+            "final disclosure-clearance authorities, performs no provider or paid "
+            "operation, and grants no evaluation, freeze, or dispatch authority."
+        ),
+    )
+    _add_project_zero_cost_successor_arguments(acquisition_project_zero_cost_successor)
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
         "accumulate-replacement-clearance",
         help=(
@@ -5579,6 +5603,40 @@ def _add_plan_ranked_reserve_replacements_arguments(
     parser.add_argument("--replacement-budget-plan-output", type=Path, required=True)
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.set_defaults(handler=_cmd_plan_ranked_reserve_replacements)
+
+
+def _add_project_zero_cost_successor_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--target-cohort-root", type=Path, required=True)
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--controlled-private-root", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt", type=Path, required=True
+    )
+    parser.add_argument("--purchase-result", type=Path, required=True)
+    parser.add_argument("--purchase-run-card", type=Path, required=True)
+    parser.add_argument("--screening-snapshot-manifest", type=Path, required=True)
+    parser.add_argument("--ranked-reserve-result", type=Path, required=True)
+    parser.add_argument("--active-selection", type=Path, required=True)
+    parser.add_argument("--replacement-selection", type=Path, required=True)
+    parser.add_argument("--successor-exclusions", type=Path, required=True)
+    parser.add_argument("--replacement-budget-plan", type=Path, required=True)
+    parser.add_argument("--disclosure-clearance", type=Path, required=True)
+    parser.add_argument("--disclosure-clearance-run-card", type=Path, required=True)
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        required=True,
+        help=(
+            "Fresh immutable standard target-cohort output root, including "
+            "target-cohort-selection.jsonl, target-cohort-projection.json, and "
+            "run-cards/project-target-cohort.json."
+        ),
+    )
+    parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
+    parser.set_defaults(handler=_cmd_project_zero_cost_successor)
 
 
 def _add_build_replacement_exclusions_arguments(
@@ -23472,6 +23530,456 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
     return 0
 
 
+def _authenticate_ranked_reserve_precursor(
+    *,
+    projection: Mapping[str, object],
+    selection_payload: bytes,
+    reserve_payload: bytes,
+    source_pool_payload: bytes,
+    original_exclusions_payload: bytes,
+    active_selection_payload: bytes,
+    replacement_selection_payload: bytes,
+    successor_exclusions_payload: bytes,
+    replacement_budget_plan_payload: bytes,
+    purchase_policy_path: Path,
+    controlled_private_root: Path,
+    purchase_ledger_path: Path,
+    purchase_ledger_initialization_receipt_path: Path,
+    purchase_result_path: Path,
+    purchase_run_card_path: Path,
+    screening_snapshot_manifest_path: Path,
+    ranked_result: Mapping[str, object],
+) -> Mapping[str, object]:
+    """Substantively replay the producer authority behind the ranked result."""
+
+    policy = verify_case_dev_purchase_policy(
+        _projection_json_object(
+            read_unique_regular_file(purchase_policy_path),
+            source=purchase_policy_path,
+        )
+    )
+    require_approved_case_dev_purchase_policy(
+        policy, controlled_private_root=controlled_private_root
+    )
+    if ranked_result.get("purchase_policy_sha256") != "sha256:" + policy.policy_sha256:
+        raise ZeroCostSuccessorError(
+            "ranked result differs from authenticated purchase policy"
+        )
+    selection_records = _projection_jsonl_records(
+        selection_payload, source=Path("authenticated-target-selection.jsonl")
+    )
+    selected_document_count = 0
+    for record in selection_records:
+        documents = record.get("documents")
+        if not isinstance(documents, list):
+            raise ZeroCostSuccessorError(
+                "frozen selection documents must be a JSON list"
+            )
+        selected_document_count += len(cast(list[object], documents))
+    with CaseDevPurchaseJournal(
+        purchase_ledger_path.resolve(),
+        policy=policy,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=purchase_ledger_initialization_receipt_path,
+    ) as journal:
+        descriptor = _verify_materializer_docket_decision_authority(
+            selection_payload=selection_payload,
+            snapshot_manifest_path=screening_snapshot_manifest_path,
+            purchase_result_path=purchase_result_path,
+            purchase_run_card_path=purchase_run_card_path,
+            purchase_journal=journal,
+            purchase_policy=policy,
+            ledger_path=purchase_ledger_path.resolve(),
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=purchase_ledger_initialization_receipt_path,
+            selected_document_count=selected_document_count,
+        )
+        disposition = dict(
+            verified_terminal_purchase_disposition_record(
+                descriptor.authority, purchase_journal=journal
+            )
+        )
+        residual_bytes = residual_terminal_exclusions_bytes(
+            descriptor.authority, purchase_journal=journal
+        )
+
+        def revalidate_disposition() -> None:
+            verified_terminal_purchase_disposition_record(
+                descriptor.authority, purchase_journal=journal
+            )
+
+        plan = plan_ranked_reserve_replacements(
+            projection=projection,
+            selected_bytes=selection_payload,
+            reserve_bytes=reserve_payload,
+            source_pool_bytes=source_pool_payload,
+            original_exclusions_bytes=original_exclusions_payload,
+            terminal_exclusions_bytes=residual_bytes,
+            expected_terminal_exclusions_sha256=_bytes_sha256(residual_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=descriptor.authority,
+            precommit_revalidator=revalidate_disposition,
+            allow_new_replacement_events=False,
+        )
+        authenticated_result = bind_ranked_reserve_outputs(
+            plan,
+            active_selection_bytes=active_selection_payload,
+            replacement_selection_bytes=replacement_selection_payload,
+            successor_exclusions_bytes=successor_exclusions_payload,
+            replacement_budget_plan_bytes=replacement_budget_plan_payload,
+        )
+    _replay_materialized_docket_decision_authority(descriptor)
+    if disposition != ranked_result.get("terminal_disposition") or (
+        authenticated_result != ranked_result
+    ):
+        raise ZeroCostSuccessorError(
+            "ranked result differs from authenticated ranked-reserve replay"
+        )
+    return authenticated_result
+
+
+def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
+    target_root = cast(Path, args.target_cohort_root)
+    result_path = cast(Path, args.ranked_reserve_result)
+    active_path = cast(Path, args.active_selection)
+    replacement_path = cast(Path, args.replacement_selection)
+    exclusions_path = cast(Path, args.successor_exclusions)
+    budget_path = cast(Path, args.replacement_budget_plan)
+    clearance_path = cast(Path, args.disclosure_clearance)
+    clearance_card_path = cast(Path, args.disclosure_clearance_run_card)
+    purchase_policy_path = cast(Path, args.purchase_policy)
+    controlled_private_root = cast(Path, args.controlled_private_root)
+    purchase_ledger_path = cast(Path, args.purchase_ledger)
+    purchase_ledger_receipt_path = cast(
+        Path, args.purchase_ledger_initialization_receipt
+    )
+    purchase_result_path = cast(Path, args.purchase_result)
+    purchase_run_card_path = cast(Path, args.purchase_run_card)
+    snapshot_manifest_path = cast(Path, args.screening_snapshot_manifest)
+    output_root = cast(Path, args.output_root)
+    output_paths = {
+        "selection": output_root / "target-cohort-selection.jsonl",
+        "config": output_root / "target-cohort-projection.json",
+        "state": output_root / "run-cards/project-target-cohort.json",
+        "case_relevance": output_root / "case-relevance.jsonl",
+        "download_manifest": output_root / "document-downloads-merged.jsonl",
+        "free_manifest": output_root / "free-document-downloads.jsonl",
+        "purchased_manifest": output_root / "purchased-document-downloads.jsonl",
+        "clearance": output_root / "disclosure-clearance.jsonl",
+        "restriction": output_root / "restriction-evidence.jsonl",
+        "core_filter": output_root / "core-filter-results.jsonl",
+        "budget": output_root / "missing-core-budget-plan.json",
+        "exclusions": output_root / "target-cohort-exclusions.jsonl",
+        "ranked_reserve": output_root / "target-cohort-ranked-reserve.jsonl",
+    }
+    protected_inputs = (
+        result_path,
+        active_path,
+        replacement_path,
+        exclusions_path,
+        budget_path,
+        clearance_path,
+        clearance_card_path,
+        purchase_policy_path,
+        controlled_private_root,
+        purchase_ledger_path,
+        purchase_ledger_receipt_path,
+        purchase_result_path,
+        purchase_run_card_path,
+        snapshot_manifest_path,
+    )
+    try:
+        resolved_output = output_root.resolve(strict=False)
+        resolved_target = target_root.resolve(strict=False)
+        if (
+            resolved_output == resolved_target
+            or resolved_output.is_relative_to(resolved_target)
+            or resolved_target.is_relative_to(resolved_output)
+        ):
+            raise ZeroCostSuccessorError(
+                "successor output overlaps the frozen target cohort"
+            )
+        for path in protected_inputs:
+            resolved_input = path.resolve(strict=False)
+            if (
+                resolved_output == resolved_input
+                or resolved_output.is_relative_to(resolved_input)
+                or resolved_input.is_relative_to(resolved_output)
+            ):
+                raise ZeroCostSuccessorError(
+                    "successor output overlaps protected input evidence"
+                )
+        _reject_unexpected_materializer_outputs(
+            output_root, expected_files=set(output_paths.values())
+        )
+        for output_path in output_paths.values():
+            prepare_non_symlink_directory(output_path.parent)
+        verified = verify_completed_target_cohort_projection_for_purchase_approval(
+            target_root
+        )
+        projection = _mapping(verified.get("summary"), "target projection summary")
+        verified_bytes = cast(
+            Mapping[str, bytes],
+            _mapping(
+                verified.get("verified_artifact_bytes"),
+                "verified target artifact bytes",
+            ),
+        )
+        summary_path = cast(Path, verified["summary_path"])
+        selection_path = cast(Path, verified["selection_path"])
+        reserve_path = target_root / "target-cohort-ranked-reserve.jsonl"
+        original_exclusions_path = target_root / "target-cohort-exclusions.jsonl"
+        source_commitments = _mapping(
+            projection.get("input_commitments"), "target input commitments"
+        )
+        source_paths = tuple(
+            Path(str(path))
+            for path in source_commitments
+            if str(path).endswith("/public-packet-selection-reconciled.jsonl")
+        )
+        if len(source_paths) != 1:
+            raise ZeroCostSuccessorError(
+                "target projection lacks one frozen source-pool commitment"
+            )
+
+        def authenticated_target_bytes(path: Path) -> bytes:
+            try:
+                return verified_bytes[os.path.abspath(path)]
+            except KeyError as exc:
+                raise ZeroCostSuccessorError(
+                    f"target projection replay did not authenticate {path}"
+                ) from exc
+
+        authenticated_target_bytes(summary_path)
+        original_selection_bytes = authenticated_target_bytes(selection_path)
+        reserve_bytes = authenticated_target_bytes(reserve_path)
+        original_exclusions_bytes = authenticated_target_bytes(original_exclusions_path)
+        source_pool_bytes = authenticated_target_bytes(source_paths[0])
+
+        result_bytes = read_unique_regular_file(result_path)
+        ranked_result = _projection_json_object(result_bytes, source=result_path)
+        active_bytes = read_unique_regular_file(active_path)
+        replacement_bytes = read_unique_regular_file(replacement_path)
+        exclusions_bytes = read_unique_regular_file(exclusions_path)
+        budget_bytes = read_unique_regular_file(budget_path)
+        authenticated_ranked_result = _authenticate_ranked_reserve_precursor(
+            projection=projection,
+            selection_payload=original_selection_bytes,
+            reserve_payload=reserve_bytes,
+            source_pool_payload=source_pool_bytes,
+            original_exclusions_payload=original_exclusions_bytes,
+            active_selection_payload=active_bytes,
+            replacement_selection_payload=replacement_bytes,
+            successor_exclusions_payload=exclusions_bytes,
+            replacement_budget_plan_payload=budget_bytes,
+            purchase_policy_path=purchase_policy_path,
+            controlled_private_root=controlled_private_root,
+            purchase_ledger_path=purchase_ledger_path,
+            purchase_ledger_initialization_receipt_path=purchase_ledger_receipt_path,
+            purchase_result_path=purchase_result_path,
+            purchase_run_card_path=purchase_run_card_path,
+            screening_snapshot_manifest_path=snapshot_manifest_path,
+            ranked_result=ranked_result,
+        )
+        clearance_bytes = read_unique_regular_file(clearance_path)
+        clearance_card_bytes = read_unique_regular_file(clearance_card_path)
+        clearance_card = _projection_json_object(
+            clearance_card_bytes, source=clearance_card_path
+        )
+        clearance_sources = _mapping(
+            clearance_card.get("source_commitments"),
+            "disclosure clearance source commitments",
+        )
+        relevance_path = _materializer_committed_path(
+            clearance_sources, "case_relevance"
+        )
+        manifest_path = _materializer_committed_path(
+            clearance_sources, "download_manifest"
+        )
+        restriction_path = _materializer_committed_path(
+            clearance_sources, "restriction_evidence"
+        )
+        _verify_authenticated_clearance_run_card(
+            clearance_path=clearance_path,
+            clearance_run_card_path=clearance_card_path,
+            expected_download_manifest_path=manifest_path,
+            expected_restriction_path=restriction_path,
+        )
+        relevance_bytes = read_unique_regular_file(relevance_path)
+        manifest_bytes = read_unique_regular_file(manifest_path)
+        restriction_bytes = read_unique_regular_file(restriction_path)
+        snapshots = {
+            result_path: result_bytes,
+            active_path: active_bytes,
+            replacement_path: replacement_bytes,
+            exclusions_path: exclusions_bytes,
+            budget_path: budget_bytes,
+            clearance_path: clearance_bytes,
+            clearance_card_path: clearance_card_bytes,
+            relevance_path: relevance_bytes,
+            manifest_path: manifest_bytes,
+            restriction_path: restriction_bytes,
+        }
+        successor = project_zero_cost_successor(
+            target_projection=projection,
+            original_selection=_projection_jsonl_records(
+                original_selection_bytes, source=selection_path
+            ),
+            ranked_reserve=_projection_jsonl_records(
+                reserve_bytes, source=reserve_path
+            ),
+            source_pool=_projection_jsonl_records(
+                source_pool_bytes, source=source_paths[0]
+            ),
+            ranked_result=ranked_result,
+            ranked_result_bytes=result_bytes,
+            authenticated_ranked_result=authenticated_ranked_result,
+            active_selection=_projection_jsonl_records(
+                active_bytes, source=active_path
+            ),
+            active_selection_bytes=active_bytes,
+            replacement_selection=_projection_jsonl_records(
+                replacement_bytes, source=replacement_path
+            ),
+            replacement_selection_bytes=replacement_bytes,
+            successor_exclusions_bytes=exclusions_bytes,
+            replacement_budget_plan_bytes=budget_bytes,
+            disclosure_clearance=_projection_jsonl_records(
+                clearance_bytes, source=clearance_path
+            ),
+            disclosure_clearance_bytes=clearance_bytes,
+            disclosure_clearance_run_card_bytes=clearance_card_bytes,
+            case_relevance=_projection_jsonl_records(
+                relevance_bytes, source=relevance_path
+            ),
+            download_manifest=_projection_jsonl_records(
+                manifest_bytes, source=manifest_path
+            ),
+            restriction_evidence=_projection_jsonl_records(
+                restriction_bytes, source=restriction_path
+            ),
+        )
+        _require_snapshot_unchanged(snapshots, label="zero-cost successor authority")
+        if (
+            _authenticate_ranked_reserve_precursor(
+                projection=projection,
+                selection_payload=original_selection_bytes,
+                reserve_payload=reserve_bytes,
+                source_pool_payload=source_pool_bytes,
+                original_exclusions_payload=original_exclusions_bytes,
+                active_selection_payload=active_bytes,
+                replacement_selection_payload=replacement_bytes,
+                successor_exclusions_payload=exclusions_bytes,
+                replacement_budget_plan_payload=budget_bytes,
+                purchase_policy_path=purchase_policy_path,
+                controlled_private_root=controlled_private_root,
+                purchase_ledger_path=purchase_ledger_path,
+                purchase_ledger_initialization_receipt_path=(
+                    purchase_ledger_receipt_path
+                ),
+                purchase_result_path=purchase_result_path,
+                purchase_run_card_path=purchase_run_card_path,
+                screening_snapshot_manifest_path=snapshot_manifest_path,
+                ranked_result=ranked_result,
+            )
+            != authenticated_ranked_result
+        ):
+            raise ZeroCostSuccessorError(
+                "ranked precursor authority changed before publication"
+            )
+
+        def successor_jsonl(records: Iterable[Mapping[str, Any]]) -> bytes:
+            return b"".join(canonical_json_bytes(record) for record in records)
+
+        selection_output_bytes = successor_jsonl(successor.selection)
+        config_output_bytes = canonical_json_bytes(successor.config)
+        input_paths = (
+            target_root,
+            result_path,
+            active_path,
+            replacement_path,
+            exclusions_path,
+            budget_path,
+            clearance_path,
+            clearance_card_path,
+            purchase_policy_path,
+            controlled_private_root,
+            purchase_ledger_path,
+            purchase_ledger_receipt_path,
+            purchase_result_path,
+            purchase_run_card_path,
+            snapshot_manifest_path,
+        )
+        state_record = {
+            **successor.state,
+            "stage": "project-zero-cost-successor",
+            "dry_run": False,
+            "execute": True,
+            "record_count": len(successor.selection),
+            "input_paths": [str(path.resolve()) for path in input_paths],
+            "output_paths": [str(path.resolve()) for path in output_paths.values()],
+            "output_commitments": {
+                **cast(Mapping[str, object], successor.config["output_commitments"]),
+                "target-cohort-projection.json": _bytes_sha256(config_output_bytes),
+            },
+        }
+        state_output_bytes = _projection_json_bytes(state_record)
+        resume = cast(bool, args.resume)
+        output_payloads = {
+            "selection": selection_output_bytes,
+            "config": config_output_bytes,
+            "state": state_output_bytes,
+            "case_relevance": successor_jsonl(successor.case_relevance),
+            "download_manifest": successor_jsonl(successor.download_manifest),
+            "free_manifest": successor_jsonl(
+                row
+                for row in successor.download_manifest
+                if row.get("free_or_purchased") == "free"
+            ),
+            "purchased_manifest": successor_jsonl(
+                row
+                for row in successor.download_manifest
+                if row.get("free_or_purchased") == "purchased"
+            ),
+            "clearance": successor_jsonl(successor.disclosure_clearance),
+            "restriction": successor_jsonl(successor.restriction_evidence),
+            "core_filter": successor_jsonl(successor.core_filter_results),
+            "budget": budget_bytes,
+            "exclusions": exclusions_bytes,
+            "ranked_reserve": b"",
+        }
+        for name, payload in output_payloads.items():
+            _write_immutable_bytes(output_paths[name], payload, resume=resume)
+    except (
+        CommandError,
+        OSError,
+        TargetCohortProjectionError,
+        UnicodeError,
+        ValueError,
+        ZeroCostSuccessorError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "output_root": str(output_root),
+                "selected_case_count": len(successor.selection),
+                "selected_zero_cost_candidate_id": successor.config[
+                    "selected_zero_cost_candidate_id"
+                ],
+                "provider_activity_requested": False,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+                "evaluation_authorized": False,
+                "freeze_authorized": False,
+                "dispatch_authorized": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 _REPLACEMENT_CLEARANCE_ACCUMULATION_SCHEMA = (
     "legalforecast.replacement_clearance_accumulation_run_card.v1"
 )
@@ -35578,6 +36086,272 @@ def _publish_materialized_cohort_documents(
     return 0
 
 
+def _verify_zero_cost_successor_projection(
+    *,
+    target_root: Path,
+    free_clearance_path: Path,
+    expected_target_count: int,
+) -> dict[str, object]:
+    """Replay the successor command as a closed adapter for materialization."""
+
+    run_card_path = target_root / "run-cards/project-target-cohort.json"
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="zero-cost successor run card"
+    )
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    expected_run_card_fields = frozenset(
+        {
+            "schema_version",
+            "status",
+            "cycle_id",
+            "original_selected_case_count",
+            "terminal_residual_case_count",
+            "retained_original_case_count",
+            "promoted_reserve_case_count",
+            "zero_cost_successor_case_count",
+            "selected_case_count",
+            "selected_zero_cost_candidate_id",
+            "hard_cap_usd",
+            "committed_spend_usd",
+            "reserved_replacement_spend_usd",
+            "remaining_headroom_usd",
+            "selection_sha256",
+            "config_sha256",
+            "provider_activity_requested",
+            "provider_activity_executed",
+            "paid_activity_requested",
+            "paid_activity_executed",
+            "evaluation_authorized",
+            "freeze_authorized",
+            "dispatch_authorized",
+            "stage",
+            "dry_run",
+            "execute",
+            "record_count",
+            "input_paths",
+            "output_paths",
+            "output_commitments",
+        }
+    )
+    raw_inputs = run_card.get("input_paths")
+    raw_outputs = run_card.get("output_paths")
+    if not isinstance(raw_inputs, list) or not isinstance(raw_outputs, list):
+        raise CommandError("invalid completed zero-cost successor run card")
+    typed_inputs = cast(list[object], raw_inputs)
+    typed_outputs = cast(list[object], raw_outputs)
+    if (
+        frozenset(run_card) != expected_run_card_fields
+        or run_card.get("schema_version") != ZERO_COST_SUCCESSOR_STATE_SCHEMA
+        or run_card.get("stage") != "project-zero-cost-successor"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("record_count") != expected_target_count
+        or run_card.get("selected_case_count") != expected_target_count
+        or run_card.get("provider_activity_requested") is not False
+        or run_card.get("provider_activity_executed") is not False
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+        or run_card.get("evaluation_authorized") is not False
+        or run_card.get("freeze_authorized") is not False
+        or run_card.get("dispatch_authorized") is not False
+        or len(typed_inputs) != 15
+    ):
+        raise CommandError("invalid completed zero-cost successor run card")
+    input_paths = tuple(Path(str(path)) for path in typed_inputs)
+    output_paths = tuple(Path(str(path)) for path in typed_outputs)
+    expected_outputs = {
+        target_root / "target-cohort-selection.jsonl",
+        target_root / "target-cohort-projection.json",
+        run_card_path,
+        target_root / "case-relevance.jsonl",
+        target_root / "document-downloads-merged.jsonl",
+        target_root / "free-document-downloads.jsonl",
+        target_root / "purchased-document-downloads.jsonl",
+        target_root / "disclosure-clearance.jsonl",
+        target_root / "restriction-evidence.jsonl",
+        target_root / "core-filter-results.jsonl",
+        target_root / "missing-core-budget-plan.json",
+        target_root / "target-cohort-exclusions.jsonl",
+        target_root / "target-cohort-ranked-reserve.jsonl",
+    }
+    _reject_unexpected_materializer_outputs(
+        target_root, expected_files=expected_outputs
+    )
+    if (
+        {path.resolve() for path in output_paths}
+        != {path.resolve() for path in expected_outputs}
+        or len(output_paths) != len(expected_outputs)
+        or free_clearance_path.resolve()
+        != (target_root / "disclosure-clearance.jsonl").resolve()
+    ):
+        raise CommandError("zero-cost successor output paths differ")
+    replay_args = argparse.Namespace(
+        target_cohort_root=input_paths[0],
+        ranked_reserve_result=input_paths[1],
+        active_selection=input_paths[2],
+        replacement_selection=input_paths[3],
+        successor_exclusions=input_paths[4],
+        replacement_budget_plan=input_paths[5],
+        disclosure_clearance=input_paths[6],
+        disclosure_clearance_run_card=input_paths[7],
+        purchase_policy=input_paths[8],
+        controlled_private_root=input_paths[9],
+        purchase_ledger=input_paths[10],
+        purchase_ledger_initialization_receipt=input_paths[11],
+        purchase_result=input_paths[12],
+        purchase_run_card=input_paths[13],
+        screening_snapshot_manifest=input_paths[14],
+        output_root=target_root,
+        resume=True,
+    )
+    with redirect_stdout(io.StringIO()):
+        _cmd_project_zero_cost_successor(replay_args)
+    snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="zero-cost successor output"
+        )
+        for path in expected_outputs
+    }
+    config_path = target_root / "target-cohort-projection.json"
+    config = _projection_json_object(snapshots[config_path], source=config_path)
+    expected_config_fields = frozenset(
+        {
+            "schema_version",
+            "cycle_id",
+            "target_case_count",
+            "eligibility_anchor",
+            "hard_cap_usd",
+            "frozen_zero_cost_candidate_ids",
+            "selected_zero_cost_candidate_id",
+            "selection_schema_version",
+            "source_commitments",
+            "output_commitments",
+            "selection_sha256",
+            "provider_activity_permitted",
+            "paid_activity_permitted",
+            "evaluation_authorized",
+            "freeze_authorized",
+            "dispatch_authorized",
+        }
+    )
+    if (
+        frozenset(config) != expected_config_fields
+        or config.get("schema_version") != ZERO_COST_SUCCESSOR_CONFIG_SCHEMA
+        or config.get("target_case_count") != expected_target_count
+        or config.get("selected_zero_cost_candidate_id")
+        != run_card.get("selected_zero_cost_candidate_id")
+        or run_card.get("config_sha256") != _bytes_sha256(snapshots[config_path])
+    ):
+        raise CommandError("zero-cost successor config differs from its run card")
+    commitments = config.get("output_commitments")
+    card_commitments = run_card.get("output_commitments")
+    if not isinstance(commitments, Mapping) or not isinstance(
+        card_commitments, Mapping
+    ):
+        raise CommandError("zero-cost successor lacks output commitments")
+    _require_zero_cost_successor_commitment_keysets(
+        config_commitments=cast(Mapping[str, object], commitments),
+        run_card_commitments=cast(Mapping[str, object], card_commitments),
+    )
+    for path, payload in snapshots.items():
+        if path == run_card_path:
+            continue
+        expected = cast(Mapping[str, object], card_commitments).get(path.name)
+        if expected != _bytes_sha256(payload):
+            raise CommandError(f"zero-cost successor output changed: {path.name}")
+    selection_path = target_root / "target-cohort-selection.jsonl"
+    selection_records = _projection_jsonl_records(
+        snapshots[selection_path], source=selection_path
+    )
+    if len(selection_records) != expected_target_count:
+        raise CommandError("zero-cost successor selection count differs")
+    selected_document_keys: set[tuple[str, str]] = set()
+    candidate_ids: set[str] = set()
+    for selection in selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        if candidate_id in candidate_ids:
+            raise CommandError("zero-cost successor selection is duplicated")
+        candidate_ids.add(candidate_id)
+        documents = selection.get("documents")
+        if not isinstance(documents, list):
+            raise CommandError("zero-cost successor selection documents differ")
+        for raw_document in cast(list[object], documents):
+            document = _mapping(raw_document, "zero-cost successor document")
+            selected_document_keys.add(
+                (candidate_id, _required_str(document, "source_document_id"))
+            )
+    free_manifest_path = target_root / "free-document-downloads.jsonl"
+    purchased_manifest_path = target_root / "purchased-document-downloads.jsonl"
+    merged_manifest_path = target_root / "document-downloads-merged.jsonl"
+    free_manifest = _projection_jsonl_records(
+        snapshots[free_manifest_path], source=free_manifest_path
+    )
+    purchased_manifest = _projection_jsonl_records(
+        snapshots[purchased_manifest_path], source=purchased_manifest_path
+    )
+    merged_manifest = _projection_jsonl_records(
+        snapshots[merged_manifest_path], source=merged_manifest_path
+    )
+    if sorted(
+        [*free_manifest, *purchased_manifest], key=_materializer_record_key
+    ) != sorted(merged_manifest, key=_materializer_record_key):
+        raise CommandError("zero-cost successor manifest partition differs")
+    clearance_path = target_root / "disclosure-clearance.jsonl"
+    restriction_path = target_root / "restriction-evidence.jsonl"
+    _require_snapshot_unchanged(
+        snapshots, label="zero-cost successor materializer adapter"
+    )
+    return {
+        "run_card": run_card,
+        "run_card_bytes": run_card_bytes,
+        "summary": config,
+        "summary_path": config_path,
+        "run_card_path": run_card_path,
+        "selection_path": selection_path,
+        "selection_records": selection_records,
+        "free_manifest_path": free_manifest_path,
+        "free_manifest": free_manifest,
+        "purchased_manifest": purchased_manifest,
+        "free_clearance": _projection_jsonl_records(
+            snapshots[clearance_path], source=clearance_path
+        ),
+        "restriction_path": restriction_path,
+        "restriction_records": _projection_jsonl_records(
+            snapshots[restriction_path], source=restriction_path
+        ),
+        "selected_document_keys": selected_document_keys,
+        "verified_artifact_bytes": {
+            os.path.abspath(path): payload for path, payload in snapshots.items()
+        },
+    }
+
+
+def _require_zero_cost_successor_commitment_keysets(
+    *,
+    config_commitments: Mapping[str, object],
+    run_card_commitments: Mapping[str, object],
+) -> None:
+    config_keys = {
+        "target-cohort-selection.jsonl",
+        "case-relevance.jsonl",
+        "document-downloads-merged.jsonl",
+        "free-document-downloads.jsonl",
+        "purchased-document-downloads.jsonl",
+        "disclosure-clearance.jsonl",
+        "restriction-evidence.jsonl",
+        "core-filter-results.jsonl",
+        "missing-core-budget-plan.json",
+        "target-cohort-exclusions.jsonl",
+        "target-cohort-ranked-reserve.jsonl",
+    }
+    if set(config_commitments) != config_keys or set(run_card_commitments) != {
+        *config_keys,
+        "target-cohort-projection.json",
+    }:
+        raise CommandError("zero-cost successor commitment keyset differs")
+
+
 def _verify_materializer_projection(
     *,
     target_root: Path,
@@ -35587,8 +36361,21 @@ def _verify_materializer_projection(
     snapshot_manifest_path: Path,
     expected_target_count: int,
 ) -> dict[str, object]:
-    paths = {name: target_root / name for name in BASE_PROJECTION_ARTIFACT_NAMES}
     run_card_path = target_root / "run-cards/project-target-cohort.json"
+    if run_card_path.is_file() and not run_card_path.is_symlink():
+        candidate_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                run_card_path, label="target projection run card"
+            ),
+            source=run_card_path,
+        )
+        if candidate_card.get("schema_version") == ZERO_COST_SUCCESSOR_STATE_SCHEMA:
+            return _verify_zero_cost_successor_projection(
+                target_root=target_root,
+                free_clearance_path=free_clearance_path,
+                expected_target_count=expected_target_count,
+            )
+    paths = {name: target_root / name for name in BASE_PROJECTION_ARTIFACT_NAMES}
     for label, path in (*paths.items(), ("run card", run_card_path)):
         _require_materializer_artifact(path, label=f"target projection {label}")
     if free_clearance_path.resolve() != paths["disclosure-clearance.jsonl"].resolve():

@@ -1,0 +1,808 @@
+"""Provider-free exact-100 successor after ranked-reserve terminal recovery."""
+
+from __future__ import annotations
+
+import hashlib
+import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal, InvalidOperation
+from typing import Any, cast
+
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.core_document_filter import filter_core_documents
+from legalforecast.ingestion.decision_text_artifact import CYCLE_1_ELIGIBILITY_ANCHOR
+from legalforecast.ingestion.disclosure_clearance import (
+    DisclosureClearanceError,
+    require_clearance_policy,
+)
+from legalforecast.ingestion.docket_decision_text_source import (
+    DocketDecisionTextSourceError,
+    validate_terminal_purchase_disposition_record,
+)
+
+JsonRecord = dict[str, Any]
+
+FROZEN_ZERO_COST_CANDIDATE_IDS = ("70525291", "71279774", "71677178")
+RESULT_SCHEMA_VERSION = "legalforecast.ranked_reserve_replacement_result.v2"
+SELECTION_SCHEMA_VERSION = "legalforecast.zero_cost_successor_selection.v1"
+CONFIG_SCHEMA_VERSION = "legalforecast.zero_cost_successor_config.v1"
+STATE_SCHEMA_VERSION = "legalforecast.zero_cost_successor_state.v1"
+
+_TARGET_COUNT = 100
+_PRECURSOR_COUNT = 99
+_ORIGINAL_RETAINED_COUNT = 97
+_RESERVE_PROMOTION_COUNT = 2
+_DIGEST_FIELDS = (
+    "projection_sha256",
+    "purchase_policy_sha256",
+    "purchase_journal_state_sha256",
+    "terminal_exclusions_sha256",
+    "active_selection_sha256",
+    "replacement_selection_sha256",
+    "successor_exclusions_sha256",
+    "replacement_budget_plan_sha256",
+)
+_RESULT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "projection_sha256",
+        "cycle_id",
+        "purchase_policy_sha256",
+        "purchase_journal_state_sha256",
+        "hard_cap_usd",
+        "terminal_exclusions_sha256",
+        "terminal_disposition",
+        "terminal_disposition_sha256",
+        "active_selection_sha256",
+        "replacement_selection_sha256",
+        "successor_exclusions_sha256",
+        "replacement_budget_plan_sha256",
+        "active_case_count",
+        "replacement_case_count",
+        "committed_spend_usd",
+        "reserved_replacement_spend_usd",
+        "remaining_headroom_usd",
+        "successor_approval_required",
+        "replacement_event_record_sha256s",
+        "tranche_event_record_sha256s",
+        "provider_activity_requested",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "evaluation_authorized",
+        "freeze_authorized",
+        "dispatch_authorized",
+    }
+)
+
+
+class ZeroCostSuccessorError(ValueError):
+    """Raised when the exact-100 successor cannot be authenticated."""
+
+
+@dataclass(frozen=True, slots=True)
+class ZeroCostSuccessor:
+    """Closed exact-100 selection, config, and terminal state."""
+
+    selection: tuple[JsonRecord, ...]
+    case_relevance: tuple[JsonRecord, ...]
+    download_manifest: tuple[JsonRecord, ...]
+    disclosure_clearance: tuple[JsonRecord, ...]
+    restriction_evidence: tuple[JsonRecord, ...]
+    core_filter_results: tuple[JsonRecord, ...]
+    config: JsonRecord
+    state: JsonRecord
+
+
+def project_zero_cost_successor(
+    *,
+    target_projection: Mapping[str, object],
+    original_selection: Sequence[Mapping[str, Any]],
+    ranked_reserve: Sequence[Mapping[str, Any]],
+    source_pool: Sequence[Mapping[str, Any]],
+    ranked_result: Mapping[str, object],
+    ranked_result_bytes: bytes,
+    authenticated_ranked_result: Mapping[str, object],
+    active_selection: Sequence[Mapping[str, Any]],
+    active_selection_bytes: bytes,
+    replacement_selection: Sequence[Mapping[str, Any]],
+    replacement_selection_bytes: bytes,
+    successor_exclusions_bytes: bytes,
+    replacement_budget_plan_bytes: bytes,
+    disclosure_clearance: Sequence[Mapping[str, Any]],
+    disclosure_clearance_bytes: bytes,
+    disclosure_clearance_run_card_bytes: bytes,
+    case_relevance: Sequence[Mapping[str, Any]],
+    download_manifest: Sequence[Mapping[str, Any]],
+    restriction_evidence: Sequence[Mapping[str, Any]],
+) -> ZeroCostSuccessor:
+    """Authenticate the exact 99-case precursor and add one cleared free case."""
+
+    _require_target_projection(target_projection)
+    original = _candidate_index(original_selection, "original selection")
+    reserves = _candidate_index(ranked_reserve, "ranked reserve")
+    pool = _candidate_index(source_pool, "source pool")
+    active = _candidate_index(active_selection, "active selection")
+    replacements = _candidate_index(replacement_selection, "replacement selection")
+    if len(original) != _TARGET_COUNT or len(reserves) != 5:
+        raise ZeroCostSuccessorError("successor requires the exact frozen 100+5 pool")
+    if not set(original) | set(reserves) <= set(pool):
+        raise ZeroCostSuccessorError("frozen selection is absent from the source pool")
+
+    disposition = _verify_ranked_result(
+        target_projection=target_projection,
+        ranked_result=ranked_result,
+        ranked_result_bytes=ranked_result_bytes,
+        active_selection_bytes=active_selection_bytes,
+        replacement_selection_bytes=replacement_selection_bytes,
+        successor_exclusions_bytes=successor_exclusions_bytes,
+        replacement_budget_plan_bytes=replacement_budget_plan_bytes,
+    )
+    if ranked_result != authenticated_ranked_result:
+        raise ZeroCostSuccessorError(
+            "ranked result differs from authenticated ranked-reserve replay"
+        )
+    residual_ids = {
+        _required_text(pair, "candidate_id")
+        for pair in _mapping_sequence(
+            disposition.get("residual_failure_pairs"), "residual failure pairs"
+        )
+    }
+    promoted_ids = tuple(replacements)
+    expected_promoted_ids = tuple(
+        item[0]
+        for item in sorted(
+            reserves.items(), key=lambda item: _positive_int(item[1], "reserve_rank")
+        )[:_RESERVE_PROMOTION_COUNT]
+    )
+    if promoted_ids != expected_promoted_ids:
+        raise ZeroCostSuccessorError(
+            "replacement selection is not frozen reserve ranks 1/2"
+        )
+    if any(
+        replacements[candidate_id] != pool[candidate_id]
+        for candidate_id in promoted_ids
+    ):
+        raise ZeroCostSuccessorError("replacement row differs from frozen source pool")
+    expected_active_ids = (set(original) - residual_ids) | set(promoted_ids)
+    if (
+        len(residual_ids) != 3
+        or len(set(original) - residual_ids) != _ORIGINAL_RETAINED_COUNT
+        or len(active) != _PRECURSOR_COUNT
+        or set(active) != expected_active_ids
+    ):
+        raise ZeroCostSuccessorError(
+            "ranked successor is not 97 retained plus two reserves"
+        )
+    for candidate_id, row in active.items():
+        if row != pool[candidate_id]:
+            raise ZeroCostSuccessorError(
+                "active selection row differs from frozen source pool"
+            )
+
+    relevance = _candidate_index(case_relevance, "case relevance")
+    manifest = _document_index(download_manifest, "download manifest")
+    clearance = _document_index(disclosure_clearance, "disclosure clearance")
+    restrictions = _document_index(restriction_evidence, "restriction evidence")
+    chosen: str | None = None
+    for candidate_id in FROZEN_ZERO_COST_CANDIDATE_IDS:
+        if candidate_id not in pool or candidate_id not in relevance:
+            raise ZeroCostSuccessorError(
+                f"frozen zero-cost candidate is absent: {candidate_id}"
+            )
+        if _candidate_is_fully_cleared(
+            candidate_id,
+            selection=pool[candidate_id],
+            relevance=relevance[candidate_id],
+            manifest=manifest,
+            clearance=clearance,
+            restrictions=restrictions,
+        ):
+            chosen = candidate_id
+            break
+    if chosen is None:
+        raise ZeroCostSuccessorError("no frozen zero-cost candidate is fully cleared")
+
+    selection = (*tuple(dict(row) for row in active_selection), dict(pool[chosen]))
+    if (
+        len(selection) != _TARGET_COUNT
+        or len({row["candidate_id"] for row in selection}) != _TARGET_COUNT
+    ):
+        raise ZeroCostSuccessorError(
+            "successor selection is not exactly 100 unique cases"
+        )
+    selected_ids = tuple(_required_text(row, "candidate_id") for row in selection)
+    missing_relevance = [
+        candidate_id for candidate_id in selected_ids if candidate_id not in relevance
+    ]
+    if missing_relevance:
+        raise ZeroCostSuccessorError(
+            "successor case relevance is incomplete: " + ", ".join(missing_relevance)
+        )
+    selected_id_set = set(selected_ids)
+    selected_relevance = tuple(
+        dict(relevance[candidate_id]) for candidate_id in selected_ids
+    )
+    selected_manifest = tuple(
+        dict(row)
+        for row in download_manifest
+        if _required_text(row, "candidate_id") in selected_id_set
+    )
+    selected_clearance = tuple(
+        dict(row)
+        for row in disclosure_clearance
+        if _required_text(row, "candidate_id") in selected_id_set
+    )
+    selected_restrictions = tuple(
+        dict(row)
+        for row in restriction_evidence
+        if _required_text(row, "candidate_id") in selected_id_set
+    )
+    _require_union_document_coverage(
+        selection=selection,
+        case_relevance=selected_relevance,
+        download_manifest=selected_manifest,
+        disclosure_clearance=selected_clearance,
+        restriction_evidence=selected_restrictions,
+    )
+    try:
+        selected_filter_results = tuple(
+            result.to_record() for result in filter_core_documents(selected_relevance)
+        )
+    except (TypeError, ValueError) as exc:
+        raise ZeroCostSuccessorError(str(exc)) from exc
+    if len(selected_filter_results) != _TARGET_COUNT or any(
+        row.get("excluded") is True for row in selected_filter_results
+    ):
+        raise ZeroCostSuccessorError(
+            "successor core-document eligibility does not cover exactly 100 cases"
+        )
+    selection_bytes = _jsonl_bytes(selection)
+    relevance_bytes = _jsonl_bytes(selected_relevance)
+    manifest_bytes = _jsonl_bytes(selected_manifest)
+    free_manifest_bytes = _jsonl_bytes(
+        tuple(
+            row for row in selected_manifest if row.get("free_or_purchased") == "free"
+        )
+    )
+    purchased_manifest_bytes = _jsonl_bytes(
+        tuple(
+            row
+            for row in selected_manifest
+            if row.get("free_or_purchased") == "purchased"
+        )
+    )
+    clearance_output_bytes = _jsonl_bytes(selected_clearance)
+    restriction_output_bytes = _jsonl_bytes(selected_restrictions)
+    filter_bytes = _jsonl_bytes(selected_filter_results)
+    source_commitments = {
+        "target_projection": _canonical_sha256(target_projection),
+        "ranked_result": _bytes_sha256(ranked_result_bytes),
+        "ranked_active_selection": _bytes_sha256(active_selection_bytes),
+        "ranked_replacement_selection": _bytes_sha256(replacement_selection_bytes),
+        "ranked_successor_exclusions": _bytes_sha256(successor_exclusions_bytes),
+        "ranked_replacement_budget_plan": _bytes_sha256(replacement_budget_plan_bytes),
+        "disclosure_clearance": _bytes_sha256(disclosure_clearance_bytes),
+        "disclosure_clearance_run_card": _bytes_sha256(
+            disclosure_clearance_run_card_bytes
+        ),
+        "purchase_policy": _digest(
+            ranked_result.get("purchase_policy_sha256"), "purchase policy"
+        ),
+        "purchase_journal_state": _digest(
+            ranked_result.get("purchase_journal_state_sha256"),
+            "purchase journal state",
+        ),
+        "purchase_result": _digest(
+            disposition.get("purchase_result_sha256"), "purchase result"
+        ),
+        "purchase_run_card": _digest(
+            disposition.get("purchase_run_card_sha256"), "purchase run card"
+        ),
+        "screening_snapshot_manifest": _digest(
+            disposition.get("snapshot_manifest_sha256"),
+            "screening snapshot manifest",
+        ),
+    }
+    config: JsonRecord = {
+        "schema_version": CONFIG_SCHEMA_VERSION,
+        "cycle_id": _required_text(ranked_result, "cycle_id"),
+        "target_case_count": _TARGET_COUNT,
+        "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
+        "hard_cap_usd": _money(ranked_result.get("hard_cap_usd"), "hard cap"),
+        "frozen_zero_cost_candidate_ids": list(FROZEN_ZERO_COST_CANDIDATE_IDS),
+        "selected_zero_cost_candidate_id": chosen,
+        "selection_schema_version": SELECTION_SCHEMA_VERSION,
+        "source_commitments": source_commitments,
+        "output_commitments": {
+            "target-cohort-selection.jsonl": _bytes_sha256(selection_bytes),
+            "case-relevance.jsonl": _bytes_sha256(relevance_bytes),
+            "document-downloads-merged.jsonl": _bytes_sha256(manifest_bytes),
+            "free-document-downloads.jsonl": _bytes_sha256(free_manifest_bytes),
+            "purchased-document-downloads.jsonl": _bytes_sha256(
+                purchased_manifest_bytes
+            ),
+            "disclosure-clearance.jsonl": _bytes_sha256(clearance_output_bytes),
+            "restriction-evidence.jsonl": _bytes_sha256(restriction_output_bytes),
+            "core-filter-results.jsonl": _bytes_sha256(filter_bytes),
+            "missing-core-budget-plan.json": _bytes_sha256(
+                replacement_budget_plan_bytes
+            ),
+            "target-cohort-exclusions.jsonl": _bytes_sha256(successor_exclusions_bytes),
+            "target-cohort-ranked-reserve.jsonl": _bytes_sha256(b""),
+        },
+        "selection_sha256": _bytes_sha256(selection_bytes),
+        "provider_activity_permitted": False,
+        "paid_activity_permitted": False,
+        "evaluation_authorized": False,
+        "freeze_authorized": False,
+        "dispatch_authorized": False,
+    }
+    config_bytes = canonical_json_bytes(
+        config,
+        error_type=ZeroCostSuccessorError,
+        error_message="successor config is not canonical JSON",
+    )
+    state: JsonRecord = {
+        "schema_version": STATE_SCHEMA_VERSION,
+        "status": "completed",
+        "cycle_id": config["cycle_id"],
+        "original_selected_case_count": _TARGET_COUNT,
+        "terminal_residual_case_count": len(residual_ids),
+        "retained_original_case_count": _ORIGINAL_RETAINED_COUNT,
+        "promoted_reserve_case_count": _RESERVE_PROMOTION_COUNT,
+        "zero_cost_successor_case_count": 1,
+        "selected_case_count": len(selection),
+        "selected_zero_cost_candidate_id": chosen,
+        "hard_cap_usd": config["hard_cap_usd"],
+        "committed_spend_usd": _money(
+            ranked_result.get("committed_spend_usd"), "committed spend"
+        ),
+        "reserved_replacement_spend_usd": _money(
+            ranked_result.get("reserved_replacement_spend_usd"),
+            "reserved replacement spend",
+        ),
+        "remaining_headroom_usd": _money(
+            ranked_result.get("remaining_headroom_usd"), "remaining headroom"
+        ),
+        "selection_sha256": config["selection_sha256"],
+        "config_sha256": _bytes_sha256(config_bytes),
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "evaluation_authorized": False,
+        "freeze_authorized": False,
+        "dispatch_authorized": False,
+    }
+    return ZeroCostSuccessor(
+        selection=selection,
+        case_relevance=selected_relevance,
+        download_manifest=selected_manifest,
+        disclosure_clearance=selected_clearance,
+        restriction_evidence=selected_restrictions,
+        core_filter_results=selected_filter_results,
+        config=config,
+        state=state,
+    )
+
+
+def _require_target_projection(projection: Mapping[str, object]) -> None:
+    if (
+        projection.get("schema_version") != "legalforecast.target_cohort_projection.v1"
+        or projection.get("selected_case_count") != _TARGET_COUNT
+        or projection.get("ranked_reserve_case_count") != 5
+        or projection.get("eligibility_anchor")
+        != CYCLE_1_ELIGIBILITY_ANCHOR.isoformat()
+    ):
+        raise ZeroCostSuccessorError("unsupported frozen target projection")
+
+
+def _verify_ranked_result(
+    *,
+    target_projection: Mapping[str, object],
+    ranked_result: Mapping[str, object],
+    ranked_result_bytes: bytes,
+    active_selection_bytes: bytes,
+    replacement_selection_bytes: bytes,
+    successor_exclusions_bytes: bytes,
+    replacement_budget_plan_bytes: bytes,
+) -> Mapping[str, object]:
+    if (
+        frozenset(ranked_result) != _RESULT_FIELDS
+        or ranked_result.get("schema_version") != RESULT_SCHEMA_VERSION
+    ):
+        raise ZeroCostSuccessorError("unsupported ranked successor result")
+    canonical = canonical_json_bytes(
+        ranked_result,
+        error_type=ZeroCostSuccessorError,
+        error_message="ranked successor result is not canonical JSON",
+    )
+    if ranked_result_bytes != canonical:
+        raise ZeroCostSuccessorError("ranked successor result is not canonical JSON")
+    if ranked_result.get("projection_sha256") != target_projection.get(
+        "projection_sha256"
+    ):
+        raise ZeroCostSuccessorError("ranked successor targets another projection")
+    commitments = {
+        "active_selection_sha256": active_selection_bytes,
+        "replacement_selection_sha256": replacement_selection_bytes,
+        "successor_exclusions_sha256": successor_exclusions_bytes,
+        "replacement_budget_plan_sha256": replacement_budget_plan_bytes,
+    }
+    if any(
+        ranked_result.get(field) != _bytes_sha256(payload)
+        for field, payload in commitments.items()
+    ):
+        raise ZeroCostSuccessorError("ranked successor artifact commitment mismatch")
+    for field in _DIGEST_FIELDS:
+        _digest(ranked_result.get(field), field)
+    for field in (
+        "provider_activity_requested",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "evaluation_authorized",
+        "freeze_authorized",
+        "dispatch_authorized",
+    ):
+        if ranked_result.get(field) is not False:
+            raise ZeroCostSuccessorError("ranked successor grants prohibited activity")
+    if (
+        ranked_result.get("active_case_count") != _PRECURSOR_COUNT
+        or ranked_result.get("replacement_case_count") != _RESERVE_PROMOTION_COUNT
+        or ranked_result.get("successor_approval_required") is not True
+    ):
+        raise ZeroCostSuccessorError(
+            "ranked successor is not the exact 99-case precursor"
+        )
+    hard_cap = _money(ranked_result.get("hard_cap_usd"), "hard cap")
+    projection_cap = _money(
+        target_projection.get("max_projected_budget_usd"), "projection cap"
+    )
+    if hard_cap != projection_cap:
+        raise ZeroCostSuccessorError("ranked successor changed the frozen hard cap")
+    try:
+        disposition = validate_terminal_purchase_disposition_record(
+            ranked_result.get("terminal_disposition")
+        )
+    except DocketDecisionTextSourceError as exc:
+        raise ZeroCostSuccessorError(str(exc)) from exc
+    disposition_bytes = canonical_json_bytes(
+        disposition,
+        error_type=ZeroCostSuccessorError,
+        error_message="terminal disposition is not canonical JSON",
+    )
+    if (
+        ranked_result.get("terminal_disposition_sha256")
+        != _bytes_sha256(disposition_bytes)
+        or disposition.get("residual_terminal_exclusions_sha256")
+        != ranked_result.get("terminal_exclusions_sha256")
+        or disposition.get("purchase_journal_state_sha256")
+        != ranked_result.get("purchase_journal_state_sha256")
+        or disposition.get("partition_disjoint") is not True
+        or disposition.get("partition_exhaustive") is not True
+    ):
+        raise ZeroCostSuccessorError("terminal disposition commitment mismatch")
+    return disposition
+
+
+def _candidate_is_fully_cleared(
+    candidate_id: str,
+    *,
+    selection: Mapping[str, Any],
+    relevance: Mapping[str, Any],
+    manifest: Mapping[tuple[str, str], Mapping[str, Any]],
+    clearance: Mapping[tuple[str, str], Mapping[str, Any]],
+    restrictions: Mapping[tuple[str, str], Mapping[str, Any]],
+) -> bool:
+    _require_eligible_selection(selection, candidate_id=candidate_id)
+    selection_documents = _documents(selection, "selection")
+    relevance_documents = _documents(relevance, "case relevance")
+    selected_ids = {
+        _required_text(row, "source_document_id") for row in selection_documents
+    }
+    relevant_ids = {
+        _required_text(row, "source_document_id") for row in relevance_documents
+    }
+    keys = {(candidate_id, document_id) for document_id in selected_ids}
+    if selected_ids != relevant_ids or keys != {
+        key for key in manifest if key[0] == candidate_id
+    }:
+        raise ZeroCostSuccessorError(
+            "candidate document coverage differs across frozen artifacts: "
+            f"{candidate_id}"
+        )
+    if keys != {key for key in clearance if key[0] == candidate_id} or keys != {
+        key for key in restrictions if key[0] == candidate_id
+    }:
+        raise ZeroCostSuccessorError(
+            f"candidate clearance/restriction coverage is incomplete: {candidate_id}"
+        )
+    for document in selection_documents:
+        model_visible = document.get("model_visible")
+        contains_outcome = document.get("contains_target_outcome")
+        if model_visible is True and (
+            contains_outcome is not False
+            or document.get("is_predecision_material") is not True
+        ):
+            raise ZeroCostSuccessorError(
+                f"model-visible outcome leakage is unproven: {candidate_id}"
+            )
+        if contains_outcome is True and model_visible is not False:
+            raise ZeroCostSuccessorError(
+                f"decision material is model-visible: {candidate_id}"
+            )
+        _reject_positive_restriction(document, candidate_id=candidate_id)
+    try:
+        filter_result = filter_core_documents((relevance,))
+    except (TypeError, ValueError) as exc:
+        raise ZeroCostSuccessorError(str(exc)) from exc
+    if (
+        len(filter_result) != 1
+        or filter_result[0].candidate_id != candidate_id
+        or filter_result[0].excluded
+        or filter_result[0].core_missing_documents
+    ):
+        raise ZeroCostSuccessorError(
+            f"candidate core documents are incomplete: {candidate_id}"
+        )
+    for key in sorted(keys):
+        source = manifest[key]
+        decision = clearance[key]
+        restriction = restrictions[key]
+        if decision.get("status") != "cleared":
+            return False
+        for field in ("sha256", "byte_count", "free_or_purchased"):
+            if decision.get(field) != source.get(field):
+                raise ZeroCostSuccessorError(
+                    f"clearance differs from manifest for {key}"
+                )
+        if source.get("free_or_purchased") != "free":
+            raise ZeroCostSuccessorError(
+                f"zero-cost successor document is not free: {key}"
+            )
+        _require_zero_cost_clearance_policy(decision, key=key)
+        _reject_positive_restriction(decision, candidate_id=candidate_id)
+        _reject_positive_restriction(restriction, candidate_id=candidate_id)
+    return True
+
+
+def _require_union_document_coverage(
+    *,
+    selection: Sequence[Mapping[str, Any]],
+    case_relevance: Sequence[Mapping[str, Any]],
+    download_manifest: Sequence[Mapping[str, Any]],
+    disclosure_clearance: Sequence[Mapping[str, Any]],
+    restriction_evidence: Sequence[Mapping[str, Any]],
+) -> None:
+    """Require one exact document-key universe across the emitted 100 cases."""
+
+    selection_keys: set[tuple[str, str]] = set()
+    for record in selection:
+        candidate_id = _required_text(record, "candidate_id")
+        for document in _documents(record, f"selection {candidate_id}"):
+            if _required_text(document, "candidate_id") != candidate_id:
+                raise ZeroCostSuccessorError(
+                    f"selection document candidate differs: {candidate_id}"
+                )
+            key = (candidate_id, _required_text(document, "source_document_id"))
+            if key in selection_keys:
+                raise ZeroCostSuccessorError(
+                    f"selection repeats document coverage: {key}"
+                )
+            selection_keys.add(key)
+
+    relevance_keys: set[tuple[str, str]] = set()
+    for record in case_relevance:
+        candidate_id = _required_text(record, "candidate_id")
+        for document in _documents(record, f"case relevance {candidate_id}"):
+            if _required_text(document, "candidate_id") != candidate_id:
+                raise ZeroCostSuccessorError(
+                    f"relevance document candidate differs: {candidate_id}"
+                )
+            key = (candidate_id, _required_text(document, "source_document_id"))
+            if key in relevance_keys:
+                raise ZeroCostSuccessorError(
+                    f"case relevance repeats document coverage: {key}"
+                )
+            relevance_keys.add(key)
+
+    manifest_keys = set(_document_index(download_manifest, "download manifest"))
+    clearance_keys = set(_document_index(disclosure_clearance, "disclosure clearance"))
+    restriction_keys = set(
+        _document_index(restriction_evidence, "restriction evidence")
+    )
+    if not (
+        selection_keys
+        == relevance_keys
+        == manifest_keys
+        == clearance_keys
+        == restriction_keys
+    ):
+        raise ZeroCostSuccessorError(
+            "exact-100 selection document coverage differs across standard surfaces"
+        )
+
+
+def _require_zero_cost_clearance_policy(
+    row: Mapping[str, Any], *, key: tuple[str, str]
+) -> None:
+    """Accept canonical clearance or finalizer-authenticated model clearance."""
+
+    if row.get("clearance_basis") != "authenticated_model_exception_review":
+        try:
+            require_clearance_policy(row, key=key, label="zero-cost successor")
+        except DisclosureClearanceError as exc:
+            raise ZeroCostSuccessorError(str(exc)) from exc
+        return
+    reviewer_id = row.get("reviewer_id")
+    routing_plan_sha256 = row.get("routing_plan_sha256")
+    evidence = row.get("restriction_evidence")
+    if (
+        not isinstance(reviewer_id, str)
+        or not reviewer_id
+        or row.get("controlled_store_provenance")
+        != "private-store://disclosure/model-review"
+        or row.get("reviewed_at") is not None
+        or not isinstance(routing_plan_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", routing_plan_sha256) is None
+        or not isinstance(evidence, list)
+        or not evidence
+        or any(
+            not isinstance(item, str) or not item
+            for item in cast(list[object], evidence)
+        )
+    ):
+        raise ZeroCostSuccessorError(
+            f"authenticated model clearance provenance is invalid: {key}"
+        )
+
+
+def _require_eligible_selection(
+    selection: Mapping[str, Any], *, candidate_id: str
+) -> None:
+    if (
+        selection.get("selected") is not True
+        or selection.get("exclusion_reasons") != []
+    ):
+        raise ZeroCostSuccessorError(
+            f"candidate is not screen-eligible: {candidate_id}"
+        )
+    raw_date = _required_text(selection, "decision_date")
+    try:
+        decision_date = date.fromisoformat(raw_date)
+    except ValueError as exc:
+        raise ZeroCostSuccessorError(f"invalid decision date: {candidate_id}") from exc
+    if (
+        decision_date.isoformat() != raw_date
+        or decision_date < CYCLE_1_ELIGIBILITY_ANCHOR
+    ):
+        raise ZeroCostSuccessorError(
+            f"candidate predates eligibility anchor: {candidate_id}"
+        )
+
+
+def _reject_positive_restriction(
+    record: Mapping[str, Any], *, candidate_id: str
+) -> None:
+    if (
+        record.get("is_sealed") is True
+        or record.get("is_private") is True
+        or record.get("restriction_status")
+        in {"sealed", "private", "restricted", "under_seal"}
+        or record.get("redaction_or_seal_status")
+        in {"sealed", "private", "restricted", "under_seal"}
+    ):
+        raise ZeroCostSuccessorError(
+            f"candidate has positive restriction evidence: {candidate_id}"
+        )
+
+
+def _candidate_index(
+    records: Sequence[Mapping[str, Any]], label: str
+) -> dict[str, JsonRecord]:
+    output: dict[str, JsonRecord] = {}
+    for record in records:
+        candidate_id = _required_text(record, "candidate_id")
+        if candidate_id in output:
+            raise ZeroCostSuccessorError(f"duplicate {label} candidate: {candidate_id}")
+        output[candidate_id] = dict(record)
+    return output
+
+
+def _document_index(
+    records: Sequence[Mapping[str, Any]], label: str
+) -> dict[tuple[str, str], JsonRecord]:
+    output: dict[tuple[str, str], JsonRecord] = {}
+    for record in records:
+        key = (
+            _required_text(record, "candidate_id"),
+            _required_text(record, "source_document_id"),
+        )
+        if key in output:
+            raise ZeroCostSuccessorError(f"duplicate {label} document: {key}")
+        output[key] = dict(record)
+    return output
+
+
+def _documents(record: Mapping[str, Any], label: str) -> tuple[Mapping[str, Any], ...]:
+    raw = record.get("documents")
+    if (
+        not isinstance(raw, list)
+        or not raw
+        or any(not isinstance(item, Mapping) for item in cast(list[object], raw))
+    ):
+        raise ZeroCostSuccessorError(f"{label} documents are missing")
+    return tuple(cast(list[Mapping[str, Any]], raw))
+
+
+def _mapping_sequence(value: object, label: str) -> tuple[Mapping[str, object], ...]:
+    if not isinstance(value, list) or any(
+        not isinstance(item, Mapping) for item in cast(list[object], value)
+    ):
+        raise ZeroCostSuccessorError(f"{label} must be a JSON list")
+    return tuple(cast(list[Mapping[str, object]], value))
+
+
+def _required_text(record: Mapping[str, object], field: str) -> str:
+    value = record.get(field)
+    if not isinstance(value, str) or not value:
+        raise ZeroCostSuccessorError(f"{field} must be a non-empty string")
+    return value
+
+
+def _positive_int(record: Mapping[str, object], field: str) -> int:
+    value = record.get(field)
+    if type(value) is not int or value < 1:
+        raise ZeroCostSuccessorError(f"{field} must be a positive integer")
+    return value
+
+
+def _digest(value: object, field: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 71
+        or not value.startswith("sha256:")
+    ):
+        raise ZeroCostSuccessorError(f"{field} must be a sha256 digest")
+    if any(character not in "0123456789abcdef" for character in value[7:]):
+        raise ZeroCostSuccessorError(f"{field} must be a sha256 digest")
+    return value
+
+
+def _money(value: object, label: str) -> str:
+    if not isinstance(value, str):
+        raise ZeroCostSuccessorError(f"{label} must be canonical USD")
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation as exc:
+        raise ZeroCostSuccessorError(f"{label} must be canonical USD") from exc
+    if parsed < 0 or f"{parsed:.2f}" != value:
+        raise ZeroCostSuccessorError(f"{label} must be canonical USD")
+    return value
+
+
+def _jsonl_bytes(records: Sequence[Mapping[str, Any]]) -> bytes:
+    return b"".join(
+        canonical_json_bytes(
+            record,
+            error_type=ZeroCostSuccessorError,
+            error_message="successor artifact is not canonical JSON",
+        )
+        for record in records
+    )
+
+
+def _canonical_sha256(value: object) -> str:
+    return _bytes_sha256(
+        canonical_json_bytes(
+            value,
+            error_type=ZeroCostSuccessorError,
+            error_message="successor source is not canonical JSON",
+        )
+    )
+
+
+def _bytes_sha256(value: bytes) -> str:
+    return "sha256:" + hashlib.sha256(value).hexdigest()

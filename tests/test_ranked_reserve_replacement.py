@@ -139,6 +139,32 @@ def test_exact_100_plus_five_promotes_first_reserve_and_reconciles(
     assert plan.paid_activity_executed is False
 
 
+def test_read_only_replay_rejects_unrecorded_replacement_event(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="requires unrecorded replacement events",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=_terminal_bytes("case-050"),
+                expected_terminal_exclusions_sha256=_sha(_terminal_bytes("case-050")),
+                purchase_journal=journal,
+                allow_new_replacement_events=False,
+            )
+        assert journal.replacement_events() == ()
+
+
 @pytest.mark.parametrize(
     ("terminal", "retryable"),
     ((False, False), (True, True)),
