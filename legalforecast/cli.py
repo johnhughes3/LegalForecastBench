@@ -522,6 +522,7 @@ from legalforecast.ingestion.model_packet_assembly import (
 from legalforecast.ingestion.opinion_docket_gap_planner import (
     OpinionDocketGapPlanningError,
     plan_opinion_docket_gaps,
+    validate_opinion_docket_gap_paths,
 )
 from legalforecast.ingestion.opinion_recap_firecrawl import (
     BudgetedOpinionRecapFirecrawlResolver,
@@ -28555,64 +28556,13 @@ def _validate_opinion_docket_gap_paths(
     snapshot_path: Path,
     writable_paths: Sequence[Path],
 ) -> None:
-    """Protect the authenticated snapshot and keep all planner outputs distinct."""
-
-    snapshot_root = snapshot_path.resolve()
-    resolved_outputs: list[tuple[Path, Path]] = []
-    for path in writable_paths:
-        resolved = path.resolve()
-        if resolved == snapshot_root or resolved.is_relative_to(snapshot_root):
-            raise CommandError(
-                "plan-opinion-docket-gaps output must be outside the immutable "
-                f"snapshot: {path}"
-            )
-        resolved_outputs.append((path, resolved))
-    for index, (path, resolved) in enumerate(resolved_outputs):
-        for other_path, other_resolved in resolved_outputs[index + 1 :]:
-            if resolved == other_resolved:
-                raise CommandError(
-                    "plan-opinion-docket-gaps outputs must be distinct: "
-                    f"{path} and {other_path}"
-                )
-            try:
-                aliases = (
-                    path.exists() and other_path.exists() and path.samefile(other_path)
-                )
-            except OSError as exc:
-                raise CommandError(
-                    f"cannot inspect plan-opinion-docket-gaps output aliases: {exc}"
-                ) from exc
-            if aliases:
-                raise CommandError(
-                    "plan-opinion-docket-gaps outputs hard-link the same file: "
-                    f"{path} and {other_path}"
-                )
-    existing_outputs = tuple(
-        output for output, _resolved in resolved_outputs if output.exists()
-    )
-    if not existing_outputs:
-        return
     try:
-        source_files = tuple(
-            path for path in snapshot_path.rglob("*") if path.is_file()
+        validate_opinion_docket_gap_paths(
+            snapshot_path=snapshot_path,
+            writable_paths=writable_paths,
         )
-    except OSError as exc:
-        raise CommandError(
-            f"cannot inspect immutable screening snapshot paths: {exc}"
-        ) from exc
-    for output in existing_outputs:
-        for source in source_files:
-            try:
-                aliases = output.samefile(source)
-            except OSError as exc:
-                raise CommandError(
-                    f"cannot inspect plan-opinion-docket-gaps source aliases: {exc}"
-                ) from exc
-            if aliases:
-                raise CommandError(
-                    "plan-opinion-docket-gaps output aliases immutable snapshot "
-                    f"evidence: {output}"
-                )
+    except OpinionDocketGapPlanningError as exc:
+        raise CommandError(str(exc)) from exc
 
 
 def _cmd_acquisition_plan_public_downloads(

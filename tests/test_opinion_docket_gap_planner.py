@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from legalforecast.ingestion.opinion_docket_gap_planner import (
     OpinionDocketGapPlanningError,
     _record_sha256,
     plan_opinion_docket_gaps,
+    validate_opinion_docket_gap_paths,
 )
 
 _LINEAGE = {
@@ -20,6 +22,89 @@ _LINEAGE = {
     "source_batch_digest": "f" * 64,
     "source_exclusions_sha256": "1" * 64,
 }
+
+
+def test_path_validation_accepts_new_outputs_without_walking_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+
+    def fail_if_walked(_path: Path, _pattern: str) -> object:
+        raise AssertionError("new planner outputs do not require a snapshot walk")
+
+    monkeypatch.setattr(Path, "rglob", fail_if_walked)
+
+    validate_opinion_docket_gap_paths(
+        snapshot_path=snapshot,
+        writable_paths=(tmp_path / "plan.jsonl", tmp_path / "summary.json"),
+    )
+
+
+def test_path_validation_rejects_snapshot_writes_and_duplicate_outputs(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    nested = snapshot / "nested" / "plan.jsonl"
+
+    with pytest.raises(
+        OpinionDocketGapPlanningError,
+        match="output must be outside the immutable snapshot",
+    ):
+        validate_opinion_docket_gap_paths(
+            snapshot_path=snapshot,
+            writable_paths=(nested,),
+        )
+
+    shared = tmp_path / "shared.json"
+    with pytest.raises(
+        OpinionDocketGapPlanningError,
+        match="outputs must be distinct",
+    ):
+        validate_opinion_docket_gap_paths(
+            snapshot_path=snapshot,
+            writable_paths=(shared, shared),
+        )
+
+
+def test_path_validation_rejects_hard_linked_outputs(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    plan = tmp_path / "plan.jsonl"
+    summary = tmp_path / "summary.json"
+    plan.write_text("{}\n", encoding="utf-8")
+    summary.hardlink_to(plan)
+
+    with pytest.raises(
+        OpinionDocketGapPlanningError,
+        match="outputs hard-link the same file",
+    ):
+        validate_opinion_docket_gap_paths(
+            snapshot_path=snapshot,
+            writable_paths=(plan, summary),
+        )
+
+
+def test_path_validation_rejects_output_aliasing_snapshot_evidence(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    evidence = snapshot / "manifest.json"
+    evidence.write_text("{}\n", encoding="utf-8")
+    output = tmp_path / "plan.jsonl"
+    output.hardlink_to(evidence)
+
+    with pytest.raises(
+        OpinionDocketGapPlanningError,
+        match="output aliases immutable snapshot evidence",
+    ):
+        validate_opinion_docket_gap_paths(
+            snapshot_path=snapshot,
+            writable_paths=(output,),
+        )
 
 
 def _gap(candidate_id: str = "courtlistener-docket-71878956") -> dict[str, object]:

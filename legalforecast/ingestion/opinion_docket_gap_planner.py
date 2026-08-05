@@ -12,10 +12,11 @@ import hashlib
 import json
 import re
 import urllib.parse
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import Any, cast
 
 OPINION_DOCKET_GAP_REASON = "opinion_backed_docket_history_incomplete"
@@ -28,6 +29,71 @@ _SHA256 = re.compile(r"[0-9a-f]{64}")
 
 class OpinionDocketGapPlanningError(ValueError):
     """Raised when an asserted opinion-backed docket gap is contradictory."""
+
+
+def validate_opinion_docket_gap_paths(
+    *,
+    snapshot_path: Path,
+    writable_paths: Sequence[Path],
+) -> None:
+    """Protect the authenticated snapshot and keep all planner outputs distinct."""
+
+    snapshot_root = snapshot_path.resolve()
+    resolved_outputs: list[tuple[Path, Path]] = []
+    for path in writable_paths:
+        resolved = path.resolve()
+        if resolved == snapshot_root or resolved.is_relative_to(snapshot_root):
+            raise OpinionDocketGapPlanningError(
+                "plan-opinion-docket-gaps output must be outside the immutable "
+                f"snapshot: {path}"
+            )
+        resolved_outputs.append((path, resolved))
+    for index, (path, resolved) in enumerate(resolved_outputs):
+        for other_path, other_resolved in resolved_outputs[index + 1 :]:
+            if resolved == other_resolved:
+                raise OpinionDocketGapPlanningError(
+                    "plan-opinion-docket-gaps outputs must be distinct: "
+                    f"{path} and {other_path}"
+                )
+            try:
+                aliases = (
+                    path.exists() and other_path.exists() and path.samefile(other_path)
+                )
+            except OSError as exc:
+                raise OpinionDocketGapPlanningError(
+                    f"cannot inspect plan-opinion-docket-gaps output aliases: {exc}"
+                ) from exc
+            if aliases:
+                raise OpinionDocketGapPlanningError(
+                    "plan-opinion-docket-gaps outputs hard-link the same file: "
+                    f"{path} and {other_path}"
+                )
+    existing_outputs = tuple(
+        output for output, _resolved in resolved_outputs if output.exists()
+    )
+    if not existing_outputs:
+        return
+    try:
+        source_files = tuple(
+            path for path in snapshot_path.rglob("*") if path.is_file()
+        )
+    except OSError as exc:
+        raise OpinionDocketGapPlanningError(
+            f"cannot inspect immutable screening snapshot paths: {exc}"
+        ) from exc
+    for output in existing_outputs:
+        for source in source_files:
+            try:
+                aliases = output.samefile(source)
+            except OSError as exc:
+                raise OpinionDocketGapPlanningError(
+                    f"cannot inspect plan-opinion-docket-gaps source aliases: {exc}"
+                ) from exc
+            if aliases:
+                raise OpinionDocketGapPlanningError(
+                    "plan-opinion-docket-gaps output aliases immutable snapshot "
+                    f"evidence: {output}"
+                )
 
 
 @dataclass(frozen=True, slots=True)
