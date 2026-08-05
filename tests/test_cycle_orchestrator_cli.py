@@ -4,9 +4,11 @@ import fcntl
 import hashlib
 import json
 from pathlib import Path
-from typing import Protocol
+from types import SimpleNamespace
+from typing import Protocol, cast
 
 import pytest
+from legalforecast import cli
 from legalforecast.cli import main
 from legalforecast.ingestion.cycle_orchestrator import (
     COMMAND_BOUNDARIES,
@@ -14,6 +16,7 @@ from legalforecast.ingestion.cycle_orchestrator import (
     CycleOrchestratorError,
     _completion_card_view,  # pyright: ignore[reportPrivateUsage]
     _cycle_lock,  # pyright: ignore[reportPrivateUsage]
+    _parse_stage,  # pyright: ignore[reportPrivateUsage]
     run_acquisition_cycle,
 )
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
@@ -560,6 +563,141 @@ def _adoptable_label_completion(
         )
     )
     return arguments, outputs
+
+
+def test_external_completed_cycle_stage_replays_provider_shard_run_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_card_path = tmp_path / "label" / "run-card.json"
+    arguments, outputs = _adoptable_label_completion(
+        tmp_path,
+        run_card=run_card_path,
+    )
+    while "--provider-shard-audit" in arguments:
+        index = arguments.index("--provider-shard-audit")
+        del arguments[index : index + 2]
+    while "--provider-shard-run-card" in arguments:
+        index = arguments.index("--provider-shard-run-card")
+        del arguments[index : index + 2]
+    arguments.extend(
+        ["--local-provider-journal-only", "--execution-provider", "google"]
+    )
+    stage = _parse_stage(
+        _stage(
+            stage_id="google-label-shard",
+            command="llm-label",
+            boundary="model_provider",
+            arguments=arguments,
+            run_card=run_card_path,
+            run_card_stage="llm-label-provider-shard",
+        ),
+        index=0,
+    )
+
+    labels_path, audit_path, lawyer_queue_path, provider_journal_path = outputs
+    labels_path.write_text("", encoding="utf-8")
+    lawyer_queue_path.write_text("", encoding="utf-8")
+    audit_path.write_text(
+        json.dumps(
+            {
+                "candidate_id": "candidate-1",
+                "execution_provider": "google",
+                "model_outputs": [],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    entries = (
+        SimpleNamespace(registry_key="openai:test", provider="openai"),
+        SimpleNamespace(registry_key="google:test", provider="google"),
+    )
+    entry_sha256 = {
+        entry.registry_key: hashlib.sha256(entry.registry_key.encode()).hexdigest()
+        for entry in entries
+    }
+    stage_attempts = {
+        "stage": "llm-label",
+        "call_count": 0,
+        "attempt_count": 0,
+        "attempts_sha256": hashlib.sha256(b"").hexdigest(),
+    }
+    lineage = cast(
+        cli._StageAUnitizationLineage,  # pyright: ignore[reportPrivateUsage]
+        SimpleNamespace(
+            provider_journal_path=provider_journal_path,
+            cohort_cycle_id="cycle-next",
+            provider_caps_sha256="sha256:caps",
+        ),
+    )
+    card = json.loads(run_card_path.read_bytes())
+    card["source_commitments"] = {
+        name: cli._stage_a_file_commitment(Path(commitment["path"]))
+        for name, commitment in card["source_commitments"].items()
+    }
+    card.update(
+        {
+            "stage": "llm-label-provider-shard",
+            "paid_activity_requested": True,
+            "paid_activity_executed": True,
+            "output_commitments": {
+                "labels": cli._stage_a_file_commitment(labels_path),
+                "audit": cli._stage_a_file_commitment(audit_path),
+                "lawyer_review_queue": cli._stage_a_file_commitment(lawyer_queue_path),
+            },
+            "model_execution": {
+                "model_keys": [entry.registry_key for entry in entries],
+                "executed_model_keys": ["google:test"],
+                "model_entry_sha256": {
+                    key: "sha256:" + value for key, value in entry_sha256.items()
+                },
+                "model_registry_sha256": "registry-sha",
+                "providers": {entry.registry_key: entry.provider for entry in entries},
+                "execution_provider": "google",
+                "provider_shard_merge": False,
+            },
+            "provider_chain": cli._provider_chain_commitment(
+                lineage=lineage,
+                stage_attempts=stage_attempts,
+            ),
+        }
+    )
+    card.pop("provider_shard_run_cards")
+    run_card_path.write_bytes(canonical_json_bytes(card))
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_run_card",
+        lambda *_args, **_kwargs: lineage,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_registry_entries_for_keys",
+        lambda *_args, **_kwargs: (entries, "registry-sha"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_require_complete_registry_panel",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "model_registry_entry_sha256",
+        lambda entry: entry_sha256[entry.registry_key],
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verified_provider_stage_attempts",
+        lambda *_args, **_kwargs: stage_attempts,
+    )
+
+    cli._verify_external_completed_cycle_stage(stage, card)
+
+    audit_path.unlink()
+    with pytest.raises(CycleOrchestratorError, match="semantic replay failed"):
+        cli._verify_external_completed_cycle_stage(stage, card)
 
 
 def test_run_cycle_help_describes_safe_resume_boundaries(
@@ -1985,6 +2123,145 @@ def test_run_cycle_rejects_boundary_downgrade_for_paid_command(
         == 2
     )
     assert "boundary must be paid" in capsys.readouterr().err
+
+
+def test_run_cycle_accepts_exact_provider_free_llm_label_shard_merge(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "label" / "run-card.json"
+    arguments, _outputs = _adoptable_label_completion(
+        tmp_path,
+        run_card=run_card,
+    )
+    stage = _parse_stage(
+        _stage(
+            stage_id="merge-label-shards",
+            command="llm-label",
+            boundary="provider_free",
+            arguments=arguments,
+            run_card=run_card,
+        ),
+        index=0,
+    )
+
+    assert stage.stage_id == "merge-label-shards"
+    assert stage.boundary.value == "provider_free"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "provider_execution",
+        "mixed_execution_and_merge",
+        "unpaired_shard_inputs",
+        "local_authority_merge",
+        "remote_authority_merge",
+    ],
+)
+def test_run_cycle_rejects_provider_free_llm_label_nonmerge_forms(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    run_card = tmp_path / "label" / "run-card.json"
+    arguments, _outputs = _adoptable_label_completion(
+        tmp_path,
+        run_card=run_card,
+    )
+    if mutation == "provider_execution":
+        while "--provider-shard-audit" in arguments:
+            index = arguments.index("--provider-shard-audit")
+            del arguments[index : index + 2]
+        while "--provider-shard-run-card" in arguments:
+            index = arguments.index("--provider-shard-run-card")
+            del arguments[index : index + 2]
+        arguments.extend(["--execution-provider", "openai"])
+    elif mutation == "mixed_execution_and_merge":
+        arguments.extend(["--execution-provider", "openai"])
+    elif mutation == "unpaired_shard_inputs":
+        index = arguments.index("--provider-shard-run-card")
+        del arguments[index : index + 2]
+    elif mutation == "local_authority_merge":
+        arguments.append("--local-provider-journal-only")
+    else:
+        arguments.extend(["--provider-authority-table", "fixture-authority"])
+    with pytest.raises(
+        CycleOrchestratorError,
+        match="boundary must be model_provider",
+    ):
+        _parse_stage(
+            _stage(
+                stage_id="unsafe-label-stage",
+                command="llm-label",
+                boundary="provider_free",
+                arguments=arguments,
+                run_card=run_card,
+            ),
+            index=0,
+        )
+
+
+@pytest.mark.parametrize(
+    "forbidden_argument",
+    [
+        "--provider-authority-table=fixture-authority",
+        "--provider-authority-region=us-east-1",
+    ],
+)
+def test_run_cycle_rejects_equals_form_authority_on_provider_free_merge(
+    tmp_path: Path,
+    forbidden_argument: str,
+) -> None:
+    run_card = tmp_path / "label" / "run-card.json"
+    arguments, _outputs = _adoptable_label_completion(
+        tmp_path,
+        run_card=run_card,
+    )
+    arguments.append(forbidden_argument)
+
+    with pytest.raises(
+        CycleOrchestratorError,
+        match="boundary must be model_provider",
+    ):
+        _parse_stage(
+            _stage(
+                stage_id="unsafe-equals-form-label-stage",
+                command="llm-label",
+                boundary="provider_free",
+                arguments=arguments,
+                run_card=run_card,
+            ),
+            index=0,
+        )
+
+
+def test_run_cycle_preserves_model_provider_boundary_for_llm_label_execution(
+    tmp_path: Path,
+) -> None:
+    run_card = tmp_path / "label" / "run-card.json"
+    arguments, _outputs = _adoptable_label_completion(
+        tmp_path,
+        run_card=run_card,
+    )
+    while "--provider-shard-audit" in arguments:
+        index = arguments.index("--provider-shard-audit")
+        del arguments[index : index + 2]
+    while "--provider-shard-run-card" in arguments:
+        index = arguments.index("--provider-shard-run-card")
+        del arguments[index : index + 2]
+    arguments.extend(["--execution-provider", "openai"])
+    stage = _parse_stage(
+        _stage(
+            stage_id="execute-openai-labels",
+            command="llm-label",
+            boundary="model_provider",
+            arguments=arguments,
+            run_card=run_card,
+            run_card_stage="llm-label-provider-shard",
+        ),
+        index=0,
+    )
+
+    assert stage.boundary.value == "model_provider"
 
 
 def test_run_cycle_requires_network_authority_before_paid_authority(

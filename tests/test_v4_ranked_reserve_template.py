@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from legalforecast.ingestion.cycle_manifest_template import render_cycle_config
@@ -115,29 +116,59 @@ def test_v4_ranked_reserve_template_never_writes_frozen_evidence(
         assert "--allow-network" not in stage.arguments
 
 
-def test_v4_ranked_reserve_template_merges_protected_stage_b_shards(
+def test_v4_ranked_reserve_template_runs_ordered_local_stage_b_shards(
     tmp_path: Path,
 ) -> None:
     _, config = _render(tmp_path)
-    label_stage = next(stage for stage in config.stages if stage.command == "llm-label")
+    label_stages = [stage for stage in config.stages if stage.command == "llm-label"]
 
     shard_root = tmp_path / "successor-v4" / "19-stage-b-shards"
-    assert label_stage.stage_id == "merge-stage-b-provider-shards"
-    assert label_stage.boundary.value == "model_provider"
-    assert "--execution-provider" not in label_stage.arguments
-    assert "--provider-authority-table" not in label_stage.arguments
-    assert "--provider-authority-region" not in label_stage.arguments
+    assert [stage.stage_id for stage in label_stages] == [
+        "label-stage-b-openai-shard",
+        "label-stage-b-google-shard",
+        "merge-stage-b-provider-shards",
+    ]
+    openai_stage, google_stage, merge_stage = label_stages
+    for stage, provider in (
+        (openai_stage, "openai"),
+        (google_stage, "google"),
+    ):
+        assert stage.boundary.value == "model_provider"
+        assert stage.run_card_stage == "llm-label-provider-shard"
+        assert _argument_value(stage, "--execution-provider") == provider
+        assert "--local-provider-journal-only" in stage.arguments
+        assert "--provider-authority-table" not in stage.arguments
+        assert "--provider-authority-region" not in stage.arguments
+        assert _argument_value(stage, "--audit-output") == str(
+            shard_root / f"{provider}-audit.jsonl"
+        )
+        assert _argument_value(stage, "--labels-output") == str(
+            shard_root / f"{provider}-labels.jsonl"
+        )
+        assert _argument_value(stage, "--lawyer-review-queue-output") == str(
+            shard_root / f"{provider}-lawyer-review-queue.jsonl"
+        )
+        assert _argument_value(stage, "--run-card-output") == str(
+            shard_root / f"{provider}-run-card.json"
+        )
+
+    assert merge_stage.boundary.value == "provider_free"
+    assert merge_stage.run_card_stage == "llm-label"
+    assert "--execution-provider" not in merge_stage.arguments
+    assert "--local-provider-journal-only" not in merge_stage.arguments
+    assert "--provider-authority-table" not in merge_stage.arguments
+    assert "--provider-authority-region" not in merge_stage.arguments
     assert [
-        label_stage.arguments[index + 1]
-        for index, argument in enumerate(label_stage.arguments)
+        merge_stage.arguments[index + 1]
+        for index, argument in enumerate(merge_stage.arguments)
         if argument == "--provider-shard-audit"
     ] == [
         str(shard_root / "openai-audit.jsonl"),
         str(shard_root / "google-audit.jsonl"),
     ]
     assert [
-        label_stage.arguments[index + 1]
-        for index, argument in enumerate(label_stage.arguments)
+        merge_stage.arguments[index + 1]
+        for index, argument in enumerate(merge_stage.arguments)
         if argument == "--provider-shard-run-card"
     ] == [
         str(shard_root / "openai-run-card.json"),
@@ -152,12 +183,13 @@ def test_v4_ranked_reserve_runbook_requires_provider_free_merge_then_adoption() 
         / "cycle-1-target-100-v4-ranked-reserve-materialization.md"
     ).read_text(encoding="utf-8")
 
-    assert "## Merge and adopt protected Stage B shards" in runbook
+    assert "## Execute, merge, and adopt local Stage B shards" in runbook
     assert "19-stage-b-shards/openai-audit.jsonl" in runbook
     assert "19-stage-b-shards/openai-run-card.json" in runbook
     assert "19-stage-b-shards/google-audit.jsonl" in runbook
     assert "19-stage-b-shards/google-run-card.json" in runbook
-    assert "uv run legalforecast acquisition llm-label" in runbook
+    assert "--local-provider-journal-only" in runbook
+    assert "71a0919b7e23a1b0dab7bca7233c9036f2e678f35760f78f98b4f2c37330eb74" in runbook
     assert "--execute --allow-network --allow-paid --json" in runbook
     assert "COURTLISTENER_API_TOKEN" in runbook
     assert "PACER_USERNAME" in runbook
@@ -166,12 +198,15 @@ def test_v4_ranked_reserve_runbook_requires_provider_free_merge_then_adoption() 
     assert "Do not combine `--adopt-next-completed` with `--execute`" in runbook
 
 
-def test_v4_ranked_reserve_template_binds_provider_caps_successor(
+def test_v4_ranked_reserve_template_binds_checked_in_local_provider_caps(
     tmp_path: Path,
 ) -> None:
     _, config = _render(tmp_path)
     expected_caps = (
-        tmp_path / "successor-v4" / "01-provider-authority" / "provider-cycle-caps.json"
+        tmp_path
+        / "repo"
+        / "model_registries"
+        / "cycle-1-target-100-provider-caps-base-2026-07-28.json"
     )
     consumers = [
         stage for stage in config.stages if "--provider-cycle-caps" in stage.arguments
@@ -181,4 +216,42 @@ def test_v4_ranked_reserve_template_binds_provider_caps_successor(
     assert all(
         _argument_value(stage, "--provider-cycle-caps") == str(expected_caps)
         for stage in consumers
+    )
+
+    checked_in_caps = (
+        Path(__file__).parents[1]
+        / "model_registries"
+        / "cycle-1-target-100-provider-caps-base-2026-07-28.json"
+    )
+    assert hashlib.sha256(checked_in_caps.read_bytes()).hexdigest() == (
+        "71a0919b7e23a1b0dab7bca7233c9036f2e678f35760f78f98b4f2c37330eb74"
+    )
+
+
+def test_v4_ranked_reserve_provider_calls_share_one_local_journal(
+    tmp_path: Path,
+) -> None:
+    _, config = _render(tmp_path)
+    provider_stages = [
+        stage
+        for stage in config.stages
+        if stage.command in {"llm-unitize", "llm-review-stage-a"}
+        or "--execution-provider" in stage.arguments
+    ]
+    expected_journal = str(
+        tmp_path / "private-v4" / "paid-labeling" / "provider-attempts.sqlite3"
+    )
+
+    assert [stage.stage_id for stage in provider_stages] == [
+        "unitize-stage-a",
+        "review-stage-a-structure",
+        "label-stage-b-openai-shard",
+        "label-stage-b-google-shard",
+    ]
+    assert all(
+        "--local-provider-journal-only" in stage.arguments for stage in provider_stages
+    )
+    assert all(
+        _argument_value(stage, "--provider-journal") == expected_journal
+        for stage in provider_stages
     )

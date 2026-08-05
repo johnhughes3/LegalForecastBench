@@ -8423,11 +8423,20 @@ def _add_provider_cycle_caps_argument(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_provider_spend_authority_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
+    authority = parser.add_mutually_exclusive_group()
+    authority.add_argument(
         "--provider-authority-table",
         help=(
             "DynamoDB table named by the provider-cycle-caps spend_authority "
-            "commitment. Required with --execute."
+            "commitment. Required for distributed provider spend authority."
+        ),
+    )
+    authority.add_argument(
+        "--local-provider-journal-only",
+        action="store_true",
+        help=(
+            "Use only the explicit cycle-wide SQLite --provider-journal for local "
+            "spend reservation and replay. Not a distributed authority."
         ),
     )
     parser.add_argument(
@@ -17785,37 +17794,97 @@ def _verify_external_completed_cycle_stage(
                 expected_model_key=model_keys[0],
             )
             return
+        selection_path = _cycle_stage_path(stage, "--selection")
+        parser_manifest_path = _cycle_stage_path(stage, "--parser-manifest")
+        decision_texts_path = _cycle_stage_path(stage, "--decision-texts")
+        decision_texts_manifest_path = _cycle_stage_path(
+            stage, "--decision-texts-manifest"
+        )
+        decision_texts_run_card_path = _cycle_stage_path(
+            stage, "--decision-texts-run-card"
+        )
+        llm_review_stage_a_run_card_path = _cycle_stage_path(
+            stage, "--llm-review-stage-a-run-card"
+        )
+        unitization_review_run_card_path = _cycle_stage_path(
+            stage, "--unitization-review-run-card"
+        )
+        model_registry_path = _cycle_stage_path(stage, "--model-registry")
+        evaluated_model_registry_path = _cycle_stage_path(
+            stage, "--evaluated-model-registry"
+        )
+        provider_cycle_caps_path = _cycle_stage_path(stage, "--provider-cycle-caps")
+        labels_path = _cycle_stage_path(
+            stage, "--labels-output", default_name="labels.jsonl"
+        )
+        audit_path = _cycle_stage_path(
+            stage, "--audit-output", default_name="llm-label-audit.jsonl"
+        )
+        lawyer_review_queue_path = _cycle_stage_path(
+            stage,
+            "--lawyer-review-queue-output",
+            default_name="lawyer-review-queue.jsonl",
+        )
+        if stage.run_card_stage == "llm-label-provider-shard":
+            if run_card.get("stage") != stage.run_card_stage:
+                raise CommandError("llm-label provider-shard stage changed")
+            output_commitments = run_card.get("output_commitments")
+            expected_output_commitments = {
+                "labels": _stage_a_file_commitment(labels_path),
+                "audit": _stage_a_file_commitment(audit_path),
+                "lawyer_review_queue": _stage_a_file_commitment(
+                    lawyer_review_queue_path
+                ),
+            }
+            if (
+                not isinstance(output_commitments, Mapping)
+                or dict(cast(Mapping[str, object], output_commitments))
+                != expected_output_commitments
+            ):
+                raise CommandError("llm-label provider-shard output commitment changed")
+            expected_providers = _cycle_stage_flag_values(stage, "--execution-provider")
+            if len(expected_providers) != 1:
+                raise CycleOrchestratorError(
+                    f"stage {stage.stage_id} must provide exactly one "
+                    "--execution-provider"
+                )
+            observed_provider = _verify_llm_label_provider_shard_run_card(
+                stage.run_card,
+                audit_path=audit_path,
+                lineage=lineage,
+                selection_path=selection_path,
+                parser_manifest_path=parser_manifest_path,
+                decision_texts_path=decision_texts_path,
+                decision_texts_manifest_path=decision_texts_manifest_path,
+                decision_texts_run_card_path=decision_texts_run_card_path,
+                finalized_prediction_units_path=raw_units_path,
+                llm_unitization_run_card_path=unitization_card_path,
+                llm_review_stage_a_run_card_path=llm_review_stage_a_run_card_path,
+                unitization_review_run_card_path=unitization_review_run_card_path,
+                model_registry_path=model_registry_path,
+                evaluated_model_registry_path=evaluated_model_registry_path,
+                provider_cycle_caps_path=provider_cycle_caps_path,
+            )
+            if observed_provider != expected_providers[0]:
+                raise CommandError("llm-label provider-shard provider changed")
+            return
         _verify_llm_label_run_card(
             stage.run_card,
             lineage=lineage,
-            selection_path=_cycle_stage_path(stage, "--selection"),
-            parser_manifest_path=_cycle_stage_path(stage, "--parser-manifest"),
-            decision_texts_path=_cycle_stage_path(stage, "--decision-texts"),
-            decision_texts_manifest_path=_cycle_stage_path(
-                stage, "--decision-texts-manifest"
-            ),
-            decision_texts_run_card_path=_cycle_stage_path(
-                stage, "--decision-texts-run-card"
-            ),
+            selection_path=selection_path,
+            parser_manifest_path=parser_manifest_path,
+            decision_texts_path=decision_texts_path,
+            decision_texts_manifest_path=decision_texts_manifest_path,
+            decision_texts_run_card_path=decision_texts_run_card_path,
             finalized_prediction_units_path=raw_units_path,
             llm_unitization_run_card_path=unitization_card_path,
-            llm_review_stage_a_run_card_path=_cycle_stage_path(
-                stage, "--llm-review-stage-a-run-card"
-            ),
-            unitization_review_run_card_path=_cycle_stage_path(
-                stage, "--unitization-review-run-card"
-            ),
-            model_registry_path=_cycle_stage_path(stage, "--model-registry"),
-            evaluated_model_registry_path=_cycle_stage_path(
-                stage, "--evaluated-model-registry"
-            ),
-            provider_cycle_caps_path=_cycle_stage_path(stage, "--provider-cycle-caps"),
-            labels_path=_cycle_stage_path(
-                stage, "--labels-output", default_name="labels.jsonl"
-            ),
-            audit_path=_cycle_stage_path(
-                stage, "--audit-output", default_name="llm-label-audit.jsonl"
-            ),
+            llm_review_stage_a_run_card_path=llm_review_stage_a_run_card_path,
+            unitization_review_run_card_path=unitization_review_run_card_path,
+            model_registry_path=model_registry_path,
+            evaluated_model_registry_path=evaluated_model_registry_path,
+            provider_cycle_caps_path=provider_cycle_caps_path,
+            labels_path=labels_path,
+            audit_path=audit_path,
         )
     except (CommandError, OSError, UnicodeError, ValueError) as exc:
         raise CycleOrchestratorError(
@@ -48163,14 +48232,12 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         _write_jsonl(review_queue_path, [])
     else:
         assert lineage is not None
-        provider_spend_authorities, provider_accounts = (
-            _remote_provider_spend_authorities(
-                args,
-                provider_caps=lineage.provider_caps,
-                provider_caps_sha256=lineage.provider_caps_sha256,
-                cycle_id=lineage.cohort_cycle_id,
-                providers=(lineage.registry_entry.provider,),
-            )
+        provider_spend_authorities, provider_accounts = _provider_spend_authorities(
+            args,
+            provider_caps=lineage.provider_caps,
+            provider_caps_sha256=lineage.provider_caps_sha256,
+            cycle_id=lineage.cohort_cycle_id,
+            providers=(lineage.registry_entry.provider,),
         )
         result = llm_unitize_cases(
             selection_records=lineage.selection_records,
@@ -48436,14 +48503,12 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
                 entry.provider: lineage.provider_caps.cap_usd(entry.provider)
                 for entry in execution_entries
             }
-            provider_spend_authorities, provider_accounts = (
-                _remote_provider_spend_authorities(
-                    args,
-                    provider_caps=lineage.provider_caps,
-                    provider_caps_sha256=lineage.provider_caps_sha256,
-                    cycle_id=lineage.cohort_cycle_id,
-                    providers=tuple(entry.provider for entry in execution_entries),
-                )
+            provider_spend_authorities, provider_accounts = _provider_spend_authorities(
+                args,
+                provider_caps=lineage.provider_caps,
+                provider_caps_sha256=lineage.provider_caps_sha256,
+                cycle_id=lineage.cohort_cycle_id,
+                providers=tuple(entry.provider for entry in execution_entries),
             )
             result = llm_label_cases(
                 selection_records=selection_records,
@@ -48713,6 +48778,51 @@ def _remote_provider_spend_authorities(
     return authorities, accounts
 
 
+def _provider_spend_authorities(
+    args: argparse.Namespace,
+    *,
+    provider_caps: ProviderCycleCaps,
+    provider_caps_sha256: str,
+    cycle_id: str,
+    providers: Sequence[str],
+) -> tuple[
+    dict[str, ProviderSpendAuthority] | None,
+    dict[str, str] | None,
+]:
+    """Select the explicit local or distributed pre-call spend authority."""
+
+    local_only = cast(bool, getattr(args, "local_provider_journal_only", False))
+    table_name = cast(str | None, getattr(args, "provider_authority_table", None))
+    remote = bool(table_name and table_name.strip())
+    if local_only == remote:
+        raise CommandError(
+            "provider execution requires exactly one of --provider-authority-table "
+            "or --local-provider-journal-only"
+        )
+    if local_only:
+        if cast(Path | None, getattr(args, "provider_journal", None)) is None:
+            raise CommandError(
+                "--local-provider-journal-only requires --provider-journal"
+            )
+        try:
+            accounts = {
+                provider: provider_caps.providers[provider].account or "default"
+                for provider in sorted({value.lower() for value in providers})
+            }
+        except KeyError as exc:
+            raise CommandError(
+                f"provider cycle caps artifact has no entry for {exc.args[0]!r}"
+            ) from exc
+        return None, accounts
+    return _remote_provider_spend_authorities(
+        args,
+        provider_caps=provider_caps,
+        provider_caps_sha256=provider_caps_sha256,
+        cycle_id=cycle_id,
+        providers=providers,
+    )
+
+
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
@@ -48778,14 +48888,12 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
         lineage, authenticated_unitization_card = verified_provider_chain
         assert verified_reviewer_registry is not None
         entry, registry_sha = verified_reviewer_registry
-        provider_spend_authorities, provider_accounts = (
-            _remote_provider_spend_authorities(
-                args,
-                provider_caps=lineage.provider_caps,
-                provider_caps_sha256=lineage.provider_caps_sha256,
-                cycle_id=lineage.cohort_cycle_id,
-                providers=(entry.provider,),
-            )
+        provider_spend_authorities, provider_accounts = _provider_spend_authorities(
+            args,
+            provider_caps=lineage.provider_caps,
+            provider_caps_sha256=lineage.provider_caps_sha256,
+            cycle_id=lineage.cohort_cycle_id,
+            providers=(entry.provider,),
         )
         result = llm_review_stage_a_units(
             selection_records=selections,
