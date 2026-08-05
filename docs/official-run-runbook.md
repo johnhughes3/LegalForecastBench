@@ -8,38 +8,32 @@ The paired flags `--llm-unitization-run-card` / `--llm-unitize-run-card` and `--
 
 - [Acquisition downstream preflight](#acquisition-downstream-preflight)
   - [Exact post-clearance purchase approval](#exact-post-clearance-purchase-approval)
-  - [Bounded Firecrawl terminal-target recovery](#bounded-firecrawl-terminal-target-recovery)
+  - [Bounded Firecrawl terminal-target recovery](#bounded-firecrawl-terminal-target-recovery-compatibility-fallback-only)
   - [Provider-free exact-cohort downstream rehearsal](#provider-free-exact-cohort-downstream-rehearsal)
   - [Protected paid-labeling authority](#protected-paid-labeling-authority)
 - [Before dispatch](#before-dispatch)
 - [Dispatch sequence](#dispatch-sequence)
 - [Aggregation](#aggregation)
-- [Add models to a frozen cycle](#add-models-to-frozen-cycle)
+- [Add models to a frozen cycle](#add-models-to-a-frozen-cycle)
 - [Staged-rollout rehearsal drill](#staged-rollout-rehearsal-drill)
-- [Render and review the site](#render-and-review-site)
+- [Render and review the site](#render-and-review-the-site)
 - [Recovery acceptance criteria](#recovery-acceptance-criteria)
 - [Cycle 1 Batch-002 CourtListener-first acquisition](#cycle-1-batch-002-courtlistener-first-acquisition)
   - [Supported cycle coordinator](#supported-cycle-coordinator)
   - [Credential prerequisites](#credential-prerequisites)
-  - [Step 1: Search CourtListener decisions through Firecrawl](#step-1-firecrawl-search)
-  - [Preferred REST transfer](#preferred-rest-transfer)
+  - [Step 1: Search CourtListener decisions through Firecrawl](#step-1-search-courtlistener-decisions-through-firecrawl)
+  - [Preferred REST transfer](#preferred-rest-transfer-before-compatibility-steps-2-and-3)
   - [Exact-310 terminal REST policy rebind](#exact-310-terminal-rest-policy-rebind)
-  - [Step 2: Enrich and rank with free Case.dev lookup](#step-2-case-dev-enrichment)
-  - [Step 3: Acquire and screen complete CourtListener dockets](#step-3-courtlistener-docket-acquisition)
-  - [Step 4: Prepare the resolved pool and provisional budget](#step-4-resolved-pool-budget)
-  - [Step 5: Clear every free document and freeze the exact cohort](#step-5-clear-free-documents-freeze-cohort)
-  - [Step 6: Generate allowlist, initialize ledger, then purchase](#step-6-allowlist-ledger-purchase)
+  - [Step 2: Enrich and rank with free Case.dev lookup](#step-2-enrich-and-rank-with-free-casedev-lookup)
+  - [Step 3: Acquire and screen complete CourtListener dockets](#step-3-acquire-and-screen-complete-courtlistener-dockets)
+  - [Step 4: Prepare the resolved pool and provisional budget](#step-4-prepare-the-resolved-pool-and-provisional-budget)
+  - [Step 5: Clear every free document and freeze the exact cohort](#step-5-clear-every-free-document-and-freeze-the-exact-cohort)
+  - [Step 6: Generate allowlist, initialize ledger, then purchase](#step-6-generate-allowlist-initialize-ledger-then-purchase)
   - [Expected volumes](#expected-volumes)
-  - [Reading the tallies](#reading-tallies)
+  - [Reading the tallies](#reading-the-tallies)
   - [Frozen priority-batch Firecrawl observation](#frozen-priority-batch-firecrawl-observation)
 
-Section IDs are explicit so links remain stable if heading text changes.
-
-<a id="acquisition-downstream-preflight"></a>
-
 ## Acquisition Downstream Preflight
-
-<a id="exact-post-clearance-purchase-approval"></a>
 
 ### Exact post-clearance purchase approval
 
@@ -115,8 +109,6 @@ After provider-free gap recovery, publish and authenticate a new exact all-free 
 For `approve`, the order is mandatory: record the private decision, verify that exact checkpoint and run card while the canonical ledger namespace is still absent, and only then generate the public v2 policy; generation cannot be moved before verification or repeated after ledger initialization.
 Never hand-edit the private checkpoint, run card, or public v2 policy, and never reuse v1 policy input for a new official purchase.
 See [Case.dev purchase policy v2](schemas/case-dev-purchase-policy-v2.md) for the complete replay and containment contract.
-
-<a id="bounded-firecrawl-terminal-target-recovery"></a>
 
 ### Bounded Firecrawl terminal-target recovery (compatibility fallback only)
 
@@ -305,8 +297,6 @@ infisical-agent-sandbox run \
 ```
 
 The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce the subprocess boundary, but they do not authorize injecting a broad acquisition secret set into the parent process.
-
-<a id="provider-free-exact-cohort-downstream-rehearsal"></a>
 
 ### Provider-free exact-cohort downstream rehearsal
 
@@ -657,8 +647,6 @@ Legacy `external_spend_limit_usd`, `external_limit_scope`, `external_limit_sourc
 The digest is a public equality commitment, not a confidentiality boundary: an observer who can enumerate likely table ARNs can test candidate account IDs against it.
 The currently committed `model_registries/cycle-1-provider-caps-2026-07-12.json` predates this contract and lacks both provider account aliases and top-level `spend_authority`.
 Do not treat paid labeling as runnable merely because this code lands: a deliberate artifact amendment must bind the reviewed public aliases and exact applied table-ARN digest, and the protected environments must match it before any provider call.
-
-<a id="protected-paid-labeling-authority"></a>
 
 ### Protected paid-labeling authority
 
@@ -1123,8 +1111,6 @@ uv run legalforecast acquisition finalize-corpus \
 
 Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It replays the authenticated unitizer and structural-review cards against the exact raw units, original and merged review queues, structural flags, review audit, reviewer registry and key, provider-caps bytes, and canonical shared journal before accepting and reproducing the apply-review output. It then replays the authenticated `llm-label` card against the same Stage A authority, exact decision-text inputs, judge registry, journaled per-model reconstructions, and the immutable outputs supplied separately as `--original-llm-label-labels` and `--original-llm-label-audit`; the reviewed `--labels` and cycle-planned `--llm-label-audit` remain the readiness inputs and cannot masquerade as the original provider outputs. Finally it verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation, and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
 
-<a id="before-dispatch"></a>
-
 ## Before Dispatch
 
 Run the release gate at the exact SHA you intend to dispatch:
@@ -1180,8 +1166,6 @@ The private versioned result bucket retains the noncurrent objects named by rece
 
 Terraform format, initialization, validation, tests, and even a reviewed plan prove only the code shape. Import the existing buckets into approved encrypted remote state before any apply, reconcile current bucket policy and lifecycle state, and apply only an exact reviewed plan. The S3 validation workflow requires a known existing packet, manifest, exact-version per-case metrics object, and shard receipt. It proves the fan-in role can read the committed per-case version and receipt, then reassumes the cell role and proves that the same existing receipt is denied. The workflow proves only the specific S3 reads, lists, denied mutations, and DynamoDB `DescribeTable` call it actually performs; it does not establish the cell role's successful DynamoDB item writes or transactions. Acceptance requires a post-provision validation dispatch from `main`, a bounded provider-authority smoke that exercises the item-level DynamoDB contract, and a provider-free fan-in verification dispatch from `main`. Always set `max_projected_model_cost_usd` to an explicit non-empty limit for a live run.
 
-<a id="dispatch-sequence"></a>
-
 ## Dispatch Sequence
 
 Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, and exactly one declared shard through the `model_keys` and `ablations` inputs. Set `shard_only: true` and keep `resume_existing_results: true`.
@@ -1195,8 +1179,6 @@ Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_mani
 Every non-dry-run result writer creates its own immutable `cycle-publication-state/<cycle_id>/runs/<writer_id>/<run_attempt>/intent.json` before writing and creates the matching `done.json` afterward. Matrix cells use `<run_id>-case-<strategy_job_index>` and the shard finalizer uses `<run_id>-finalize-shard`, so GitHub's **Re-run failed jobs** path opens new attempt-scoped intents even when successful jobs from the prior attempt are not rerun. After creating its intent, a writer probes exactly `cycle-publication-state/<cycle_id>/seal.json`; an API error, malformed listing, or unexpected key fails closed, while an exact seal match is read and causes the late writer to abort before provider work. If a workflow is canceled before cleanup, do not fabricate completion evidence: inspect the run, prove that exact writer is no longer active, then use `cycle_closure finish --writer-id <exact-writer-id>` with the exact run attempt under the matching protected role before retrying publication.
 
 The resume identity includes the case, ablation, packet hash, solver/model identity, registry content, and repeat count. Current results bind to the canonical per-model registry-entry hash, so an unchanged model can resume across a registry amendment. Pre-amendment durable metrics that lack that field instead validate against the exact whole-registry hash recorded by their freeze in the provenance chain; supply that historical registry when recovering those cells. An unknown or mismatched registry hash fails closed rather than re-evaluating and overwriting durable outputs. Failed cells do not become canonical score rows. Preserve failed logs for audit.
-
-<a id="aggregation"></a>
 
 ## Aggregation
 
@@ -1228,8 +1210,6 @@ uv run python -m legalforecast.publication.shard_fan_in \
 Omit `--amendment-bundle` for an unamended root freeze and repeat it for every required ancestor of an amended freeze. Omit `--accepted-attempt-map` when every declared shard has exactly one receipt. Verification-only writes only `fan-in-report.json` to the requested output directory; its temporary materialized union, private debug output, and aggregate bundle are destroyed after aggregate validation. The report records the complete accepted map when present, every accepted receipt, the discovered inventory hash, frozen artifact hashes, derived counts, verified union commitment, and aggregate completeness facts.
 
 When the frozen execution policy requires a training baseline corpus, pass its exact bytes with `--baseline-training-examples <frozen-corpus.json>`; fan-in accepts the override only when its SHA-256 matches the freeze. Leave the option absent for an `allow_no_baselines: true` cycle whose required baselines artifact is metadata rather than a training corpus.
-
-<a id="add-models-to-frozen-cycle"></a>
 
 ## Add Models To A Frozen Cycle
 
@@ -1279,8 +1259,6 @@ uv run legalforecast publish aggregate \
 
 Re-render the site from that complete union bundle and publish it to the same cycle report location. The new run card marks this as `additive_supersession` and points to the report it supersedes. Do not use the withdrawal path: the original model rows remain canonical and the amended publication only adds the new rows.
 
-<a id="staged-rollout-rehearsal-drill"></a>
-
 ## Staged-Rollout Rehearsal Drill
 
 Extend the staged-rollout fixture rehearsal with this sequence before the real amendment dispatch:
@@ -1292,8 +1270,6 @@ Extend the staged-rollout fixture rehearsal with this sequence before the real a
 5. Confirm the amended run card lists both dispatches, both freezes in order, A mapped to the original freeze, B mapped to the amendment freeze, and publication mode `additive_supersession`.
 
 The automated rehearsal in `tests/test_official_run_runbook.py` performs the same two-generation aggregation and byte-identity assertion. The operator evidence record must still include the workflow run IDs, S3 union location, aggregate artifact, and checksum result for sign-off.
-
-<a id="render-and-review-site"></a>
 
 ## Render And Review The Site
 
@@ -1307,19 +1283,13 @@ uv run legalforecast publish site \
 
 Review `index.html`, `artifact-index.json`, the aggregate run card, leaderboard outputs, small-cluster warnings, model-versus-baseline row types, and the publication-guardrail result before publishing. Keep `private-debug/`, locked labels, source-document bytes, and raw provider material out of the public site.
 
-<a id="recovery-acceptance-criteria"></a>
-
 ## Recovery Acceptance Criteria
 
 A recovery is complete only when every expected matrix cell is present exactly once, artifact hashes match, aggregation succeeds without incomplete-model overrides, the public/private split passes guardrails, and the rendered site refers only to public artifacts. If inputs, prompt, scorer, registry, packet hashes, repeat count, or labels change, treat that as a new frozen run rather than a retry.
 
-<a id="cycle-1-batch-002-courtlistener-first-acquisition"></a>
-
 ## Cycle 1 Batch-002 CourtListener-First Acquisition
 
 The preferred hierarchy is saturated CourtListener search → `batch-002 seed-direct-search` → authenticated `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-cohort --target-case-count 100`. CourtListener remains the source for decision results, docket reconstruction, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap, as a compatibility fallback when authenticated REST cannot supply the required surface; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
-
-<a id="supported-cycle-coordinator"></a>
 
 ### Supported Cycle Coordinator
 
@@ -1356,8 +1326,6 @@ The coordinator also stops after the provider-free `generate-recap-fetch-broker-
 In particular, `--allow-paid` also requires `--allow-network` and still cannot run without the existing approved purchase policy, initialized ledger, bounded attempt policy, broker policy, broker identity, and remaining budget.
 Every successful stage receives an immutable receipt bound to the exact config and completion run-card bytes, so rerunning the same command reauthenticates and skips it rather than reconstructing shell history.
 
-<a id="credential-prerequisites"></a>
-
 ### Credential Prerequisites
 
 The search and docket-HTML stages require Firecrawl, the optional-equivalent enrichment stage requires Case.dev, and the later CourtListener REST paid-gap bridge requires the CourtListener token:
@@ -1369,8 +1337,6 @@ export COURTLISTENER_API_TOKEN=…
 ```
 
 Each command fails closed when its stage-specific key is absent. Firecrawl consumes only the preauthorized cycle credit allowance. Case.dev enrichment is free lookup only. None of Steps 1–5 acknowledges PACER fees or purchases a document.
-
-<a id="step-1-firecrawl-search"></a>
 
 ### Step 1: Search CourtListener Decisions Through Firecrawl
 
@@ -1392,8 +1358,6 @@ uv run legalforecast acquisition discover-firecrawl-recap-decisions \
 ```
 
 The command completes every frozen query term and page before publishing the potential-docket file. A partial checkpoint is not a saturated discovery result and must not proceed downstream.
-
-<a id="preferred-rest-transfer"></a>
 
 ### Preferred REST Transfer Before Compatibility Steps 2 And 3
 
@@ -1508,8 +1472,6 @@ uv run legalforecast batch-002 snapshot \
 
 This REST path supersedes the Case.dev-ranking and Firecrawl-docket steps below whenever it is available. Retain those steps only as bounded compatibility fallbacks for genuine REST-unavailable dockets.
 
-<a id="exact-310-terminal-rest-policy-rebind"></a>
-
 ### Exact-310 Terminal REST Policy Rebind
 
 The supported target setup is provider-free `rebind-direct-search`, not a hand-built SQLite batch. The exact source belongs to the old screening cycle, so `seed-direct-search` correctly rejects it as cross-cycle. Start from a current-cycle union-store copy or new current-cycle store and transfer the identical saturated 310-docket broad-search source into a fresh target batch while committing both cycle hashes:
@@ -1565,8 +1527,6 @@ uv run legalforecast batch-002 rebind-exact310-rest-observations \
 
 Neither command exposes network, provider, PACER, RECAP Fetch, fee acknowledgment, purchase, evaluation, freeze, or dispatch flags.
 
-<a id="step-2-case-dev-enrichment"></a>
-
 ### Step 2: Enrich And Rank With Free Case.dev Lookup
 
 Use Case.dev only for noncharging docket lookup and `includeEntries` enrichment. The authenticated source mode accepts either a saturated CourtListener opinion search (`search_type=o`) or a saturated unrestricted RECAP search (`search_type=r`) whose frozen config records `available_only=omitted`. It projects only the exact positive numeric docket identities committed by that source; it never sends `live: true`, acknowledges PACER fees, or supplies purchase authority:
@@ -1607,8 +1567,6 @@ uv run legalforecast batch-002 select-case-dev-ranked \
 Immediately after selection, compute the selector run card's SHA-256 from its raw bytes and record that digest out of band. The acquisition command must receive this independently recorded digest through `--expected-ranked-selection-run-card-sha256`; never derive or recompute the expected value from the selector card supplied to acquisition.
 
 The selector authenticates both enrichment outputs. Ranked successes and authorized terminal exclusions must be disjoint and together reconcile the complete frozen source projection. The terminal-exclusion JSONL is bound by raw-byte digest, source index and docket identity, reason counts, and excluded-candidate-set commitment. Transient rows, conversion failures, identity conflicts, contradictory metadata, or noncanonical exclusion records still block selection; they may not be silently dropped from the ranked file.
-
-<a id="step-3-courtlistener-docket-acquisition"></a>
 
 ### Step 3: Acquire And Screen Complete CourtListener Dockets
 
@@ -1855,8 +1813,6 @@ The Cycle 1 launch requirement is **at least 100** clean cases. Plan and preserv
 
 `legalforecast acquisition prepare-target-100` remains a compatibility wrapper for previously frozen exact-100 artifacts. The canonical path is still `prepare-target-cohort --target-case-count 100`, which preserves the complete frontier rather than truncating discovery to the launch denominator.
 
-<a id="step-4-resolved-pool-budget"></a>
-
 ### Step 4: Prepare The Resolved Pool And Provisional Budget
 
 Run the public-first preparation chain from that immutable snapshot. This command plans public downloads against the 100-case launch requirement, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits disclosure-review requests plus the full untruncated frontier. It never purchases a document.
@@ -1887,8 +1843,6 @@ uv run legalforecast acquisition prepare-target-cohort \
 The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, 100-case launch requirement, and full cost frontier. Cycle 1 freezes the provisional cap at `$567.30`; every later projection must repeat that exact value rather than falling back to the CLI default. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
 
 An `is_sealed: null` provider field is unknown metadata, not affirmative evidence that a filing is sealed. The pipeline may continue trying public routes and later classify the document as a recoverable missing/paid gap. It must not mark the document free unless public availability is affirmatively proven, and packet admission still fails closed until disclosure clearance is complete.
-
-<a id="step-5-clear-free-documents-freeze-cohort"></a>
 
 ### Step 5: Clear Every Free Document And Freeze The Exact Cohort
 
@@ -2025,8 +1979,6 @@ uv run legalforecast acquisition project-target-cohort \
 ```
 
 If fewer than 100 post-clearance cases fit the unchanged cap, acquire more candidates rather than restoring a quarantined case or weakening a gate. The exact-cohort summary binds every source and output hash and reconciles every unselected resolved-pool candidate into `target-cohort-exclusions.jsonl`.
-
-<a id="step-6-allowlist-ledger-purchase"></a>
 
 ### Step 6: Generate Allowlist, Initialize Ledger, Then Purchase
 
@@ -2285,13 +2237,9 @@ Render and execute `manifests/cycle-1-target-100.replacement-corpus.template.jso
 That corpus-mode plan uses only `$canonical_target_root/target-cohort-selection.jsonl` and `$canonical_target_root/run-cards/project-target-cohort.json` through consolidation, materialization, parse planning, decision texts, Stage A, Stage B, packet planning, packet building, and `finalize-corpus --target-clean-cases 100`.
 The narrow successor purchase selection authorizes a tranche but never becomes a downstream cohort, and the initial `$launch_root` remains historical evidence rather than an input after any quarantine.
 
-<a id="expected-volumes"></a>
-
 ### Expected Volumes
 
 Do not use an estimated docket count as completion evidence. The decision-search summary must prove every frozen term and page terminal; the docket-acquisition summary must reconcile every ranked candidate; and the screening snapshot must be complete and saturated. Record the actual discovered, enriched, fetched, screened, excluded, and Firecrawl-credit counts from those artifacts.
-
-<a id="reading-tallies"></a>
 
 ### Reading The Tallies
 
@@ -2301,8 +2249,6 @@ Each command prints a machine-readable JSON summary to stdout (use `--summary-ou
 - `observe` tally: `considered` (candidates scanned), `skipped_already_observed` (resume skips), `observed` (fetched this pass), `eligible` (strict-clean accepted), `excluded_by_reason` (immutable/posture exclusions, with the underlying strict-screen reason surfaced as `strict_clean_screen_failed:<screen_reason>`), and `transient_by_reason` (retryable failures to re-run).
 - `seed-batch-001-leads`: `leads_selected`, `leads_seeded`, and `already_seeded`.
 - `seed-direct-search`: the same transfer counts plus `source_batch_digest` and `source_candidate_set_sha256`, which bind the REST batch to the exact saturated source pool.
-
-<a id="frozen-priority-batch-firecrawl-observation"></a>
 
 ### Frozen priority-batch Firecrawl observation
 
