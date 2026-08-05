@@ -151,6 +151,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
+    CaseDevPurchaseSnapshot,
     initialize_case_dev_purchase_journal,
     read_case_dev_purchase_snapshot,
     require_approved_case_dev_purchase_policy,
@@ -540,6 +541,7 @@ from legalforecast.ingestion.provenance_clearance import (
 )
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
+    _issue_recovered_public_clearance_capability,  # pyright: ignore[reportPrivateUsage]
     build_exception_inspection_map,
     build_provenance_clearance_plan,
     build_provenance_clearance_plan_v3,
@@ -641,8 +643,10 @@ from legalforecast.ingestion.replacement_purchase_approval import (
 from legalforecast.ingestion.resolved_post_recovery import (
     ResolvedPostRecoveryError,
     _build_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
+    _build_resolved_recovered_public,  # pyright: ignore[reportPrivateUsage]
     _issue_verified_lineage_capability,  # pyright: ignore[reportPrivateUsage]
     _require_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
+    _require_resolved_recovered_public,  # pyright: ignore[reportPrivateUsage]
     build_resolved_post_recovery_documents,
     require_resolved_post_recovery_documents,
     require_resolved_post_recovery_operation_bindings,
@@ -7544,6 +7548,7 @@ def _add_acquisition_plan_disclosure_provenance_arguments(
     parser.add_argument("--restriction-evidence", type=Path, required=True)
     parser.add_argument("--routing-plan-output", type=Path)
     parser.add_argument("--exception-worksheet-output", type=Path)
+    _add_recovered_public_clearance_verification_arguments(parser)
     parser.add_argument(
         "--controlled-private-store-root",
         type=Path,
@@ -7589,7 +7594,34 @@ def _add_acquisition_quarantine_provenance_exceptions_arguments(
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--clearance-output", type=Path)
     parser.add_argument("--quarantine-output", type=Path)
+    _add_recovered_public_clearance_verification_arguments(parser)
     parser.set_defaults(handler=_cmd_acquisition_quarantine_provenance_exceptions)
+
+
+def _add_recovered_public_clearance_verification_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--recovery-run-card",
+        type=Path,
+        help=(
+            "Completed recover-recap-fetch-quarantine run card whose exact outputs "
+            "may prove provider-free recovered-public clearance."
+        ),
+    )
+    parser.add_argument("--selection", type=Path)
+    parser.add_argument("--purchase-policy", type=Path)
+    parser.add_argument("--purchase-ledger", type=Path)
+    parser.add_argument("--purchase-ledger-initialization-receipt", type=Path)
+    parser.add_argument("--controlled-private-root", type=Path)
+    parser.add_argument(
+        "--recovery-cohort-policy",
+        type=Path,
+        help=(
+            "Cohort policy committed by the recovery run; required with "
+            "--recovery-run-card."
+        ),
+    )
 
 
 def _add_acquisition_prepare_disclosure_review_arguments(
@@ -36295,12 +36327,36 @@ def _verify_materializer_clearance_lineage(
             expected_restriction_path=restriction_path,
             captured_artifact_bytes=verified_snapshot,
         )
+        clearance_records = _projection_jsonl_records(
+            verified_snapshot[os.path.abspath(clearance_path)],
+            source=clearance_path,
+        )
+        recovered_lineages = [
+            cast(Mapping[str, object], lineage)
+            for record in clearance_records
+            if isinstance(lineage := record.get("recovered_public_lineage"), Mapping)
+        ]
+        authenticated_recovery_capability = (
+            _issue_recovered_public_clearance_capability(recovered_lineages)
+            if recovered_lineages
+            else None
+        )
         return {
-            "lineage_kind": "provider_free_exception_quarantine",
+            "lineage_kind": (
+                "provider_free_recovered_public"
+                if authenticated_recovery_capability is not None
+                else "provider_free_exception_quarantine"
+            ),
             "verified_artifact_bytes": verified_snapshot,
-            "clearance_records": _projection_jsonl_records(
-                verified_snapshot[os.path.abspath(clearance_path)],
-                source=clearance_path,
+            "clearance_records": clearance_records,
+            **(
+                {
+                    "authenticated_recovery_capability": (
+                        authenticated_recovery_capability
+                    )
+                }
+                if authenticated_recovery_capability is not None
+                else {}
             ),
             "manifest_path": manifest_path,
             "case_relevance_path": case_relevance_path,
@@ -36528,6 +36584,48 @@ def _materializer_clearance_lineage_kwargs(
     run_card_path: Path,
     lineage: Mapping[str, object],
 ) -> dict[str, Any]:
+    if lineage.get("lineage_kind") == "provider_free_recovered_public":
+        restriction_path = cast(Path, lineage["restriction_path"])
+        routing_plan_path = cast(Path, lineage["routing_plan_path"])
+        worksheet_path = cast(Path, lineage["worksheet_path"])
+        cohort_policy_path = cast(Path, lineage["cohort_policy_path"])
+        manifest_path = cast(Path, lineage["manifest_path"])
+        verified_bytes = cast(Mapping[str, bytes], lineage["verified_artifact_bytes"])
+
+        def snapshot_bytes(path: Path) -> bytes:
+            try:
+                return verified_bytes[os.path.abspath(path)]
+            except KeyError:
+                return _read_singly_linked_regular_input(
+                    path, label="verified recovered-public downstream input"
+                )
+
+        return {
+            "clearance_artifact_bytes": snapshot_bytes(clearance_path),
+            "clearance_run_card": _projection_json_object(
+                snapshot_bytes(run_card_path), source=run_card_path
+            ),
+            "clearance_run_card_bytes": snapshot_bytes(run_card_path),
+            "reviews_artifact_bytes": b"",
+            "review_receipt_artifact": {},
+            "review_receipt_bytes": b"",
+            "review_requests_artifact_bytes": b"",
+            "review_worksheet_artifact": _projection_json_object(
+                snapshot_bytes(worksheet_path), source=worksheet_path
+            ),
+            "review_worksheet_bytes": snapshot_bytes(worksheet_path),
+            "reviewer_policy_bytes": snapshot_bytes(routing_plan_path),
+            "disclosure_authority": None,
+            "cohort_policy_artifact_bytes": snapshot_bytes(cohort_policy_path),
+            "download_manifest_artifact_bytes": snapshot_bytes(manifest_path),
+            "restriction_records": cast(
+                Sequence[Mapping[str, Any]], lineage["restriction_records"]
+            ),
+            "restriction_artifact_bytes": snapshot_bytes(restriction_path),
+            "_verified_recovery_capability": lineage[
+                "authenticated_recovery_capability"
+            ],
+        }
     if lineage.get("lineage_kind") == "provenance_first_with_john_exceptions":
         requests_path = cast(Path, lineage["requests_path"])
         worksheet_path = cast(Path, lineage["worksheet_path"])
@@ -36618,6 +36716,14 @@ def _build_resolved_post_recovery_dispatch(
 
     values = dict(kwargs)
     verified = values.pop("_verified_provenance_capability", None)
+    recovered = values.pop("_verified_recovery_capability", None)
+    if recovered is not None:
+        if verified is not None:
+            raise CommandError("conflicting resolved clearance capabilities")
+        return _build_resolved_recovered_public(
+            **values,
+            verified_recovery_capability=recovered,
+        )
     if verified is None:
         return build_resolved_post_recovery_documents(**values)
     return _build_resolved_post_recovery_documents_with_authenticated_lineage(
@@ -36631,6 +36737,15 @@ def _require_resolved_post_recovery_dispatch(**kwargs: Any) -> None:
 
     values = dict(kwargs)
     verified = values.pop("_verified_provenance_capability", None)
+    recovered = values.pop("_verified_recovery_capability", None)
+    if recovered is not None:
+        if verified is not None:
+            raise CommandError("conflicting resolved clearance capabilities")
+        _require_resolved_recovered_public(
+            **values,
+            verified_recovery_capability=recovered,
+        )
+        return
     if verified is None:
         require_resolved_post_recovery_documents(**values)
         return
@@ -39960,6 +40075,262 @@ def _require_provenance_document_snapshot_unchanged(
         raise CommandError("disclosure document bytes changed during execution")
 
 
+def _recovered_public_lineage_digest(value: object, *, label: str) -> str:
+    """Convert one canonical artifact commitment to the bare lineage form."""
+
+    if (
+        not isinstance(value, str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", value) is None
+    ):
+        raise ProvenanceClearanceError(
+            f"recovered-public {label} must be a canonical SHA-256 commitment"
+        )
+    return value.removeprefix("sha256:")
+
+
+def _derive_recovered_public_lineage_rows(
+    recovery: Mapping[str, object],
+    *,
+    purchase_snapshot: CaseDevPurchaseSnapshot,
+    expected_manifest_path: Path,
+    expected_restriction_path: Path,
+) -> list[dict[str, object]]:
+    """Rebuild recovered-public evidence only from authenticated source bytes."""
+
+    raw_verified = recovery.get("verified_artifact_bytes")
+    raw_manifest_records = recovery.get("manifest_records")
+    recovery_run_card_path = recovery.get("run_card_path")
+    if (
+        not isinstance(raw_verified, Mapping)
+        or not isinstance(raw_manifest_records, Sequence)
+        or isinstance(raw_manifest_records, (str, bytes))
+        or not all(
+            isinstance(record, Mapping)
+            for record in cast(Sequence[object], raw_manifest_records)
+        )
+        or not isinstance(recovery_run_card_path, Path)
+    ):
+        raise CommandError("recovered-public verification lacks exact recovery bytes")
+    verified_bytes = cast(Mapping[str, bytes], raw_verified)
+    manifest_records = cast(Sequence[Mapping[str, Any]], raw_manifest_records)
+    try:
+        recovery_run_card_bytes = verified_bytes[
+            os.path.abspath(recovery_run_card_path)
+        ]
+        recovery_manifest_bytes = verified_bytes[
+            os.path.abspath(expected_manifest_path)
+        ]
+        restriction_bytes = verified_bytes[os.path.abspath(expected_restriction_path)]
+    except KeyError as exc:
+        raise CommandError(
+            "recovered-public verification lacks exact recovery bytes"
+        ) from exc
+    recovery_run_card = _projection_json_object(
+        recovery_run_card_bytes, source=recovery_run_card_path
+    )
+    raw_outputs = recovery_run_card.get("output_commitments")
+    if (
+        not isinstance(raw_outputs, Mapping)
+        or cast(Mapping[str, object], raw_outputs).get("purchase_state_sha256")
+        != purchase_snapshot.purchase_state_sha256
+    ):
+        raise CommandError("recovered-public purchase state changed after recovery")
+    operations = _materializer_record_index(
+        purchase_snapshot.operations, label="recovered-public purchase operations"
+    )
+    restrictions = _materializer_record_index(
+        _projection_jsonl_records(restriction_bytes, source=expected_restriction_path),
+        label="recovered-public restriction evidence",
+    )
+    recovery_run_card_sha256 = _recovered_public_lineage_digest(
+        _bytes_sha256(recovery_run_card_bytes), label="recovery run card"
+    )
+    recovery_manifest_sha256 = _recovered_public_lineage_digest(
+        _bytes_sha256(recovery_manifest_bytes), label="recovery manifest"
+    )
+    recovery_restriction_sha256 = _recovered_public_lineage_digest(
+        _bytes_sha256(restriction_bytes), label="recovery restriction evidence"
+    )
+    lineage_rows: list[dict[str, object]] = []
+    for manifest_record in manifest_records:
+        key = _materializer_record_key(manifest_record)
+        operation = operations.get(key)
+        restriction = restrictions.get(key)
+        if operation is None or restriction is None:
+            raise CommandError(
+                f"recovered-public recovery lacks exact purchase evidence: {key}"
+            )
+        material = operation.get("material_evidence")
+        operation_key = operation.get("operation_key")
+        fresh_recap_detail_sha256 = manifest_record.get("fresh_recap_detail_sha256")
+        if (
+            not isinstance(material, Mapping)
+            or not isinstance(operation_key, str)
+            or operation_key != manifest_record.get("purchase_operation_key")
+            or not isinstance(fresh_recap_detail_sha256, str)
+            or cast(Mapping[str, object], material).get("provider_detail_sha256")
+            != fresh_recap_detail_sha256
+            or restriction.get("fresh_recap_detail_sha256") != fresh_recap_detail_sha256
+        ):
+            raise CommandError(
+                f"recovered-public purchase or fresh-detail identity changed: {key}"
+            )
+        lineage_rows.append(
+            {
+                "candidate_id": key[0],
+                "source_document_id": key[1],
+                "recovery_run_card_sha256": recovery_run_card_sha256,
+                "recovery_manifest_sha256": recovery_manifest_sha256,
+                "recovery_restriction_evidence_sha256": (recovery_restriction_sha256),
+                "purchase_state_sha256": purchase_snapshot.purchase_state_sha256,
+                "purchase_operation_sha256": _recovered_public_lineage_digest(
+                    _canonical_json_sha256(operation), label="purchase operation"
+                ),
+                "purchase_operation_key": operation_key,
+                "fresh_recap_detail_sha256": fresh_recap_detail_sha256,
+            }
+        )
+    return lineage_rows
+
+
+def _verified_recovered_public_clearance_capability(
+    args: argparse.Namespace,
+    *,
+    expected_manifest_path: Path,
+    expected_restriction_path: Path,
+    expected_case_relevance_path: Path,
+    expected_review_requests_path: Path,
+    expected_document_root: Path,
+) -> tuple[object | None, dict[str, object] | None, tuple[Path, ...]]:
+    """Authenticate recovery and current purchase state before issuing authority."""
+
+    names = (
+        "recovery_run_card",
+        "selection",
+        "purchase_policy",
+        "purchase_ledger",
+        "purchase_ledger_initialization_receipt",
+        "recovery_cohort_policy",
+    )
+    values = {name: cast(Path | None, getattr(args, name, None)) for name in names}
+    if all(value is None for value in values.values()):
+        return None, None, ()
+    missing = [name for name, value in values.items() if value is None]
+    if missing:
+        raise CommandError(
+            "recovered-public verification arguments must be supplied together: "
+            + ", ".join(f"--{name.replace('_', '-')}" for name in missing)
+        )
+    paths = cast(dict[str, Path], values)
+    run_card_path = paths["recovery_run_card"]
+    selection_path = paths["selection"]
+    purchase_policy_path = paths["purchase_policy"]
+    ledger_path = paths["purchase_ledger"].resolve()
+    initialization_receipt_path = paths["purchase_ledger_initialization_receipt"]
+    cohort_policy_path = paths["recovery_cohort_policy"]
+    selection_bytes = _read_singly_linked_regular_input(
+        selection_path, label="recovered-public selection"
+    )
+    selection_records = _projection_jsonl_records(
+        selection_bytes, source=selection_path
+    )
+    selected_document_keys = _replacement_consolidation_selection_keys(
+        selection_records
+    )
+    recovery = _verify_materializer_quarantine_recovery(
+        recovery_root=run_card_path.parents[1],
+        run_card_path=run_card_path,
+        selection_path=selection_path,
+        selected_document_keys=selected_document_keys,
+        purchase_policy_path=purchase_policy_path,
+        cohort_policy_path=cohort_policy_path,
+        ledger_path=ledger_path,
+    )
+    expected_paths = {
+        "manifest_path": expected_manifest_path,
+        "restriction_path": expected_restriction_path,
+        "case_relevance_path": expected_case_relevance_path,
+        "review_requests_path": expected_review_requests_path,
+        "document_root": expected_document_root,
+    }
+    for name, expected in expected_paths.items():
+        actual = recovery.get(name)
+        if not isinstance(actual, Path) or actual.resolve() != expected.resolve():
+            label = name.replace("_", " ")
+            raise CommandError(
+                f"recovered-public verification committed different {label}"
+            )
+    purchase_policy_bytes = _read_singly_linked_regular_input(
+        purchase_policy_path, label="recovered-public purchase policy"
+    )
+    cohort_policy_bytes = _read_singly_linked_regular_input(
+        cohort_policy_path, label="recovered-public cohort policy"
+    )
+    initialization_receipt_bytes = _read_singly_linked_regular_input(
+        initialization_receipt_path,
+        label="recovered-public purchase ledger initialization receipt",
+    )
+    purchase_policy = verify_case_dev_purchase_policy(
+        _projection_json_object(purchase_policy_bytes, source=purchase_policy_path)
+    )
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    require_approved_case_dev_purchase_policy(
+        purchase_policy, controlled_private_root=controlled_private_root
+    )
+    verify_case_dev_purchase_policy_cohort_binding(
+        purchase_policy,
+        _projection_json_object(cohort_policy_bytes, source=cohort_policy_path),
+    )
+    if ledger_path != purchase_policy.canonical_ledger_path:
+        raise CommandError(
+            "--purchase-ledger conflicts with the canonical policy locator"
+        )
+    purchase_snapshot = read_case_dev_purchase_snapshot(
+        ledger_path,
+        policy=purchase_policy,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt_path,
+    )
+    raw_verified = recovery.get("verified_artifact_bytes")
+    if not isinstance(raw_verified, Mapping):
+        raise CommandError("recovered-public verification lacks exact recovery bytes")
+    verified_bytes = cast(Mapping[str, bytes], raw_verified)
+    run_card_bytes = verified_bytes[os.path.abspath(run_card_path)]
+    lineage_rows = _derive_recovered_public_lineage_rows(
+        recovery,
+        purchase_snapshot=purchase_snapshot,
+        expected_manifest_path=expected_manifest_path,
+        expected_restriction_path=expected_restriction_path,
+    )
+    capability = _issue_recovered_public_clearance_capability(lineage_rows)
+    authority: dict[str, object] = {
+        "kind": "verified_recap_fetch_recovery",
+        "recovery_run_card": _file_commitment_from_bytes(run_card_path, run_card_bytes),
+        "recovery_manifest_sha256": _bytes_sha256(
+            verified_bytes[os.path.abspath(expected_manifest_path)]
+        ),
+        "recovery_restriction_evidence_sha256": _bytes_sha256(
+            verified_bytes[os.path.abspath(expected_restriction_path)]
+        ),
+        "selection": _file_commitment_from_bytes(selection_path, selection_bytes),
+        "purchase_policy": _file_commitment_from_bytes(
+            purchase_policy_path, purchase_policy_bytes
+        ),
+        "purchase_ledger": {
+            "path": str(ledger_path),
+            "purchase_state_sha256": purchase_snapshot.purchase_state_sha256,
+        },
+        "purchase_ledger_initialization_receipt": _file_commitment_from_bytes(
+            initialization_receipt_path, initialization_receipt_bytes
+        ),
+        "cohort_policy": _file_commitment_from_bytes(
+            cohort_policy_path, cohort_policy_bytes
+        ),
+        "document_count": len(lineage_rows),
+    }
+    return capability, authority, tuple(paths.values())
+
+
 def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int:
     stage = "plan-disclosure-provenance"
     output_root = _acquisition_output_root(args)
@@ -40024,6 +40395,22 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         manifest_records = _projection_jsonl_records(
             source_bytes["download_manifest"], source=manifest_path
         )
+        (
+            verified_recovery_capability,
+            recovered_public_authority,
+            recovery_input_paths,
+        ) = _verified_recovered_public_clearance_capability(
+            args,
+            expected_manifest_path=manifest_path,
+            expected_restriction_path=restriction_path,
+            expected_case_relevance_path=relevance_path,
+            expected_review_requests_path=requests_path,
+            expected_document_root=document_root,
+        )
+        if verified_recovery_capability is not None and selected_schema != "v3":
+            raise ProvenanceClearanceError(
+                "recovered-public verification requires --schema-version v3"
+            )
         document_snapshot = _capture_provenance_document_snapshot(
             manifest_records, document_root=document_root
         )
@@ -40047,6 +40434,9 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
                         "resume requires a frozen routing plan or exception worksheet "
                         "to select the PDF scanner version"
                     )
+        plan_kwargs: dict[str, object] = {}
+        if verified_recovery_capability is not None:
+            plan_kwargs["verified_recovery_capability"] = verified_recovery_capability
         plan = plan_builder(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=requests_path
@@ -40065,6 +40455,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
             document_scanner=document_scanner,
+            **plan_kwargs,
         )
         worksheet = worksheet_builder(plan)
         inspection = build_exception_inspection_map(
@@ -40106,6 +40497,8 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         "tree_sha256": _canonical_json_sha256(document_tree),
         "document_count": len(document_tree),
     }
+    if recovered_public_authority is not None:
+        source_commitments["recovered_public_authority"] = recovered_public_authority
     output_commitments = (
         {}
         if dry_run
@@ -40133,7 +40526,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     terminal_metadata_present = _completed_disclosure_review_resume(
         args,
         stage=stage,
-        input_paths=(*input_paths, document_root),
+        input_paths=(*input_paths, *recovery_input_paths, document_root),
         output_paths=(plan_path, worksheet_path),
         record_count=cast(int, plan["document_count"]),
         expected_extra=completion_extra,
@@ -40159,7 +40552,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         if not _completed_disclosure_review_resume(
             args,
             stage=stage,
-            input_paths=(*input_paths, document_root),
+            input_paths=(*input_paths, *recovery_input_paths, document_root),
             output_paths=(plan_path, worksheet_path),
             record_count=cast(int, plan["document_count"]),
             expected_extra=completion_extra,
@@ -40170,7 +40563,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     _write_acquisition_completion(
         args,
         stage=stage,
-        input_paths=(*input_paths, document_root),
+        input_paths=(*input_paths, *recovery_input_paths, document_root),
         output_paths=(plan_path, worksheet_path),
         record_count=cast(int, plan["document_count"]),
         dry_run=dry_run,
@@ -40437,6 +40830,18 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         manifest_records = _projection_jsonl_records(
             source_bytes["download_manifest"], source=manifest_path
         )
+        (
+            verified_recovery_capability,
+            recovered_public_authority,
+            recovery_input_paths,
+        ) = _verified_recovered_public_clearance_capability(
+            args,
+            expected_manifest_path=manifest_path,
+            expected_restriction_path=restriction_path,
+            expected_case_relevance_path=relevance_path,
+            expected_review_requests_path=requests_path,
+            expected_document_root=document_root,
+        )
         document_snapshot = _capture_provenance_document_snapshot(
             manifest_records, document_root=document_root
         )
@@ -40461,6 +40866,7 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
             document_scanner=document_scanner_for_plan(frozen_plan),
+            verified_recovery_capability=verified_recovery_capability,
         )
         plan_bytes = canonical_json_bytes(recomputed_plan)
         if plan_bytes != source_bytes["routing_plan"]:
@@ -40532,7 +40938,12 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         "auto_clear_count": recomputed_plan["auto_clear_count"],
         "exception_quarantine_count": len(quarantined),
         "input_paths": [
-            str(path.resolve()) for path in (*source_paths.values(), document_root)
+            str(path.resolve())
+            for path in (
+                *source_paths.values(),
+                *recovery_input_paths,
+                document_root,
+            )
         ],
         "source_commitments": source_commitments,
         "output_paths": [
@@ -40552,6 +40963,11 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             "exception_quarantine_count": len(quarantined),
             "human_or_model_override_permitted": False,
         },
+        **(
+            {"recovered_public_authority": recovered_public_authority}
+            if recovered_public_authority is not None
+            else {}
+        ),
     }
     run_card_bytes = canonical_json_bytes(run_card)
     if run_card_path.exists() or run_card_path.is_symlink():
@@ -42101,7 +42517,14 @@ def _authenticated_clearance_lineage_inputs(
             if isinstance(authority, Mapping)
             else None
         )
-        if authority_kind == "provenance_first_with_john_exceptions":
+        provider_free_run_card = (
+            run_card.get("schema_version")
+            == "legalforecast.provenance_quarantine_clearance_run_card.v1"
+        )
+        if (
+            authority_kind == "provenance_first_with_john_exceptions"
+            or provider_free_run_card
+        ):
             clearance_snapshot = _capture_clearance_artifact_snapshot(
                 run_card=run_card,
                 run_card_path=clearance_run_card_path,
@@ -42137,9 +42560,18 @@ def _authenticated_clearance_lineage_inputs(
                 raise ResolvedPostRecoveryError(
                     "clear-disclosures committed different restriction evidence"
                 )
-            paths = tuple(
-                cast(Path, lineage[name])
-                for name in (
+            lineage_path_names = (
+                (
+                    "manifest_path",
+                    "case_relevance_path",
+                    "restriction_path",
+                    "requests_path",
+                    "worksheet_path",
+                    "routing_plan_path",
+                    "cohort_policy_path",
+                )
+                if provider_free_run_card
+                else (
                     "manifest_path",
                     "restriction_path",
                     "requests_path",
@@ -42150,6 +42582,7 @@ def _authenticated_clearance_lineage_inputs(
                     "cohort_policy_path",
                 )
             )
+            paths = tuple(cast(Path, lineage[name]) for name in lineage_path_names)
             return (
                 _materializer_clearance_lineage_kwargs(
                     clearance_path=clearance_path,
@@ -42633,6 +43066,12 @@ def _verify_provider_free_provenance_quarantine_run_card(
 ) -> tuple[Path, ...]:
     """Replay a v3 plan whose exception rows are all quarantined."""
 
+    raw_recovered_authority = run_card.get("recovered_public_authority")
+    recovered_authority = (
+        cast(Mapping[str, object], raw_recovered_authority)
+        if isinstance(raw_recovered_authority, Mapping)
+        else None
+    )
     expected_fields = {
         "schema_version",
         "stage",
@@ -42654,6 +43093,8 @@ def _verify_provider_free_provenance_quarantine_run_card(
         "output_commitments",
         "disposition_policy",
     }
+    if recovered_authority is not None:
+        expected_fields.add("recovered_public_authority")
     if (
         set(run_card) != expected_fields
         or run_card.get("schema_version")
@@ -42735,9 +43176,102 @@ def _verify_provider_free_provenance_quarantine_run_card(
         raise CommandError(
             "provider-free quarantine committed different clearance artifact"
         )
+    recovery_input_paths: tuple[Path, ...] = ()
+    recovery_capability: object | None = None
+    recovery: Mapping[str, object] | None = None
+    purchase_policy_path: Path | None = None
+    initialization_receipt_path: Path | None = None
+    recovery_cohort_policy_path: Path | None = None
+    ledger_path: Path | None = None
+    state_sha256: str | None = None
+    if recovered_authority is not None:
+        if (
+            set(recovered_authority)
+            != {
+                "kind",
+                "recovery_run_card",
+                "recovery_manifest_sha256",
+                "recovery_restriction_evidence_sha256",
+                "selection",
+                "purchase_policy",
+                "purchase_ledger",
+                "purchase_ledger_initialization_receipt",
+                "cohort_policy",
+                "document_count",
+            }
+            or recovered_authority.get("kind") != "verified_recap_fetch_recovery"
+        ):
+            raise CommandError("invalid recovered-public clearance authority")
+        recovery_run_card_path = _materializer_committed_path(
+            recovered_authority, "recovery_run_card"
+        )
+        selection_path = _materializer_committed_path(recovered_authority, "selection")
+        purchase_policy_path = _materializer_committed_path(
+            recovered_authority, "purchase_policy"
+        )
+        initialization_receipt_path = _materializer_committed_path(
+            recovered_authority, "purchase_ledger_initialization_receipt"
+        )
+        recovery_cohort_policy_path = _materializer_committed_path(
+            recovered_authority, "cohort_policy"
+        )
+        raw_ledger = recovered_authority.get("purchase_ledger")
+        if not isinstance(raw_ledger, Mapping):
+            raise CommandError("recovered-public authority lacks purchase ledger")
+        ledger_commitment = cast(Mapping[str, object], raw_ledger)
+        ledger_path_text = ledger_commitment.get("path")
+        raw_state_sha256 = ledger_commitment.get("purchase_state_sha256")
+        if (
+            not isinstance(ledger_path_text, str)
+            or not ledger_path_text
+            or not isinstance(raw_state_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", raw_state_sha256) is None
+        ):
+            raise CommandError("invalid recovered-public purchase ledger commitment")
+        ledger_path = Path(ledger_path_text)
+        state_sha256 = raw_state_sha256
+        selection_records = _projection_jsonl_records(
+            _read_singly_linked_regular_input(
+                selection_path, label="recovered-public selection"
+            ),
+            source=selection_path,
+        )
+        recovery = _verify_materializer_quarantine_recovery(
+            recovery_root=recovery_run_card_path.parents[1],
+            run_card_path=recovery_run_card_path,
+            selection_path=selection_path,
+            selected_document_keys=_replacement_consolidation_selection_keys(
+                selection_records
+            ),
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=recovery_cohort_policy_path,
+            ledger_path=ledger_path,
+        )
+        for field, expected in (
+            ("manifest_path", paths["download_manifest"]),
+            ("restriction_path", paths["restriction_evidence"]),
+            ("case_relevance_path", paths["case_relevance"]),
+            ("review_requests_path", paths["review_requests"]),
+            ("document_root", document_root),
+        ):
+            actual = recovery.get(field)
+            if not isinstance(actual, Path) or actual.resolve() != expected.resolve():
+                raise CommandError(
+                    f"recovered-public authority changed {field.replace('_', ' ')}"
+                )
+        recovery_input_paths = (
+            recovery_run_card_path,
+            selection_path,
+            purchase_policy_path,
+            ledger_path,
+            initialization_receipt_path,
+            recovery_cohort_policy_path,
+        )
     if run_card.get("input_paths") != [
         str(paths[name].resolve()) for name in source_names
-    ] + [str(document_root.resolve())]:
+    ] + [str(path.resolve()) for path in recovery_input_paths] + [
+        str(document_root.resolve())
+    ]:
         raise CommandError("provider-free provenance quarantine input paths differ")
     if run_card.get("output_paths") != [
         str(committed_clearance.resolve()),
@@ -42802,6 +43336,107 @@ def _verify_provider_free_provenance_quarantine_run_card(
         frozen_plan = _projection_json_object(
             source_bytes["routing_plan"], source=paths["routing_plan"]
         )
+        if recovered_authority is not None:
+            raw_documents = frozen_plan.get("documents")
+            if (
+                not isinstance(raw_documents, list)
+                or recovery is None
+                or purchase_policy_path is None
+                or initialization_receipt_path is None
+                or recovery_cohort_policy_path is None
+                or ledger_path is None
+                or state_sha256 is None
+            ):
+                raise ProvenanceClearanceError(
+                    "recovered-public routing plan lacks documents"
+                )
+            lineage_rows: list[Mapping[str, object]] = []
+            for raw_document in cast(list[object], raw_documents):
+                if not isinstance(raw_document, Mapping):
+                    raise ProvenanceClearanceError(
+                        "recovered-public routing plan document is invalid"
+                    )
+                raw_lineage = cast(Mapping[str, object], raw_document).get(
+                    "recovered_public_lineage"
+                )
+                if isinstance(raw_lineage, Mapping):
+                    lineage_rows.append(cast(Mapping[str, object], raw_lineage))
+            purchase_policy_bytes = _read_singly_linked_regular_input(
+                purchase_policy_path, label="recovered-public purchase policy"
+            )
+            recovery_cohort_policy_bytes = _read_singly_linked_regular_input(
+                recovery_cohort_policy_path,
+                label="recovered-public cohort policy",
+            )
+            purchase_policy = verify_case_dev_purchase_policy(
+                _projection_json_object(
+                    purchase_policy_bytes, source=purchase_policy_path
+                )
+            )
+            require_approved_case_dev_purchase_policy(purchase_policy)
+            verify_case_dev_purchase_policy_cohort_binding(
+                purchase_policy,
+                _projection_json_object(
+                    recovery_cohort_policy_bytes,
+                    source=recovery_cohort_policy_path,
+                ),
+            )
+            if ledger_path.resolve() != purchase_policy.canonical_ledger_path:
+                raise CommandError(
+                    "recovered-public ledger conflicts with the canonical policy "
+                    "locator"
+                )
+            purchase_snapshot = read_case_dev_purchase_snapshot(
+                ledger_path,
+                policy=purchase_policy,
+                initialization_receipt_path=initialization_receipt_path,
+            )
+            expected_lineage_rows = _derive_recovered_public_lineage_rows(
+                recovery,
+                purchase_snapshot=purchase_snapshot,
+                expected_manifest_path=paths["download_manifest"],
+                expected_restriction_path=paths["restriction_evidence"],
+            )
+            recovery_bytes = cast(
+                Mapping[str, bytes], recovery["verified_artifact_bytes"]
+            )
+            expected_authority = {
+                "recovery_manifest_sha256": _bytes_sha256(
+                    recovery_bytes[
+                        os.path.abspath(cast(Path, recovery["manifest_path"]))
+                    ]
+                ),
+                "recovery_restriction_evidence_sha256": _bytes_sha256(
+                    recovery_bytes[
+                        os.path.abspath(cast(Path, recovery["restriction_path"]))
+                    ]
+                ),
+            }
+            if (
+                type(recovered_authority.get("document_count")) is not int
+                or recovered_authority.get("document_count")
+                != len(expected_lineage_rows)
+                or any(
+                    recovered_authority.get(field) != value
+                    for field, value in expected_authority.items()
+                )
+                or state_sha256 != purchase_snapshot.purchase_state_sha256
+            ):
+                raise ProvenanceClearanceError(
+                    "recovered-public authority evidence changed"
+                )
+            if _materializer_record_index(
+                lineage_rows, label="recovered-public routing lineage"
+            ) != _materializer_record_index(
+                expected_lineage_rows,
+                label="authenticated recovered-public lineage",
+            ):
+                raise ProvenanceClearanceError(
+                    "recovered-public routing lineage changed"
+                )
+            recovery_capability = _issue_recovered_public_clearance_capability(
+                expected_lineage_rows
+            )
         plan = build_provenance_clearance_plan_v3(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=paths["review_requests"]
@@ -42821,6 +43456,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
             case_relevance_bytes=source_bytes["case_relevance"],
             document_bytes_by_relative_path=document_snapshot,
             document_scanner=document_scanner_for_plan(frozen_plan),
+            verified_recovery_capability=recovery_capability,
         )
         plan_bytes = canonical_json_bytes(plan)
         if plan_bytes != source_bytes["routing_plan"]:
@@ -42884,6 +43520,8 @@ def _verify_provider_free_provenance_quarantine_run_card(
             document_snapshot, document_root=document_root
         )
     except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
         CohortPolicyError,
         OSError,
         ProvenanceClearanceError,

@@ -10,6 +10,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.ingestion.disclosure_clearance import (
+    DisclosureClearanceError,
+    require_clearance_policy,
+)
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 
 SCHEMA_VERSION = "legalforecast.decision_text.v1"
@@ -400,17 +404,7 @@ def _build_decision_text_records(
                     if parser_provenance == "fixture_markdown"
                     else {}
                 ),
-                "clearance": {
-                    "status": "cleared",
-                    "restriction_status": _required_str(
-                        clearance, "restriction_status"
-                    ),
-                    "reviewer_id": _required_str(clearance, "reviewer_id"),
-                    "controlled_store_provenance": _required_str(
-                        clearance, "controlled_store_provenance"
-                    ),
-                    "reviewed_at": _required_str(clearance, "reviewed_at"),
-                },
+                "clearance": _decision_text_clearance(clearance),
                 "input_commitments": dict(normalized_commitments),
             }
         )
@@ -419,6 +413,63 @@ def _build_decision_text_records(
             "decision text count does not reconcile selected candidate count"
         )
     return tuple(output)
+
+
+def _decision_text_clearance(clearance: Mapping[str, Any]) -> dict[str, object]:
+    """Project clearance while preserving the legacy human bytes exactly."""
+
+    if clearance.get("clearance_basis") != "provider_free_recovered_public":
+        return {
+            "status": "cleared",
+            "restriction_status": _required_str(clearance, "restriction_status"),
+            "reviewer_id": _required_str(clearance, "reviewer_id"),
+            "controlled_store_provenance": _required_str(
+                clearance, "controlled_store_provenance"
+            ),
+            "reviewed_at": _required_str(clearance, "reviewed_at"),
+        }
+    lineage = _mapping(
+        clearance.get("recovered_public_lineage"), "recovered_public_lineage"
+    )
+    projected: dict[str, object] = {
+        "status": "cleared",
+        "restriction_status": _required_str(clearance, "restriction_status"),
+        "restriction_evidence": list(
+            _required_nonempty_strings(clearance, "restriction_evidence")
+        ),
+        "reviewer_id": None,
+        "controlled_store_provenance": _required_str(
+            clearance, "controlled_store_provenance"
+        ),
+        "reviewed_at": None,
+        "free_or_purchased": "purchased",
+        "clearance_basis": "provider_free_recovered_public",
+        "routing_plan_sha256": _required_sha256(clearance, "routing_plan_sha256"),
+        "recovered_public_lineage": dict(lineage),
+    }
+    return projected
+
+
+def _validate_decision_text_clearance(
+    clearance: Mapping[str, Any],
+    *,
+    key: DocumentKey,
+    label: str,
+) -> None:
+    if clearance.get("clearance_basis") == "provider_free_recovered_public":
+        try:
+            require_clearance_policy(clearance, key=key, label=label)
+        except DisclosureClearanceError as exc:
+            raise DecisionTextArtifactError(str(exc)) from exc
+        return
+    if not _required_str(clearance, "controlled_store_provenance").startswith(
+        "private-store://"
+    ):
+        raise DecisionTextArtifactError(
+            f"{label} clearance lacks controlled-store provenance: {key[0]}"
+        )
+    _required_str(clearance, "reviewer_id")
+    _required_str(clearance, "reviewed_at")
 
 
 def _validate_manifest(
@@ -589,14 +640,9 @@ def _validate_verified_record(
         raise DecisionTextArtifactError(
             f"decision text is sealed/private/restricted: {candidate_id}"
         )
-    if not _required_str(clearance, "controlled_store_provenance").startswith(
-        "private-store://"
-    ):
-        raise DecisionTextArtifactError(
-            f"decision text clearance lacks controlled-store provenance: {candidate_id}"
-        )
-    _required_str(clearance, "reviewer_id")
-    _required_str(clearance, "reviewed_at")
+    _validate_decision_text_clearance(
+        clearance, key=(candidate_id, document_id), label="decision text"
+    )
 
     key = (candidate_id, document_id)
     try:
@@ -906,14 +952,10 @@ def _validate_document_binding(
     _require_public_document(selection_document, key=key, require_explicit_status=False)
     _require_public_document(clearance, key=key)
     _require_public_document(restriction, key=key)
-    for field in ("reviewer_id", "controlled_store_provenance", "reviewed_at"):
-        _required_str(clearance, field)
-    if not _required_str(clearance, "controlled_store_provenance").startswith(
-        "private-store://"
-    ):
-        raise DecisionTextArtifactError(
-            f"clearance lacks controlled-store provenance: {key}"
-        )
+    try:
+        require_clearance_policy(clearance, key=key, label="decision document")
+    except DisclosureClearanceError as exc:
+        raise DecisionTextArtifactError(str(exc)) from exc
     _required_nonempty_strings(clearance, "restriction_evidence")
     _required_nonempty_strings(restriction, "restriction_evidence")
     manifest_sha = _required_sha256(manifest, "sha256")

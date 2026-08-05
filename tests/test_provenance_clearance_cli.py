@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from argparse import Namespace
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import cast
@@ -209,6 +210,7 @@ def _install_document_scanner(
             restriction_evidence_bytes=cast(bytes, typed["restriction_evidence_bytes"]),
             case_relevance_bytes=cast(bytes, typed["case_relevance_bytes"]),
             document_scanner=fixture_scanner,
+            verified_recovery_capability=typed.get("verified_recovery_capability"),
         )
 
     monkeypatch.setattr(
@@ -430,6 +432,365 @@ def test_provenance_planner_v3_emits_reviewer_neutral_artifacts_and_resumes(
     assert snapshots == {
         path: (path.read_bytes(), path.stat().st_ino) for path in output_paths
     }
+
+
+def test_recovered_public_capability_flows_through_planner_and_finalizer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = _inputs(tmp_path)
+    operation_key = "00000000-0000-4000-8000-000000000000"
+    fresh_sha = "2" * 64
+    manifest = [json.loads(line) for line in paths["manifest"].read_text().splitlines()]
+    restrictions = [
+        json.loads(line) for line in paths["restrictions"].read_text().splitlines()
+    ]
+    requests = [json.loads(line) for line in paths["requests"].read_text().splitlines()]
+    relevance = json.loads(paths["relevance"].read_text())
+    manifest[0].update(
+        {
+            "free_or_purchased": "purchased",
+            "source_provider": "courtlistener_recap_fetch",
+            "source_url": None,
+            "purchase_operation_key": operation_key,
+            "fresh_recap_detail_sha256": fresh_sha,
+        }
+    )
+    restrictions[0].update(
+        {
+            "schema_version": "legalforecast.post_recovery_restriction_evidence.v1",
+            "source_provider": "courtlistener_recap_fetch_fresh_detail",
+            "fresh_recap_detail_sha256": fresh_sha,
+            "is_available": True,
+            "is_sealed": False,
+            "is_private": None,
+            "redaction_or_seal_status": "public",
+            "restriction_status": "public",
+            "restriction_evidence": [
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+            ],
+        }
+    )
+    requests[0].update(
+        {
+            "free_or_purchased": "purchased",
+            "restriction_status": "public",
+            "restriction_evidence": restrictions[0]["restriction_evidence"],
+        }
+    )
+    relevance["documents"][0]["source_url_or_reference"] = "recap-document:auto"
+    _jsonl(paths["manifest"], manifest)
+    _jsonl(paths["restrictions"], restrictions)
+    _jsonl(paths["requests"], requests)
+    _jsonl(paths["relevance"], [relevance])
+    purchase_state_sha256 = "6" * 64
+    operation = {
+        "candidate_id": "case-a",
+        "source_document_id": "auto",
+        "operation_key": operation_key,
+        "material_evidence": {"provider_detail_sha256": fresh_sha},
+    }
+    recovery_root = tmp_path / "recovery"
+    recovery_run_card_path = (
+        recovery_root / "run-cards/recover-recap-fetch-quarantine.json"
+    )
+    recovery_run_card_path.parent.mkdir(parents=True)
+    recovery_run_card_path.write_text(
+        json.dumps(
+            {"output_commitments": {"purchase_state_sha256": purchase_state_sha256}},
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    selection_path = tmp_path / "selection.jsonl"
+    purchase_policy_path = tmp_path / "purchase-policy.json"
+    ledger_path = tmp_path / "purchase-ledger.sqlite3"
+    initialization_receipt_path = tmp_path / "purchase-ledger-receipt.json"
+    cohort_policy = tmp_path / "cohort-policy.json"
+    selection_path.write_text("", encoding="utf-8")
+    purchase_policy_path.write_text("{}\n", encoding="utf-8")
+    ledger_path.write_bytes(b"ledger fixture")
+    initialization_receipt_path.write_text("{}\n", encoding="utf-8")
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    recovery = {
+        "run_card_path": recovery_run_card_path,
+        "manifest_path": paths["manifest"],
+        "restriction_path": paths["restrictions"],
+        "case_relevance_path": paths["relevance"],
+        "review_requests_path": paths["requests"],
+        "document_root": paths["document_root"],
+        "manifest_records": [manifest[0]],
+        "verified_artifact_bytes": {
+            os.path.abspath(
+                recovery_run_card_path
+            ): recovery_run_card_path.read_bytes(),
+            os.path.abspath(paths["manifest"]): paths["manifest"].read_bytes(),
+            os.path.abspath(paths["restrictions"]): paths["restrictions"].read_bytes(),
+        },
+    }
+    monkeypatch.setattr(
+        cli_module,
+        "_verify_materializer_quarantine_recovery",
+        lambda **_kwargs: recovery,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_replacement_consolidation_selection_keys",
+        lambda _records: {("case-a", "auto")},
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "verify_case_dev_purchase_policy",
+        lambda _artifact: Namespace(canonical_ledger_path=ledger_path.resolve()),
+    )
+    monkeypatch.setattr(
+        cli_module, "require_approved_case_dev_purchase_policy", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "verify_case_dev_purchase_policy_cohort_binding",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "read_case_dev_purchase_snapshot",
+        lambda *_a, **_k: Namespace(
+            purchase_state_sha256=purchase_state_sha256,
+            operations=(operation,),
+        ),
+    )
+    verification_arguments = [
+        "--recovery-run-card",
+        str(recovery_run_card_path),
+        "--selection",
+        str(selection_path),
+        "--purchase-policy",
+        str(purchase_policy_path),
+        "--purchase-ledger",
+        str(ledger_path),
+        "--purchase-ledger-initialization-receipt",
+        str(initialization_receipt_path),
+        "--controlled-private-root",
+        str(paths["private"]),
+        "--recovery-cohort-policy",
+        str(cohort_policy),
+    ]
+    _install_document_scanner(monkeypatch)
+
+    assert (
+        main(
+            [
+                *_plan_command(paths, schema_version="v3"),
+                *verification_arguments,
+            ]
+        )
+        == 0
+    )
+    plan = json.loads((paths["output"] / "disclosure-provenance-plan.json").read_text())
+    auto_plan = next(
+        row for row in plan["documents"] if row["source_document_id"] == "auto"
+    )
+    lineage = {
+        "candidate_id": "case-a",
+        "source_document_id": "auto",
+        "recovery_run_card_sha256": hashlib.sha256(
+            recovery_run_card_path.read_bytes()
+        ).hexdigest(),
+        "recovery_manifest_sha256": hashlib.sha256(
+            paths["manifest"].read_bytes()
+        ).hexdigest(),
+        "recovery_restriction_evidence_sha256": hashlib.sha256(
+            paths["restrictions"].read_bytes()
+        ).hexdigest(),
+        "purchase_state_sha256": purchase_state_sha256,
+        "purchase_operation_sha256": hashlib.sha256(
+            json.dumps(
+                operation,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode()
+        ).hexdigest(),
+        "purchase_operation_key": operation_key,
+        "fresh_recap_detail_sha256": fresh_sha,
+    }
+    assert auto_plan["route"] == "auto_clear"
+    assert auto_plan["recovered_public_lineage"] == lineage
+
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    clearance_root = tmp_path / "provider-free-clearance"
+    assert (
+        main(
+            [
+                *_provider_free_command(
+                    paths,
+                    cohort_policy=cohort_policy,
+                    clearance_root=clearance_root,
+                ),
+                *verification_arguments,
+            ]
+        )
+        == 0
+    )
+    records = [
+        json.loads(line)
+        for line in (clearance_root / "disclosure-clearance.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    auto = next(row for row in records if row["source_document_id"] == "auto")
+    assert auto["status"] == "cleared"
+    assert auto["clearance_basis"] == "provider_free_recovered_public"
+    assert auto["controlled_store_provenance"] == (
+        "courtlistener-rest://recap-documents/auto"
+    )
+    assert auto["recovered_public_lineage"] == lineage
+    clearance_path = clearance_root / "disclosure-clearance.jsonl"
+    clearance_run_card_path = (
+        clearance_root / "run-cards/finalize-provenance-quarantine.json"
+    )
+    run_card = json.loads(clearance_run_card_path.read_text())
+    assert run_card["human_review_requested"] is False
+    assert run_card["human_review_executed"] is False
+    authority = run_card["recovered_public_authority"]
+    assert authority["kind"] == "verified_recap_fetch_recovery"
+    assert authority["document_count"] == 1
+    assert authority["recovery_manifest_sha256"] == (
+        "sha256:" + lineage["recovery_manifest_sha256"]
+    )
+    clearance_kwargs, clearance_inputs = (
+        cli_module._authenticated_clearance_lineage_inputs(  # pyright: ignore[reportPrivateUsage]
+            Namespace(
+                clearance_run_card=clearance_run_card_path,
+                restriction_evidence=paths["restrictions"],
+                reviews=None,
+                review_receipt=None,
+            ),
+            clearance_path=clearance_path,
+        )
+    )
+    assert "_verified_recovery_capability" in clearance_kwargs
+    assert clearance_inputs[0] == clearance_run_card_path
+    assert paths["manifest"] in clearance_inputs
+    assert paths["relevance"] in clearance_inputs
+
+    routing_plan_path = paths["output"] / "disclosure-provenance-plan.json"
+    worksheet_path = paths["output"] / "disclosure-exception-worksheet.json"
+    quarantine_path = clearance_root / "disclosure-quarantine.jsonl"
+    replay_artifacts = (
+        routing_plan_path,
+        worksheet_path,
+        clearance_path,
+        quarantine_path,
+        clearance_run_card_path,
+    )
+    original_artifacts = {path: path.read_bytes() for path in replay_artifacts}
+
+    def write_tampered_replay_artifacts(field: str, value: str) -> None:
+        tampered_plan = cast(
+            dict[str, object], json.loads(original_artifacts[routing_plan_path])
+        )
+        documents = cast(list[dict[str, object]], tampered_plan["documents"])
+        recovered_document = next(
+            document
+            for document in documents
+            if document["source_document_id"] == "auto"
+        )
+        recovered_lineage = cast(
+            dict[str, object], recovered_document["recovered_public_lineage"]
+        )
+        recovered_lineage[field] = value
+        tampered_plan["document_set_sha256"] = hashlib.sha256(
+            cli_module.canonical_json_bytes(documents)
+        ).hexdigest()
+        plan_bytes = cli_module.canonical_json_bytes(tampered_plan)
+        routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        tampered_worksheet = cli_module.exception_review_worksheet_v3(tampered_plan)
+        worksheet_bytes = cli_module.canonical_json_bytes(tampered_worksheet)
+        records = cli_module.build_provider_free_quarantine_records_v3(
+            tampered_plan, routing_plan_sha256=routing_plan_sha256
+        )
+        clearance_bytes = b"".join(
+            cli_module.canonical_json_bytes(record.to_record()) for record in records
+        )
+        quarantine_bytes = b"".join(
+            cli_module.canonical_json_bytes(record.to_record())
+            for record in records
+            if record.status == "quarantined"
+        )
+        tampered_run_card = cast(
+            dict[str, object],
+            json.loads(original_artifacts[clearance_run_card_path]),
+        )
+        source_commitments = cast(
+            dict[str, object], tampered_run_card["source_commitments"]
+        )
+        cast(dict[str, object], source_commitments["routing_plan"])["sha256"] = (
+            "sha256:" + routing_plan_sha256
+        )
+        cast(dict[str, object], source_commitments["exception_worksheet"])["sha256"] = (
+            "sha256:" + hashlib.sha256(worksheet_bytes).hexdigest()
+        )
+        output_commitments = cast(
+            dict[str, object], tampered_run_card["output_commitments"]
+        )
+        cast(dict[str, object], output_commitments["disclosure_clearance"])[
+            "sha256"
+        ] = "sha256:" + hashlib.sha256(clearance_bytes).hexdigest()
+        cast(dict[str, object], output_commitments["disclosure_quarantine"])[
+            "sha256"
+        ] = "sha256:" + hashlib.sha256(quarantine_bytes).hexdigest()
+        disposition_policy = cast(
+            dict[str, object], tampered_run_card["disposition_policy"]
+        )
+        disposition_policy["routing_plan_sha256"] = "sha256:" + routing_plan_sha256
+        disposition_policy["exception_worksheet_sha256"] = (
+            "sha256:" + hashlib.sha256(worksheet_bytes).hexdigest()
+        )
+        routing_plan_path.write_bytes(plan_bytes)
+        worksheet_path.write_bytes(worksheet_bytes)
+        clearance_path.write_bytes(clearance_bytes)
+        quarantine_path.write_bytes(quarantine_bytes)
+        clearance_run_card_path.write_bytes(
+            cli_module.canonical_json_bytes(tampered_run_card)
+        )
+
+    for field, value in (
+        ("purchase_operation_sha256", "7" * 64),
+        ("purchase_operation_key", "11111111-1111-4111-8111-111111111111"),
+    ):
+        for artifact_path, payload in original_artifacts.items():
+            artifact_path.write_bytes(payload)
+        write_tampered_replay_artifacts(field, value)
+        with pytest.raises(
+            cli_module.CommandError, match="recovered-public routing lineage changed"
+        ):
+            cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+                clearance_path=clearance_path,
+                clearance_run_card_path=clearance_run_card_path,
+            )
+
+    for artifact_path, payload in original_artifacts.items():
+        artifact_path.write_bytes(payload)
+    changed_operation = {**operation, "authenticated_journal_revision": 2}
+    monkeypatch.setattr(
+        cli_module,
+        "read_case_dev_purchase_snapshot",
+        lambda *_a, **_k: Namespace(
+            purchase_state_sha256=purchase_state_sha256,
+            operations=(changed_operation,),
+        ),
+    )
+    with pytest.raises(
+        cli_module.CommandError, match="recovered-public routing lineage changed"
+    ):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=clearance_run_card_path,
+        )
 
 
 def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(

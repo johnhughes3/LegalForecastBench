@@ -606,6 +606,66 @@ def test_projection_accepts_exact_rest_unknown_automatic_clearance() -> None:
     )
 
 
+def test_projection_accepts_authenticated_recovered_public_transition() -> None:
+    candidate_id = "case-a"
+    document_id = "case-a-complaint"
+    relevance = _relevance(candidate_id, missing_count=1)
+    relevance["documents"][0].update(
+        {
+            "redaction_or_seal_status": "unknown",
+            "is_sealed": None,
+            "is_private": None,
+        }
+    )
+    evidence = [
+        "courtlistener_recap_fetch_fresh_detail_exact_match",
+        "courtlistener_recap_fetch_is_available_true",
+        "courtlistener_recap_fetch_is_sealed_false",
+        "courtlistener_recap_fetch_no_positive_private_marker",
+    ]
+    clearance = _clearance(candidate_id, document_id)
+    clearance.update(
+        {
+            "clearance_basis": "provider_free_recovered_public",
+            "routing_plan_sha256": "8" * 64,
+            "restriction_status": "public",
+            "restriction_evidence": evidence,
+            "reviewer_id": None,
+            "controlled_store_provenance": (
+                f"courtlistener-rest://recap-documents/{document_id}"
+            ),
+            "reviewed_at": None,
+            "free_or_purchased": "purchased",
+            "recovered_public_lineage": {
+                "candidate_id": candidate_id,
+                "source_document_id": document_id,
+                "recovery_run_card_sha256": "3" * 64,
+                "recovery_manifest_sha256": "4" * 64,
+                "recovery_restriction_evidence_sha256": "5" * 64,
+                "purchase_state_sha256": "6" * 64,
+                "purchase_operation_sha256": "7" * 64,
+                "purchase_operation_key": "00000000-0000-4000-8000-000000000000",
+                "fresh_recap_detail_sha256": "2" * 64,
+            },
+        }
+    )
+    download = _download(candidate_id, document_id)
+    download["free_or_purchased"] = "purchased"
+
+    projection = project_target_cohort(
+        selections=[_selection(candidate_id)],
+        case_relevance=[relevance],
+        download_manifest=[download],
+        clearance_records=[clearance],
+        target_case_count=1,
+        cost_per_document_usd="3.05",
+        max_projected_budget_usd="10.00",
+        max_missing_core_documents_per_case=24,
+    )
+
+    assert projection.selected_candidate_ids == (candidate_id,)
+
+
 def test_projection_does_not_apply_rest_unknown_binding_to_public_document() -> None:
     candidate_id = "case-a"
     document_id = "case-a-complaint"
