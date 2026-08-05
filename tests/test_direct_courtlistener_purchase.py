@@ -29,6 +29,9 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     RecapFetchHTTPResponse,
     RecordedRecapFetchResponse,
 )
+from legalforecast.ingestion.courtlistener_request_budget import (
+    CourtListenerRequestBudgetExhausted,
+)
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
@@ -197,6 +200,152 @@ def test_direct_purchase_posts_exact_form_and_keeps_full_reservation(
         "pacer-password-secret",
     ):
         assert secret not in durable_surfaces
+
+
+def test_direct_submit_requires_and_consumes_one_preparation() -> None:
+    paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 77})]
+    )
+    reservations: list[tuple[str, str]] = []
+    direct = DirectCourtListenerRecapFetchPurchaseBroker(
+        _direct_config(),
+        transport=paid,
+        before_request=lambda method, path: reservations.append((method, path)),
+    )
+    request = {
+        "request_type": "2",
+        "recap_document": "123",
+        "cycle_id": "cycle-1",
+        "purchase_policy_sha256": "a" * 64,
+        "operation_key": "00000000-0000-4000-8000-000000000000",
+        "reservation_usd": "3.05",
+    }
+
+    with pytest.raises(ValueError, match="requires fresh pre-dispatch preparation"):
+        direct.submit(request)
+    prepared_submit = direct.prepare_submission()
+    with pytest.raises(ValueError, match="already has active preparation"):
+        direct.prepare_submission()
+    assert prepared_submit(request) == {
+        "id": "77",
+        "reservation_id": "direct:00000000-0000-4000-8000-000000000000",
+    }
+    with pytest.raises(ValueError, match="requires fresh pre-dispatch preparation"):
+        prepared_submit(request)
+
+    assert reservations == [("POST", "/recap-fetch/")]
+    assert len(paid.calls) == 1
+    assert direct.paid_dispatch_count == 1
+
+
+def test_direct_budget_wait_stays_planned_and_attempt_policy_restarts_once(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    authority = {
+        "123": {
+            "case_id": "case-1",
+            "selection_document_sha256": "a" * 64,
+        }
+    }
+    public_documents = {
+        "123": {
+            "redaction_or_seal_status": "unknown",
+            "is_sealed": None,
+            "is_private": None,
+            "is_available": False,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+            "restriction_evidence": list(UNKNOWN_STATUS_EVIDENCE),
+        }
+    }
+    first_paid = _RecordingPaidTransport()
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+
+        def exhaust_post_budget(method: str, path: str) -> None:
+            assert (method, path) == ("POST", "/recap-fetch/")
+            operation = journal.operation_evidence("123")
+            assert operation is not None
+            assert operation["status"] == "planned"
+            assert operation["operation_key"] is None
+            assert journal.committed_amount_usd == "0.00"
+            raise CourtListenerRequestBudgetExhausted("rolling hour exhausted")
+
+        with pytest.raises(
+            CourtListenerRequestBudgetExhausted, match="rolling hour exhausted"
+        ):
+            CourtListenerRecapFetchClient(
+                _public_config(),
+                journal=journal,
+                transport=FixtureRecapFetchTransport(
+                    [_response("GET", "/recap-documents/123/", {"id": 123})]
+                ),
+                purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
+                    _direct_config(),
+                    transport=first_paid,
+                    before_request=exhaust_post_budget,
+                ),
+            ).execute_purchase_plan(
+                _plan(),
+                public_documents=public_documents,
+                attempt_documents=authority,
+                attempt_policy_sha256="b" * 64,
+                live=True,
+                acknowledge_pacer_fees=True,
+            )
+        assert journal.statuses() == {"123": "planned"}
+        assert journal.committed_amount_usd == "0.00"
+
+    assert first_paid.calls == []
+
+    second_paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 77})]
+    )
+    post_reservations: list[tuple[str, str]] = []
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    _response("GET", "/recap-documents/123/", {"id": 123}),
+                    _response("GET", "/recap-fetch/77/", {"status": 2}),
+                    _response(
+                        "GET",
+                        "/recap-documents/123/",
+                        {
+                            "id": 123,
+                            "is_available": True,
+                            "filepath_local": (
+                                "https://storage.courtlistener.com/123.pdf"
+                            ),
+                        },
+                    ),
+                ]
+            ),
+            purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
+                _direct_config(),
+                transport=second_paid,
+                before_request=lambda method, path: post_reservations.append(
+                    (method, path)
+                ),
+            ),
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=public_documents,
+            attempt_documents=authority,
+            attempt_policy_sha256="b" * 64,
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+
+        assert journal.statuses() == {"123": "queued"}
+
+    assert post_reservations == [("POST", "/recap-fetch/")]
+    assert len(second_paid.calls) == 1
+    assert result.attempts[0].status.value == "quarantined"
 
 
 @pytest.mark.parametrize("status_code", (302, 503))

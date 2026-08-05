@@ -177,6 +177,13 @@ class RecapFetchPurchaseBroker(Protocol):
 
         raise NotImplementedError
 
+    def prepare_submission(
+        self,
+    ) -> Callable[[Mapping[str, str]], Mapping[str, Any]]:
+        """Return the submit callable after local pre-dispatch gates."""
+
+        raise NotImplementedError
+
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]: ...
 
     def receipt(self, operation_key: str) -> Mapping[str, Any]: ...
@@ -279,6 +286,13 @@ class FixtureRecapFetchPurchaseBroker:
 
         return 0
 
+    def prepare_submission(
+        self,
+    ) -> Callable[[Mapping[str, str]], Mapping[str, Any]]:
+        """Fixtures have no live pre-dispatch gate."""
+
+        return self.submit
+
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
         self.requests.append(dict(request))
         if not self._responses:
@@ -358,6 +372,12 @@ class UrlLibRecapFetchTransport:
             ) from exc
 
 
+@dataclass(slots=True)
+class _DirectSubmissionPreparation:
+    owner: object
+    consumed: bool = False
+
+
 class DirectCourtListenerRecapFetchPurchaseBroker:
     """Dispatch one paid POST under the caller's already-reserved local budget."""
 
@@ -372,13 +392,49 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
         self.transport = transport or UrlLibRecapFetchTransport(config.base_url)
         self.before_request = before_request
         self._paid_dispatch_count = 0
+        self._preparation_owner = object()
+        self._active_preparation: _DirectSubmissionPreparation | None = None
 
     @property
     def paid_dispatch_count(self) -> int:
         return self._paid_dispatch_count
 
-    def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
-        """Send exactly one non-retryable provider request after local validation."""
+    def prepare_submission(
+        self,
+    ) -> Callable[[Mapping[str, str]], Mapping[str, Any]]:
+        """Reserve request capacity before the journal enters submitted state."""
+
+        if self._active_preparation is not None:
+            raise ValueError("direct purchase already has active preparation")
+        if self.before_request is not None:
+            self.before_request("POST", "/recap-fetch/")
+        preparation = _DirectSubmissionPreparation(owner=self._preparation_owner)
+        self._active_preparation = preparation
+
+        def submit_prepared(request: Mapping[str, str]) -> Mapping[str, Any]:
+            return self.submit(request, preparation=preparation)
+
+        return submit_prepared
+
+    def submit(
+        self,
+        request: Mapping[str, str],
+        *,
+        preparation: _DirectSubmissionPreparation | None = None,
+    ) -> Mapping[str, Any]:
+        """Consume one preparation and send one non-retryable provider request."""
+
+        if (
+            preparation is None
+            or preparation.owner is not self._preparation_owner
+            or preparation is not self._active_preparation
+            or preparation.consumed
+        ):
+            raise ValueError(
+                "direct purchase submission requires fresh pre-dispatch preparation"
+            )
+        preparation.consumed = True
+        self._active_preparation = None
 
         canonical_submission_bytes(request)
         operation_key = request["operation_key"]
@@ -394,14 +450,6 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
             "Accept": "application/json",
             "Content-Type": "application/x-www-form-urlencoded",
         }
-        if self.before_request is not None:
-            try:
-                self.before_request("POST", "/recap-fetch/")
-            except Exception as exc:
-                raise BrokerDefiniteRejection(
-                    "local_request_budget_rejected",
-                    "direct purchase request budget rejected dispatch",
-                ) from exc
         self._paid_dispatch_count += 1
         try:
             response = self.transport.request(
@@ -636,6 +684,7 @@ class CourtListenerRecapFetchClient:
             "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
             "reservation_usd": str(planned["reservation_usd"]),
         }
+        prepared_submit = self.purchase_broker.prepare_submission()
         if not self.journal.submit(document_id, context=submission_context):
             raise CaseDevPurchaseLedgerError("submit skipped without replayable state")
         evidence = self.journal.operation_evidence(document_id)
@@ -650,7 +699,7 @@ class CourtListenerRecapFetchClient:
             "reservation_usd": str(evidence["reservation_usd"]),
         }
         try:
-            response = self.purchase_broker.submit(broker_request)
+            response = prepared_submit(broker_request)
         except ValueError as exc:
             self.journal.fail_before_dispatch(document_id, exc)
             return _attempt(

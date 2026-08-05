@@ -254,6 +254,13 @@ class SignedRecapFetchPurchaseBroker:
 
         return self._paid_dispatch_count
 
+    def prepare_submission(
+        self,
+    ) -> Callable[[Mapping[str, str]], Mapping[str, Any]]:
+        """Return the unchanged secure-gate submission path."""
+
+        return self.submit
+
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
         """Submit canonical purchase bytes exactly once."""
 
