@@ -10,6 +10,9 @@ from typing import Any
 import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    ranked_reserve_result_bytes,
+)
 from legalforecast.ingestion.zero_cost_successor import (
     CONFIG_SCHEMA_VERSION,
     STATE_SCHEMA_VERSION,
@@ -46,7 +49,9 @@ class Fixture:
             self.kwargs["active_selection_bytes"]
         )
         self.kwargs["ranked_result"] = self.ranked_result
-        self.kwargs["ranked_result_bytes"] = canonical_json_bytes(self.ranked_result)
+        self.kwargs["ranked_result_bytes"] = ranked_reserve_result_bytes(
+            self.ranked_result
+        )
 
 
 def _fixture() -> Fixture:
@@ -149,8 +154,8 @@ def _fixture() -> Fixture:
         "ranked_reserve": reserve_rows,
         "source_pool": pool,
         "ranked_result": result,
-        "ranked_result_bytes": canonical_json_bytes(result),
-        "authenticated_ranked_result": json.loads(canonical_json_bytes(result)),
+        "ranked_result_bytes": ranked_reserve_result_bytes(result),
+        "authenticated_ranked_result": json.loads(ranked_reserve_result_bytes(result)),
         "active_selection": active,
         "active_selection_bytes": active_bytes,
         "replacement_selection": replacements,
@@ -194,6 +199,20 @@ def test_projects_exact_100_from_first_fully_cleared_frozen_candidate() -> None:
     assert successor.state["evaluation_authorized"] is False
 
 
+def test_rejects_compact_ranked_result_bytes() -> None:
+    fixture = _fixture()
+    fixture.kwargs["ranked_result_bytes"] = canonical_json_bytes(fixture.ranked_result)
+
+    with pytest.raises(ZeroCostSuccessorError, match="not canonical JSON"):
+        project_zero_cost_successor(**fixture.kwargs)
+
+
+def test_ranked_result_serializer_has_explicit_ascii_contract() -> None:
+    payload = ranked_reserve_result_bytes({"note": "résumé"})
+
+    assert payload == b'{\n  "note": "r\\u00e9sum\\u00e9"\n}\n'
+
+
 def test_rejects_extra_successor_commitment_keys() -> None:
     successor = project_zero_cost_successor(**_fixture().kwargs)
     config_commitments = dict(successor.config["output_commitments"])
@@ -220,7 +239,7 @@ def test_rejects_forged_ranked_active_selection() -> None:
     fixture.active[0] = _base_selection("forged-case")
     fixture.refresh()
     fixture.kwargs["authenticated_ranked_result"] = json.loads(
-        canonical_json_bytes(fixture.ranked_result)
+        ranked_reserve_result_bytes(fixture.ranked_result)
     )
 
     with pytest.raises(ZeroCostSuccessorError, match="97 retained"):
@@ -250,7 +269,9 @@ def test_rejects_self_consistent_forged_financial_and_budget_state() -> None:
         }
     )
     fixture.kwargs["replacement_budget_plan_bytes"] = forged_budget
-    fixture.kwargs["ranked_result_bytes"] = canonical_json_bytes(fixture.ranked_result)
+    fixture.kwargs["ranked_result_bytes"] = ranked_reserve_result_bytes(
+        fixture.ranked_result
+    )
 
     with pytest.raises(ZeroCostSuccessorError, match="authenticated ranked-reserve"):
         project_zero_cost_successor(**fixture.kwargs)

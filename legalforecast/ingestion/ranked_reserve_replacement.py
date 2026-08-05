@@ -670,6 +670,26 @@ def bind_ranked_reserve_outputs(
     return result
 
 
+def ranked_reserve_result_bytes(result: Mapping[str, object]) -> bytes:
+    """Serialize a ranked-reserve result with its frozen artifact contract."""
+
+    try:
+        return (
+            json.dumps(
+                dict(result),
+                indent=2,
+                sort_keys=True,
+                ensure_ascii=True,
+                allow_nan=False,
+            )
+            + "\n"
+        ).encode("utf-8")
+    except (TypeError, UnicodeError, ValueError) as exc:
+        raise RankedReserveReplacementError(
+            "ranked-reserve result is not canonical JSON"
+        ) from exc
+
+
 def _replacement_events(
     records: Sequence[Mapping[str, Any]],
     *,
