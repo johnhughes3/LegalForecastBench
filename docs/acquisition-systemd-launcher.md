@@ -27,9 +27,10 @@ Use the dedicated `/agents/sandbox/legalforecastbench/parser` or `/agents/sandbo
 Paid RECAP Fetch uses only `/agents/sandbox/legalforecastbench/recap-fetch-broker-client`.
 These and `/agents/sandbox/legalforecastbench/acquisition` are the launcher's exact dedicated sandbox paths; every root, alias, parent, and unrelated path is rejected before the sandbox helper can run.
 The parser stage view must resolve exactly `MISTRAL_API_KEY`; the labeling stage view must resolve exactly `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY`.
-Store each credential only in its dedicated stage path under `/agents/sandbox/legalforecastbench`; rotate the value in place rather than mirroring it at the namespace root or in another stage.
-The sandbox identity needs read access only to the exact stage view and must not be broadened to compensate for a missing or misplaced secret.
-Do not copy credential values between stage folders.
+Configure those names as Infisical dependent-secret references to the canonical values under `/agents/sandbox/legalforecastbench/acquisition` so credential rotation propagates without creating another stored value.
+Reference resolution requires the sandbox identity to read both the exact stage view and the canonical `/agents/sandbox/legalforecastbench/acquisition` source path.
+Scope the identity's grants to those two paths only; it must not read a sibling sandbox or another LegalForecastBench stage path, and neither grant may be broadened to compensate for a broken reference.
+Do not copy credential values.
 Do not enable folder imports: an import would expose acquisition and unrelated provider credentials to the stage process.
 The masked Infisical UI inventory is the authoritative exact-inventory check and must match the stage allowlist before the stage starts.
 Then run the defense-in-depth sentinels below from an allowlisted empty caller environment; they inspect zsh parameter-name metadata, expand required values only to confirm they are nonempty, and reject every known cross-stage credential without printing or exporting a value:
@@ -57,7 +58,7 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
 The sentinels are not a substitute for the complete masked UI inventory because their forbidden lists are intentionally finite.
 Do not broaden an Infisical path to make a unit start.
 
-The broker-client view is deliberately different from the parser and labeling views.
+The broker-client view is deliberately different from the dependent-secret parser and labeling views.
 It contains exactly `RECAP_FETCH_BROKER_URL`, `RECAP_FETCH_BROKER_MACHINE_ID`, `RECAP_FETCH_BROKER_PRIVATE_KEY_JWK`, `RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON`, and `RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256` as ordinary secret values written only after the reviewed broker activation has produced and bound them.
 They are never dependent references and never folder imports.
 The private JWK authenticates only the bounded broker client; it is not a PACER credential.
