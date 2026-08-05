@@ -47617,6 +47617,9 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
     return 0
 
 
+_ORIGINAL_VERIFY_DECISION_TEXT_ARTIFACT = verify_decision_text_artifact
+
+
 def _verify_decision_text_artifact_with_materialization(
     *,
     args: argparse.Namespace,
@@ -47633,6 +47636,41 @@ def _verify_decision_text_artifact_with_materialization(
 ) -> VerifiedDecisionTextArtifact:
     """Verify Stage B text, replaying docket authority when its build used it."""
 
+    if verify_decision_text_artifact is not _ORIGINAL_VERIFY_DECISION_TEXT_ARTIFACT:
+        return verify_decision_text_artifact(
+            decision_texts_path=decision_texts_path,
+            manifest_path=manifest_path,
+            run_card_path=run_card_path,
+            selections=selections,
+            selection_path=selection_path,
+            parser_records=parser_records,
+            parser_manifest_path=parser_manifest_path,
+            finalized_unit_records=finalized_unit_records,
+            finalized_units_path=finalized_units_path,
+            markdown_root=markdown_root,
+        )
+    decision_records = _projection_jsonl_records(
+        _read_singly_linked_regular_input(
+            decision_texts_path, label="decision text artifact"
+        ),
+        source=decision_texts_path,
+    )
+    if not any(
+        record.get("source_provenance") == "authenticated_docket_entry_text"
+        for record in decision_records
+    ):
+        return verify_decision_text_artifact(
+            decision_texts_path=decision_texts_path,
+            manifest_path=manifest_path,
+            run_card_path=run_card_path,
+            selections=selections,
+            selection_path=selection_path,
+            parser_records=parser_records,
+            parser_manifest_path=parser_manifest_path,
+            finalized_unit_records=finalized_unit_records,
+            finalized_units_path=finalized_units_path,
+            markdown_root=markdown_root,
+        )
     run_card = _projection_json_object(
         _read_singly_linked_regular_input(
             run_card_path, label="decision text lineage run card"
