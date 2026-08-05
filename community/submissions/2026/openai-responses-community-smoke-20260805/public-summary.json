@@ -1,0 +1,34 @@
+{
+  "conformance": {
+    "adapter_id": "openai-responses-baseline",
+    "adapter_version": "1.0.0",
+    "report_id": "conformance:openai-responses-baseline:1.0.0",
+    "status": "passed"
+  },
+  "run_summary": {
+    "adapter_ids": [
+      "openai-responses-baseline"
+    ],
+    "families": [
+      "legalforecast_mtd"
+    ],
+    "model_keys": [
+      "openai:gpt-5.4-mini-2026-03-17"
+    ],
+    "result_status_counts": {
+      "succeeded": 1
+    },
+    "row_count": 1,
+    "run_config_sha256": "sha256:42c8470146b799d35424770790b34f325286b895a64af9fc0eb088b6ac61a88a",
+    "run_id": "openai-responses-community-smoke-20260805",
+    "run_manifest_sha256": "sha256:cba8adc6fdc1fb2b2457aee08c64aa28fca40c4860dd383409126200546cf644",
+    "schema_version": "legalforecast.multiharness.community_run_summary.v1",
+    "scoring_modes": [
+      "lfb_brier"
+    ],
+    "selection_label": "submitted-run",
+    "selection_sha256": "e23535f8c5f50da10358b228fafb1aeadea4d2f8eb15946c595282c592717f77"
+  },
+  "schema_version": "legalforecast.multiharness.community_public_summary.v1",
+  "submission_id": "openai-responses-community-smoke-20260805"
+}

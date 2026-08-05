@@ -1131,7 +1131,11 @@ def _copy_run_public_artifacts(run_dir: Path, output_dir: Path) -> list[Path]:
             continue
         destination = output_dir / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
-        if relative == "lfb/runs.jsonl":
+        if relative == "row-results.jsonl":
+            _copy_scrubbed_jsonl(source, destination, forbidden_fields={"workspace"})
+        elif relative == "canonical-runs.jsonl":
+            _copy_public_canonical_runs(source, destination)
+        elif relative == "lfb/runs.jsonl":
             _copy_scrubbed_jsonl(source, destination, forbidden_fields={"raw_output"})
         else:
             shutil.copy2(source, destination)
@@ -1151,6 +1155,28 @@ def _copy_scrubbed_jsonl(
         for record in records
     ]
     write_jsonl_objects(destination, scrubbed)
+
+
+def _copy_public_canonical_runs(source: Path, destination: Path) -> None:
+    records = _read_jsonl(source, "canonical run results")
+    projected: list[dict[str, Any]] = []
+    for record in records:
+        result = dict(record)
+        artifacts = optional_sequence(record, "artifacts") or ()
+        public_artifacts: list[Mapping[str, Any]] = []
+        for artifact in artifacts:
+            if not isinstance(artifact, Mapping):
+                raise ValueError("canonical run artifact must be an object")
+            artifact_record = cast(Mapping[str, Any], artifact)
+            public = artifact_record.get("public")
+            if type(public) is not bool:
+                raise ValueError("canonical run artifact public must be a boolean")
+            if public:
+                _validate_public_artifact_path(require_str(artifact_record, "path"))
+                public_artifacts.append(artifact_record)
+        result["artifacts"] = public_artifacts
+        projected.append(result)
+    write_jsonl_objects(destination, projected)
 
 
 def _scrub_public_json_record(

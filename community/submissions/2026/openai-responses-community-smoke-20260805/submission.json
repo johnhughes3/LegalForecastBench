@@ -1,0 +1,183 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "run-manifest",
+      "media_type": "application/json",
+      "path": "run-manifest.json",
+      "public": true,
+      "sha256": "sha256:e13c4cac248a9427daac69f814f4ef5d9b56bd3dbd20944f2fd723296b98dbc9",
+      "size_bytes": 537
+    },
+    {
+      "artifact_id": "run-compatibility",
+      "media_type": "application/json",
+      "path": "run-compatibility.json",
+      "public": true,
+      "sha256": "sha256:6b1c06b4a513f6ff5497a8644f8ffdea67dd3cee83a52df77b2c517644f7fac3",
+      "size_bytes": 1527
+    },
+    {
+      "artifact_id": "row-results",
+      "media_type": "application/jsonl",
+      "path": "row-results.jsonl",
+      "public": true,
+      "sha256": "sha256:d843e18dd942105992afef9267cd221c34cff8b49d8fc08bb55bb606b51fd755",
+      "size_bytes": 645
+    },
+    {
+      "artifact_id": "canonical-runs",
+      "media_type": "application/jsonl",
+      "path": "canonical-runs.jsonl",
+      "public": true,
+      "sha256": "sha256:465fe6c70dffe9c61b4e284c835a954dfed042645ef6013bbbdce202ced09dcf",
+      "size_bytes": 1209
+    },
+    {
+      "artifact_id": "conformance-report",
+      "media_type": "application/json",
+      "path": "conformance-report.json",
+      "public": true,
+      "sha256": "sha256:be9cad011d576d4b12bd1f51d4581e20e7ad665e28f3b4d6716ac04b24b4fe72",
+      "size_bytes": 2015
+    },
+    {
+      "artifact_id": "public-summary",
+      "media_type": "application/json",
+      "path": "public-summary.json",
+      "public": true,
+      "sha256": "sha256:993afc0f476ff7890c410bcc823119bddcea1370fa31574b4d5154099b5cc4d9",
+      "size_bytes": 1133
+    },
+    {
+      "artifact_id": "selection-manifest",
+      "media_type": "application/json",
+      "path": "selection-manifest.json",
+      "public": true,
+      "sha256": "sha256:39e7f17ea8b3a9b5b863f4688a769d6244617b859e1fc10a12764e3cc46ae632",
+      "size_bytes": 501
+    },
+    {
+      "artifact_id": "artifact-manifest",
+      "media_type": "application/json",
+      "path": "artifact-manifest.json",
+      "public": true,
+      "sha256": "sha256:c3b49335943c928f6302bbbcf069ba879ce237e6217dee7ed273414662e9e32c",
+      "size_bytes": 1987
+    }
+  ],
+  "attestations": [
+    "no_private_or_sealed_material_in_public_artifacts",
+    "not_official_legalforecastbench_result",
+    "provider_terms_acknowledged",
+    "right_to_submit_artifacts"
+  ],
+  "benchmark_credit": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "John Hughes",
+      "role": "run_operator"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "adapter_author"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "task_source"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "run_summary": {
+    "adapter_ids": [
+      "openai-responses-baseline"
+    ],
+    "families": [
+      "legalforecast_mtd"
+    ],
+    "model_keys": [
+      "openai:gpt-5.4-mini-2026-03-17"
+    ],
+    "result_status_counts": {
+      "succeeded": 1
+    },
+    "row_count": 1,
+    "run_config_sha256": "sha256:42c8470146b799d35424770790b34f325286b895a64af9fc0eb088b6ac61a88a",
+    "run_id": "openai-responses-community-smoke-20260805",
+    "run_manifest_sha256": "sha256:cba8adc6fdc1fb2b2457aee08c64aa28fca40c4860dd383409126200546cf644",
+    "schema_version": "legalforecast.multiharness.community_run_summary.v1",
+    "scoring_modes": [
+      "lfb_brier"
+    ],
+    "selection_label": "submitted-run",
+    "selection_sha256": "e23535f8c5f50da10358b228fafb1aeadea4d2f8eb15946c595282c592717f77"
+  },
+  "schema_version": "legalforecast.multiharness.community_submission_manifest.v1",
+  "shards": [
+    {
+      "adapter_id": "openai-responses-baseline",
+      "adapter_version": "1.0.0",
+      "compatible_shard_group_id": "legalforecast_mtd:lfb_brier:legalforecast-mtd-community-smoke-v1",
+      "contributor_credits": [
+        {
+          "identifiers": {},
+          "name": "John Hughes",
+          "role": "run_operator"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench maintainers",
+          "role": "adapter_author"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench",
+          "role": "task_source"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench",
+          "role": "benchmark_infrastructure"
+        }
+      ],
+      "model_key": "openai:gpt-5.4-mini-2026-03-17",
+      "run_compatibility_hash": "sha256:807eb0e09e80aba56a4f9435393daac92e0c76357e3696da88cb3c9360e5a529",
+      "run_config_hash": "sha256:42c8470146b799d35424770790b34f325286b895a64af9fc0eb088b6ac61a88a",
+      "sandbox_policy_hash": "sha256:5aa93b255ad0e31b4c3fb8903cdb507da17096397f8d59a6c59b6e04e46e8711",
+      "schema_version": "legalforecast.multiharness.community_shard.v1",
+      "selection_label": "submitted-run",
+      "selection_sha256": "e23535f8c5f50da10358b228fafb1aeadea4d2f8eb15946c595282c592717f77",
+      "shard_id": "shard-001",
+      "source_suite": "legalforecast_mtd",
+      "suite_version": "legalforecast-mtd-community-smoke-v1",
+      "task_ids": [
+        "lfb:ci-candidate:full_packet"
+      ],
+      "task_selectors": {
+        "task_ids": [
+          "lfb:ci-candidate:full_packet"
+        ]
+      }
+    }
+  ],
+  "submission_id": "openai-responses-community-smoke-20260805",
+  "submitter": {
+    "identifiers": {
+      "github": "johnhughes3"
+    },
+    "name": "John Hughes",
+    "role": "submitter"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "request_ids": [
+    "row-d94f8caa51c906bc"
+  ],
+  "result_ids": [
+    "row-d94f8caa51c906bc:openai-responses"
+  ],
+  "run_compatibility_sha256": "sha256:807eb0e09e80aba56a4f9435393daac92e0c76357e3696da88cb3c9360e5a529",
+  "run_config_sha256": "sha256:42c8470146b799d35424770790b34f325286b895a64af9fc0eb088b6ac61a88a",
+  "run_id": "openai-responses-community-smoke-20260805",
+  "schema_version": "legalforecast.multiharness.run_manifest.v1",
+  "selection_sha256": "e23535f8c5f50da10358b228fafb1aeadea4d2f8eb15946c595282c592717f77"
+}
