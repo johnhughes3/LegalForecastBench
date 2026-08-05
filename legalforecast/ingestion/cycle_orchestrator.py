@@ -753,7 +753,7 @@ def _parse_stage(value: object, *, index: int) -> CycleStage:
         stage_id=stage_id,
     )
     run_card_stage = _required_text(record, "run_card_stage")
-    expected_run_card_stage = COMMAND_RUN_CARD_STAGES.get(command, command)
+    expected_run_card_stage = _expected_run_card_stage(command, arguments=arguments)
     if run_card_stage != expected_run_card_stage:
         raise CycleOrchestratorError(
             f"stage {stage_id} run_card_stage must be {expected_run_card_stage}"
@@ -766,6 +766,15 @@ def _parse_stage(value: object, *, index: int) -> CycleStage:
         run_card=run_card,
         run_card_stage=run_card_stage,
     )
+
+
+def _expected_run_card_stage(command: str, *, arguments: Sequence[str]) -> str:
+    if (
+        command == "llm-label"
+        and len(_flag_values(arguments, "--execution-provider")) == 1
+    ):
+        return "llm-label-provider-shard"
+    return COMMAND_RUN_CARD_STAGES.get(command, command)
 
 
 def _expected_stage_boundary(

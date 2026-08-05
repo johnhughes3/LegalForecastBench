@@ -2085,6 +2085,7 @@ def test_run_cycle_preserves_model_provider_boundary_for_llm_label_execution(
             boundary="model_provider",
             arguments=arguments,
             run_card=run_card,
+            run_card_stage="llm-label-provider-shard",
         ),
         index=0,
     )

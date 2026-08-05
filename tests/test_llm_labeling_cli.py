@@ -243,6 +243,25 @@ def _provider_caps_path(root: Path) -> Path:
     return path
 
 
+def _local_provider_caps_path(root: Path) -> Path:
+    path = root / "local-provider-cycle-caps.json"
+    if not path.exists():
+        _write_json(
+            path,
+            {
+                "schema_version": "legalforecast.provider_cycle_caps.v1",
+                "cycle_id": "test-cycle",
+                "providers": [
+                    {
+                        "provider": "openai",
+                        "cycle_reservation_cap_usd": "10.00",
+                    }
+                ],
+            },
+        )
+    return path
+
+
 def _evaluated_registry_path(root: Path) -> Path:
     path = root / "evaluated-registry.json"
     if not path.exists():
@@ -281,6 +300,104 @@ def test_remote_authority_initialization_error_is_a_controlled_cli_error(
             cycle_id="test-cycle",
             providers=("openai",),
         )
+
+
+def test_provider_authority_modes_are_mutually_exclusive() -> None:
+    parser = argparse.ArgumentParser()
+    cli._add_provider_spend_authority_arguments(parser)
+
+    local_args = parser.parse_args(["--local-provider-journal-only"])
+    assert local_args.local_provider_journal_only is True
+    assert local_args.provider_authority_table is None
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "--local-provider-journal-only",
+                "--provider-authority-table",
+                "fixture-authority",
+            ]
+        )
+
+
+def test_local_provider_journal_only_accepts_legacy_caps(
+    tmp_path: Path,
+) -> None:
+    caps_path = _local_provider_caps_path(tmp_path)
+    caps = cli.load_provider_cycle_caps(caps_path)
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    args = argparse.Namespace(
+        local_provider_journal_only=True,
+        provider_authority_table=None,
+        provider_authority_region="us-east-1",
+        provider_journal=journal_path,
+    )
+
+    authorities, accounts = cli._provider_spend_authorities(
+        args,
+        provider_caps=caps,
+        provider_caps_sha256="sha256:"
+        + hashlib.sha256(caps_path.read_bytes()).hexdigest(),
+        cycle_id="test-cycle",
+        providers=("openai",),
+    )
+
+    assert authorities is None
+    assert accounts is None
+
+
+def test_local_provider_journal_only_requires_explicit_journal(
+    tmp_path: Path,
+) -> None:
+    caps_path = _local_provider_caps_path(tmp_path)
+    caps = cli.load_provider_cycle_caps(caps_path)
+    args = argparse.Namespace(
+        local_provider_journal_only=True,
+        provider_authority_table=None,
+        provider_authority_region="us-east-1",
+        provider_journal=None,
+    )
+
+    with pytest.raises(
+        CommandError,
+        match="--local-provider-journal-only requires --provider-journal",
+    ):
+        cli._provider_spend_authorities(
+            args,
+            provider_caps=caps,
+            provider_caps_sha256="sha256:"
+            + hashlib.sha256(caps_path.read_bytes()).hexdigest(),
+            cycle_id="test-cycle",
+            providers=("openai",),
+        )
+
+
+def test_provider_spend_authorities_preserve_dynamodb_mode(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    caps_path = _provider_caps_path(tmp_path)
+    caps = cli.load_provider_cycle_caps(caps_path)
+    monkeypatch.setattr(cli, "DynamoDbProviderSpendAuthority", _FakeSpendAuthority)
+    args = argparse.Namespace(
+        local_provider_journal_only=False,
+        provider_authority_table="fixture-authority",
+        provider_authority_region="us-east-1",
+        provider_journal=tmp_path / "provider-attempts.sqlite3",
+    )
+
+    authorities, accounts = cli._provider_spend_authorities(
+        args,
+        provider_caps=caps,
+        provider_caps_sha256="sha256:"
+        + hashlib.sha256(caps_path.read_bytes()).hexdigest(),
+        cycle_id="test-cycle",
+        providers=("openai",),
+    )
+
+    assert isinstance(authorities, dict)
+    assert isinstance(authorities["openai"], _FakeSpendAuthority)
+    assert accounts == {"openai": "primary"}
 
 
 def _stub_authenticated_stage_a_lineage(

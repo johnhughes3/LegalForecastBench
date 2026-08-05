@@ -121,35 +121,25 @@ uv run legalforecast acquisition generate-recap-fetch-attempt-policy \
 Do not initialize the ledger manually.
 The coordinator does that later through `init-purchase-ledger`, producing the authenticated initialization receipt bound to the v2 policy and exact ledger identity.
 
-## Materialize provider cycle caps successor
+## Bind the local provider cycle caps
 
-Provider caps require the raw reviewed authority-smoke workflow artifact and its separately recorded exact digest and reviewed release SHA.
-Do not recreate the receipt or extract and hand-copy its resource identity.
+This local Cycle 1 path uses the checked-in provider caps base artifact and one canonical SQLite provider journal.
+Verify the exact reviewed bytes before rendering the cycle; do not copy, reformat, or hand-edit the artifact.
 
 ```zsh
 setopt ERR_EXIT NO_UNSET PIPE_FAIL
 
-smoke_receipt="$private_cycle_root/provider-authority/authority-smoke.json"
-smoke_sha256="<sha256-of-exact-downloaded-smoke-bytes>"
-smoke_release_sha="<reviewed-40-character-main-release>"
-
-uv run legalforecast acquisition materialize-provider-cycle-caps-successor \
-  --legacy-provider-cycle-caps "$repo_root/model_registries/cycle-1-target-100-provider-caps-base-2026-07-28.json" \
-  --expected-legacy-caps-sha256 71a0919b7e23a1b0dab7bca7233c9036f2e678f35760f78f98b4f2c37330eb74 \
-  --authority-smoke-receipt "$smoke_receipt" \
-  --expected-authority-smoke-sha256 "$smoke_sha256" \
-  --expected-smoke-release-sha "$smoke_release_sha" \
-  --provider-caps-successor-policy "$repo_root/model_registries/cycle-1-target-100-provider-caps-successor-policy-2026-07-28.json" \
-  --expected-provider-policy-sha256 894b59465c44caa109197667f43495de1c93e0d22afdbbd9f5c6f95722d76ed6 \
-  --output-root "$successor_root/01-provider-authority"
+provider_caps="$repo_root/model_registries/cycle-1-target-100-provider-caps-base-2026-07-28.json"
+provider_journal="$private_cycle_root/paid-labeling/provider-attempts.sqlite3"
+test "$(sha256sum "$provider_caps" | cut -d' ' -f1)" = 71a0919b7e23a1b0dab7bca7233c9036f2e678f35760f78f98b4f2c37330eb74
 ```
 
-This is a structural prerequisite, not permission to obtain the smoke artifact or invoke its protected workflow.
-If the exact raw receipt, digest, or reviewed release is unavailable, stop this stage and preserve the purchase-authority work already completed.
+Every provider-calling labeling stage must pass this exact `provider_caps` path, the same exact `provider_journal` path, and `--local-provider-journal-only`.
+Do not combine the local flag with a provider-authority table or replace the journal between stages; either change would fail closed before a provider call.
 
 ## Render and preflight the v4 cycle
 
-Render exactly once after the public purchase policy, attempt policy, and provider caps successor exist.
+Render exactly once after the public purchase policy and attempt policy exist and the checked-in provider caps digest has been verified.
 Private approval evidence is required to issue those public authority artifacts, but it is not a downstream runtime input after publication.
 Every coordinator output is under the successor public/private roots.
 
@@ -201,55 +191,19 @@ uv run legalforecast acquisition run-cycle \
   --execute --allow-network --allow-paid --json
 ```
 
-## Merge and adopt protected Stage B shards
+## Execute, merge, and adopt local Stage B shards
 
-Stage B provider calls run outside the coordinator in the protected official paid-labeling workflow.
-Run the OpenAI shard first and the Google shard second through the same sequential encrypted baton and canonical provider journal; never run the two shards in parallel or inject both provider credentials into one job.
-Each protected shard must name the complete two-model judge panel and restore its authenticated outputs at exactly these paths:
+The rendered coordinator fixes two ordered `model_provider` stages: OpenAI first and Google second.
+Execute each stage locally from its exact rendered arguments, with only that provider's credential present, the complete two-model judge panel, the checked-in caps artifact, the same canonical SQLite provider journal, and `--local-provider-journal-only`.
+Never run the two stages in parallel or inject both provider credentials into one process.
+The stages publish distinct authenticated outputs at exactly these paths:
 
 - `$successor_root/19-stage-b-shards/openai-audit.jsonl`
 - `$successor_root/19-stage-b-shards/openai-run-card.json`
 - `$successor_root/19-stage-b-shards/google-audit.jsonl`
 - `$successor_root/19-stage-b-shards/google-run-card.json`
 
-After both protected shard audit/card pairs exist, reconcile them locally with the credential-free merge command below.
-This command verifies the shard cards, journal lineage, complete settled-attempt cross-product, Stage A chain, decision-text commitments, model registries, and provider caps before it writes any selected label.
-It does not receive `--execution-provider`, a provider-authority table, an AWS region, or a provider credential.
-
-```zsh
-setopt ERR_EXIT NO_UNSET PIPE_FAIL
-
-uv run legalforecast acquisition llm-label \
-  --output-root "$successor_root/20-stage-b-labels" \
-  --selection "$frozen_v4_root/target-cohort-selection.jsonl" \
-  --parser-manifest "$successor_root/14-parse/mistral-markdown-conversions.jsonl" \
-  --markdown-root "$successor_root/14-parse/markdown" \
-  --decision-texts "$successor_root/18-decision-texts/decision-texts.jsonl" \
-  --decision-texts-manifest "$successor_root/18-decision-texts/decision-texts-manifest.json" \
-  --decision-texts-run-card "$successor_root/18-decision-texts/run-cards/build-decision-texts.json" \
-  --prediction-units "$successor_root/17-stage-a-final/prediction-units-finalized.jsonl" \
-  --llm-unitization-run-card "$successor_root/15-stage-a-unitize/run-cards/llm-unitize.json" \
-  --llm-review-stage-a-run-card "$successor_root/16-stage-a-review/run-cards/llm-review-stage-a.json" \
-  --unitization-review-run-card "$successor_root/17-stage-a-final/run-cards/apply-unitization-review.json" \
-  --model-registry "$repo_root/model_registries/cycle-1-stage-b-judges-2026-07-12.json" \
-  --evaluated-model-registry "$repo_root/model_registries/cycle-1-2026-06-30.json" \
-  --model-key openai:gpt-5.4-mini-2026-03-17 \
-  --model-key google:gemini-3.5-flash \
-  --provider-cycle-caps "$successor_root/01-provider-authority/provider-cycle-caps.json" \
-  --provider-journal "$private_cycle_root/paid-labeling/provider-attempts.sqlite3" \
-  --provider-shard-audit "$successor_root/19-stage-b-shards/openai-audit.jsonl" \
-  --provider-shard-run-card "$successor_root/19-stage-b-shards/openai-run-card.json" \
-  --provider-shard-audit "$successor_root/19-stage-b-shards/google-audit.jsonl" \
-  --provider-shard-run-card "$successor_root/19-stage-b-shards/google-run-card.json" \
-  --labels-output "$successor_root/20-stage-b-labels/labels.jsonl" \
-  --audit-output "$successor_root/20-stage-b-labels/llm-label-audit.jsonl" \
-  --lawyer-review-queue-output "$successor_root/20-stage-b-labels/lawyer-review-queue.jsonl" \
-  --run-card-output "$successor_root/20-stage-b-labels/run-cards/llm-label.json" \
-  --execute --resume
-```
-
-The template deliberately retains the conservative `model_provider` boundary for this externally completed merge so the coordinator cannot execute it during an ordinary provider-free cycle advance.
-Adopt the authenticated completion without invoking the handler or granting any provider authority:
+After each provider stage completes, adopt that exact next stage before executing the following stage:
 
 ```zsh
 uv run legalforecast acquisition run-cycle \
@@ -259,6 +213,19 @@ uv run legalforecast acquisition run-cycle \
 ```
 
 Do not combine `--adopt-next-completed` with `--execute`, any `--allow-*` flag, or a changed output path.
-The adoption must authenticate the exact next unreceipted `merge-stage-b-provider-shards` run card and outputs; a missing, drifted, partial, or unbound shard fails closed without a provider call.
+Each adoption authenticates only the exact next unreceipted provider stage; a missing, drifted, partial, or unbound shard fails closed.
+
+Once both provider stages are adopted, advance the coordinator normally:
+
+```zsh
+uv run legalforecast acquisition run-cycle \
+  --config "$successor_root/acquisition-cycle-v4-ranked-reserve.json" \
+  --state-root "$successor_root/orchestrator-v4-ranked-reserve" \
+  --execute --json
+```
+
+The next `merge-stage-b-provider-shards` stage is `provider_free`.
+It receives no `--execution-provider`, local-journal authority flag, provider-authority table, AWS region, or provider credential.
+It verifies both shard cards, the shared journal lineage, complete settled-attempt cross-product, Stage A chain, decision-text commitments, model registries, and checked-in caps before writing any selected label.
 
 Evaluation, freeze, dispatch, and publication are absent from the template and remain unauthorized.

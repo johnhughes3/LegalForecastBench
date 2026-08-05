@@ -1,6 +1,6 @@
 # Provider cycle caps v1
 
-`legalforecast.provider_cycle_caps.v1` is the immutable pre-labeling commitment for provider/account spend. It records each provider cap and the shared remote authority that every paid labeling and official-evaluation call must consult.
+`legalforecast.provider_cycle_caps.v1` is the immutable pre-labeling commitment for provider spend. It records each provider cap and, when present, the shared remote authority that paid labeling and official-evaluation calls must consult.
 
 The artifact has this shape:
 
@@ -36,7 +36,9 @@ The public `account` value is a lowercase kebab-case alias of 1–32 characters,
 
 The exact artifact bytes are hashed before the first paid labeling call. That pre-labeling artifact fixes the authority, caps, aliases, attempt budget, and breaker policy used by labeling. Its digest is the remote ledger's `reservation_ledger_sha256`; the later at-freeze execution policy must reproduce those commitments and the artifact digest exactly, and cannot originate or raise them. Consequently, labeling and evaluation address the same `(authority, cycle_id, provider, account, reservation_ledger_sha256)` ledger even though their attempt records have different stage names.
 
-Legacy artifacts without `spend_authority` and provider account aliases remain readable for historical inspection, but paid labeling refuses to use them. Every paid acquisition command also requires `--provider-authority-table`; the optional `--provider-authority-region` defaults to `us-east-1`.
+Legacy artifacts without `spend_authority` and provider account aliases remain valid local caps artifacts. Paid acquisition may consume one only with the explicit `--local-provider-journal-only` mode and an explicit `--provider-journal` path; the one canonical SQLite journal then provides cycle-wide reservations and durable replay on a single lock-capable filesystem. This mode is mutually exclusive with `--provider-authority-table`, is not a distributed authority, and does not authorize official evaluation.
+
+Authority-enabled artifacts retain the DynamoDB path. Provider-calling acquisition commands require either `--local-provider-journal-only` or `--provider-authority-table`; the optional `--provider-authority-region` defaults to `us-east-1` for the latter. A credential-free `llm-label` shard merge requires neither mode because it performs no provider call.
 
 The canonical authority-enabled Cycle 1 artifact is derived without hand editing through the provider-free [provider cycle caps successor receipt](provider-cycle-caps-successor-v1.md) contract after the protected exact-table verifier supplies the public resource-identity SHA-256.
 
