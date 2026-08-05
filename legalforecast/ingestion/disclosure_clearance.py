@@ -141,6 +141,7 @@ class ClearanceRecord:
     free_or_purchased: str
     clearance_basis: str = "legacy_authenticated_review"
     routing_plan_sha256: str | None = None
+    recovered_public_lineage: Mapping[str, object] | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return the stable artifact row without sensitive matched values."""
@@ -164,6 +165,8 @@ class ClearanceRecord:
         if self.clearance_basis != "legacy_authenticated_review":
             record["clearance_basis"] = self.clearance_basis
             record["routing_plan_sha256"] = self.routing_plan_sha256
+        if self.recovered_public_lineage is not None:
+            record["recovered_public_lineage"] = dict(self.recovered_public_lineage)
         return record
 
 
@@ -528,6 +531,23 @@ def _require_clearance_restriction(
                 f"John-reviewed {label} has positive restriction evidence: {key}"
             )
         return
+    if basis == "provider_free_recovered_public":
+        evidence_value = row.get("restriction_evidence")
+        expected = {
+            "courtlistener_recap_fetch_fresh_detail_exact_match",
+            "courtlistener_recap_fetch_is_available_true",
+            "courtlistener_recap_fetch_is_sealed_false",
+            "courtlistener_recap_fetch_no_positive_private_marker",
+        }
+        if (
+            row.get("restriction_status") != "public"
+            or not isinstance(evidence_value, (list, tuple))
+            or tuple(cast(Sequence[str], evidence_value)) != tuple(sorted(expected))
+        ):
+            raise DisclosureClearanceError(
+                f"recovered-public {label} lacks exact public evidence: {key}"
+            )
+        return
     if basis != "affirmative_public_provenance":
         _require_public_restriction(row, key=key, label=label)
         return
@@ -552,6 +572,77 @@ def _require_clearance_provenance(
     row: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
     basis = row.get("clearance_basis")
+    if basis == "provider_free_recovered_public":
+        if row.get("reviewed_at") is not None or row.get("reviewer_id") is not None:
+            raise DisclosureClearanceError(
+                f"recovered-public clearance unexpectedly has a reviewer: {key}"
+            )
+        provenance = _optional_str(row, "controlled_store_provenance")
+        if (
+            provenance != f"courtlistener-rest://recap-documents/{key[1]}"
+            or row.get("free_or_purchased") != "purchased"
+        ):
+            raise DisclosureClearanceError(
+                f"recovered-public clearance has invalid CourtListener identity: {key}"
+            )
+        raw_lineage = row.get("recovered_public_lineage")
+        expected_fields = {
+            "candidate_id",
+            "source_document_id",
+            "recovery_run_card_sha256",
+            "recovery_manifest_sha256",
+            "recovery_restriction_evidence_sha256",
+            "purchase_state_sha256",
+            "purchase_operation_sha256",
+            "purchase_operation_key",
+            "fresh_recap_detail_sha256",
+        }
+        if not isinstance(raw_lineage, Mapping):
+            raise DisclosureClearanceError(
+                f"recovered-public clearance lacks closed lineage: {key}"
+            )
+        lineage = cast(Mapping[str, object], raw_lineage)
+        if set(lineage) != expected_fields:
+            raise DisclosureClearanceError(
+                f"recovered-public clearance lacks closed lineage: {key}"
+            )
+        if (
+            lineage.get("candidate_id") != key[0]
+            or lineage.get("source_document_id") != key[1]
+        ):
+            raise DisclosureClearanceError(
+                f"recovered-public clearance lineage identity changed: {key}"
+            )
+        for field in (
+            "recovery_run_card_sha256",
+            "recovery_manifest_sha256",
+            "recovery_restriction_evidence_sha256",
+            "purchase_state_sha256",
+            "purchase_operation_sha256",
+            "fresh_recap_detail_sha256",
+        ):
+            value = lineage.get(field)
+            if (
+                not isinstance(value, str)
+                or re.fullmatch(r"[0-9a-f]{64}", value) is None
+            ):
+                raise DisclosureClearanceError(
+                    f"recovered-public clearance lineage hash is invalid: {key}"
+                )
+        operation_key = lineage.get("purchase_operation_key")
+        if (
+            not isinstance(operation_key, str)
+            or re.fullmatch(
+                r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+                operation_key,
+            )
+            is None
+        ):
+            raise DisclosureClearanceError(
+                f"recovered-public clearance operation identity is invalid: {key}"
+            )
+        _require_routing_plan_hash(row, key=key)
+        return
     if basis == "affirmative_public_provenance":
         if row.get("reviewed_at") is not None or row.get("reviewer_id") is not None:
             raise DisclosureClearanceError(

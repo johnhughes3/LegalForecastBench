@@ -52,10 +52,91 @@ _REST_PUBLIC_EVIDENCE = frozenset(
 _POSITIVE_RESTRICTION_EVIDENCE = re.compile(
     r"(?:^|_)(?:sealed|private|restricted|under_seal)(?:_true|$)"
 )
+_RECOVERED_PUBLIC_EVIDENCE = frozenset(
+    {
+        "courtlistener_recap_fetch_fresh_detail_exact_match",
+        "courtlistener_recap_fetch_is_available_true",
+        "courtlistener_recap_fetch_is_sealed_false",
+        "courtlistener_recap_fetch_no_positive_private_marker",
+    }
+)
+_UUID4 = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+)
 
 
 class ProvenanceClearanceError(ValueError):
     """Raised when provenance routing is incomplete, contradictory, or changed."""
+
+
+def _recovered_public_capability_boundary() -> tuple[
+    Callable[[Sequence[Mapping[str, object]]], object],
+    Callable[[object | None], Mapping[tuple[str, str], Mapping[str, object]]],
+]:
+    """Keep verifier-issued recovered-public authority opaque to callers."""
+
+    capabilities: dict[object, dict[tuple[str, str], Mapping[str, object]]] = {}
+
+    def issue(rows: Sequence[Mapping[str, object]]) -> object:
+        indexed: dict[tuple[str, str], Mapping[str, object]] = {}
+        expected = {
+            "candidate_id",
+            "source_document_id",
+            "recovery_run_card_sha256",
+            "recovery_manifest_sha256",
+            "recovery_restriction_evidence_sha256",
+            "purchase_state_sha256",
+            "purchase_operation_sha256",
+            "purchase_operation_key",
+            "fresh_recap_detail_sha256",
+        }
+        for raw in rows:
+            row = dict(raw)
+            key = _key(row)
+            if key in indexed or set(row) != expected:
+                raise ProvenanceClearanceError(
+                    "invalid recovered-public verifier evidence"
+                )
+            for field in (
+                "recovery_run_card_sha256",
+                "recovery_manifest_sha256",
+                "recovery_restriction_evidence_sha256",
+                "purchase_state_sha256",
+                "purchase_operation_sha256",
+                "fresh_recap_detail_sha256",
+            ):
+                _digest(row, field)
+            operation_key = row.get("purchase_operation_key")
+            if (
+                not isinstance(operation_key, str)
+                or _UUID4.fullmatch(operation_key) is None
+            ):
+                raise ProvenanceClearanceError(
+                    "invalid recovered-public purchase operation key"
+                )
+            indexed[key] = row
+        capability = object()
+        capabilities[capability] = indexed
+        return capability
+
+    def consume(
+        capability: object | None,
+    ) -> Mapping[tuple[str, str], Mapping[str, object]]:
+        try:
+            return capabilities[capability]
+        except (KeyError, TypeError):
+            raise ProvenanceClearanceError(
+                "recovered-public clearance requires a verifier-issued capability"
+            ) from None
+
+    return issue, consume
+
+
+(
+    _issue_recovered_public_clearance_capability,
+    _consume_recovered_public_clearance_capability,
+) = _recovered_public_capability_boundary()
+del _recovered_public_capability_boundary
 
 
 def canonical_json_bytes(value: object) -> bytes:
@@ -283,6 +364,7 @@ def build_provenance_clearance_plan_v3(
     case_relevance_bytes: bytes,
     document_bytes_by_relative_path: Mapping[str, bytes] | None = None,
     document_scanner: Callable[[bytes], DisclosurePdfScan] = scan_disclosure_document,
+    verified_recovery_capability: object | None = None,
 ) -> dict[str, object]:
     """Build additive v3 routing with reviewer-neutral exception vocabulary."""
 
@@ -299,16 +381,42 @@ def build_provenance_clearance_plan_v3(
         document_bytes_by_relative_path=document_bytes_by_relative_path,
         document_scanner=document_scanner,
     )
+    recovered: Mapping[tuple[str, str], Mapping[str, object]] = (
+        {}
+        if verified_recovery_capability is None
+        else _consume_recovered_public_clearance_capability(
+            verified_recovery_capability
+        )
+    )
+    manifest_index = _index(download_manifest, "manifest")
+    restriction_index = _index(restriction_evidence, "restriction evidence")
+    relevance_index = _relevance_index(case_relevance)
     legacy_documents = cast(list[dict[str, object]], legacy["documents"])
     documents: list[dict[str, object]] = []
     for legacy_document in legacy_documents:
         document = dict(legacy_document)
+        key = _key(document)
+        recovery_lineage = recovered.get(key)
+        if recovery_lineage is not None and _verified_recovered_public_document(
+            manifest_index[key],
+            restriction=restriction_index[key],
+            visibility=relevance_index[key],
+            lineage=recovery_lineage,
+        ):
+            scan = cast(Mapping[str, object], document["disclosure_pdf_scan"])
+            if scan.get("coverage_status") == "complete" and not document.get(
+                "automated_markers"
+            ):
+                document["route"] = "auto_clear"
+                document["route_reasons"] = []
+                document["recovered_public_lineage"] = dict(recovery_lineage)
         if document["route"] == "john_exception_review":
             document["route"] = "exception_review"
         document["exception_clearance_permitted"] = document.pop(
             "human_clearance_permitted"
         )
         documents.append(document)
+    auto_count = sum(row["route"] == "auto_clear" for row in documents)
     plan: dict[str, object] = {
         "schema_version": PLAN_SCHEMA_VERSION_V3,
         "source_sha256": legacy["source_sha256"],
@@ -316,8 +424,8 @@ def build_provenance_clearance_plan_v3(
             canonical_json_bytes(documents)
         ).hexdigest(),
         "document_count": legacy["document_count"],
-        "auto_clear_count": legacy["auto_clear_count"],
-        "exception_review_count": legacy["john_review_count"],
+        "auto_clear_count": auto_count,
+        "exception_review_count": len(documents) - auto_count,
         "documents": documents,
     }
     document_scanner_for_plan(plan)
@@ -621,6 +729,8 @@ def build_provider_free_quarantine_records_v3(
     for document in documents:
         key = _key(document)
         automatic = document.get("route") == "auto_clear"
+        recovered_lineage = document.get("recovered_public_lineage")
+        recovered_public = automatic and isinstance(recovered_lineage, Mapping)
         records.append(
             ClearanceRecord(
                 candidate_id=key[0],
@@ -636,16 +746,29 @@ def build_provider_free_quarantine_records_v3(
                 ),
                 reviewer_id=None,
                 controlled_store_provenance=(
-                    _required_text(document, "source_url") if automatic else None
+                    (
+                        f"courtlistener-rest://recap-documents/{key[1]}"
+                        if recovered_public
+                        else _required_text(document, "source_url")
+                    )
+                    if automatic
+                    else None
                 ),
                 reviewed_at=None,
                 free_or_purchased=_required_text(document, "free_or_purchased"),
                 clearance_basis=(
-                    "affirmative_public_provenance"
+                    "provider_free_recovered_public"
+                    if recovered_public
+                    else "affirmative_public_provenance"
                     if automatic
                     else "provider_free_exception_quarantine"
                 ),
                 routing_plan_sha256=routing_plan_sha256,
+                recovered_public_lineage=(
+                    dict(cast(Mapping[str, object], recovered_lineage))
+                    if recovered_public
+                    else None
+                ),
             )
         )
     return tuple(records)
@@ -852,16 +975,75 @@ def _validate_plan_document_v3(
         "route_reasons",
         "exception_clearance_permitted",
     }
+    actual_fields = set(row)
+    recovered_lineage = row.get("recovered_public_lineage")
+    if actual_fields == expected_fields | {"recovered_public_lineage"}:
+        if (
+            not isinstance(recovered_lineage, Mapping)
+            or row.get("route") != "auto_clear"
+        ):
+            raise ProvenanceClearanceError(
+                f"invalid recovered-public routing lineage: {key}"
+            )
+        expected_fields = actual_fields
     if set(row) != expected_fields or row.get("route") not in {
         "auto_clear",
         "exception_review",
     }:
         raise ProvenanceClearanceError(f"invalid routing plan document shape: {key}")
     legacy = dict(row)
+    legacy.pop("recovered_public_lineage", None)
     legacy["human_clearance_permitted"] = legacy.pop("exception_clearance_permitted")
     if legacy["route"] == "exception_review":
         legacy["route"] = "john_exception_review"
+    if recovered_lineage is None:
+        _validate_plan_document(legacy, key=key)
+        return
+    if legacy.get("source_url") is None:
+        legacy["source_url"] = f"courtlistener-rest://recap-documents/{key[1]}"
+    legacy["route"] = "john_exception_review"
+    legacy["route_reasons"] = ["affirmative_public_provenance_unproven"]
     _validate_plan_document(legacy, key=key)
+    if row.get("route_reasons") != []:
+        raise ProvenanceClearanceError(
+            f"invalid recovered-public routing decision: {key}"
+        )
+
+
+def _verified_recovered_public_document(
+    source: Mapping[str, object],
+    *,
+    restriction: Mapping[str, object],
+    visibility: Mapping[str, object],
+    lineage: Mapping[str, object],
+) -> bool:
+    """Accept only the exact closed post-purchase CourtListener proof."""
+
+    if (
+        source.get("source_provider") != "courtlistener_recap_fetch"
+        or source.get("free_or_purchased") != "purchased"
+        or source.get("source_url") is not None
+        or restriction.get("source_provider")
+        != "courtlistener_recap_fetch_fresh_detail"
+        or restriction.get("is_available") is not True
+        or restriction.get("is_sealed") is not False
+        or restriction.get("is_private") not in {False, None}
+        or restriction.get("redaction_or_seal_status") != "public"
+        or restriction.get("restriction_status") != "public"
+        or tuple(_text_list(restriction, "restriction_evidence"))
+        != tuple(sorted(_RECOVERED_PUBLIC_EVIDENCE))
+        or not _visibility_contract_valid(visibility)
+        or _positive_restriction(restriction)
+    ):
+        return False
+    fresh_sha = restriction.get("fresh_recap_detail_sha256")
+    return (
+        isinstance(fresh_sha, str)
+        and source.get("fresh_recap_detail_sha256") == fresh_sha
+        and lineage.get("fresh_recap_detail_sha256") == fresh_sha
+        and source.get("purchase_operation_key")
+        == lineage.get("purchase_operation_key")
+    )
 
 
 def _validate_plan_document(row: Mapping[str, object], *, key: tuple[str, str]) -> None:

@@ -17,6 +17,7 @@ from legalforecast.ingestion.disclosure_clearance import (
     SCHEMA_VERSION,
     DisclosureClearanceError,
     ReviewAuthority,
+    require_clearance_policy,
     validate_review_receipt,
 )
 from legalforecast.ingestion.disclosure_review_authority import (
@@ -718,6 +719,9 @@ def _build_resolved_post_recovery_documents_core(
             key=key,
             operation=operation,
         )
+        _validate_recovered_public_clearance_lineage(
+            clearance, operation=operation, fresh_public=fresh_public, key=key
+        )
         receipt = _terminal_delivery_receipt(operation, key=key)
         material = _mapping(operation.get("material_evidence"), "material evidence")
         record: dict[str, object] = {
@@ -1368,12 +1372,50 @@ def _validate_clearance(
         or clearance.get("restriction_status") != "public"
         or clearance.get("sha256") != download.get("sha256")
         or clearance.get("byte_count") != download.get("byte_count")
-        or not clearance.get("reviewer_id")
-        or not clearance.get("controlled_store_provenance")
-        or not clearance.get("reviewed_at")
     ):
         raise ResolvedPostRecoveryError(
             f"download lacks authenticated public disclosure clearance: {key}"
+        )
+    try:
+        require_clearance_policy(clearance, key=key, label="resolved document")
+    except DisclosureClearanceError as exc:
+        raise ResolvedPostRecoveryError(str(exc)) from exc
+
+
+def _validate_recovered_public_clearance_lineage(
+    clearance: Mapping[str, Any],
+    *,
+    operation: Mapping[str, Any],
+    fresh_public: Mapping[str, Any],
+    key: tuple[str, str],
+) -> None:
+    """Bind the recovered-public clearance row to purchase and fresh detail."""
+
+    if clearance.get("clearance_basis") != "provider_free_recovered_public":
+        return
+    raw_lineage = clearance.get("recovered_public_lineage")
+    if not isinstance(raw_lineage, Mapping):
+        raise ResolvedPostRecoveryError(
+            f"recovered-public clearance lacks lineage: {key}"
+        )
+    lineage = cast(Mapping[str, object], raw_lineage)
+    material = _mapping(operation.get("material_evidence"), "material evidence")
+    expected = {
+        "candidate_id": key[0],
+        "source_document_id": key[1],
+        "purchase_operation_sha256": _sha256(operation),
+        "purchase_operation_key": operation.get("operation_key"),
+        "fresh_recap_detail_sha256": material.get("provider_detail_sha256"),
+    }
+    if any(lineage.get(field) != value for field, value in expected.items()):
+        raise ResolvedPostRecoveryError(
+            f"recovered-public clearance purchase lineage changed: {key}"
+        )
+    if fresh_public.get("fresh_recap_detail_sha256") != lineage.get(
+        "fresh_recap_detail_sha256"
+    ):
+        raise ResolvedPostRecoveryError(
+            f"recovered-public clearance fresh detail changed: {key}"
         )
 
 

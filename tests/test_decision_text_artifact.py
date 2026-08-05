@@ -198,6 +198,22 @@ def test_build_decision_texts_accepts_unknown_flags_only_with_verified_public_st
     assert main(_command(inputs, tmp_path / "output")) == 0
 
 
+def test_build_decision_texts_accepts_closed_recovered_public_clearance(
+    tmp_path: Path,
+) -> None:
+    inputs = _write_inputs(tmp_path, mutation="recovered_public")
+    output = tmp_path / "output"
+
+    assert main(_command(inputs, output)) == 0
+    clearance = _read_jsonl(output / "decision-texts.jsonl")[0]["clearance"]
+    assert clearance["clearance_basis"] == "provider_free_recovered_public"
+    assert clearance["reviewer_id"] is None
+    assert clearance["reviewed_at"] is None
+    assert clearance["recovered_public_lineage"]["purchase_operation_sha256"] == (
+        "7" * 64
+    )
+
+
 def test_build_decision_texts_rejects_selection_modified_after_committed_projection(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -494,6 +510,39 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         decision_document["is_private"] = None
         restriction_rows[0]["is_sealed"] = None
         restriction_rows[0]["is_private"] = None
+    elif mutation == "recovered_public":
+        evidence = [
+            "courtlistener_recap_fetch_fresh_detail_exact_match",
+            "courtlistener_recap_fetch_is_available_true",
+            "courtlistener_recap_fetch_is_sealed_false",
+            "courtlistener_recap_fetch_no_positive_private_marker",
+        ]
+        manifest_rows[0]["free_or_purchased"] = "purchased"
+        clearance_rows[0].update(
+            {
+                "restriction_evidence": evidence,
+                "reviewer_id": None,
+                "controlled_store_provenance": (
+                    "courtlistener-rest://recap-documents/decision"
+                ),
+                "reviewed_at": None,
+                "free_or_purchased": "purchased",
+                "clearance_basis": "provider_free_recovered_public",
+                "routing_plan_sha256": "8" * 64,
+                "recovered_public_lineage": {
+                    "candidate_id": "cand-1",
+                    "source_document_id": "decision",
+                    "recovery_run_card_sha256": "3" * 64,
+                    "recovery_manifest_sha256": "4" * 64,
+                    "recovery_restriction_evidence_sha256": "5" * 64,
+                    "purchase_state_sha256": "6" * 64,
+                    "purchase_operation_sha256": "7" * 64,
+                    "purchase_operation_key": ("00000000-0000-4000-8000-000000000000"),
+                    "fresh_recap_detail_sha256": "2" * 64,
+                },
+            }
+        )
+        restriction_rows[0]["restriction_evidence"] = evidence
     elif mutation == "uncleared":
         clearance_rows[0]["status"] = "quarantined"
     elif mutation == "missing_disposition":

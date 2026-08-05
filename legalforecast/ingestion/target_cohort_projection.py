@@ -486,7 +486,11 @@ def _validate_relevance_clearance_restriction_binding(
     relevance_status = relevance_document.get("redaction_or_seal_status")
     if relevance_status != "unknown":
         return
-    automatic = clearance.get("clearance_basis") == "affirmative_public_provenance"
+    basis = clearance.get("clearance_basis")
+    automatic = basis in {
+        "affirmative_public_provenance",
+        "provider_free_recovered_public",
+    }
     if not automatic:
         raise TargetCohortProjectionError(
             f"unknown restriction status lacks automatic clearance binding: {key}"
@@ -498,6 +502,12 @@ def _validate_relevance_clearance_restriction_binding(
         raise TargetCohortProjectionError(
             f"automatic clearance contradicts positive restriction flags: {key}"
         )
+    if basis == "provider_free_recovered_public":
+        if clearance.get("restriction_status") != "public":
+            raise TargetCohortProjectionError(
+                f"recovered-public clearance did not prove public status: {key}"
+            )
+        return
     clearance_status = clearance.get("restriction_status")
     relevance_evidence = _restriction_evidence_items(
         relevance_document,
