@@ -459,6 +459,50 @@ class ProviderAttemptJournal:
 
         return self._durable_ordinals.get(local_ordinal, local_ordinal)
 
+    def prepare_reconstruction_retry(self, *, max_attempts: int) -> int:
+        """Map retries past invalid reconstructed responses within a fixed limit.
+
+        Reconstruction failures remain replayable by default so corrected local
+        reconstruction code can reuse a valid provider response. Callers that
+        require a fresh provider response must opt in here. Every existing
+        journal attempt consumes the same fixed attempt allowance, and the
+        returned value is the number of provider attempts still available.
+        """
+
+        if type(max_attempts) is not int or max_attempts <= 0:
+            raise ValueError("max_attempts must be a positive integer")
+        rows = self._connection.execute(
+            """
+            SELECT attempt_ordinal, status FROM provider_attempts
+            WHERE logical_call_key = ?
+            ORDER BY attempt_ordinal
+            """,
+            (self.identity.logical_call_key,),
+        ).fetchall()
+        if not any(row["status"] == "reconstruction_failed" for row in rows):
+            return max_attempts
+        replayable = next(
+            (
+                row
+                for status in ("settled", "validated_response", "response_received")
+                for row in reversed(rows)
+                if row["status"] == status
+            ),
+            None,
+        )
+        if replayable is not None:
+            self._durable_ordinals[1] = int(replayable["attempt_ordinal"])
+            return 1
+        remaining = max_attempts - len(rows)
+        if remaining <= 0:
+            raise ProviderJournalError(
+                "provider reconstruction retry attempt limit is exhausted"
+            )
+        next_ordinal = max(int(row["attempt_ordinal"]) for row in rows) + 1
+        for local_ordinal in range(1, remaining + 1):
+            self._durable_ordinals[local_ordinal] = next_ordinal + local_ordinal - 1
+        return remaining
+
     def adopt_attempt(
         self,
         local_ordinal: int,
