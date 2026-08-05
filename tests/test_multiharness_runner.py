@@ -1093,6 +1093,47 @@ def test_runner_marks_capability_probe_artifacts_private(tmp_path: Path) -> None
     assert artifacts[f"{row_root}/result.json"] is True
 
 
+def test_artifact_index_omits_hidden_private_runtime_state(tmp_path: Path) -> None:
+    public_path = tmp_path / "run-manifest.json"
+    private_path = tmp_path / "rows" / "row-1" / "private-logs" / "result.log"
+    hidden_path = (
+        tmp_path / "rows" / "row-1" / "private-logs" / "claude-config" / ".claude.json"
+    )
+    for path in (public_path, private_path, hidden_path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("fixture", encoding="utf-8")
+
+    artifacts = runner_module._artifact_index(  # pyright: ignore[reportPrivateUsage]
+        tmp_path
+    )
+    indexed = {artifact["path"]: artifact["public"] for artifact in artifacts}
+
+    assert indexed["run-manifest.json"] is True
+    assert indexed["rows/row-1/private-logs/result.log"] is False
+    assert "rows/row-1/private-logs/claude-config/.claude.json" not in indexed
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    (
+        "public/.unexpected.json",
+        ".unexpected/private-logs/.runtime.json",
+    ),
+)
+def test_artifact_index_rejects_hidden_state_outside_private_logs(
+    tmp_path: Path,
+    relative_path: str,
+) -> None:
+    hidden_path = tmp_path / relative_path
+    hidden_path.parent.mkdir(parents=True)
+    hidden_path.write_text("fixture", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="hidden path segments"):
+        runner_module._artifact_index(  # pyright: ignore[reportPrivateUsage]
+            tmp_path
+        )
+
+
 def test_runner_records_failures_and_keeps_lab_outputs_separate(
     tmp_path: Path,
 ) -> None:

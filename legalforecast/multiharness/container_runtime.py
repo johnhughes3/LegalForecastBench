@@ -8,6 +8,7 @@ import secrets
 import shutil
 import stat
 import subprocess
+import time
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
@@ -487,12 +488,18 @@ class ContainerToolSession(ToolExecutor):
                 ),
                 self._backend_environment,
             )
-        remaining = _session_container_ids(
-            self._backend_path,
-            self._container_name,
-            self._session_token,
-            self._backend_environment,
-        )
+        remaining: tuple[str, ...] | None = None
+        for attempt in range(10):
+            remaining = _session_container_ids(
+                self._backend_path,
+                self._container_name,
+                self._session_token,
+                self._backend_environment,
+            )
+            if remaining in (None, ()):
+                break
+            if attempt < 9:
+                time.sleep(0.05)
         self._cleanup_confirmed = remaining == ()
         return self._cleanup_confirmed
 

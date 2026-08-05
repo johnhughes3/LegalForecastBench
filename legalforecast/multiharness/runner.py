@@ -944,6 +944,14 @@ def _artifact_index(root: Path) -> list[dict[str, Any]]:
         if path.name == "artifact-index.json":
             continue
         relative = path.relative_to(root).as_posix()
+        parts = relative.split("/")
+        if "private-logs" in parts:
+            private_logs_index = parts.index("private-logs")
+            hidden_indexes = tuple(
+                index for index, part in enumerate(parts) if part.startswith(".")
+            )
+            if hidden_indexes and min(hidden_indexes) > private_logs_index:
+                continue
         artifacts.append(
             ArtifactRecord(
                 artifact_id=_artifact_id(relative),
