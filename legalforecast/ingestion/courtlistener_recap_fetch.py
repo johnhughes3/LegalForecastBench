@@ -374,6 +374,7 @@ class UrlLibRecapFetchTransport:
 @dataclass(slots=True)
 class _DirectSubmissionPreparation:
     owner: object
+    cancel_reservation: Callable[[], None] = field(default_factory=lambda: lambda: None)
     consumed: bool = False
 
 
@@ -385,7 +386,7 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
         config: DirectCourtListenerRecapFetchConfig,
         *,
         transport: RecapFetchTransport | None = None,
-        before_request: Callable[[str, str], None] | None = None,
+        before_request: Callable[[str, str], Callable[[], None] | None] | None = None,
     ) -> None:
         self.config = config
         self.transport = transport or UrlLibRecapFetchTransport(config.base_url)
@@ -405,9 +406,13 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
 
         if self._active_preparation is not None:
             raise ValueError("direct purchase already has active preparation")
+        cancel_reservation: Callable[[], None] | None = None
         if self.before_request is not None:
-            self.before_request("POST", "/recap-fetch/")
-        preparation = _DirectSubmissionPreparation(owner=self._preparation_owner)
+            cancel_reservation = self.before_request("POST", "/recap-fetch/")
+        preparation = _DirectSubmissionPreparation(
+            owner=self._preparation_owner,
+            cancel_reservation=cancel_reservation or (lambda: None),
+        )
         self._active_preparation = preparation
 
         return PreparedRecapFetchSubmission(
@@ -418,6 +423,7 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
     def _cancel_preparation(self, preparation: _DirectSubmissionPreparation) -> None:
         if preparation is not self._active_preparation or preparation.consumed:
             raise ValueError("direct purchase preparation cannot be cancelled")
+        preparation.cancel_reservation()
         preparation.consumed = True
         self._active_preparation = None
 
@@ -708,9 +714,18 @@ class CourtListenerRecapFetchClient:
                     "submitted purchase lacks operation key"
                 )
         except BaseException as exc:
-            prepared_submit.cancel()
+            cleanup_errors: list[tuple[str, BaseException]] = []
+            try:
+                prepared_submit.cancel()
+            except BaseException as cleanup_exc:
+                cleanup_errors.append(("reservation cancellation", cleanup_exc))
             if submitted:
-                self.journal.fail_before_dispatch(document_id, exc)
+                try:
+                    self.journal.fail_before_dispatch(document_id, exc)
+                except BaseException as cleanup_exc:
+                    cleanup_errors.append(("purchase journal cleanup", cleanup_exc))
+            for label, cleanup_exc in cleanup_errors:
+                exc.add_note(f"{label} failed: {cleanup_exc}")
             raise
         broker_request = {
             "request_type": "2",

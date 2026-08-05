@@ -172,8 +172,54 @@ class CourtListenerRequestBudget:
     def before_request(self, method: str, endpoint: str) -> None:
         """CourtListenerClient-compatible pre-attempt callback."""
 
-        self.reserve(method, endpoint)
+        self._reserve_local(method, endpoint)
+
+    def reserve_cancellable(self, method: str, endpoint: str) -> Callable[[], None]:
+        """Reserve an attempt and return a one-shot pre-wire release callback."""
+
+        reservation = self._reserve_local(method, endpoint)
+        released = False
+
+        def release() -> None:
+            nonlocal released
+            if released:
+                return
+            self._release_unused(reservation)
+            released = True
+
+        return release
+
+    def _reserve_local(
+        self, method: str, endpoint: str
+    ) -> CourtListenerRequestReservation:
+        reservation = self.reserve(method, endpoint)
         self._local_reservations += 1
+        return reservation
+
+    def _release_unused(self, reservation: CourtListenerRequestReservation) -> None:
+        """Return capacity for a reservation proven not to have reached the wire."""
+
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
+                """
+                DELETE FROM courtlistener_request_attempts
+                WHERE id = ? AND reserved_at = ? AND method = ? AND endpoint = ?
+                """,
+                (
+                    reservation.reservation_id,
+                    reservation.reserved_at,
+                    reservation.method,
+                    reservation.endpoint,
+                ),
+            )
+            if cursor.rowcount != 1:
+                connection.rollback()
+                raise CourtListenerRequestBudgetError(
+                    "unused CourtListener request reservation is missing or changed"
+                )
+            connection.commit()
+        self._local_reservations -= 1
 
     @property
     def local_reservations(self) -> int:
@@ -182,7 +228,7 @@ class CourtListenerRequestBudget:
         return self._local_reservations
 
     def total_reservations(self) -> int:
-        """Return the immutable all-time attempt count for audit summaries."""
+        """Return retained reservations for transmitted or pending attempts."""
 
         with self._connect() as connection:
             row = connection.execute(

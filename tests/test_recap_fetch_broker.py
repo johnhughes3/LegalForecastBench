@@ -14,6 +14,7 @@ from legalforecast.ingestion.recap_fetch_broker import (
     BrokerDefiniteRejection,
     BrokerOutcomeUnknown,
     BrokerRawResponse,
+    PreparedRecapFetchSubmission,
     RecapFetchBrokerConfig,
     SignedRecapFetchPurchaseBroker,
     broker_reconciliation_record,
@@ -58,6 +59,25 @@ class _RecordingEnvironment(Mapping[str, str]):
 
     def __len__(self) -> int:
         return len(self._values)
+
+
+def test_prepared_cancellation_remains_retryable_until_cleanup_succeeds() -> None:
+    attempts = 0
+
+    def cancel() -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("injected cancellation failure")
+
+    prepared = PreparedRecapFetchSubmission(lambda _request: {}, cancel)
+
+    with pytest.raises(RuntimeError, match="injected cancellation failure"):
+        prepared.cancel()
+    prepared.cancel()
+    prepared.cancel()
+
+    assert attempts == 2
 
 
 def test_signs_exact_canonical_six_field_submission_and_nine_field_domain() -> None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from decimal import Decimal
 from pathlib import Path
 
@@ -31,6 +31,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
 )
 from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudget,
+    CourtListenerRequestBudgetError,
     CourtListenerRequestBudgetExhausted,
 )
 from legalforecast.ingestion.missing_core_budget import (
@@ -357,11 +358,11 @@ def test_direct_preparation_is_cancelled_when_journal_submit_fails(
     paid = _RecordingPaidTransport(
         [RecapFetchHTTPResponse(status_code=201, payload={"id": 77})]
     )
-    post_reservations: list[tuple[str, str]] = []
+    request_budget = CourtListenerRequestBudget(tmp_path / "requests.sqlite3")
     direct = DirectCourtListenerRecapFetchPurchaseBroker(
         _direct_config(),
         transport=paid,
-        before_request=lambda method, path: post_reservations.append((method, path)),
+        before_request=request_budget.reserve_cancellable,
     )
 
     with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
@@ -393,6 +394,8 @@ def test_direct_preparation_is_cancelled_when_journal_submit_fails(
         assert journal.statuses() == {"123": "planned"}
         assert journal.committed_amount_usd == "0.00"
         assert paid.calls == []
+        assert request_budget.local_reservations == 0
+        assert request_budget.total_reservations() == 0
 
         monkeypatch.setattr(journal, "submit", original_submit)
         result = CourtListenerRecapFetchClient(
@@ -425,12 +428,83 @@ def test_direct_preparation_is_cancelled_when_journal_submit_fails(
 
         assert journal.statuses() == {"123": "confirmed"}
 
-    assert post_reservations == [
-        ("POST", "/recap-fetch/"),
-        ("POST", "/recap-fetch/"),
-    ]
+    assert request_budget.local_reservations == 1
+    assert request_budget.total_reservations() == 1
     assert len(paid.calls) == 1
     assert result.executed_purchase_count == 1
+
+
+def test_release_failure_preserves_pre_dispatch_error_and_journal_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    paid = _RecordingPaidTransport()
+
+    def reserve_with_failing_release(
+        _method: str, _endpoint: str
+    ) -> Callable[[], None]:
+        def release() -> None:
+            raise CourtListenerRequestBudgetError(
+                "injected reservation release failure"
+            )
+
+        return release
+
+    direct = DirectCourtListenerRecapFetchPurchaseBroker(
+        _direct_config(),
+        transport=paid,
+        before_request=reserve_with_failing_release,
+    )
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        original_submit = journal.submit
+        original_evidence = journal.operation_evidence
+        submitted = False
+
+        def submit_without_replayable_evidence(
+            document_id: str, *, context: Mapping[str, object] | None = None
+        ) -> bool:
+            nonlocal submitted
+            submitted = original_submit(document_id, context=context)
+            return submitted
+
+        def missing_operation_key(document_id: str) -> dict[str, object] | None:
+            evidence = original_evidence(document_id)
+            if not submitted or evidence is None:
+                return evidence
+            return {**evidence, "operation_key": None}
+
+        monkeypatch.setattr(journal, "submit", submit_without_replayable_evidence)
+        monkeypatch.setattr(journal, "operation_evidence", missing_operation_key)
+
+        with pytest.raises(
+            CaseDevPurchaseLedgerError, match="submitted purchase lacks operation key"
+        ) as exc_info:
+            CourtListenerRecapFetchClient(
+                _public_config(),
+                journal=journal,
+                transport=FixtureRecapFetchTransport(
+                    [_response("GET", "/recap-documents/123/", {"id": 123})]
+                ),
+                purchase_broker=direct,
+            ).execute_purchase_plan(
+                _plan(),
+                public_documents=_public_documents(),
+                live=True,
+                acknowledge_pacer_fees=True,
+            )
+
+        assert journal.statuses() == {"123": "failed"}
+        assert journal.committed_amount_usd == "0.00"
+
+    assert paid.calls == []
+    assert any(
+        "injected reservation release failure" in note
+        for note in (exc_info.value.__notes__ or [])
+    )
+    with pytest.raises(ValueError, match="already has active preparation"):
+        direct.prepare_submission()
 
 
 @pytest.mark.parametrize("status_code", (302, 503))
