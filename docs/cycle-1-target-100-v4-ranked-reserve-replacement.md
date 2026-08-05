@@ -31,8 +31,27 @@ Each terminal record has the closed schema `legalforecast.ranked_reserve_termina
 }
 ```
 
-Provider failures, retryable errors, pending human review, and ambiguous records are not terminal evidence and must not consume a reserve.
+Unauthenticated provider failures, retryable errors, pending human review, and ambiguous records are not terminal evidence and must not consume a reserve.
 Write the exact prefixed digest plus one newline to `terminal-candidate-exclusions.sha256`.
+
+## Authenticated terminal RECAP failures
+
+The provider-free adapter in `legalforecast.ingestion.terminal_purchase_failure` may issue terminal retrieval authority only for a completed live `purchase-missing-recap-fetch` result whose `provider_error` attempt encodes CourtListener queue status `3`, `6`, or `7` and whose exact canonical purchase ledger has the matching `failed` operation.
+
+`verify_terminal_purchase_failure_authority(...)` accepts paths to the purchase result and completed acquisition run card plus the already-authenticated `CaseDevPurchaseJournal`.
+It captures both inputs through race-checked, no-follow unique-regular-file reads, requires the run card's first output path to name that exact result and its second output path to name the canonical ledger, and safely captures the purchase budget plan named by the run card's first input path.
+Every candidate/document attempt in that committed budget-plan tranche must appear exactly once in the result, while historical failures from an earlier completed tranche may remain durably cap-counted in the ledger.
+The verifier also binds the UUID operation key, queue and reservation identities, unchanged policy reservation, complete purchase counts, result and run-card hashes, journal-state hash, and the fact that each unreconciled failed response still counts its full reservation against both budget caps.
+
+The verifier fails closed for queue status `1`, `4`, or `5`, every retryable, `not_attempted`, or unknown result, any submitted, queued, or unknown journal operation, a missing or mismatched result/run card/ledger operation, a released or reconciled hold, a different reservation, a non-CourtListener failure, or a fabricated authority object.
+
+`terminal_retrieval_exclusions_bytes(authority)` emits canonical `legalforecast.ranked_reserve_terminal_exclusion.v1` JSONL with `source_stage=purchase-missing-recap-fetch`; its source hashes bind the closed `legalforecast.terminal_recap_fetch_failure_evidence.v1` records retained by `authority.evidence_records`.
+
+The core planner accepts those retrieval-stage records only when the caller also supplies the same verifier-issued object as `terminal_purchase_failure_authority=authority` and the current journal still has its authenticated state hash.
+At planner time the authority replays the substantive verifier from its immutable captured source bytes and requires the regenerated evidence to match exactly, so neither a raw lookalike JSONL nor direct access to a private issuer helper can consume a reserve.
+
+This adapter performs only local safe reads; it performs no file write, network request, provider request, purchase, journal mutation, model call, evaluation, freeze, or dispatch.
+CLI and successor-reprojection wiring should invoke the verifier after the result and run card are durably published, persist the returned evidence and terminal JSONL, then call the existing planner with that same authority object.
 
 ## Provider-free planning command
 

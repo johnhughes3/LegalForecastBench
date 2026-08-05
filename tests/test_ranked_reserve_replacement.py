@@ -4,20 +4,36 @@ import hashlib
 import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import legalforecast.cli as cli
+import legalforecast.ingestion.terminal_purchase_failure as terminal_failure_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
     CaseDevPurchasePolicy,
     generate_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
 )
+from legalforecast.ingestion.courtlistener_recap_fetch import (
+    COURTLISTENER_RECAP_FETCH_PROVIDER,
+    CourtListenerRecapFetchError,
+)
+from legalforecast.ingestion.missing_core_budget import (
+    CaseMissingCorePurchasePlan,
+    MissingCoreBudgetPlan,
+)
 from legalforecast.ingestion.ranked_reserve_replacement import (
     RankedReserveReplacementError,
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
+)
+from legalforecast.ingestion.terminal_purchase_failure import (
+    TerminalPurchaseFailureError,
+    VerifiedTerminalPurchaseFailureAuthority,
+    terminal_retrieval_exclusions_bytes,
+    verify_terminal_purchase_failure_authority,
 )
 from legalforecast.selection.exclusion_ledger import (
     ExclusionStage,
@@ -148,6 +164,686 @@ def test_unknown_terminal_stage_fails_before_journal_mutation(tmp_path: Path) ->
                 purchase_journal=journal,
             )
         assert journal.replacement_events() == ()
+
+
+@pytest.mark.parametrize("queue_status", (3, 6, 7))
+def test_verified_terminal_purchase_failure_consumes_ranked_reserve(
+    tmp_path: Path,
+    queue_status: int,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=queue_status,
+            result_path=result_path,
+        )
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                result_path, result=result, run_card=run_card
+            ),
+            purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+        terminal_bytes = terminal_retrieval_exclusions_bytes(authority)
+        plan = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=terminal_bytes,
+            expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+            purchase_journal=journal,
+            terminal_purchase_failure_authority=authority,
+        )
+
+    evidence = authority.evidence_records[0]
+    failure = evidence["failures"][0]
+    assert evidence["candidate_id"] == "case-050"
+    assert evidence["terminal"] is True
+    assert evidence["retryable"] is False
+    assert failure["source_document_id"] == "doc-050"
+    assert failure["queue_status"] == queue_status
+    assert failure["ledger_status"] == "failed"
+    assert failure["reservation_usd"] == "3.05"
+    assert failure["cap_counted"] is True
+    assert failure["cap_counted_usd"] == "3.05"
+    assert failure["operation_key"]
+    assert failure["ledger_operation_sha256"].startswith("sha256:")
+    assert plan.active_candidate_ids[50] == "case-100"
+    terminal_exclusion = next(
+        row for row in plan.successor_exclusions if row["candidate_id"] == "case-050"
+    )
+    assert terminal_exclusion["stage"] == "retrieval"
+    assert terminal_exclusion["source_stage"] == "purchase-missing-recap-fetch"
+    assert terminal_exclusion["terminal_evidence_sha256"].startswith("sha256:")
+
+
+def test_raw_retrieval_terminal_record_cannot_bypass_verified_authority(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    record = _terminal_record("case-050")
+    record.update(
+        {
+            "reason": "terminal_courtlistener_recap_fetch_provider_error",
+            "source_stage": "purchase-missing-recap-fetch",
+        }
+    )
+    terminal_bytes = _jsonl((record,))
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="verified terminal purchase-failure authority",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=terminal_bytes,
+                expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+                purchase_journal=journal,
+            )
+
+
+def test_fabricated_terminal_purchase_authority_is_rejected_by_planner(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    record = _terminal_record("case-050")
+    record.update(
+        {
+            "reason": "terminal_courtlistener_recap_fetch_provider_error",
+            "source_stage": "purchase-missing-recap-fetch",
+        }
+    )
+    terminal_bytes = _jsonl((record,))
+    fabricated = object.__new__(VerifiedTerminalPurchaseFailureAuthority)
+    object.__setattr__(fabricated, "_issuer", object())
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="not verifier-issued",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=terminal_bytes,
+                expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+                purchase_journal=journal,
+                terminal_purchase_failure_authority=fabricated,
+            )
+
+
+def test_importable_issuer_cannot_forge_planner_authority(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    forged_terminal_bytes = _terminal_bytes("case-050")
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        _write_purchase_artifacts(result_path, result=result, run_card=run_card)
+        result_bytes = result_path.read_bytes()
+        run_card_bytes = result_path.with_name("purchase-run-card.json").read_bytes()
+        budget_plan_path = result_path.with_name("purchase-budget-plan.json")
+        budget_plan_bytes = budget_plan_path.read_bytes()
+        forged = terminal_failure_module._issue(  # pyright: ignore[reportPrivateUsage]
+            evidence_bytes=b'{"forged":true}\n',
+            terminal_exclusions_bytes=forged_terminal_bytes,
+            purchase_result_sha256=_sha(result_bytes),
+            purchase_run_card_sha256=_sha(run_card_bytes),
+            purchase_journal_state_sha256=("sha256:" + journal.purchase_state_sha256()),
+            purchase_budget_plan_bytes=budget_plan_bytes,
+            purchase_budget_plan_path=str(budget_plan_path.resolve()),
+            purchase_result_bytes=result_bytes,
+            purchase_result_locator=str(result_path),
+            purchase_result_path=str(result_path.resolve()),
+            purchase_run_card_bytes=run_card_bytes,
+            purchase_run_card_path=str(
+                result_path.with_name("purchase-run-card.json").resolve()
+            ),
+        )
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="differs from verified source evidence",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=forged_terminal_bytes,
+                expected_terminal_exclusions_sha256=_sha(forged_terminal_bytes),
+                purchase_journal=journal,
+                terminal_purchase_failure_authority=forged,
+            )
+
+
+def test_result_cannot_differ_from_committed_budget_tranche(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-051",
+            document_id="doc-051",
+            queue_status=6,
+            result_path=tmp_path / "other-result.json",
+        )
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="committed budget-plan tranche exactly once",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+def test_later_tranche_may_exclude_historical_terminal_failure(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    first_result_path = tmp_path / "first-result.json"
+    second_result_path = tmp_path / "second-result.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=first_result_path,
+        )
+        second_result, second_run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-100",
+            document_id="doc-100",
+            queue_status=6,
+            result_path=second_result_path,
+        )
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                second_result_path,
+                result=second_result,
+                run_card=second_run_card,
+            ),
+            purchase_run_card_path=second_result_path.with_name(
+                "purchase-run-card.json"
+            ),
+            purchase_journal=journal,
+        )
+
+    assert [record["candidate_id"] for record in authority.evidence_records] == [
+        "case-100"
+    ]
+
+
+@pytest.mark.parametrize("laundered_status", ("purchased", "quarantined"))
+def test_terminal_failure_cannot_be_laundered_as_completed_status(
+    tmp_path: Path,
+    laundered_status: str,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="9.15")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        second_result, _ = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-051",
+            document_id="doc-051",
+            queue_status=6,
+            result_path=tmp_path / "other-result.json",
+        )
+        attempts = result["attempts"]
+        second_attempts = second_result["attempts"]
+        assert isinstance(attempts, list)
+        assert isinstance(second_attempts, list)
+        typed_attempts = cast(list[dict[str, object]], attempts)
+        typed_second_attempts = cast(list[dict[str, object]], second_attempts)
+        laundered_attempt = dict(typed_second_attempts[0])
+        laundered_attempt["status"] = laundered_status
+        laundered_attempt["reason"] = "fabricated_completed_status"
+        typed_attempts.append(laundered_attempt)
+        result.update(
+            {
+                "projected_cost_usd": "6.10",
+                "max_projected_budget_usd": "6.10",
+                "intended_purchase_count": 2,
+                "executed_purchase_count": int(laundered_status == "purchased"),
+                "quarantined_material_count": int(laundered_status == "quarantined"),
+                "completed_purchase_count": 1,
+            }
+        )
+        run_card.update(
+            {
+                "record_count": 2,
+                "executed_purchase_count": int(laundered_status == "purchased"),
+                "quarantined_material_count": int(laundered_status == "quarantined"),
+                "completed_purchase_count": 1,
+            }
+        )
+        combined_plan = MissingCoreBudgetPlan(
+            case_plans=(
+                _case_purchase_plan("case-050", "doc-050", journal),
+                _case_purchase_plan("case-051", "doc-051", journal),
+            ),
+            cost_per_document=journal.policy.per_document_reservation_usd,
+            max_projected_budget=journal.policy.per_document_reservation_usd * 2,
+            max_missing_core_documents_per_case=1,
+            dry_run=False,
+            target_case_count=2,
+        )
+        result_path.with_name("purchase-budget-plan.json").write_bytes(
+            _canonical_json(combined_plan.to_record())
+        )
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="statuses differ from terminal operations",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+@pytest.mark.parametrize("queue_status", (1, 4, 5))
+def test_retryable_queue_status_cannot_issue_terminal_authority(
+    tmp_path: Path,
+    queue_status: int,
+) -> None:
+    fixture = _fixture(tmp_path)
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=queue_status,
+            result_path=result_path,
+            terminal=False,
+        )
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="retryable or unresolved purchase attempt",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+@pytest.mark.parametrize("ledger_state", ("submitted", "queued", "unknown"))
+def test_ambiguous_ledger_state_cannot_issue_terminal_authority(
+    tmp_path: Path,
+    ledger_state: str,
+) -> None:
+    fixture = _fixture(tmp_path)
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        if ledger_state == "submitted":
+            journal._connection.execute(  # pyright: ignore[reportPrivateUsage]
+                "UPDATE purchase_operations SET status='submitted'"
+            )
+        elif ledger_state == "queued":
+            journal._connection.execute(  # pyright: ignore[reportPrivateUsage]
+                "UPDATE purchase_operations SET status='queued'"
+            )
+        else:
+            journal._connection.execute(  # pyright: ignore[reportPrivateUsage]
+                "UPDATE purchase_operations SET status='unknown'"
+            )
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="submitted, queued, or unknown",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+@pytest.mark.parametrize(
+    ("tamper_target", "field", "value", "match"),
+    (
+        ("result", "candidate_id", "case-051", "budget-plan tranche"),
+        ("result", "source_document_id", "doc-051", "budget-plan tranche"),
+        ("result", "reason", "recap_fetch_status_5", "nonretryable"),
+        ("run_card", "record_count", 2, "record count"),
+        ("run_card", "status", "failed", "completed purchase run card"),
+    ),
+)
+def test_mismatched_result_or_run_card_cannot_issue_terminal_authority(
+    tmp_path: Path,
+    tamper_target: str,
+    field: str,
+    value: object,
+    match: str,
+) -> None:
+    fixture = _fixture(tmp_path)
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        if tamper_target == "result":
+            attempts = result["attempts"]
+            assert isinstance(attempts, list)
+            attempts[0][field] = value
+        else:
+            run_card[field] = value
+        with pytest.raises(TerminalPurchaseFailureError, match=match):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+def test_result_path_must_match_run_card_and_use_canonical_bytes(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        other_result_path = tmp_path / "synthetic-purchase-result.json"
+        _write_purchase_artifacts(other_result_path, result=result, run_card=run_card)
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="bind the result and canonical ledger",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=other_result_path,
+                purchase_run_card_path=other_result_path.with_name(
+                    "purchase-run-card.json"
+                ),
+                purchase_journal=journal,
+            )
+        result_path.write_text(json.dumps(result), encoding="utf-8")
+        (tmp_path / "purchase-run-card.json").write_bytes(_canonical_json(run_card))
+        with pytest.raises(TerminalPurchaseFailureError, match="exact canonical JSON"):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=result_path,
+                purchase_run_card_path=tmp_path / "purchase-run-card.json",
+                purchase_journal=journal,
+            )
+
+
+def test_purchase_artifact_symlink_is_rejected(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    real_result_path = tmp_path / "real-purchase-result.json"
+    linked_result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=linked_result_path,
+        )
+        _write_purchase_artifacts(
+            real_result_path,
+            result=result,
+            run_card=run_card,
+        )
+        linked_result_path.symlink_to(real_result_path)
+        with pytest.raises(
+            TerminalPurchaseFailureError,
+            match="cannot be safely captured",
+        ):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=linked_result_path,
+                purchase_run_card_path=real_result_path.with_name(
+                    "purchase-run-card.json"
+                ),
+                purchase_journal=journal,
+            )
+
+
+def test_relative_producer_paths_authenticate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    result_path = Path("courtlistener-recap-fetch-purchases.json")
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                result_path, result=result, run_card=run_card
+            ),
+            purchase_run_card_path=Path("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+
+    assert authority.evidence_records[0]["candidate_id"] == "case-050"
+
+
+@pytest.mark.parametrize(
+    ("sql", "match"),
+    (
+        (
+            "UPDATE purchase_operations SET reservation_usd='4.00'",
+            "reservation differs",
+        ),
+        (
+            "UPDATE purchase_operations SET operation_key='not-a-uuid'",
+            "canonical UUID",
+        ),
+        (
+            "UPDATE purchase_operations SET response_json=NULL",
+            "statuses differ from terminal operations",
+        ),
+    ),
+)
+def test_mismatched_or_non_cap_counted_operation_cannot_issue_authority(
+    tmp_path: Path,
+    sql: str,
+    match: str,
+) -> None:
+    fixture = _fixture(tmp_path)
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        journal._connection.execute(sql)  # pyright: ignore[reportPrivateUsage]
+        with pytest.raises(TerminalPurchaseFailureError, match=match):
+            verify_terminal_purchase_failure_authority(
+                purchase_result_path=_write_purchase_artifacts(
+                    result_path, result=result, run_card=run_card
+                ),
+                purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+                purchase_journal=journal,
+            )
+
+
+def test_planner_rejects_authority_after_canonical_journal_drift(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="12.20")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_purchase_artifacts(
+            journal,
+            candidate_id="case-050",
+            document_id="doc-050",
+            queue_status=3,
+            result_path=result_path,
+        )
+        authority = verify_terminal_purchase_failure_authority(
+            purchase_result_path=_write_purchase_artifacts(
+                result_path, result=result, run_card=run_card
+            ),
+            purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+        journal.plan(
+            MissingCoreBudgetPlan(
+                case_plans=(
+                    CaseMissingCorePurchasePlan(
+                        candidate_id="case-051",
+                        purchase_document_ids=("doc-051",),
+                        missing_core_document_count=1,
+                        estimated_cost=fixture["policy"].per_document_reservation_usd,
+                        audit_only_document_count=0,
+                        dry_run=False,
+                        missing_core_roles=("complaint",),
+                    ),
+                ),
+                cost_per_document=fixture["policy"].per_document_reservation_usd,
+                max_projected_budget=fixture["policy"].per_document_reservation_usd,
+                max_missing_core_documents_per_case=1,
+                dry_run=False,
+                target_case_count=1,
+            )
+        )
+        terminal_bytes = terminal_retrieval_exclusions_bytes(authority)
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="another journal state",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=terminal_bytes,
+                expected_terminal_exclusions_sha256=_sha(terminal_bytes),
+                purchase_journal=journal,
+                terminal_purchase_failure_authority=authority,
+            )
 
 
 def test_reserve_commitment_tamper_fails_before_journal_mutation(
@@ -673,6 +1369,136 @@ def _terminal_record(candidate_id: str) -> dict[str, object]:
 
 def _terminal_bytes(candidate_id: str) -> bytes:
     return _jsonl((_terminal_record(candidate_id),))
+
+
+def _terminal_purchase_artifacts(
+    journal: CaseDevPurchaseJournal,
+    *,
+    candidate_id: str,
+    document_id: str,
+    queue_status: int,
+    result_path: Path,
+    terminal: bool = True,
+) -> tuple[dict[str, object], dict[str, object]]:
+    plan = MissingCoreBudgetPlan(
+        case_plans=(_case_purchase_plan(candidate_id, document_id, journal),),
+        cost_per_document=journal.policy.per_document_reservation_usd,
+        max_projected_budget=journal.policy.per_document_reservation_usd,
+        max_missing_core_documents_per_case=1,
+        dry_run=False,
+        target_case_count=1,
+    )
+    budget_plan_path = result_path.with_name("purchase-budget-plan.json")
+    budget_plan_path.write_bytes(_canonical_json(plan.to_record()))
+    journal.plan(plan)
+    assert journal.submit(document_id)
+    journal.queue(
+        document_id,
+        response={
+            "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+            "reservation_usd": "3.05",
+            "queue_id": "77",
+            "reservation_id": "reservation-1",
+        },
+    )
+    if terminal:
+        journal.fail(
+            document_id,
+            CourtListenerRecapFetchError(
+                f"RECAP Fetch terminal queue status {queue_status}"
+            ),
+        )
+        attempt_status = CaseDevPacerPurchaseStatus.PROVIDER_ERROR.value
+        attempt_reason = f"recap_fetch_status_{queue_status}"
+    else:
+        attempt_status = CaseDevPacerPurchaseStatus.NOT_ATTEMPTED.value
+        attempt_reason = f"recap_fetch_queued_status_{queue_status}"
+    result: dict[str, object] = {
+        "live": True,
+        "acknowledge_pacer_fees": True,
+        "capability": "document_level_purchase",
+        "dry_run": False,
+        "projected_cost_usd": "3.05",
+        "max_projected_budget_usd": "3.05",
+        "intended_purchase_count": 1,
+        "executed_purchase_count": 0,
+        "quarantined_material_count": 0,
+        "completed_purchase_count": 0,
+        "attempts": [
+            {
+                "candidate_id": candidate_id,
+                "source_document_id": document_id,
+                "status": attempt_status,
+                "reason": attempt_reason,
+                "fee_acknowledged": None,
+                "pacer_fees": None,
+                "download_url": None,
+                "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+            }
+        ],
+    }
+    run_card: dict[str, object] = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "purchase-missing-recap-fetch",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "resume": False,
+        "record_count": 1,
+        "input_paths": [str(budget_plan_path), "/frozen/selection.jsonl"],
+        "output_paths": [
+            str(result_path),
+            str(journal.policy.canonical_ledger_path),
+        ],
+        "paid_activity_requested": True,
+        "paid_activity_executed": True,
+        "generated_at": "2026-08-05T00:00:00Z",
+        "executed_purchase_count": 0,
+        "quarantined_material_count": 0,
+        "completed_purchase_count": 0,
+        "courtlistener_live": True,
+        "courtlistener_physical_requests": 2,
+        "courtlistener_rate_profile": "authenticated",
+        "courtlistener_request_budget_max_wait_seconds": 3700.0,
+        "courtlistener_request_ledger": "/private/request-ledger.sqlite3",
+        "courtlistener_reservations_this_phase": 2,
+        "courtlistener_reservations_total": 2,
+        "courtlistener_limits": {
+            "per_minute": 50,
+            "per_hour": 500,
+            "per_day": 1400,
+        },
+    }
+    return result, run_card
+
+
+def _case_purchase_plan(
+    candidate_id: str,
+    document_id: str,
+    journal: CaseDevPurchaseJournal,
+) -> CaseMissingCorePurchasePlan:
+    return CaseMissingCorePurchasePlan(
+        candidate_id=candidate_id,
+        purchase_document_ids=(document_id,),
+        missing_core_document_count=1,
+        estimated_cost=journal.policy.per_document_reservation_usd,
+        audit_only_document_count=0,
+        dry_run=False,
+        missing_core_roles=("complaint",),
+    )
+
+
+def _write_purchase_artifacts(
+    result_path: Path,
+    *,
+    result: Mapping[str, object],
+    run_card: Mapping[str, object],
+) -> Path:
+    result_path.write_bytes(_canonical_json(result))
+    result_path.with_name("purchase-run-card.json").write_bytes(
+        _canonical_json(run_card)
+    )
+    return result_path
 
 
 def _jsonl(records: Iterable[Mapping[str, object]]) -> bytes:

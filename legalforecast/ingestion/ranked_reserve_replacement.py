@@ -20,6 +20,11 @@ from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
 )
+from legalforecast.ingestion.terminal_purchase_failure import (
+    TerminalPurchaseFailureError,
+    VerifiedTerminalPurchaseFailureAuthority,
+    verified_terminal_retrieval_records,
+)
 from legalforecast.selection.exclusion_ledger import ExclusionStage
 
 JsonRecord = dict[str, Any]
@@ -33,6 +38,7 @@ _FROZEN_SELECTED_COUNT = 100
 _FROZEN_RESERVE_COUNT = 5
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 _TERMINAL_SOURCE_STAGE_TO_EXCLUSION_STAGE = {
+    "purchase-missing-recap-fetch": ExclusionStage.RETRIEVAL,
     "parse-documents": ExclusionStage.EXTRACTION,
     "llm-unitize": ExclusionStage.UNITIZATION,
     "llm-review-stage-a": ExclusionStage.UNITIZATION,
@@ -116,6 +122,9 @@ def plan_ranked_reserve_replacements(
     terminal_exclusions_bytes: bytes,
     expected_terminal_exclusions_sha256: str,
     purchase_journal: CaseDevPurchaseJournal,
+    terminal_purchase_failure_authority: (
+        VerifiedTerminalPurchaseFailureAuthority | None
+    ) = None,
 ) -> RankedReserveReplacementPlan:
     """Plan deterministic reserve promotions from explicit terminal evidence.
 
@@ -286,12 +295,20 @@ def plan_ranked_reserve_replacements(
         raise RankedReserveReplacementError(
             "durable replacement reservations exceed the purchase-policy hard cap"
         )
+    try:
+        verified_retrieval_records = verified_terminal_retrieval_records(
+            terminal_purchase_failure_authority,
+            purchase_journal=purchase_journal,
+        )
+    except TerminalPurchaseFailureError as exc:
+        raise RankedReserveReplacementError(str(exc)) from exc
     terminal_by_id = _verify_terminal_records(
         terminal_records,
         {
             *(_candidate_id(record, "active selection") for record in active),
             *promoted_by_displaced,
         },
+        verified_retrieval_records=verified_retrieval_records,
     )
     for displaced_id in terminal_by_id.keys() & promoted_by_displaced.keys():
         terminal = terminal_by_id[displaced_id]
@@ -552,7 +569,10 @@ def _replacement_events(
 
 
 def _verify_terminal_records(
-    records: Sequence[JsonRecord], selected_ids: set[str]
+    records: Sequence[JsonRecord],
+    selected_ids: set[str],
+    *,
+    verified_retrieval_records: Mapping[str, JsonRecord],
 ) -> dict[str, JsonRecord]:
     result: dict[str, JsonRecord] = {}
     for record in records:
@@ -577,6 +597,12 @@ def _verify_terminal_records(
             _required_string(record, name, "terminal exclusion")
         for name in ("source_artifact_sha256", "source_record_sha256"):
             _digest(record.get(name), f"terminal exclusion {name}")
+        if record.get("source_stage") == "purchase-missing-recap-fetch":
+            if verified_retrieval_records.get(candidate_id) != record:
+                raise RankedReserveReplacementError(
+                    "retrieval exclusion requires exact verified terminal "
+                    "purchase-failure authority"
+                )
         if candidate_id in result:
             raise RankedReserveReplacementError(
                 "terminal exclusion candidate is duplicated"
@@ -584,6 +610,16 @@ def _verify_terminal_records(
         result[candidate_id] = record
     if not result:
         raise RankedReserveReplacementError("terminal exclusion evidence is empty")
+    supplied_retrieval_ids = {
+        candidate_id
+        for candidate_id, record in result.items()
+        if record.get("source_stage") == "purchase-missing-recap-fetch"
+    }
+    if supplied_retrieval_ids != set(verified_retrieval_records):
+        raise RankedReserveReplacementError(
+            "terminal exclusions must consume the complete verified purchase-failure "
+            "authority"
+        )
     return result
 
 
