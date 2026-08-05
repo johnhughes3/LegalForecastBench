@@ -751,6 +751,11 @@ def test_authenticated_ranked_result_binds_closed_terminal_disposition(
             "sha256:" + "9" * 64,
             "targets another journal state",
         ),
+        (
+            "residual_terminal_exclusions_sha256",
+            "sha256:" + "8" * 64,
+            "residual exclusion commitment mismatch",
+        ),
     )
     for field, value, expected_error in mutations:
         tampered = json.loads(json.dumps(disposition))
