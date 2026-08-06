@@ -794,6 +794,7 @@ from legalforecast.ingestion.zero_cost_successor import (
     ZeroCostSuccessorError,
     project_zero_cost_successor,
 )
+from legalforecast.labeling import outcome_label_from_record
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
     evaluate_cycle_label_audit,
@@ -808,7 +809,6 @@ from legalforecast.labeling.label_outcomes import (
     StageBUnitFinding,
     UnitResolution,
     label_stage_b_outcomes,
-    outcome_label_from_record,
 )
 from legalforecast.labeling.llm_pipeline import (
     DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,

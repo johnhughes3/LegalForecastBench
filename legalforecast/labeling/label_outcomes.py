@@ -463,6 +463,10 @@ def outcome_label_from_record(record: Mapping[str, Any]) -> OutcomeLabel:
             "first_written_disposition_locked",
             default=True,
         ),
+        later_procedural_changes=tuple(
+            LaterProceduralChange(value)
+            for value in _optional_str_tuple(record, "later_procedural_changes")
+        ),
         notes=_optional_str(record, "notes"),
     )
 
@@ -704,6 +708,28 @@ def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
     return value
+
+
+def _required_str_tuple(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[str, ...]:
+    value = _required(record, field_name)
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise ValueError(f"{field_name} must be a list of strings")
+    values = cast(Sequence[object], value)
+    if any(not isinstance(item, str) or not item.strip() for item in values):
+        raise ValueError(f"{field_name} must contain non-empty strings")
+    return tuple(cast(str, item) for item in values)
+
+
+def _optional_str_tuple(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[str, ...]:
+    if field_name not in record:
+        return ()
+    return _required_str_tuple(record, field_name)
 
 
 def _required_bool(record: Mapping[str, Any], field_name: str) -> bool:

@@ -41,12 +41,32 @@ def _label(
 
 
 def test_outcome_label_from_record_reconstructs_nested_label() -> None:
-    label = _label(
-        fully_dismissed=True,
-        amendment_class=AmendmentClass.DISMISSED_WITH_EXPRESS_AMENDMENT_OPPORTUNITY,
+    label = (
+        _label(
+            fully_dismissed=True,
+            amendment_class=(
+                AmendmentClass.DISMISSED_WITH_EXPRESS_AMENDMENT_OPPORTUNITY
+            ),
+        )
+        .with_later_procedural_change(LaterProceduralChange.RECONSIDERATION)
+        .with_later_procedural_change(LaterProceduralChange.APPEAL)
     )
 
     assert outcome_label_from_record(label.to_record()) == label
+
+
+def test_outcome_label_from_record_rejects_malformed_procedural_changes() -> None:
+    record = _label(
+        fully_dismissed=False,
+        amendment_class=AmendmentClass.NOT_FULLY_DISMISSED,
+    ).to_record()
+    record["later_procedural_changes"] = "appeal"
+
+    with pytest.raises(
+        ValueError,
+        match="later_procedural_changes must be a list of strings",
+    ):
+        outcome_label_from_record(record)
 
 
 def test_outcome_label_from_record_preserves_locked_default() -> None:
