@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli
-import legalforecast.ingestion.ranked_reserve_replacement as ranked_reserve_module
 import pytest
+from legalforecast.ingestion import ranked_reserve_replacement as ranked_reserve_module
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchasePolicy,
