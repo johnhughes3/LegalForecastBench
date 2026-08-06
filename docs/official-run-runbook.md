@@ -2242,7 +2242,7 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --execute --resume
 ```
 
-The canonical exact-100 descriptor path must use one of the v3 continuations in [the recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md), not the legacy manual clearance card above. Always render the authenticated-model template first and execute it provider-free through the immutable plan. Continue with its model stage when the plan contains model-review-eligible exceptions. If the plan proves that set is empty, render the no-review template to a distinct config and state root while reusing the exact same disclosure artifact, private, purchase, recovery, repository, and target-cohort roots; execute that continuation provider-free and never invoke `--allow-model-provider`.
+The canonical exact-100 descriptor path must use the v3 flow in [the recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md), not the legacy manual clearance card above. Always render the authenticated-model template first and execute it provider-free through the immutable plan. Continue with its model stage when the plan contains model-review-eligible exceptions. If the plan proves that set is empty, execute the provider-free post-plan suffix below against the exact same disclosure artifact, private, purchase, recovery, repository, and target-cohort roots; never render another full cycle config or invoke `--allow-model-provider` for that branch.
 
 ```bash
 initial_disclosure_root="$preparation_root/purchased-recovery-disclosure"
@@ -2274,26 +2274,62 @@ uv run legalforecast acquisition run-cycle \
   --config "$initial_disclosure_config" \
   --state-root "$initial_disclosure_state_root" \
   --execute --json
+```
 
-# Inspect the completed 01-plan artifacts now. If the authenticated plan proves
-# the model-review-eligible set is empty, render the no-review template to a
-# distinct config/state root with the same seven variable assignments above:
-#
-#   initial_disclosure_no_review_cycle_root="$preparation_root/purchased-recovery-disclosure-no-review-cycle"
-#   initial_disclosure_no_review_config="$initial_disclosure_no_review_cycle_root/acquisition-cycle.json"
-#   initial_disclosure_no_review_state_root="$initial_disclosure_no_review_cycle_root/orchestrator"
-#   initial_disclosure_no_review_template="$repo_root/manifests/cycle-1-target-100.initial-recovery-disclosure-no-review.template.json"
-#
-# Execute that config provider-free and skip both commands below. Its replay of
-# 00-cycle and 01-plan must match the existing artifacts exactly.
+Inspect the completed `01-plan` artifacts now. If the authenticated plan proves the model-review-eligible set is empty, execute the provider-free post-plan suffix below and skip the model-review commands. Do not render the full no-review cycle template into a fresh state root: every cycle config starts with `init-cycle`, which would rewrite the already-receipted `00-cycle` run card. The finalizer instead authenticates the existing plan producer card and proves the eligible set is empty before publishing clearance; the resolver then consumes that exact clearance card.
 
-# Authenticated model-review branch only.
+```bash
+uv run legalforecast acquisition finalize-provenance-quarantine \
+  --output-root "$initial_disclosure_root/03-clearance" \
+  --review-requests "$quarantine_recovery_root/disclosure-review-requests.jsonl" \
+  --download-manifest "$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl" \
+  --case-relevance "$quarantine_recovery_root/purchased-case-relevance.jsonl" \
+  --document-root "$quarantine_recovery_root/documents/recap-fetch-quarantine" \
+  --restriction-evidence "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
+  --routing-plan "$initial_disclosure_root/01-plan/disclosure-provenance-plan.json" \
+  --exception-worksheet "$initial_disclosure_root/01-plan/disclosure-exception-worksheet.json" \
+  --plan-run-card "$initial_disclosure_root/01-plan/run-cards/plan-disclosure-provenance.json" \
+  --require-no-model-review-eligible-exceptions \
+  --cohort-policy "$repo_root/docs/cohort-policy-cycle-1-target-100-2026-07-25.json" \
+  --recovery-run-card "$quarantine_recovery_root/run-cards/recover-recap-fetch-quarantine.json" \
+  --selection "$initial_approved_root/target-cohort-selection.jsonl" \
+  --purchase-policy "$purchase_authority_root/purchase-policy-v2.json" \
+  --purchase-ledger "$purchase_authority_root/cycle-1-target100-recap-fetch-purchase-ledger.sqlite3" \
+  --purchase-ledger-initialization-receipt "$purchase_authority_root/purchase-ledger-initialization.json" \
+  --controlled-private-root "$purchase_private_root" \
+  --recovery-cohort-policy "$repo_root/docs/cohort-policy-cycle-1-target-100-2026-07-25.json" \
+  --clearance-output "$initial_disclosure_root/03-clearance/disclosure-clearance.jsonl" \
+  --quarantine-output "$initial_disclosure_root/03-clearance/disclosure-quarantine.jsonl" \
+  --run-card-output "$initial_disclosure_root/03-clearance/run-cards/finalize-provenance-quarantine.json" \
+  --execute --resume
+
+uv run legalforecast acquisition resolve-post-recovery-documents \
+  --output-root "$initial_disclosure_root/04-resolved" \
+  --selection "$initial_approved_root/target-cohort-selection.jsonl" \
+  --purchase-policy "$purchase_authority_root/purchase-policy-v2.json" \
+  --cohort-policy "$repo_root/docs/cohort-policy-cycle-1-target-100-2026-07-25.json" \
+  --budget-plan "$initial_approved_root/missing-core-budget-plan.json" \
+  --purchase-ledger "$purchase_authority_root/cycle-1-target100-recap-fetch-purchase-ledger.sqlite3" \
+  --controlled-private-root "$purchase_private_root" \
+  --purchase-ledger-initialization-receipt "$purchase_authority_root/purchase-ledger-initialization.json" \
+  --attempt-policy "$purchase_authority_root/recap-fetch-attempt-policy.json" \
+  --download-manifest "$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl" \
+  --disclosure-clearance "$initial_disclosure_root/03-clearance/disclosure-clearance.jsonl" \
+  --clearance-run-card "$initial_disclosure_root/03-clearance/run-cards/finalize-provenance-quarantine.json" \
+  --restriction-evidence "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
+  --resolved-output "$initial_disclosure_root/04-resolved/resolved-post-recovery-documents.jsonl" \
+  --run-card-output "$initial_disclosure_root/04-resolved/run-cards/resolve-post-recovery-documents.json" \
+  --execute --resume
+```
+
+If the authenticated plan contains model-review-eligible exceptions, continue with the already-rendered authenticated-model config instead:
+
+```bash
 uv run legalforecast acquisition run-cycle \
   --config "$initial_disclosure_config" \
   --state-root "$initial_disclosure_state_root" \
   --execute --allow-network --allow-model-provider --json
 
-# Complete the provider-free finalizer and resolver after model review.
 uv run legalforecast acquisition run-cycle \
   --config "$initial_disclosure_config" \
   --state-root "$initial_disclosure_state_root" \
