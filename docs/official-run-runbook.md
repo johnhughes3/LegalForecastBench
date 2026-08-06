@@ -2113,7 +2113,7 @@ The cleanup statuses are diagnostic because systemd may automatically unload a s
 Then verify the launch receipt has `child_receipt_observed=true`, `sandbox_exit_status=0`, and `effective_exit_status=0` before accepting the purchase command's own completed run card.
 Never substitute a Case.dev live purchase, a Case.dev fee-bearing docket refresh, or an implicit purchase inside preparation. The RECAP Fetch purchase stage may dispatch only IDs present in the generated broker policy and remains bounded by the verified purchase policy and broker-side budget controls.
 
-The purchase result is not parser- or packet-eligible. Recover every purchased unknown-status document through a fresh authenticated CourtListener detail check. This noncharging stage writes a URL-free quarantine manifest, fresh restriction evidence, the exact disclosure-review request queue, and a committed document tree. Do not hand-author the review requests or copy the PDFs into another recovery root:
+The purchase result is not parser- or packet-eligible. Recover every purchased unknown-status document through a fresh authenticated CourtListener detail check. This noncharging stage writes a URL-free quarantine manifest, fresh restriction evidence, the exact disclosure-review request queue, a terminal-unavailable operation manifest, and a committed document tree. It partitions the complete attempt authority: recoverable operations receive fresh public-detail and PDF requests, while only canonical cap-counted queue failures with statuses 3, 6, or 7 enter the terminal manifest without a provider request or paid redispatch. Any other failed, ambiguous, malformed, or unbound state stops the run. Do not hand-author the review requests or copy the PDFs into another recovery root:
 
 ```bash
 quarantine_recovery_root="$preparation_root/purchased-quarantine-recovery"
@@ -2133,6 +2133,7 @@ uv run legalforecast acquisition recover-recap-fetch-quarantine \
   --manifest-output "$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl" \
   --case-relevance-output "$quarantine_recovery_root/purchased-case-relevance.jsonl" \
   --restriction-evidence-output "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
+  --terminal-unavailable-output "$quarantine_recovery_root/terminal-unavailable-operations.jsonl" \
   --review-requests-output "$quarantine_recovery_root/disclosure-review-requests.jsonl" \
   --document-output-root "$quarantine_recovery_root/documents/recap-fetch-quarantine" \
   --request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3" \

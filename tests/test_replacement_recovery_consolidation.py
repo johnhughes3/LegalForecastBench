@@ -239,6 +239,7 @@ def _prepare_fixture(
                 for candidate_id, document_id in sorted(ledger_pairs)
             ),
             purchase_state_sha256="a" * 64,
+            committed_amount_usd="0.00",
         ),
     )
     monkeypatch.setattr(

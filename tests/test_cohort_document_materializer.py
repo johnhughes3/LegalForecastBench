@@ -907,7 +907,9 @@ def test_paid_materializer_authenticates_decision_omission_before_recovery(
         cli,
         "read_case_dev_purchase_snapshot",
         lambda *_args, **_kwargs: SimpleNamespace(
-            operations=(), purchase_state_sha256="b" * 64
+            operations=(),
+            committed_amount_usd="0.00",
+            purchase_state_sha256="b" * 64,
         ),
     )
     monkeypatch.setattr(cli, "CaseDevPurchaseJournal", FakeJournal)
@@ -1096,7 +1098,9 @@ def test_downstream_replay_reauthenticates_bound_decision_omission(
         cli,
         "read_case_dev_purchase_snapshot",
         lambda *_args, **_kwargs: SimpleNamespace(
-            operations=(), purchase_state_sha256="b" * 64
+            operations=(),
+            committed_amount_usd="0.00",
+            purchase_state_sha256="b" * 64,
         ),
     )
     monkeypatch.setattr(cli, "CaseDevPurchaseJournal", FakeJournal)

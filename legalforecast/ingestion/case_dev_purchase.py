@@ -11,7 +11,7 @@ import sqlite3
 import stat
 import tempfile
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -125,6 +125,7 @@ class CaseDevPurchaseSnapshot:
     """Authenticated purchase state read without mutating the canonical ledger."""
 
     operations: tuple[Mapping[str, Any], ...]
+    committed_amount_usd: str
     purchase_state_sha256: str
 
 
@@ -1322,18 +1323,33 @@ def _require_pristine_purchase_ledger(connection: sqlite3.Connection) -> None:
         )
 
 
-def _initial_purchase_state_sha256(policy: CaseDevPurchasePolicy) -> str:
+def canonical_purchase_state_sha256(
+    policy: CaseDevPurchasePolicy,
+    *,
+    committed_amount_usd: str,
+    operations: Sequence[Mapping[str, Any]],
+) -> str:
+    """Commit an authenticated logical purchase snapshot canonically."""
+
     return hashlib.sha256(
         _canonical(
             {
                 "cycle_id": policy.cycle_id,
                 "cohort_policy_sha256": policy.cohort_policy_sha256,
                 "purchase_policy_sha256": policy.policy_sha256,
-                "committed_amount_usd": _money(policy.opening_committed_spend_usd),
-                "operations": [],
+                "committed_amount_usd": committed_amount_usd,
+                "operations": [dict(row) for row in operations],
             }
         ).encode()
     ).hexdigest()
+
+
+def _initial_purchase_state_sha256(policy: CaseDevPurchasePolicy) -> str:
+    return canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd=_money(policy.opening_committed_spend_usd),
+        operations=(),
+    )
 
 
 def _hash_regular_single_link_file(path: Path) -> tuple[str, int]:
@@ -2926,19 +2942,14 @@ class CaseDevPurchaseJournal:
                 raise CaseDevPurchaseLedgerError(
                     f"{candidate_id} committed amount exceeds the per-case cap"
                 )
-        digest = hashlib.sha256(
-            _canonical(
-                {
-                    "cycle_id": self.policy.cycle_id,
-                    "cohort_policy_sha256": self.policy.cohort_policy_sha256,
-                    "purchase_policy_sha256": self.policy.policy_sha256,
-                    "committed_amount_usd": committed,
-                    "operations": [dict(row) for row in operations],
-                }
-            ).encode()
-        ).hexdigest()
+        digest = canonical_purchase_state_sha256(
+            self.policy,
+            committed_amount_usd=committed,
+            operations=operations,
+        )
         return CaseDevPurchaseSnapshot(
             operations=operations,
+            committed_amount_usd=committed,
             purchase_state_sha256=digest,
         )
 
@@ -2980,17 +2991,11 @@ class CaseDevPurchaseJournal:
     def purchase_state_sha256(self) -> str:
         """Commit the immutable policy identity and current purchase operations."""
 
-        return hashlib.sha256(
-            _canonical(
-                {
-                    "cycle_id": self.policy.cycle_id,
-                    "cohort_policy_sha256": self.policy.cohort_policy_sha256,
-                    "purchase_policy_sha256": self.policy.policy_sha256,
-                    "committed_amount_usd": self.committed_amount_usd,
-                    "operations": [dict(row) for row in self.operation_records()],
-                }
-            ).encode()
-        ).hexdigest()
+        return canonical_purchase_state_sha256(
+            self.policy,
+            committed_amount_usd=self.committed_amount_usd,
+            operations=self.operation_records(),
+        )
 
     def replacement_events(self) -> tuple[Mapping[str, Any], ...]:
         """Read and verify the append-only clearance-replacement hash chain."""

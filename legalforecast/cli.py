@@ -151,7 +151,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
-    CaseDevPurchaseSnapshot,
+    canonical_purchase_state_sha256,
     initialize_case_dev_purchase_journal,
     read_case_dev_purchase_snapshot,
     require_approved_case_dev_purchase_policy,
@@ -649,6 +649,8 @@ from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
     build_recap_fetch_disclosure_review_requests,
     project_purchased_case_relevance,
     recover_recap_fetch_quarantine_documents,
+    validate_terminal_unavailable_records,
+    verify_terminal_unavailable_ledger_bindings,
     write_recap_fetch_disclosure_review_requests,
     write_recap_fetch_quarantine_manifest,
     write_recap_fetch_restriction_evidence,
@@ -7256,6 +7258,14 @@ def _add_acquisition_recover_recap_fetch_quarantine_arguments(
         "--restriction-evidence-output",
         type=Path,
         help="Immutable URL-free fresh CourtListener public-status evidence JSONL.",
+    )
+    parser.add_argument(
+        "--terminal-unavailable-output",
+        type=Path,
+        help=(
+            "Immutable URL-free accounting for authenticated terminal failed "
+            "operations skipped without provider or paid redispatch."
+        ),
     )
     parser.add_argument(
         "--review-requests-output",
@@ -24831,6 +24841,9 @@ _REPLACEMENT_RECOVERY_INDEX_SCHEMA = (
 _REPLACEMENT_RECOVERY_CARD_SCHEMA = (
     "legalforecast.replacement_recovery_consolidation_run_card.v1"
 )
+_RECAP_FETCH_QUARANTINE_RECOVERY_CARD_SCHEMA = (
+    "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
+)
 _REPLACEMENT_RECOVERY_INDEX_CARD_SCHEMA = (
     "legalforecast.replacement_recovery_index_run_card.v1"
 )
@@ -25399,6 +25412,9 @@ def _prepare_replacement_recovery_consolidation(
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
         )
         clearance = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
@@ -35363,6 +35379,9 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
         )
         raw_recovery_bytes = recovery.get("verified_artifact_bytes")
         if isinstance(raw_recovery_bytes, Mapping):
@@ -36803,6 +36822,9 @@ def _verify_materializer_recovery(
     purchase_policy_path: Path | None = None,
     cohort_policy_path: Path | None = None,
     ledger_path: Path | None = None,
+    purchase_operations: Sequence[Mapping[str, Any]] | None = None,
+    purchase_committed_amount_usd: str | None = None,
+    purchase_state_sha256: str | None = None,
 ) -> dict[str, object]:
     legacy_card = recovery_root / "run-cards/recover-purchased.json"
     quarantine_card = recovery_root / "run-cards/recover-recap-fetch-quarantine.json"
@@ -36854,6 +36876,9 @@ def _verify_materializer_recovery(
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
+            purchase_operations=purchase_operations,
+            purchase_committed_amount_usd=purchase_committed_amount_usd,
+            purchase_state_sha256=purchase_state_sha256,
         )
     return _verify_materializer_legacy_recovery(
         recovery_root=recovery_root,
@@ -37237,6 +37262,67 @@ def _verify_materializer_legacy_recovery(
     }
 
 
+def _historical_quarantine_recovery_purchase_state(
+    *,
+    purchase_policy: CaseDevPurchasePolicy,
+    purchase_operations: Sequence[Mapping[str, Any]],
+    committed_amount_usd: str,
+    recovered_document_keys: set[tuple[str, str]],
+) -> tuple[tuple[Mapping[str, Any], ...], str]:
+    """Reconstruct the exact purchase state committed when recovery completed.
+
+    The only later mutation accepted here is the resolver's authenticated
+    transition for a recovered manifest row.  Reversing precisely that
+    transition preserves the recovery-era commitment while every unrelated
+    purchase field remains hash-bound.
+    """
+
+    historical: list[Mapping[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for raw_operation in purchase_operations:
+        operation = dict(raw_operation)
+        key = _materializer_record_key(operation)
+        if key in seen:
+            raise CommandError("authenticated purchase snapshot repeats an operation")
+        seen.add(key)
+        if key in recovered_document_keys:
+            material_state = operation.get("material_state")
+            if material_state == "cleared_public":
+                material = operation.get("material_evidence")
+                if not isinstance(material, Mapping):
+                    raise CommandError(
+                        "resolved recovery purchase operation lacks material evidence"
+                    )
+                normalized_material = dict(cast(Mapping[str, Any], material))
+                clearance_sha256 = normalized_material.pop(
+                    "clearance_record_sha256", None
+                )
+                resolved_sha256 = operation.get("resolved_document_sha256")
+                if (
+                    not isinstance(clearance_sha256, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", clearance_sha256) is None
+                    or not isinstance(resolved_sha256, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", resolved_sha256) is None
+                ):
+                    raise CommandError(
+                        "resolved recovery purchase operation is not authenticated"
+                    )
+                operation["material_state"] = "recovered_pending_clearance"
+                operation["material_evidence"] = normalized_material
+                operation["resolved_document_sha256"] = None
+            elif material_state != "recovered_pending_clearance":
+                raise CommandError(
+                    "recovered document purchase state has an unsupported transition"
+                )
+        historical.append(operation)
+    historical_operations = tuple(historical)
+    return historical_operations, canonical_purchase_state_sha256(
+        purchase_policy,
+        committed_amount_usd=committed_amount_usd,
+        operations=historical_operations,
+    )
+
+
 def _verify_materializer_quarantine_recovery(
     *,
     recovery_root: Path,
@@ -37246,6 +37332,9 @@ def _verify_materializer_quarantine_recovery(
     purchase_policy_path: Path,
     cohort_policy_path: Path,
     ledger_path: Path,
+    purchase_operations: Sequence[Mapping[str, Any]] | None,
+    purchase_committed_amount_usd: str | None,
+    purchase_state_sha256: str | None,
 ) -> dict[str, object]:
     if not isinstance(selection_path, Path) or not isinstance(
         selected_document_keys, set
@@ -37255,8 +37344,11 @@ def _verify_materializer_quarantine_recovery(
         run_card_path, label="quarantine recovery run card"
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    schema_version = run_card.get("schema_version")
+    legacy_card = schema_version == "legalforecast.acquisition_run_card.v1"
+    terminal_aware_card = schema_version == _RECAP_FETCH_QUARANTINE_RECOVERY_CARD_SCHEMA
     if (
-        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        not (legacy_card or terminal_aware_card)
         or run_card.get("stage") != "recover-recap-fetch-quarantine"
         or run_card.get("status") != "completed"
         or run_card.get("dry_run") is not False
@@ -37366,6 +37458,23 @@ def _verify_materializer_quarantine_recovery(
         "fresh_restriction_evidence",
         label="quarantine recovery",
     )
+    terminal_unavailable_path: Path | None = None
+    terminal_unavailable_bytes = b""
+    if terminal_aware_card:
+        terminal_unavailable_path, terminal_unavailable_bytes = (
+            _snapshot_committed_file(
+                typed_output_commitments,
+                "terminal_unavailable_operations",
+                label="quarantine recovery",
+            )
+        )
+    elif (
+        "terminal_unavailable_operations" in typed_output_commitments
+        or "terminal_unavailable_document_count" in run_card
+        or "authorized_document_count" in run_card
+        or "recovered_document_count" in run_card
+    ):
+        raise CommandError("legacy quarantine recovery card mixes terminal fields")
     review_requests_path, review_requests_bytes = _snapshot_committed_file(
         typed_output_commitments,
         "disclosure_review_requests",
@@ -37377,12 +37486,14 @@ def _verify_materializer_quarantine_recovery(
     output_paths = tuple(
         Path(str(path)) for path in cast(Sequence[object], raw_outputs)
     )
-    if len(output_paths) != 6:
+    expected_output_count = 7 if terminal_aware_card else 6
+    if len(output_paths) != expected_output_count:
         raise CommandError("quarantine recovery run card output paths differ")
     committed_file_outputs = {
         manifest_path.resolve(),
         purchased_case_relevance_path.resolve(),
         restriction_path.resolve(),
+        *((terminal_unavailable_path.resolve(),) if terminal_unavailable_path else ()),
         review_requests_path.resolve(),
         ledger_path.resolve(),
     }
@@ -37396,6 +37507,7 @@ def _verify_materializer_quarantine_recovery(
         manifest_path.resolve(),
         purchased_case_relevance_path.resolve(),
         restriction_path.resolve(),
+        *((terminal_unavailable_path.resolve(),) if terminal_unavailable_path else ()),
         review_requests_path.resolve(),
         document_root.resolve(),
         ledger_path.resolve(),
@@ -37414,6 +37526,14 @@ def _verify_materializer_quarantine_recovery(
     ):
         raise CommandError("quarantine recovery lacks purchase-state commitment")
     manifest_records = _projection_jsonl_records(manifest_bytes, source=manifest_path)
+    terminal_unavailable_records = (
+        _projection_jsonl_records(
+            terminal_unavailable_bytes,
+            source=terminal_unavailable_path,
+        )
+        if terminal_unavailable_path is not None
+        else []
+    )
     normalized_source_snapshot = {
         os.path.abspath(path): source_snapshot[name]
         for name, path in source_paths.items()
@@ -37455,7 +37575,139 @@ def _verify_materializer_quarantine_recovery(
     manifest_index = _materializer_record_index(
         manifest_records, label="quarantine recovery manifest"
     )
-    if run_card.get("record_count") != len(manifest_index):
+    attempt_policy_artifact = _projection_json_object(
+        source_snapshot["attempt_policy"], source=source_paths["attempt_policy"]
+    )
+    purchase_policy_artifact = _projection_json_object(
+        source_snapshot["purchase_policy"], source=source_paths["purchase_policy"]
+    )
+    try:
+        purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+    except CaseDevPurchasePolicyError as exc:
+        raise CommandError(str(exc)) from exc
+    if (
+        purchase_operations is None
+        or purchase_committed_amount_usd is None
+        or purchase_state_sha256 is None
+    ):
+        raise CommandError(
+            "quarantine recovery lacks authenticated current purchase state"
+        )
+    if (
+        canonical_purchase_state_sha256(
+            purchase_policy,
+            committed_amount_usd=purchase_committed_amount_usd,
+            operations=purchase_operations,
+        )
+        != purchase_state_sha256
+    ):
+        raise CommandError("authenticated current purchase state does not reproduce")
+    attempt_policy_sha256 = _required_str(attempt_policy_artifact, "policy_sha256")
+    attempt_policy_body = attempt_policy_artifact.get("policy")
+    if (
+        set(attempt_policy_artifact) != {"schema_version", "policy", "policy_sha256"}
+        or attempt_policy_artifact.get("schema_version")
+        != "legalforecast.recap_fetch_attempt_policy.v1"
+        or not isinstance(attempt_policy_body, Mapping)
+        or hashlib.sha256(
+            json.dumps(
+                attempt_policy_body,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        != attempt_policy_sha256
+    ):
+        raise CommandError("quarantine recovery attempt policy is invalid")
+    try:
+        terminal_index = validate_terminal_unavailable_records(
+            terminal_unavailable_records,
+            attempt_policy_sha256=attempt_policy_sha256,
+        )
+        if terminal_index:
+            terminal_index = verify_terminal_unavailable_ledger_bindings(
+                terminal_unavailable_records,
+                purchase_operations=purchase_operations,
+                attempt_policy_sha256=attempt_policy_sha256,
+                expected_cycle_id=purchase_policy.cycle_id,
+                expected_purchase_policy_sha256=purchase_policy.policy_sha256,
+            )
+    except RecapFetchQuarantineRecoveryError as exc:
+        raise CommandError(str(exc)) from exc
+    historical_operations, historical_purchase_state_sha256 = (
+        _historical_quarantine_recovery_purchase_state(
+            purchase_policy=purchase_policy,
+            purchase_operations=purchase_operations,
+            committed_amount_usd=purchase_committed_amount_usd,
+            recovered_document_keys=set(manifest_index),
+        )
+    )
+    allowed_documents_value = cast(Mapping[str, object], attempt_policy_body).get(
+        "allowed_documents"
+    )
+    if not isinstance(allowed_documents_value, list):
+        raise CommandError("quarantine recovery attempt policy lacks documents")
+    authorized_documents: dict[tuple[str, str], str] = {}
+    for raw_document in cast(list[object], allowed_documents_value):
+        if not isinstance(raw_document, Mapping):
+            raise CommandError("quarantine recovery attempt document is invalid")
+        document = cast(Mapping[str, object], raw_document)
+        candidate_id = document.get("case_id")
+        document_id = document.get("recap_document")
+        selection_sha256 = document.get("selection_document_sha256")
+        if (
+            set(document)
+            != {
+                "case_id",
+                "recap_document",
+                "evidence_class",
+                "selection_document_sha256",
+            }
+            or document.get("evidence_class") != "unknown_status_quarantine"
+            or not isinstance(candidate_id, str)
+            or not candidate_id
+            or not isinstance(document_id, str)
+            or not document_id
+            or not document_id.isdigit()
+            or document_id.startswith("0")
+            or not isinstance(selection_sha256, str)
+            or len(selection_sha256) != 64
+            or any(
+                character not in "0123456789abcdef" for character in selection_sha256
+            )
+        ):
+            raise CommandError("quarantine recovery attempt document is invalid")
+        key = (candidate_id, document_id)
+        if key in authorized_documents:
+            raise CommandError("quarantine recovery attempt policy repeats a document")
+        authorized_documents[key] = selection_sha256
+    if (
+        state_sha256 != historical_purchase_state_sha256
+        or set(manifest_index) & set(terminal_index)
+        or set(manifest_index) | set(terminal_index) != set(authorized_documents)
+        or any(
+            record.get("attempt_document_sha256") != authorized_documents[key]
+            for key, record in terminal_index.items()
+        )
+        or any(
+            record.get("reservation_usd")
+            != cast(Mapping[str, object], attempt_policy_body).get("reservation_usd")
+            for record in terminal_index.values()
+        )
+    ):
+        raise CommandError(
+            "quarantine recovery outputs do not partition its attempt authority"
+        )
+    count_mismatch = run_card.get("record_count") != len(manifest_index)
+    if terminal_aware_card:
+        count_mismatch = count_mismatch or (
+            run_card.get("authorized_document_count") != len(authorized_documents)
+            or run_card.get("recovered_document_count") != len(manifest_index)
+            or run_card.get("terminal_unavailable_document_count")
+            != len(terminal_index)
+        )
+    if count_mismatch:
         raise CommandError("quarantine recovery record count differs")
     for key, record in manifest_index.items():
         if key not in cast(set[tuple[str, str]], selected_document_keys):
@@ -37470,6 +37722,11 @@ def _verify_materializer_quarantine_recovery(
             or "source_url" in record
         ):
             raise CommandError(f"invalid quarantine recovery record: {key}")
+    if any(
+        key not in cast(set[tuple[str, str]], selected_document_keys)
+        for key in terminal_index
+    ):
+        raise CommandError("terminal unavailable operation is outside target selection")
     _require_snapshot_unchanged(
         {
             run_card_path: run_card_bytes,
@@ -37478,6 +37735,11 @@ def _verify_materializer_quarantine_recovery(
             purchased_case_relevance_path: purchased_case_relevance_bytes,
             restriction_path: restriction_bytes,
             review_requests_path: review_requests_bytes,
+            **(
+                {terminal_unavailable_path: terminal_unavailable_bytes}
+                if terminal_unavailable_path is not None
+                else {}
+            ),
         },
         label="quarantine recovery artifact",
     )
@@ -37490,6 +37752,7 @@ def _verify_materializer_quarantine_recovery(
         "run_card_path": run_card_path,
         "restriction_path": restriction_path,
         "review_requests_path": review_requests_path,
+        "terminal_unavailable_path": terminal_unavailable_path,
         "case_relevance_path": purchased_case_relevance_path,
         "target_case_relevance_path": recovery_inputs[1],
         **(
@@ -37512,7 +37775,18 @@ def _verify_materializer_quarantine_recovery(
             ),
             os.path.abspath(restriction_path): restriction_bytes,
             os.path.abspath(review_requests_path): review_requests_bytes,
+            **(
+                {
+                    os.path.abspath(terminal_unavailable_path): (
+                        terminal_unavailable_bytes
+                    )
+                }
+                if terminal_unavailable_path is not None
+                else {}
+            ),
         },
+        "historical_purchase_operations": historical_operations,
+        "historical_purchase_state_sha256": historical_purchase_state_sha256,
     }
 
 
@@ -37554,6 +37828,11 @@ def _materializer_recovery_source_commitments(
         commitments["purchased_recovery_case_relevance"] = committed(
             cast(Path, recovery["case_relevance_path"])
         )
+        terminal_path = recovery.get("terminal_unavailable_path")
+        if isinstance(terminal_path, Path):
+            commitments["purchased_recovery_terminal_unavailable"] = committed(
+                terminal_path
+            )
         if "target_projection_run_card_path" in recovery:
             commitments["target_projection_run_card"] = committed(
                 cast(Path, recovery["target_projection_run_card_path"])
@@ -38958,6 +39237,9 @@ def _verify_materialized_downstream_lineage(
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
+            purchase_operations=snapshot.operations,
+            purchase_committed_amount_usd=snapshot.committed_amount_usd,
+            purchase_state_sha256=snapshot.purchase_state_sha256,
         )
         raw_recovery_bytes = recovery.get("verified_artifact_bytes")
         if isinstance(raw_recovery_bytes, Mapping):
@@ -40778,6 +41060,11 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         "restriction_evidence_output",
         output_root / "post-recovery-restriction-evidence.jsonl",
     )
+    terminal_unavailable_path = _acquisition_path(
+        args,
+        "terminal_unavailable_output",
+        output_root / "terminal-unavailable-operations.jsonl",
+    )
     review_requests_path = _acquisition_path(
         args,
         "review_requests_output",
@@ -40944,6 +41231,8 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             _write_jsonl(manifest_path, records)
             _write_jsonl(purchased_case_relevance_path, [])
             _write_jsonl(restriction_path, [])
+            terminal_unavailable_records: Sequence[Mapping[str, Any]] = ()
+            _write_jsonl(terminal_unavailable_path, terminal_unavailable_records)
             _write_jsonl(review_requests_path, [])
         else:
             if live:
@@ -40992,7 +41281,11 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 controlled_private_root=controlled_private_root,
                 initialization_receipt_path=initialization_receipt,
             ) as journal:
-                records, restriction_records = recover_recap_fetch_quarantine_documents(
+                (
+                    records,
+                    restriction_records,
+                    terminal_unavailable_records,
+                ) = recover_recap_fetch_quarantine_documents(
                     journal=journal,
                     allowed_documents=allowed_documents,
                     attempt_policy_sha256=attempt_policy_sha256,
@@ -41009,6 +41302,11 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 _write_jsonl(purchased_case_relevance_path, purchased_case_relevance)
                 write_recap_fetch_restriction_evidence(
                     restriction_path, restriction_records
+                )
+                write_recap_fetch_quarantine_manifest(
+                    terminal_unavailable_path,
+                    terminal_unavailable_records,
+                    label="terminal unavailable operations",
                 )
                 review_requests = build_recap_fetch_disclosure_review_requests(
                     records, restriction_records
@@ -41030,6 +41328,10 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             ),
             restriction_path: _read_singly_linked_regular_input(
                 restriction_path, label="quarantine restriction evidence"
+            ),
+            terminal_unavailable_path: _read_singly_linked_regular_input(
+                terminal_unavailable_path,
+                label="quarantine terminal unavailable operations",
             ),
             review_requests_path: _read_singly_linked_regular_input(
                 review_requests_path, label="quarantine review requests"
@@ -41056,6 +41358,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 manifest_path,
                 purchased_case_relevance_path,
                 restriction_path,
+                terminal_unavailable_path,
                 review_requests_path,
                 document_root,
                 ledger_path,
@@ -41069,11 +41372,13 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
     _write_acquisition_completion(
         args,
         stage="recover-recap-fetch-quarantine",
+        schema_version=_RECAP_FETCH_QUARANTINE_RECOVERY_CARD_SCHEMA,
         input_paths=input_paths,
         output_paths=(
             manifest_path,
             purchased_case_relevance_path,
             restriction_path,
+            terminal_unavailable_path,
             review_requests_path,
             document_root,
             ledger_path,
@@ -41169,6 +41474,12 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                         "path": str(restriction_path.resolve()),
                         "sha256": _bytes_sha256(output_snapshot[restriction_path]),
                     },
+                    "terminal_unavailable_operations": {
+                        "path": str(terminal_unavailable_path.resolve()),
+                        "sha256": _bytes_sha256(
+                            output_snapshot[terminal_unavailable_path]
+                        ),
+                    },
                     "disclosure_review_requests": {
                         "path": str(review_requests_path.resolve()),
                         "sha256": _bytes_sha256(output_snapshot[review_requests_path]),
@@ -41182,6 +41493,9 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 if replacement_authority_path is not None
                 else "initial_projection"
             ),
+            "authorized_document_count": len(allowed_documents),
+            "recovered_document_count": 0 if dry_run else len(records),
+            "terminal_unavailable_document_count": len(terminal_unavailable_records),
         },
     )
     return 0
@@ -41610,7 +41924,6 @@ def _recovered_public_lineage_digest(value: object, *, label: str) -> str:
 def _derive_recovered_public_lineage_rows(
     recovery: Mapping[str, object],
     *,
-    purchase_snapshot: CaseDevPurchaseSnapshot,
     expected_manifest_path: Path,
     expected_restriction_path: Path,
 ) -> list[dict[str, object]]:
@@ -41648,14 +41961,24 @@ def _derive_recovered_public_lineage_rows(
         recovery_run_card_bytes, source=recovery_run_card_path
     )
     raw_outputs = recovery_run_card.get("output_commitments")
+    raw_historical_operations = recovery.get("historical_purchase_operations")
+    historical_state_sha256 = recovery.get("historical_purchase_state_sha256")
     if (
         not isinstance(raw_outputs, Mapping)
+        or not isinstance(raw_historical_operations, Sequence)
+        or isinstance(raw_historical_operations, (str, bytes))
+        or not all(
+            isinstance(operation, Mapping)
+            for operation in cast(Sequence[object], raw_historical_operations)
+        )
+        or not isinstance(historical_state_sha256, str)
         or cast(Mapping[str, object], raw_outputs).get("purchase_state_sha256")
-        != purchase_snapshot.purchase_state_sha256
+        != historical_state_sha256
     ):
         raise CommandError("recovered-public purchase state changed after recovery")
     operations = _materializer_record_index(
-        purchase_snapshot.operations, label="recovered-public purchase operations"
+        cast(Sequence[Mapping[str, Any]], raw_historical_operations),
+        label="recovered-public purchase operations",
     )
     restrictions = _materializer_record_index(
         _projection_jsonl_records(restriction_bytes, source=expected_restriction_path),
@@ -41701,7 +42024,7 @@ def _derive_recovered_public_lineage_rows(
                 "recovery_run_card_sha256": recovery_run_card_sha256,
                 "recovery_manifest_sha256": recovery_manifest_sha256,
                 "recovery_restriction_evidence_sha256": (recovery_restriction_sha256),
-                "purchase_state_sha256": purchase_snapshot.purchase_state_sha256,
+                "purchase_state_sha256": historical_state_sha256,
                 "purchase_operation_sha256": _recovered_public_lineage_digest(
                     _canonical_json_sha256(operation), label="purchase operation"
                 ),
@@ -41756,29 +42079,6 @@ def _verified_recovered_public_clearance_capability(
     selected_document_keys = _replacement_consolidation_selection_keys(
         selection_records
     )
-    recovery = _verify_materializer_quarantine_recovery(
-        recovery_root=run_card_path.parents[1],
-        run_card_path=run_card_path,
-        selection_path=selection_path,
-        selected_document_keys=selected_document_keys,
-        purchase_policy_path=purchase_policy_path,
-        cohort_policy_path=cohort_policy_path,
-        ledger_path=ledger_path,
-    )
-    expected_paths = {
-        "manifest_path": expected_manifest_path,
-        "restriction_path": expected_restriction_path,
-        "case_relevance_path": expected_case_relevance_path,
-        "review_requests_path": expected_review_requests_path,
-        "document_root": expected_document_root,
-    }
-    for name, expected in expected_paths.items():
-        actual = recovery.get(name)
-        if not isinstance(actual, Path) or actual.resolve() != expected.resolve():
-            label = name.replace("_", " ")
-            raise CommandError(
-                f"recovered-public verification committed different {label}"
-            )
     purchase_policy_bytes = _read_singly_linked_regular_input(
         purchase_policy_path, label="recovered-public purchase policy"
     )
@@ -41810,6 +42110,44 @@ def _verified_recovered_public_clearance_capability(
         controlled_private_root=controlled_private_root,
         initialization_receipt_path=initialization_receipt_path,
     )
+    recovery = _verify_materializer_quarantine_recovery(
+        recovery_root=run_card_path.parents[1],
+        run_card_path=run_card_path,
+        selection_path=selection_path,
+        selected_document_keys=selected_document_keys,
+        purchase_policy_path=purchase_policy_path,
+        cohort_policy_path=cohort_policy_path,
+        ledger_path=ledger_path,
+        purchase_operations=purchase_snapshot.operations,
+        purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+        purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+    )
+    expected_paths = {
+        "manifest_path": expected_manifest_path,
+        "restriction_path": expected_restriction_path,
+        "case_relevance_path": expected_case_relevance_path,
+        "review_requests_path": expected_review_requests_path,
+        "document_root": expected_document_root,
+    }
+    for name, expected in expected_paths.items():
+        actual = recovery.get(name)
+        if not isinstance(actual, Path) or actual.resolve() != expected.resolve():
+            label = name.replace("_", " ")
+            raise CommandError(
+                f"recovered-public verification committed different {label}"
+            )
+    terminal_unavailable_path = recovery.get("terminal_unavailable_path")
+    if terminal_unavailable_path is not None and (
+        not isinstance(terminal_unavailable_path, Path)
+        or terminal_unavailable_path.resolve()
+        != (
+            run_card_path.parents[1] / "terminal-unavailable-operations.jsonl"
+        ).resolve()
+    ):
+        raise CommandError(
+            "recovered-public verification committed different terminal "
+            "unavailable path"
+        )
     raw_verified = recovery.get("verified_artifact_bytes")
     if not isinstance(raw_verified, Mapping):
         raise CommandError("recovered-public verification lacks exact recovery bytes")
@@ -41817,10 +42155,17 @@ def _verified_recovered_public_clearance_capability(
     run_card_bytes = verified_bytes[os.path.abspath(run_card_path)]
     lineage_rows = _derive_recovered_public_lineage_rows(
         recovery,
-        purchase_snapshot=purchase_snapshot,
         expected_manifest_path=expected_manifest_path,
         expected_restriction_path=expected_restriction_path,
     )
+    historical_state_sha256 = recovery.get("historical_purchase_state_sha256")
+    if (
+        not isinstance(historical_state_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", historical_state_sha256) is None
+    ):
+        raise CommandError(
+            "recovered-public verification lacks historical purchase state"
+        )
     capability = _issue_recovered_public_clearance_capability(lineage_rows)
     authority: dict[str, object] = {
         "kind": "verified_recap_fetch_recovery",
@@ -41837,7 +42182,7 @@ def _verified_recovered_public_clearance_capability(
         ),
         "purchase_ledger": {
             "path": str(ledger_path),
-            "purchase_state_sha256": purchase_snapshot.purchase_state_sha256,
+            "purchase_state_sha256": historical_state_sha256,
         },
         "purchase_ledger_initialization_receipt": _file_commitment_from_bytes(
             initialization_receipt_path, initialization_receipt_bytes
@@ -45072,6 +45417,33 @@ def _verify_provider_free_provenance_quarantine_run_card(
             ),
             source=selection_path,
         )
+        purchase_policy_bytes = _read_singly_linked_regular_input(
+            purchase_policy_path, label="recovered-public purchase policy"
+        )
+        recovery_cohort_policy_bytes = _read_singly_linked_regular_input(
+            recovery_cohort_policy_path,
+            label="recovered-public cohort policy",
+        )
+        purchase_policy = verify_case_dev_purchase_policy(
+            _projection_json_object(purchase_policy_bytes, source=purchase_policy_path)
+        )
+        require_approved_case_dev_purchase_policy(purchase_policy)
+        verify_case_dev_purchase_policy_cohort_binding(
+            purchase_policy,
+            _projection_json_object(
+                recovery_cohort_policy_bytes,
+                source=recovery_cohort_policy_path,
+            ),
+        )
+        if ledger_path.resolve() != purchase_policy.canonical_ledger_path:
+            raise CommandError(
+                "recovered-public ledger conflicts with the canonical policy locator"
+            )
+        purchase_snapshot = read_case_dev_purchase_snapshot(
+            ledger_path,
+            policy=purchase_policy,
+            initialization_receipt_path=initialization_receipt_path,
+        )
         recovery = _verify_materializer_quarantine_recovery(
             recovery_root=recovery_run_card_path.parents[1],
             run_card_path=recovery_run_card_path,
@@ -45082,7 +45454,13 @@ def _verify_provider_free_provenance_quarantine_run_card(
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=recovery_cohort_policy_path,
             ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
         )
+        historical_state_sha256 = recovery.get("historical_purchase_state_sha256")
+        if state_sha256 != historical_state_sha256:
+            raise CommandError("recovered-public purchase state changed")
         for field, expected in (
             ("manifest_path", paths["download_manifest"]),
             ("restriction_path", paths["restriction_evidence"]),
@@ -45095,6 +45473,18 @@ def _verify_provider_free_provenance_quarantine_run_card(
                 raise CommandError(
                     f"recovered-public authority changed {field.replace('_', ' ')}"
                 )
+        terminal_unavailable_path = recovery.get("terminal_unavailable_path")
+        if terminal_unavailable_path is not None and (
+            not isinstance(terminal_unavailable_path, Path)
+            or terminal_unavailable_path.resolve()
+            != (
+                recovery_run_card_path.parents[1]
+                / "terminal-unavailable-operations.jsonl"
+            ).resolve()
+        ):
+            raise CommandError(
+                "recovered-public authority changed terminal unavailable path"
+            )
         recovery_input_paths = (
             recovery_run_card_path,
             selection_path,
@@ -45229,7 +45619,6 @@ def _verify_provider_free_provenance_quarantine_run_card(
             )
             expected_lineage_rows = _derive_recovered_public_lineage_rows(
                 recovery,
-                purchase_snapshot=purchase_snapshot,
                 expected_manifest_path=paths["download_manifest"],
                 expected_restriction_path=paths["restriction_evidence"],
             )
@@ -45256,7 +45645,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
                     recovered_authority.get(field) != value
                     for field, value in expected_authority.items()
                 )
-                or state_sha256 != purchase_snapshot.purchase_state_sha256
+                or state_sha256 != recovery.get("historical_purchase_state_sha256")
             ):
                 raise ProvenanceClearanceError(
                     "recovered-public authority evidence changed"
@@ -56577,6 +56966,7 @@ def _write_acquisition_completion(
     log_extra: Mapping[str, Any] | None = None,
     log_schema_version: str = _ACQUISITION_STAGE_LOG_SCHEMA_VERSION,
     resumable_terminal_metadata: bool = False,
+    schema_version: str = "legalforecast.acquisition_run_card.v1",
 ) -> None:
     _write_acquisition_stage_record(
         args,
@@ -56593,6 +56983,7 @@ def _write_acquisition_completion(
         log_extra=log_extra,
         log_schema_version=log_schema_version,
         resumable_terminal_metadata=resumable_terminal_metadata,
+        schema_version=schema_version,
     )
 
 
@@ -56645,6 +57036,7 @@ def _write_acquisition_stage_record(
     log_extra: Mapping[str, Any] | None,
     log_schema_version: str,
     resumable_terminal_metadata: bool,
+    schema_version: str = "legalforecast.acquisition_run_card.v1",
 ) -> None:
     output_root = _acquisition_output_root(args)
     run_card_path = _acquisition_path(
@@ -56658,7 +57050,7 @@ def _write_acquisition_stage_record(
         output_root / "logs" / f"{stage}.jsonl",
     )
     run_card: JsonRecord = {
-        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "schema_version": schema_version,
         "stage": stage,
         "status": status,
         "dry_run": dry_run,

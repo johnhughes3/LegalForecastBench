@@ -4,6 +4,8 @@ import base64
 import hashlib
 import inspect
 import json
+import sqlite3
+from contextlib import closing
 from copy import deepcopy
 from dataclasses import replace
 from datetime import date
@@ -1165,6 +1167,7 @@ def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(
         "--live-courtlistener-recovery",
         "--manifest-output",
         "--restriction-evidence-output",
+        "--terminal-unavailable-output",
         "--review-requests-output",
         "--document-output-root",
     ):
@@ -1451,6 +1454,24 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(tmp_path / "recovery-output"),
         "--execute",
     ]
+    dry_run_root = tmp_path / "recovery-dry-run"
+    dry_run_command = list(recovery_command[:-1])
+    dry_run_overrides = {
+        "--manifest-output": dry_run_root / "downloads.jsonl",
+        "--restriction-evidence-output": dry_run_root / "restrictions.jsonl",
+        "--review-requests-output": dry_run_root / "review-requests.jsonl",
+        "--document-output-root": dry_run_root / "documents",
+        "--output-root": dry_run_root,
+    }
+    for flag, value in dry_run_overrides.items():
+        dry_run_command[dry_run_command.index(flag) + 1] = str(value)
+    assert cli.main(dry_run_command) == 0
+    dry_run_card = json.loads(
+        (dry_run_root / "run-cards/recover-recap-fetch-quarantine.json").read_text()
+    )
+    assert dry_run_card["dry_run"] is True
+    assert dry_run_card["terminal_unavailable_document_count"] == 0
+    assert (dry_run_root / "terminal-unavailable-operations.jsonl").read_bytes() == b""
     assert cli.main(recovery_command) == 0
     assert cli.main(recovery_command) == 0
     assert "courtlistener.com" not in paths["download_manifest"].read_text()
@@ -1462,6 +1483,10 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "legalforecast.post_recovery_restriction_evidence.v1"
     )
     assert "courtlistener.com" not in paths["restriction_evidence"].read_text()
+    terminal_unavailable_path = (
+        tmp_path / "recovery-output" / "terminal-unavailable-operations.jsonl"
+    )
+    assert terminal_unavailable_path.read_bytes() == b""
     recovery_run_card = json.loads(
         (
             tmp_path
@@ -1469,6 +1494,9 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             / "run-cards"
             / "recover-recap-fetch-quarantine.json"
         ).read_text()
+    )
+    assert recovery_run_card["schema_version"] == (
+        "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
     )
     commitments = recovery_run_card["output_commitments"]
     assert commitments["quarantine_download_manifest"]["sha256"] == (
@@ -1478,6 +1506,12 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "sha256:"
         + hashlib.sha256(paths["restriction_evidence"].read_bytes()).hexdigest()
     )
+    assert commitments["terminal_unavailable_operations"]["sha256"] == (
+        "sha256:" + hashlib.sha256(terminal_unavailable_path.read_bytes()).hexdigest()
+    )
+    assert recovery_run_card["authorized_document_count"] == 1
+    assert recovery_run_card["recovered_document_count"] == 1
+    assert recovery_run_card["terminal_unavailable_document_count"] == 0
     assert commitments["disclosure_review_requests"]["sha256"] == (
         "sha256:" + hashlib.sha256(paths["review_requests"].read_bytes()).hexdigest()
     )
@@ -1485,6 +1519,9 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "case-1/123.pdf": "sha256:"
         + hashlib.sha256((quarantine_root / "case-1/123.pdf").read_bytes()).hexdigest()
     }
+    purchase_snapshot = read_case_dev_purchase_snapshot(
+        ledger_path, policy=purchase_policy
+    )
     verified_recovery = cli._verify_materializer_recovery(
         recovery_root=tmp_path / "recovery-output",
         selection_path=paths["selection"],
@@ -1492,9 +1529,158 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         purchase_policy_path=paths["purchase_policy"],
         cohort_policy_path=paths["cohort_policy"],
         ledger_path=ledger_path,
+        purchase_operations=purchase_snapshot.operations,
+        purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+        purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
     )
     assert verified_recovery["manifest_path"] == paths["download_manifest"]
     assert verified_recovery["document_root"] == quarantine_root
+    assert verified_recovery["terminal_unavailable_path"] == (terminal_unavailable_path)
+    recovery_run_card_path = (
+        tmp_path
+        / "recovery-output"
+        / "run-cards"
+        / "recover-recap-fetch-quarantine.json"
+    )
+    recovery_run_card_bytes = recovery_run_card_path.read_bytes()
+    legacy_card = json.loads(recovery_run_card_bytes)
+    legacy_card["schema_version"] = "legalforecast.acquisition_run_card.v1"
+    del legacy_card["output_commitments"]["terminal_unavailable_operations"]
+    legacy_card["output_paths"].remove(str(terminal_unavailable_path))
+    for field in (
+        "authorized_document_count",
+        "recovered_document_count",
+        "terminal_unavailable_document_count",
+    ):
+        del legacy_card[field]
+    _write_object(recovery_run_card_path, legacy_card)
+    verified_legacy = cli._verify_materializer_recovery(
+        recovery_root=tmp_path / "recovery-output",
+        selection_path=paths["selection"],
+        selected_document_keys={("case-1", "123")},
+        purchase_policy_path=paths["purchase_policy"],
+        cohort_policy_path=paths["cohort_policy"],
+        ledger_path=ledger_path,
+        purchase_operations=purchase_snapshot.operations,
+        purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+        purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+    )
+    assert verified_legacy["terminal_unavailable_path"] is None
+    legacy_card["terminal_unavailable_document_count"] = 0
+    _write_object(recovery_run_card_path, legacy_card)
+    with pytest.raises(cli.CommandError, match="mixes terminal fields"):
+        cli._verify_materializer_recovery(
+            recovery_root=tmp_path / "recovery-output",
+            selection_path=paths["selection"],
+            selected_document_keys={("case-1", "123")},
+            purchase_policy_path=paths["purchase_policy"],
+            cohort_policy_path=paths["cohort_policy"],
+            ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        )
+    incomplete_v2 = json.loads(recovery_run_card_bytes)
+    del incomplete_v2["terminal_unavailable_document_count"]
+    _write_object(recovery_run_card_path, incomplete_v2)
+    with pytest.raises(cli.CommandError, match="record count differs"):
+        cli._verify_materializer_recovery(
+            recovery_root=tmp_path / "recovery-output",
+            selection_path=paths["selection"],
+            selected_document_keys={("case-1", "123")},
+            purchase_policy_path=paths["purchase_policy"],
+            cohort_policy_path=paths["cohort_policy"],
+            ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        )
+    recovery_run_card_path.write_bytes(recovery_run_card_bytes)
+    terminal_unavailable_path.write_text("{}\n")
+    with pytest.raises(cli.CommandError, match="commitment changed"):
+        cli._verify_materializer_recovery(
+            recovery_root=tmp_path / "recovery-output",
+            selection_path=paths["selection"],
+            selected_document_keys={("case-1", "123")},
+            purchase_policy_path=paths["purchase_policy"],
+            cohort_policy_path=paths["cohort_policy"],
+            ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        )
+    terminal_unavailable_path.write_bytes(b"")
+    purchased_relevance_path = (
+        tmp_path / "recovery-output" / "purchased-case-relevance.jsonl"
+    )
+    partition_backups = {
+        paths["download_manifest"]: paths["download_manifest"].read_bytes(),
+        purchased_relevance_path: purchased_relevance_path.read_bytes(),
+        paths["restriction_evidence"]: paths["restriction_evidence"].read_bytes(),
+        paths["review_requests"]: paths["review_requests"].read_bytes(),
+        terminal_unavailable_path: terminal_unavailable_path.read_bytes(),
+    }
+    forged_terminal = {
+        "schema_version": "legalforecast.recap_fetch_terminal_unavailable.v1",
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "attempt_policy_sha256": attempt_artifact["policy_sha256"],
+        "attempt_document_sha256": attempt_artifact["policy"]["allowed_documents"][0][
+            "selection_document_sha256"
+        ],
+        "purchase_operation_key": operation_key,
+        "ledger_status": "failed",
+        "material_state": "not_recovered",
+        "terminal_reason": "recap_fetch_status_6",
+        "queue_status": 6,
+        "reservation_usd": "3.05",
+        "cap_counted": True,
+        "recovery_provider_request_executed": False,
+        "paid_redispatch_executed": False,
+        "ledger_operation_sha256": "sha256:" + "0" * 64,
+    }
+    _write_records(terminal_unavailable_path, [forged_terminal])
+    for path in (
+        paths["download_manifest"],
+        purchased_relevance_path,
+        paths["restriction_evidence"],
+        paths["review_requests"],
+    ):
+        path.write_bytes(b"")
+    forged_card = json.loads(recovery_run_card_bytes)
+    for name, path in (
+        ("quarantine_download_manifest", paths["download_manifest"]),
+        ("purchased_case_relevance", purchased_relevance_path),
+        ("fresh_restriction_evidence", paths["restriction_evidence"]),
+        ("terminal_unavailable_operations", terminal_unavailable_path),
+        ("disclosure_review_requests", paths["review_requests"]),
+    ):
+        forged_card["output_commitments"][name]["sha256"] = (
+            "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+        )
+    forged_card["record_count"] = 0
+    forged_card["recovered_document_count"] = 0
+    forged_card["terminal_unavailable_document_count"] = 1
+    _write_object(recovery_run_card_path, forged_card)
+    with pytest.raises(
+        cli.CommandError,
+        match="terminal unavailable operation conflicts with purchase state",
+    ):
+        cli._verify_materializer_recovery(
+            recovery_root=tmp_path / "recovery-output",
+            selection_path=paths["selection"],
+            selected_document_keys={("case-1", "123")},
+            purchase_policy_path=paths["purchase_policy"],
+            cohort_policy_path=paths["cohort_policy"],
+            ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        )
+    recovery_run_card_path.write_bytes(recovery_run_card_bytes)
+    for path, payload in partition_backups.items():
+        path.write_bytes(payload)
     review_request_bytes = paths["review_requests"].read_bytes()
     paths["review_requests"].write_bytes(review_request_bytes + b"{}\n")
     with pytest.raises(cli.CommandError, match="commitment changed"):
@@ -1505,6 +1691,9 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             purchase_policy_path=paths["purchase_policy"],
             cohort_policy_path=paths["cohort_policy"],
             ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
         )
     paths["review_requests"].write_bytes(review_request_bytes)
     quarantined_document = quarantine_root / "case-1/123.pdf"
@@ -1518,6 +1707,9 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             purchase_policy_path=paths["purchase_policy"],
             cohort_policy_path=paths["cohort_policy"],
             ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
         )
     quarantined_document.write_bytes(quarantined_bytes)
     content_sha256 = hashlib.sha256(pdf_content.encode()).hexdigest()
@@ -1725,6 +1917,47 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             journal.operation_records(),
             purchased_manifest=_read_records(paths["download_manifest"]),
         )
+    resolved_snapshot = read_case_dev_purchase_snapshot(
+        ledger_path, policy=purchase_policy
+    )
+    assert resolved_snapshot.purchase_state_sha256 != (
+        purchase_snapshot.purchase_state_sha256
+    )
+    replayed_recovery = cli._verify_materializer_recovery(
+        recovery_root=tmp_path / "recovery-output",
+        selection_path=paths["selection"],
+        selected_document_keys={("case-1", "123")},
+        purchase_policy_path=paths["purchase_policy"],
+        cohort_policy_path=paths["cohort_policy"],
+        ledger_path=ledger_path,
+        purchase_operations=resolved_snapshot.operations,
+        purchase_committed_amount_usd=resolved_snapshot.committed_amount_usd,
+        purchase_state_sha256=resolved_snapshot.purchase_state_sha256,
+    )
+    assert replayed_recovery["historical_purchase_state_sha256"] == (
+        purchase_snapshot.purchase_state_sha256
+    )
+    unrelated_mutation = [dict(row) for row in resolved_snapshot.operations]
+    unrelated_mutation[0]["error"] = "forged"
+    with pytest.raises(
+        cli.CommandError,
+        match="outputs do not partition its attempt authority",
+    ):
+        cli._verify_materializer_recovery(
+            recovery_root=tmp_path / "recovery-output",
+            selection_path=paths["selection"],
+            selected_document_keys={("case-1", "123")},
+            purchase_policy_path=paths["purchase_policy"],
+            cohort_policy_path=paths["cohort_policy"],
+            ledger_path=ledger_path,
+            purchase_operations=unrelated_mutation,
+            purchase_committed_amount_usd=resolved_snapshot.committed_amount_usd,
+            purchase_state_sha256=cli.canonical_purchase_state_sha256(
+                purchase_policy,
+                committed_amount_usd=resolved_snapshot.committed_amount_usd,
+                operations=unrelated_mutation,
+            ),
+        )
     run_card = json.loads(
         (output_root / "run-cards/resolve-post-recovery-documents.json").read_text()
     )
@@ -1929,6 +2162,102 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     assert cli.main(plan_parse_command) == 2
     assert cli.main(parse_command) == 2
     assert cli.main(packet_command) == 2
+
+    # Reproduce the canonical receipt-enriched terminal shape through the real
+    # CLI and materializer verifier. Empty fixtures make any provider request
+    # fail, so success proves terminal accounting performs no recovery I/O.
+    _write_records(paths["selection"], inputs["selection_records"])
+    with closing(sqlite3.connect(ledger_path)) as connection:
+        connection.execute(
+            "UPDATE purchase_operations SET status='failed', actual_usd=NULL, "
+            "reconciliation_json=NULL, error=? WHERE source_document_id='123'",
+            ("CourtListenerRecapFetchError: RECAP Fetch terminal queue status 6",),
+        )
+        connection.execute(
+            "UPDATE purchase_material_state SET status='not_recovered', "
+            "provider_detail_sha256=NULL, queue_response_sha256=NULL, "
+            "download_url_sha256=NULL, content_sha256=NULL, byte_count=NULL, "
+            "clearance_record_sha256=NULL, resolved_record_sha256=NULL "
+            "WHERE source_document_id='123'"
+        )
+        connection.execute(
+            "DELETE FROM unknown_public_material_recoveries "
+            "WHERE source_document_id='123'"
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    terminal_root = tmp_path / "terminal-recovery-output"
+    terminal_fixture = tmp_path / "terminal-empty-courtlistener.jsonl"
+    terminal_fixture.write_bytes(b"")
+    terminal_documents = tmp_path / "terminal-empty-documents.json"
+    _write_object(terminal_documents, {})
+    terminal_command = list(recovery_command)
+    terminal_overrides = {
+        "--courtlistener-fixture": terminal_fixture,
+        "--fixture-documents": terminal_documents,
+        "--manifest-output": terminal_root / "downloads.jsonl",
+        "--restriction-evidence-output": terminal_root / "restrictions.jsonl",
+        "--review-requests-output": terminal_root / "review-requests.jsonl",
+        "--document-output-root": terminal_root / "documents",
+        "--output-root": terminal_root,
+    }
+    for flag, value in terminal_overrides.items():
+        terminal_command[terminal_command.index(flag) + 1] = str(value)
+    assert cli.main(terminal_command) == 0
+    terminal_path = terminal_root / "terminal-unavailable-operations.jsonl"
+    [terminal_record] = _read_records(terminal_path)
+    assert terminal_record["queue_status"] == 6
+    assert terminal_record["recovery_provider_request_executed"] is False
+    assert terminal_record["paid_redispatch_executed"] is False
+    assert (terminal_root / "downloads.jsonl").read_bytes() == b""
+    assert (terminal_root / "restrictions.jsonl").read_bytes() == b""
+    terminal_card = json.loads(
+        (terminal_root / "run-cards/recover-recap-fetch-quarantine.json").read_text()
+    )
+    assert terminal_card["authorized_document_count"] == 1
+    assert terminal_card["recovered_document_count"] == 0
+    assert terminal_card["terminal_unavailable_document_count"] == 1
+    terminal_snapshot = read_case_dev_purchase_snapshot(
+        ledger_path, policy=purchase_policy
+    )
+    verified_terminal = cli._verify_materializer_recovery(
+        recovery_root=terminal_root,
+        selection_path=paths["selection"],
+        selected_document_keys={("case-1", "123")},
+        purchase_policy_path=paths["purchase_policy"],
+        cohort_policy_path=paths["cohort_policy"],
+        ledger_path=ledger_path,
+        purchase_operations=terminal_snapshot.operations,
+        purchase_committed_amount_usd=terminal_snapshot.committed_amount_usd,
+        purchase_state_sha256=terminal_snapshot.purchase_state_sha256,
+    )
+    assert verified_terminal["terminal_unavailable_path"] == terminal_path
+    for field, value in (
+        ("material_authority", "forged"),
+        ("attempt_policy_sha256", "f" * 64),
+        ("attempt_document_sha256", "e" * 64),
+    ):
+        forged_operations = [dict(row) for row in terminal_snapshot.operations]
+        forged_operations[0][field] = value
+        with pytest.raises(
+            cli.CommandError,
+            match="terminal unavailable operation conflicts with purchase state",
+        ):
+            cli._verify_materializer_recovery(
+                recovery_root=terminal_root,
+                selection_path=paths["selection"],
+                selected_document_keys={("case-1", "123")},
+                purchase_policy_path=paths["purchase_policy"],
+                cohort_policy_path=paths["cohort_policy"],
+                ledger_path=ledger_path,
+                purchase_operations=forged_operations,
+                purchase_committed_amount_usd=(terminal_snapshot.committed_amount_usd),
+                purchase_state_sha256=cli.canonical_purchase_state_sha256(
+                    purchase_policy,
+                    committed_amount_usd=terminal_snapshot.committed_amount_usd,
+                    operations=forged_operations,
+                ),
+            )
 
 
 def _inputs() -> dict[str, Any]:
