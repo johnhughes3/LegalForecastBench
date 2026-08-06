@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -250,6 +251,35 @@ def test_materializer_artifact_validation_rejects_hardlink(tmp_path: Path) -> No
         require_materializer_artifact(artifact, label="test artifact")
 
     assert str(exc_info.value) == f"test artifact must not be hardlinked: {artifact}"
+
+
+def test_materializer_artifact_validation_normalizes_lstat_oserror(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "artifact.json"
+
+    class UnreadableArtifactPath:
+        def absolute(self) -> Path:
+            return artifact.absolute()
+
+        def lstat(self) -> os.stat_result:
+            raise PermissionError(
+                errno.EACCES,
+                os.strerror(errno.EACCES),
+                artifact,
+            )
+
+        def __str__(self) -> str:
+            return str(artifact)
+
+    with pytest.raises(CohortDocumentMaterializationError) as exc_info:
+        require_materializer_artifact(
+            cast(Path, UnreadableArtifactPath()), label="test artifact"
+        )
+
+    assert str(exc_info.value) == (
+        f"test artifact must be a regular non-symlink file: {artifact}"
+    )
 
 
 def test_materializer_artifact_validation_preserves_cli_error_contract(
