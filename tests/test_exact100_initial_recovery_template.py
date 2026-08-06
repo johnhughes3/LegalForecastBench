@@ -15,6 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = (
     ROOT / "manifests" / "cycle-1-target-100.exact100-initial-recovery.template.json"
 )
+DISCLOSURE_TEMPLATES = (
+    ROOT / "manifests" / "cycle-1-target-100.initial-recovery-disclosure.template.json",
+    ROOT
+    / "manifests"
+    / "cycle-1-target-100.initial-recovery-disclosure-no-review.template.json",
+)
 
 
 def _assignments(tmp_path: Path) -> dict[str, Path]:
@@ -129,6 +135,56 @@ def test_exact100_initial_recovery_template_binds_noncharging_inputs(
         "purchase-missing-recap-fetch",
     }
     assert forbidden_commands.isdisjoint(stage.command for stage in config.stages)
+
+
+@pytest.mark.parametrize("disclosure_template", DISCLOSURE_TEMPLATES)
+def test_exact100_recovery_outputs_feed_disclosure_continuations_exactly(
+    tmp_path: Path,
+    disclosure_template: Path,
+) -> None:
+    assignments, output, _receipt = _render(tmp_path)
+    recovery = load_cycle_config(output).stages[1]
+    output_to_input_flag = {
+        "--manifest-output": "--download-manifest",
+        "--case-relevance-output": "--case-relevance",
+        "--restriction-evidence-output": "--restriction-evidence",
+        "--terminal-unavailable-output": None,
+        "--review-requests-output": "--review-requests",
+        "--document-output-root": "--document-root",
+    }
+    disclosure = json.loads(disclosure_template.read_bytes())
+    disclosure_stages = disclosure["config"]["stages"]
+    unconsumed_outputs: set[str] = set()
+
+    for output_flag, input_flag in output_to_input_flag.items():
+        recovery_output = recovery.arguments[recovery.arguments.index(output_flag) + 1]
+        if input_flag is None:
+            unconsumed_outputs.add(recovery_output)
+            assert all(
+                recovery_output
+                not in {
+                    argument.replace(
+                        "${RECOVERY_ROOT}", str(assignments["RECOVERY_ROOT"])
+                    )
+                    for argument in stage["arguments"]
+                    if isinstance(argument, str)
+                }
+                for stage in disclosure_stages
+            )
+            continue
+
+        continuation_inputs = {
+            stage["arguments"][stage["arguments"].index(input_flag) + 1].replace(
+                "${RECOVERY_ROOT}", str(assignments["RECOVERY_ROOT"])
+            )
+            for stage in disclosure_stages
+            if input_flag in stage["arguments"]
+        }
+        assert continuation_inputs == {recovery_output}
+
+    assert unconsumed_outputs == {
+        str(assignments["RECOVERY_ROOT"] / "terminal-unavailable-operations.jsonl")
+    }
 
 
 def test_exact100_initial_recovery_cycle_stops_before_network(
