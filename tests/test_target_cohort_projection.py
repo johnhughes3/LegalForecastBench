@@ -626,6 +626,7 @@ def test_projection_accepts_authenticated_recovered_public_transition() -> None:
     clearance = _clearance(candidate_id, document_id)
     clearance.update(
         {
+            "automated_markers": ["medical"],
             "clearance_basis": "provider_free_recovered_public",
             "routing_plan_sha256": "8" * 64,
             "restriction_status": "public",

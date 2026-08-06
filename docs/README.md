@@ -99,6 +99,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [provenance-clearance-v3.md](schemas/provenance-clearance-v3.md): current routing contract, additive to v1 and v2; selected with `plan-disclosure-provenance --schema-version v3`.
 - [provenance-clearance-v2.md](schemas/provenance-clearance-v2.md): the legacy v2 routing artifacts and run-card shape, preserved when `--schema-version` is omitted.
 - [provenance-clearance-v1.md](schemas/provenance-clearance-v1.md): the original provenance-first routing contract, retained for historical artifacts.
+- [provenance-public-marker-clearance-v1.md](schemas/provenance-public-marker-clearance-v1.md): policy-bound provider-free clearance for exact recovered-public marker-only rows.
 - [provenance-quarantine-clearance-v1.md](schemas/provenance-quarantine-clearance-v1.md): the provider-free terminal alternative to exception review for a v3 routing plan.
 
 **Evaluation policy**
@@ -107,7 +108,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 ## Committed Policy Data
 
-These JSON files in this folder are the committed policy values the docs above describe: `publication-governance.json`, `labeling-policy.json`, `cohort-policy.json`, and the dated `cohort-policy-cycle-1-target-100-2026-07-25*.json` decision and provenance records.
+These JSON files in this folder are the committed policy values the docs above describe: `publication-governance.json`, `labeling-policy.json`, `cohort-policy.json`, the dated `cohort-policy-cycle-1-target-100-2026-07-25*.json` decision and provenance records, and `disclosure-public-marker-policy-cycle-1-2026-08-06.json`.
 
 The RECAP Fetch policy records live under [`manifests/recap-fetch-policies/`](../manifests/recap-fetch-policies/). These committed copies are immutable historical, host-bound provenance snapshots, not portable configuration or replay templates, and runtime code does not load them; operators must generate fresh policies for their own environment instead of rewriting the recorded paths.
 

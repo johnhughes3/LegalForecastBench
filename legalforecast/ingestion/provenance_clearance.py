@@ -936,6 +936,91 @@ def build_provider_free_quarantine_records_v3(
     return tuple(records)
 
 
+def build_provider_free_public_marker_records_v3(
+    plan: Mapping[str, object],
+    *,
+    routing_plan_sha256: str,
+) -> tuple[ClearanceRecord, ...]:
+    """Clear authenticated recovered-public marker-only rows without a provider."""
+
+    if hashlib.sha256(canonical_json_bytes(plan)).hexdigest() != _strict_digest(
+        routing_plan_sha256, "routing plan hash"
+    ):
+        raise ProvenanceClearanceError("routing plan hash mismatch")
+    documents = _plan_documents_v3(plan)
+    records: list[ClearanceRecord] = []
+    for document in documents:
+        key = _key(document)
+        automatic = document.get("route") == "auto_clear"
+        marker_only_public = _is_recovered_public_marker_only(document)
+        cleared = automatic or marker_only_public
+        recovered_lineage = document.get("recovered_public_lineage")
+        recovered_public = isinstance(recovered_lineage, Mapping)
+        records.append(
+            ClearanceRecord(
+                candidate_id=key[0],
+                source_document_id=key[1],
+                local_path=_required_text(document, "local_path"),
+                sha256=_digest(document, "sha256"),
+                byte_count=_nonnegative_int(document, "byte_count"),
+                status="cleared" if cleared else "quarantined",
+                automated_markers=tuple(_text_list(document, "automated_markers")),
+                restriction_status=_required_text(document, "restriction_status"),
+                restriction_evidence=tuple(
+                    _text_list(document, "restriction_evidence")
+                ),
+                reviewer_id=None,
+                controlled_store_provenance=(
+                    f"courtlistener-rest://recap-documents/{key[1]}"
+                    if cleared and recovered_public
+                    else _required_text(document, "source_url")
+                    if automatic
+                    else None
+                ),
+                reviewed_at=None,
+                free_or_purchased=_required_text(document, "free_or_purchased"),
+                clearance_basis=(
+                    "provider_free_recovered_public"
+                    if cleared and recovered_public
+                    else "affirmative_public_provenance"
+                    if automatic
+                    else "provider_free_exception_quarantine"
+                ),
+                routing_plan_sha256=routing_plan_sha256,
+                recovered_public_lineage=(
+                    dict(cast(Mapping[str, object], recovered_lineage))
+                    if cleared and recovered_public
+                    else None
+                ),
+            )
+        )
+    return tuple(records)
+
+
+def _is_recovered_public_marker_only(document: Mapping[str, object]) -> bool:
+    """Recognize the exact marker-only exception covered by the owner policy."""
+
+    if (
+        document.get("route") != "exception_review"
+        or document.get("route_reasons") != ["automated_marker_present"]
+        or document.get("exception_clearance_permitted") is not True
+        or not isinstance(document.get("recovered_public_lineage"), Mapping)
+        or not _visibility_contract_valid(document)
+        or _positive_restriction(document)
+    ):
+        return False
+    raw_scan = document.get("disclosure_pdf_scan")
+    scan = (
+        cast(Mapping[str, object], raw_scan) if isinstance(raw_scan, Mapping) else None
+    )
+    return (
+        scan is not None
+        and scan.get("coverage_status") == "complete"
+        and scan.get("unscanned_page_numbers") == []
+        and bool(_text_list(document, "automated_markers"))
+    )
+
+
 def build_authenticated_model_provenance_clearance_records_v3(
     plan: Mapping[str, object],
     *,
@@ -1748,6 +1833,7 @@ __all__ = [
     "build_provenance_clearance_plan",
     "build_provenance_clearance_plan_v3",
     "build_provenance_clearance_records",
+    "build_provider_free_public_marker_records_v3",
     "build_provider_free_quarantine_records_v3",
     "canonical_json_bytes",
     "exception_review_worksheet",

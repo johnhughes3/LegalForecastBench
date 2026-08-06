@@ -646,6 +646,29 @@ def test_cli_rejects_changed_authenticated_review_receipt(tmp_path: Path) -> Non
     assert main(argv) == 2
 
 
+def test_cli_explicitly_rejects_public_marker_clearance_for_extension(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv, _, _, _ = _cli_fixture(tmp_path)
+    clearance_card_path = Path(argv[argv.index("--clearance-run-card") + 1])
+    card = json.loads(clearance_card_path.read_text())
+    card["schema_version"] = (
+        "legalforecast.provenance_public_marker_clearance_run_card.v1"
+    )
+    clearance_card_path.write_text(
+        json.dumps(card, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    for option in ("--reviews", "--review-receipt"):
+        index = argv.index(option)
+        del argv[index : index + 2]
+
+    assert main(argv) == 2
+    assert (
+        "retained-cohort extension does not yet support public-marker "
+        "clearance lineage" in capsys.readouterr().err
+    )
+
+
 def test_cli_accepts_provenance_first_clearance_without_legacy_review_flags(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

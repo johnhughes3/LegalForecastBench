@@ -4248,8 +4248,17 @@ def test_run_cycle_rejects_symlinked_receipts_directory(
         )
 
 
-def test_run_cycle_accepts_known_specialized_resume_card_without_resume_field(
+@pytest.mark.parametrize(
+    ("final_schema", "final_resume"),
+    [
+        ("legalforecast.provenance_quarantine_clearance_run_card.v1", None),
+        ("legalforecast.provenance_public_marker_clearance_run_card.v1", True),
+    ],
+)
+def test_run_cycle_accepts_provider_free_clearance_completion_card(
     tmp_path: Path,
+    final_schema: str,
+    final_resume: bool | None,
 ) -> None:
     init_card = tmp_path / "init-cycle.json"
     final_card = tmp_path / "finalize-provenance-quarantine.json"
@@ -4291,15 +4300,19 @@ def test_run_cycle_accepts_known_specialized_resume_card_without_resume_field(
                     "schema_version": (
                         "legalforecast.acquisition_run_card.v1"
                         if command == "init-cycle"
-                        else (
-                            "legalforecast.provenance_quarantine_clearance_run_card.v1"
-                        )
+                        else final_schema
                     ),
                     "stage": command,
                     "status": "completed",
                     "dry_run": False,
                     "execute": True,
-                    **({"resume": True} if command == "init-cycle" else {}),
+                    **(
+                        {"resume": True}
+                        if command == "init-cycle"
+                        else (
+                            {"resume": final_resume} if final_resume is not None else {}
+                        )
+                    ),
                     "paid_activity_executed": False,
                     "output_paths": [],
                 }

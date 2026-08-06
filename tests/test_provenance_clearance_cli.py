@@ -23,6 +23,9 @@ from legalforecast.ingestion.provenance_clearance import (
 from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan_v3 as build_plan_v3,
 )
+from legalforecast.ingestion.public_marker_clearance_policy import (
+    generate_public_marker_clearance_policy,
+)
 
 
 class _TTY:
@@ -305,6 +308,30 @@ def _no_model_review_command(
     ]
 
 
+def _public_marker_command(
+    paths: Mapping[str, Path],
+    *,
+    cohort_policy: Path,
+    public_marker_policy: Path,
+    clearance_root: Path,
+    resume: bool = False,
+) -> list[str]:
+    provider_free = _provider_free_command(
+        paths,
+        cohort_policy=cohort_policy,
+        clearance_root=clearance_root,
+        resume=resume,
+    )
+    provider_free.remove("--quarantine-all-exceptions-without-review")
+    return [
+        *provider_free,
+        "--plan-run-card",
+        str(paths["output"] / "run-cards/plan-disclosure-provenance.json"),
+        "--public-marker-clearance-policy",
+        str(public_marker_policy),
+    ]
+
+
 def test_finalizer_rejects_implicit_provider_free_mode(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -496,7 +523,7 @@ def test_provenance_planner_v3_emits_reviewer_neutral_artifacts_and_resumes(
     }
 
 
-def test_recovered_public_capability_flows_through_planner_and_finalizer(
+def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     paths = _inputs(tmp_path)
@@ -508,7 +535,9 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     ]
     requests = [json.loads(line) for line in paths["requests"].read_text().splitlines()]
     relevance = json.loads(paths["relevance"].read_text())
-    manifest[0].update(
+    recovered_index = 1
+    recovered_document_id = "marker"
+    manifest[recovered_index].update(
         {
             "free_or_purchased": "purchased",
             "source_provider": "courtlistener.recap-fetch+pacer",
@@ -516,8 +545,8 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
             "fresh_recap_detail_sha256": fresh_sha,
         }
     )
-    manifest[0].pop("source_url")
-    restrictions[0].update(
+    manifest[recovered_index].pop("source_url")
+    restrictions[recovered_index].update(
         {
             "schema_version": "legalforecast.post_recovery_restriction_evidence.v1",
             "source_provider": "courtlistener_recap_fetch_fresh_detail",
@@ -536,14 +565,18 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
             ],
         }
     )
-    requests[0].update(
+    requests[recovered_index].update(
         {
             "free_or_purchased": "purchased",
             "restriction_status": "public",
-            "restriction_evidence": restrictions[0]["restriction_evidence"],
+            "restriction_evidence": restrictions[recovered_index][
+                "restriction_evidence"
+            ],
         }
     )
-    relevance["documents"][0]["source_url_or_reference"] = "recap-document:auto"
+    relevance["documents"][recovered_index]["source_url_or_reference"] = (
+        f"recap-document:{recovered_document_id}"
+    )
     _jsonl(paths["manifest"], manifest)
     _jsonl(paths["restrictions"], restrictions)
     _jsonl(paths["requests"], requests)
@@ -551,7 +584,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     purchase_state_sha256 = "6" * 64
     operation = {
         "candidate_id": "case-a",
-        "source_document_id": "auto",
+        "source_document_id": recovered_document_id,
         "operation_key": operation_key,
         "material_evidence": {"provider_detail_sha256": fresh_sha},
     }
@@ -577,7 +610,11 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     purchase_policy_path.write_text("{}\n", encoding="utf-8")
     ledger_path.write_bytes(b"ledger fixture")
     initialization_receipt_path.write_text("{}\n", encoding="utf-8")
-    cohort_policy.write_text("{}\n", encoding="utf-8")
+    cohort_policy.write_bytes(
+        cli_module.canonical_json_bytes(
+            {"policy": {"cycle_id": "cycle-public-marker-test"}}
+        )
+    )
     recovery = {
         "run_card_path": recovery_run_card_path,
         "manifest_path": paths["manifest"],
@@ -585,7 +622,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         "case_relevance_path": paths["relevance"],
         "review_requests_path": paths["requests"],
         "document_root": paths["document_root"],
-        "manifest_records": [manifest[0]],
+        "manifest_records": [manifest[recovered_index]],
         "historical_purchase_operations": (operation,),
         "historical_purchase_state_sha256": purchase_state_sha256,
         "terminal_unavailable_path": None,
@@ -613,7 +650,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     monkeypatch.setattr(
         cli_module,
         "_replacement_consolidation_selection_keys",
-        lambda _records: {("case-a", "auto")},
+        lambda _records: {("case-a", recovered_document_id)},
     )
     monkeypatch.setattr(
         cli_module,
@@ -665,12 +702,14 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         == 0
     )
     plan = json.loads((paths["output"] / "disclosure-provenance-plan.json").read_text())
-    auto_plan = next(
-        row for row in plan["documents"] if row["source_document_id"] == "auto"
+    marker_plan = next(
+        row
+        for row in plan["documents"]
+        if row["source_document_id"] == recovered_document_id
     )
     lineage = {
         "candidate_id": "case-a",
-        "source_document_id": "auto",
+        "source_document_id": recovered_document_id,
         "recovery_run_card_sha256": hashlib.sha256(
             recovery_run_card_path.read_bytes()
         ).hexdigest(),
@@ -692,18 +731,34 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         "purchase_operation_key": operation_key,
         "fresh_recap_detail_sha256": fresh_sha,
     }
-    assert auto_plan["route"] == "auto_clear"
-    assert auto_plan["recovered_public_lineage"] == lineage
+    assert marker_plan["route"] == "exception_review"
+    assert marker_plan["route_reasons"] == ["automated_marker_present"]
+    assert marker_plan["recovered_public_lineage"] == lineage
 
     monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.public_marker_clearance_policy.verify_cohort_policy",
+        lambda _: "1" * 64,
+    )
+    public_marker_policy = tmp_path / "public-marker-policy.json"
+    public_marker_policy.write_bytes(
+        cli_module.canonical_json_bytes(
+            generate_public_marker_clearance_policy(
+                cycle_id="cycle-public-marker-test",
+                cohort_policy_sha256="1" * 64,
+            )
+        )
+    )
     clearance_root = tmp_path / "provider-free-clearance"
     assert (
         main(
             [
-                *_provider_free_command(
+                *_public_marker_command(
                     paths,
                     cohort_policy=cohort_policy,
+                    public_marker_policy=public_marker_policy,
                     clearance_root=clearance_root,
+                    resume=True,
                 ),
                 *verification_arguments,
             ]
@@ -716,18 +771,32 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         .read_text()
         .splitlines()
     ]
-    auto = next(row for row in records if row["source_document_id"] == "auto")
-    assert auto["status"] == "cleared"
-    assert auto["clearance_basis"] == "provider_free_recovered_public"
-    assert auto["controlled_store_provenance"] == (
-        "courtlistener-rest://recap-documents/auto"
+    marker = next(
+        row for row in records if row["source_document_id"] == recovered_document_id
     )
-    assert auto["recovered_public_lineage"] == lineage
+    assert marker["status"] == "cleared"
+    assert marker["automated_markers"] == ["medical"]
+    assert marker["clearance_basis"] == "provider_free_recovered_public"
+    assert marker["controlled_store_provenance"] == (
+        f"courtlistener-rest://recap-documents/{recovered_document_id}"
+    )
+    assert marker["recovered_public_lineage"] == lineage
     clearance_path = clearance_root / "disclosure-clearance.jsonl"
     clearance_run_card_path = (
         clearance_root / "run-cards/finalize-provenance-quarantine.json"
     )
     run_card = json.loads(clearance_run_card_path.read_text())
+    assert run_card["schema_version"] == (
+        "legalforecast.provenance_public_marker_clearance_run_card.v1"
+    )
+    assert run_card["resume"] is True
+    assert run_card["disposition_policy"]["kind"] == (
+        "v3_authenticated_recovered_public_markers_clear_else_quarantine"
+    )
+    assert run_card["disposition_policy"]["markers_are_diagnostic_only"] is True
+    assert run_card["public_marker_clear_count"] == 1
+    assert run_card["disposition_policy"]["public_marker_clear_count"] == 1
+    assert "public_marker_clearance_policy" in run_card["source_commitments"]
     assert run_card["human_review_requested"] is False
     assert run_card["human_review_executed"] is False
     authority = run_card["recovered_public_authority"]
@@ -751,6 +820,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     assert clearance_inputs[0] == clearance_run_card_path
     assert paths["manifest"] in clearance_inputs
     assert paths["relevance"] in clearance_inputs
+    assert public_marker_policy in clearance_inputs
 
     routing_plan_path = paths["output"] / "disclosure-provenance-plan.json"
     worksheet_path = paths["output"] / "disclosure-exception-worksheet.json"
@@ -758,6 +828,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     replay_artifacts = (
         routing_plan_path,
         worksheet_path,
+        public_marker_policy,
         clearance_path,
         quarantine_path,
         clearance_run_card_path,
@@ -772,7 +843,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         recovered_document = next(
             document
             for document in documents
-            if document["source_document_id"] == "auto"
+            if document["source_document_id"] == recovered_document_id
         )
         recovered_lineage = cast(
             dict[str, object], recovered_document["recovered_public_lineage"]
@@ -785,7 +856,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
         tampered_worksheet = cli_module.exception_review_worksheet_v3(tampered_plan)
         worksheet_bytes = cli_module.canonical_json_bytes(tampered_worksheet)
-        records = cli_module.build_provider_free_quarantine_records_v3(
+        records = cli_module.build_provider_free_public_marker_records_v3(
             tampered_plan, routing_plan_sha256=routing_plan_sha256
         )
         clearance_bytes = b"".join(
@@ -847,6 +918,32 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
                 clearance_path=clearance_path,
                 clearance_run_card_path=clearance_run_card_path,
             )
+
+    for artifact_path, payload in original_artifacts.items():
+        artifact_path.write_bytes(payload)
+    noncanonical_policy = (
+        json.dumps(json.loads(original_artifacts[public_marker_policy]), indent=2)
+        + "\n"
+    ).encode()
+    tampered_run_card = cast(
+        dict[str, object],
+        json.loads(original_artifacts[clearance_run_card_path]),
+    )
+    source_commitments = cast(
+        dict[str, object], tampered_run_card["source_commitments"]
+    )
+    cast(dict[str, object], source_commitments["public_marker_clearance_policy"])[
+        "sha256"
+    ] = cli_module._bytes_sha256(noncanonical_policy)  # pyright: ignore[reportPrivateUsage]
+    public_marker_policy.write_bytes(noncanonical_policy)
+    clearance_run_card_path.write_bytes(
+        cli_module.canonical_json_bytes(tampered_run_card)
+    )
+    with pytest.raises(cli_module.CommandError, match="canonical serialization"):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=clearance_run_card_path,
+        )
 
     for artifact_path, payload in original_artifacts.items():
         artifact_path.write_bytes(payload)

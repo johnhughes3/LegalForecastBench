@@ -1,6 +1,7 @@
 # Provider-free provenance quarantine clearance v1
 
-`finalize-provenance-quarantine` has two explicit provider-free terminal modes for a v3 provenance routing plan.
+`finalize-provenance-quarantine` retains two explicit quarantine-only terminal modes for a v3 provenance routing plan.
+The separate policy-bound marker-clearance mode is documented in [provenance-public-marker-clearance-v1.md](provenance-public-marker-clearance-v1.md) and does not change this schema's semantics.
 The plan-proven empty-set mode requires `--plan-run-card` together with `--require-no-model-review-eligible-exceptions`; it authenticates the completed planner record and rejects the run if any exact exception remains eligible for model review.
 The compatibility mode requires `--quarantine-all-exceptions-without-review`; it preserves the older behavior of quarantining every exception, but it is not the supported target-100 recovery continuation.
 Omitting model authority, both empty-set proof flags, and the explicit compatibility flag fails closed.
@@ -67,7 +68,7 @@ uv run legalforecast acquisition finalize-provenance-quarantine \
   --execute --no-resume
 ```
 
-The target-100 provider-free continuation replaces the compatibility flag with both proof arguments:
+The empty-eligible-set provider-free continuation replaces the compatibility flag with both proof arguments:
 
 ```bash
 uv run legalforecast acquisition finalize-provenance-quarantine \

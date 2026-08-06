@@ -2242,7 +2242,7 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --execute --resume
 ```
 
-The canonical exact-100 descriptor path must use the v3 flow in [the recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md), not the legacy manual clearance card above. Always render the authenticated-model template first and execute it provider-free through the immutable plan. Continue with its model stage when the plan contains model-review-eligible exceptions. If the plan proves that set is empty, execute the provider-free post-plan suffix below against the exact same disclosure artifact, private, purchase, recovery, repository, and target-cohort roots; never render another full cycle config or invoke `--allow-model-provider` for that branch.
+The canonical exact-100 descriptor path must use the v3 flow in [the recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md), not the legacy manual clearance card above. Render the authenticated-model template first and execute it provider-free through the immutable plan. Then execute the provider-free policy-bound suffix below against the exact same disclosure artifact, private, purchase, recovery, repository, and target-cohort roots. The owner policy clears only marker-only exceptions already carrying verifier-issued fresh CourtListener public provenance and complete scan coverage; every other exception remains quarantined. Never render another full cycle config or invoke `--allow-model-provider` for this branch.
 
 ```bash
 initial_disclosure_root="$preparation_root/purchased-recovery-disclosure"
@@ -2278,7 +2278,7 @@ uv run legalforecast acquisition run-cycle \
 
 Keep `initial_disclosure_root` and `initial_disclosure_private_root` outside and disjoint from `repo_root`, which is the frozen authority source root. These writable roots should be siblings of the frozen checkout: neither may equal, contain, or be contained by it. Rendering and cycle loading fail before plan publication if a `review-disclosure-exceptions` artifact, private state path, or output overlaps that frozen tree; the review command enforces the same boundary again before provider activity.
 
-Inspect the completed `01-plan` artifacts now. If the authenticated plan proves the model-review-eligible set is empty, execute the provider-free post-plan suffix below and skip the model-review commands. Do not render the full no-review cycle template into a fresh state root: every cycle config starts with `init-cycle`, which would rewrite the already-receipted `00-cycle` run card. The finalizer instead authenticates the existing plan producer card and proves the eligible set is empty before publishing clearance; the resolver then consumes that exact clearance card.
+Inspect the completed `01-plan` artifacts now, then execute the provider-free post-plan suffix below. Do not render the full no-review cycle template into a fresh state root: every cycle config starts with `init-cycle`, which would rewrite the already-receipted `00-cycle` run card. The finalizer authenticates the existing plan producer card and the cohort-bound owner policy before publishing clearance; the resolver then consumes that exact clearance card.
 
 ```bash
 uv run legalforecast acquisition finalize-provenance-quarantine \
@@ -2291,7 +2291,7 @@ uv run legalforecast acquisition finalize-provenance-quarantine \
   --routing-plan "$initial_disclosure_root/01-plan/disclosure-provenance-plan.json" \
   --exception-worksheet "$initial_disclosure_root/01-plan/disclosure-exception-worksheet.json" \
   --plan-run-card "$initial_disclosure_root/01-plan/run-cards/plan-disclosure-provenance.json" \
-  --require-no-model-review-eligible-exceptions \
+  --public-marker-clearance-policy "$repo_root/docs/disclosure-public-marker-policy-cycle-1-2026-08-06.json" \
   --cohort-policy "$repo_root/docs/cohort-policy-cycle-1-target-100-2026-07-25.json" \
   --recovery-run-card "$quarantine_recovery_root/run-cards/recover-recap-fetch-quarantine.json" \
   --selection "$initial_approved_root/target-cohort-selection.jsonl" \
@@ -2324,7 +2324,8 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --execute --resume
 ```
 
-If the authenticated plan contains model-review-eligible exceptions, continue with the already-rendered authenticated-model config instead:
+Do not run the model commands for the policy-bound provider-free route above.
+The separately authenticated model continuation remains available only if the owner deliberately selects that alternative route:
 
 ```bash
 uv run legalforecast acquisition run-cycle \

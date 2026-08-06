@@ -515,7 +515,12 @@ def test_initial_recovery_no_review_template_is_closed_provider_free_branch(
         recovery_root=assignments["RECOVERY_ROOT"],
     )
     assert _flag_value(plan.arguments, "--schema-version") == "v3"
-    assert "--require-no-model-review-eligible-exceptions" in finalizer.arguments
+    assert "--require-no-model-review-eligible-exceptions" not in finalizer.arguments
+    assert _flag_value(finalizer.arguments, "--public-marker-clearance-policy") == str(
+        assignments["REPO_ROOT"]
+        / "docs"
+        / "disclosure-public-marker-policy-cycle-1-2026-08-06.json"
+    )
     assert _flag_value(finalizer.arguments, "--plan-run-card") == str(plan.run_card)
     for forbidden in (
         "--model-review-authority",
@@ -639,7 +644,12 @@ def test_replacement_empty_continuation_requires_authenticated_empty_plan(
     assert "review-disclosure-exceptions" not in {
         stage.command for stage in config.stages
     }
-    assert "--require-no-model-review-eligible-exceptions" in finalizer.arguments
+    assert "--require-no-model-review-eligible-exceptions" not in finalizer.arguments
+    assert _flag_value(finalizer.arguments, "--public-marker-clearance-policy") == str(
+        assignments["REPO_ROOT"]
+        / "docs"
+        / "disclosure-public-marker-policy-cycle-1-2026-08-06.json"
+    )
     assert _flag_value(finalizer.arguments, "--plan-run-card") == str(
         assignments["PLAN_ROOT"] / "run-cards" / "plan-disclosure-provenance.json"
     )
