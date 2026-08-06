@@ -523,6 +523,9 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         "review_requests_path": paths["requests"],
         "document_root": paths["document_root"],
         "manifest_records": [manifest[0]],
+        "historical_purchase_operations": (operation,),
+        "historical_purchase_state_sha256": purchase_state_sha256,
+        "terminal_unavailable_path": None,
         "verified_artifact_bytes": {
             os.path.abspath(
                 recovery_run_card_path
@@ -531,10 +534,18 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
             os.path.abspath(paths["restrictions"]): paths["restrictions"].read_bytes(),
         },
     }
+
+    def verify_recovery(**kwargs: object) -> dict[str, object]:
+        if kwargs.get("purchase_operations") != (operation,):
+            raise cli_module.CommandError(
+                "authenticated current purchase state does not reproduce"
+            )
+        return recovery
+
     monkeypatch.setattr(
         cli_module,
         "_verify_materializer_quarantine_recovery",
-        lambda **_kwargs: recovery,
+        verify_recovery,
     )
     monkeypatch.setattr(
         cli_module,
@@ -558,6 +569,7 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         cli_module,
         "read_case_dev_purchase_snapshot",
         lambda *_a, **_k: Namespace(
+            committed_amount_usd="0.00",
             purchase_state_sha256=purchase_state_sha256,
             operations=(operation,),
         ),
@@ -780,13 +792,12 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         cli_module,
         "read_case_dev_purchase_snapshot",
         lambda *_a, **_k: Namespace(
+            committed_amount_usd="0.00",
             purchase_state_sha256=purchase_state_sha256,
             operations=(changed_operation,),
         ),
     )
-    with pytest.raises(
-        cli_module.CommandError, match="recovered-public routing lineage changed"
-    ):
+    with pytest.raises(cli_module.CommandError, match="purchase state"):
         cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
             clearance_path=clearance_path,
             clearance_run_card_path=clearance_run_card_path,
