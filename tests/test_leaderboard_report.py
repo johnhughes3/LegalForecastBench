@@ -15,9 +15,37 @@ from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
 from legalforecast.reporting.calibration import calibration_markdown
 from legalforecast.reporting.leaderboard import (
     build_benchmark_leaderboard_report,
+    infer_leaderboard_score_comparisons,
     summarize_accounting_leaderboard,
 )
 from legalforecast.reporting.pareto import pareto_frontier_records
+
+
+def test_leaderboard_inference_is_omitted_for_one_summary() -> None:
+    assert (
+        infer_leaderboard_score_comparisons(
+            (_summary("model-a", 0.9, 0.1),),
+            replicates=7,
+            seed=41,
+        )
+        is None
+    )
+
+
+def test_leaderboard_inference_binds_summaries_and_bootstrap_config() -> None:
+    inference = infer_leaderboard_score_comparisons(
+        (
+            _summary("model-a", 0.9, 0.1),
+            _summary("model-b", 0.6, 0.4),
+        ),
+        replicates=7,
+        seed=41,
+    )
+
+    assert inference is not None
+    assert inference.config.replicates == 7
+    assert inference.config.seed == 41
+    assert set(inference.observed_micro_briers) == {"model-a", "model-b"}
 
 
 def test_benchmark_leaderboard_report_combines_headline_metrics() -> None:
