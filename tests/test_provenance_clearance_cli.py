@@ -948,6 +948,18 @@ def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
         expected_restriction_path=paths["restrictions"],
     )
     original_run_card_bytes = run_card_path.read_bytes()
+    implicit_mode_run_card = dict(run_card)
+    implicit_mode_run_card.pop("quarantine_all_exceptions_without_review")
+    run_card_path.write_bytes(cli_module.canonical_json_bytes(implicit_mode_run_card))
+    with pytest.raises(cli_module.CommandError, match="invalid provenance clearance"):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=paths["manifest"],
+            expected_restriction_path=paths["restrictions"],
+        )
+    run_card_path.write_bytes(original_run_card_bytes)
+
     run_card_path.write_text(json.dumps(run_card, sort_keys=True), encoding="utf-8")
     with pytest.raises(cli_module.CommandError, match="not canonical"):
         cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
@@ -1184,6 +1196,58 @@ def test_no_model_review_finalizer_quarantines_positive_restriction(
         ),
         expected_download_manifest_path=paths["manifest"],
         expected_restriction_path=paths["restrictions"],
+    )
+
+
+def test_no_model_review_relative_plan_paths_replay_from_clearance_commitments(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    absolute_paths = _inputs(tmp_path)
+    for name in ("requests", "manifest", "restrictions"):
+        rows = [
+            json.loads(line) for line in absolute_paths[name].read_text().splitlines()
+        ]
+        _jsonl(
+            absolute_paths[name],
+            [row for row in rows if row["source_document_id"] == "auto"],
+        )
+    relevance = json.loads(absolute_paths["relevance"].read_text())
+    relevance["documents"] = [
+        row for row in relevance["documents"] if row["source_document_id"] == "auto"
+    ]
+    _jsonl(absolute_paths["relevance"], [relevance])
+    _install_document_scanner(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    paths = {
+        name: Path(os.path.relpath(path, tmp_path))
+        for name, path in absolute_paths.items()
+    }
+    paths["private"] = absolute_paths["private"]
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = Path("cohort-policy.json")
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    clearance_root = Path("relative-no-model-clearance")
+
+    assert (
+        main(
+            _no_model_review_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+            )
+        )
+        == 0
+    )
+
+    cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+        clearance_path=(clearance_root / "disclosure-clearance.jsonl").resolve(),
+        clearance_run_card_path=(
+            clearance_root / "run-cards/finalize-provenance-quarantine.json"
+        ).resolve(),
+        expected_download_manifest_path=absolute_paths["manifest"],
+        expected_restriction_path=absolute_paths["restrictions"],
     )
 
 

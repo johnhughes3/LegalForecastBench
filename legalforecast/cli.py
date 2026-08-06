@@ -42258,6 +42258,8 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             "plan-disclosure-provenance requires --schema-version v2 or v3"
         )
     input_paths = (requests_path, manifest_path, relevance_path, restriction_path)
+    committed_input_paths = tuple(path.resolve() for path in input_paths)
+    committed_output_paths = (plan_path.resolve(), worksheet_path.resolve())
     _require_controlled_private_review_root(
         private_root,
         output_root=output_root,
@@ -42421,8 +42423,12 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     terminal_metadata_present = _completed_disclosure_review_resume(
         args,
         stage=stage,
-        input_paths=(*input_paths, *recovery_input_paths, document_root),
-        output_paths=(plan_path, worksheet_path),
+        input_paths=(
+            *committed_input_paths,
+            *(path.resolve() for path in recovery_input_paths),
+            document_root.resolve(),
+        ),
+        output_paths=committed_output_paths,
         record_count=cast(int, plan["document_count"]),
         expected_extra=completion_extra,
         expected_log_extra=schema_log_extra,
@@ -42447,8 +42453,12 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         if not _completed_disclosure_review_resume(
             args,
             stage=stage,
-            input_paths=(*input_paths, *recovery_input_paths, document_root),
-            output_paths=(plan_path, worksheet_path),
+            input_paths=(
+                *committed_input_paths,
+                *(path.resolve() for path in recovery_input_paths),
+                document_root.resolve(),
+            ),
+            output_paths=committed_output_paths,
             record_count=cast(int, plan["document_count"]),
             expected_extra=completion_extra,
             expected_log_extra=schema_log_extra,
@@ -42458,8 +42468,12 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     _write_acquisition_completion(
         args,
         stage=stage,
-        input_paths=(*input_paths, *recovery_input_paths, document_root),
-        output_paths=(plan_path, worksheet_path),
+        input_paths=(
+            *committed_input_paths,
+            *(path.resolve() for path in recovery_input_paths),
+            document_root.resolve(),
+        ),
+        output_paths=committed_output_paths,
         record_count=cast(int, plan["document_count"]),
         dry_run=dry_run,
         paid_activity_requested=False,
@@ -42945,7 +42959,7 @@ def _verify_no_model_review_plan_run_card(
         generated_at_is_canonical = False
     expected_input_paths = (
         [
-            str(source_paths[name])
+            str(source_paths[name].resolve())
             for name in (
                 "review_requests",
                 "download_manifest",
@@ -42953,8 +42967,8 @@ def _verify_no_model_review_plan_run_card(
                 "restriction_evidence",
             )
         ]
-        + [str(path) for path in recovery_input_paths]
-        + [str(document_root)]
+        + [str(path.resolve()) for path in recovery_input_paths]
+        + [str(document_root.resolve())]
     )
     if (
         set(run_card) != expected_fields
@@ -42976,7 +42990,8 @@ def _verify_no_model_review_plan_run_card(
         or type(run_card.get("resume")) is not bool
         or not generated_at_is_canonical
         or run_card.get("input_paths") != expected_input_paths
-        or run_card.get("output_paths") != [str(plan_path), str(worksheet_path)]
+        or run_card.get("output_paths")
+        != [str(plan_path.resolve()), str(worksheet_path.resolve())]
     ):
         raise ProvenanceClearanceError(
             "no-model-review finalization requires the exact completed v3 plan run card"
@@ -45587,6 +45602,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
         or run_card.get("paid_activity_requested") is not False
         or run_card.get("paid_activity_executed") is not False
         or (model_schema and run_card.get("resume") is not True)
+        or sum((model_schema, no_model_review_mode, explicit_quarantine_all_mode)) != 1
         or (no_model_review_mode and model_schema)
         or (explicit_quarantine_all_mode and (model_schema or no_model_review_mode))
         or (

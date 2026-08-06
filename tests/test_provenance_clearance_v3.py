@@ -12,9 +12,12 @@ from legalforecast.ingestion import provenance_clearance as provenance_module
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION_V1,
     DisclosurePdfScan,
+    require_clearance_policy,
 )
+from legalforecast.ingestion.disclosure_model_review import DECISION_SCHEMA_VERSION
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
+    build_authenticated_model_provenance_clearance_records_v3,
     build_provenance_clearance_plan,
     build_provenance_clearance_plan_v3,
     build_provenance_clearance_records,
@@ -362,7 +365,10 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
     ),
 )
 def test_v3_recovered_public_contradictions_remain_quarantined(
-    tmp_path: Path, field: str, value: object
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
 ) -> None:
     root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
     manifest[0].update(
@@ -402,20 +408,19 @@ def test_v3_recovered_public_contradictions_remain_quarantined(
     elif field.startswith("manifest_"):
         manifest[0][field.removeprefix("manifest_")] = value
     requests[0]["restriction_evidence"] = evidence
+    lineage = {
+        "candidate_id": "case-a",
+        "source_document_id": "entry-1",
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": "4" * 64,
+        "recovery_restriction_evidence_sha256": "5" * 64,
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": "7" * 64,
+        "purchase_operation_key": "00000000-0000-4000-8000-000000000000",
+        "fresh_recap_detail_sha256": "2" * 64,
+    }
     capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-        [
-            {
-                "candidate_id": "case-a",
-                "source_document_id": "entry-1",
-                "recovery_run_card_sha256": "3" * 64,
-                "recovery_manifest_sha256": "4" * 64,
-                "recovery_restriction_evidence_sha256": "5" * 64,
-                "purchase_state_sha256": "6" * 64,
-                "purchase_operation_sha256": "7" * 64,
-                "purchase_operation_key": "00000000-0000-4000-8000-000000000000",
-                "fresh_recap_detail_sha256": "2" * 64,
-            }
-        ]
+        [lineage]
     )
     plan = build_provenance_clearance_plan_v3(
         requests,
@@ -442,9 +447,51 @@ def test_v3_recovered_public_contradictions_remain_quarantined(
         ),
         verified_recovery_capability=capability,
     )
-    assert cast(list[dict[str, object]], plan["documents"])[0]["route"] == (
-        "exception_review"
-    )
+    document = cast(list[dict[str, object]], plan["documents"])[0]
+    assert document["route"] == "exception_review"
+    if field in {"scan_coverage_status", "scan_markers"}:
+        assert document["recovered_public_lineage"] == lineage
+        assert exception_review_worksheet_v3(plan)["documents"] == [document]
+        if field == "scan_markers":
+            routing_sha256 = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+            monkeypatch.setattr(
+                "legalforecast.ingestion.disclosure_model_review_authority.public_disclosure_model_review_record",
+                lambda _capability: {
+                    "routing_plan_sha256": routing_sha256,
+                    "reviewer_registry_key": "gemini-3.5-flash",
+                    "decision_count": 1,
+                    "decisions": [
+                        {
+                            "schema_version": DECISION_SCHEMA_VERSION,
+                            "candidate_id": "case-a",
+                            "source_document_id": "entry-1",
+                            "document_sha256": document["sha256"],
+                            "prompt_sha256": "8" * 64,
+                            "batch_prompt_sha256": "9" * 64,
+                            "response_sha256": "a" * 64,
+                            "batch_response_sha256": "b" * 64,
+                            "reviewer_registry_entry_sha256": "c" * 64,
+                            "status": "cleared",
+                        }
+                    ],
+                },
+            )
+            records = build_authenticated_model_provenance_clearance_records_v3(
+                plan,
+                model_review_capability=object(),
+                routing_plan_sha256=routing_sha256,
+            )
+            record = records[0].to_record()
+            assert record["clearance_basis"] == ("authenticated_model_exception_review")
+            assert record["recovered_public_lineage"] == lineage
+            assert record["controlled_store_provenance"] == (
+                "courtlistener-rest://recap-documents/entry-1"
+            )
+            require_clearance_policy(
+                record, key=("case-a", "entry-1"), label="resolved document"
+            )
+    else:
+        assert "recovered_public_lineage" not in document
 
 
 def test_v3_worksheet_does_not_alias_plan_documents(tmp_path: Path) -> None:
