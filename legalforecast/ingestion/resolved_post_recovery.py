@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
-    UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+    CaseDevPurchaseLedgerError,
+    validate_unknown_public_recovery_evidence,
 )
 from legalforecast.ingestion.disclosure_clearance import (
     SCHEMA_VERSION,
@@ -747,6 +748,7 @@ def _build_resolved_post_recovery_documents_core(
             key=key,
             attempt_policy_sha256=policy_sha256,
             selection_document_sha256=selection_sha256,
+            expected_purchase_policy_sha256=purchase_policy_sha256,
         )
         _validate_download(
             download,
@@ -1161,6 +1163,7 @@ def require_resolved_post_recovery_operation_bindings(
     *,
     purchase_operation_records: Sequence[Mapping[str, Any]],
     resolved_records: Sequence[Mapping[str, Any]],
+    expected_purchase_policy_sha256: str,
 ) -> None:
     """Verify pre-clear, post-clear, and partially-cleared crash replays exactly."""
 
@@ -1189,7 +1192,11 @@ def require_resolved_post_recovery_operation_bindings(
             "download_url_sha256": material.get("download_url_sha256"),
             "content_sha256": material.get("content_sha256"),
             "byte_count": material.get("byte_count"),
-            **_delivery_authority_fields(operation, key=key),
+            **_delivery_authority_fields(
+                operation,
+                key=key,
+                expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+            ),
         }
         if any(record.get(name) != value for name, value in expected.items()):
             raise ResolvedPostRecoveryError(
@@ -1355,6 +1362,7 @@ def _validate_operation(
     key: tuple[str, str],
     attempt_policy_sha256: str,
     selection_document_sha256: str,
+    expected_purchase_policy_sha256: str,
 ) -> None:
     if (
         operation.get("material_authority") != UNKNOWN_RECOVERY_ORIGIN
@@ -1376,7 +1384,11 @@ def _validate_operation(
     ):
         _required_sha(material.get(field), field)
     _positive_int(material.get("byte_count"), "byte_count")
-    _delivery_authority_fields(operation, key=key)
+    _delivery_authority_fields(
+        operation,
+        key=key,
+        expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+    )
 
 
 def _terminal_delivery_receipt(
@@ -1459,7 +1471,7 @@ def _delivery_authority_fields(
     operation: Mapping[str, Any],
     *,
     key: tuple[str, str],
-    expected_purchase_policy_sha256: str | None = None,
+    expected_purchase_policy_sha256: str,
 ) -> dict[str, object]:
     """Return one exact delivery authority without synthesizing broker evidence."""
 
@@ -1470,9 +1482,8 @@ def _delivery_authority_fields(
         purchase_policy_sha256 = _required_sha(
             receipt.get("purchase_policy_sha256"), "purchase policy"
         )
-        if (
-            expected_purchase_policy_sha256 is not None
-            and purchase_policy_sha256 != expected_purchase_policy_sha256
+        if purchase_policy_sha256 != _required_sha(
+            expected_purchase_policy_sha256, "expected purchase policy"
         ):
             raise ResolvedPostRecoveryError(
                 f"purchase policy differs from attempt authority: {key}"
@@ -1493,42 +1504,27 @@ def _delivery_authority_fields(
     purchase_policy_sha256 = _required_sha(
         recovery.get("purchase_policy_sha256"), "purchase policy"
     )
-    if (
-        expected_purchase_policy_sha256 is not None
-        and purchase_policy_sha256 != expected_purchase_policy_sha256
+    if purchase_policy_sha256 != _required_sha(
+        expected_purchase_policy_sha256, "expected purchase policy"
     ):
         raise ResolvedPostRecoveryError(
             f"purchase policy differs from attempt authority: {key}"
         )
-    expected = {
-        "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
-        "candidate_id": key[0],
-        "source_document_id": key[1],
-        "operation_key": operation.get("operation_key"),
-        "purchase_policy_sha256": purchase_policy_sha256,
-        "attempt_policy_sha256": operation.get("attempt_policy_sha256"),
-        "attempt_document_sha256": operation.get("attempt_document_sha256"),
-        "provider_detail_sha256": material.get("provider_detail_sha256"),
-        "download_url_sha256": material.get("download_url_sha256"),
-        "billing_status": "unknown",
-        "reservation_retained": True,
-        "no_paid_redispatch": True,
-    }
     # Recovery authenticates material availability at the time it was recorded;
     # later billing settlement does not invalidate that delivery authority. Keep
     # these accepted purchase states aligned with the journal-side validator.
-    if (
-        dict(recovery) != expected
-        or operation.get("status") not in {"unknown", "confirmed", "failed"}
-        or (
-            operation.get("status") in {"unknown", "failed"}
-            and operation.get("actual_usd") is not None
+    try:
+        validate_unknown_public_recovery_evidence(
+            recovery,
+            operation,
+            candidate_id=key[0],
+            document_id=key[1],
+            purchase_policy_sha256=expected_purchase_policy_sha256,
         )
-        or material.get("queue_response_sha256") is not None
-    ):
+    except CaseDevPurchaseLedgerError as exc:
         raise ResolvedPostRecoveryError(
             f"public material recovery authority conflicts with purchase: {key}"
-        )
+        ) from exc
     return {
         "delivery_authority": "authenticated_public_material_recovery",
         "purchase_policy_sha256": purchase_policy_sha256,

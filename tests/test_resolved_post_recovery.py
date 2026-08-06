@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 import sqlite3
+from collections.abc import Mapping
 from contextlib import closing
 from copy import deepcopy
 from dataclasses import replace
@@ -410,8 +411,19 @@ def test_build_and_require_authenticated_public_material_delivery_authority() ->
         **_external_kwargs(inputs),
     )
     require_resolved_post_recovery_operation_bindings(
-        purchase_operation_records=[operation], resolved_records=records
+        purchase_operation_records=[operation],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="purchase policy differs from attempt authority",
+    ):
+        require_resolved_post_recovery_operation_bindings(
+            purchase_operation_records=[operation],
+            resolved_records=records,
+            expected_purchase_policy_sha256="9" * 64,
+        )
 
     wrong_policy = deepcopy(operation)
     wrong_policy["public_material_recovery"]["purchase_policy_sha256"] = "9" * 64
@@ -428,6 +440,68 @@ def test_build_and_require_authenticated_public_material_delivery_authority() ->
         build_resolved_post_recovery_documents(
             **{**inputs, "purchase_operation_records": [contradictory_queue]}
         )
+
+
+def test_resolved_recovery_accepts_exact_corrected_v2_and_rejects_tampering() -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    material = operation["material_evidence"]
+    del material["queue_response_sha256"]
+    operation.update(
+        {
+            "status": "unknown",
+            "response": None,
+            "actual_usd": None,
+            "reconciliation": None,
+            "reservation_usd": "3.05",
+        }
+    )
+    operation["public_material_recovery"] = _corrected_public_recovery(operation)
+    inputs["purchase_operation_records"] = [operation]
+
+    records = build_resolved_post_recovery_documents(**inputs)
+
+    assert records[0]["delivery_authority"] == (
+        "authenticated_public_material_recovery"
+    )
+    assert records[0]["public_material_recovery_sha256"] == _hash(
+        operation["public_material_recovery"]
+    )
+    require_resolved_post_recovery_documents(
+        selection_records=inputs["selection_records"],
+        download_records=inputs["download_records"],
+        clearance_records=inputs["clearance_records"],
+        resolved_records=records,
+        **_external_kwargs(inputs),
+    )
+    require_resolved_post_recovery_operation_bindings(
+        purchase_operation_records=[operation],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
+    )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="purchase policy differs from attempt authority",
+    ):
+        require_resolved_post_recovery_operation_bindings(
+            purchase_operation_records=[operation],
+            resolved_records=records,
+            expected_purchase_policy_sha256="9" * 64,
+        )
+
+    for field, value in (
+        ("record_sha256", "0" * 64),
+        ("legacy_recovery_record_sha256", "0" * 64),
+        ("legacy_download_url_sha256", material["download_url_sha256"]),
+    ):
+        tampered = deepcopy(operation)
+        tampered["public_material_recovery"]["courtlistener_url_commitment_correction"][
+            field
+        ] = value
+        with pytest.raises(ResolvedPostRecoveryError, match="conflicts with purchase"):
+            build_resolved_post_recovery_documents(
+                **{**inputs, "purchase_operation_records": [tampered]}
+            )
 
     wrong_basis = deepcopy(records[0])
     wrong_basis["clearance_basis"] = "affirmative_public_provenance"
@@ -511,7 +585,9 @@ def test_public_material_authority_survives_later_billing_settlement(
         "authenticated_public_material_recovery"
     )
     require_resolved_post_recovery_operation_bindings(
-        purchase_operation_records=[operation], resolved_records=records
+        purchase_operation_records=[operation],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
 
 
@@ -1255,6 +1331,7 @@ def test_resolved_artifact_then_journal_clearance_is_crash_replayable(
     require_resolved_post_recovery_operation_bindings(
         purchase_operation_records=inputs["purchase_operation_records"],
         resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
     cleared_operation = deepcopy(inputs["purchase_operation_records"][0])
     cleared_operation["material_state"] = "cleared_public"
@@ -1265,6 +1342,7 @@ def test_resolved_artifact_then_journal_clearance_is_crash_replayable(
     require_resolved_post_recovery_operation_bindings(
         purchase_operation_records=[cleared_operation],
         resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
     write_resolved_post_recovery_documents(artifact, records)
 
@@ -2295,6 +2373,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         require_resolved_post_recovery_operation_bindings(
             purchase_operation_records=snapshot.operations,
             resolved_records=_read_records(resolved_path),
+            expected_purchase_policy_sha256=purchase_policy.policy_sha256,
         )
         return cli._VerifiedMaterializedDownstreamLineage(
             paths=(
@@ -2870,3 +2949,59 @@ def _hash(value: object) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def _corrected_public_recovery(operation: Mapping[str, Any]) -> dict[str, object]:
+    material = operation["material_evidence"]
+    legacy_digest = "a" * 64
+    corrected_digest = material["download_url_sha256"]
+    base = {
+        "candidate_id": operation["candidate_id"],
+        "source_document_id": operation["source_document_id"],
+        "operation_key": operation["operation_key"],
+        "purchase_policy_sha256": "1" * 64,
+        "attempt_policy_sha256": operation["attempt_policy_sha256"],
+        "attempt_document_sha256": operation["attempt_document_sha256"],
+        "provider_detail_sha256": material["provider_detail_sha256"],
+        "download_url_sha256": legacy_digest,
+        "billing_status": "unknown",
+        "reservation_retained": True,
+        "no_paid_redispatch": True,
+    }
+    legacy = {
+        "schema_version": "legalforecast.unknown_public_material_recovery.v1",
+        **base,
+    }
+    correction_without_digest = {
+        "schema_version": ("legalforecast.unknown_public_url_commitment_correction.v1"),
+        "purchase_policy_sha256": "1" * 64,
+        "candidate_id": operation["candidate_id"],
+        "source_document_id": operation["source_document_id"],
+        "operation_key": operation["operation_key"],
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "reservation_usd": operation["reservation_usd"],
+        "attempt_policy_sha256": operation["attempt_policy_sha256"],
+        "attempt_document_sha256": operation["attempt_document_sha256"],
+        "provider_detail_sha256": material["provider_detail_sha256"],
+        "legacy_download_url_sha256": legacy_digest,
+        "corrected_download_url_sha256": corrected_digest,
+        "legacy_recovery_record_sha256": _hash(legacy),
+        "billing_authority": {
+            "state": "unknown_public_unreconciled",
+            "reservation_retained": True,
+            "no_paid_redispatch": True,
+        },
+        "material_authority": "unknown_status_attempt",
+        "material_status": "available_pending_quarantine",
+        "pre_byte_correction": True,
+    }
+    correction = {
+        **correction_without_digest,
+        "record_sha256": _hash(correction_without_digest),
+    }
+    return {
+        "schema_version": "legalforecast.unknown_public_material_recovery.v2",
+        **base,
+        "download_url_sha256": corrected_digest,
+        "courtlistener_url_commitment_correction": correction,
+    }

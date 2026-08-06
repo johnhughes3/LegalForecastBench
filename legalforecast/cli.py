@@ -25309,6 +25309,7 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             require_resolved_post_recovery_operation_bindings(
                 purchase_operation_records=purchase_snapshot.operations,
                 resolved_records=resolved_records,
+                expected_purchase_policy_sha256=policy.policy_sha256,
             )
 
         descriptor = build_recovery_source_descriptor(
@@ -36195,6 +36196,7 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             require_resolved_post_recovery_operation_bindings(
                 purchase_operation_records=operations,
                 resolved_records=resolved_records,
+                expected_purchase_policy_sha256=purchase_policy.policy_sha256,
             )
         _verify_materializer_purchase_operations(
             operations,
@@ -40149,6 +40151,7 @@ def _verify_materialized_downstream_lineage(
             require_resolved_post_recovery_operation_bindings(
                 purchase_operation_records=snapshot.operations,
                 resolved_records=resolved_records,
+                expected_purchase_policy_sha256=purchase_policy.policy_sha256,
             )
         _verify_materializer_purchase_operations(
             snapshot.operations,
@@ -47153,6 +47156,7 @@ def _require_current_purchase_lineage(
         require_resolved_post_recovery_operation_bindings(
             purchase_operation_records=snapshot.operations,
             resolved_records=resolved_records,
+            expected_purchase_policy_sha256=policy.policy_sha256,
         )
         state_sha256 = snapshot.purchase_state_sha256
     except (
@@ -47285,6 +47289,7 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
                 require_resolved_post_recovery_operation_bindings(
                     purchase_operation_records=operations,
                     resolved_records=resolved_records,
+                    expected_purchase_policy_sha256=policy.policy_sha256,
                 )
             else:
                 resolved_records = _build_resolved_post_recovery_dispatch(
@@ -47305,6 +47310,7 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
                 require_resolved_post_recovery_operation_bindings(
                     purchase_operation_records=journal.operation_records(),
                     resolved_records=resolved_records,
+                    expected_purchase_policy_sha256=policy.policy_sha256,
                 )
             after_state_sha256 = journal.purchase_state_sha256()
     except (

@@ -47,6 +47,12 @@ PURCHASE_LEDGER_INITIALIZATION_SCHEMA_VERSION = (
 UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION = (
     "legalforecast.unknown_public_material_recovery.v1"
 )
+UNKNOWN_PUBLIC_MATERIAL_RECOVERY_V2_SCHEMA_VERSION = (
+    "legalforecast.unknown_public_material_recovery.v2"
+)
+UNKNOWN_PUBLIC_URL_COMMITMENT_CORRECTION_SCHEMA_VERSION = (
+    "legalforecast.unknown_public_url_commitment_correction.v1"
+)
 COURTLISTENER_URL_COMMITMENT_CORRECTION_SCHEMA_VERSION = (
     "legalforecast.courtlistener_url_commitment_correction.v1"
 )
@@ -63,6 +69,79 @@ def _is_canonical_operation_key(value: str) -> bool:
         return str(uuid.UUID(value)) == value
     except ValueError:
         return False
+
+
+def _unknown_public_recovery_record(
+    *,
+    schema_version: str,
+    candidate_id: str,
+    document_id: str,
+    operation_key: str,
+    purchase_policy_sha256: str,
+    attempt_policy_sha256: str,
+    attempt_document_sha256: str,
+    provider_detail_sha256: str,
+    download_url_sha256: str,
+    correction: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    record: dict[str, object] = {
+        "schema_version": schema_version,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "operation_key": operation_key,
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "attempt_policy_sha256": attempt_policy_sha256,
+        "attempt_document_sha256": attempt_document_sha256,
+        "provider_detail_sha256": provider_detail_sha256,
+        "download_url_sha256": download_url_sha256,
+        "billing_status": "unknown",
+        "reservation_retained": True,
+        "no_paid_redispatch": True,
+    }
+    if correction is not None:
+        record[_COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY] = dict(correction)
+    return record
+
+
+def _unknown_public_url_correction_record(
+    *,
+    purchase_policy_sha256: str,
+    candidate_id: str,
+    document_id: str,
+    operation_key: str,
+    reservation_usd: str,
+    attempt_policy_sha256: str,
+    attempt_document_sha256: str,
+    provider_detail_sha256: str,
+    legacy_download_url_sha256: str,
+    corrected_download_url_sha256: str,
+    legacy_recovery_record_sha256: str,
+) -> dict[str, object]:
+    record: dict[str, object] = {
+        "schema_version": UNKNOWN_PUBLIC_URL_COMMITMENT_CORRECTION_SCHEMA_VERSION,
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "operation_key": operation_key,
+        "source_provider": _COURTLISTENER_RECAP_FETCH_PROVIDER,
+        "reservation_usd": reservation_usd,
+        "attempt_policy_sha256": attempt_policy_sha256,
+        "attempt_document_sha256": attempt_document_sha256,
+        "provider_detail_sha256": provider_detail_sha256,
+        "legacy_download_url_sha256": legacy_download_url_sha256,
+        "corrected_download_url_sha256": corrected_download_url_sha256,
+        "legacy_recovery_record_sha256": legacy_recovery_record_sha256,
+        "billing_authority": {
+            "state": "unknown_public_unreconciled",
+            "reservation_retained": True,
+            "no_paid_redispatch": True,
+        },
+        "material_authority": "unknown_status_attempt",
+        "material_status": PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value,
+        "pre_byte_correction": True,
+    }
+    record["record_sha256"] = hashlib.sha256(_canonical(record).encode()).hexdigest()
+    return record
 
 
 def _courtlistener_url_correction_record(
@@ -2657,20 +2736,17 @@ class CaseDevPurchaseJournal:
                 raise CaseDevPurchaseLedgerError(
                     f"{label} digest must be lowercase SHA-256"
                 )
-        record = {
-            "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
-            "candidate_id": candidate_id,
-            "source_document_id": document_id,
-            "operation_key": operation_key,
-            "purchase_policy_sha256": self.policy.policy_sha256,
-            "attempt_policy_sha256": attempt_policy_sha256,
-            "attempt_document_sha256": attempt_document_sha256,
-            "provider_detail_sha256": provider_detail_sha256,
-            "download_url_sha256": download_url_sha256,
-            "billing_status": "unknown",
-            "reservation_retained": True,
-            "no_paid_redispatch": True,
-        }
+        record = _unknown_public_recovery_record(
+            schema_version=UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+            candidate_id=candidate_id,
+            document_id=document_id,
+            operation_key=operation_key,
+            purchase_policy_sha256=self.policy.policy_sha256,
+            attempt_policy_sha256=attempt_policy_sha256,
+            attempt_document_sha256=attempt_document_sha256,
+            provider_detail_sha256=provider_detail_sha256,
+            download_url_sha256=download_url_sha256,
+        )
         canonical_record = _canonical(record)
         self._connection.execute("BEGIN IMMEDIATE")
         try:
@@ -2762,6 +2838,224 @@ class CaseDevPurchaseJournal:
             if cursor.rowcount != 1:
                 raise CaseDevPurchaseLedgerError(
                     "unknown public recovery evidence transition failed"
+                )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
+    def correct_unknown_public_recovery_url_commitment(
+        self,
+        document_id: str,
+        *,
+        candidate_id: str,
+        operation_key: str,
+        attempt_policy_sha256: str,
+        attempt_document_sha256: str,
+        provider_detail_sha256: str,
+        legacy_download_url_sha256: str,
+        corrected_download_url_sha256: str,
+    ) -> None:
+        """CAS-repair the legacy URL bound by an authenticated unknown recovery."""
+
+        for label, digest in (
+            ("attempt policy", attempt_policy_sha256),
+            ("attempt document", attempt_document_sha256),
+            ("provider detail", provider_detail_sha256),
+            ("legacy download URL", legacy_download_url_sha256),
+            ("corrected download URL", corrected_download_url_sha256),
+        ):
+            if _SHA256.fullmatch(digest) is None:
+                raise CaseDevPurchaseLedgerError(
+                    f"{label} digest must be lowercase SHA-256"
+                )
+        if legacy_download_url_sha256 == corrected_download_url_sha256:
+            raise CaseDevPurchaseLedgerError(
+                "CourtListener URL correction must change the commitment"
+            )
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            operation = self._operation(document_id)
+            material = self._material(document_id)
+            recovery_row = self._connection.execute(
+                """SELECT record_json, record_sha256
+                FROM unknown_public_material_recoveries
+                WHERE source_document_id=?""",
+                (document_id,),
+            ).fetchone()
+            if operation is None or material is None or recovery_row is None:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public URL correction authority is missing"
+                )
+            expected_reservation = _money(self.policy.per_document_reservation_usd)
+            if (
+                str(operation["candidate_id"]) != candidate_id
+                or operation["operation_key"] != operation_key
+                or not _is_canonical_operation_key(operation_key)
+                or operation["reservation_usd"] != expected_reservation
+                or str(material["authority"]) != "unknown_status_attempt"
+                or material["attempt_policy_sha256"] != attempt_policy_sha256
+                or material["attempt_document_sha256"] != attempt_document_sha256
+                or material["provider_detail_sha256"] != provider_detail_sha256
+                or material["queue_response_sha256"] is not None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public URL correction authority conflicts"
+                )
+            recovery = _decode_unknown_public_recovery_row(recovery_row)
+            if material["download_url_sha256"] == corrected_download_url_sha256:
+                _validate_unknown_public_recovery_record(
+                    recovery,
+                    operation,
+                    material,
+                    purchase_policy_sha256=self.policy.policy_sha256,
+                )
+                correction = recovery.get(_COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY)
+                correction_record = (
+                    cast(Mapping[str, object], correction)
+                    if isinstance(correction, Mapping)
+                    else None
+                )
+                if (
+                    correction_record is None
+                    or correction_record.get("legacy_download_url_sha256")
+                    != legacy_download_url_sha256
+                ):
+                    raise CaseDevPurchaseLedgerError(
+                        "unknown public URL correction replay conflicts"
+                    )
+                self._connection.commit()
+                return
+            try:
+                response_value: object = (
+                    None
+                    if operation["response_json"] is None
+                    else json.loads(str(operation["response_json"]))
+                )
+            except (TypeError, ValueError) as exc:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public URL correction provider evidence is invalid"
+                ) from exc
+            expected_response = {
+                "reservation_usd": expected_reservation,
+                "source_provider": _COURTLISTENER_RECAP_FETCH_PROVIDER,
+            }
+            response = (
+                cast(Mapping[str, object], response_value)
+                if isinstance(response_value, Mapping)
+                else None
+            )
+            if (
+                response is None
+                or dict(response) != expected_response
+                or _canonical(response) != operation["response_json"]
+                or str(operation["status"]) != "unknown"
+                or operation["actual_usd"] is not None
+                or operation["reconciliation_json"] is not None
+                or not isinstance(operation["error"], str)
+                or not str(operation["error"]).strip()
+                or str(material["status"])
+                != PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value
+                or material["content_sha256"] is not None
+                or material["byte_count"] is not None
+                or material["clearance_record_sha256"] is not None
+                or material["resolved_record_sha256"] is not None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public URL correction mutation authority conflicts"
+                )
+            if material["download_url_sha256"] != legacy_download_url_sha256:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public URL correction legacy commitment conflicts"
+                )
+            _validate_unknown_public_recovery_record(
+                recovery,
+                operation,
+                material,
+                purchase_policy_sha256=self.policy.policy_sha256,
+            )
+            if (
+                recovery.get("schema_version")
+                != UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION
+                or _COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY in recovery
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public URL correction requires legacy recovery evidence"
+                )
+            legacy_record_json = str(recovery_row["record_json"])
+            legacy_record_sha256 = str(recovery_row["record_sha256"])
+            if (
+                legacy_record_json != _canonical(recovery)
+                or legacy_record_sha256
+                != hashlib.sha256(legacy_record_json.encode()).hexdigest()
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public URL correction legacy recovery conflicts"
+                )
+            correction = _unknown_public_url_correction_record(
+                purchase_policy_sha256=self.policy.policy_sha256,
+                candidate_id=candidate_id,
+                document_id=document_id,
+                operation_key=operation_key,
+                reservation_usd=expected_reservation,
+                attempt_policy_sha256=attempt_policy_sha256,
+                attempt_document_sha256=attempt_document_sha256,
+                provider_detail_sha256=provider_detail_sha256,
+                legacy_download_url_sha256=legacy_download_url_sha256,
+                corrected_download_url_sha256=corrected_download_url_sha256,
+                legacy_recovery_record_sha256=legacy_record_sha256,
+            )
+            corrected_recovery = _unknown_public_recovery_record(
+                schema_version=UNKNOWN_PUBLIC_MATERIAL_RECOVERY_V2_SCHEMA_VERSION,
+                candidate_id=candidate_id,
+                document_id=document_id,
+                operation_key=operation_key,
+                purchase_policy_sha256=self.policy.policy_sha256,
+                attempt_policy_sha256=attempt_policy_sha256,
+                attempt_document_sha256=attempt_document_sha256,
+                provider_detail_sha256=provider_detail_sha256,
+                download_url_sha256=corrected_download_url_sha256,
+                correction=correction,
+            )
+            corrected_record_json = _canonical(corrected_recovery)
+            corrected_record_sha256 = hashlib.sha256(
+                corrected_record_json.encode()
+            ).hexdigest()
+            material_cursor = self._connection.execute(
+                """UPDATE purchase_material_state SET download_url_sha256=?
+                WHERE source_document_id=?
+                  AND authority='unknown_status_attempt'
+                  AND status='available_pending_quarantine'
+                  AND attempt_policy_sha256=? AND attempt_document_sha256=?
+                  AND provider_detail_sha256=? AND queue_response_sha256 IS NULL
+                  AND download_url_sha256=?
+                  AND content_sha256 IS NULL AND byte_count IS NULL
+                  AND clearance_record_sha256 IS NULL
+                  AND resolved_record_sha256 IS NULL""",
+                (
+                    corrected_download_url_sha256,
+                    document_id,
+                    attempt_policy_sha256,
+                    attempt_document_sha256,
+                    provider_detail_sha256,
+                    legacy_download_url_sha256,
+                ),
+            )
+            recovery_cursor = self._connection.execute(
+                """UPDATE unknown_public_material_recoveries
+                SET record_json=?, record_sha256=?
+                WHERE source_document_id=? AND record_json=? AND record_sha256=?""",
+                (
+                    corrected_record_json,
+                    corrected_record_sha256,
+                    document_id,
+                    legacy_record_json,
+                    legacy_record_sha256,
+                ),
+            )
+            if material_cursor.rowcount != 1 or recovery_cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown public URL correction compare-and-swap failed"
                 )
         except BaseException:
             self._connection.rollback()
@@ -5602,22 +5896,82 @@ def _validate_unknown_public_recovery_record(
     *,
     purchase_policy_sha256: str,
 ) -> None:
-    expected = {
-        "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
-        "candidate_id": operation["candidate_id"],
-        "source_document_id": operation["source_document_id"],
-        "operation_key": operation["operation_key"],
-        "purchase_policy_sha256": purchase_policy_sha256,
-        "attempt_policy_sha256": material["attempt_policy_sha256"],
-        "attempt_document_sha256": material["attempt_document_sha256"],
-        "provider_detail_sha256": material["provider_detail_sha256"],
-        "download_url_sha256": material["download_url_sha256"],
-        "billing_status": "unknown",
-        "reservation_retained": True,
-        "no_paid_redispatch": True,
-    }
+    operation_key = operation["operation_key"]
+    schema_version = record.get("schema_version")
+    correction = record.get(_COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY)
+    expected: Mapping[str, object]
+    if schema_version == UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION:
+        expected = _unknown_public_recovery_record(
+            schema_version=UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+            candidate_id=str(operation["candidate_id"]),
+            document_id=str(operation["source_document_id"]),
+            operation_key=str(operation_key),
+            purchase_policy_sha256=purchase_policy_sha256,
+            attempt_policy_sha256=str(material["attempt_policy_sha256"]),
+            attempt_document_sha256=str(material["attempt_document_sha256"]),
+            provider_detail_sha256=str(material["provider_detail_sha256"]),
+            download_url_sha256=str(material["download_url_sha256"]),
+        )
+    elif (
+        schema_version == UNKNOWN_PUBLIC_MATERIAL_RECOVERY_V2_SCHEMA_VERSION
+        and isinstance(correction, Mapping)
+    ):
+        correction_record = cast(Mapping[str, object], correction)
+        legacy_download_url_sha256 = correction_record.get("legacy_download_url_sha256")
+        if (
+            not isinstance(legacy_download_url_sha256, str)
+            or _SHA256.fullmatch(legacy_download_url_sha256) is None
+            or legacy_download_url_sha256 == material["download_url_sha256"]
+        ):
+            raise CaseDevPurchaseLedgerError(
+                "unknown public recovery correction record is invalid"
+            )
+        legacy = _unknown_public_recovery_record(
+            schema_version=UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+            candidate_id=str(operation["candidate_id"]),
+            document_id=str(operation["source_document_id"]),
+            operation_key=str(operation_key),
+            purchase_policy_sha256=purchase_policy_sha256,
+            attempt_policy_sha256=str(material["attempt_policy_sha256"]),
+            attempt_document_sha256=str(material["attempt_document_sha256"]),
+            provider_detail_sha256=str(material["provider_detail_sha256"]),
+            download_url_sha256=legacy_download_url_sha256,
+        )
+        expected_correction = _unknown_public_url_correction_record(
+            purchase_policy_sha256=purchase_policy_sha256,
+            candidate_id=str(operation["candidate_id"]),
+            document_id=str(operation["source_document_id"]),
+            operation_key=str(operation_key),
+            reservation_usd=str(operation["reservation_usd"]),
+            attempt_policy_sha256=str(material["attempt_policy_sha256"]),
+            attempt_document_sha256=str(material["attempt_document_sha256"]),
+            provider_detail_sha256=str(material["provider_detail_sha256"]),
+            legacy_download_url_sha256=legacy_download_url_sha256,
+            corrected_download_url_sha256=str(material["download_url_sha256"]),
+            legacy_recovery_record_sha256=hashlib.sha256(
+                _canonical(legacy).encode()
+            ).hexdigest(),
+        )
+        expected = _unknown_public_recovery_record(
+            schema_version=UNKNOWN_PUBLIC_MATERIAL_RECOVERY_V2_SCHEMA_VERSION,
+            candidate_id=str(operation["candidate_id"]),
+            document_id=str(operation["source_document_id"]),
+            operation_key=str(operation_key),
+            purchase_policy_sha256=purchase_policy_sha256,
+            attempt_policy_sha256=str(material["attempt_policy_sha256"]),
+            attempt_document_sha256=str(material["attempt_document_sha256"]),
+            provider_detail_sha256=str(material["provider_detail_sha256"]),
+            download_url_sha256=str(material["download_url_sha256"]),
+            correction=expected_correction,
+        )
+    else:
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery record has unsupported schema"
+        )
     if (
         dict(record) != expected
+        or not isinstance(operation_key, str)
+        or not _is_canonical_operation_key(operation_key)
         or operation["status"] not in {"unknown", "confirmed", "failed"}
         or (
             operation["status"] in {"unknown", "failed"}
@@ -5645,6 +5999,64 @@ def _validate_unknown_public_recovery_record(
         raise CaseDevPurchaseLedgerError(
             "unknown public recovery record conflicts with purchase authority"
         )
+
+
+def validate_unknown_public_recovery_evidence(
+    record: Mapping[str, object],
+    operation: Mapping[str, object],
+    *,
+    candidate_id: str,
+    document_id: str,
+    purchase_policy_sha256: str,
+) -> None:
+    """Authenticate a journal-exported v1 or corrected-v2 public recovery."""
+
+    if _SHA256.fullmatch(purchase_policy_sha256) is None:
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery purchase policy is invalid"
+        )
+    if operation.get("candidate_id") != candidate_id or (
+        "source_document_id" in operation
+        and operation.get("source_document_id") != document_id
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery operation identity conflicts"
+        )
+    material_evidence_value = operation.get("material_evidence")
+    if not isinstance(material_evidence_value, Mapping):
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery lacks material evidence"
+        )
+    material_evidence = cast(Mapping[str, object], material_evidence_value)
+    material_state = operation.get("material_state")
+    normalized_material_state = (
+        material_state.value
+        if isinstance(material_state, PurchaseMaterialState)
+        else material_state
+    )
+    normalized_operation: Mapping[str, object] = {
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "operation_key": operation.get("operation_key"),
+        "status": operation.get("status"),
+        "reservation_usd": operation.get("reservation_usd"),
+        "actual_usd": operation.get("actual_usd"),
+    }
+    normalized_material: Mapping[str, object] = {
+        "authority": operation.get("material_authority"),
+        "status": normalized_material_state,
+        "attempt_policy_sha256": operation.get("attempt_policy_sha256"),
+        "attempt_document_sha256": operation.get("attempt_document_sha256"),
+        "provider_detail_sha256": material_evidence.get("provider_detail_sha256"),
+        "queue_response_sha256": material_evidence.get("queue_response_sha256"),
+        "download_url_sha256": material_evidence.get("download_url_sha256"),
+    }
+    _validate_unknown_public_recovery_record(
+        record,
+        normalized_operation,
+        normalized_material,
+        purchase_policy_sha256=purchase_policy_sha256,
+    )
 
 
 def _decode_unknown_public_recovery_row(
