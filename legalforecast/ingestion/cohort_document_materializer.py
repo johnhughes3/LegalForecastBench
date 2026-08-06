@@ -34,7 +34,7 @@ def require_materializer_artifact(path: Path, *, label: str) -> None:
     require_non_symlink_components(path)
     try:
         metadata = path.lstat()
-    except FileNotFoundError:
+    except OSError:
         metadata = None
     if metadata is None or not stat.S_ISREG(metadata.st_mode):
         raise MaterializerArtifactValidationError(
