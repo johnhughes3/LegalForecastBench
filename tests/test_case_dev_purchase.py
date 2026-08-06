@@ -3,6 +3,7 @@ from __future__ import annotations
 import fcntl
 import os
 import sqlite3
+from contextlib import closing
 from decimal import Decimal
 from pathlib import Path
 
@@ -130,8 +131,8 @@ def test_purchase_snapshot_replays_wal_without_changing_sqlite_files(
         )
         assert Path(f"{journal.path}-wal").exists()
         assert Path(f"{journal.path}-shm").exists()
-        with sqlite3.connect(
-            f"file:{journal.path}?mode=ro&immutable=1", uri=True
+        with closing(
+            sqlite3.connect(f"file:{journal.path}?mode=ro&immutable=1", uri=True)
         ) as main_file_only:
             with pytest.raises(sqlite3.OperationalError, match="no such table"):
                 main_file_only.execute(
@@ -428,6 +429,35 @@ def test_read_only_close_rejects_mode_mutation_during_snapshot_copy(
 
     assert mutated is True
     assert journal.path.stat().st_mode & 0o777 == 0o640
+
+
+def test_snapshot_copy_wraps_close_error_and_still_closes_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.sqlite3"
+    destination = tmp_path / "snapshot.sqlite3"
+    source.write_bytes(b"fixture")
+    original_close = purchase_module.os.close
+    closed_descriptors: list[int] = []
+
+    def fail_first_close(descriptor: int) -> None:
+        closed_descriptors.append(descriptor)
+        original_close(descriptor)
+        if len(closed_descriptors) == 1:
+            raise OSError("injected destination close failure")
+
+    monkeypatch.setattr(purchase_module.os, "close", fail_first_close)
+
+    with pytest.raises(
+        RuntimeError,
+        match="purchase ledger snapshot copy failed",
+    ):
+        purchase_module._copy_regular_single_link_file(  # pyright: ignore[reportPrivateUsage]
+            source, destination
+        )
+
+    assert len(closed_descriptors) == 2
 
 
 def test_purchase_snapshot_rejects_semantically_corrupt_material_state(

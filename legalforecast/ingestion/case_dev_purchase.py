@@ -2916,7 +2916,7 @@ class CaseDevPurchaseJournal:
             raise CaseDevPurchaseLedgerError(
                 "purchase ledger committed amount exceeds the immutable hard cap"
             )
-        for candidate_id in {str(row["candidate_id"]) for row in operations}:
+        for candidate_id in sorted({str(row["candidate_id"]) for row in operations}):
             candidate_amount = _read_candidate_committed_amount(
                 self._connection,
                 policy=self.policy,
@@ -3666,10 +3666,23 @@ def _copy_purchase_snapshot_namespace(source: Path, destination: Path) -> None:
             source_path.lstat()
         except FileNotFoundError:
             continue
+        except OSError as exc:
+            raise CaseDevPurchaseLedgerError(
+                f"purchase ledger snapshot namespace inspection failed: {source_path}"
+            ) from exc
         _copy_regular_single_link_file(source_path, Path(f"{destination}{suffix}"))
 
 
 def _copy_regular_single_link_file(source: Path, destination: Path) -> None:
+    try:
+        _copy_regular_single_link_file_os(source, destination)
+    except OSError as exc:
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger snapshot copy failed: {source}"
+        ) from exc
+
+
+def _copy_regular_single_link_file_os(source: Path, destination: Path) -> None:
     source_flags = _read_only_snapshot_open_flags()
     source_fd = os.open(source, source_flags)
     destination_fd: int | None = None
@@ -3703,9 +3716,11 @@ def _copy_regular_single_link_file(source: Path, destination: Path) -> None:
                 f"purchase ledger path changed while copying read-only: {source}"
             )
     finally:
-        if destination_fd is not None:
-            os.close(destination_fd)
-        os.close(source_fd)
+        try:
+            if destination_fd is not None:
+                os.close(destination_fd)
+        finally:
+            os.close(source_fd)
 
 
 def _purchase_snapshot_filesystem_identity(
@@ -3717,10 +3732,23 @@ def _purchase_snapshot_filesystem_identity(
             metadata = path.lstat()
         except FileNotFoundError:
             continue
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        except OSError as exc:
             raise CaseDevPurchaseLedgerError(
-                f"purchase ledger path is not a singly linked regular file: {path}"
-            )
+                f"purchase ledger metadata inspection failed: {path}"
+            ) from exc
+        identities.append(_purchase_snapshot_file_identity(path, metadata))
+    return tuple(identities)
+
+
+def _purchase_snapshot_file_identity(
+    path: Path,
+    metadata: os.stat_result,
+) -> tuple[str, int, int, int, int, int, int, int, int, int, str]:
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger path is not a singly linked regular file: {path}"
+        )
+    try:
         descriptor = os.open(path, _read_only_snapshot_open_flags())
         digest = hashlib.sha256()
         try:
@@ -3748,22 +3776,23 @@ def _purchase_snapshot_filesystem_identity(
             raise CaseDevPurchaseLedgerError(
                 f"purchase ledger path changed during read-only audit: {path}"
             )
-        identities.append(
-            (
-                str(path),
-                final.st_dev,
-                final.st_ino,
-                final.st_size,
-                final.st_atime_ns,
-                final.st_mtime_ns,
-                stat.S_IMODE(final.st_mode),
-                final.st_uid,
-                final.st_gid,
-                final.st_ctime_ns,
-                digest.hexdigest(),
-            )
+        return (
+            str(path),
+            final.st_dev,
+            final.st_ino,
+            final.st_size,
+            final.st_atime_ns,
+            final.st_mtime_ns,
+            stat.S_IMODE(final.st_mode),
+            final.st_uid,
+            final.st_gid,
+            final.st_ctime_ns,
+            digest.hexdigest(),
         )
-    return tuple(identities)
+    except OSError as exc:
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger filesystem inspection failed: {path}"
+        ) from exc
 
 
 def _purchase_snapshot_stat_identity(
