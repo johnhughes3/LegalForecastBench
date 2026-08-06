@@ -63,7 +63,7 @@ def add_acquisition_completion_summary_parser(subparsers: Any) -> None:
         action="append",
         default=[],
         help=(
-            "Bead covering pending John adjudications. Repeat when pending rows "
+            "Bead covering pending operator adjudications. Repeat when pending rows "
             "span multiple beads; omit only when both queues are fully resolved."
         ),
     )

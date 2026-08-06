@@ -72,6 +72,14 @@ _CASE_MIX_DIMENSIONS = frozenset(
 _RESOLVED_REVIEW_STATUSES = frozenset(
     {"adjudicated", "resolved", "complete", "succeeded"}
 )
+_FINALIZE_SUMMARY_INPUTS = (
+    "materialization_run_card",
+    "model_registry",
+    "unitization_review_queue",
+    "unitization_adjudications",
+    "lawyer_review_queue",
+    "lawyer_review_audit",
+)
 
 
 class CorpusCompletionSummaryError(ValueError):
@@ -152,7 +160,12 @@ def build_corpus_completion_summary(
     )
 
     _validate_readiness(readiness)
-    _validate_finalize_card(finalize_card, readiness=readiness, inputs=inputs)
+    _validate_finalize_card(
+        finalize_card,
+        readiness=readiness,
+        inputs=inputs,
+        payloads=payloads,
+    )
     exclusion_summary = _summarize_exclusions(exclusion_records, readiness=readiness)
     acquisition_summary = _validate_materialization(
         materialization,
@@ -267,7 +280,7 @@ def build_corpus_completion_summary(
         "dispatch_authorized": False,
     }
     body["summary_sha256"] = _canonical_sha256(body)
-    _require_inputs_unchanged(inputs, payloads=payloads)
+    require_completion_inputs_unchanged(inputs, summary=body)
     return body
 
 
@@ -487,6 +500,7 @@ def _validate_finalize_card(
     *,
     readiness: Mapping[str, Any],
     inputs: CorpusCompletionSummaryInputs,
+    payloads: Mapping[str, bytes],
 ) -> None:
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
@@ -523,6 +537,49 @@ def _validate_finalize_card(
         raise CorpusCompletionSummaryError(
             "summary inputs are not all owned by finalize-corpus"
         )
+    raw_commitments = _required_mapping(
+        card,
+        "completion_summary_input_commitments",
+        "finalize-corpus run card",
+    )
+    if set(raw_commitments) != set(_FINALIZE_SUMMARY_INPUTS):
+        raise CorpusCompletionSummaryError(
+            "finalize-corpus summary input commitments differ"
+        )
+    for name in _FINALIZE_SUMMARY_INPUTS:
+        path = cast(Path, getattr(inputs, name))
+        commitment = _required_mapping(
+            raw_commitments,
+            name,
+            "finalize-corpus summary input commitments",
+        )
+        if (
+            Path(
+                _required_str(
+                    commitment,
+                    "path",
+                    f"finalize-corpus {name} commitment",
+                )
+            ).resolve()
+            != path.resolve()
+            or _normalize_sha256(
+                _required_str(
+                    commitment,
+                    "sha256",
+                    f"finalize-corpus {name} commitment",
+                )
+            )
+            != hashlib.sha256(payloads[name]).hexdigest()
+            or _required_nonnegative_int(
+                commitment,
+                "byte_count",
+                f"finalize-corpus {name} commitment",
+            )
+            != len(payloads[name])
+        ):
+            raise CorpusCompletionSummaryError(
+                f"{name} differs from finalize-corpus byte commitment"
+            )
     committed_outputs = [Path(cast(str, path)).resolve() for path in output_values]
     expected_outputs = {
         inputs.corpus_readiness.resolve(),
@@ -701,9 +758,20 @@ def _summarize_adjudications(
                 f"duplicate Stage A adjudication: {adjudication_id}"
             )
         adjudication_ids.add(adjudication_id)
-        review_ids = _required_unique_strings(
-            record, "review_ids", "Stage A adjudication"
+        raw_review_ids = record.get("review_ids")
+        review_ids = (
+            _string_sequence(raw_review_ids, "Stage A adjudication review_ids")
+            if raw_review_ids is not None
+            else ()
         )
+        if not review_ids:
+            review_ids = (
+                _required_str(record, "review_id", "Stage A adjudication"),
+            )
+        if len(set(review_ids)) != len(review_ids):
+            raise CorpusCompletionSummaryError(
+                "Stage A adjudication review_ids must be unique"
+            )
         overlap = covered_stage_a & set(review_ids)
         if overlap:
             raise CorpusCompletionSummaryError(
@@ -716,9 +784,20 @@ def _summarize_adjudications(
         )
     stage_b_ids = _review_ids(stage_b_queue, "Stage B queue")
     resolved_stage_b: set[str] = set()
+    for record in stage_b_queue:
+        status = record.get("status")
+        if status is not None and not isinstance(status, str):
+            raise CorpusCompletionSummaryError("Stage B queue status is invalid")
+        if status in _RESOLVED_REVIEW_STATUSES:
+            resolved_stage_b.add(
+                _required_str(record, "review_id", "Stage B queue")
+            )
     for record in stage_b_audit:
         review_id = record.get("review_id")
-        if review_id is None or record.get("status") not in _RESOLVED_REVIEW_STATUSES:
+        status = record.get("status")
+        if status is not None and not isinstance(status, str):
+            raise CorpusCompletionSummaryError("Stage B audit status is invalid")
+        if review_id is None or status not in _RESOLVED_REVIEW_STATUSES:
             continue
         if not isinstance(review_id, str) or not review_id:
             raise CorpusCompletionSummaryError("Stage B audit review_id is invalid")
@@ -789,21 +868,6 @@ def _read_input_payloads(
     except (OSError, ReviewBundleError) as exc:
         raise CorpusCompletionSummaryError(str(exc)) from exc
     return payloads
-
-
-def _require_inputs_unchanged(
-    inputs: CorpusCompletionSummaryInputs,
-    *,
-    payloads: Mapping[str, bytes],
-) -> None:
-    try:
-        for name, path in inputs.file_paths():
-            if read_unique_regular_file(path) != payloads[name]:
-                raise CorpusCompletionSummaryError(
-                    f"summary input changed while being verified: {path}"
-                )
-    except (OSError, ReviewBundleError) as exc:
-        raise CorpusCompletionSummaryError(str(exc)) from exc
 
 
 def _input_commitments(

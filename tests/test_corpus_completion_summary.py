@@ -8,8 +8,10 @@ import sqlite3
 from dataclasses import replace
 from pathlib import Path
 
+import legalforecast.ingestion.corpus_completion_summary as completion_summary_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchasePolicy,
     CaseDevPurchaseSnapshot,
     canonical_purchase_state_sha256,
     initialize_case_dev_purchase_journal,
@@ -177,6 +179,14 @@ def build_completion_inputs(
         },
     )
     finalize_path = root / "finalize-run-card.json"
+    finalize_summary_inputs = {
+        "materialization_run_card": materialization_card_path,
+        "model_registry": registry,
+        "unitization_review_queue": stage_a_queue_path,
+        "unitization_adjudications": stage_a_adjudications_path,
+        "lawyer_review_queue": stage_b_queue_path,
+        "lawyer_review_audit": stage_b_audit_path,
+    }
     _write_json(
         finalize_path,
         {
@@ -199,6 +209,14 @@ def build_completion_inputs(
                 str(stage_b_queue_path.resolve()),
                 str(stage_b_audit_path.resolve()),
             ],
+            "completion_summary_input_commitments": {
+                name: {
+                    "path": str(path.resolve()),
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "byte_count": len(path.read_bytes()),
+                }
+                for name, path in finalize_summary_inputs.items()
+            },
             "output_paths": [
                 str(readiness_path.resolve()),
                 str(exclusion_path.resolve()),
@@ -287,6 +305,72 @@ def test_pending_reviews_require_exact_review_to_bead_mapping(
         build_corpus_completion_summary(extra)
 
 
+def test_stage_a_legacy_single_review_id_is_adjudicated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_a_queue=({"review_id": "stage-a-legacy"},),
+        stage_a_adjudications=(
+            {
+                "adjudication_id": "adjudication-legacy",
+                "review_id": "stage-a-legacy",
+            },
+        ),
+    )
+
+    summary = build_corpus_completion_summary(inputs)
+
+    adjudication = summary["adjudication"]
+    assert isinstance(adjudication, dict)
+    assert adjudication["stage_a_pending_count"] == 0
+
+
+def test_stage_b_terminal_queue_status_is_resolved_without_audit_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_b_queue=({"review_id": "stage-b-1", "status": "resolved"},),
+    )
+
+    summary = build_corpus_completion_summary(inputs)
+
+    adjudication = summary["adjudication"]
+    assert isinstance(adjudication, dict)
+    assert adjudication["stage_b_resolved_count"] == 1
+    assert adjudication["stage_b_pending_count"] == 0
+
+
+def test_stage_b_non_string_audit_status_is_domain_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_b_queue=({"review_id": "stage-b-1"},),
+        stage_b_audit=(
+            {"review_id": "stage-b-1", "status": ["resolved"]},
+        ),
+        bead_references=("stage-b-1=LegalForecastBench-review-1",),
+    )
+
+    with pytest.raises(CorpusCompletionSummaryError, match="audit status is invalid"):
+        build_corpus_completion_summary(inputs)
+
+
+def test_finalize_byte_commitment_rejects_changed_summary_input(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    inputs.lawyer_review_audit.write_bytes(b"\n")
+
+    with pytest.raises(CorpusCompletionSummaryError, match="byte commitment"):
+        build_corpus_completion_summary(inputs)
+
+
 def test_static_input_drift_is_rejected_after_summary_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -333,6 +417,53 @@ def test_purchase_ledger_operation_drift_is_rejected_after_summary_build(
 
     with pytest.raises(CorpusCompletionSummaryError, match="purchase ledger changed"):
         require_completion_inputs_unchanged(inputs, summary=summary)
+
+
+def test_build_reauthenticates_purchase_ledger_before_return(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    original = completion_summary_module.read_case_dev_purchase_snapshot
+    calls = 0
+
+    def mutate_after_first_snapshot(
+        path: str | Path,
+        *,
+        policy: CaseDevPurchasePolicy,
+        controlled_private_root: Path | None = None,
+        initialization_receipt_path: Path | None = None,
+    ) -> CaseDevPurchaseSnapshot:
+        nonlocal calls
+        snapshot = original(
+            path,
+            policy=policy,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
+        )
+        calls += 1
+        if calls == 1:
+            with sqlite3.connect(inputs.purchase_ledger) as connection:
+                connection.execute(
+                    """INSERT INTO purchase_operations(
+                    source_document_id, candidate_id, reservation_usd, status)
+                    VALUES ('late-doc', 'case-001', '3.05', 'planned')"""
+                )
+                connection.execute(
+                    """INSERT INTO purchase_material_state(
+                    source_document_id, authority, status)
+                    VALUES ('late-doc', 'ordinary_public', 'not_recovered')"""
+                )
+        return snapshot
+
+    monkeypatch.setattr(
+        completion_summary_module,
+        "read_case_dev_purchase_snapshot",
+        mutate_after_first_snapshot,
+    )
+
+    with pytest.raises(CorpusCompletionSummaryError, match="purchase ledger"):
+        build_corpus_completion_summary(inputs)
+    assert calls == 2
 
 
 def test_canonical_spend_distinguishes_actual_from_unresolved_obligations(

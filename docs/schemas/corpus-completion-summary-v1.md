@@ -17,6 +17,11 @@ materialization summary and run card, the purchase/cohort policies and canonical
 SQLite purchase ledger initialization receipt, the frozen model registry, and
 the Stage A and Stage B review queues and adjudication/audit artifacts.
 
+The successful `finalize-corpus` run card binds the exact bytes of the
+materialization run card, model registry, both review queues, and both
+adjudication/audit inputs. The summary rejects path-only ownership or any bytes
+that differ from the inputs finalization actually verified.
+
 Every regular-file input is committed by resolved path, SHA-256, and byte count.
 The purchase journal is committed by canonical logical state SHA-256, canonical
 operation-list SHA-256, committed amount, and operation count. The journal is

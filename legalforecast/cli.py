@@ -57929,6 +57929,60 @@ def _validate_packet_build_run_card(
     return replay
 
 
+def _capture_completion_summary_finalize_inputs(
+    *,
+    materialization_run_card: Path,
+    model_registry: Path,
+    unitization_review_queue: Path,
+    unitization_adjudications: Path,
+    lawyer_review_queue: Path,
+    lawyer_review_audit: Path,
+) -> dict[str, tuple[Path, bytes]]:
+    """Capture the terminal inputs whose exact bytes the summary consumes."""
+
+    paths = {
+        "materialization_run_card": materialization_run_card,
+        "model_registry": model_registry,
+        "unitization_review_queue": unitization_review_queue,
+        "unitization_adjudications": unitization_adjudications,
+        "lawyer_review_queue": lawyer_review_queue,
+        "lawyer_review_audit": lawyer_review_audit,
+    }
+    captured: dict[str, tuple[Path, bytes]] = {}
+    try:
+        for name, path in paths.items():
+            captured[name] = (path.resolve(), read_unique_regular_file(path))
+    except (OSError, ReviewBundleError) as exc:
+        raise CommandError(str(exc)) from exc
+    return captured
+
+
+def _completion_summary_finalize_input_commitments(
+    captured: Mapping[str, tuple[Path, bytes]],
+) -> JsonRecord:
+    return {
+        name: {
+            "path": str(path),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "byte_count": len(payload),
+        }
+        for name, (path, payload) in sorted(captured.items())
+    }
+
+
+def _require_completion_summary_finalize_inputs_unchanged(
+    captured: Mapping[str, tuple[Path, bytes]],
+) -> None:
+    try:
+        for name, (path, expected_payload) in captured.items():
+            if read_unique_regular_file(path) != expected_payload:
+                raise CommandError(
+                    f"finalize-corpus summary input changed during verification: {name}"
+                )
+    except (OSError, ReviewBundleError) as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     _preflight_materialization_purchase_runtime(args)
     early_materialization_card = cast(Path | None, args.materialization_run_card)
@@ -58159,12 +58213,27 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     input_paths = (*input_paths, *materialization_paths[1:])
     packet_plan_replay: _PacketPlannerReplay | None = None
     packet_build_replay: _PacketBuildReplay | None = None
+    completion_summary_inputs: dict[str, tuple[Path, bytes]] = {}
+    completion_summary_commitments: JsonRecord = {}
     if not dry_run:
         typed_packet_input_card = cast(Path, packet_input_run_card_path)
         typed_packet_build_card = cast(Path, packet_build_run_card_path)
         typed_download_manifest = cast(Path, download_manifest_path)
         typed_materialization_card = cast(Path, materialization_card_path)
         typed_document_root = cast(Path, materialized_document_root)
+        completion_summary_inputs = _capture_completion_summary_finalize_inputs(
+            materialization_run_card=typed_materialization_card,
+            model_registry=model_registry_path,
+            unitization_review_queue=unitization_review_path,
+            unitization_adjudications=unitization_adjudications_path,
+            lawyer_review_queue=lawyer_review_path,
+            lawyer_review_audit=lawyer_review_audit_path,
+        )
+        completion_summary_commitments = (
+            _completion_summary_finalize_input_commitments(
+                completion_summary_inputs
+            )
+        )
         resolved_path = (
             materialization_paths[3] if len(materialization_paths) == 4 else None
         )
@@ -58554,6 +58623,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 ),
                 required_clean_count=target_clean_cases,
             )
+        _require_completion_summary_finalize_inputs_unchanged(
+            completion_summary_inputs
+        )
         _acquisition_output_root(args)
         _write_jsonl(complete_ledger_path, complete_ledger_records)
         readiness_record = report.to_record()
@@ -58585,6 +58657,10 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             )
         require_clean_corpus_ready(report)
 
+    if not dry_run:
+        _require_completion_summary_finalize_inputs_unchanged(
+            completion_summary_inputs
+        )
     _write_acquisition_completion(
         args,
         stage="finalize-corpus",
@@ -58614,6 +58690,15 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 }
                 if discovery_reconciliation is not None
                 and verified_preparation is not None
+                else {}
+            ),
+            **(
+                {
+                    "completion_summary_input_commitments": (
+                        completion_summary_commitments
+                    )
+                }
+                if not dry_run
                 else {}
             ),
         },
