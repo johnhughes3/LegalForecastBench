@@ -11,8 +11,17 @@ def test_score_run_records_groups_models_and_preserves_identity_precedence() -> 
     labels = (_label("unit-a", True), _label("unit-b", False))
     summaries = score_run_records(
         (
-            _run_record(model_id="model-z", case_id="case-z"),
-            _run_record(metadata_model_id="model-a", case_id="case-a"),
+            _run_record(
+                model_id="model-z",
+                metadata_model_id="ignored-metadata",
+                solver_id="offline:ignored-solver",
+                case_id="case-z",
+            ),
+            _run_record(
+                metadata_model_id="model-a",
+                solver_id="offline:ignored-solver",
+                case_id="case-a",
+            ),
             _run_record(solver_id="offline:model-a", case_id="case-b"),
         ),
         labels,
@@ -32,6 +41,46 @@ def test_score_run_records_computes_base_rate_from_scored_labels() -> None:
     )
 
     assert summaries[0].base_rate == 0.5
+
+
+def test_score_run_records_rejects_duplicate_outcome_label_unit_ids() -> None:
+    with pytest.raises(
+        ValueError,
+        match="duplicate outcome labels for units: \\['unit-a'\\]",
+    ):
+        score_run_records(
+            (_run_record(),),
+            (
+                _label("unit-a", True),
+                _label("unit-a", False),
+                _label("unit-b", False),
+            ),
+            base_rate=None,
+        )
+
+
+def test_score_run_records_rejects_empty_solver_model_suffix() -> None:
+    with pytest.raises(
+        ValueError,
+        match="solver_id must include a non-empty model ID",
+    ):
+        score_run_records(
+            (_run_record(solver_id="offline:"),),
+            (_label("unit-a", True), _label("unit-b", False)),
+            base_rate=0.5,
+        )
+
+
+def test_score_run_records_rejects_computed_base_rate_without_scored_labels() -> None:
+    with pytest.raises(
+        ValueError,
+        match="cannot compute base rate without scored labels",
+    ):
+        score_run_records(
+            (_run_record(),),
+            (_ambiguous_label("unit-a"), _ambiguous_label("unit-b")),
+            base_rate=None,
+        )
 
 
 @pytest.mark.parametrize(
@@ -100,6 +149,19 @@ def _label(unit_id: str, dismissed: bool) -> OutcomeLabel:
         ),
         ambiguous=False,
         label_confidence=0.97,
+        supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
+        first_written_disposition_id="decision-1",
+        first_written_disposition_date="2026-05-18",
+    )
+
+
+def _ambiguous_label(unit_id: str) -> OutcomeLabel:
+    return OutcomeLabel(
+        unit_id=unit_id,
+        fully_dismissed=None,
+        amendment_class=AmendmentClass.AMBIGUOUS,
+        ambiguous=True,
+        label_confidence=0.4,
         supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
         first_written_disposition_id="decision-1",
         first_written_disposition_date="2026-05-18",

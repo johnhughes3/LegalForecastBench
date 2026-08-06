@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
@@ -21,9 +21,16 @@ def score_run_records(
 
     if not run_records:
         raise ValueError("at least one run record is required")
+    label_unit_ids = tuple(label.unit_id for label in labels)
+    duplicate_unit_ids = sorted(
+        unit_id for unit_id, count in Counter(label_unit_ids).items() if count > 1
+    )
+    if duplicate_unit_ids:
+        raise ValueError(f"duplicate outcome labels for units: {duplicate_unit_ids}")
     labels_by_unit_id = {label.unit_id: label for label in labels}
     if not labels_by_unit_id:
         raise ValueError("at least one outcome label is required")
+    label_unit_id_set = set(labels_by_unit_id)
     effective_base_rate = (
         _computed_base_rate(labels) if base_rate is None else base_rate
     )
@@ -31,7 +38,7 @@ def score_run_records(
     cases_by_model: dict[str, list[ScoringCase]] = defaultdict(list)
     for record in run_records:
         required_unit_ids = _required_str_tuple(record, "required_unit_ids")
-        missing_labels = sorted(set(required_unit_ids) - set(labels_by_unit_id))
+        missing_labels = sorted(set(required_unit_ids) - label_unit_id_set)
         if missing_labels:
             raise ValueError(f"labels missing for required units: {missing_labels}")
         model_id = _record_model_id(record)
@@ -79,7 +86,10 @@ def _record_model_id(record: Mapping[str, Any]) -> str:
             return metadata_model
     solver_id = _required_str(record, "solver_id")
     if ":" in solver_id:
-        return solver_id.split(":", maxsplit=1)[1]
+        model_id = solver_id.split(":", maxsplit=1)[1]
+        if not model_id.strip():
+            raise ValueError("solver_id must include a non-empty model ID")
+        return model_id
     return solver_id
 
 
