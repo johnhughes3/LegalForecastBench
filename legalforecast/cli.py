@@ -904,6 +904,10 @@ from legalforecast.selection.exclusion_ledger import (
     merge_exclusion_ledger_records,
 )
 from legalforecast.selection.motion_linkage import link_mtd_dispositions
+from legalforecast.unitization import (
+    prediction_unit_from_record,
+    source_citation_from_record,
+)
 from legalforecast.unitization.construct_units import (
     StageAConstructionInput,
     StageADocumentRole,
@@ -9970,7 +9974,7 @@ def _cmd_packet_build(args: argparse.Namespace) -> int:
         packet = build_model_packet(
             case_packet=case_packet,
             prediction_units=tuple(
-                _prediction_unit(unit)
+                prediction_unit_from_record(unit)
                 for unit in _required_record_sequence(record, "prediction_units")
             ),
             texts=_packet_texts(record, case_packet),
@@ -59784,7 +59788,7 @@ def _stage_b_input(record: Mapping[str, Any]) -> StageBLabelingInput:
         candidate_id=_required_str(record, "candidate_id"),
         case_id=_required_str(record, "case_id"),
         frozen_units=tuple(
-            _prediction_unit(unit)
+            prediction_unit_from_record(unit)
             for unit in _required_record_sequence(record, "frozen_units")
         ),
         decision_text=_stage_b_decision(_required_record(record, "decision_text")),
@@ -59921,7 +59925,7 @@ def _model_packet(record: Mapping[str, Any]) -> ModelPacket:
 def _model_packet_prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
     unit_id = _required_str(record, "unit_id")
     source_citations = tuple(
-        _source_citation(citation)
+        source_citation_from_record(citation)
         for citation in _optional_record_sequence(record, "source_citations")
     ) or (
         SourceCitation(
@@ -59969,38 +59973,6 @@ def _packet_document(record: Mapping[str, Any]) -> PacketDocument:
         else (),
         extraction_method=_optional_str(record, "extraction_method"),
         packet_section=_optional_str(record, "packet_section"),
-    )
-
-
-def _prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
-    return PredictionUnit(
-        unit_id=_required_str(record, "unit_id"),
-        count=_required_str(record, "count"),
-        claim_name=_required_str(record, "claim_name"),
-        defendant_group=_required_str(record, "defendant_group"),
-        challenged_by_motion=_required_bool(record, "challenged_by_motion"),
-        challenge_scope=ChallengeScope(_required_str(record, "challenge_scope")),
-        unit_confidence=_required_float(record, "unit_confidence"),
-        source_citations=tuple(
-            _source_citation(citation)
-            for citation in _required_record_sequence(record, "source_citations")
-        ),
-        grouping=DefendantGrouping(
-            _optional_str(record, "grouping") or DefendantGrouping.INDIVIDUAL.value
-        ),
-        grouping_rationale=_optional_str(record, "grouping_rationale"),
-        separable_subclaim=_optional_str(record, "separable_subclaim"),
-        uncertainty_notes=_optional_str(record, "uncertainty_notes"),
-    )
-
-
-def _source_citation(record: Mapping[str, Any]) -> SourceCitation:
-    return SourceCitation(
-        document_id=_required_str(record, "document_id"),
-        docket_entry_number=_optional_int(record, "docket_entry_number"),
-        page=_optional_int(record, "page"),
-        paragraph=_optional_int(record, "paragraph"),
-        excerpt=_optional_str(record, "excerpt"),
     )
 
 

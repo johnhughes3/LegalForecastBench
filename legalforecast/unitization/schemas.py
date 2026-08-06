@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 
 class ChallengeScope(StrEnum):
@@ -153,3 +155,120 @@ class PredictionUnit:
             "uncertainty_notes": self.uncertainty_notes,
             "should_score": self.should_score,
         }
+
+
+def prediction_unit_from_record(record: object) -> PredictionUnit:
+    """Decode one strict JSON-like record into a prediction unit."""
+
+    decoded_record = _mapping(record, "prediction_unit")
+    unit = PredictionUnit(
+        unit_id=_required_str(decoded_record, "unit_id"),
+        count=_required_str(decoded_record, "count"),
+        claim_name=_required_str(decoded_record, "claim_name"),
+        defendant_group=_required_str(decoded_record, "defendant_group"),
+        challenged_by_motion=_required_bool(decoded_record, "challenged_by_motion"),
+        challenge_scope=ChallengeScope(
+            _required_str(decoded_record, "challenge_scope")
+        ),
+        unit_confidence=_required_float(decoded_record, "unit_confidence"),
+        source_citations=tuple(
+            source_citation_from_record(citation)
+            for citation in _required_record_sequence(
+                decoded_record,
+                "source_citations",
+            )
+        ),
+        grouping=DefendantGrouping(
+            _optional_str(decoded_record, "grouping")
+            or DefendantGrouping.INDIVIDUAL.value
+        ),
+        grouping_rationale=_optional_str(decoded_record, "grouping_rationale"),
+        separable_subclaim=_optional_str(decoded_record, "separable_subclaim"),
+        uncertainty_notes=_optional_str(decoded_record, "uncertainty_notes"),
+    )
+    if "should_score" in decoded_record:
+        should_score = _required_bool(decoded_record, "should_score")
+        if should_score is not unit.should_score:
+            raise ValueError(
+                "should_score does not match computed prediction unit value"
+            )
+    return unit
+
+
+def source_citation_from_record(record: object) -> SourceCitation:
+    """Decode one strict JSON-like record into a source citation."""
+
+    decoded_record = _mapping(record, "source_citation")
+    return SourceCitation(
+        document_id=_required_str(decoded_record, "document_id"),
+        docket_entry_number=_optional_int(decoded_record, "docket_entry_number"),
+        page=_optional_int(decoded_record, "page"),
+        paragraph=_optional_int(decoded_record, "paragraph"),
+        excerpt=_optional_str(decoded_record, "excerpt"),
+    )
+
+
+def _mapping(value: object, field_name: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field_name} must be an object")
+    return dict(cast(Mapping[str, Any], value))
+
+
+def _required_record_sequence(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[dict[str, Any], ...]:
+    value = _required(record, field_name)
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise ValueError(f"{field_name} must be a list")
+    return tuple(
+        _mapping(item, f"{field_name} item") for item in cast(Sequence[object], value)
+    )
+
+
+def _required(record: Mapping[str, Any], field_name: str) -> Any:
+    if field_name not in record:
+        raise ValueError(f"{field_name} is required")
+    return record[field_name]
+
+
+def _required_str(record: Mapping[str, Any], field_name: str) -> str:
+    value = _required(record, field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _required_bool(record: Mapping[str, Any], field_name: str) -> bool:
+    value = _required(record, field_name)
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _optional_int(record: Mapping[str, Any], field_name: str) -> int | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an integer")
+    return value
+
+
+def _required_float(record: Mapping[str, Any], field_name: str) -> float:
+    value = _required(record, field_name)
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a number")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field_name} must be finite")
+    return number
