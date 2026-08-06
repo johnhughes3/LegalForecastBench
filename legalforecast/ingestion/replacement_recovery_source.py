@@ -214,8 +214,10 @@ def derive_clearance_source_coordinates(
 ) -> ClearanceSourceCoordinates:
     """Derive and close the clearance output selected by its producer card."""
 
+    schema_version = card.get("schema_version")
     if (
-        card.get("schema_version") not in CLEARANCE_RUN_CARD_SCHEMAS
+        not isinstance(schema_version, str)
+        or schema_version not in CLEARANCE_RUN_CARD_SCHEMAS
         or card.get("stage") != CLEARANCE_STAGE
         or card.get("status") != "completed"
         or card.get("dry_run") is not False

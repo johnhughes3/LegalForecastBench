@@ -449,9 +449,14 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
     assert cli._cmd_build_replacement_recovery_source(args) == 0
 
 
+@pytest.mark.parametrize(
+    "provider_activity_field",
+    ["provider_activity_requested", "provider_activity_executed"],
+)
 def test_producer_accepts_public_marker_provider_free_clearance_schema(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    provider_activity_field: str,
 ) -> None:
     args, paths, _verified_calls = _fixture(tmp_path, monkeypatch, successor=False)
     clearance_card = json.loads(paths["clearance_card"].read_bytes())
@@ -473,7 +478,7 @@ def test_producer_accepts_public_marker_provider_free_clearance_schema(
 
     assert cli._cmd_build_replacement_recovery_source(args) == 0
 
-    clearance_card["provider_activity_executed"] = True
+    clearance_card[provider_activity_field] = True
     paths["clearance_card"].write_bytes(_json_bytes(clearance_card))
     refresh_resolver_commitment()
     args.resume = False
@@ -571,6 +576,8 @@ def test_producer_rejects_clearance_extra_commitment(
     ("field", "value"),
     [
         ("schema_version", "legalforecast.acquisition_run_card.v1"),
+        ("schema_version", []),
+        ("schema_version", {}),
         ("stage", "other-stage"),
         ("status", "failed"),
         ("dry_run", True),

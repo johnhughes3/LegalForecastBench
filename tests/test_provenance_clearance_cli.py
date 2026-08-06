@@ -797,6 +797,8 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
     assert run_card["public_marker_clear_count"] == 1
     assert run_card["disposition_policy"]["public_marker_clear_count"] == 1
     assert "public_marker_clearance_policy" in run_card["source_commitments"]
+    assert run_card["provider_activity_requested"] is False
+    assert run_card["provider_activity_executed"] is False
     assert run_card["human_review_requested"] is False
     assert run_card["human_review_executed"] is False
     authority = run_card["recovered_public_authority"]

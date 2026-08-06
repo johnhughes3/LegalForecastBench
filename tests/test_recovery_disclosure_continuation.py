@@ -628,7 +628,7 @@ def test_replacement_model_continuation_starts_after_plan_and_cannot_rewrite_it(
     )
 
 
-def test_replacement_empty_continuation_requires_authenticated_empty_plan(
+def test_replacement_continuation_uses_provider_free_public_marker_policy(
     tmp_path: Path,
 ) -> None:
     config, assignments = _render_replacement(tmp_path, REPLACEMENT_EMPTY_TEMPLATE)

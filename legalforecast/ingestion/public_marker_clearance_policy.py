@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -71,7 +72,7 @@ def generate_public_marker_clearance_policy(
     policy: dict[str, object] = {
         "cycle_id": normalized_cycle,
         "cohort_policy_sha256": normalized_cohort,
-        **_FIXED_POLICY,
+        **deepcopy(_FIXED_POLICY),
     }
     return {
         "schema_version": SCHEMA_VERSION,

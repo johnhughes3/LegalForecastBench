@@ -53,6 +53,26 @@ def test_public_marker_policy_is_closed_and_cohort_bound(
         )
 
 
+def test_generated_policy_cannot_mutate_closed_baseline() -> None:
+    first = generate_public_marker_clearance_policy(
+        cycle_id="cycle-1-target-100-2026-07-25",
+        cohort_policy_sha256="7" * 64,
+    )
+    first_policy = first["policy"]
+    assert isinstance(first_policy, dict)
+    reasons = first_policy["eligible_route_reasons"]
+    assert isinstance(reasons, list)
+    reasons.append("changed-by-caller")
+
+    later = generate_public_marker_clearance_policy(
+        cycle_id="cycle-1-target-100-2026-07-25",
+        cohort_policy_sha256="7" * 64,
+    )
+    later_policy = later["policy"]
+    assert isinstance(later_policy, dict)
+    assert later_policy["eligible_route_reasons"] == ["automated_marker_present"]
+
+
 def test_public_marker_policy_rejects_hash_and_cohort_drift(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
