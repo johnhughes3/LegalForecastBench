@@ -529,6 +529,49 @@ class CaseDevPurchaseSnapshot:
     purchase_state_sha256: str
 
 
+@dataclass(frozen=True, slots=True)
+class CaseDevPurchaseSpendSummary:
+    """Canonical read-only spend interpretation of one authenticated snapshot."""
+
+    known_actual_operation_spend_usd: str
+    actual_spend_complete: bool
+    actual_spend_usd: str | None
+    cap_counted_committed_spend_usd: str
+    remaining_cap_headroom_usd: str
+    unresolved_cap_counted_usd: str
+    operation_count: int
+    status_counts: Mapping[str, int]
+    unresolved_billing_document_ids: tuple[str, ...]
+    confirmed_without_actual_document_ids: tuple[str, ...]
+
+    def to_record(self) -> dict[str, object]:
+        """Return stable JSON fields for downstream audit summaries."""
+
+        return {
+            "known_actual_operation_spend_usd": (self.known_actual_operation_spend_usd),
+            "actual_spend_complete": self.actual_spend_complete,
+            "actual_spend_usd": self.actual_spend_usd,
+            "cap_counted_committed_spend_usd": (self.cap_counted_committed_spend_usd),
+            "remaining_cap_headroom_usd": self.remaining_cap_headroom_usd,
+            "unresolved_cap_counted_usd": self.unresolved_cap_counted_usd,
+            "operation_count": self.operation_count,
+            "status_counts": dict(self.status_counts),
+            "unresolved_billing_operation_count": len(
+                self.unresolved_billing_document_ids
+            ),
+            "unresolved_billing_document_ids": list(
+                self.unresolved_billing_document_ids
+            ),
+            "confirmed_without_actual_count": len(
+                self.confirmed_without_actual_document_ids
+            ),
+            "confirmed_without_actual_document_ids": list(
+                self.confirmed_without_actual_document_ids
+            ),
+            "billing_terminal": not self.unresolved_billing_document_ids,
+        }
+
+
 class CaseDevPurchaseReconciliationRequired(CaseDevPurchaseLedgerError):
     """Raised when an ambiguous paid request needs provider-side evidence."""
 
@@ -5069,28 +5112,132 @@ def _read_committed_amount(
         """SELECT status, reservation_usd, actual_usd, response_json,
         reconciliation_json FROM purchase_operations"""
     ).fetchall()
-    amount = Decimal("0")
-    for row in rows:
-        status_value = str(row["status"])
-        if status_value == "confirmed":
-            amount += (
-                Decimal(str(row["actual_usd"]))
-                if row["actual_usd"] is not None
-                else Decimal(str(row["reservation_usd"]))
-            )
-        elif status_value in {"submitted", "queued", "unknown"} or (
-            status_value == "failed"
-            and row["response_json"] is not None
-            and row["reconciliation_json"] is None
-        ):
-            reservation = Decimal(str(row["reservation_usd"]))
-            actual = (
-                Decimal(str(row["actual_usd"]))
-                if row["actual_usd"] is not None
-                else Decimal("0")
-            )
-            amount += max(reservation, actual)
+    amount = sum(
+        (_purchase_operation_cap_counted_amount(row) for row in rows),
+        Decimal("0"),
+    )
     return _money(policy.opening_committed_spend_usd + amount)
+
+
+def summarize_case_dev_purchase_snapshot(
+    *,
+    policy: CaseDevPurchasePolicy,
+    snapshot: CaseDevPurchaseSnapshot,
+) -> CaseDevPurchaseSpendSummary:
+    """Interpret one authenticated snapshot using the ledger's cap semantics.
+
+    This is intentionally read-only.  It recomputes the logical snapshot identity
+    and derives billing uncertainty from the same operation classifier used by
+    ``_read_committed_amount`` so reporting cannot drift from purchase authority.
+    """
+
+    expected_state = canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd=snapshot.committed_amount_usd,
+        operations=snapshot.operations,
+    )
+    if expected_state != snapshot.purchase_state_sha256:
+        raise CaseDevPurchaseLedgerError(
+            "purchase snapshot canonical state commitment differs"
+        )
+    allowed_statuses = (
+        "planned",
+        "submitted",
+        "queued",
+        "confirmed",
+        "failed",
+        "unknown",
+    )
+    status_counts: dict[str, int] = dict.fromkeys(allowed_statuses, 0)
+    known_actual = Decimal("0")
+    unresolved_amount = Decimal("0")
+    unresolved_ids: list[str] = []
+    confirmed_without_actual_ids: list[str] = []
+    for operation in snapshot.operations:
+        document_id = str(operation["source_document_id"])
+        status_value = str(operation["status"])
+        if status_value not in status_counts:
+            raise CaseDevPurchaseLedgerError(
+                f"purchase operation status is invalid: {document_id}"
+            )
+        status_counts[status_value] += 1
+        actual_value = operation.get("actual_usd")
+        if actual_value is not None:
+            known_actual += Decimal(str(actual_value))
+        if status_value == "confirmed" and actual_value is None:
+            confirmed_without_actual_ids.append(document_id)
+        if _purchase_operation_has_unresolved_billing(operation):
+            unresolved_ids.append(document_id)
+            unresolved_amount += _purchase_operation_cap_counted_amount(operation)
+    committed = Decimal(snapshot.committed_amount_usd)
+    if committed > policy.hard_cap_usd:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger committed amount exceeds the immutable hard cap"
+        )
+    actual_complete = (
+        policy.opening_committed_spend_usd == Decimal("0") and not unresolved_ids
+    )
+    return CaseDevPurchaseSpendSummary(
+        known_actual_operation_spend_usd=_money(known_actual),
+        actual_spend_complete=actual_complete,
+        actual_spend_usd=_money(known_actual) if actual_complete else None,
+        cap_counted_committed_spend_usd=_money(committed),
+        remaining_cap_headroom_usd=_money(policy.hard_cap_usd - committed),
+        unresolved_cap_counted_usd=_money(unresolved_amount),
+        operation_count=len(snapshot.operations),
+        status_counts=MappingProxyType(status_counts),
+        unresolved_billing_document_ids=tuple(sorted(unresolved_ids)),
+        confirmed_without_actual_document_ids=tuple(
+            sorted(confirmed_without_actual_ids)
+        ),
+    )
+
+
+def _purchase_operation_cap_counted_amount(
+    operation: Mapping[str, Any] | sqlite3.Row,
+) -> Decimal:
+    status_value = str(operation["status"])
+    reservation = Decimal(str(operation["reservation_usd"]))
+    actual_value = operation["actual_usd"]
+    actual = Decimal(str(actual_value)) if actual_value is not None else Decimal("0")
+    if status_value == "confirmed":
+        return actual if actual_value is not None else reservation
+    if _purchase_operation_is_cap_counted_uncertain(operation):
+        return max(reservation, actual)
+    return Decimal("0")
+
+
+def _purchase_operation_is_cap_counted_uncertain(
+    operation: Mapping[str, Any] | sqlite3.Row,
+) -> bool:
+    status_value = str(operation["status"])
+    return status_value in {"submitted", "queued", "unknown"} or (
+        status_value == "failed"
+        and _purchase_operation_field(operation, "response_json", "response")
+        is not None
+        and _purchase_operation_field(
+            operation, "reconciliation_json", "reconciliation"
+        )
+        is None
+    )
+
+
+def _purchase_operation_has_unresolved_billing(
+    operation: Mapping[str, Any] | sqlite3.Row,
+) -> bool:
+    return (
+        str(operation["status"]) == "confirmed" and operation["actual_usd"] is None
+    ) or _purchase_operation_is_cap_counted_uncertain(operation)
+
+
+def _purchase_operation_field(
+    operation: Mapping[str, Any] | sqlite3.Row,
+    sqlite_name: str,
+    snapshot_name: str,
+) -> object:
+    if isinstance(operation, sqlite3.Row):
+        return operation[sqlite_name]
+    return operation.get(snapshot_name)
 
 
 def _read_candidate_committed_amount(
@@ -5106,21 +5253,7 @@ def _read_candidate_committed_amount(
         (candidate_id,),
     ).fetchall()
     for row in rows:
-        status_value = str(row["status"])
-        reservation = Decimal(str(row["reservation_usd"]))
-        actual = (
-            Decimal(str(row["actual_usd"]))
-            if row["actual_usd"] is not None
-            else Decimal("0")
-        )
-        if status_value == "confirmed":
-            amount += actual if row["actual_usd"] is not None else reservation
-        elif status_value in {"submitted", "queued", "unknown"} or (
-            status_value == "failed"
-            and row["response_json"] is not None
-            and row["reconciliation_json"] is None
-        ):
-            amount += max(reservation, actual)
+        amount += _purchase_operation_cap_counted_amount(row)
     return amount
 
 

@@ -30,6 +30,9 @@ from pathlib import Path
 from typing import Any, cast, overload
 
 from legalforecast import __version__
+from legalforecast.acquisition_completion_summary_cli import (
+    add_acquisition_completion_summary_parser,
+)
 from legalforecast.evals.accounting import (
     OutputValidityStatus,
     accounting_records_from_inspect_run,
@@ -2500,6 +2503,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Consolidate exclusions and verify the clean labeled packet corpus.",
     )
     _add_acquisition_finalize_corpus_arguments(acquisition_finalize)
+    add_acquisition_completion_summary_parser(acquisition_subparsers)
     acquisition_merge = acquisition_subparsers.add_parser(
         "merge-artifacts",
         help="Merge packet-buildable acquisition roots for a pilot cycle.",

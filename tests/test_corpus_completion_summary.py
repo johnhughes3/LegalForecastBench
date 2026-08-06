@@ -1,0 +1,380 @@
+"""Closed-schema tests for terminal Cycle corpus summaries."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import sqlite3
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseSnapshot,
+    canonical_purchase_state_sha256,
+    initialize_case_dev_purchase_journal,
+    summarize_case_dev_purchase_snapshot,
+    verify_case_dev_purchase_policy,
+)
+from legalforecast.ingestion.corpus_completion_summary import (
+    CorpusCompletionSummaryError,
+    CorpusCompletionSummaryInputs,
+    build_corpus_completion_summary,
+    require_completion_inputs_unchanged,
+)
+from tests.purchase_approval_fixtures import (
+    build_approved_purchase_fixture,
+    build_completed_projection_fixture,
+)
+
+
+def _json_bytes(value: object) -> bytes:
+    return (
+        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode()
+
+
+def _write_json(path: Path, value: object) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(_json_bytes(value))
+    return path
+
+
+def build_completion_inputs(
+    tmp_path: Path,
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+    stage_a_queue: tuple[dict[str, object], ...] = (),
+    stage_a_adjudications: tuple[dict[str, object], ...] = (),
+    stage_b_queue: tuple[dict[str, object], ...] = (),
+    stage_b_audit: tuple[dict[str, object], ...] = (),
+    bead_references: tuple[str, ...] = (),
+) -> CorpusCompletionSummaryInputs:
+    projection = build_completed_projection_fixture(
+        tmp_path / "projection-fixture", monkeypatch=monkeypatch
+    )
+    approved = build_approved_purchase_fixture(
+        tmp_path / "purchase-authority",
+        target_cohort_root=projection.root,
+    )
+    policy_payload = approved.policy.read_bytes()
+    cohort_payload = approved.cohort_policy.read_bytes()
+    policy = verify_case_dev_purchase_policy(json.loads(policy_payload))
+    initialization = initialize_case_dev_purchase_journal(
+        approved.ledger,
+        policy=policy,
+        receipt_path=approved.initialization_receipt,
+        purchase_policy_file_sha256=(
+            "sha256:" + hashlib.sha256(policy_payload).hexdigest()
+        ),
+        cohort_policy_file_sha256=(
+            "sha256:" + hashlib.sha256(cohort_payload).hexdigest()
+        ),
+        initialized_at="2026-08-06T12:00:00Z",
+        controlled_private_root=approved.controlled_private_root,
+    )
+    root = tmp_path / "terminal"
+    stage_a_queue_path = root / "stage-a-queue.jsonl"
+    stage_a_adjudications_path = root / "stage-a-adjudications.jsonl"
+    stage_b_queue_path = root / "stage-b-queue.jsonl"
+    stage_b_audit_path = root / "stage-b-audit.jsonl"
+    for path, records in (
+        (stage_a_queue_path, stage_a_queue),
+        (stage_a_adjudications_path, stage_a_adjudications),
+        (stage_b_queue_path, stage_b_queue),
+        (stage_b_audit_path, stage_b_audit),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(
+            b"".join(
+                (
+                    json.dumps(
+                        record,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                    + "\n"
+                ).encode()
+                for record in records
+            )
+        )
+    registry = root / "model-registry.json"
+    registry.write_bytes(Path("model_registries/cycle-1-2026-06-30.json").read_bytes())
+    readiness_path = root / "corpus-readiness.json"
+    exclusion_path = root / "complete-exclusion-ledger.jsonl"
+    exclusion_path.write_bytes(b"")
+    readiness = {
+        "required_clean_count": 2,
+        "clean_count": 2,
+        "meets_target": True,
+        "clean_candidate_ids": ["case-001", "case-002"],
+        "excluded_candidate_ids": [],
+        "exclusion_reasons": {},
+        "funnel": {
+            "selected": 2,
+            "parsed_complete": 2,
+            "unitized_complete": 2,
+            "labeled_complete": 2,
+            "packet_inputs": 2,
+            "packets_built": 2,
+            "excluded": 0,
+            "clean": 2,
+        },
+        "case_mix": {
+            "court": {"cand": 2},
+            "nature_of_suit": {"contract": 2},
+            "nos_macro_category": {"contract": 2},
+            "related_family_id": {"none": 2},
+            "mdl_family_id": {"none": 2},
+            "case_type_stratum": {"district_civil": 2},
+        },
+        "screening_snapshot_reconciliation": {
+            "accepted_count": 2,
+            "excluded_count": 0,
+            "processed_count": 2,
+        },
+        "target_cohort_preparation": {"target_case_count": 2},
+    }
+    _write_json(readiness_path, readiness)
+    materialization_path = root / "materialization-summary.json"
+    purchase_state_sha256 = str(initialization["purchase_state_sha256"])
+    materialization: dict[str, object] = {
+        "target_case_count": 2,
+        "document_count": 2,
+        "free_document_count": 2,
+        "purchased_document_count": 0,
+        "content_addressed": True,
+        "source_roots_mutated": False,
+        "source_commitments": {"purchase_state_sha256": purchase_state_sha256},
+    }
+    materialization_payload = _json_bytes(materialization)
+    materialization_path.write_bytes(materialization_payload)
+    materialization_card_path = root / "materialization-run-card.json"
+    _write_json(
+        materialization_card_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "materialize-cohort-documents",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "zero_provider_activity_evidence": True,
+            "target_case_count": 2,
+            "record_count": 2,
+            "free_document_count": 2,
+            "purchased_document_count": 0,
+            "source_roots_mutated": False,
+            "source_commitments": {"purchase_state_sha256": purchase_state_sha256},
+            "output_commitments": {
+                "materialization_summary": {
+                    "path": str(materialization_path.resolve()),
+                    "sha256": hashlib.sha256(materialization_payload).hexdigest(),
+                }
+            },
+        },
+    )
+    finalize_path = root / "finalize-run-card.json"
+    _write_json(
+        finalize_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "finalize-corpus",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "record_count": 2,
+            "target_clean_cases": 2,
+            "clean_count": 2,
+            "meets_target": True,
+            "input_paths": [
+                str(materialization_card_path.resolve()),
+                str(registry.resolve()),
+                str(stage_a_queue_path.resolve()),
+                str(stage_a_adjudications_path.resolve()),
+                str(stage_b_queue_path.resolve()),
+                str(stage_b_audit_path.resolve()),
+            ],
+            "output_paths": [
+                str(readiness_path.resolve()),
+                str(exclusion_path.resolve()),
+            ],
+        },
+    )
+    return CorpusCompletionSummaryInputs(
+        finalize_run_card=finalize_path,
+        corpus_readiness=readiness_path,
+        complete_exclusion_ledger=exclusion_path,
+        materialization_summary=materialization_path,
+        materialization_run_card=materialization_card_path,
+        purchase_policy=approved.policy,
+        cohort_policy=approved.cohort_policy,
+        purchase_ledger=approved.ledger,
+        purchase_ledger_initialization_receipt=approved.initialization_receipt,
+        model_registry=registry,
+        unitization_review_queue=stage_a_queue_path,
+        unitization_adjudications=stage_a_adjudications_path,
+        lawyer_review_queue=stage_b_queue_path,
+        lawyer_review_audit=stage_b_audit_path,
+        adjudication_beads=bead_references,
+    )
+
+
+def test_summary_authenticates_terminal_inputs_and_empty_queues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+
+    summary = build_corpus_completion_summary(inputs)
+
+    assert summary["target"] == {
+        "required_clean_count": 2,
+        "clean_count": 2,
+        "meets_target": True,
+        "eligibility_anchor": "2026-06-30",
+    }
+    assert summary["adjudication"] == {
+        "stage_a_queue_count": 0,
+        "stage_a_adjudication_count": 0,
+        "stage_a_pending_count": 0,
+        "stage_a_pending_review_ids": [],
+        "stage_b_queue_count": 0,
+        "stage_b_resolved_count": 0,
+        "stage_b_pending_count": 0,
+        "stage_b_pending_review_ids": [],
+        "pending_count": 0,
+        "pending_bead_references": {},
+        "queue_empty_or_fully_adjudicated": True,
+    }
+    assert summary["provider_activity_executed"] is False
+    require_completion_inputs_unchanged(inputs, summary=summary)
+
+
+def test_pending_reviews_require_exact_review_to_bead_mapping(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_a_queue=({"review_id": "stage-a-1"},),
+    )
+    with pytest.raises(CorpusCompletionSummaryError, match="exactly cover"):
+        build_corpus_completion_summary(inputs)
+
+    mapped = replace(
+        inputs,
+        adjudication_beads=("stage-a-1=LegalForecastBench-review-1",),
+    )
+    summary = build_corpus_completion_summary(mapped)
+    adjudication = summary["adjudication"]
+    assert isinstance(adjudication, dict)
+    assert adjudication["pending_bead_references"] == {
+        "stage-a-1": "LegalForecastBench-review-1"
+    }
+
+    extra = replace(
+        inputs,
+        adjudication_beads=(
+            "stage-a-1=LegalForecastBench-review-1",
+            "unrelated=LegalForecastBench-review-2",
+        ),
+    )
+    with pytest.raises(CorpusCompletionSummaryError, match="exactly cover"):
+        build_corpus_completion_summary(extra)
+
+
+def test_static_input_drift_is_rejected_after_summary_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    summary = build_corpus_completion_summary(inputs)
+    inputs.lawyer_review_audit.write_text('{"review_id":"late"}\n')
+
+    with pytest.raises(CorpusCompletionSummaryError, match="source changed"):
+        require_completion_inputs_unchanged(inputs, summary=summary)
+
+
+def test_materialization_byte_tamper_is_rejected_by_bound_run_card(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    materialization = json.loads(inputs.materialization_summary.read_bytes())
+    materialization["free_document_count"] = 1
+    materialization["purchased_document_count"] = 1
+    inputs.materialization_summary.write_bytes(_json_bytes(materialization))
+
+    with pytest.raises(
+        CorpusCompletionSummaryError,
+        match=r"materialization (run card is inconsistent|summary differs)",
+    ):
+        build_corpus_completion_summary(inputs)
+
+
+def test_purchase_ledger_operation_drift_is_rejected_after_summary_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    summary = build_corpus_completion_summary(inputs)
+    with sqlite3.connect(inputs.purchase_ledger) as connection:
+        connection.execute(
+            """INSERT INTO purchase_operations(
+            source_document_id, candidate_id, reservation_usd, status)
+            VALUES ('late-doc', 'case-001', '3.05', 'planned')"""
+        )
+        connection.execute(
+            """INSERT INTO purchase_material_state(
+            source_document_id, authority, status)
+            VALUES ('late-doc', 'ordinary_public', 'not_recovered')"""
+        )
+
+    with pytest.raises(CorpusCompletionSummaryError, match="purchase ledger changed"):
+        require_completion_inputs_unchanged(inputs, summary=summary)
+
+
+def test_canonical_spend_distinguishes_actual_from_unresolved_obligations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    policy = verify_case_dev_purchase_policy(
+        json.loads(inputs.purchase_policy.read_bytes())
+    )
+    operations = (
+        {
+            "source_document_id": "doc-queued",
+            "candidate_id": "case-001",
+            "reservation_usd": "3.05",
+            "status": "queued",
+            "operation_key": "operation-queued",
+            "actual_usd": None,
+            "response": {"queue_id": "queue-1"},
+            "error": None,
+            "reconciliation": None,
+            "material_authority": "ordinary_public",
+            "material_state": "not_recovered",
+            "material_evidence": {},
+            "resolved_document_sha256": None,
+        },
+    )
+    committed = "3.05"
+    snapshot = CaseDevPurchaseSnapshot(
+        operations=operations,
+        committed_amount_usd=committed,
+        purchase_state_sha256=canonical_purchase_state_sha256(
+            policy,
+            committed_amount_usd=committed,
+            operations=operations,
+        ),
+    )
+
+    spend = summarize_case_dev_purchase_snapshot(policy=policy, snapshot=snapshot)
+
+    assert spend.known_actual_operation_spend_usd == "0.00"
+    assert spend.actual_spend_complete is False
+    assert spend.actual_spend_usd is None
+    assert spend.cap_counted_committed_spend_usd == "3.05"
+    assert spend.unresolved_cap_counted_usd == "3.05"
+    assert spend.unresolved_billing_document_ids == ("doc-queued",)
