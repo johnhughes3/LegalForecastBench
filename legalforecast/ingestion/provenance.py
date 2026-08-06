@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 from legalforecast._datetime import format_utc_iso_z
 from legalforecast._hashing import is_lowercase_sha256
@@ -223,8 +224,199 @@ class CasePacketSchema:
         }
 
 
+def case_packet_from_record(record: Mapping[str, Any]) -> CasePacketSchema:
+    """Decode one strict JSON-like record into a provenance-backed case packet."""
+
+    return CasePacketSchema(
+        candidate_id=_required_str(record, "candidate_id"),
+        case_id=_required_str(record, "case_id"),
+        court=_required_str(record, "court"),
+        docket_number=_required_str(record, "docket_number"),
+        generated_at=_parse_datetime(_required_str(record, "generated_at")),
+        documents=tuple(
+            source_document_provenance_from_record(document)
+            for document in _required_record_sequence(record, "documents")
+        ),
+        extracted_texts=tuple(
+            extracted_text_artifact_from_record(artifact)
+            for artifact in _optional_record_sequence(record, "extracted_texts")
+        ),
+        exclusion_notes=tuple(
+            _packet_exclusion_note_from_record(note)
+            for note in _optional_record_sequence(record, "exclusion_notes")
+        ),
+    )
+
+
+def source_document_provenance_from_record(
+    record: Mapping[str, Any],
+) -> SourceDocumentProvenance:
+    """Decode one strict source-document provenance record."""
+
+    return SourceDocumentProvenance(
+        source_provider=_required_str(record, "source_provider"),
+        source_case_id=_required_str(record, "source_case_id"),
+        source_document_id=_required_str(record, "source_document_id"),
+        court=_required_str(record, "court"),
+        docket_number=_required_str(record, "docket_number"),
+        document_role=DocumentRole(_required_str(record, "document_role")),
+        retrieved_at=_parse_datetime(_required_str(record, "retrieved_at")),
+        source_url_or_reference=_required_str(record, "source_url_or_reference"),
+        sha256=_required_str(record, "sha256"),
+        is_predecision_material=_required_bool(record, "is_predecision_material"),
+        is_mounted_for_model=_required_bool(record, "is_mounted_for_model"),
+        availability_status=AvailabilityStatus(
+            _optional_str(record, "availability_status")
+            or AvailabilityStatus.AVAILABLE.value
+        ),
+        redaction_or_seal_status=RedactionOrSealStatus(
+            _optional_str(record, "redaction_or_seal_status")
+            or RedactionOrSealStatus.PUBLIC.value
+        ),
+        docket_entry_number=_optional_int(record, "docket_entry_number"),
+        contains_target_outcome=_optional_bool(
+            record,
+            "contains_target_outcome",
+            default=False,
+        ),
+        packet_section=_optional_str(record, "packet_section"),
+        notes=_optional_str(record, "notes"),
+    )
+
+
+def extracted_text_artifact_from_record(
+    record: Mapping[str, Any],
+) -> ExtractedTextArtifact:
+    """Decode one strict extracted-text provenance record."""
+
+    return ExtractedTextArtifact(
+        source_document_id=_required_str(record, "source_document_id"),
+        extracted_at=_parse_datetime(_required_str(record, "extracted_at")),
+        extraction_method=_required_str(record, "extraction_method"),
+        text_sha256=_required_str(record, "text_sha256"),
+        page_count=_optional_int(record, "page_count"),
+        quality_flags=(
+            _required_str_tuple(record, "quality_flags")
+            if "quality_flags" in record
+            else ()
+        ),
+        notes=_optional_str(record, "notes"),
+    )
+
+
+def _packet_exclusion_note_from_record(
+    record: Mapping[str, Any],
+) -> PacketExclusionNote:
+    return PacketExclusionNote(
+        source_document_id=_optional_str(record, "source_document_id"),
+        reason=_required_str(record, "reason"),
+        notes=_required_str(record, "notes"),
+    )
+
+
 def sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _mapping(value: object, field_name: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field_name} must be an object")
+    return dict(cast(Mapping[str, Any], value))
+
+
+def _required_record_sequence(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[dict[str, Any], ...]:
+    value = _required(record, field_name)
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise ValueError(f"{field_name} must be a list")
+    return tuple(
+        _mapping(item, f"{field_name} item") for item in cast(Sequence[object], value)
+    )
+
+
+def _optional_record_sequence(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[dict[str, Any], ...]:
+    if field_name not in record or record[field_name] is None:
+        return ()
+    return _required_record_sequence(record, field_name)
+
+
+def _required(record: Mapping[str, Any], field_name: str) -> Any:
+    if field_name not in record:
+        raise ValueError(f"{field_name} is required")
+    return record[field_name]
+
+
+def _required_str(record: Mapping[str, Any], field_name: str) -> str:
+    value = _required(record, field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _required_str_tuple(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[str, ...]:
+    value = _required(record, field_name)
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise ValueError(f"{field_name} must be a list of strings")
+    strings: list[str] = []
+    for item in cast(Sequence[object], value):
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"{field_name} must contain non-empty strings")
+        strings.append(item)
+    return tuple(strings)
+
+
+def _required_bool(record: Mapping[str, Any], field_name: str) -> bool:
+    value = _required(record, field_name)
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _optional_bool(
+    record: Mapping[str, Any],
+    field_name: str,
+    *,
+    default: bool,
+) -> bool:
+    value = record.get(field_name)
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _optional_int(record: Mapping[str, Any], field_name: str) -> int | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an integer")
+    return value
+
+
+def _parse_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
 
 
 def _iso_datetime(timestamp: datetime) -> str:

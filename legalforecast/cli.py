@@ -76,6 +76,11 @@ from legalforecast.evals.provider_spend_dynamodb import (
 )
 from legalforecast.evals.run_record_scoring import score_run_records
 from legalforecast.extraction.pdf_text import extract_pdf_text_with_ocr_fallback
+from legalforecast.ingestion import (
+    case_packet_from_record,
+    extracted_text_artifact_from_record,
+    source_document_provenance_from_record,
+)
 from legalforecast.ingestion.budgeted_courtlistener_html_source import (
     DurableBudgetedCourtListenerHTMLSource,
 )
@@ -537,12 +542,9 @@ from legalforecast.ingestion.packet_role_adjudication import (
     verify_packet_role_adjudications,
 )
 from legalforecast.ingestion.provenance import (
-    AvailabilityStatus,
     CasePacketSchema,
     DocumentRole,
     ExtractedTextArtifact,
-    RedactionOrSealStatus,
-    SourceDocumentProvenance,
     sha256_text,
 )
 from legalforecast.ingestion.provenance_clearance import (
@@ -9964,7 +9966,7 @@ def _cmd_packet_build(args: argparse.Namespace) -> int:
 
     packets: list[JsonRecord] = []
     for record in records:
-        case_packet = _case_packet(_required_record(record, "case_packet"))
+        case_packet = case_packet_from_record(_required_record(record, "case_packet"))
         packet = build_model_packet(
             case_packet=case_packet,
             prediction_units=tuple(
@@ -58869,7 +58871,7 @@ def _model_packet_assembly(
             _required_record(record, "docket_markdown")
         ),
         documents=tuple(
-            _source_provenance(document)
+            source_document_provenance_from_record(document)
             for document in _required_record_sequence(record, "documents")
         ),
         parsed_documents=parsed_documents,
@@ -58913,7 +58915,9 @@ def _parsed_markdown_document(record: Mapping[str, Any]) -> ParsedMarkdownDocume
         source_document_id=_required_str(record, "source_document_id"),
         markdown=markdown,
         extracted_text=(
-            _extracted_text_artifact(_required_record(record, "extracted_text"))
+            extracted_text_artifact_from_record(
+                _required_record(record, "extracted_text")
+            )
             if "extracted_text" in record and record["extracted_text"] is not None
             else None
         ),
@@ -58939,7 +58943,9 @@ def _mistral_markdown_conversion_record(
         parser_config=_required_record(record, "parser_config"),
         quality_flags=_required_str_tuple(record, "quality_flags"),
         extracted_text=(
-            _extracted_text_artifact(_mapping(extracted_record, "extracted_text"))
+            extracted_text_artifact_from_record(
+                _mapping(extracted_record, "extracted_text")
+            )
             if extracted_record is not None
             else None
         ),
@@ -59839,70 +59845,6 @@ def _stage_b_missing_flag(record: Mapping[str, Any]) -> StageBMissingUnitFlag:
         supporting_excerpt=_required_str(record, "supporting_excerpt"),
         page=_optional_int(record, "page"),
         paragraph=_optional_int(record, "paragraph"),
-        notes=_optional_str(record, "notes"),
-    )
-
-
-def _case_packet(record: Mapping[str, Any]) -> CasePacketSchema:
-    return CasePacketSchema(
-        candidate_id=_required_str(record, "candidate_id"),
-        case_id=_required_str(record, "case_id"),
-        court=_required_str(record, "court"),
-        docket_number=_required_str(record, "docket_number"),
-        generated_at=_parse_datetime(_required_str(record, "generated_at")),
-        documents=tuple(
-            _source_provenance(document)
-            for document in _required_record_sequence(record, "documents")
-        ),
-        extracted_texts=tuple(
-            _extracted_text_artifact(artifact)
-            for artifact in _optional_record_sequence(record, "extracted_texts")
-        ),
-    )
-
-
-def _source_provenance(record: Mapping[str, Any]) -> SourceDocumentProvenance:
-    return SourceDocumentProvenance(
-        source_provider=_required_str(record, "source_provider"),
-        source_case_id=_required_str(record, "source_case_id"),
-        source_document_id=_required_str(record, "source_document_id"),
-        court=_required_str(record, "court"),
-        docket_number=_required_str(record, "docket_number"),
-        document_role=DocumentRole(_required_str(record, "document_role")),
-        retrieved_at=_parse_datetime(_required_str(record, "retrieved_at")),
-        source_url_or_reference=_required_str(record, "source_url_or_reference"),
-        sha256=_required_str(record, "sha256"),
-        is_predecision_material=_required_bool(record, "is_predecision_material"),
-        is_mounted_for_model=_required_bool(record, "is_mounted_for_model"),
-        availability_status=AvailabilityStatus(
-            _optional_str(record, "availability_status")
-            or AvailabilityStatus.AVAILABLE.value
-        ),
-        redaction_or_seal_status=RedactionOrSealStatus(
-            _optional_str(record, "redaction_or_seal_status")
-            or RedactionOrSealStatus.PUBLIC.value
-        ),
-        docket_entry_number=_optional_int(record, "docket_entry_number"),
-        contains_target_outcome=_optional_bool(
-            record,
-            "contains_target_outcome",
-            default=False,
-        ),
-        packet_section=_optional_str(record, "packet_section"),
-        notes=_optional_str(record, "notes"),
-    )
-
-
-def _extracted_text_artifact(record: Mapping[str, Any]) -> ExtractedTextArtifact:
-    return ExtractedTextArtifact(
-        source_document_id=_required_str(record, "source_document_id"),
-        extracted_at=_parse_datetime(_required_str(record, "extracted_at")),
-        extraction_method=_required_str(record, "extraction_method"),
-        text_sha256=_required_str(record, "text_sha256"),
-        page_count=_optional_int(record, "page_count"),
-        quality_flags=_required_str_tuple(record, "quality_flags")
-        if "quality_flags" in record
-        else (),
         notes=_optional_str(record, "notes"),
     )
 
