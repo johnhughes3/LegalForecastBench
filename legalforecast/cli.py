@@ -25722,6 +25722,10 @@ def _replacement_consolidation_active_paid_keys(
                 )
             if has_paid_gap_marker:
                 paid_gap_keys.add((candidate_id, source_document_id))
+    if selected_keys and not authenticated_purchased_keys and not paid_gap_keys:
+        raise ValueError(
+            "empty authenticated purchased manifest lacks paid-recovery gap identities"
+        )
     return authenticated_purchased_keys | paid_gap_keys
 
 

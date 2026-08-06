@@ -369,6 +369,24 @@ def test_pre_recovery_empty_manifest_uses_paid_gaps_minus_terminal_omissions(
     } == all_paid - omitted
 
 
+def test_empty_purchased_manifest_without_paid_gaps_fails_closed() -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "empty authenticated purchased manifest lacks paid-recovery gap identities"
+        ),
+    ):
+        cli._replacement_consolidation_active_paid_keys(
+            [
+                {
+                    "candidate_id": "case-1",
+                    "documents": [{"source_document_id": "doc-1"}],
+                }
+            ],
+            authenticated_purchased_keys=set(),
+        )
+
+
 def test_terminal_omission_replay_opens_purchase_journal_read_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -397,10 +415,16 @@ def test_terminal_omission_replay_opens_purchase_journal_read_only(
         "_verify_materializer_docket_decision_authority",
         lambda **kwargs: descriptor,
     )
+
+    def verify_decision_keys(
+        authority: object, *, purchase_journal: object
+    ) -> set[tuple[str, str]]:
+        assert authority is descriptor.authority
+        assert purchase_journal is journal
+        return {("case-1", "decision-1")}
+
     monkeypatch.setattr(
-        cli,
-        "verified_docket_decision_document_keys",
-        lambda authority, *, purchase_journal: {("case-1", "decision-1")},
+        cli, "verified_docket_decision_document_keys", verify_decision_keys
     )
     policy = SimpleNamespace()
     ledger_path = tmp_path / "purchase-ledger.sqlite3"

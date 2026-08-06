@@ -830,6 +830,30 @@ def test_replacement_corpus_consolidates_promoted_purchases_and_exclusions(
     assert consolidation.arguments[
         consolidation.arguments.index("--controlled-private-root") + 1
     ] == str(assignments["PURCHASE_PRIVATE_ROOT"] / "purchase-approval")
+    assert consolidation.arguments[
+        consolidation.arguments.index("--snapshot-manifest") + 1
+    ] == str(
+        assignments["SOURCE_ROOT"]
+        / "15-final153-union-main-911371f-v1"
+        / "snapshots"
+        / "cycle1-final153-current-policy-union-main-911371f-v1"
+        / "manifest.json"
+    )
+    assert consolidation.arguments[
+        consolidation.arguments.index("--purchase-result") + 1
+    ] == str(
+        assignments["PURCHASE_ROOT"]
+        / "07-purchase"
+        / "purchased-document-downloads.jsonl"
+    )
+    assert consolidation.arguments[
+        consolidation.arguments.index("--purchase-run-card") + 1
+    ] == str(
+        assignments["PURCHASE_ROOT"]
+        / "07-purchase"
+        / "run-cards"
+        / "purchase-missing-recap-fetch.json"
+    )
     assert exclusions.arguments[
         exclusions.arguments.index("--target-cohort-root") + 1
     ] == str(assignments["EXACT100_ROOT"])
