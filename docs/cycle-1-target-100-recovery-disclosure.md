@@ -16,6 +16,8 @@ The two initial-recovery templates are:
 
 Both templates are partial cycle continuations and begin with `init-cycle`. Render them with `uv run legalforecast acquisition render-cycle-config --help`; the renderer validates every stage against the current CLI before publishing the config.
 
+Both continuations consume the initial recovery v2 outputs in place: `recap-fetch-quarantine-downloads.jsonl`, `purchased-case-relevance.jsonl`, `post-recovery-restriction-evidence.jsonl`, and `documents/recap-fetch-quarantine` beneath `RECOVERY_ROOT`. These paths are the exact outputs committed by `cycle-1-target-100.exact100-initial-recovery.template.json`; no compatibility alias, hand-copy, or alternate recovery root is part of the supported flow.
+
 Ranked-reserve replacement recovery first uses one shared, closed prefix:
 
 - `manifests/cycle-1-target-100.replacement-recovery-disclosure-plan.template.json` records the exact successor authority, purchases and recovers only that tranche, and completes the immutable v3 plan and worksheet under `PLAN_ROOT`.

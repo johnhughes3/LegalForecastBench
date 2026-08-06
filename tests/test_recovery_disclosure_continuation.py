@@ -12,6 +12,9 @@ from legalforecast.ingestion.cycle_orchestrator import load_cycle_config
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
 
 ROOT = Path(__file__).parents[1]
+INITIAL_RECOVERY_TEMPLATE = (
+    ROOT / "manifests" / "cycle-1-target-100.exact100-initial-recovery.template.json"
+)
 REVIEW_TEMPLATE = (
     ROOT / "manifests" / "cycle-1-target-100.initial-recovery-disclosure.template.json"
 )
@@ -61,6 +64,26 @@ def _render(tmp_path: Path, template: Path):
     return load_cycle_config(output), assignments
 
 
+def _render_initial_recovery(tmp_path: Path):
+    assignments = {
+        "CYCLE_ROOT": tmp_path / "recovery-cycle",
+        "INITIAL_APPROVED_ROOT": tmp_path / "target-cohort",
+        "PURCHASE_AUTHORITY_ROOT": tmp_path / "purchase-authority",
+        "PURCHASE_PRIVATE_ROOT": tmp_path / "purchase-private",
+        "RECOVERY_ROOT": tmp_path / "recovery",
+        "REPO_ROOT": tmp_path / "repo",
+        "SOURCE_ROOT": tmp_path / "source",
+    }
+    output = tmp_path / "exact100-initial-recovery.rendered.json"
+    render_cycle_config(
+        template_path=INITIAL_RECOVERY_TEMPLATE,
+        output_path=output,
+        variable_assignments=[f"{name}={path}" for name, path in assignments.items()],
+        argument_validator=cli_module._validate_rendered_cycle_arguments,  # pyright: ignore[reportPrivateUsage]
+    )
+    return load_cycle_config(output), assignments
+
+
 def _replacement_assignments(tmp_path: Path) -> dict[str, Path]:
     return {
         "REPO_ROOT": tmp_path / "repo",
@@ -93,6 +116,118 @@ def _render_replacement(tmp_path: Path, template: Path):
 
 def _flag_value(arguments: tuple[str, ...], flag: str) -> str:
     return arguments[arguments.index(flag) + 1]
+
+
+def _assert_canonical_initial_recovery_inputs(
+    *,
+    stage_arguments: tuple[tuple[str, ...], ...],
+    recovery_root: Path,
+) -> None:
+    expected = {
+        "--download-manifest": recovery_root / "recap-fetch-quarantine-downloads.jsonl",
+        "--case-relevance": recovery_root / "purchased-case-relevance.jsonl",
+        "--document-root": recovery_root / "documents" / "recap-fetch-quarantine",
+        "--restriction-evidence": recovery_root
+        / "post-recovery-restriction-evidence.jsonl",
+    }
+    for arguments in stage_arguments:
+        for flag, expected_path in expected.items():
+            if flag in arguments:
+                assert _flag_value(arguments, flag) == str(expected_path)
+
+    legacy_paths = (
+        recovery_root / "purchased-document-downloads-quarantine.jsonl",
+        recovery_root / "case-relevance.jsonl",
+        recovery_root / "documents" / "quarantine",
+        recovery_root / "restriction-evidence.jsonl",
+    )
+    for legacy_path in legacy_paths:
+        assert all(
+            argument != str(legacy_path)
+            for arguments in stage_arguments
+            for argument in arguments
+        )
+
+
+@pytest.mark.parametrize("disclosure_template", [REVIEW_TEMPLATE, NO_REVIEW_TEMPLATE])
+def test_provider_free_render_connects_recovery_v2_to_disclosure_and_resolution(
+    tmp_path: Path,
+    disclosure_template: Path,
+) -> None:
+    recovery_config, recovery_assignments = _render_initial_recovery(tmp_path)
+    disclosure_config, disclosure_assignments = _render(tmp_path, disclosure_template)
+
+    assert (
+        recovery_assignments["RECOVERY_ROOT"] == disclosure_assignments["RECOVERY_ROOT"]
+    )
+    recovery = recovery_config.stages[-1]
+    plan = next(
+        stage
+        for stage in disclosure_config.stages
+        if stage.command == "plan-disclosure-provenance"
+    )
+    finalizer = next(
+        stage
+        for stage in disclosure_config.stages
+        if stage.command == "finalize-provenance-quarantine"
+    )
+    resolver = next(
+        stage
+        for stage in disclosure_config.stages
+        if stage.command == "resolve-post-recovery-documents"
+    )
+    review = next(
+        (
+            stage
+            for stage in disclosure_config.stages
+            if stage.command == "review-disclosure-exceptions"
+        ),
+        None,
+    )
+
+    producer_to_consumers = {
+        "--manifest-output": (
+            (plan, "--download-manifest"),
+            (finalizer, "--download-manifest"),
+            (resolver, "--download-manifest"),
+        ),
+        "--case-relevance-output": (
+            (plan, "--case-relevance"),
+            (finalizer, "--case-relevance"),
+        ),
+        "--restriction-evidence-output": (
+            (plan, "--restriction-evidence"),
+            (finalizer, "--restriction-evidence"),
+            (resolver, "--restriction-evidence"),
+        ),
+        "--document-output-root": tuple(
+            (stage, "--document-root")
+            for stage in (plan, review, finalizer)
+            if stage is not None
+        ),
+        "--review-requests-output": (
+            (plan, "--review-requests"),
+            (finalizer, "--review-requests"),
+        ),
+    }
+    for producer_flag, consumers in producer_to_consumers.items():
+        produced_path = _flag_value(recovery.arguments, producer_flag)
+        assert produced_path.startswith(str(recovery_assignments["RECOVERY_ROOT"]))
+        for consumer, consumer_flag in consumers:
+            assert _flag_value(consumer.arguments, consumer_flag) == produced_path
+
+    assert _flag_value(plan.arguments, "--recovery-run-card") == str(recovery.run_card)
+    assert _flag_value(finalizer.arguments, "--recovery-run-card") == str(
+        recovery.run_card
+    )
+    _assert_canonical_initial_recovery_inputs(
+        stage_arguments=tuple(
+            stage.arguments
+            for stage in disclosure_config.stages
+            if stage.command != "init-cycle"
+        ),
+        recovery_root=recovery_assignments["RECOVERY_ROOT"],
+    )
 
 
 @pytest.mark.parametrize(
@@ -261,6 +396,12 @@ def test_initial_recovery_disclosure_review_template_pins_authenticated_model_pa
     } & {stage.command for stage in config.stages}
 
     _init, plan, review, finalizer, resolver = config.stages
+    _assert_canonical_initial_recovery_inputs(
+        stage_arguments=tuple(
+            stage.arguments for stage in (plan, review, finalizer, resolver)
+        ),
+        recovery_root=assignments["RECOVERY_ROOT"],
+    )
     assert _flag_value(plan.arguments, "--schema-version") == "v3"
     assert _flag_value(plan.arguments, "--recovery-run-card") == str(
         assignments["RECOVERY_ROOT"]
@@ -318,7 +459,7 @@ def test_initial_recovery_disclosure_review_template_pins_authenticated_model_pa
 def test_initial_recovery_no_review_template_is_closed_provider_free_branch(
     tmp_path: Path,
 ) -> None:
-    config, _assignments_by_name = _render(tmp_path, NO_REVIEW_TEMPLATE)
+    config, assignments = _render(tmp_path, NO_REVIEW_TEMPLATE)
 
     assert [stage.command for stage in config.stages] == [
         "init-cycle",
@@ -328,6 +469,10 @@ def test_initial_recovery_no_review_template_is_closed_provider_free_branch(
     ]
     assert all(stage.boundary.value == "provider_free" for stage in config.stages)
     _init, plan, finalizer, resolver = config.stages
+    _assert_canonical_initial_recovery_inputs(
+        stage_arguments=tuple(stage.arguments for stage in (plan, finalizer, resolver)),
+        recovery_root=assignments["RECOVERY_ROOT"],
+    )
     assert _flag_value(plan.arguments, "--schema-version") == "v3"
     assert "--require-no-model-review-eligible-exceptions" in finalizer.arguments
     assert _flag_value(finalizer.arguments, "--plan-run-card") == str(plan.run_card)
