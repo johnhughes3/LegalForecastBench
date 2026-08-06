@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import fcntl
+import os
 import sqlite3
 from decimal import Decimal
 from pathlib import Path
@@ -126,13 +128,8 @@ def test_purchase_snapshot_replays_wal_without_changing_sqlite_files(
             Path(f"{journal.path}-shm"),
             Path(f"{journal.path}-journal"),
         )
-        before = {
-            path: (path.read_bytes(), path.stat().st_mtime_ns)
-            for path in reserved_paths
-            if path.exists()
-        }
-        assert Path(f"{journal.path}-wal") in before
-        assert Path(f"{journal.path}-shm") in before
+        assert Path(f"{journal.path}-wal").exists()
+        assert Path(f"{journal.path}-shm").exists()
         with sqlite3.connect(
             f"file:{journal.path}?mode=ro&immutable=1", uri=True
         ) as main_file_only:
@@ -140,6 +137,15 @@ def test_purchase_snapshot_replays_wal_without_changing_sqlite_files(
                 main_file_only.execute(
                     "SELECT COUNT(*) FROM purchase_operations"
                 ).fetchone()
+        old_atime_ns = 946_684_800_000_000_000
+        for path in reserved_paths:
+            if path.exists():
+                metadata = path.stat()
+                os.utime(path, ns=(old_atime_ns, metadata.st_mtime_ns))
+        before = purchase_module._purchase_snapshot_filesystem_identity(  # pyright: ignore[reportPrivateUsage]
+            reserved_paths
+        )
+        assert all(identity[4] == old_atime_ns for identity in before)
 
         with CaseDevPurchaseJournal(
             journal.path, policy=policy, read_only=True
@@ -155,17 +161,54 @@ def test_purchase_snapshot_replays_wal_without_changing_sqlite_files(
 
         snapshot = read_case_dev_purchase_snapshot(journal.path, policy=policy)
 
-        after = {
-            path: (path.read_bytes(), path.stat().st_mtime_ns)
-            for path in reserved_paths
-            if path.exists()
-        }
+        after = purchase_module._purchase_snapshot_filesystem_identity(  # pyright: ignore[reportPrivateUsage]
+            reserved_paths
+        )
         assert before == after
-        assert set(before) == set(after)
         assert snapshot.purchase_state_sha256 == expected_digest
         assert tuple(row["status"] for row in snapshot.operations) == ("failed",)
     finally:
         anchor.close()
+
+
+def test_purchase_snapshot_recovers_hot_rollback_journal_only_in_private_copy(
+    tmp_path: Path,
+) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.plan(_budget_plan("case-1", ("doc-1",), dry_run=False))
+    journal.close()
+    writer = sqlite3.connect(journal.path, isolation_level=None)
+    try:
+        assert writer.execute("PRAGMA journal_mode=DELETE").fetchone()[0] == "delete"
+        writer.execute("BEGIN IMMEDIATE")
+        writer.execute(
+            "UPDATE purchase_operations SET status='submitted' "
+            "WHERE source_document_id='doc-1'"
+        )
+        rollback_journal_path = Path(f"{journal.path}-journal")
+        assert rollback_journal_path.stat().st_size > 0
+        reserved_paths = (
+            journal.path,
+            Path(f"{journal.path}.lock"),
+            Path(f"{journal.path}-wal"),
+            Path(f"{journal.path}-shm"),
+            rollback_journal_path,
+        )
+        before = purchase_module._purchase_snapshot_filesystem_identity(  # pyright: ignore[reportPrivateUsage]
+            reserved_paths
+        )
+
+        snapshot = read_case_dev_purchase_snapshot(journal.path, policy=policy)
+
+        after = purchase_module._purchase_snapshot_filesystem_identity(  # pyright: ignore[reportPrivateUsage]
+            reserved_paths
+        )
+        assert before == after
+        assert tuple(row["status"] for row in snapshot.operations) == ("planned",)
+    finally:
+        writer.rollback()
+        writer.close()
 
 
 def test_purchase_snapshot_closes_lock_when_descriptor_inspection_fails(
@@ -200,6 +243,157 @@ def test_purchase_snapshot_closes_lock_when_descriptor_inspection_fails(
         read_case_dev_purchase_snapshot(journal.path, policy=policy)
 
     assert closed_descriptors == inspected_descriptors
+
+
+def test_read_only_lock_rejects_path_swap_at_flock_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    journal = _journal(tmp_path)
+    journal.close()
+    lock_path = Path(f"{journal.path}.lock")
+    displaced_lock_path = Path(f"{lock_path}.displaced")
+    original_flock = purchase_module.fcntl.flock
+    original_close = purchase_module.os.close
+    shared_lock_fd: int | None = None
+    closed_descriptors: list[int] = []
+    swapped = False
+
+    def swap_path_after_lock(descriptor: int, operation: int) -> None:
+        nonlocal shared_lock_fd, swapped
+        original_flock(descriptor, operation)
+        if not swapped and operation & fcntl.LOCK_SH:
+            shared_lock_fd = descriptor
+            os.replace(lock_path, displaced_lock_path)
+            lock_path.touch(mode=0o600)
+            swapped = True
+
+    def record_close(descriptor: int) -> None:
+        closed_descriptors.append(descriptor)
+        original_close(descriptor)
+
+    monkeypatch.setattr(purchase_module.fcntl, "flock", swap_path_after_lock)
+    monkeypatch.setattr(purchase_module.os, "close", record_close)
+
+    with pytest.raises(
+        RuntimeError,
+        match="purchase ledger lock path changed while acquiring read-only lock",
+    ):
+        purchase_module._acquire_existing_purchase_ledger_lock(  # pyright: ignore[reportPrivateUsage]
+            journal.path
+        )
+
+    assert shared_lock_fd is not None
+    assert shared_lock_fd in closed_descriptors
+    new_lock_fd = os.open(lock_path, os.O_RDONLY)
+    try:
+        original_flock(new_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    finally:
+        original_flock(new_lock_fd, fcntl.LOCK_UN)
+        os.close(new_lock_fd)
+
+
+def test_read_only_open_preserves_primary_error_and_releases_lock_when_cleanup_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.close()
+    snapshot_directory = tmp_path / "failing-snapshot-cleanup"
+    snapshot_directory.mkdir()
+    original_acquire = purchase_module._acquire_existing_purchase_ledger_lock  # pyright: ignore[reportPrivateUsage]
+    original_close = purchase_module.os.close
+    acquired_descriptors: list[int] = []
+    closed_descriptors: list[int] = []
+
+    class PrimaryCopyError(RuntimeError):
+        pass
+
+    class CleanupError(RuntimeError):
+        pass
+
+    class FailingTemporaryDirectory:
+        def __init__(self, *, prefix: str) -> None:
+            assert prefix == "legalforecast-purchase-audit-"
+            self.name = str(snapshot_directory)
+
+        def cleanup(self) -> None:
+            raise CleanupError("injected temporary-directory cleanup failure")
+
+    def record_acquire(path: Path) -> int:
+        descriptor = original_acquire(path)
+        acquired_descriptors.append(descriptor)
+        return descriptor
+
+    def fail_copy(source: Path, destination: Path) -> None:
+        raise PrimaryCopyError(f"injected copy failure: {source} -> {destination}")
+
+    def record_close(descriptor: int) -> None:
+        closed_descriptors.append(descriptor)
+        original_close(descriptor)
+
+    monkeypatch.setattr(
+        purchase_module, "_acquire_existing_purchase_ledger_lock", record_acquire
+    )
+    monkeypatch.setattr(purchase_module, "_copy_purchase_snapshot_namespace", fail_copy)
+    monkeypatch.setattr(
+        purchase_module.tempfile, "TemporaryDirectory", FailingTemporaryDirectory
+    )
+    monkeypatch.setattr(purchase_module.os, "close", record_close)
+
+    with pytest.raises(PrimaryCopyError) as caught:
+        CaseDevPurchaseJournal(journal.path, policy=policy, read_only=True)
+
+    assert isinstance(caught.value.__cause__, ExceptionGroup)
+    assert any(
+        isinstance(error, CleanupError) for error in caught.value.__cause__.exceptions
+    )
+    assert len(acquired_descriptors) == 1
+    assert acquired_descriptors[0] in closed_descriptors
+
+
+def test_read_only_identity_rejects_path_swap_during_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    journal = _journal(tmp_path)
+    journal.close()
+    displaced_path = Path(f"{journal.path}.displaced")
+    replacement_bytes = journal.path.read_bytes()
+    original_read = purchase_module.os.read
+    original_close = purchase_module.os.close
+    read_descriptor: int | None = None
+    closed_descriptors: list[int] = []
+    swapped = False
+
+    def swap_path_during_read(descriptor: int, count: int) -> bytes:
+        nonlocal read_descriptor, swapped
+        payload = original_read(descriptor, count)
+        if not swapped:
+            read_descriptor = descriptor
+            os.replace(journal.path, displaced_path)
+            journal.path.write_bytes(replacement_bytes)
+            swapped = True
+        return payload
+
+    def record_close(descriptor: int) -> None:
+        closed_descriptors.append(descriptor)
+        original_close(descriptor)
+
+    monkeypatch.setattr(purchase_module.os, "read", swap_path_during_read)
+    monkeypatch.setattr(purchase_module.os, "close", record_close)
+
+    with pytest.raises(
+        RuntimeError,
+        match="purchase ledger path changed during read-only audit",
+    ):
+        purchase_module._purchase_snapshot_filesystem_identity(  # pyright: ignore[reportPrivateUsage]
+            (journal.path,)
+        )
+
+    assert read_descriptor is not None
+    assert read_descriptor in closed_descriptors
 
 
 def test_purchase_snapshot_rejects_semantically_corrupt_material_state(

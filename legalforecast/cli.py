@@ -12112,6 +12112,7 @@ def _verify_replacement_projection_replay(
     with CaseDevPurchaseJournal(
         purchase_ledger_path.resolve(),
         policy=replacement_policy,
+        read_only=True,
         controlled_private_root=controlled_private_root,
         initialization_receipt_path=source_paths[
             "replacement_replay_purchase_ledger_initialization_receipt"
@@ -12700,6 +12701,7 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         with CaseDevPurchaseJournal(
             purchase_ledger_path,
             policy=purchase_policy,
+            read_only=True,
             controlled_private_root=cast(Path | None, args.controlled_private_root),
             initialization_receipt_path=cast(
                 Path | None, args.purchase_ledger_initialization_receipt
@@ -23589,6 +23591,7 @@ def _authenticate_ranked_reserve_precursor(
     with CaseDevPurchaseJournal(
         purchase_ledger_path.resolve(),
         policy=policy,
+        read_only=True,
         controlled_private_root=controlled_private_root,
         initialization_receipt_path=purchase_ledger_initialization_receipt_path,
     ) as journal:
@@ -35003,6 +35006,7 @@ def _replay_materialized_docket_decision_authority(
     with CaseDevPurchaseJournal(
         descriptor.ledger_path,
         policy=descriptor.purchase_policy,
+        read_only=True,
         controlled_private_root=descriptor.controlled_private_root,
         initialization_receipt_path=descriptor.initialization_receipt_path,
     ) as journal:
@@ -35070,6 +35074,7 @@ def _consume_materialized_docket_decision_authority(
     with CaseDevPurchaseJournal(
         descriptor.ledger_path,
         policy=descriptor.purchase_policy,
+        read_only=True,
         controlled_private_root=descriptor.controlled_private_root,
         initialization_receipt_path=descriptor.initialization_receipt_path,
     ) as journal:
@@ -35312,6 +35317,7 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             with CaseDevPurchaseJournal(
                 ledger_path,
                 policy=purchase_policy,
+                read_only=True,
                 controlled_private_root=controlled_private_root,
                 initialization_receipt_path=initialization_receipt,
             ) as journal:
@@ -38904,6 +38910,7 @@ def _verify_materialized_downstream_lineage(
             with CaseDevPurchaseJournal(
                 ledger_path.resolve(),
                 policy=purchase_policy,
+                read_only=True,
                 controlled_private_root=controlled_private_root,
                 initialization_receipt_path=initialization_receipt_path,
             ) as journal:

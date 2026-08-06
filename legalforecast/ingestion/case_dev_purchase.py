@@ -934,12 +934,34 @@ def _acquire_existing_purchase_ledger_lock(path: Path) -> int:
         raise CaseDevPurchaseLedgerBusyError(
             f"cycle purchase journal is already locked: {path}"
         ) from exc
+    try:
+        locked_stat = os.fstat(lock_fd)
+        path_stat = lock_path.lstat()
+    except OSError as exc:
+        _release_purchase_ledger_lock(lock_fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger lock path changed while acquiring read-only lock"
+        ) from exc
+    if (
+        not stat.S_ISREG(locked_stat.st_mode)
+        or locked_stat.st_nlink != 1
+        or not stat.S_ISREG(path_stat.st_mode)
+        or path_stat.st_nlink != 1
+        or (locked_stat.st_dev, locked_stat.st_ino)
+        != (path_stat.st_dev, path_stat.st_ino)
+    ):
+        _release_purchase_ledger_lock(lock_fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger lock path changed while acquiring read-only lock"
+        )
     return lock_fd
 
 
 def _release_purchase_ledger_lock(lock_fd: int) -> None:
-    fcntl.flock(lock_fd, fcntl.LOCK_UN)
-    os.close(lock_fd)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    finally:
+        os.close(lock_fd)
 
 
 def _refuse_existing_purchase_ledger(path: Path) -> None:
@@ -1587,7 +1609,7 @@ class CaseDevPurchaseJournal:
         self._read_only = read_only
         self._snapshot_directory: tempfile.TemporaryDirectory[str] | None = None
         self._snapshot_before: (
-            tuple[tuple[str, int, int, int, int, str], ...] | None
+            tuple[tuple[str, int, int, int, int, int, str], ...] | None
         ) = None
         if allow_create:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -1653,13 +1675,27 @@ class CaseDevPurchaseJournal:
             self._connection.execute("PRAGMA synchronous=FULL")
             self._create_schema()
             self._bind_policy(insert=allow_create)
-        except BaseException:
+        except BaseException as primary_error:
+            cleanup_errors: list[BaseException] = []
             connection = getattr(self, "_connection", None)
             if connection is not None:
-                connection.close()
+                try:
+                    connection.close()
+                except BaseException as exc:
+                    cleanup_errors.append(exc)
             if self._snapshot_directory is not None:
-                self._snapshot_directory.cleanup()
-            _release_purchase_ledger_lock(self._lock_fd)
+                try:
+                    self._snapshot_directory.cleanup()
+                except BaseException as exc:
+                    cleanup_errors.append(exc)
+            try:
+                _release_purchase_ledger_lock(self._lock_fd)
+            except BaseException as exc:
+                cleanup_errors.append(exc)
+            if cleanup_errors:
+                raise primary_error from BaseExceptionGroup(
+                    "purchase journal cleanup failed", cleanup_errors
+                )
             raise
 
     def __enter__(self) -> CaseDevPurchaseJournal:
@@ -3633,9 +3669,7 @@ def _copy_purchase_snapshot_namespace(source: Path, destination: Path) -> None:
 
 
 def _copy_regular_single_link_file(source: Path, destination: Path) -> None:
-    source_flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        source_flags |= os.O_NOFOLLOW
+    source_flags = _read_only_snapshot_open_flags()
     source_fd = os.open(source, source_flags)
     destination_fd: int | None = None
     try:
@@ -3675,8 +3709,8 @@ def _copy_regular_single_link_file(source: Path, destination: Path) -> None:
 
 def _purchase_snapshot_filesystem_identity(
     paths: tuple[Path, ...],
-) -> tuple[tuple[str, int, int, int, int, str], ...]:
-    identities: list[tuple[str, int, int, int, int, str]] = []
+) -> tuple[tuple[str, int, int, int, int, int, str], ...]:
+    identities: list[tuple[str, int, int, int, int, int, str]] = []
     for path in paths:
         try:
             metadata = path.lstat()
@@ -3686,17 +3720,67 @@ def _purchase_snapshot_filesystem_identity(
             raise CaseDevPurchaseLedgerError(
                 f"purchase ledger path is not a singly linked regular file: {path}"
             )
+        descriptor = os.open(path, _read_only_snapshot_open_flags())
+        digest = hashlib.sha256()
+        try:
+            opened = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or (opened.st_dev, opened.st_ino) != (metadata.st_dev, metadata.st_ino)
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase ledger path changed during read-only audit: {path}"
+                )
+            while chunk := os.read(descriptor, 1024 * 1024):
+                digest.update(chunk)
+        finally:
+            os.close(descriptor)
+        final = path.lstat()
+        if (
+            not stat.S_ISREG(final.st_mode)
+            or final.st_nlink != 1
+            or (
+                final.st_dev,
+                final.st_ino,
+                final.st_size,
+                final.st_atime_ns,
+                final.st_mtime_ns,
+            )
+            != (
+                opened.st_dev,
+                opened.st_ino,
+                opened.st_size,
+                opened.st_atime_ns,
+                opened.st_mtime_ns,
+            )
+        ):
+            raise CaseDevPurchaseLedgerError(
+                f"purchase ledger path changed during read-only audit: {path}"
+            )
         identities.append(
             (
                 str(path),
-                metadata.st_dev,
-                metadata.st_ino,
-                metadata.st_size,
-                metadata.st_mtime_ns,
-                hashlib.sha256(path.read_bytes()).hexdigest(),
+                final.st_dev,
+                final.st_ino,
+                final.st_size,
+                final.st_atime_ns,
+                final.st_mtime_ns,
+                digest.hexdigest(),
             )
         )
     return tuple(identities)
+
+
+def _read_only_snapshot_open_flags() -> int:
+    if not hasattr(os, "O_NOATIME"):
+        raise CaseDevPurchaseLedgerError(
+            "byte-preserving purchase audit requires O_NOATIME support"
+        )
+    flags = os.O_RDONLY | os.O_NOATIME
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
 
 
 def _verify_purchase_snapshot_schema(connection: sqlite3.Connection) -> None:

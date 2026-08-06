@@ -418,6 +418,7 @@ def build_replacement_purchase_approval_request(
         with CaseDevPurchaseJournal(
             ledger,
             policy=policy,
+            read_only=True,
             controlled_private_root=initial_controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         ) as journal:
@@ -558,6 +559,7 @@ def build_replacement_purchase_approval_request(
         with CaseDevPurchaseJournal(
             ledger,
             policy=policy,
+            read_only=True,
             controlled_private_root=initial_controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         ) as journal:
@@ -670,6 +672,7 @@ def _build_ranked_reserve_purchase_approval_request(
         with CaseDevPurchaseJournal(
             ledger,
             policy=policy,
+            read_only=True,
             controlled_private_root=initial_controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         ) as journal:
@@ -898,6 +901,7 @@ def _build_ranked_reserve_purchase_approval_request(
         with CaseDevPurchaseJournal(
             ledger,
             policy=policy,
+            read_only=True,
             controlled_private_root=initial_controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         ) as journal:
@@ -1276,6 +1280,7 @@ def verify_replacement_purchase_authority(
         with CaseDevPurchaseJournal(
             ledger,
             policy=policy,
+            read_only=True,
             controlled_private_root=initial_controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         ) as journal:
