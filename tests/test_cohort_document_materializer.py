@@ -6,7 +6,7 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
@@ -178,22 +178,35 @@ def test_materializer_writable_path_validation_preserves_cli_error_contract(
 
 
 def test_materializer_artifact_validation_accepts_regular_single_link_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
 ) -> None:
     artifact = tmp_path / "artifact.json"
     artifact.write_text("{}\n", encoding="utf-8")
 
-    def reject_is_file(_path: Path) -> bool:
-        pytest.fail("artifact validation must reuse lstat metadata")
+    class ArtifactPathProbe:
+        def __init__(self, path: Path) -> None:
+            self.path = path
+            self.lstat_calls = 0
 
-    def reject_stat(_path: Path, *, follow_symlinks: bool = True) -> os.stat_result:
-        del follow_symlinks
-        pytest.fail("artifact validation must reuse lstat metadata")
+        def absolute(self) -> Path:
+            return self.path.absolute()
 
-    monkeypatch.setattr(Path, "is_file", reject_is_file)
-    monkeypatch.setattr(Path, "stat", reject_stat)
+        def lstat(self) -> os.stat_result:
+            self.lstat_calls += 1
+            return self.path.lstat()
 
-    require_materializer_artifact(artifact, label="test artifact")
+        def is_file(self) -> bool:
+            pytest.fail("artifact validation must reuse lstat metadata")
+
+        def stat(self, *, follow_symlinks: bool = True) -> os.stat_result:
+            del follow_symlinks
+            pytest.fail("artifact validation must reuse lstat metadata")
+
+    probe = ArtifactPathProbe(artifact)
+
+    require_materializer_artifact(cast(Path, probe), label="test artifact")
+
+    assert probe.lstat_calls == 1
 
 
 def test_materializer_artifact_validation_rejects_symlink_component(
