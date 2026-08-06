@@ -936,6 +936,15 @@ _ACQUISITION_STAGE_LOG_SCHEMA_VERSION = "legalforecast.acquisition_stage_log.v1"
 _DISCLOSURE_PROVENANCE_STAGE_LOG_SCHEMA_VERSION = (
     "legalforecast.disclosure_provenance_stage_log.v1"
 )
+_APPROVED_V4_LEGACY_PROJECTION_SHA256 = (
+    "sha256:3d5e9702d4237785326457e21279181e21d3d40716e557c51d835287d1c99269"
+)
+_APPROVED_V4_LEGACY_PROJECTION_RUN_CARD_SHA256 = (
+    "sha256:7a23c78c37c1da3f5f1d6f3e7e85020fca93ac9f3b803b373d8bc79cdaab09eb"
+)
+_APPROVED_V4_LEGACY_CLEARANCE_RUN_CARD_SHA256 = (
+    "sha256:3394979bce182b2f7be30f18c3f5a2409e605a6881677b8ccce06997f1d25a15"
+)
 
 
 class CommandError(RuntimeError):
@@ -36613,6 +36622,23 @@ def _require_zero_cost_successor_commitment_keysets(
         raise CommandError("zero-cost successor commitment keyset differs")
 
 
+def _approved_v4_legacy_quarantine_is_pinned(
+    *,
+    projection_summary_bytes: bytes,
+    projection_run_card_bytes: bytes,
+    clearance_run_card_bytes: bytes,
+) -> bool:
+    """Recognize only the frozen pre-explicit-mode v4 evidence chain."""
+
+    return (
+        _bytes_sha256(projection_summary_bytes) == _APPROVED_V4_LEGACY_PROJECTION_SHA256
+        and _bytes_sha256(projection_run_card_bytes)
+        == _APPROVED_V4_LEGACY_PROJECTION_RUN_CARD_SHA256
+        and _bytes_sha256(clearance_run_card_bytes)
+        == _APPROVED_V4_LEGACY_CLEARANCE_RUN_CARD_SHA256
+    )
+
+
 def _verify_materializer_projection(
     *,
     target_root: Path,
@@ -36760,6 +36786,14 @@ def _verify_materializer_projection(
             raise CommandError(
                 "target projection replacement selection commitment differs"
             )
+    legacy_quarantine_is_pinned = _approved_v4_legacy_quarantine_is_pinned(
+        projection_summary_bytes=_read_singly_linked_regular_input(
+            paths["target-cohort-projection.json"],
+            label="target projection summary",
+        ),
+        projection_run_card_bytes=run_card_bytes,
+        clearance_run_card_bytes=source_bytes["clearance_run_card"],
+    )
     clearance_snapshot = _capture_clearance_artifact_snapshot(
         run_card=clearance_run_card,
         run_card_path=source_paths["clearance_run_card"],
@@ -36774,6 +36808,10 @@ def _verify_materializer_projection(
         clearance_path=source_paths["disclosure_clearance"],
         run_card_path=source_paths["clearance_run_card"],
         captured_artifact_bytes=clearance_snapshot,
+        # Pre-explicit-mode cards remain readable only through a completed outer
+        # projection that matches the frozen approved-v4 summary and run-card pins.
+        # New producers and standalone verification keep the default false.
+        allow_legacy_implicit_quarantine=legacy_quarantine_is_pinned,
     )
     _validate_projection_source_commitments(
         preparation_summary=preparation_summary,
@@ -38207,6 +38245,7 @@ def _verify_materializer_clearance_lineage(
     clearance_path: Path,
     run_card_path: Path,
     captured_artifact_bytes: Mapping[str, bytes] | None = None,
+    allow_legacy_implicit_quarantine: bool = False,
 ) -> dict[str, object]:
     _require_materializer_artifact(clearance_path, label="purchased clearance")
     _require_materializer_artifact(run_card_path, label="purchased clearance run card")
@@ -38346,6 +38385,7 @@ def _verify_materializer_clearance_lineage(
             expected_download_manifest_path=manifest_path,
             expected_restriction_path=restriction_path,
             captured_artifact_bytes=verified_snapshot,
+            allow_legacy_implicit_quarantine=allow_legacy_implicit_quarantine,
         )
         clearance_records = _projection_jsonl_records(
             verified_snapshot[os.path.abspath(clearance_path)],
@@ -45601,6 +45641,7 @@ def _verify_authenticated_clearance_run_card(
     expected_download_manifest_path: Path | None = None,
     expected_restriction_path: Path | None = None,
     captured_artifact_bytes: Mapping[str, bytes] | None = None,
+    allow_legacy_implicit_quarantine: bool = False,
 ) -> tuple[Path, ...]:
     """Independently replay signed clearance and return its immutable inputs."""
 
@@ -45637,6 +45678,7 @@ def _verify_authenticated_clearance_run_card(
             expected_download_manifest_path=expected_download_manifest_path,
             expected_restriction_path=expected_restriction_path,
             captured_artifact_bytes=verified_snapshot,
+            allow_legacy_implicit_quarantine=allow_legacy_implicit_quarantine,
         )
     authority = run_card.get("clearance_authority")
     authority_kind = (
@@ -45891,6 +45933,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
     expected_download_manifest_path: Path | None,
     expected_restriction_path: Path | None,
     captured_artifact_bytes: Mapping[str, bytes] | None = None,
+    allow_legacy_implicit_quarantine: bool = False,
 ) -> tuple[Path, ...]:
     """Replay a v3 plan whose exception rows are all quarantined."""
 
@@ -45931,6 +45974,18 @@ def _verify_provider_free_provenance_quarantine_run_card(
     explicit_quarantine_all_mode = (
         run_card.get("quarantine_all_exceptions_without_review") is True
     )
+    raw_policy = run_card.get("disposition_policy")
+    legacy_implicit_quarantine_mode = (
+        allow_legacy_implicit_quarantine
+        and _bytes_sha256(canonical_json_bytes(run_card))
+        == _APPROVED_V4_LEGACY_CLEARANCE_RUN_CARD_SHA256
+        and not model_schema
+        and not no_model_review_mode
+        and not explicit_quarantine_all_mode
+        and isinstance(raw_policy, Mapping)
+        and cast(Mapping[str, object], raw_policy).get("kind")
+        == "v3_auto_clear_else_quarantine"
+    )
     if recovered_authority is not None:
         expected_fields.add("recovered_public_authority")
     if model_schema:
@@ -45959,7 +46014,15 @@ def _verify_provider_free_provenance_quarantine_run_card(
         or run_card.get("paid_activity_requested") is not False
         or run_card.get("paid_activity_executed") is not False
         or (model_schema and run_card.get("resume") is not True)
-        or sum((model_schema, no_model_review_mode, explicit_quarantine_all_mode)) != 1
+        or sum(
+            (
+                model_schema,
+                no_model_review_mode,
+                explicit_quarantine_all_mode,
+                legacy_implicit_quarantine_mode,
+            )
+        )
+        != 1
         or (no_model_review_mode and model_schema)
         or (explicit_quarantine_all_mode and (model_schema or no_model_review_mode))
         or (
@@ -45970,7 +46033,6 @@ def _verify_provider_free_provenance_quarantine_run_card(
         raise CommandError("invalid provenance clearance run card")
     raw_sources = run_card.get("source_commitments")
     raw_outputs = run_card.get("output_commitments")
-    raw_policy = run_card.get("disposition_policy")
     if (
         not isinstance(raw_sources, Mapping)
         or not isinstance(raw_outputs, Mapping)

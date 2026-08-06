@@ -866,6 +866,66 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         )
 
 
+def test_legacy_quarantine_compatibility_rejects_reassembled_projection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tests.test_target_cohort_projection import _completed_two_case_projection
+
+    _install_document_scanner(monkeypatch)
+    completed = _completed_two_case_projection(
+        tmp_path / "completed-projection",
+        provenance_first=True,
+        quarantine_all=True,
+        monkeypatch=monkeypatch,
+    )
+    projection_root = completed["projection"]
+    cli_module.verify_completed_target_cohort_projection_for_purchase_approval(
+        projection_root
+    )
+
+    projection_run_card_path = projection_root / "run-cards/project-target-cohort.json"
+    projection_run_card = json.loads(projection_run_card_path.read_bytes())
+    clearance_run_card_path = Path(projection_run_card["input_paths"][4])
+    clearance_run_card = json.loads(clearance_run_card_path.read_bytes())
+    assert clearance_run_card["disposition_policy"]["kind"] == (
+        "v3_auto_clear_else_quarantine"
+    )
+    quarantine_all = clearance_run_card.pop("quarantine_all_exceptions_without_review")
+    assert quarantine_all is True
+    clearance_run_card_path.write_bytes(
+        cli_module.canonical_json_bytes(clearance_run_card)
+    )
+    clearance_digest = cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+        clearance_run_card_path.read_bytes()
+    )
+
+    projection_summary_path = projection_root / "target-cohort-projection.json"
+    projection_summary = json.loads(projection_summary_path.read_bytes())
+    projection_summary["clearance_run_card_sha256"] = clearance_digest
+    projection_summary["input_commitments"][str(clearance_run_card_path.resolve())] = (
+        clearance_digest
+    )
+    projection_summary_path.write_bytes(
+        cli_module._projection_json_bytes(projection_summary)  # pyright: ignore[reportPrivateUsage]
+    )
+    projection_run_card["output_commitments"][str(projection_summary_path)] = (
+        cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+            projection_summary_path.read_bytes()
+        )
+    )
+    projection_run_card_path.write_bytes(
+        cli_module._projection_json_bytes(  # pyright: ignore[reportPrivateUsage]
+            projection_run_card
+        )
+    )
+
+    with pytest.raises(cli_module.CommandError, match="invalid provenance clearance"):
+        cli_module.verify_completed_target_cohort_projection_for_purchase_approval(
+            projection_root
+        )
+
+
 def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

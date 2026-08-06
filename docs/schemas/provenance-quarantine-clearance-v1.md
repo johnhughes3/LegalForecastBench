@@ -4,6 +4,7 @@
 The plan-proven empty-set mode requires `--plan-run-card` together with `--require-no-model-review-eligible-exceptions`; it authenticates the completed planner record and rejects the run if any exact exception remains eligible for model review.
 The compatibility mode requires `--quarantine-all-exceptions-without-review`; it preserves the older behavior of quarantining every exception, but it is not the supported target-100 recovery continuation.
 Omitting model authority, both empty-set proof flags, and the explicit compatibility flag fails closed.
+The sole reader-side exception is the pre-explicit-mode card committed by the frozen approved-v4 projection: replay requires the pinned projection summary, projection run card, and clearance run card digests and independently reproduces every quarantine disposition; a newly reassembled completed projection, standalone verification, and every new producer still reject the implicit shape.
 
 Both provider-free modes recompute the exact routing plan and exception worksheet from immutable source artifacts and document bytes, clear only `auto_clear` rows, and quarantine every `exception_review` row that they accept.
 They accept no disclosure reviewer, model decision, provider response, or disclosure-review private-store input and never contact a provider.

@@ -1200,6 +1200,7 @@ def _write_provenance_clearance(
     cohort_policy_path: Path,
     clearance_root: Path,
     monkeypatch: pytest.MonkeyPatch,
+    quarantine_all: bool = False,
 ) -> None:
     plan_root = root / "plan"
     private_root = root.parent.parent / f"{root.parent.name}-{root.name}-private"
@@ -1222,11 +1223,43 @@ def _write_provenance_clearance(
                 str(private_root),
                 "--output-root",
                 str(plan_root),
+                *(["--schema-version", "v3"] if quarantine_all else []),
                 "--execute",
             ]
         )
         == 0
     )
+    if quarantine_all:
+        assert (
+            main(
+                [
+                    "acquisition",
+                    "finalize-provenance-quarantine",
+                    "--review-requests",
+                    str(review_requests_path),
+                    "--download-manifest",
+                    str(manifest_path),
+                    "--case-relevance",
+                    str(case_relevance_path),
+                    "--restriction-evidence",
+                    str(restriction_evidence_path),
+                    "--document-root",
+                    str(document_root),
+                    "--routing-plan",
+                    str(plan_root / "disclosure-provenance-plan.json"),
+                    "--exception-worksheet",
+                    str(plan_root / "disclosure-exception-worksheet.json"),
+                    "--cohort-policy",
+                    str(cohort_policy_path),
+                    "--quarantine-all-exceptions-without-review",
+                    "--output-root",
+                    str(clearance_root),
+                    "--execute",
+                ]
+            )
+            == 0
+        )
+        return
     worksheet_path = plan_root / "disclosure-exception-worksheet.json"
     worksheet = json.loads(worksheet_path.read_text())
     digests = iter(str(row["sha256"]) for row in worksheet["documents"])
@@ -1306,6 +1339,7 @@ def _completed_two_case_projection(
     tmp_path: Path,
     *,
     provenance_first: bool = False,
+    quarantine_all: bool = False,
     monkeypatch: pytest.MonkeyPatch | None = None,
 ) -> dict[str, Path]:
     """Build a real provider-free projection with authenticated clearance."""
@@ -1342,6 +1376,44 @@ def _completed_two_case_projection(
     )
     free_manifest = preparation / "03c-merged-downloads/document-downloads-merged.jsonl"
     free_restrictions = preparation / "06-clearance-inputs/restriction-evidence.jsonl"
+    if quarantine_all:
+        manifest_records = _read_jsonl(free_manifest)
+        for record in manifest_records:
+            filename = str(record["source_url"]).rsplit("/", maxsplit=1)[-1]
+            record["source_url"] = (
+                f"https://storage.courtlistener.com/recap/case/{filename}"
+            )
+        _write_jsonl(free_manifest, manifest_records)
+
+        relevance_path = preparation / "03-gap-bridge/case-relevance.jsonl"
+        relevance_records = _read_jsonl(relevance_path)
+        manifest_urls = {
+            str(record["source_document_id"]): str(record["source_url"])
+            for record in manifest_records
+        }
+        for candidate in relevance_records:
+            for document in candidate["documents"]:
+                document_id = str(document["source_document_id"])
+                if document_id in manifest_urls:
+                    document["source_url_or_reference"] = manifest_urls[document_id]
+        _write_jsonl(relevance_path, relevance_records)
+
+        preparation_summary_path = (
+            preparation / "target-cohort-preparation-summary.json"
+        )
+        preparation_summary = json.loads(preparation_summary_path.read_bytes())
+        relevance_digest = _path_digest(relevance_path)
+        manifest_digest = _path_digest(free_manifest)
+        preparation_summary["stage_commitments"]["03-gap-bridge"][
+            "case-relevance.jsonl"
+        ] = relevance_digest
+        preparation_summary["stage_commitments"]["03c-merged-downloads"][
+            "document-downloads-merged.jsonl"
+        ] = manifest_digest
+        preparation_summary_path.write_text(
+            json.dumps(preparation_summary, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     free_review = _write_authenticated_reviews(
         tmp_path / "free-review",
         manifest_path=free_manifest,
@@ -1365,8 +1437,10 @@ def _completed_two_case_projection(
             cohort_policy_path=free_review.cohort_policy,
             clearance_root=free_clearance_root,
             monkeypatch=monkeypatch,
+            quarantine_all=quarantine_all,
         )
     else:
+        assert not quarantine_all
         assert (
             main(
                 [
@@ -1417,7 +1491,15 @@ def _completed_two_case_projection(
                 "--disclosure-clearance",
                 str(free_clearance_root / "disclosure-clearance.jsonl"),
                 "--clearance-run-card",
-                str(free_clearance_root / "run-cards/clear-disclosures.json"),
+                str(
+                    free_clearance_root
+                    / "run-cards"
+                    / (
+                        "finalize-provenance-quarantine.json"
+                        if quarantine_all
+                        else "clear-disclosures.json"
+                    )
+                ),
                 "--restriction-evidence",
                 str(free_restrictions),
                 "--preparation-summary",
@@ -1438,6 +1520,36 @@ def _completed_two_case_projection(
         "preparation": preparation,
         "snapshot": snapshot,
     }
+
+
+def test_new_completed_projection_cannot_enable_legacy_quarantine_compatibility(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    completed = _completed_two_case_projection(
+        tmp_path / "completed-projection",
+        provenance_first=True,
+        monkeypatch=monkeypatch,
+    )
+    original = cli_module._verify_materializer_clearance_lineage  # pyright: ignore[reportPrivateUsage]
+    observed_compatibility: list[bool] = []
+
+    def capture_compatibility(**kwargs: Any) -> dict[str, object]:
+        observed_compatibility.append(
+            bool(kwargs.get("allow_legacy_implicit_quarantine", False))
+        )
+        return original(**kwargs)
+
+    monkeypatch.setattr(
+        cli_module,
+        "_verify_materializer_clearance_lineage",
+        capture_compatibility,
+    )
+
+    cli_module.verify_completed_target_cohort_projection_for_purchase_approval(
+        completed["projection"]
+    )
+
+    assert observed_compatibility == [False]
 
 
 def _materialized_two_case_cohort(
