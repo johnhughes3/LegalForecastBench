@@ -12,7 +12,7 @@ The paired flags `--llm-unitization-run-card` / `--llm-unitize-run-card` and `--
   - [Exact post-clearance purchase approval](#exact-post-clearance-purchase-approval)
   - [Bounded Firecrawl terminal-target recovery](#bounded-firecrawl-terminal-target-recovery-compatibility-fallback-only)
   - [Provider-free exact-cohort downstream rehearsal](#provider-free-exact-cohort-downstream-rehearsal)
-  - [Protected paid-labeling authority](#protected-paid-labeling-authority)
+  - [Protected distributed paid-labeling authority](#protected-distributed-paid-labeling-authority)
 - [Before dispatch](#before-dispatch)
 - [Dispatch sequence](#dispatch-sequence)
 - [Aggregation](#aggregation)
@@ -640,19 +640,103 @@ uv run legalforecast acquisition finalize-rehearsal-corpus \
 The finalizer re-authenticates every exact-cohort output commitment, candidate and unit coverage, zero-review counts, zero billing, and packet exclusion of decision material before emitting `legalforecast.fixture_rehearsal_corpus.v1` with `official_eligible=false`.
 This success is test evidence only: production `build-decision-texts`, readiness, `finalize-corpus`, freeze, evaluation, and dispatch continue to reject every rehearsal artifact.
 
-The shared DynamoDB spend table is owned by the table-only `infra/provider-authority` module.
-Stage A/B requires this table, but does not require evaluation roles, S3 result infrastructure, `run-benchmark`, or an evaluation workflow.
+The optional distributed-authority DynamoDB spend table is owned by the table-only `infra/provider-authority` module.
+The canonical Cycle 1 replacement-corpus continuation instead uses the checked-in legacy caps, one canonical private SQLite provider journal, and explicit `--local-provider-journal-only`, as described below; that local Stage A/B path does not require this table, protected labeling environments, evaluation roles, S3 result infrastructure, `run-benchmark`, or an evaluation workflow.
+Use the table only when selecting the separate distributed-authority path.
 If the reviewed table already exists, import it into protected Terraform state after verifying the exact key schema and safeguards; otherwise review a table-only plan and obtain a separately authorized Terraform apply.
 Only the ARN-derived resource-identity SHA-256 is frozen into `provider-cycle-caps`; the table ARN and AWS account ID remain protected configuration.
 The caps artifact remains mandatory because its cycle-bound per-provider reservation caps govern the shared journal, but launch does not require documentary or admin-API evidence of an external account spending limit.
 Legacy `external_spend_limit_usd`, `external_limit_scope`, `external_limit_source`, and `verified_at` fields are accepted only as optional annotations: they neither constrain the reservation cap nor grant provider spend authority, and the canonical Cycle 1 artifact omits them.
 The digest is a public equality commitment, not a confidentiality boundary: an observer who can enumerate likely table ARNs can test candidate account IDs against it.
 The currently committed `model_registries/cycle-1-provider-caps-2026-07-12.json` predates this contract and lacks both provider account aliases and top-level `spend_authority`.
-Do not treat paid labeling as runnable merely because this code lands: a deliberate artifact amendment must bind the reviewed public aliases and exact applied table-ARN digest, and the protected environments must match it before any provider call.
+Do not treat the distributed-authority path as runnable merely because this code lands: a deliberate artifact amendment must bind the reviewed public aliases and exact applied table-ARN digest, and the protected environments must match it before any distributed-authority provider call.
 
-### Protected paid-labeling authority
+### Reviewed provider-authority infrastructure path
 
-Official paid unitization, structural review, and Stage B judge calls run only through `.github/workflows/official-paid-labeling.yaml`.
+Use `.github/workflows/official-provider-authority-infra.yaml` for both `infra/provider-authority` and `infra/official-labeling`.
+This is a nonblocking distributed-authority and later-evaluation path; it is not a prerequisite for the canonical Cycle 1 local-journal acquisition stages.
+It has separate `plan` and `apply` operations, accepts only an exact current `main` release, uses an externally bootstrapped OIDC operator role, and keeps Terraform state in an externally bootstrapped S3 backend encrypted by the configured KMS key.
+The plan operation rejects destructive actions and any managed resource outside the selected module's closed address allowlist, uploads only an age-encrypted saved plan plus a public-safe action-and-digest receipt, and clears temporary AWS credentials before upload.
+The apply operation requires the exact successful plan run ID and attempt, canonical artifact name, GitHub artifact digest, plaintext plan digest, module, and release.
+It rechecks hash commitments to the operator role, remote backend coordinates, and Terraform inputs before decrypting and applying that exact plan.
+
+This workflow deliberately cannot bootstrap its own authority.
+Before its first plan, a separately authorized operator must establish and protect `legalforecastbench-official-provider-authority-infra`, its short-lived OIDC role, encrypted S3 state bucket and KMS key, and its age plan-encryption identity.
+The environment must admit only `main` and require `johnhughes3`; self-review prevention remains disabled because that sole reviewer may also dispatch the operation.
+The operator role must trust only `repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-provider-authority-infra` with audience `sts.amazonaws.com`.
+That environment contains the one secret `LFB_INFRA_PLAN_AGE_IDENTITY` and only these variables:
+
+- `LFB_AWS_REGION`
+- `LFB_INFRA_OPERATOR_ROLE_ARN`
+- `LFB_INFRA_PLAN_AGE_RECIPIENT`
+- `LFB_TERRAFORM_STATE_BUCKET`
+- `LFB_TERRAFORM_STATE_KEY_PREFIX`
+- `LFB_TERRAFORM_STATE_KMS_KEY_ID`
+- `LFB_GITHUB_OIDC_PROVIDER_ARN`
+- `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`
+- `LFB_PROVIDER_AUTHORITY_TABLE_ARN`
+
+It contains no provider key, baton identity, AWS access key, evaluation role, packet or result bucket, freeze authority, or dispatch credential.
+The exact provider-authority table must already be represented in that remote state through a reviewed import if it exists.
+Secure-gate must separately allow only the required infrastructure-environment variable and secret names and the exact runtime environment names in `infra/official-labeling/github-environments.json`.
+Do not add AWS access keys, provider keys, environment-creation API calls, state-backend creation, IAM self-bootstrap, evaluation, freeze, or workflow-dispatch authority to this path.
+
+Dispatch a plan from the exact current main release:
+
+```bash
+release_sha="$(git rev-parse origin/main)"
+gh workflow run official-provider-authority-infra.yaml \
+  --ref main \
+  -f operation=plan \
+  -f module=provider-authority \
+  -f release_sha="$release_sha"
+```
+
+Download the exact encrypted artifact to a trusted human-controlled machine and review the saved plan itself, not only the public receipt.
+Use an independently retained age identity corresponding to `LFB_INFRA_PLAN_AGE_RECIPIENT`; do not export the repository environment secret.
+The workflow and review use Terraform 1.13.5, age 1.3.1, and the exact AWS provider selection and checksums committed in each module's `.terraform.lock.hcl`.
+For example, after recording the successful plan run ID, attempt, artifact name, GitHub artifact digest, and receipt plan digest:
+
+```bash
+umask 077
+review_dir="$(mktemp -d)"
+git worktree add --detach "$review_dir/repository" "$release_sha"
+test "$(git -C "$review_dir/repository" rev-parse HEAD)" = "$release_sha"
+test "$(terraform version -json | jq -r .terraform_version)" = "1.13.5"
+test "$(age --version)" = "v1.3.1"
+gh run download "$plan_run_id" \
+  --name "$plan_artifact_name" \
+  --dir "$review_dir"
+test "$(
+  gh api --paginate \
+    "/repos/johnhughes3/LegalForecastBench/actions/runs/$plan_run_id/artifacts?per_page=100" \
+    --jq ".artifacts[] | select(.name == \"$plan_artifact_name\") | .digest"
+)" = "$plan_artifact_digest"
+age --decrypt \
+  --identity /protected/path/to/independently-retained-age-identity.txt \
+  --output "$review_dir/provider-authority.tfplan" \
+  "$review_dir/provider-authority.tfplan.age"
+printf '%s  %s\n' "$plan_file_sha256" "$review_dir/provider-authority.tfplan" \
+  | sha256sum --check --strict
+terraform -chdir="$review_dir/repository/infra/provider-authority" \
+  init -backend=false -input=false >/dev/null
+terraform -chdir="$review_dir/repository/infra/provider-authority" show -no-color \
+  "$review_dir/provider-authority.tfplan" \
+  > "$review_dir/provider-authority-plan.txt"
+```
+
+Use `infra/official-labeling` as `-chdir` when reviewing that module.
+Inspect the protected text output for every action, resource, account, and value; do not publish the decrypted plan, text rendering, or age identity.
+After review, remove the registered checkout with `git worktree remove "$review_dir/repository"` and then remove the remaining protected temporary files.
+The public receipt remains useful for confirming the exact release, module, plan SHA-256, closed resource-action summary, and operator/backend/input identity commitments, but it is not a substitute for this review.
+A plan dispatch does not authorize apply.
+Only after the exact plan receives separate owner approval may an operator dispatch `operation=apply` with all five plan-provenance inputs.
+Repeat the sequence for `module=official-labeling`; never reuse a plan across modules, releases, attempts, backends, operator roles, or Terraform inputs.
+
+### Protected distributed paid-labeling authority
+
+When the distributed-authority mode is selected, paid unitization, structural review, and Stage B judge calls run only through `.github/workflows/official-paid-labeling.yaml`.
+The canonical Cycle 1 replacement-corpus continuation remains the separate local-journal mode documented below and does not use this workflow or its GitHub environments.
 The workflow assumes the distinct `${name_prefix}-authority` role defined by `infra/official-labeling`; it never reuses the evaluation cell role or packet-read role.
 That role's base policy grants only `dynamodb:ConditionCheckItem`, `DescribeTable`, `DescribeTimeToLive`, `GetItem`, `PutItem`, and `UpdateItem` against the one existing shared authority table.
 `TransactWriteItems` authorizes its constituent item operations rather than a standalone IAM action; the durable poison transaction specifically requires `ConditionCheckItem` and `UpdateItem`.
@@ -666,6 +750,11 @@ Provision these exact protected environments:
 - `legalforecastbench-official-labeling-google-review`
 - `legalforecastbench-official-labeling-openai-label`
 - `legalforecastbench-official-labeling-google-label`
+
+The canonical machine-readable setup contract is `infra/official-labeling/github-environments.json`.
+It defines exactly these six environments, their main-only protection and required human reviewer, exact OIDC subjects, and closed secret and variable inventories.
+Because `johnhughes3` is the sole reviewer and may also dispatch an official run, self-review prevention remains disabled; enabling it without a second authorized reviewer would deadlock every deployment.
+Environment creation, protection, variables, and secrets are separately authorized GitHub administration actions; the manifest is declarative evidence and does not perform those actions.
 
 Each environment must require a human reviewer and use a deployment branch policy that admits only `main`, with no tag or side-branch deployment.
 These rules are acceptance prerequisites: the OIDC trust policy binds the environment subject, but an environment-form subject does not independently bind the Git ref.
@@ -752,7 +841,8 @@ Record the following evidence before treating the path as live:
 4. Confirmation that the identity and credential-clear steps ran, plaintext state was destroyed, and the uploaded artifact contains only ciphertext plus its public-safe receipt.
 
 Provisioning and the live provider-free permission smoke are external checkpoints.
-Until both are recorded, keep paid labeling blocked; committed code and static tests alone do not satisfy that operational evidence.
+Until both are recorded, keep only the distributed protected-workflow path blocked; committed code and static tests alone do not satisfy that operational evidence.
+This checkpoint does not block the canonical Cycle 1 local-journal Stage A or Stage B stages.
 Run the smoke through `.github/workflows/official-paid-labeling-authority-smoke.yaml` in `legalforecastbench-official-labeling-authority-smoke`.
 Set `LFB_OUTSIDE_AUTHORITY_TABLE` to a real, distinct disposable canary table so an `AccessDenied` result proves the exact-table resource boundary rather than merely encountering a missing table.
 The smoke first requires DynamoDB TTL to be enabled on the exact `expires_at` attribute, then writes only TTL-bounded sentinel rows, makes no provider call, suppresses denial diagnostics that can contain AWS account details, and uploads only the release SHA, public table-identity hash, and boolean allow/deny results.
