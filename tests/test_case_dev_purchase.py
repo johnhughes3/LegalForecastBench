@@ -100,6 +100,74 @@ def test_purchase_snapshot_is_strictly_read_only(tmp_path: Path) -> None:
     assert len(snapshot.purchase_state_sha256) == 64
 
 
+def test_purchase_snapshot_replays_wal_without_changing_sqlite_files(
+    tmp_path: Path,
+) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    anchor = sqlite3.connect(journal.path, isolation_level=None)
+    try:
+        anchor.execute("PRAGMA wal_autocheckpoint=0")
+        anchor.execute("BEGIN")
+        anchor.execute("SELECT COUNT(*) FROM purchase_operations").fetchone()
+        journal._connection.execute(  # pyright: ignore[reportPrivateUsage]
+            "PRAGMA wal_autocheckpoint=0"
+        )
+        journal.plan(_budget_plan("case-1", ("doc-1",), dry_run=False))
+        journal.submit("doc-1")
+        journal.fail_before_dispatch("doc-1", "terminal fixture failure")
+        expected_digest = journal.purchase_state_sha256()
+        journal.close()
+
+        reserved_paths = (
+            journal.path,
+            Path(f"{journal.path}.lock"),
+            Path(f"{journal.path}-wal"),
+            Path(f"{journal.path}-shm"),
+            Path(f"{journal.path}-journal"),
+        )
+        before = {
+            path: (path.read_bytes(), path.stat().st_mtime_ns)
+            for path in reserved_paths
+            if path.exists()
+        }
+        assert Path(f"{journal.path}-wal") in before
+        assert Path(f"{journal.path}-shm") in before
+        with sqlite3.connect(
+            f"file:{journal.path}?mode=ro&immutable=1", uri=True
+        ) as main_file_only:
+            with pytest.raises(sqlite3.OperationalError, match="no such table"):
+                main_file_only.execute(
+                    "SELECT COUNT(*) FROM purchase_operations"
+                ).fetchone()
+
+        with CaseDevPurchaseJournal(
+            journal.path, policy=policy, read_only=True
+        ) as read_only_journal:
+            assert read_only_journal.purchase_state_sha256() == expected_digest
+            assert tuple(
+                row["status"] for row in read_only_journal.operation_records()
+            ) == ("failed",)
+            with pytest.raises(sqlite3.OperationalError, match="readonly"):
+                read_only_journal.plan(
+                    _budget_plan("case-2", ("doc-2",), dry_run=False)
+                )
+
+        snapshot = read_case_dev_purchase_snapshot(journal.path, policy=policy)
+
+        after = {
+            path: (path.read_bytes(), path.stat().st_mtime_ns)
+            for path in reserved_paths
+            if path.exists()
+        }
+        assert before == after
+        assert set(before) == set(after)
+        assert snapshot.purchase_state_sha256 == expected_digest
+        assert tuple(row["status"] for row in snapshot.operations) == ("failed",)
+    finally:
+        anchor.close()
+
+
 def test_purchase_snapshot_closes_lock_when_descriptor_inspection_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
