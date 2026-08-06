@@ -25639,14 +25639,16 @@ def _prepare_replacement_recovery_consolidation(
                     path, label="replacement recovery tranche input"
                 ),
             )
+        clearance_index: dict[tuple[str, str], Mapping[str, Any]] | None = None
         for record in cast(Sequence[Mapping[str, Any]], recovery["manifest_records"]):
             key = _materializer_record_key(record)
             if key not in required_purchased_keys:
                 continue
-            clearance_index = _materializer_record_index(
-                cast(Sequence[Mapping[str, Any]], clearance["clearance_records"]),
-                label="replacement tranche clearance",
-            )
+            if clearance_index is None:
+                clearance_index = _materializer_record_index(
+                    cast(Sequence[Mapping[str, Any]], clearance["clearance_records"]),
+                    label="replacement tranche clearance",
+                )
             clearance_record = clearance_index.get(key)
             if clearance_record is None or clearance_record.get("status") != "cleared":
                 raise ValueError(
