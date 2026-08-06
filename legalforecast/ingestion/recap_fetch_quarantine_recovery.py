@@ -51,6 +51,7 @@ TERMINAL_UNAVAILABLE_SCHEMA_VERSION = (
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
+_CANONICAL_QUEUE_ID = re.compile(r"[1-9][0-9]*")
 _RETRYABLE = frozenset({429, 500, 502, 503, 504})
 _TERMINAL_QUEUE_STATUSES = frozenset({3, 6, 7})
 _FRESH_PUBLIC_EVIDENCE = (
@@ -248,7 +249,10 @@ def recover_recap_fetch_quarantine_documents(
 
 
 def write_recap_fetch_quarantine_manifest(
-    path: Path, records: Sequence[Mapping[str, Any]]
+    path: Path,
+    records: Sequence[Mapping[str, Any]],
+    *,
+    label: str = "quarantine manifest",
 ) -> None:
     """Atomically publish an immutable canonical JSONL manifest."""
 
@@ -262,7 +266,7 @@ def write_recap_fetch_quarantine_manifest(
     if path.exists():
         if path.read_bytes() != payload:
             raise RecapFetchQuarantineRecoveryError(
-                "existing quarantine manifest conflicts with recovered lineage"
+                f"existing {label} conflicts with recovered lineage"
             )
         return
     _atomic_link_new(path, payload)
@@ -333,6 +337,7 @@ def validate_terminal_unavailable_records(
             or str(parsed_operation_key) != operation_key
             or record.get("ledger_status") != "failed"
             or record.get("material_state") != PurchaseMaterialState.NOT_RECOVERED.value
+            or type(queue_status) is not int
             or queue_status not in _TERMINAL_QUEUE_STATUSES
             or record.get("terminal_reason") != f"recap_fetch_status_{queue_status}"
             or not isinstance(record.get("reservation_usd"), str)
@@ -408,18 +413,30 @@ def verify_terminal_unavailable_ledger_bindings(
             )
         evidence = dict(operation)
         evidence.pop("source_document_id", None)
+        selection_document_sha256 = operation.get("attempt_document_sha256")
+        if not isinstance(selection_document_sha256, str):
+            raise RecapFetchQuarantineRecoveryError(
+                "terminal purchase operation lacks attempt document authority"
+            )
         expected_reservation = evidence.get("reservation_usd")
         if not isinstance(expected_reservation, str):
             raise RecapFetchQuarantineRecoveryError(
                 "terminal purchase operation lacks canonical reservation"
             )
         try:
+            _validate_operation_authority(
+                evidence,
+                candidate_id=key[0],
+                document_id=key[1],
+                attempt_policy_sha256=attempt_policy_sha256,
+                selection_document_sha256=selection_document_sha256,
+            )
             expected = _terminal_unavailable_record(
                 evidence,
                 candidate_id=key[0],
                 document_id=key[1],
                 attempt_policy_sha256=attempt_policy_sha256,
-                selection_document_sha256=cast(str, record["attempt_document_sha256"]),
+                selection_document_sha256=selection_document_sha256,
                 expected_reservation=expected_reservation,
                 expected_cycle_id=expected_cycle_id,
                 expected_purchase_policy_sha256=(expected_purchase_policy_sha256),
@@ -784,8 +801,7 @@ def _terminal_unavailable_record(
         or response.get("source_provider") != COURTLISTENER_RECAP_FETCH_PROVIDER
         or response.get("reservation_usd") != expected_reservation
         or not isinstance(queue_id, str)
-        or not queue_id.isdigit()
-        or queue_id.startswith("0")
+        or _CANONICAL_QUEUE_ID.fullmatch(queue_id) is None
         or not isinstance(reservation_id, str)
         or not reservation_id
         or reservation_id.strip() != reservation_id
@@ -894,6 +910,8 @@ def _validate_terminal_broker_receipts(
             or receipt.get("cycle_id") != expected_cycle_id
             or receipt.get("purchase_policy_sha256") != expected_purchase_policy_sha256
             or receipt_queue_id not in {None, queue_id}
+            or receipt.get("billing_evidence") is not None
+            or receipt.get("authoritative_fee_usd") not in {None, "0.00"}
         ):
             raise RecapFetchQuarantineRecoveryError(
                 "terminal broker receipt history conflicts with purchase identity"

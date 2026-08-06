@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from contextlib import closing
 from decimal import Decimal
 from pathlib import Path
 
@@ -30,6 +31,8 @@ from legalforecast.ingestion.recap_fetch_broker import recap_fetch_client_code
 from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
     RecapFetchQuarantineRecoveryError,
     recover_recap_fetch_quarantine_documents,
+    validate_terminal_unavailable_records,
+    write_recap_fetch_quarantine_manifest,
 )
 from tests.purchase_approval_fixtures import allow_historical_v1_algorithm_fixtures
 
@@ -162,6 +165,22 @@ def test_recovery_discovers_public_unknown_material_and_quarantines_without_post
     assert (tmp_path / "quarantine/case-1/123.pdf").read_bytes().startswith(b"%PDF")
 
 
+def test_terminal_writer_names_conflicting_artifact(tmp_path: Path) -> None:
+    path = tmp_path / "terminal.jsonl"
+    write_recap_fetch_quarantine_manifest(
+        path, (), label="terminal unavailable operations"
+    )
+    with pytest.raises(
+        RecapFetchQuarantineRecoveryError,
+        match="existing terminal unavailable operations conflicts",
+    ):
+        write_recap_fetch_quarantine_manifest(
+            path,
+            ({"different": True},),
+            label="terminal unavailable operations",
+        )
+
+
 def test_recovery_partitions_canonical_terminal_failure_without_provider_request(
     tmp_path: Path,
 ) -> None:
@@ -258,6 +277,15 @@ def test_recovery_partitions_canonical_terminal_failure_without_provider_request
     assert isinstance(terminal["ledger_operation_sha256"], str)
     assert str(terminal["ledger_operation_sha256"]).startswith("sha256:")
     assert len(terminal["ledger_operation_sha256"]) == 71
+    malformed_terminal = dict(terminal)
+    malformed_terminal["queue_status"] = 6.0
+    with pytest.raises(
+        RecapFetchQuarantineRecoveryError,
+        match="malformed or ambiguous",
+    ):
+        validate_terminal_unavailable_records(
+            [malformed_terminal], attempt_policy_sha256="a" * 64
+        )
 
 
 @pytest.mark.parametrize(
@@ -274,6 +302,14 @@ def test_recovery_partitions_canonical_terminal_failure_without_provider_request
         ),
         ("duplicate", "terminal broker receipt history is malformed or ambiguous"),
         ("null_history", "terminal broker receipt history is malformed or ambiguous"),
+        (
+            "queue_id",
+            "failed operation is not a canonical terminal-unavailable purchase",
+        ),
+        (
+            "billing_evidence",
+            "terminal broker receipt history conflicts with purchase identity",
+        ),
     ),
 )
 def test_recovery_rejects_terminal_operation_with_malformed_broker_history(
@@ -325,7 +361,7 @@ def test_recovery_rejects_terminal_operation_with_malformed_broker_history(
             "123",
             CourtListenerRecapFetchError("RECAP Fetch terminal queue status 6"),
         )
-    with sqlite3.connect(ledger) as connection:
+    with closing(sqlite3.connect(ledger)) as connection:
         raw_response = connection.execute(
             "SELECT response_json FROM purchase_operations "
             "WHERE source_document_id='123'"
@@ -334,12 +370,40 @@ def test_recovery_rejects_terminal_operation_with_malformed_broker_history(
         response = json.loads(str(raw_response[0]))
         if mutation == "null_history":
             response["broker_receipts"] = None
+        elif mutation == "queue_id":
+            response["queue_id"] = "\u0667\u0667"
         else:
             receipt_item = response["broker_receipts"][0]
             if mutation == "wrapper_digest":
                 receipt_item["sha256"] = "0" * 64
             elif mutation == "duplicate":
                 response["broker_receipts"].append(json.loads(json.dumps(receipt_item)))
+            elif mutation == "billing_evidence":
+                receipt = receipt_item["receipt"]
+                receipt.update(
+                    {
+                        "state": "failed",
+                        "held_usd": "0.00",
+                        "authoritative_fee_usd": "0.00",
+                        "reconciled_at": "2026-08-05T00:01:00.000Z",
+                        "billing_evidence": {
+                            "kind": "pacer_detailed_transactions",
+                            "statement_period": "2026-08",
+                            "evidence_sha256": "b" * 64,
+                            "evidence_ref": "fixture://billing",
+                            "imported_at": "2026-08-05T00:01:00.000Z",
+                        },
+                    }
+                )
+                receipt_item["sha256"] = hashlib.sha256(
+                    json.dumps(
+                        receipt,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                        allow_nan=False,
+                    ).encode("utf-8")
+                ).hexdigest()
             else:
                 receipt_item["receipt"][mutation] = (
                     "cycle-other" if mutation == "cycle_id" else "f" * 64
@@ -358,6 +422,7 @@ def test_recovery_rejects_terminal_operation_with_malformed_broker_history(
             "WHERE source_document_id='123'",
             (json.dumps(response, sort_keys=True, separators=(",", ":")),),
         )
+        connection.commit()
     transport = FixtureRecapFetchTransport([])
     with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
         with pytest.raises(
