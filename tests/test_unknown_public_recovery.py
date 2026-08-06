@@ -367,6 +367,175 @@ def test_recovery_repairs_exact_legacy_relative_url_commitment_before_bytes(
             pass
 
 
+def test_recovery_repairs_confirmed_billed_legacy_commitment_before_bytes(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchase.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    allowed = {
+        "123": {
+            "case_id": "case-1",
+            "selection_document_sha256": "9" * 64,
+        }
+    }
+    relative_path = "recap/gov.uscourts.example.123/gov.uscourts.example.123.1.0.pdf"
+    detail = {
+        "id": 123,
+        "is_available": True,
+        "is_sealed": None,
+        "is_private": False,
+        "filepath_local": relative_path,
+    }
+    detail_digest = hashlib.sha256(
+        json.dumps(detail, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    legacy_url = f"https://www.courtlistener.com/{relative_path}"
+    corrected_url = f"https://storage.courtlistener.com/{relative_path}"
+    billing_digest = "f" * 64
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        journal.authorize_unknown_material_attempts(
+            allowed, attempt_policy_sha256="a" * 64
+        )
+        assert journal.submit("123") is True
+        journal.queue(
+            "123",
+            response={
+                "source_provider": "courtlistener.recap-fetch+pacer",
+                "reservation_usd": "3.05",
+                "queue_id": "77",
+                "reservation_id": "reservation-123",
+            },
+        )
+        journal.mark_material_available_for_quarantine(
+            "123",
+            provider_detail_sha256=detail_digest,
+            queue_response_sha256="8" * 64,
+            download_url_sha256=hashlib.sha256(legacy_url.encode()).hexdigest(),
+        )
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        operation_key = str(operation["operation_key"])
+        confirmed_receipt = _broker_receipt(
+            operation_key=operation_key,
+            policy_sha256=policy.policy_sha256,
+            document_id="123",
+            reservation_id="reservation-123",
+        )
+        confirmed_receipt.update(
+            {
+                "state": "confirmed",
+                "held_usd": "3.05",
+                "authoritative_fee_usd": "3.05",
+                "updated_at": "2026-08-05T00:02:00.000Z",
+                "delivered_at": "2026-08-05T00:01:00.000Z",
+                "reconciled_at": "2026-08-05T00:02:00.000Z",
+                "billing_evidence": {
+                    "kind": "pacer_detailed_transactions",
+                    "statement_period": "2026-08",
+                    "evidence_sha256": billing_digest,
+                    "evidence_ref": "statement-123",
+                    "imported_at": "2026-08-05T00:02:00.000Z",
+                },
+            }
+        )
+        journal.record_broker_receipt(
+            "123",
+            confirmed_receipt,
+        )
+        journal.reconcile_unknown_broker_billing(
+            "123",
+            actual_usd="3.05",
+            evidence_sha256=billing_digest,
+            source_reference=(f"recap-fetch-broker:{operation_key}:{billing_digest}"),
+        )
+
+        source = FixtureFreeDocumentSource({corrected_url: b"%PDF-1.4\npublic\n%%EOF"})
+        records, restrictions, terminal_unavailable = (
+            recover_recap_fetch_quarantine_documents(
+                journal=journal,
+                allowed_documents=allowed,
+                attempt_policy_sha256="a" * 64,
+                output_root=tmp_path / "quarantine",
+                source=source,
+                config=CourtListenerRecapFetchConfig(api_token="fixture"),
+                transport=_detail_transport(detail),
+            )
+        )
+        corrected = journal.operation_evidence("123")
+        assert corrected is not None
+        assert corrected["status"] == "confirmed"
+        assert corrected["actual_usd"] == "3.05"
+        assert corrected["material_state"] is (
+            PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE
+        )
+        assert corrected["response"]["courtlistener_url_commitment_correction"][
+            "billing_authority"
+        ] == {
+            "state": "confirmed_billed",
+            "actual_usd": "3.05",
+            "billing_evidence_sha256": billing_digest,
+            "source_reference": (
+                f"recap-fetch-broker:{operation_key}:{billing_digest}"
+            ),
+            "reconciliation_sha256": hashlib.sha256(
+                json.dumps(
+                    corrected["reconciliation"],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest(),
+        }
+        journal.reconcile(
+            {
+                "source_document_id": "123",
+                "disposition": "write_off",
+                "source_type": "support_confirmation",
+                "source_reference": "fixture://post-confirmation-write-off",
+                "pacer_fees": None,
+                "download_url": None,
+            }
+        )
+
+    assert len(records) == len(restrictions) == 1
+    assert terminal_unavailable == ()
+    assert source.requested_urls == (corrected_url,)
+    with CaseDevPurchaseJournal(ledger, policy=policy) as reopened:
+        operation = reopened.operation_evidence("123")
+        assert operation is not None
+        assert operation["status"] == "unknown"
+        assert operation["actual_usd"] == "3.05"
+    with closing(sqlite3.connect(ledger)) as connection:
+        row = connection.execute(
+            "SELECT response_json FROM purchase_operations "
+            "WHERE source_document_id='123'"
+        ).fetchone()
+        assert row is not None
+        response = json.loads(str(row[0]))
+        correction = response["courtlistener_url_commitment_correction"]
+        correction["billing_authority"]["reconciliation_sha256"] = "0" * 64
+        correction_without_hash = {
+            key: value for key, value in correction.items() if key != "record_sha256"
+        }
+        correction["record_sha256"] = hashlib.sha256(
+            json.dumps(
+                correction_without_hash,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+        connection.execute(
+            "UPDATE purchase_operations SET response_json=? "
+            "WHERE source_document_id='123'",
+            (json.dumps(response, sort_keys=True, separators=(",", ":")),),
+        )
+        connection.commit()
+    with pytest.raises(CaseDevPurchaseLedgerError, match="billing authority"):
+        with CaseDevPurchaseJournal(ledger, policy=policy):
+            pass
+
+
 @pytest.mark.parametrize(
     "conflict",
     (

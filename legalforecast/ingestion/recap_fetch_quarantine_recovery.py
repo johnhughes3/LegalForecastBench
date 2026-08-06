@@ -182,7 +182,7 @@ def recover_recap_fetch_quarantine_documents(
         if (
             detail_digest == evidence.get("provider_detail_sha256")
             and url_digest != evidence.get("download_url_sha256")
-            and operation.get("status") == "queued"
+            and operation.get("status") in {"queued", "confirmed"}
             and operation.get("material_state")
             is PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE
             and not os.path.lexists(destination)
