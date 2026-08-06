@@ -464,6 +464,11 @@ def test_recovery_repairs_authenticated_unknown_public_legacy_url_before_bytes(
         for mismatched_operation in (
             {**corrected_operation, "candidate_id": "other-case"},
             {**corrected_operation, "source_document_id": "other-document"},
+            {
+                key: value
+                for key, value in corrected_operation.items()
+                if key != "source_document_id"
+            },
         ):
             with pytest.raises(
                 CaseDevPurchaseLedgerError,

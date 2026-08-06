@@ -930,7 +930,7 @@ def _terminal_unavailable_record(
         "cap_counted": True,
         "recovery_provider_request_executed": False,
         "paid_redispatch_executed": False,
-        "ledger_operation_sha256": _canonical_operation_sha256(operation),
+        "ledger_operation_sha256": _terminal_ledger_operation_sha256(operation),
     }
 
 
@@ -1279,6 +1279,14 @@ def _canonical_operation_sha256(value: Mapping[str, Any]) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _terminal_ledger_operation_sha256(value: Mapping[str, Any]) -> str:
+    """Hash the stable operation payload used by terminal replay."""
+
+    operation = dict(value)
+    operation.pop("source_document_id", None)
+    return _canonical_operation_sha256(operation)
 
 
 def _identifier(value: str) -> str:
