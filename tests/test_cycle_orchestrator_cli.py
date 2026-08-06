@@ -713,6 +713,7 @@ def test_external_completed_disclosure_review_replays_authority(
     private_path = tmp_path / "private.json"
     journal_path = tmp_path / "journal.sqlite3"
     spend_path = tmp_path / "spend.sqlite3"
+    plan_run_card_path = tmp_path / "plan-run-card.json"
     run_card_path = tmp_path / "run-card.json"
     document_path.parent.mkdir(parents=True)
     plan_path.write_bytes(canonical_json_bytes({}))
@@ -736,6 +737,8 @@ def test_external_completed_disclosure_review_replays_authority(
                 str(plan_path),
                 "--exception-worksheet",
                 str(worksheet_path),
+                "--plan-run-card",
+                str(plan_run_card_path),
                 "--document-root",
                 str(document_root),
                 "--authority-output",
@@ -773,13 +776,48 @@ def test_external_completed_disclosure_review_replays_authority(
             "byte_count": len(b"reviewed document"),
         }
     ]
-    card = {
+    plan_run_card = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "plan-disclosure-provenance",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "output_paths": [str(plan_path.resolve()), str(worksheet_path.resolve())],
         "source_commitments": {
             "document_root": {
                 "path": str(document_root.resolve()),
                 "tree_sha256": cli._canonical_json_sha256(document_tree),
                 "document_count": 1,
             }
+        },
+        "output_commitments": {
+            "routing_plan": {
+                "path": str(plan_path.resolve()),
+                "sha256": cli._bytes_sha256(plan_path.read_bytes()),
+            },
+            "exception_worksheet": {
+                "path": str(worksheet_path.resolve()),
+                "sha256": cli._bytes_sha256(worksheet_path.read_bytes()),
+            },
+        },
+    }
+    plan_run_card_path.write_text(
+        json.dumps(plan_run_card, indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    card = {
+        "source_commitments": {
+            "plan_run_card": {
+                "path": str(plan_run_card_path.resolve()),
+                "sha256": cli._bytes_sha256(plan_run_card_path.read_bytes()),
+            },
+            "document_root": {
+                "path": str(document_root.resolve()),
+                "tree_sha256": cli._canonical_json_sha256(document_tree),
+                "document_count": 1,
+            },
         },
         "record_count": 1,
         "model_review_authority": authority,

@@ -702,6 +702,9 @@ def test_checked_in_replacement_templates_branch_only_after_authenticated_plan(
     assert review.arguments[review.arguments.index("--routing-plan") + 1] == str(
         assignments["PLAN_ROOT"] / "disclosure-provenance-plan.json"
     )
+    assert review.arguments[review.arguments.index("--plan-run-card") + 1] == str(
+        assignments["PLAN_ROOT"] / "run-cards" / "plan-disclosure-provenance.json"
+    )
     assert "--model-review-authority" in model_finalizer.arguments
     assert "--require-no-model-review-eligible-exceptions" not in (
         model_finalizer.arguments
