@@ -114,3 +114,27 @@ def test_execute_rejects_unexpected_output_before_publication(
 
     assert cli.main([*_argv(inputs, output_root), "--execute"]) == 2
     assert not (output_root / "corpus-completion-summary.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("alias_parent", "alias_target"),
+    [
+        (".", "corpus-completion-summary.json"),
+        ("run-cards", "summarize-corpus.json"),
+    ],
+)
+def test_execute_rejects_symlink_aliases_to_owned_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    alias_parent: str,
+    alias_target: str,
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    output_root = tmp_path / "completion-output"
+    argv = [*_argv(inputs, output_root), "--execute"]
+    assert cli.main(argv) == 0
+
+    alias_root = output_root / alias_parent
+    (alias_root / "alias").symlink_to(alias_target)
+
+    assert cli.main(argv) == 2

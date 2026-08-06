@@ -196,8 +196,13 @@ def _reject_unexpected_outputs(
     summary_path: Path,
     run_card_path: Path,
 ) -> None:
-    expected_root = {summary_path.resolve(), run_card_path.parent.resolve()}
-    actual_root = {path.resolve() for path in output_root.iterdir()}
+    root_entries = tuple(output_root.iterdir())
+    if any(path.is_symlink() for path in root_entries):
+        raise CorpusCompletionSummaryError(
+            "summarize-corpus output root contains unsafe symlink entries"
+        )
+    expected_root = {summary_path.absolute(), run_card_path.parent.absolute()}
+    actual_root = {path.absolute() for path in root_entries}
     if actual_root - expected_root:
         raise CorpusCompletionSummaryError(
             "summarize-corpus output root contains unexpected entries"
@@ -207,9 +212,14 @@ def _reject_unexpected_outputs(
             raise CorpusCompletionSummaryError(
                 "summarize-corpus run-card root is unsafe"
             )
-        unexpected_cards = {
-            path.resolve() for path in run_card_path.parent.iterdir()
-        } - {run_card_path.resolve()}
+        card_entries = tuple(run_card_path.parent.iterdir())
+        if any(path.is_symlink() for path in card_entries):
+            raise CorpusCompletionSummaryError(
+                "summarize-corpus run-card root contains unsafe symlink entries"
+            )
+        unexpected_cards = {path.absolute() for path in card_entries} - {
+            run_card_path.absolute()
+        }
         if unexpected_cards:
             raise CorpusCompletionSummaryError(
                 "summarize-corpus run-card root contains unexpected entries"
