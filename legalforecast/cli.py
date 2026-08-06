@@ -37346,9 +37346,7 @@ def _verify_materializer_quarantine_recovery(
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
     schema_version = run_card.get("schema_version")
     legacy_card = schema_version == "legalforecast.acquisition_run_card.v1"
-    terminal_aware_card = (
-        schema_version == _RECAP_FETCH_QUARANTINE_RECOVERY_CARD_SCHEMA
-    )
+    terminal_aware_card = schema_version == _RECAP_FETCH_QUARANTINE_RECOVERY_CARD_SCHEMA
     if (
         not (legacy_card or terminal_aware_card)
         or run_card.get("stage") != "recover-recap-fetch-quarantine"
@@ -37595,11 +37593,14 @@ def _verify_materializer_quarantine_recovery(
         raise CommandError(
             "quarantine recovery lacks authenticated current purchase state"
         )
-    if canonical_purchase_state_sha256(
-        purchase_policy,
-        committed_amount_usd=purchase_committed_amount_usd,
-        operations=purchase_operations,
-    ) != purchase_state_sha256:
+    if (
+        canonical_purchase_state_sha256(
+            purchase_policy,
+            committed_amount_usd=purchase_committed_amount_usd,
+            operations=purchase_operations,
+        )
+        != purchase_state_sha256
+    ):
         raise CommandError("authenticated current purchase state does not reproduce")
     attempt_policy_sha256 = _required_str(attempt_policy_artifact, "policy_sha256")
     attempt_policy_body = attempt_policy_artifact.get("policy")
@@ -45457,9 +45458,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
             purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
             purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
         )
-        historical_state_sha256 = recovery.get(
-            "historical_purchase_state_sha256"
-        )
+        historical_state_sha256 = recovery.get("historical_purchase_state_sha256")
         if state_sha256 != historical_state_sha256:
             raise CommandError("recovered-public purchase state changed")
         for field, expected in (
@@ -45646,8 +45645,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
                     recovered_authority.get(field) != value
                     for field, value in expected_authority.items()
                 )
-                or state_sha256
-                != recovery.get("historical_purchase_state_sha256")
+                or state_sha256 != recovery.get("historical_purchase_state_sha256")
             ):
                 raise ProvenanceClearanceError(
                     "recovered-public authority evidence changed"

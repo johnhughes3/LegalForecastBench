@@ -2251,9 +2251,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
                 cohort_policy_path=paths["cohort_policy"],
                 ledger_path=ledger_path,
                 purchase_operations=forged_operations,
-                purchase_committed_amount_usd=(
-                    terminal_snapshot.committed_amount_usd
-                ),
+                purchase_committed_amount_usd=(terminal_snapshot.committed_amount_usd),
                 purchase_state_sha256=cli.canonical_purchase_state_sha256(
                     purchase_policy,
                     committed_amount_usd=terminal_snapshot.committed_amount_usd,
