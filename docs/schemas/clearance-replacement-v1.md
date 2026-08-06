@@ -90,10 +90,11 @@ Safe resume requires every pre-approval operation record to remain byte-identica
 An unrelated post-approval ledger operation invalidates the successor even when total spend remains below the tranche ceiling.
 
 The generalized clearance-frontier loop remains a historical authority mode, but it is not the Cycle 1 ranked-reserve operational path.
-[`manifests/cycle-1-target-100.replacement-purchase-tranche.template.json`](../../manifests/cycle-1-target-100.replacement-purchase-tranche.template.json) is the checked-in partial coordinator for the authenticated ranked-reserve tranche.
+[`manifests/cycle-1-target-100.replacement-purchase-tranche.template.json`](../../manifests/cycle-1-target-100.replacement-purchase-tranche.template.json) and its [`replacement-purchase-tranche-no-review`](../../manifests/cycle-1-target-100.replacement-purchase-tranche-no-review.template.json) variant are the checked-in partial coordinators for the authenticated ranked-reserve tranche.
 Its human stage binds the exact ranked-reserve projection digest, records the decision, and publishes the provider-free authority and attempt policy without accepting a clearance frontier.
 Its paid stage uses direct CourtListener RECAP Fetch with the canonical request ledger, exact successor authority, unchanged initial purchase policy and canonical ledger, and `--request-budget-max-wait-seconds 3700`.
 It neither generates nor accepts a broker policy, and rendering or preflighting the plan performs no provider request, fee acknowledgement, purchase, or model call.
+The v3 disclosure plan routes marker-only eligible exceptions through authenticated model review; when its completed run card proves there are none, the no-review variant finalizes provider-free instead of constructing model authority.
 A prior tranche approval never authorizes a later tranche.
 After recovery and authenticated disclosure clearance, `accumulate-replacement-clearance` recursively authenticates the prior cumulative clearance and the current tranche clearance, reproduces their manifests and restriction evidence, reconciles every document against the canonical purchase ledger, and emits the only clearance/card pair accepted by the next planning or reprojection pass.
 For the first tranche, set `PRIOR_CLEARANCE` and `PRIOR_CLEARANCE_RUN_CARD` to the authenticated initial purchased clearance; for every later tranche, set them to the preceding tranche's `07-cumulative-clearance` outputs.

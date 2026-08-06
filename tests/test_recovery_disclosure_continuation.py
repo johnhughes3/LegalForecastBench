@@ -15,6 +15,14 @@ NO_REVIEW_TEMPLATE = (
     / "manifests"
     / "cycle-1-target-100.initial-recovery-disclosure-no-review.template.json"
 )
+REPLACEMENT_REVIEW_TEMPLATE = (
+    ROOT / "manifests" / "cycle-1-target-100.replacement-purchase-tranche.template.json"
+)
+REPLACEMENT_NO_REVIEW_TEMPLATE = (
+    ROOT
+    / "manifests"
+    / "cycle-1-target-100.replacement-purchase-tranche-no-review.template.json"
+)
 
 
 def _assignments(tmp_path: Path) -> dict[str, Path]:
@@ -31,6 +39,33 @@ def _assignments(tmp_path: Path) -> dict[str, Path]:
 
 def _render(tmp_path: Path, template: Path):
     assignments = _assignments(tmp_path)
+    output = tmp_path / f"{template.stem}.rendered.json"
+    render_cycle_config(
+        template_path=template,
+        output_path=output,
+        variable_assignments=[f"{name}={path}" for name, path in assignments.items()],
+        argument_validator=cli_module._validate_rendered_cycle_arguments,  # pyright: ignore[reportPrivateUsage]
+    )
+    return load_cycle_config(output), assignments
+
+
+def _replacement_assignments(tmp_path: Path) -> dict[str, Path]:
+    return {
+        "REPO_ROOT": tmp_path / "repo",
+        "SOURCE_ROOT": tmp_path / "source",
+        "ARTIFACT_ROOT": tmp_path / "artifacts",
+        "INITIAL_PRIVATE_ROOT": tmp_path / "private-initial",
+        "PRIOR_CLEARANCE": tmp_path / "prior" / "disclosure-clearance.jsonl",
+        "PRIOR_CLEARANCE_RUN_CARD": (
+            tmp_path / "prior" / "run-cards" / "finalize-provenance-quarantine.json"
+        ),
+        "REPLACEMENT_ROOT": tmp_path / "replacement",
+        "SUCCESSOR_PRIVATE_ROOT": tmp_path / "private-successor",
+    }
+
+
+def _render_replacement(tmp_path: Path, template: Path):
+    assignments = _replacement_assignments(tmp_path)
     output = tmp_path / f"{template.stem}.rendered.json"
     render_cycle_config(
         template_path=template,
@@ -153,5 +188,127 @@ def test_initial_recovery_no_review_template_is_closed_provider_free_branch(
     ):
         assert forbidden not in finalizer.arguments
     assert _flag_value(resolver.arguments, "--clearance-run-card") == str(
+        finalizer.run_card
+    )
+
+
+def test_replacement_recovery_disclosure_template_preserves_purchase_authority(
+    tmp_path: Path,
+) -> None:
+    config, assignments = _render_replacement(tmp_path, REPLACEMENT_REVIEW_TEMPLATE)
+
+    assert [stage.command for stage in config.stages] == [
+        "init-cycle",
+        "record-replacement-purchase-approval",
+        "purchase-missing-recap-fetch",
+        "recover-recap-fetch-quarantine",
+        "plan-disclosure-provenance",
+        "review-disclosure-exceptions",
+        "finalize-provenance-quarantine",
+        "resolve-post-recovery-documents",
+        "accumulate-replacement-clearance",
+    ]
+    assert [stage.boundary.value for stage in config.stages] == [
+        "provider_free",
+        "human",
+        "paid",
+        "network",
+        "provider_free",
+        "model_provider",
+        "provider_free",
+        "provider_free",
+        "provider_free",
+    ]
+    purchase, recovery, plan, review, finalizer, resolver, accumulator = config.stages[
+        2:
+    ]
+    assert _flag_value(plan.arguments, "--schema-version") == "v3"
+    for flag in (
+        "--recovery-run-card",
+        "--selection",
+        "--purchase-policy",
+        "--purchase-ledger",
+        "--purchase-ledger-initialization-receipt",
+        "--controlled-private-root",
+        "--recovery-cohort-policy",
+    ):
+        assert _flag_value(finalizer.arguments, flag) == _flag_value(
+            plan.arguments, flag
+        )
+    for flag in (
+        "--frozen-authority-root",
+        "--provider-journal",
+        "--provider-spend-authority",
+    ):
+        assert _flag_value(finalizer.arguments, flag) == _flag_value(
+            review.arguments, flag
+        )
+    assert _flag_value(finalizer.arguments, "--model-review-authority") == (
+        _flag_value(review.arguments, "--authority-output")
+    )
+    assert _flag_value(finalizer.arguments, "--model-review-private-records") == (
+        _flag_value(review.arguments, "--private-records-output")
+    )
+    assert _flag_value(finalizer.arguments, "--model-review-run-card") == str(
+        review.run_card
+    )
+    for stage in (purchase, recovery, resolver):
+        assert _flag_value(stage.arguments, "--replacement-purchase-authority") == str(
+            assignments["REPLACEMENT_ROOT"]
+            / "01-plan"
+            / "replacement-purchase-authority.json"
+        )
+        assert _flag_value(
+            stage.arguments, "--replacement-controlled-private-root"
+        ) == str(assignments["SUCCESSOR_PRIVATE_ROOT"])
+    assert _flag_value(resolver.arguments, "--clearance-run-card") == str(
+        finalizer.run_card
+    )
+    assert _flag_value(accumulator.arguments, "--current-clearance-run-card") == str(
+        finalizer.run_card
+    )
+
+
+def test_replacement_recovery_no_review_template_is_closed_provider_free_branch(
+    tmp_path: Path,
+) -> None:
+    config, assignments = _render_replacement(tmp_path, REPLACEMENT_NO_REVIEW_TEMPLATE)
+
+    assert [stage.command for stage in config.stages] == [
+        "init-cycle",
+        "record-replacement-purchase-approval",
+        "purchase-missing-recap-fetch",
+        "recover-recap-fetch-quarantine",
+        "plan-disclosure-provenance",
+        "finalize-provenance-quarantine",
+        "resolve-post-recovery-documents",
+        "accumulate-replacement-clearance",
+    ]
+    assert "model_provider" not in {stage.boundary.value for stage in config.stages}
+    plan, finalizer, resolver, accumulator = config.stages[4:]
+    assert _flag_value(plan.arguments, "--schema-version") == "v3"
+    assert "--require-no-model-review-eligible-exceptions" in finalizer.arguments
+    assert _flag_value(finalizer.arguments, "--plan-run-card") == str(plan.run_card)
+    for forbidden in (
+        "--model-review-authority",
+        "--model-review-private-records",
+        "--model-review-run-card",
+        "--frozen-authority-root",
+        "--provider-journal",
+        "--provider-spend-authority",
+    ):
+        assert forbidden not in finalizer.arguments
+    assert _flag_value(resolver.arguments, "--replacement-purchase-authority") == str(
+        assignments["REPLACEMENT_ROOT"]
+        / "01-plan"
+        / "replacement-purchase-authority.json"
+    )
+    assert _flag_value(
+        resolver.arguments, "--replacement-controlled-private-root"
+    ) == str(assignments["SUCCESSOR_PRIVATE_ROOT"])
+    assert _flag_value(resolver.arguments, "--clearance-run-card") == str(
+        finalizer.run_card
+    )
+    assert _flag_value(accumulator.arguments, "--current-clearance-run-card") == str(
         finalizer.run_card
     )

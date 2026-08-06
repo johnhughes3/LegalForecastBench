@@ -16,6 +16,13 @@ The two initial-recovery templates are:
 
 Both templates are partial cycle continuations and begin with `init-cycle`. Render them with `uv run legalforecast acquisition render-cycle-config --help`; the renderer validates every stage against the current CLI before publishing the config.
 
+Ranked-reserve replacement recovery has the same two closed branches:
+
+- `manifests/cycle-1-target-100.replacement-purchase-tranche.template.json` for authenticated model review when the v3 plan identifies eligible exceptions.
+- `manifests/cycle-1-target-100.replacement-purchase-tranche-no-review.template.json` when the authenticated v3 plan proves the eligible set is empty.
+
+Both replacement templates preserve the exact successor purchase authority and attempt policy through purchase, recovery, disclosure finalization, resolution, and cumulative-clearance publication.
+
 ## Fail-closed routing
 
 The plan-proven provider-free branch is not a general operator override. The finalizer replays the completed plan run card, its source and output commitments, the current document tree, and any recovered-public authority. It rejects the branch if even one exact exception is eligible for model review.
