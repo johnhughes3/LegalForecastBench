@@ -21,6 +21,8 @@ from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
     UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+    UNKNOWN_PUBLIC_MATERIAL_RECOVERY_V2_SCHEMA_VERSION,
+    UNKNOWN_PUBLIC_URL_COMMITMENT_CORRECTION_SCHEMA_VERSION,
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
     PurchaseMaterialState,
@@ -182,7 +184,6 @@ def recover_recap_fetch_quarantine_documents(
         if (
             detail_digest == evidence.get("provider_detail_sha256")
             and url_digest != evidence.get("download_url_sha256")
-            and operation.get("status") in {"queued", "confirmed"}
             and operation.get("material_state")
             is PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE
             and not os.path.lexists(destination)
@@ -198,7 +199,8 @@ def recover_recap_fetch_quarantine_documents(
             queue_response_sha256 = evidence.get("queue_response_sha256")
             operation_key = operation.get("operation_key")
             if (
-                isinstance(legacy_digest, str)
+                operation.get("status") in {"queued", "confirmed"}
+                and isinstance(legacy_digest, str)
                 and legacy_digest == evidence.get("download_url_sha256")
                 and isinstance(queue_response_sha256, str)
                 and isinstance(operation_key, str)
@@ -212,6 +214,39 @@ def recover_recap_fetch_quarantine_documents(
                         attempt_document_sha256=selection_document_sha256,
                         provider_detail_sha256=detail_digest,
                         queue_response_sha256=queue_response_sha256,
+                        legacy_download_url_sha256=legacy_digest,
+                        corrected_download_url_sha256=url_digest,
+                    )
+                except CaseDevPurchaseLedgerError as exc:
+                    raise RecapFetchQuarantineRecoveryError(
+                        "fresh CourtListener material conflicts with delivery "
+                        f"commitment: {document_id}"
+                    ) from exc
+                refreshed = journal.operation_evidence(document_id)
+                if refreshed is None:
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase operation disappeared during URL correction"
+                    )
+                operation = refreshed
+                evidence = _mapping(
+                    operation.get("material_evidence"), "material evidence"
+                )
+            elif (
+                operation.get("status") == "unknown"
+                and isinstance(legacy_digest, str)
+                and legacy_digest == evidence.get("download_url_sha256")
+                and queue_response_sha256 is None
+                and isinstance(operation_key, str)
+                and isinstance(operation.get("public_material_recovery"), Mapping)
+            ):
+                try:
+                    journal.correct_unknown_public_recovery_url_commitment(
+                        document_id,
+                        candidate_id=candidate_id,
+                        operation_key=operation_key,
+                        attempt_policy_sha256=attempt_policy_sha256,
+                        attempt_document_sha256=selection_document_sha256,
+                        provider_detail_sha256=detail_digest,
                         legacy_download_url_sha256=legacy_digest,
                         corrected_download_url_sha256=url_digest,
                     )
@@ -1024,28 +1059,82 @@ def _is_bound_public_recovery(
         return False
     recovery = cast(Mapping[str, object], value)
     evidence = _mapping(operation.get("material_evidence"), "material evidence")
-    return (
-        recovery
-        == {
-            "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
-            "candidate_id": candidate_id,
-            "source_document_id": document_id,
-            "operation_key": operation.get("operation_key"),
-            "purchase_policy_sha256": recovery.get("purchase_policy_sha256"),
-            "attempt_policy_sha256": attempt_policy_sha256,
-            "attempt_document_sha256": selection_document_sha256,
-            "provider_detail_sha256": evidence.get("provider_detail_sha256"),
-            "download_url_sha256": evidence.get("download_url_sha256"),
-            "billing_status": "unknown",
+    purchase_policy_sha256 = recovery.get("purchase_policy_sha256")
+    if (
+        not isinstance(purchase_policy_sha256, str)
+        or _SHA256.fullmatch(purchase_policy_sha256) is None
+    ):
+        return False
+    base = {
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "operation_key": operation.get("operation_key"),
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "attempt_policy_sha256": attempt_policy_sha256,
+        "attempt_document_sha256": selection_document_sha256,
+        "provider_detail_sha256": evidence.get("provider_detail_sha256"),
+        "download_url_sha256": evidence.get("download_url_sha256"),
+        "billing_status": "unknown",
+        "reservation_retained": True,
+        "no_paid_redispatch": True,
+    }
+    if recovery == {
+        "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+        **base,
+    }:
+        return True
+    correction_value = recovery.get("courtlistener_url_commitment_correction")
+    if not isinstance(correction_value, Mapping):
+        return False
+    correction = cast(Mapping[str, object], correction_value)
+    legacy_digest = correction.get("legacy_download_url_sha256")
+    corrected_digest = evidence.get("download_url_sha256")
+    if (
+        not isinstance(legacy_digest, str)
+        or _SHA256.fullmatch(legacy_digest) is None
+        or not isinstance(corrected_digest, str)
+        or _SHA256.fullmatch(corrected_digest) is None
+        or legacy_digest == corrected_digest
+    ):
+        return False
+    legacy_recovery = {
+        "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION,
+        **base,
+        "download_url_sha256": legacy_digest,
+    }
+    legacy_recovery_sha256 = _canonical_mapping_sha256(legacy_recovery)
+    correction_without_digest = {
+        "schema_version": UNKNOWN_PUBLIC_URL_COMMITMENT_CORRECTION_SCHEMA_VERSION,
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "operation_key": operation.get("operation_key"),
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "reservation_usd": operation.get("reservation_usd"),
+        "attempt_policy_sha256": attempt_policy_sha256,
+        "attempt_document_sha256": selection_document_sha256,
+        "provider_detail_sha256": evidence.get("provider_detail_sha256"),
+        "legacy_download_url_sha256": legacy_digest,
+        "corrected_download_url_sha256": corrected_digest,
+        "legacy_recovery_record_sha256": legacy_recovery_sha256,
+        "billing_authority": {
+            "state": "unknown_public_unreconciled",
             "reservation_retained": True,
             "no_paid_redispatch": True,
-        }
-        and isinstance(recovery.get("purchase_policy_sha256"), str)
-        and (
-            _SHA256.fullmatch(cast(str, recovery.get("purchase_policy_sha256")))
-            is not None
-        )
-    )
+        },
+        "material_authority": "unknown_status_attempt",
+        "material_status": PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value,
+        "pre_byte_correction": True,
+    }
+    expected_correction = {
+        **correction_without_digest,
+        "record_sha256": _canonical_mapping_sha256(correction_without_digest),
+    }
+    return recovery == {
+        "schema_version": UNKNOWN_PUBLIC_MATERIAL_RECOVERY_V2_SCHEMA_VERSION,
+        **base,
+        "courtlistener_url_commitment_correction": expected_correction,
+    }
 
 
 def _fresh_detail(

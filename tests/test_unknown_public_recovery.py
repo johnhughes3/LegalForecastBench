@@ -253,7 +253,6 @@ def test_recovery_repairs_exact_legacy_relative_url_commitment_before_bytes(
                 transport=_detail_transport(detail),
             )
         )
-
         operation = journal.operation_evidence("123")
         assert operation is not None
         assert operation["material_state"] is (
@@ -365,6 +364,195 @@ def test_recovery_repairs_exact_legacy_relative_url_commitment_before_bytes(
     with pytest.raises(CaseDevPurchaseLedgerError, match="must be an object"):
         with CaseDevPurchaseJournal(ledger, policy=policy):
             pass
+
+
+def test_recovery_repairs_authenticated_unknown_public_legacy_url_before_bytes(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchase.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    allowed = {
+        "123": {
+            "case_id": "case-1",
+            "selection_document_sha256": "9" * 64,
+        }
+    }
+    relative_path = "recap/gov.uscourts.example.123/gov.uscourts.example.123.1.0.pdf"
+    detail = {
+        "id": 123,
+        "is_available": True,
+        "is_sealed": None,
+        "is_private": False,
+        "filepath_local": relative_path,
+    }
+    detail_digest = hashlib.sha256(
+        json.dumps(detail, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    legacy_url = f"https://www.courtlistener.com/{relative_path}"
+    corrected_url = f"https://storage.courtlistener.com/{relative_path}"
+    legacy_digest = hashlib.sha256(legacy_url.encode()).hexdigest()
+    corrected_digest = hashlib.sha256(corrected_url.encode()).hexdigest()
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        journal.authorize_unknown_material_attempts(
+            allowed, attempt_policy_sha256="a" * 64
+        )
+        assert journal.submit("123") is True
+        journal.mark_unknown("123", "direct CourtListener purchase returned HTTP 400")
+        pending_operation = journal.operation_evidence("123")
+        assert pending_operation is not None
+        journal.mark_unknown_public_material_available(
+            "123",
+            candidate_id="case-1",
+            operation_key=str(pending_operation["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256=detail_digest,
+            download_url_sha256=legacy_digest,
+        )
+        with closing(sqlite3.connect(ledger)) as connection:
+            connection.execute(
+                "UPDATE purchase_operations SET response_json=? "
+                "WHERE source_document_id='123'",
+                (
+                    json.dumps(
+                        {
+                            "reservation_usd": "3.05",
+                            "source_provider": "courtlistener.recap-fetch+pacer",
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                ),
+            )
+            connection.commit()
+
+        with pytest.raises(RecapFetchQuarantineRecoveryError, match="download failed"):
+            recover_recap_fetch_quarantine_documents(
+                journal=journal,
+                allowed_documents=allowed,
+                attempt_policy_sha256="a" * 64,
+                output_root=tmp_path / "quarantine",
+                source=FixtureFreeDocumentSource({}),
+                config=CourtListenerRecapFetchConfig(api_token="fixture"),
+                transport=_detail_transport(detail),
+            )
+        corrected_operation = journal.operation_evidence("123")
+        assert corrected_operation is not None
+        assert corrected_operation["material_state"] is (
+            PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE
+        )
+        recovery = corrected_operation["public_material_recovery"]
+        assert recovery["schema_version"] == (
+            "legalforecast.unknown_public_material_recovery.v2"
+        )
+        correction = recovery["courtlistener_url_commitment_correction"]
+        assert correction["legacy_download_url_sha256"] == legacy_digest
+        assert correction["corrected_download_url_sha256"] == corrected_digest
+        journal.correct_unknown_public_recovery_url_commitment(
+            "123",
+            candidate_id="case-1",
+            operation_key=str(corrected_operation["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256=detail_digest,
+            legacy_download_url_sha256=legacy_digest,
+            corrected_download_url_sha256=corrected_digest,
+        )
+        source = FixtureFreeDocumentSource({corrected_url: b"%PDF-1.4\npublic\n%%EOF"})
+        records, restrictions, terminal_unavailable = (
+            recover_recap_fetch_quarantine_documents(
+                journal=journal,
+                allowed_documents=allowed,
+                attempt_policy_sha256="a" * 64,
+                output_root=tmp_path / "quarantine",
+                source=source,
+                config=CourtListenerRecapFetchConfig(api_token="fixture"),
+                transport=_detail_transport(detail),
+            )
+        )
+        recovered_operation = journal.operation_evidence("123")
+        assert recovered_operation is not None
+        journal.correct_unknown_public_recovery_url_commitment(
+            "123",
+            candidate_id="case-1",
+            operation_key=str(recovered_operation["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256=detail_digest,
+            legacy_download_url_sha256=legacy_digest,
+            corrected_download_url_sha256=corrected_digest,
+        )
+
+    assert len(records) == len(restrictions) == 1
+    assert terminal_unavailable == ()
+    assert source.requested_urls == (corrected_url,)
+    with CaseDevPurchaseJournal(ledger, policy=policy) as reopened:
+        operation = reopened.operation_evidence("123")
+        assert operation is not None
+        assert operation["material_state"] is (
+            PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE
+        )
+
+    with closing(sqlite3.connect(ledger)) as connection:
+        original_row = connection.execute(
+            "SELECT record_json, record_sha256 "
+            "FROM unknown_public_material_recoveries "
+            "WHERE source_document_id='123'"
+        ).fetchone()
+    assert original_row is not None
+    original_record_json, original_record_sha256 = map(str, original_row)
+    for bad_legacy_digest in ("not-a-sha256", corrected_digest):
+        tampered = json.loads(original_record_json)
+        correction = tampered["courtlistener_url_commitment_correction"]
+        correction["legacy_download_url_sha256"] = bad_legacy_digest
+        legacy_recovery = {
+            key: value
+            for key, value in tampered.items()
+            if key != "courtlistener_url_commitment_correction"
+        }
+        legacy_recovery["schema_version"] = (
+            "legalforecast.unknown_public_material_recovery.v1"
+        )
+        legacy_recovery["download_url_sha256"] = bad_legacy_digest
+        correction["legacy_recovery_record_sha256"] = hashlib.sha256(
+            json.dumps(legacy_recovery, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        correction_without_digest = {
+            key: value for key, value in correction.items() if key != "record_sha256"
+        }
+        correction["record_sha256"] = hashlib.sha256(
+            json.dumps(
+                correction_without_digest, sort_keys=True, separators=(",", ":")
+            ).encode()
+        ).hexdigest()
+        tampered_json = json.dumps(tampered, sort_keys=True, separators=(",", ":"))
+        with closing(sqlite3.connect(ledger)) as connection:
+            connection.execute(
+                "UPDATE unknown_public_material_recoveries "
+                "SET record_json=?, record_sha256=? "
+                "WHERE source_document_id='123'",
+                (
+                    tampered_json,
+                    hashlib.sha256(tampered_json.encode()).hexdigest(),
+                ),
+            )
+            connection.commit()
+        with pytest.raises(
+            CaseDevPurchaseLedgerError,
+            match="unknown public recovery correction record is invalid",
+        ):
+            with CaseDevPurchaseJournal(ledger, policy=policy):
+                pass
+        with closing(sqlite3.connect(ledger)) as connection:
+            connection.execute(
+                "UPDATE unknown_public_material_recoveries "
+                "SET record_json=?, record_sha256=? "
+                "WHERE source_document_id='123'",
+                (original_record_json, original_record_sha256),
+            )
+            connection.commit()
 
 
 def test_recovery_repairs_confirmed_billed_legacy_commitment_before_bytes(
