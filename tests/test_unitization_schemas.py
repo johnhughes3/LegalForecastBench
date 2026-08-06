@@ -8,6 +8,8 @@ from legalforecast.unitization import (
     DefendantGrouping,
     PredictionUnit,
     SourceCitation,
+    prediction_unit_from_record,
+    source_citation_from_record,
 )
 
 
@@ -41,6 +43,73 @@ def test_prediction_unit_serializes_claim_defendant_unit() -> None:
     assert record["should_score"] is True
     assert record["source_citations"][0]["document_id"] == "034_motion_to_dismiss"
     json.dumps(record)
+
+
+def test_prediction_unit_from_record_reconstructs_nested_unit() -> None:
+    unit = PredictionUnit(
+        unit_id="count_1_section_10b_issuer",
+        count="I",
+        claim_name="Section 10(b) / Rule 10b-5",
+        defendant_group="Issuer defendant",
+        challenged_by_motion=True,
+        challenge_scope=ChallengeScope.ENTIRE_CLAIM,
+        unit_confidence=0.93,
+        source_citations=(_citation(),),
+        uncertainty_notes="Claim wording normalized from the complaint.",
+    )
+    record = unit.to_record()
+    del record["grouping"]
+
+    decoded = prediction_unit_from_record(record)
+
+    assert decoded == unit
+    assert decoded.to_record()["should_score"] is record["should_score"]
+
+
+def test_prediction_unit_from_record_rejects_malformed_citations() -> None:
+    record = PredictionUnit(
+        unit_id="count_1_section_10b_issuer",
+        count="I",
+        claim_name="Section 10(b) / Rule 10b-5",
+        defendant_group="Issuer defendant",
+        challenged_by_motion=True,
+        challenge_scope=ChallengeScope.ENTIRE_CLAIM,
+        unit_confidence=0.93,
+        source_citations=(_citation(),),
+    ).to_record()
+    record["source_citations"] = "034_motion_to_dismiss"
+
+    with pytest.raises(ValueError, match="source_citations must be a list"):
+        prediction_unit_from_record(record)
+
+
+def test_record_decoders_reject_non_object_boundaries() -> None:
+    with pytest.raises(ValueError, match="prediction_unit must be an object"):
+        prediction_unit_from_record(None)
+
+    with pytest.raises(ValueError, match="source_citation must be an object"):
+        source_citation_from_record(("doc-1",))
+
+
+def test_prediction_unit_from_record_rejects_invalid_should_score() -> None:
+    record = PredictionUnit(
+        unit_id="count_1_section_10b_issuer",
+        count="I",
+        claim_name="Section 10(b) / Rule 10b-5",
+        defendant_group="Issuer defendant",
+        challenged_by_motion=True,
+        challenge_scope=ChallengeScope.ENTIRE_CLAIM,
+        unit_confidence=0.93,
+        source_citations=(_citation(),),
+    ).to_record()
+
+    record["should_score"] = "true"
+    with pytest.raises(ValueError, match="should_score must be a boolean"):
+        prediction_unit_from_record(record)
+
+    record["should_score"] = False
+    with pytest.raises(ValueError, match="should_score does not match"):
+        prediction_unit_from_record(record)
 
 
 def test_grouped_defendants_require_grouping_rationale() -> None:
