@@ -571,7 +571,7 @@ def test_terminal_disposition_rejects_digest_valid_nonproducer_selection_encodin
         )
         with pytest.raises(
             DocketDecisionTextSourceError,
-            match="differs from producer encoding",
+            match="differs from producer encodings",
         ):
             verify_docket_decision_text_sources(
                 selection_payload=nonproducer_payload,

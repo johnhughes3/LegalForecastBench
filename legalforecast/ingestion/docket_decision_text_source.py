@@ -1970,7 +1970,7 @@ def _capture_selection_records(
             ) from exc
         if line not in {legacy_producer_bytes, successor_producer_bytes}:
             raise DocketDecisionTextSourceError(
-                f"selection payload line {line_number} differs from producer encoding"
+                f"selection payload line {line_number} differs from producer encodings"
             )
         captured.append(record)
     if not captured:
