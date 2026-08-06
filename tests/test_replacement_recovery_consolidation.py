@@ -387,6 +387,59 @@ def test_empty_purchased_manifest_without_paid_gaps_fails_closed() -> None:
         )
 
 
+def test_selected_paid_ledger_identity_missing_from_paid_scope_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+    )
+    selection_rows = [
+        {
+            "candidate_id": candidate_id,
+            "documents": [
+                {
+                    "source_document_id": document_id,
+                    **(
+                        {
+                            "availability_status": "unavailable",
+                            "requires_paid_recovery": True,
+                        }
+                        if candidate_id != "case-2"
+                        else {}
+                    ),
+                }
+            ],
+        }
+        for candidate_id, document_id in sorted(all_paid)
+    ]
+    _write_jsonl(args.selection, selection_rows)
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        lambda _root: {
+            "selection_path": args.selection,
+            "selection_records": selection_rows,
+            "purchased_manifest": [],
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "selected paid-ledger identity missing from final active paid-gap scope"
+        ),
+    ):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
 def test_terminal_omission_replay_opens_purchase_journal_read_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

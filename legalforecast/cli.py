@@ -25398,6 +25398,10 @@ def _prepare_replacement_recovery_consolidation(
         raise ValueError(
             "final active paid-gap scope differs from canonical ledger coverage"
         )
+    if active_paid_keys != (selected_keys & operation_keys):
+        raise ValueError(
+            "selected paid-ledger identity missing from final active paid-gap scope"
+        )
     required_purchased_keys = active_paid_keys - omission_keys
     manifest_by_key: dict[tuple[str, str], JsonRecord] = {}
     clearance_by_key: dict[tuple[str, str], JsonRecord] = {}
