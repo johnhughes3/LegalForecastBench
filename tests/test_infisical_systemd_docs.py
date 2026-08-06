@@ -15,28 +15,43 @@ FORBIDDEN_LOOP = (
 )
 
 
+def _stage_sentinels(
+    docs: str, path: str
+) -> tuple[tuple[tuple[str, ...], tuple[str, ...], str, str], ...]:
+    sentinels = []
+    for stage_section in docs.split(f"--path {path}")[1:]:
+        sentinel = stage_section.split('env -i PATH="$PATH"', 1)[0]
+        arrays = re.search(
+            r"required=\((?P<required>[^)]*)\)\n"
+            r"    forbidden=\((?P<forbidden>[^)]*)\)",
+            sentinel,
+        )
+        loops = re.search(
+            r"    (?P<required_loop>for name in \$required;[^\n]+?; done)\n"
+            r"    (?P<forbidden_loop>for name in \$forbidden;[^\n]+?; done)",
+            sentinel,
+        )
+        if arrays is None and loops is None:
+            continue
+        assert arrays is not None
+        assert loops is not None
+        sentinels.append(
+            (
+                tuple(arrays.group("required").split()),
+                tuple(arrays.group("forbidden").split()),
+                loops.group("required_loop"),
+                loops.group("forbidden_loop"),
+            )
+        )
+    return tuple(sentinels)
+
+
 def _stage_sentinel(
     docs: str, path: str
 ) -> tuple[tuple[str, ...], tuple[str, ...], str, str]:
-    stage_section = docs.split(f"--path {path}", 1)[1]
-    arrays = re.search(
-        r"required=\((?P<required>[^)]*)\)\n"
-        r"    forbidden=\((?P<forbidden>[^)]*)\)",
-        stage_section,
-    )
-    loops = re.search(
-        r"    (?P<required_loop>for name in \$required;[^\n]+?; done)\n"
-        r"    (?P<forbidden_loop>for name in \$forbidden;[^\n]+?; done)",
-        stage_section,
-    )
-    assert arrays is not None
-    assert loops is not None
-    return (
-        tuple(arrays.group("required").split()),
-        tuple(arrays.group("forbidden").split()),
-        loops.group("required_loop"),
-        loops.group("forbidden_loop"),
-    )
+    sentinels = _stage_sentinels(docs, path)
+    assert len(sentinels) == 1
+    return sentinels[0]
 
 
 def _stage_key_arrays(docs: str, path: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -99,13 +114,39 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
         "Do not copy credential values",
         "Do not enable folder imports",
         "masked Infisical UI inventory is the authoritative exact-inventory check",
-        "The sentinels are not a substitute for the complete masked UI inventory",
+        (
+            "The parser, labeling, and broker-client sentinels are not a substitute "
+            "for their complete masked UI inventories"
+        ),
     ):
         assert expected in launcher_docs
     assert "/agents/sandbox/**" not in launcher_docs
     assert "dependent-secret parser and labeling views" in launcher_docs
 
-    assert launcher_docs.count('env -i PATH="$PATH"') == 4
+    assert launcher_docs.count('env -i PATH="$PATH"') == 6
+    acquisition_forbidden = (
+        "RECAP_FETCH_BROKER_URL",
+        "RECAP_FETCH_BROKER_MACHINE_ID",
+        "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK",
+        "RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON",
+        "RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256",
+    )
+    assert _stage_sentinels(
+        launcher_docs, "/agents/sandbox/legalforecastbench/acquisition"
+    ) == (
+        (
+            ("COURTLISTENER_API_TOKEN", "PACER_USERNAME", "PACER_PASSWORD"),
+            acquisition_forbidden,
+            REQUIRED_LOOP,
+            FORBIDDEN_LOOP,
+        ),
+        (
+            ("COURTLISTENER_API_TOKEN",),
+            acquisition_forbidden,
+            REQUIRED_LOOP,
+            FORBIDDEN_LOOP,
+        ),
+    )
     parser_sentinel = _stage_sentinel(
         launcher_docs, "/agents/sandbox/legalforecastbench/parser"
     )
@@ -172,6 +213,21 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
     assert "acquisition-systemd-launcher.md" in runbook
     assert "authoritative masked Infisical UI inventory" in runbook
     assert "zsh -dfc" in runbook
+
+
+def test_acquisition_systemd_docs_make_direct_target100_purchase_canonical() -> None:
+    docs = (ROOT / "docs" / "acquisition-systemd-launcher.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "canonical checked-in target-100 path" in docs
+    assert "`--direct-courtlistener-purchase`" in docs
+    assert "Direct recovery requires only `COURTLISTENER_API_TOKEN`" in docs
+    assert "optional broker transport" in docs
+    assert "does not weaken or replace" in docs
+    assert "transport-specific preflights are not exact-inventory" in docs
+    assert "other acquisition-stage credentials" in docs
+    assert "Paid RECAP Fetch uses only" not in docs
 
 
 def test_acquisition_systemd_docs_require_exact_recap_fetch_client_view() -> None:
