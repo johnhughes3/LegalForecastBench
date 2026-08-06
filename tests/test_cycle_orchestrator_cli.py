@@ -1467,6 +1467,7 @@ def test_disclosure_receipt_reuses_authenticated_output_bytes(
             AssertionError("adoption must not execute the provider stage")
         ),
     )
+    assert call_count == 2
     assert result["status"] == "completed"
     receipt = json.loads(
         (state_root / "receipts" / "0001-review-disclosure.json").read_bytes()
