@@ -25342,6 +25342,22 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             input_paths=input_paths,
             output_paths=(descriptor_path, run_card_path),
         )
+        final_purchase_snapshot = read_case_dev_purchase_snapshot(
+            ledger_path,
+            policy=policy,
+            controlled_private_root=initial_private_root,
+            initialization_receipt_path=receipt_path,
+        )
+        if (
+            final_purchase_snapshot.purchase_state_sha256
+            != purchase_snapshot.purchase_state_sha256
+            or final_purchase_snapshot.committed_amount_usd
+            != purchase_snapshot.committed_amount_usd
+            or final_purchase_snapshot.operations != purchase_snapshot.operations
+        ):
+            raise ReplacementRecoverySourceError(
+                "purchase ledger changed during recovery source production"
+            )
         card: JsonRecord = {
             "schema_version": SOURCE_RUN_CARD_SCHEMA,
             "stage": "build-replacement-recovery-source",

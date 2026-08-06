@@ -527,6 +527,43 @@ def test_producer_resume_rejects_digest_drift(
         cli._cmd_build_replacement_recovery_source(args)
 
 
+def test_producer_rejects_purchase_ledger_drift_before_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, _, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    operation = {
+        "candidate_id": "initial-case",
+        "source_document_id": "initial-doc",
+    }
+    snapshots = iter(
+        (
+            SimpleNamespace(
+                purchase_state_sha256="state-1",
+                committed_amount_usd="3.05",
+                operations=[operation],
+            ),
+            SimpleNamespace(
+                purchase_state_sha256="state-2",
+                committed_amount_usd="3.05",
+                operations=[operation],
+            ),
+        )
+    )
+    monkeypatch.setattr(
+        cli,
+        "read_case_dev_purchase_snapshot",
+        lambda *_args, **_kwargs: next(snapshots),
+    )
+
+    with pytest.raises(
+        cli.CommandError,
+        match="purchase ledger changed during recovery source production",
+    ):
+        cli._cmd_build_replacement_recovery_source(args)
+    assert not args.output_root.exists()
+
+
 def test_producer_dry_run_emits_card_without_writing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
