@@ -894,6 +894,7 @@ def _direct_recovered_public_inputs(
     operation_updates: Mapping[str, object] | None = None,
     response_updates: Mapping[str, object] | None = None,
     missing_material_fields: Sequence[str] = (),
+    with_url_correction: bool = False,
 ) -> tuple[dict[str, Any], object, dict[str, object]]:
     inputs = _inputs()
     operation = inputs["purchase_operation_records"][0]
@@ -919,6 +920,34 @@ def _direct_recovered_public_inputs(
     material = cast(dict[str, object], operation["material_evidence"])
     for field in missing_material_fields:
         material.pop(field, None)
+    if with_url_correction:
+        response = cast(dict[str, object], operation["response"])
+        correction: dict[str, object] = {
+            "schema_version": (
+                "legalforecast.courtlistener_url_commitment_correction.v1"
+            ),
+            "cycle_id": "cycle-1",
+            "purchase_policy_sha256": "1" * 64,
+            "candidate_id": operation["candidate_id"],
+            "source_document_id": operation["source_document_id"],
+            "operation_key": operation["operation_key"],
+            "source_provider": "courtlistener.recap-fetch+pacer",
+            "queue_id": response["queue_id"],
+            "reservation_id": response["reservation_id"],
+            "reservation_usd": operation["reservation_usd"],
+            "attempt_policy_sha256": operation["attempt_policy_sha256"],
+            "attempt_document_sha256": operation["attempt_document_sha256"],
+            "provider_detail_sha256": material["provider_detail_sha256"],
+            "queue_response_sha256": material["queue_response_sha256"],
+            "legacy_download_url_sha256": "8" * 64,
+            "corrected_download_url_sha256": material["download_url_sha256"],
+            "billing_authority": {"state": "queued_unbilled"},
+            "material_authority": "unknown_status_attempt",
+            "material_status": "available_pending_quarantine",
+            "pre_byte_correction": True,
+        }
+        correction["record_sha256"] = _hash(correction)
+        response["courtlistener_url_commitment_correction"] = correction
     lineage: dict[str, object] = {
         "candidate_id": "case-1",
         "source_document_id": "123",
@@ -1018,6 +1047,26 @@ def test_recovered_public_capability_authorizes_direct_queue_v4(
             purchase_operation_records=inputs["purchase_operation_records"],
             resolved_records=records,
             expected_purchase_policy_sha256="1" * 64,
+        )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="V4 resolved records require verifier-issued recovery authority",
+    ):
+        cli._require_resolved_operation_bindings_dispatch(
+            clearance_kwargs={},
+            purchase_operation_records=inputs["purchase_operation_records"],
+            resolved_records=records,
+            expected_purchase_policy_sha256="1" * 64,
+        )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="V4 resolved records require verifier-issued recovery authority",
+    ):
+        cli._require_resolved_parse_requests_dispatch(
+            clearance_kwargs={},
+            selection_records=inputs["selection_records"],
+            request_records=[request],
+            resolved_records=records,
         )
 
     forged = deepcopy(records[0])
@@ -1125,6 +1174,69 @@ def test_direct_queue_recovered_public_authority_requires_queue_digest(
     )
 
     with pytest.raises(ResolvedPostRecoveryError, match="queue response"):
+        build_recovered(
+            **inputs,
+            verified_recovery_capability=capability,
+        )
+
+
+def test_direct_queue_recovered_public_accepts_authenticated_url_correction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs, capability, _ = _direct_recovered_public_inputs(
+        monkeypatch,
+        with_url_correction=True,
+    )
+
+    records = build_recovered(
+        **inputs,
+        verified_recovery_capability=capability,
+    )
+
+    assert records[0]["schema_version"] == (
+        "legalforecast.resolved_post_recovery_public_document.v4"
+    )
+    require_recovered_operation_bindings(
+        purchase_operation_records=inputs["purchase_operation_records"],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
+        verified_recovery_capability=capability,
+    )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "purchase_policy_sha256",
+        "queue_id",
+        "corrected_download_url_sha256",
+        "billing_authority",
+        "record_sha256",
+    ],
+)
+def test_direct_queue_recovered_public_rejects_tampered_url_correction(
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+) -> None:
+    inputs, _, _ = _direct_recovered_public_inputs(
+        monkeypatch,
+        with_url_correction=True,
+    )
+    operation = inputs["purchase_operation_records"][0]
+    response = cast(dict[str, object], operation["response"])
+    correction = cast(
+        dict[str, object], response["courtlistener_url_commitment_correction"]
+    )
+    correction[field] = {} if field == "billing_authority" else "9" * 64
+    lineage = cast(
+        dict[str, object],
+        inputs["clearance_records"][0]["recovered_public_lineage"],
+    )
+    lineage["purchase_operation_sha256"] = _hash(operation)
+    inputs["clearance_artifact_bytes"] = _jsonl_bytes(inputs["clearance_records"])
+    capability = issue_recovered_public_capability(monkeypatch, [lineage])
+
+    with pytest.raises(ResolvedPostRecoveryError, match="URL correction"):
         build_recovered(
             **inputs,
             verified_recovery_capability=capability,

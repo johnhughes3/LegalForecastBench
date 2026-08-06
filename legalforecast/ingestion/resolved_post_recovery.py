@@ -1673,13 +1673,28 @@ def _authenticated_direct_queue_delivery_authority(
 
     operation_key = _uuid4(operation.get("operation_key"))
     expected_reservation_id = f"direct:{operation_key}"
+    base_response_fields = {
+        "queue_id",
+        "reservation_id",
+        "reservation_usd",
+        "source_provider",
+    }
+    response_fields = frozenset(response)
     if (
         operation.get("status") != "queued"
         or operation.get("actual_usd") is not None
         or operation.get("reconciliation") is not None
         or operation.get("error") is not None
-        or set(response)
-        != {"queue_id", "reservation_id", "reservation_usd", "source_provider"}
+        or response_fields
+        not in {
+            frozenset(base_response_fields),
+            frozenset(
+                {
+                    *base_response_fields,
+                    "courtlistener_url_commitment_correction",
+                }
+            ),
+        }
         or response.get("source_provider") != "courtlistener.recap-fetch+pacer"
         or response.get("reservation_id") != expected_reservation_id
         or response.get("reservation_usd") != operation.get("reservation_usd")
@@ -1693,6 +1708,16 @@ def _authenticated_direct_queue_delivery_authority(
             f"direct CourtListener queue authority is invalid: {key}"
         )
     _required_text(response.get("reservation_usd"), "reservation_usd")
+    correction = response.get("courtlistener_url_commitment_correction")
+    if correction is not None:
+        _validate_direct_queue_url_correction(
+            correction,
+            operation=operation,
+            response=response,
+            material=material,
+            key=key,
+            expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+        )
     return {
         "delivery_authority": ("authenticated_direct_courtlistener_queue_recovery"),
         "purchase_policy_sha256": _required_sha(
@@ -1702,6 +1727,90 @@ def _authenticated_direct_queue_delivery_authority(
             material.get("queue_response_sha256"), "queue response"
         ),
     }
+
+
+def _validate_direct_queue_url_correction(
+    value: object,
+    *,
+    operation: Mapping[str, Any],
+    response: Mapping[str, Any],
+    material: Mapping[str, Any],
+    key: tuple[str, str],
+    expected_purchase_policy_sha256: str,
+) -> None:
+    """Replay the closed journal URL-correction record on a direct queue row."""
+
+    if not isinstance(value, Mapping):
+        raise ResolvedPostRecoveryError(
+            f"direct CourtListener URL correction is invalid: {key}"
+        )
+    correction = cast(Mapping[str, object], value)
+    expected_fields = {
+        "schema_version",
+        "cycle_id",
+        "purchase_policy_sha256",
+        "candidate_id",
+        "source_document_id",
+        "operation_key",
+        "source_provider",
+        "queue_id",
+        "reservation_id",
+        "reservation_usd",
+        "attempt_policy_sha256",
+        "attempt_document_sha256",
+        "provider_detail_sha256",
+        "queue_response_sha256",
+        "legacy_download_url_sha256",
+        "corrected_download_url_sha256",
+        "billing_authority",
+        "material_authority",
+        "material_status",
+        "pre_byte_correction",
+        "record_sha256",
+    }
+    committed = correction.get("record_sha256")
+    unhashed = {
+        field: item for field, item in correction.items() if field != "record_sha256"
+    }
+    if (
+        set(correction) != expected_fields
+        or correction.get("schema_version")
+        != "legalforecast.courtlistener_url_commitment_correction.v1"
+        or not isinstance(correction.get("cycle_id"), str)
+        or not correction.get("cycle_id")
+        or correction.get("purchase_policy_sha256") != expected_purchase_policy_sha256
+        or correction.get("candidate_id") != key[0]
+        or correction.get("source_document_id") != key[1]
+        or correction.get("operation_key") != operation.get("operation_key")
+        or correction.get("source_provider") != "courtlistener.recap-fetch+pacer"
+        or correction.get("queue_id") != response.get("queue_id")
+        or correction.get("reservation_id") != response.get("reservation_id")
+        or correction.get("reservation_usd") != operation.get("reservation_usd")
+        or correction.get("attempt_policy_sha256")
+        != operation.get("attempt_policy_sha256")
+        or correction.get("attempt_document_sha256")
+        != operation.get("attempt_document_sha256")
+        or correction.get("provider_detail_sha256")
+        != material.get("provider_detail_sha256")
+        or correction.get("queue_response_sha256")
+        != material.get("queue_response_sha256")
+        or correction.get("corrected_download_url_sha256")
+        != material.get("download_url_sha256")
+        or correction.get("legacy_download_url_sha256")
+        == correction.get("corrected_download_url_sha256")
+        or correction.get("billing_authority") != {"state": "queued_unbilled"}
+        or correction.get("material_authority") != UNKNOWN_RECOVERY_ORIGIN
+        or correction.get("material_status") != "available_pending_quarantine"
+        or correction.get("pre_byte_correction") is not True
+        or committed != _sha256(unhashed)
+    ):
+        raise ResolvedPostRecoveryError(
+            f"direct CourtListener URL correction is invalid: {key}"
+        )
+    _required_sha(correction.get("legacy_download_url_sha256"), "legacy download URL")
+    _required_sha(
+        correction.get("corrected_download_url_sha256"), "corrected download URL"
+    )
 
 
 def _validate_download(

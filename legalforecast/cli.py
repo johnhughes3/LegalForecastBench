@@ -682,6 +682,7 @@ from legalforecast.ingestion.replacement_recovery_source import (
     derive_resolved_source_coordinates,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
+    RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4,
     ResolvedPostRecoveryError,
     _build_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
     _build_resolved_recovered_public,  # pyright: ignore[reportPrivateUsage]
@@ -26058,8 +26059,7 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 resolved_bytes, source=resolved_path
             )
             if any(
-                record.get("schema_version")
-                == "legalforecast.resolved_post_recovery_public_document.v4"
+                record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
                 for record in resolved_records
             ):
                 clearance_kwargs = _materializer_clearance_lineage_kwargs(
@@ -40254,7 +40254,15 @@ def _require_resolved_operation_bindings_dispatch(
     """Replay direct-queue bindings only through recovered-public authority."""
 
     recovered = clearance_kwargs.get("_verified_recovery_capability")
+    requires_recovered_authority = any(
+        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+        for record in resolved_records
+    )
     if recovered is None:
+        if requires_recovered_authority:
+            raise ResolvedPostRecoveryError(
+                "V4 resolved records require verifier-issued recovery authority"
+            )
         require_resolved_post_recovery_operation_bindings(
             purchase_operation_records=purchase_operation_records,
             resolved_records=resolved_records,
@@ -40279,12 +40287,20 @@ def _require_resolved_parse_requests_dispatch(
     """Replay direct-queue parse bindings only through verifier authority."""
 
     recovered = clearance_kwargs.get("_verified_recovery_capability")
+    requires_recovered_authority = any(
+        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+        for record in resolved_records
+    )
     arguments = {
         "selection_records": selection_records,
         "request_records": request_records,
         "resolved_records": resolved_records,
     }
     if recovered is None:
+        if requires_recovered_authority:
+            raise ResolvedPostRecoveryError(
+                "V4 resolved records require verifier-issued recovery authority"
+            )
         require_resolved_post_recovery_parse_requests(**arguments)
         return
     _require_resolved_recovered_public_parse_requests(
