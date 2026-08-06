@@ -374,13 +374,21 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
         "courtlistener-rest://recap-documents/entry-1"
     )
 
-    for field, value in (
-        ("source_provider", "courtlistener_recap_fetch"),
-        ("source_provider", "other"),
-        ("source_url", None),
-        ("source_url", "https://storage.courtlistener.com/recap/a.pdf"),
-        ("purchase_operation_key", "11111111-1111-4111-8111-111111111111"),
-        ("fresh_recap_detail_sha256", "9" * 64),
+    for field, value, expected in (
+        ("source_provider", "courtlistener_recap_fetch", "does not prove"),
+        ("source_provider", "other", "does not prove"),
+        ("source_url", None, "must omit source_url"),
+        (
+            "source_url",
+            "https://storage.courtlistener.com/recap/a.pdf",
+            "coverage",
+        ),
+        (
+            "purchase_operation_key",
+            "11111111-1111-4111-8111-111111111111",
+            "does not prove",
+        ),
+        ("fresh_recap_detail_sha256", "9" * 64, "does not prove"),
     ):
         changed_manifest = deepcopy(manifest)
         changed_manifest[0][field] = value
@@ -388,7 +396,7 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
             **kwargs,
             "download_manifest_bytes": _jsonl(changed_manifest),
         }
-        with pytest.raises(ProvenanceClearanceError):
+        with pytest.raises(ProvenanceClearanceError, match=expected):
             build_provenance_clearance_plan_v3(
                 requests,
                 changed_manifest,
@@ -398,8 +406,10 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
                 verified_recovery_capability=capability,
             )
 
+    document_path = root / cast(str, manifest[0]["local_path"])
+    original_document_bytes = document_path.read_bytes()
     changed_data = b"different authenticated document bytes"
-    (root / cast(str, manifest[0]["local_path"])).write_bytes(changed_data)
+    document_path.write_bytes(changed_data)
     changed_manifest = deepcopy(manifest)
     changed_manifest[0]["sha256"] = hashlib.sha256(changed_data).hexdigest()
     changed_manifest[0]["byte_count"] = len(changed_data)
@@ -419,6 +429,7 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
             },
             verified_recovery_capability=capability,
         )
+    document_path.write_bytes(original_document_bytes)
 
     changed_restrictions = deepcopy(restrictions)
     changed_restrictions[0]["schema_version"] = "tampered"
