@@ -1261,7 +1261,7 @@ def _verify_recap_document(payload: Mapping[str, Any], document_id: str) -> None
 def verified_courtlistener_download_url(value: object) -> str:
     """Normalize one credential-free allowlisted CourtListener HTTPS URL."""
 
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str) or not value.strip() or value.strip() != value:
         raise CourtListenerRecapFetchError("purchased document lacks a download URL")
     url = urllib.parse.urljoin("https://www.courtlistener.com", value)
     parsed = urllib.parse.urlparse(url)

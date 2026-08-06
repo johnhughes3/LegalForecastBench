@@ -25,6 +25,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     RecapFetchHTTPResponse,
     RecordedRecapFetchResponse,
     _verify_recap_document,
+    verified_courtlistener_download_url,
 )
 from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudget,
@@ -72,6 +73,42 @@ def test_purchased_recap_metadata_accepts_null_or_false_restriction_flags(
         {"id": 123, "is_sealed": value, "is_private": value},
         "123",
     )
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "https://storage.courtlistener.com/123.pdf",
+        "https://www.courtlistener.com/recap/123.pdf",
+        "/recap/123.pdf",
+    ),
+)
+def test_verified_courtlistener_download_url_preserves_canonical_urls(
+    value: str,
+) -> None:
+    expected = (
+        "https://www.courtlistener.com/recap/123.pdf"
+        if value.startswith("/")
+        else value
+    )
+
+    assert verified_courtlistener_download_url(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        " https://storage.courtlistener.com/123.pdf",
+        "https://storage.courtlistener.com/123.pdf ",
+        "\thttps://www.courtlistener.com/recap/123.pdf\n",
+        " /recap/123.pdf ",
+    ),
+)
+def test_verified_courtlistener_download_url_rejects_surrounding_whitespace(
+    value: str,
+) -> None:
+    with pytest.raises(CourtListenerRecapFetchError, match="download URL"):
+        verified_courtlistener_download_url(value)
 
 
 def test_purchase_verifies_id_then_submits_exact_broker_contract_and_recovers(
