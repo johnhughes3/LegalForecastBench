@@ -49,15 +49,21 @@ def require_materializer_artifact(path: Path, *, label: str) -> bytes:
             raise MaterializerArtifactValidationError(
                 f"{label} must not be hardlinked: {path}"
             )
-        payload = bytearray()
-        while chunk := os.read(descriptor, _CHUNK_SIZE):
-            payload.extend(chunk)
+        payload = _read_descriptor_payload(descriptor)
         after = os.fstat(descriptor)
-        if _artifact_identity(metadata) != _artifact_identity(after):
+        if _artifact_identity(metadata) == _artifact_identity(after):
+            return payload
+        if _artifact_content_identity(metadata) != _artifact_content_identity(after):
             raise MaterializerArtifactValidationError(
                 f"{label} changed while it was being read: {path}"
             )
-        return bytes(payload)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        confirmation = _read_descriptor_payload(descriptor)
+        if confirmation != payload:
+            raise MaterializerArtifactValidationError(
+                f"{label} changed while it was being read: {path}"
+            )
+        return payload
     except OSError as exc:
         raise MaterializerArtifactValidationError(
             f"{label} could not be read safely: {path}: {exc}"
@@ -99,7 +105,16 @@ def _open_materializer_artifact(path: Path) -> int:
 
 
 def _artifact_identity(metadata: os.stat_result) -> tuple[int, ...]:
-    """Track the complete content-relevant identity of the open inode."""
+    """Track content and metadata mutation of the open inode."""
+
+    return (
+        *_artifact_content_identity(metadata),
+        metadata.st_ctime_ns,
+    )
+
+
+def _artifact_content_identity(metadata: os.stat_result) -> tuple[int, ...]:
+    """Track identity fields that a harmless pathname rename cannot change."""
 
     return (
         metadata.st_dev,
@@ -107,9 +122,17 @@ def _artifact_identity(metadata: os.stat_result) -> tuple[int, ...]:
         metadata.st_mode,
         metadata.st_size,
         metadata.st_mtime_ns,
-        metadata.st_ctime_ns,
         metadata.st_nlink,
     )
+
+
+def _read_descriptor_payload(descriptor: int) -> bytes:
+    """Read the remaining bytes from one already-validated descriptor."""
+
+    payload = bytearray()
+    while chunk := os.read(descriptor, _CHUNK_SIZE):
+        payload.extend(chunk)
+    return bytes(payload)
 
 
 def validate_materializer_writable_paths(
