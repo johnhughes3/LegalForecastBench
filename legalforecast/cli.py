@@ -14227,8 +14227,10 @@ def _validate_named_existing_file_commitment(
     if not isinstance(raw_path, str) or not _valid_prefixed_sha256(expected_sha256):
         raise CommandError(f"parse-documents run card has invalid {name} commitment")
     path = Path(raw_path)
-    _require_materializer_artifact(path, label=f"parse-documents committed {name}")
-    if _path_sha256(path) != expected_sha256:
+    payload = _require_materializer_artifact(
+        path, label=f"parse-documents committed {name}"
+    )
+    if _bytes_sha256(payload) != expected_sha256:
         raise CommandError(f"parse-documents committed {name} file changed")
 
 
@@ -27934,8 +27936,18 @@ def _owned_raw_records_from_snapshot(
 def _all_owned_raw_records_from_snapshot(snapshot_path: Path) -> list[JsonRecord]:
     """Regenerate every archived union raw-observation manifest row."""
 
+    return _normalize_owned_raw_records(
+        _read_records(snapshot_path / "raw-artifacts.jsonl")
+    )
+
+
+def _normalize_owned_raw_records(
+    raw_records: Sequence[Mapping[str, object]],
+) -> list[JsonRecord]:
+    """Project archived raw-observation rows to the packet-owned fields."""
+
     records: list[JsonRecord] = []
-    for record in _read_records(snapshot_path / "raw-artifacts.jsonl"):
+    for record in raw_records:
         byte_count = record.get("byte_count")
         if not isinstance(byte_count, int) or isinstance(byte_count, bool):
             raise CycleAcquisitionStoreError(
@@ -34862,13 +34874,11 @@ def _preflight_materialization_purchase_runtime(
         Path | None, getattr(args, "controlled_private_root", None)
     )
     try:
-        _require_materializer_artifact(
+        run_card_bytes = _require_materializer_artifact(
             run_card_path, label="materialization authority run card"
         )
         card = _projection_json_object(
-            _read_singly_linked_regular_input(
-                run_card_path, label="materialization authority run card"
-            ),
+            run_card_bytes,
             source=run_card_path,
         )
         if (
@@ -36663,15 +36673,15 @@ def _verify_materializer_projection(
                 expected_target_count=expected_target_count,
             )
     paths = {name: target_root / name for name in BASE_PROJECTION_ARTIFACT_NAMES}
-    for label, path in (*paths.items(), ("run card", run_card_path)):
-        _require_materializer_artifact(path, label=f"target projection {label}")
+    output_snapshots = {
+        path: _require_materializer_artifact(path, label=f"target projection {label}")
+        for label, path in (*paths.items(), ("run card", run_card_path))
+    }
     if free_clearance_path.resolve() != paths["disclosure-clearance.jsonl"].resolve():
         raise CommandError(
             "--free-disclosure-clearance must be the exact target projection output"
         )
-    run_card_bytes = _read_singly_linked_regular_input(
-        run_card_path, label="target projection run card"
-    )
+    run_card_bytes = output_snapshots[run_card_path]
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
     expected_outputs = tuple(paths.values())
     if (
@@ -36736,11 +36746,9 @@ def _verify_materializer_projection(
     for name, expected_path in expected_lineage_paths.items():
         if source_paths[name].resolve() != expected_path.resolve():
             raise CommandError(f"target projection {name} lineage differs")
-    for name, path in source_paths.items():
-        _require_materializer_artifact(path, label=f"target projection input {name}")
     source_bytes = {
-        name: _read_singly_linked_regular_input(
-            path, label=f"target projection {name.replace('_', ' ')}"
+        name: _require_materializer_artifact(
+            path, label=f"target projection input {name}"
         )
         for name, path in source_paths.items()
     }
@@ -37470,15 +37478,19 @@ def _verify_materializer_legacy_recovery(
     recovery_path = recovery_root / "purchased-document-recovery.jsonl"
     document_root = recovery_root / "documents/purchased"
     run_card_path = recovery_root / "run-cards/recover-purchased.json"
-    for label, path in (
-        ("purchased manifest", manifest_path),
-        ("recovery audit", recovery_path),
-        ("recovery run card", run_card_path),
-    ):
-        _require_materializer_artifact(path, label=label)
+    artifact_bytes = {
+        path: _require_materializer_artifact(path, label=label)
+        for label, path in (
+            ("purchased manifest", manifest_path),
+            ("recovery audit", recovery_path),
+            ("recovery run card", run_card_path),
+        )
+    }
     if document_root.is_symlink() or not document_root.is_dir():
         raise CommandError("purchased recovery document root is missing or unsafe")
-    run_card = _read_json_object(run_card_path)
+    run_card = _read_json_object_payload(
+        artifact_bytes[run_card_path], label="purchased recovery run card"
+    )
     raw_inputs = run_card.get("input_paths")
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
         raise CommandError("recover-purchased run card lacks exact inputs")
@@ -37491,13 +37503,22 @@ def _verify_materializer_legacy_recovery(
     ):
         raise CommandError("recover-purchased selection differs from target selection")
     purchase_result_path = recovery_inputs[0]
-    _require_materializer_artifact(purchase_result_path, label="purchase result")
-    manifest_records = _read_records(manifest_path)
-    recovery_records = _read_records(recovery_path)
+    purchase_result_bytes = _require_materializer_artifact(
+        purchase_result_path, label="purchase result"
+    )
+    manifest_records = _read_jsonl_payload(
+        artifact_bytes[manifest_path], label=str(manifest_path)
+    )
+    recovery_records = _read_jsonl_payload(
+        artifact_bytes[recovery_path], label=str(recovery_path)
+    )
     selection_records = _read_records(selection_path)
     try:
         requests = purchased_document_recovery_requests_from_records(
-            _read_json_object(purchase_result_path), selection_records
+            _read_json_object_payload(
+                purchase_result_bytes, label=str(purchase_result_path)
+            ),
+            selection_records,
         )
     except PurchasedDocumentRecoveryError as exc:
         raise CommandError(str(exc)) from exc
@@ -38248,11 +38269,17 @@ def _verify_materializer_clearance_lineage(
     allow_legacy_implicit_quarantine: bool = False,
 ) -> dict[str, object]:
     _require_materializer_artifact(clearance_path, label="purchased clearance")
-    _require_materializer_artifact(run_card_path, label="purchased clearance run card")
-    run_card_bytes = _captured_or_stable_input(
-        run_card_path,
-        label="purchased clearance run card",
-        captured_artifact_bytes=captured_artifact_bytes,
+    validated_run_card_bytes = _require_materializer_artifact(
+        run_card_path, label="purchased clearance run card"
+    )
+    run_card_bytes = (
+        _captured_or_stable_input(
+            run_card_path,
+            label="purchased clearance run card",
+            captured_artifact_bytes=captured_artifact_bytes,
+        )
+        if captured_artifact_bytes is not None
+        else validated_run_card_bytes
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
     if run_card.get("schema_version") == _REPLACEMENT_RECOVERY_CARD_SCHEMA:
@@ -39154,10 +39181,7 @@ def _verify_materialized_downstream_lineage(
     controlled_private_root: Path | None = None,
     initialization_receipt_path: Path | None = None,
 ) -> _VerifiedMaterializedDownstreamLineage:
-    _require_materializer_artifact(
-        run_card_path, label="materialization lineage run card"
-    )
-    run_card_bytes = _read_singly_linked_regular_input(
+    run_card_bytes = _require_materializer_artifact(
         run_card_path, label="materialization lineage run card"
     )
     card = _projection_json_object(run_card_bytes, source=run_card_path)
@@ -40020,8 +40044,9 @@ def _materializer_tree_snapshot(root: Path) -> dict[str, bytes]:
 
 
 def _materializer_file_commitment(path: Path) -> dict[str, str]:
-    _require_materializer_artifact(path, label="materializer source")
-    return {"path": str(path.resolve()), "sha256": _path_sha256(path)}
+    payload = _require_materializer_artifact(path, label="materializer source")
+    canonical_path = Path(os.path.abspath(path))
+    return {"path": str(canonical_path), "sha256": _bytes_sha256(payload)}
 
 
 def _file_commitment_from_bytes(path: Path, payload: bytes) -> dict[str, str]:
@@ -40125,15 +40150,15 @@ def _snapshot_committed_file(
     return path, payload
 
 
-def _require_materializer_artifact(path: Path, *, label: str) -> None:
+def _require_materializer_artifact(path: Path, *, label: str) -> bytes:
     try:
-        require_materializer_artifact(path, label=label)
+        payload = require_materializer_artifact(path, label=label)
     except MaterializerArtifactValidationError as exc:
         message = str(exc)
     except CohortDocumentMaterializationError as exc:
         raise CommandError(str(exc)) from exc
     else:
-        return
+        return payload
     raise CommandError(message)
 
 
@@ -54591,16 +54616,28 @@ def _verify_packet_raw_artifacts_snapshot_binding(
 
     snapshot_path = screening_snapshot_manifest_path.parent
     snapshot_raw_artifacts_path = snapshot_path / "raw-artifacts.jsonl"
-    _require_materializer_artifact(
+    snapshot_raw_artifacts_bytes = _require_materializer_artifact(
         snapshot_raw_artifacts_path,
         label="screening snapshot raw artifacts",
     )
-    _require_materializer_artifact(
+    raw_artifacts_manifest_bytes = _require_materializer_artifact(
         raw_artifacts_manifest_path,
         label="packet raw-artifact manifest",
     )
-    expected_records = _owned_raw_records_from_snapshot(snapshot_path)
-    if _read_records(raw_artifacts_manifest_path) != expected_records:
+    expected_records = _owned_raw_records_from_snapshot(
+        snapshot_path,
+        archived_records=_normalize_owned_raw_records(
+            _read_jsonl_payload(
+                snapshot_raw_artifacts_bytes, label=str(snapshot_raw_artifacts_path)
+            )
+        ),
+    )
+    if (
+        _read_jsonl_payload(
+            raw_artifacts_manifest_bytes, label=str(raw_artifacts_manifest_path)
+        )
+        != expected_records
+    ):
         raise CommandError(
             "packet raw-artifact manifest differs from authenticated snapshot"
         )
@@ -54639,10 +54676,9 @@ def _provider_journal_stage_snapshot(
 ) -> tuple[tuple[JsonRecord, ...], str]:
     """Capture the immutable logical rows for one provider-backed stage."""
 
-    _require_materializer_artifact(path, label=f"{stage} provider journal")
     connection: sqlite3.Connection | None = None
     try:
-        connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        connection = _provider_journal_database_snapshot(path, stage=stage)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA query_only = ON")
         rows = connection.execute(
@@ -54665,6 +54701,48 @@ def _provider_journal_stage_snapshot(
     ):
         raise CommandError(f"{stage} provider journal has non-terminal attempts")
     return records, _canonical_json_sha256(records)
+
+
+def _provider_journal_database_snapshot(
+    path: Path,
+    *,
+    stage: str,
+) -> sqlite3.Connection:
+    """Back up one SQLite-locked journal snapshot into memory."""
+
+    label = f"{stage} provider journal"
+    wal_path = Path(f"{path}-wal")
+    main_before = _require_materializer_artifact(path, label=label)
+    wal_before = _optional_materializer_artifact(wal_path, label=f"{label} WAL")
+
+    snapshot = sqlite3.connect(":memory:")
+    source: sqlite3.Connection | None = None
+    try:
+        source_uri = f"{Path(os.path.abspath(path)).as_uri()}?mode=ro"
+        source = sqlite3.connect(source_uri, uri=True, isolation_level=None)
+        source.execute("PRAGMA query_only = ON")
+        source.execute("BEGIN")
+        source.execute("SELECT rootpage FROM sqlite_schema LIMIT 1").fetchall()
+        source.backup(snapshot)
+        main_after = _require_materializer_artifact(path, label=label)
+        wal_after = _optional_materializer_artifact(wal_path, label=f"{label} WAL")
+        if main_before != main_after or wal_before != wal_after:
+            raise CommandError(f"{label} changed during snapshot")
+    except BaseException:
+        snapshot.close()
+        raise
+    finally:
+        if source is not None:
+            source.close()
+    return snapshot
+
+
+def _optional_materializer_artifact(path: Path, *, label: str) -> bytes | None:
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return None
+    return _require_materializer_artifact(path, label=label)
 
 
 def _validate_provider_journal_stage_commitment(
@@ -54714,11 +54792,10 @@ def _verify_parser_packet_authority(
         stage="plan-parse-documents",
         paid=False,
     )
-    _require_materializer_artifact(
+    parser_card_payload = _require_materializer_artifact(
         parser_run_card_path, label="parse-documents run card"
     )
     _require_materializer_artifact(clearance_path, label="parser clearance input")
-    parser_card_payload = parser_run_card_path.read_bytes()
     parser_card = _projection_json_object(
         parser_card_payload,
         source=parser_run_card_path,
@@ -54854,9 +54931,19 @@ def _verify_parser_packet_authority(
             or record.get("source_byte_count") != request.get("expected_byte_count")
         ):
             raise CommandError(f"parser manifest source binding mismatch: {key}")
-    if parse_plan_run_card_path.read_bytes() != plan_card_payload:
+    if (
+        _require_materializer_artifact(
+            parse_plan_run_card_path, label="plan-parse-documents run card"
+        )
+        != plan_card_payload
+    ):
         raise CommandError("parse-plan run card changed while being replayed")
-    if parser_run_card_path.read_bytes() != parser_card_payload:
+    if (
+        _require_materializer_artifact(
+            parser_run_card_path, label="parse-documents run card"
+        )
+        != parser_card_payload
+    ):
         raise CommandError("parser run card changed while being replayed")
 
 
@@ -54866,8 +54953,7 @@ def _executed_stage_run_card_snapshot(
     stage: str,
     paid: bool,
 ) -> tuple[JsonRecord, bytes]:
-    _require_materializer_artifact(path, label=f"{stage} run card")
-    payload = path.read_bytes()
+    payload = _require_materializer_artifact(path, label=f"{stage} run card")
     card = _projection_json_object(payload, source=path)
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
@@ -55427,8 +55513,9 @@ def _validate_packet_input_run_card(
 ) -> _PacketPlannerReplay:
     """Require the exact executed packet planner to own the build input bytes."""
 
-    _require_materializer_artifact(run_card_path, label="packet planner run card")
-    card_payload = run_card_path.read_bytes()
+    card_payload = _require_materializer_artifact(
+        run_card_path, label="packet planner run card"
+    )
     card = _projection_json_object(card_payload, source=run_card_path)
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
@@ -55478,7 +55565,10 @@ def _validate_packet_input_run_card(
         resolved_post_recovery_documents_path=(resolved_post_recovery_documents_path),
         docket_decision_descriptor=docket_decision_descriptor,
     )
-    if run_card_path.read_bytes() != card_payload:
+    if (
+        _require_materializer_artifact(run_card_path, label="packet planner run card")
+        != card_payload
+    ):
         raise CommandError("packet planner run card changed while being replayed")
     return replay
 
@@ -55501,8 +55591,9 @@ def _validate_packet_build_run_card(
 ) -> _PacketBuildReplay:
     """Replay the exact planner, materialization, input, and packet outputs."""
 
-    _require_materializer_artifact(run_card_path, label="packet build run card")
-    card_payload = run_card_path.read_bytes()
+    card_payload = _require_materializer_artifact(
+        run_card_path, label="packet build run card"
+    )
     card = _projection_json_object(card_payload, source=run_card_path)
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
@@ -55570,7 +55661,10 @@ def _validate_packet_build_run_card(
         packet_build_records=packet_build_records,
         packets_path=packets_path,
     )
-    if run_card_path.read_bytes() != card_payload:
+    if (
+        _require_materializer_artifact(run_card_path, label="packet build run card")
+        != card_payload
+    ):
         raise CommandError("packet build run card changed while being replayed")
     return replay
 
