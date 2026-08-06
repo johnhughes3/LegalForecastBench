@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 import sqlite3
+from contextlib import closing
 from copy import deepcopy
 from dataclasses import replace
 from datetime import date
@@ -2166,7 +2167,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     # CLI and materializer verifier. Empty fixtures make any provider request
     # fail, so success proves terminal accounting performs no recovery I/O.
     _write_records(paths["selection"], inputs["selection_records"])
-    with sqlite3.connect(ledger_path) as connection:
+    with closing(sqlite3.connect(ledger_path)) as connection:
         connection.execute(
             "UPDATE purchase_operations SET status='failed', actual_usd=NULL, "
             "reconciliation_json=NULL, error=? WHERE source_document_id='123'",
