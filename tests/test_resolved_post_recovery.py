@@ -1397,6 +1397,7 @@ def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(
 def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     inputs = _inputs()
     selection_document = inputs["selection_records"][0]["documents"][0]
@@ -1692,6 +1693,41 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     assert dry_run_card["dry_run"] is True
     assert dry_run_card["terminal_unavailable_document_count"] == 0
     assert (dry_run_root / "terminal-unavailable-operations.jsonl").read_bytes() == b""
+    successor_budget = tmp_path / "successor-budget-plan.json"
+    successor_budget_record = deepcopy(budget_artifact)
+    successor_budget_record["max_missing_core_documents_per_case"] = 2
+    _write_object(successor_budget, successor_budget_record)
+    mismatched_root = tmp_path / "mismatched-successor-dry-run"
+    mismatched_command = list(dry_run_command)
+    mismatched_command[mismatched_command.index("--budget-plan") + 1] = str(
+        successor_budget
+    )
+    for flag, relative in (
+        ("--manifest-output", "downloads.jsonl"),
+        ("--restriction-evidence-output", "restrictions.jsonl"),
+        ("--review-requests-output", "review-requests.jsonl"),
+        ("--document-output-root", "documents"),
+        ("--output-root", "."),
+    ):
+        mismatched_command[mismatched_command.index(flag) + 1] = str(
+            mismatched_root / relative
+        )
+    capsys.readouterr()
+    assert cli.main(mismatched_command) == 2
+    assert "attempt policy does not match its immutable source inputs" in (
+        capsys.readouterr().err
+    )
+    mismatched_run_card = json.loads(
+        (mismatched_root / "run-cards/recover-recap-fetch-quarantine.json").read_text()
+    )
+    assert mismatched_run_card["status"] == "failed"
+    assert mismatched_run_card["paid_activity_executed"] is False
+    assert mismatched_run_card["record_count"] == 0
+    assert not (mismatched_root / "downloads.jsonl").exists()
+    assert not (mismatched_root / "restrictions.jsonl").exists()
+    assert not (mismatched_root / "review-requests.jsonl").exists()
+    assert not (mismatched_root / "documents").exists()
+    assert not (mismatched_root / "terminal-unavailable-operations.jsonl").exists()
     assert cli.main(recovery_command) == 0
     assert cli.main(recovery_command) == 0
     assert "courtlistener.com" not in paths["download_manifest"].read_text()

@@ -2113,33 +2113,52 @@ The cleanup statuses are diagnostic because systemd may automatically unload a s
 Then verify the launch receipt has `child_receipt_observed=true`, `sandbox_exit_status=0`, and `effective_exit_status=0` before accepting the purchase command's own completed run card.
 Never substitute a Case.dev live purchase, a Case.dev fee-bearing docket refresh, or an implicit purchase inside preparation. The RECAP Fetch purchase stage may dispatch only IDs present in the generated broker policy and remains bounded by the verified purchase policy and broker-side budget controls.
 
-The purchase result is not parser- or packet-eligible. Recover every purchased unknown-status document through a fresh authenticated CourtListener detail check. This noncharging stage writes a URL-free quarantine manifest, fresh restriction evidence, the exact disclosure-review request queue, a terminal-unavailable operation manifest, and a committed document tree. It partitions the complete attempt authority: recoverable operations receive fresh public-detail and PDF requests, while only canonical cap-counted queue failures with statuses 3, 6, or 7 enter the terminal manifest without a provider request or paid redispatch. Any other failed, ambiguous, malformed, or unbound state stops the run. Do not hand-author the review requests or copy the PDFs into another recovery root:
+The purchase result is not parser- or packet-eligible. Recover every purchased unknown-status document through a fresh authenticated CourtListener detail check. This noncharging stage writes a URL-free quarantine manifest, fresh restriction evidence, the exact disclosure-review request queue, a terminal-unavailable operation manifest, and a committed document tree. It partitions the complete attempt authority: recoverable operations receive fresh public-detail and PDF requests, while only canonical cap-counted queue failures with statuses 3, 6, or 7 enter the terminal manifest without a provider request or paid redispatch. Any other failed, ambiguous, malformed, or unbound state stops the run. Do not hand-author the review requests, copy the PDFs into another recovery root, or reconstruct this stage as a one-off command.
+
+The canonical exact-100 initial-recovery path is the checked-in `manifests/cycle-1-target-100.exact100-initial-recovery.template.json`. Render `INITIAL_APPROVED_ROOT` as the exact cohort root committed by the purchase policy and attempt authority; for the current v4 purchase this is `05-target-cohort-v4`, not the later `13-exact100-successor-*` projection. Recovery must conserve the complete approved attempt authority, while final-successor filtering happens only during authenticated consolidation. Render the remaining variables against the purchase authority, private approval root, and request ledger. The first invocation below is a provider-free status preflight; the second may execute only the provider-free initializer and must stop at `network_boundary_not_authorized`; the final invocation authorizes exactly the noncharging CourtListener recovery boundary. The partial template ends there and contains no disclosure, parser, labeling, purchase, evaluation, freeze, or dispatch stage:
 
 ```bash
+repo_root="$(pwd -P)"
+preparation_root=<absolute-preparation-artifact-root>
+initial_approved_root=<absolute-purchase-approved-target-cohort-root>
+purchase_authority_root=<absolute-authenticated-purchase-authority-root>
+purchase_private_root=<absolute-controlled-private-purchase-approval-root>
+source_root=<absolute-source-root-containing-courtlistener-request-ledger>
+recovery_cycle_root=<absolute-exact100-initial-recovery-cycle-root>
 quarantine_recovery_root="$preparation_root/purchased-quarantine-recovery"
+recovery_config="$recovery_cycle_root/acquisition-cycle.json"
+recovery_state_root="$recovery_cycle_root/orchestrator"
 
-uv run legalforecast acquisition recover-recap-fetch-quarantine \
-  --output-root "$quarantine_recovery_root" \
-  --selection "$launch_root/target-cohort-selection.jsonl" \
-  --case-relevance "$launch_root/case-relevance.jsonl" \
-  --target-projection-run-card "$launch_root/run-cards/project-target-cohort.json" \
-  --purchase-policy "$purchase_policy" \
-  --cohort-policy "$cohort_policy" \
-  --budget-plan "$launch_root/missing-core-budget-plan.json" \
-  --purchase-ledger "$purchase_ledger" \
-  --controlled-private-root "$controlled_private_root" \
-  --purchase-ledger-initialization-receipt "$purchase_ledger_initialization_receipt" \
-  --attempt-policy "$attempt_policy" \
-  --manifest-output "$quarantine_recovery_root/recap-fetch-quarantine-downloads.jsonl" \
-  --case-relevance-output "$quarantine_recovery_root/purchased-case-relevance.jsonl" \
-  --restriction-evidence-output "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
-  --terminal-unavailable-output "$quarantine_recovery_root/terminal-unavailable-operations.jsonl" \
-  --review-requests-output "$quarantine_recovery_root/disclosure-review-requests.jsonl" \
-  --document-output-root "$quarantine_recovery_root/documents/recap-fetch-quarantine" \
-  --request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3" \
-  --live-courtlistener-recovery \
-  --execute --resume
+mkdir -p "$recovery_cycle_root"
+
+uv run legalforecast acquisition render-cycle-config \
+  --template "$repo_root/manifests/cycle-1-target-100.exact100-initial-recovery.template.json" \
+  --variable "CYCLE_ROOT=$recovery_cycle_root" \
+  --variable "INITIAL_APPROVED_ROOT=$initial_approved_root" \
+  --variable "PURCHASE_AUTHORITY_ROOT=$purchase_authority_root" \
+  --variable "PURCHASE_PRIVATE_ROOT=$purchase_private_root" \
+  --variable "RECOVERY_ROOT=$quarantine_recovery_root" \
+  --variable "REPO_ROOT=$repo_root" \
+  --variable "SOURCE_ROOT=$source_root" \
+  --output "$recovery_config"
+
+uv run legalforecast acquisition run-cycle \
+  --config "$recovery_config" \
+  --state-root "$recovery_state_root" \
+  --json
+
+uv run legalforecast acquisition run-cycle \
+  --config "$recovery_config" \
+  --state-root "$recovery_state_root" \
+  --execute --json
+
+uv run legalforecast acquisition run-cycle \
+  --config "$recovery_config" \
+  --state-root "$recovery_state_root" \
+  --execute --allow-network --json
 ```
+
+Do not add `--allow-paid` to this cycle. The rendered recovery stage binds the exact target projection run card, purchase policy, cohort policy, budget plan, canonical purchase ledger, private approval root, ledger-initialization receipt, attempt policy, request ledger, and terminal-unavailable output. Review the rendered config and both provider-free status receipts before authorizing the network invocation.
 
 Run the same provenance-first disclosure procedure specified in Step 5 over these generated purchased-document inputs.
 Purchased bytes do not auto-clear merely because a purchase succeeded: the planner reopens and hashes every recovered document, commits the complete purchased case-relevance view and fresh restriction evidence, and routes every non-affirmative or marked row to John.
@@ -2223,6 +2242,8 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --execute --resume
 ```
 
+The canonical descriptor handoff after that resolver is `RECOVERY_SOURCE_ROOT`, which must be distinct from the immutable `RECOVERY_ROOT` used by the initial recovery cycle. Reserve `$RECOVERY_SOURCE_ROOT/0000-initial-v2.json` for the initial recovery-source descriptor and `$RECOVERY_SOURCE_ROOT/run-cards/build-replacement-recovery-source-0000.json` for its producer run card. Do not hand-author either artifact or point `INITIAL_RECOVERY_SOURCE` at the raw recovery root; the dedicated descriptor producer owns this post-resolve handoff and authenticates the v2 recovery card, purchased-clearance card, resolver card, policies, ledger, private approval root, and ledger-initialization receipt.
+
 Only after that resolver succeeds may `materialize-cohort-documents` use `$quarantine_recovery_root` as `--purchased-recovery-root`, the purchased clearance/card above, and `$resolved_post_recovery`. The materializer replays the generated review queue and recovery document-tree commitments, verifies the authenticated clearance and canonical operation bindings, and fails closed if any quarantine artifact was hand-edited or omitted.
 
 If purchased-document clearance quarantines any selected candidate, do not continue with the initial `$launch_root`.
@@ -2236,7 +2257,7 @@ The planner's `--active-selection-output` is the reprojection's only candidate i
 Set `canonical_target_root="$replacement_root/01-projection"` after that authenticated reprojection succeeds.
 Render and execute `manifests/cycle-1-target-100.replacement-corpus.template.json` for the downstream continuation.
 Render `EXACT100_ROOT` as `$canonical_target_root`; the continuation consumes `$canonical_target_root/target-cohort-selection.jsonl` and `$canonical_target_root/run-cards/project-target-cohort.json` as the sole downstream cohort authority.
-Render its `PREPARATION_ROOT`, `PURCHASE_ROOT`, `PURCHASE_PRIVATE_ROOT`, and `EXACT100_ROOT` variables as distinct immutable inputs, supply the authenticated `INITIAL_RECOVERY_SOURCE` and ordered `SUCCESSOR_RECOVERY_SOURCE_DIR`, and render `SUCCESSOR_ARTIFACT_ROOT` and `SUCCESSOR_PRIVATE_ROOT` as new output roots.
+Render its `PREPARATION_ROOT`, `PURCHASE_ROOT`, `PURCHASE_PRIVATE_ROOT`, and `EXACT100_ROOT` variables as distinct immutable inputs, supply `INITIAL_RECOVERY_SOURCE` as the authenticated `$RECOVERY_SOURCE_ROOT/0000-initial-v2.json` descriptor and supply the ordered `SUCCESSOR_RECOVERY_SOURCE_DIR`, then render `SUCCESSOR_ARTIFACT_ROOT` and `SUCCESSOR_PRIVATE_ROOT` as new output roots.
 `EXACT100_ROOT` must be the authenticated standard projection containing `EXACT100_ROOT/target-cohort-selection.jsonl`, `EXACT100_ROOT/target-cohort-projection.json`, `EXACT100_ROOT/free-document-downloads.jsonl`, `EXACT100_ROOT/purchased-document-downloads.jsonl`, `EXACT100_ROOT/document-downloads-merged.jsonl`, `EXACT100_ROOT/disclosure-clearance.jsonl`, `EXACT100_ROOT/restriction-evidence.jsonl`, and `EXACT100_ROOT/run-cards/project-target-cohort.json`.
 `PURCHASE_ROOT` is the completed v4 ranked-reserve purchase root containing common purchase authority, while `PURCHASE_PRIVATE_ROOT` is its immutable private approval root; neither is also the preparation or exact-100 root.
 The corpus-mode plan consolidates every initial and successor purchased recovery/clearance descriptor selected by the exact-100 projection, materializes from that authenticated union, writes every downstream artifact beneath the two successor roots, and then performs parse planning, decision texts, Stage A, Stage B, packet planning, packet building, and `finalize-corpus --target-clean-cases 100`.

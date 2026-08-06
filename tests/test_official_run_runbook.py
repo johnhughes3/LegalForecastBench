@@ -167,7 +167,12 @@ def test_official_commands_reuse_exact_preparation_request_ledger() -> None:
         '--request-ledger "$PREP_PARENT/courtlistener-request-ledger-base-v1.sqlite3"'
     )
 
-    assert runbook.count(exact_pin) == 4
+    assert runbook.count(exact_pin) == 3
+    recovery = _exact100_initial_recovery_stage()
+    request_ledger_index = recovery["arguments"].index("--request-ledger")
+    assert recovery["arguments"][request_ledger_index + 1] == (
+        "${SOURCE_ROOT}/courtlistener-request-ledger-base-v1.sqlite3"
+    )
     assert "courtlistener-requests.sqlite3" not in runbook
 
 
@@ -192,6 +197,21 @@ def _documented_acquisition_commands(runbook: str) -> list[tuple[str, str]]:
             commands.append((match.group(1), "\n".join(invocation)))
             line_index += 1
     return commands
+
+
+def _exact100_initial_recovery_stage() -> dict[str, Any]:
+    template = json.loads(
+        (
+            ROOT
+            / "manifests"
+            / "cycle-1-target-100.exact100-initial-recovery.template.json"
+        ).read_text(encoding="utf-8")
+    )
+    return next(
+        stage
+        for stage in template["config"]["stages"]
+        if stage["command"] == "recover-recap-fetch-quarantine"
+    )
 
 
 def test_documented_command_extraction_keeps_invocations_separate() -> None:
@@ -634,12 +654,7 @@ def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> No
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     commands = _documented_acquisition_commands(runbook)
 
-    recovery_blocks = [
-        block
-        for command, block in commands
-        if command == "recover-recap-fetch-quarantine"
-    ]
-    assert len(recovery_blocks) == 1
+    recovery_arguments = _exact100_initial_recovery_stage()["arguments"]
     for option in (
         "--attempt-policy",
         "--manifest-output",
@@ -648,7 +663,7 @@ def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> No
         "--document-output-root",
         "--live-courtlistener-recovery",
     ):
-        assert option in recovery_blocks[0]
+        assert option in recovery_arguments
 
     purchased_prepare = next(
         block
@@ -983,16 +998,14 @@ def test_paid_recap_fetch_runbook_freezes_and_consumes_attempt_authority() -> No
         "generate-recap-fetch-broker-policy",
         "init-purchase-ledger",
         "purchase-missing-recap-fetch",
-        "recover-recap-fetch-quarantine",
         "resolve-post-recovery-documents",
     ):
         block = _documented_command_block(section, command)
         assert "--controlled-private-root" in block, command
-    for command in (
-        "purchase-missing-recap-fetch",
-        "recover-recap-fetch-quarantine",
-        "resolve-post-recovery-documents",
-    ):
+    recovery_arguments = _exact100_initial_recovery_stage()["arguments"]
+    assert "--controlled-private-root" in recovery_arguments
+    assert "--purchase-ledger-initialization-receipt" in recovery_arguments
+    for command in ("purchase-missing-recap-fetch", "resolve-post-recovery-documents"):
         block = _documented_command_block(section, command)
         assert "--purchase-ledger-initialization-receipt" in block, command
     assert (
@@ -1330,6 +1343,26 @@ def test_replacement_reprojection_is_the_only_post_quarantine_downstream_cohort(
         "The narrow successor purchase selection authorizes a tranche but never "
         "becomes a downstream cohort"
     ) in runbook
+
+
+def test_exact100_initial_recovery_uses_bounded_partial_cycle_template() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    assert "cycle-1-target-100.exact100-initial-recovery.template.json" in runbook
+    assert "preparation_root=<absolute-preparation-artifact-root>" in runbook
+    assert '--variable "INITIAL_APPROVED_ROOT=$initial_approved_root"' in runbook
+    assert "for the current v4 purchase this is `05-target-cohort-v4`" in runbook
+    assert "not the later `13-exact100-successor-*` projection" in runbook
+    assert '--variable "PURCHASE_AUTHORITY_ROOT=$purchase_authority_root"' in runbook
+    assert '--variable "PURCHASE_PRIVATE_ROOT=$purchase_private_root"' in runbook
+    assert '--variable "SOURCE_ROOT=$source_root"' in runbook
+    assert "--execute --allow-network --json" in runbook
+    assert "Do not add `--allow-paid` to this cycle" in runbook
+    assert "$RECOVERY_SOURCE_ROOT/0000-initial-v2.json" in runbook
+    assert (
+        "$RECOVERY_SOURCE_ROOT/run-cards/build-replacement-recovery-source-0000.json"
+    ) in runbook
+    assert "RECOVERY_SOURCE_ROOT`, which must be distinct" in runbook
 
 
 def _tree_hashes(root: Path) -> dict[str, str]:
