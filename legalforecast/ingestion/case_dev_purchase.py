@@ -3172,13 +3172,30 @@ class CaseDevPurchaseJournal:
             material = self._material(document_id)
             if operation is None or material is None:
                 raise CaseDevPurchaseLedgerError("purchase operation is missing")
+            if (
+                resolved_record.get("delivery_authority")
+                == "authenticated_direct_courtlistener_queue"
+            ):
+                direct_authority = resolved_record.get(
+                    "direct_queue_delivery_authority"
+                )
+                if not isinstance(direct_authority, Mapping):
+                    raise CaseDevPurchaseLedgerError(
+                        "resolved direct queue authority is invalid"
+                    )
+                resolved_queue_response_sha256 = cast(
+                    Mapping[str, object], direct_authority
+                ).get("queue_response_sha256")
+            else:
+                resolved_queue_response_sha256 = resolved_record.get(
+                    "queue_response_sha256"
+                )
             expected = {
                 "candidate_id": str(operation["candidate_id"]),
                 "source_document_id": document_id,
                 "recovery_origin": "unknown_status_attempt",
                 "attempt_policy_sha256": material["attempt_policy_sha256"],
                 "selection_document_sha256": material["attempt_document_sha256"],
-                "queue_response_sha256": material["queue_response_sha256"],
                 "fresh_recap_detail_sha256": material["provider_detail_sha256"],
                 "download_url_sha256": material["download_url_sha256"],
                 "content_sha256": material["content_sha256"],
@@ -3186,8 +3203,11 @@ class CaseDevPurchaseJournal:
                 "parser_eligible": True,
                 "packet_eligible": True,
             }
-            if any(
-                resolved_record.get(key) != value for key, value in expected.items()
+            if (
+                any(
+                    resolved_record.get(key) != value for key, value in expected.items()
+                )
+                or resolved_queue_response_sha256 != material["queue_response_sha256"]
             ):
                 raise CaseDevPurchaseLedgerError(
                     "resolved material does not bind canonical purchase lineage"
