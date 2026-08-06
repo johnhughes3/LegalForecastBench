@@ -141,6 +141,8 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
+    CaseDevPurchaseSnapshot,
+    canonical_purchase_operation_sha256,
     canonical_purchase_state_sha256,
     initialize_case_dev_purchase_journal,
     read_case_dev_purchase_snapshot,
@@ -669,6 +671,7 @@ from legalforecast.ingestion.replacement_purchase_approval import (
 )
 from legalforecast.ingestion.replacement_recovery_source import (
     SOURCE_RUN_CARD_SCHEMA,
+    SOURCE_RUN_CARD_SCHEMA_V2,
     ReplacementRecoverySourceError,
     build_recovery_source_descriptor,
     derive_clearance_source_coordinates,
@@ -5823,6 +5826,22 @@ def _add_build_replacement_recovery_source_arguments(
         "--replacement-controlled-private-root",
         type=Path,
         help="Required only for a replacement_successor recovery card.",
+    )
+    parser.add_argument(
+        "--successor-history-recovery-root",
+        type=Path,
+        help=(
+            "Completed later replacement_successor recovery whose authenticated "
+            "authority reconstructs the historical ledger prefix for ordinal 0."
+        ),
+    )
+    parser.add_argument(
+        "--successor-history-controlled-private-root",
+        type=Path,
+        help=(
+            "Private approval root for --successor-history-recovery-root; both "
+            "history arguments are allowed only for ordinal 0."
+        ),
     )
     parser.add_argument("--descriptor-output", type=Path)
     parser.add_argument("--run-card-output", type=Path)
@@ -25146,6 +25165,253 @@ _SUCCESSOR_RECOVERY_SOURCE_FIELDS = {
 }
 
 
+def _replacement_budget_operation_pairs(
+    budget_artifact: Mapping[str, object],
+) -> set[tuple[str, str]]:
+    raw_case_plans = budget_artifact.get("case_plans")
+    if not isinstance(raw_case_plans, Sequence) or isinstance(
+        raw_case_plans, (str, bytes)
+    ):
+        raise ReplacementRecoverySourceError(
+            "successor history budget case_plans must be a list"
+        )
+    pairs: set[tuple[str, str]] = set()
+    for raw_plan in cast(Sequence[object], raw_case_plans):
+        plan = _mapping(raw_plan, "successor history budget case plan")
+        candidate_id = _required_str(plan, "candidate_id")
+        raw_documents = plan.get("purchase_document_ids")
+        if not isinstance(raw_documents, Sequence) or isinstance(
+            raw_documents, (str, bytes)
+        ):
+            raise ReplacementRecoverySourceError(
+                "successor history purchase_document_ids must be a list"
+            )
+        for raw_document in cast(Sequence[object], raw_documents):
+            if not isinstance(raw_document, str) or not raw_document:
+                raise ReplacementRecoverySourceError(
+                    "successor history purchase document ID is invalid"
+                )
+            pair = (candidate_id, raw_document)
+            if pair in pairs:
+                raise ReplacementRecoverySourceError(
+                    "successor history budget repeats a purchase operation"
+                )
+            pairs.add(pair)
+    if not pairs:
+        raise ReplacementRecoverySourceError(
+            "successor history budget has no purchase operations"
+        )
+    return pairs
+
+
+def _authenticated_pre_successor_purchase_snapshot(
+    *,
+    successor_recovery_root: Path,
+    successor_controlled_private_root: Path,
+    current_snapshot: CaseDevPurchaseSnapshot,
+    policy: CaseDevPurchasePolicy,
+    policy_artifact: Mapping[str, object],
+    cohort_artifact: Mapping[str, object],
+    purchase_policy_path: Path,
+    cohort_policy_path: Path,
+    ledger_path: Path,
+    initial_controlled_private_root: Path,
+    initialization_receipt_path: Path,
+    capture: Callable[..., bytes],
+    allowed_additional_operation_pairs: set[tuple[str, str]] | None = None,
+    expected_selection_path: Path | None = None,
+    expected_budget_plan_path: Path | None = None,
+    expected_authority_path: Path | None = None,
+) -> tuple[CaseDevPurchaseSnapshot, Mapping[str, bytes]]:
+    """Authenticate one later successor and recover its exact ledger prefix."""
+
+    recovery_card_path = (
+        successor_recovery_root / "run-cards" / "recover-recap-fetch-quarantine.json"
+    )
+    recovery_card_bytes = capture(
+        recovery_card_path, label="successor history recovery run card"
+    )
+    recovery_card = _projection_json_object(
+        recovery_card_bytes, source=recovery_card_path
+    )
+    coordinates = derive_recovery_source_coordinates(recovery_card)
+    if coordinates.kind != "successor":
+        raise ReplacementRecoverySourceError(
+            "successor history recovery is not replacement_successor"
+        )
+    expected_lineage = (
+        (coordinates.purchase_policy_path, purchase_policy_path, "purchase policy"),
+        (coordinates.cohort_policy_path, cohort_policy_path, "cohort policy"),
+        (coordinates.purchase_ledger_path, ledger_path, "purchase ledger"),
+    )
+    for committed, supplied, label in expected_lineage:
+        if committed.resolve() != supplied.resolve():
+            raise ReplacementRecoverySourceError(
+                f"successor history {label} path rebound"
+            )
+    if coordinates.replacement_authority_path is None:
+        raise ReplacementRecoverySourceError(
+            "successor history lacks replacement purchase authority"
+        )
+    expected_source_paths = (
+        (coordinates.selection_path, expected_selection_path, "selection"),
+        (coordinates.budget_plan_path, expected_budget_plan_path, "budget plan"),
+        (
+            coordinates.replacement_authority_path,
+            expected_authority_path,
+            "purchase authority",
+        ),
+    )
+    for committed, expected, label in expected_source_paths:
+        if expected is not None and committed.resolve() != expected.resolve():
+            raise ReplacementRecoverySourceError(
+                f"successor history {label} path differs from its descriptor"
+            )
+
+    selection_bytes = capture(
+        coordinates.selection_path, label="successor history selection"
+    )
+    selection_records = _projection_jsonl_records(
+        selection_bytes, source=coordinates.selection_path
+    )
+    selected_keys = _replacement_consolidation_selection_keys(selection_records)
+    budget_bytes = capture(
+        coordinates.budget_plan_path, label="successor history budget plan"
+    )
+    budget_artifact = _projection_json_object(
+        budget_bytes, source=coordinates.budget_plan_path
+    )
+    attempt_policy_bytes = capture(
+        coordinates.attempt_policy_path, label="successor history attempt policy"
+    )
+    attempt_policy_artifact = _projection_json_object(
+        attempt_policy_bytes, source=coordinates.attempt_policy_path
+    )
+    authority_bytes = capture(
+        coordinates.replacement_authority_path,
+        label="successor history purchase authority",
+    )
+    authority_artifact = _projection_json_object(
+        authority_bytes, source=coordinates.replacement_authority_path
+    )
+    request = verify_replacement_purchase_authority(
+        authority_artifact=authority_artifact,
+        controlled_private_root=successor_controlled_private_root,
+        initial_purchase_policy_artifact=policy_artifact,
+        initial_controlled_private_root=initial_controlled_private_root,
+        cohort_policy_artifact=cohort_artifact,
+        budget_plan_bytes=budget_bytes,
+        selection_bytes=selection_bytes,
+        purchase_ledger_path=ledger_path,
+        purchase_ledger_initialization_receipt_path=initialization_receipt_path,
+        allowed_additional_operation_pairs=allowed_additional_operation_pairs,
+    )
+    verify_recap_fetch_attempt_policy(
+        attempt_policy_artifact,
+        purchase_policy_artifact=policy_artifact,
+        cohort_policy_artifact=cohort_artifact,
+        budget_plan=_missing_core_budget_plan(budget_artifact),
+        budget_plan_artifact=budget_artifact,
+        selection_records=selection_records,
+        budget_plan_bytes=budget_bytes,
+        selection_bytes=selection_bytes,
+        controlled_private_root=initial_controlled_private_root,
+        replacement_purchase_authority_artifact=authority_artifact,
+        replacement_controlled_private_root=successor_controlled_private_root,
+        purchase_ledger_initialization_receipt_path=initialization_receipt_path,
+        allowed_additional_operation_pairs=allowed_additional_operation_pairs,
+    )
+    recovery = _verify_materializer_recovery(
+        recovery_root=successor_recovery_root,
+        selection_path=coordinates.selection_path,
+        selected_document_keys=selected_keys,
+        purchase_policy_path=purchase_policy_path,
+        cohort_policy_path=cohort_policy_path,
+        ledger_path=ledger_path,
+        purchase_operations=current_snapshot.operations,
+        purchase_committed_amount_usd=current_snapshot.committed_amount_usd,
+        purchase_state_sha256=current_snapshot.purchase_state_sha256,
+    )
+    raw_recovery_bytes = recovery.get("verified_artifact_bytes")
+    if not isinstance(raw_recovery_bytes, Mapping):
+        raise ReplacementRecoverySourceError(
+            "successor history recovery lacks authenticated artifact bytes"
+        )
+
+    baseline_hashes = request.baseline_operation_record_sha256s
+    if len(set(baseline_hashes)) != len(baseline_hashes):
+        raise ReplacementRecoverySourceError(
+            "successor history repeats a baseline purchase operation"
+        )
+    operation_rows = tuple(
+        (canonical_purchase_operation_sha256(operation), operation)
+        for operation in current_snapshot.operations
+    )
+    if len({digest for digest, _operation in operation_rows}) != len(operation_rows):
+        raise ReplacementRecoverySourceError(
+            "current purchase journal repeats a canonical operation"
+        )
+    baseline_hash_set = set(baseline_hashes)
+    baseline_rows = tuple(
+        operation for digest, operation in operation_rows if digest in baseline_hash_set
+    )
+    if (
+        tuple(
+            canonical_purchase_operation_sha256(operation)
+            for operation in baseline_rows
+        )
+        != baseline_hashes
+    ):
+        raise ReplacementRecoverySourceError(
+            "successor history baseline operations are missing, changed, or reordered"
+        )
+    successor_rows = tuple(
+        operation
+        for digest, operation in operation_rows
+        if digest not in baseline_hash_set
+    )
+    approved_pairs = _replacement_budget_operation_pairs(budget_artifact)
+    baseline_pairs = {
+        (
+            _required_str(operation, "candidate_id"),
+            _required_str(operation, "source_document_id"),
+        )
+        for operation in baseline_rows
+    }
+    if baseline_pairs & approved_pairs:
+        raise ReplacementRecoverySourceError(
+            "successor history overlaps a baseline purchase operation"
+        )
+    observed_pairs = {
+        (
+            _required_str(operation, "candidate_id"),
+            _required_str(operation, "source_document_id"),
+        )
+        for operation in successor_rows
+    }
+    if len(observed_pairs) != len(successor_rows) or observed_pairs != approved_pairs:
+        raise ReplacementRecoverySourceError(
+            "current purchase journal does not exactly partition successor history"
+        )
+    baseline_state_sha256 = canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd=request.committed_spend_usd,
+        operations=baseline_rows,
+    )
+    if request.purchase_journal_state_sha256 != "sha256:" + baseline_state_sha256:
+        raise ReplacementRecoverySourceError(
+            "authenticated successor baseline purchase state does not reproduce"
+        )
+    return (
+        CaseDevPurchaseSnapshot(
+            operations=baseline_rows,
+            committed_amount_usd=request.committed_spend_usd,
+            purchase_state_sha256=baseline_state_sha256,
+        ),
+        cast(Mapping[str, bytes], raw_recovery_bytes),
+    )
+
+
 def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
     """Publish one descriptor only after replaying every upstream authority."""
 
@@ -25167,6 +25433,17 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
     )
     if replacement_private_root is not None:
         replacement_private_root = replacement_private_root.absolute()
+    successor_history_recovery_root = cast(
+        Path | None, getattr(args, "successor_history_recovery_root", None)
+    )
+    if successor_history_recovery_root is not None:
+        successor_history_recovery_root = successor_history_recovery_root.absolute()
+    successor_history_private_root = cast(
+        Path | None,
+        getattr(args, "successor_history_controlled_private_root", None),
+    )
+    if successor_history_private_root is not None:
+        successor_history_private_root = successor_history_private_root.absolute()
     verified_bytes: dict[str, bytes] = {}
 
     def capture(path: Path, *, label: str) -> bytes:
@@ -25254,6 +25531,48 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             controlled_private_root=initial_private_root,
             initialization_receipt_path=receipt_path,
         )
+        history_args = (
+            successor_history_recovery_root,
+            successor_history_private_root,
+        )
+        if any(path is not None for path in history_args) and not all(
+            path is not None for path in history_args
+        ):
+            raise ReplacementRecoverySourceError(
+                "successor history recovery and private roots must be supplied together"
+            )
+        if any(path is not None for path in history_args) and (
+            coordinates.kind != "initial_v2" or ordinal != 0
+        ):
+            raise ReplacementRecoverySourceError(
+                "successor history is allowed only for the ordinal 0 initial recovery"
+            )
+        verification_snapshot = purchase_snapshot
+        if (
+            successor_history_recovery_root is not None
+            and successor_history_private_root is not None
+        ):
+            verification_snapshot, history_recovery_bytes = (
+                _authenticated_pre_successor_purchase_snapshot(
+                    successor_recovery_root=successor_history_recovery_root,
+                    successor_controlled_private_root=successor_history_private_root,
+                    current_snapshot=purchase_snapshot,
+                    policy=policy,
+                    policy_artifact=policy_artifact,
+                    cohort_artifact=cohort_artifact,
+                    purchase_policy_path=purchase_policy_path,
+                    cohort_policy_path=cohort_policy_path,
+                    ledger_path=ledger_path,
+                    initial_controlled_private_root=initial_private_root,
+                    initialization_receipt_path=receipt_path,
+                    capture=capture,
+                )
+            )
+            _merge_verified_artifact_bytes(
+                verified_bytes,
+                history_recovery_bytes,
+                label="successor history recovery source",
+            )
         recovery = _verify_materializer_recovery(
             recovery_root=recovery_root,
             selection_path=coordinates.selection_path,
@@ -25261,9 +25580,9 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
-            purchase_operations=purchase_snapshot.operations,
-            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
-            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+            purchase_operations=verification_snapshot.operations,
+            purchase_committed_amount_usd=(verification_snapshot.committed_amount_usd),
+            purchase_state_sha256=verification_snapshot.purchase_state_sha256,
         )
         raw_recovery_bytes = recovery.get("verified_artifact_bytes")
         if not isinstance(raw_recovery_bytes, Mapping):
@@ -25404,7 +25723,7 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 expected_input_paths=expected_resolved_inputs,
                 expected_ledger_path=ledger_path,
                 expected_purchase_state_sha256=(
-                    purchase_snapshot.purchase_state_sha256
+                    verification_snapshot.purchase_state_sha256
                 ),
             )
             for path, expected_sha256 in zip(
@@ -25434,7 +25753,7 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 resolved_bytes, source=resolved_path
             )
             require_resolved_post_recovery_operation_bindings(
-                purchase_operation_records=purchase_snapshot.operations,
+                purchase_operation_records=verification_snapshot.operations,
                 resolved_records=resolved_records,
                 expected_purchase_policy_sha256=policy.policy_sha256,
             )
@@ -25474,24 +25793,12 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             input_paths=input_paths,
             output_paths=(descriptor_path, run_card_path),
         )
-        final_purchase_snapshot = read_case_dev_purchase_snapshot(
-            ledger_path,
-            policy=policy,
-            controlled_private_root=initial_private_root,
-            initialization_receipt_path=receipt_path,
-        )
-        if (
-            final_purchase_snapshot.purchase_state_sha256
-            != purchase_snapshot.purchase_state_sha256
-            or final_purchase_snapshot.committed_amount_usd
-            != purchase_snapshot.committed_amount_usd
-            or final_purchase_snapshot.operations != purchase_snapshot.operations
-        ):
-            raise ReplacementRecoverySourceError(
-                "purchase ledger changed during recovery source production"
-            )
         card: JsonRecord = {
-            "schema_version": SOURCE_RUN_CARD_SCHEMA,
+            "schema_version": (
+                SOURCE_RUN_CARD_SCHEMA_V2
+                if successor_history_recovery_root is not None
+                else SOURCE_RUN_CARD_SCHEMA
+            ),
             "stage": "build-replacement-recovery-source",
             "status": "completed",
             "dry_run": not cast(bool, args.execute),
@@ -25514,6 +25821,10 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             "provider_activity_requested": False,
             "provider_activity_executed": False,
         }
+        if successor_history_recovery_root is not None:
+            card["replayed_purchase_state_sha256"] = (
+                verification_snapshot.purchase_state_sha256
+            )
         if not cast(bool, args.execute):
             print(json.dumps(card, sort_keys=True))
             return 0
@@ -25523,15 +25834,31 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             resume=cast(bool, args.resume),
             stage="build-replacement-recovery-source",
         )
+        _require_snapshot_unchanged(
+            source_snapshots,
+            label="replacement recovery source input",
+        )
+        final_purchase_snapshot = read_case_dev_purchase_snapshot(
+            ledger_path,
+            policy=policy,
+            controlled_private_root=initial_private_root,
+            initialization_receipt_path=receipt_path,
+        )
+        if (
+            final_purchase_snapshot.purchase_state_sha256
+            != purchase_snapshot.purchase_state_sha256
+            or final_purchase_snapshot.committed_amount_usd
+            != purchase_snapshot.committed_amount_usd
+            or final_purchase_snapshot.operations != purchase_snapshot.operations
+        ):
+            raise ReplacementRecoverySourceError(
+                "purchase ledger changed during recovery source production"
+            )
         _ensure_projection_artifact(
             run_card_path,
             _projection_json_bytes(card),
             resume=cast(bool, args.resume),
             stage="build-replacement-recovery-source",
-        )
-        _require_snapshot_unchanged(
-            source_snapshots,
-            label="replacement recovery source input",
         )
     except (
         CaseDevPurchaseLedgerError,
@@ -25810,6 +26137,8 @@ class _ReplacementRecoveryConsolidation:
     restriction_records: tuple[JsonRecord, ...]
     resolved_records: tuple[JsonRecord, ...]
     document_bytes: Mapping[str, bytes]
+    purchase_operations: tuple[Mapping[str, Any], ...]
+    purchase_committed_amount_usd: str
     purchase_state_sha256: str
     terminal_omission_inputs: Mapping[str, str] | None
     docket_decision_partition: Mapping[str, object] | None
@@ -25896,6 +26225,7 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
     if not cast(bool, args.execute):
         print(json.dumps(run_card, sort_keys=True))
         return 0
+    _require_replacement_consolidation_purchase_snapshot_unchanged(args, prepared)
     for path, payload in payloads.items():
         _ensure_projection_artifact(path, payload, resume=cast(bool, args.resume))
     for relative, payload in prepared.document_bytes.items():
@@ -25904,14 +26234,15 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
             payload,
             resume=cast(bool, args.resume),
         )
+    _require_snapshot_unchanged(
+        prepared.source_snapshots,
+        label="replacement recovery consolidation input",
+    )
+    _require_replacement_consolidation_purchase_snapshot_unchanged(args, prepared)
     _ensure_projection_artifact(
         run_card_path,
         _projection_json_bytes(run_card),
         resume=cast(bool, args.resume),
-    )
-    _require_snapshot_unchanged(
-        prepared.source_snapshots,
-        label="replacement recovery consolidation input",
     )
     print(
         json.dumps(
@@ -25926,6 +26257,50 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
         )
     )
     return 0
+
+
+def _require_replacement_consolidation_purchase_snapshot_unchanged(
+    args: argparse.Namespace,
+    prepared: _ReplacementRecoveryConsolidation,
+) -> None:
+    purchase_policy_path = cast(Path, args.purchase_policy).absolute()
+    cohort_policy_path = cast(Path, args.cohort_policy).absolute()
+    ledger_path = cast(Path, args.purchase_ledger).resolve()
+    controlled_private_root = cast(Path, args.controlled_private_root).absolute()
+    receipt_path = cast(Path, args.purchase_ledger_initialization_receipt).absolute()
+    policy_artifact = _projection_json_object(
+        _read_singly_linked_regular_input(
+            purchase_policy_path,
+            label="replacement consolidation purchase policy recheck",
+        ),
+        source=purchase_policy_path,
+    )
+    cohort_artifact = _projection_json_object(
+        _read_singly_linked_regular_input(
+            cohort_policy_path,
+            label="replacement consolidation cohort policy recheck",
+        ),
+        source=cohort_policy_path,
+    )
+    policy = verify_case_dev_purchase_policy(policy_artifact)
+    require_approved_case_dev_purchase_policy(
+        policy, controlled_private_root=controlled_private_root
+    )
+    verify_case_dev_purchase_policy_cohort_binding(policy, cohort_artifact)
+    snapshot = read_case_dev_purchase_snapshot(
+        ledger_path,
+        policy=policy,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=receipt_path,
+    )
+    if (
+        snapshot.operations != prepared.purchase_operations
+        or snapshot.committed_amount_usd != prepared.purchase_committed_amount_usd
+        or snapshot.purchase_state_sha256 != prepared.purchase_state_sha256
+    ):
+        raise ValueError(
+            "purchase ledger changed during replacement recovery consolidation"
+        )
 
 
 def _prepare_replacement_recovery_consolidation(
@@ -26130,8 +26505,65 @@ def _prepare_replacement_recovery_consolidation(
     for ordinal in reversed(tuple(approved_pairs_by_ordinal)):
         trailing_pairs_by_ordinal[ordinal] = set(trailing_pairs)
         trailing_pairs.update(approved_pairs_by_ordinal[ordinal])
+    purchase_snapshots_by_ordinal: dict[int, CaseDevPurchaseSnapshot] = {}
+    predecessor_snapshot = purchase_snapshot
+
+    def merge_consolidation_snapshot(path: Path, payload: bytes, *, label: str) -> None:
+        absolute = path.absolute()
+        existing = snapshots.get(absolute)
+        if existing is not None and existing != payload:
+            raise ValueError(f"{label} conflicts with prior snapshot")
+        snapshots[absolute] = payload
+
+    def capture_successor_history(path: Path, *, label: str) -> bytes:
+        payload = _read_singly_linked_regular_input(path, label=label)
+        merge_consolidation_snapshot(path, payload, label=label)
+        return payload
+
+    for tranche in reversed(sources[1:]):
+        ordinal = _required_int(tranche, "ordinal")
+        purchase_snapshots_by_ordinal[ordinal] = predecessor_snapshot
+        predecessor_snapshot, recovery_source_bytes = (
+            _authenticated_pre_successor_purchase_snapshot(
+                successor_recovery_root=Path(
+                    _required_str(tranche, "recovery_root")
+                ).absolute(),
+                successor_controlled_private_root=Path(
+                    _required_str(tranche, "replacement_controlled_private_root")
+                ).absolute(),
+                current_snapshot=predecessor_snapshot,
+                policy=policy,
+                policy_artifact=policy_artifact,
+                cohort_artifact=cohort_artifact,
+                purchase_policy_path=purchase_policy_path,
+                cohort_policy_path=cohort_policy_path,
+                ledger_path=ledger_path,
+                initial_controlled_private_root=controlled_private_root,
+                initialization_receipt_path=receipt_path,
+                capture=capture_successor_history,
+                allowed_additional_operation_pairs=(
+                    trailing_pairs_by_ordinal[ordinal] or None
+                ),
+                expected_selection_path=Path(
+                    _required_str(tranche, "selection")
+                ).absolute(),
+                expected_budget_plan_path=Path(
+                    _required_str(tranche, "replacement_budget_plan")
+                ).absolute(),
+                expected_authority_path=Path(
+                    _required_str(tranche, "replacement_purchase_authority")
+                ).absolute(),
+            )
+        )
+        for raw_path, payload in recovery_source_bytes.items():
+            merge_consolidation_snapshot(
+                Path(raw_path), payload, label="successor history recovery"
+            )
+    purchase_snapshots_by_ordinal[0] = predecessor_snapshot
     for tranche in sources:
         kind = _required_str(tranche, "kind")
+        ordinal = _required_int(tranche, "ordinal")
+        tranche_purchase_snapshot = purchase_snapshots_by_ordinal[ordinal]
         paths = {
             name: Path(_required_str(tranche, name)).absolute()
             for name in set(tranche)
@@ -26156,7 +26588,7 @@ def _prepare_replacement_recovery_consolidation(
             raise ValueError("resolved post-recovery path must be string or null")
         resolved_path = Path(raw_resolved).absolute() if raw_resolved else None
         tranche_selection_path = paths["selection"]
-        tranche_selection_bytes = _read_singly_linked_regular_input(
+        tranche_selection_bytes = capture_successor_history(
             tranche_selection_path, label="replacement tranche selection"
         )
         tranche_selection = _projection_jsonl_records(
@@ -26170,10 +26602,21 @@ def _prepare_replacement_recovery_consolidation(
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
-            purchase_operations=purchase_snapshot.operations,
-            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
-            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+            purchase_operations=tranche_purchase_snapshot.operations,
+            purchase_committed_amount_usd=(
+                tranche_purchase_snapshot.committed_amount_usd
+            ),
+            purchase_state_sha256=tranche_purchase_snapshot.purchase_state_sha256,
         )
+        raw_recovery_bytes = recovery.get("verified_artifact_bytes")
+        if not isinstance(raw_recovery_bytes, Mapping):
+            raise ValueError(
+                "replacement tranche recovery lacks authenticated artifact bytes"
+            )
+        for raw_path, payload in cast(Mapping[str, bytes], raw_recovery_bytes).items():
+            merge_consolidation_snapshot(
+                Path(raw_path), payload, label="replacement tranche recovery"
+            )
         clearance = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=paths["purchased_clearance"],
@@ -26186,10 +26629,10 @@ def _prepare_replacement_recovery_consolidation(
             successor_root = Path(
                 _required_str(tranche, "replacement_controlled_private_root")
             ).absolute()
-            budget_bytes = _read_singly_linked_regular_input(
+            budget_bytes = capture_successor_history(
                 paths["replacement_budget_plan"], label="replacement budget plan"
             )
-            authority_bytes = _read_singly_linked_regular_input(
+            authority_bytes = capture_successor_history(
                 paths["replacement_purchase_authority"],
                 label="replacement purchase authority",
             )
@@ -26237,12 +26680,7 @@ def _prepare_replacement_recovery_consolidation(
         )
         tranche_input_paths.extend(source_input_paths)
         for path in source_input_paths:
-            snapshots.setdefault(
-                path,
-                _read_singly_linked_regular_input(
-                    path, label="replacement recovery tranche input"
-                ),
-            )
+            capture_successor_history(path, label="replacement recovery tranche input")
         clearance_index: dict[tuple[str, str], Mapping[str, Any]] | None = None
         for record in cast(Sequence[Mapping[str, Any]], recovery["manifest_records"]):
             key = _materializer_record_key(record)
@@ -26333,6 +26771,8 @@ def _prepare_replacement_recovery_consolidation(
             resolved_by_key[key] for key in ordered_keys if key in resolved_by_key
         ),
         document_bytes=document_bytes,
+        purchase_operations=tuple(purchase_snapshot.operations),
+        purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
         purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
         terminal_omission_inputs=(
             {

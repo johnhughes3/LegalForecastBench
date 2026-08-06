@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import cast
 
 SOURCE_RUN_CARD_SCHEMA = "legalforecast.replacement_recovery_source_run_card.v1"
+SOURCE_RUN_CARD_SCHEMA_V2 = "legalforecast.replacement_recovery_source_run_card.v2"
 RECOVERY_RUN_CARD_SCHEMA = "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
 CLEARANCE_RUN_CARD_SCHEMAS = frozenset(
     {

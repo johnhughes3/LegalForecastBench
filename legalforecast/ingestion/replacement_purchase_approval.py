@@ -21,6 +21,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
+    canonical_purchase_operation_sha256,
     require_approved_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
@@ -616,7 +617,7 @@ def build_replacement_purchase_approval_request(
         purchase_document_ids=tuple(document_ids),
         replacement_event_record_sha256s=event_hashes,
         baseline_operation_record_sha256s=tuple(
-            _canonical_sha256(dict(operation)) for operation in operations
+            canonical_purchase_operation_sha256(operation) for operation in operations
         ),
         source_authority_kind=authority_kind,
         source_authority_sha256=(
@@ -959,7 +960,7 @@ def _build_ranked_reserve_purchase_approval_request(
         purchase_document_ids=tuple(document_ids),
         replacement_event_record_sha256s=tranche_event_hashes,
         baseline_operation_record_sha256s=tuple(
-            _canonical_sha256(dict(operation)) for operation in operations
+            canonical_purchase_operation_sha256(operation) for operation in operations
         ),
         source_authority_kind="ranked_reserve_projection",
         source_authority_sha256=source_sha256,
@@ -1327,7 +1328,8 @@ def verify_replacement_purchase_authority(
         )
     approved_by_candidate = _approved_documents_by_candidate(request, budget_plan_bytes)
     current_operations = tuple(
-        (_canonical_sha256(dict(operation)), operation) for operation in operations
+        (canonical_purchase_operation_sha256(operation), operation)
+        for operation in operations
     )
     current_operation_hashes = tuple(digest for digest, _ in current_operations)
     baseline_hashes = request.baseline_operation_record_sha256s

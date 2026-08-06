@@ -23,6 +23,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseClient,
     CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
+    canonical_purchase_operation_sha256,
     generate_case_dev_purchase_policy,
     read_case_dev_purchase_snapshot,
     verify_case_dev_purchase_policy,
@@ -41,6 +42,12 @@ def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_canonical_purchase_operation_rejects_nonfinite_numbers(value: float) -> None:
+    with pytest.raises(ValueError, match="Out of range float values"):
+        canonical_purchase_operation_sha256({"reservation_usd": value})
 
 
 def test_purchase_client_blocks_without_live_flag_or_acknowledgment() -> None:

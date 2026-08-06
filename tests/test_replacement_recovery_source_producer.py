@@ -3,12 +3,20 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion import recap_fetch_attempt_policy as attempt_module
+from legalforecast.ingestion import replacement_purchase_approval as approval_module
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseSnapshot,
+    canonical_purchase_operation_sha256,
+    canonical_purchase_state_sha256,
+)
 
 _VERIFIED_POLICY_SHA256 = "7" * 64
 
@@ -242,7 +250,7 @@ def _fixture(
     def verify_recovery(**kwargs: Any) -> dict[str, object]:
         verified_calls.append({"recovery": kwargs})
         assert Path(kwargs["selection_path"]).resolve() == selection.resolve()
-        assert kwargs["purchase_operations"] == [
+        assert list(kwargs["purchase_operations"]) == [
             {"candidate_id": candidate_id, "source_document_id": document_id}
         ]
         assert kwargs["purchase_committed_amount_usd"] == "3.05"
@@ -503,6 +511,23 @@ def test_producer_rejects_mode_ordinal_and_private_root_mismatch(
     with pytest.raises(cli.CommandError, match="replacement controlled private root"):
         cli._cmd_build_replacement_recovery_source(successor_args)
 
+    history_args, _, _ = _fixture(tmp_path / "history", monkeypatch, successor=False)
+    history_args.successor_history_recovery_root = tmp_path / "later-recovery"
+    with pytest.raises(
+        cli.CommandError,
+        match="history recovery and private roots must be supplied together",
+    ):
+        cli._cmd_build_replacement_recovery_source(history_args)
+
+    positive_args, _, _ = _fixture(tmp_path / "positive", monkeypatch, successor=True)
+    positive_args.successor_history_recovery_root = tmp_path / "later-recovery"
+    positive_args.successor_history_controlled_private_root = tmp_path / "later-private"
+    with pytest.raises(
+        cli.CommandError,
+        match="history is allowed only for the ordinal 0 initial recovery",
+    ):
+        cli._cmd_build_replacement_recovery_source(positive_args)
+
 
 def test_producer_rejects_noncanonical_initial_authority_mode(
     tmp_path: Path,
@@ -680,7 +705,7 @@ def test_producer_resume_rejects_digest_drift(
         cli._cmd_build_replacement_recovery_source(args)
 
 
-def test_producer_rejects_purchase_ledger_drift_before_publication(
+def test_producer_rejects_purchase_ledger_drift_before_run_card_publication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -714,7 +739,430 @@ def test_producer_rejects_purchase_ledger_drift_before_publication(
         match="purchase ledger changed during recovery source production",
     ):
         cli._cmd_build_replacement_recovery_source(args)
-    assert not args.output_root.exists()
+    assert (args.output_root / "0000-initial-v2.json").is_file()
+    assert not (
+        args.output_root / "run-cards/build-replacement-recovery-source-0000.json"
+    ).exists()
+
+
+def test_producer_routes_authenticated_successor_history_for_initial_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, _, verified_calls = _fixture(tmp_path, monkeypatch, successor=False)
+    history_root = tmp_path / "successor-history"
+    history_private = tmp_path / "successor-private"
+    history_private.mkdir()
+    history_marker = _write_json(history_root / "history-marker.json", {"ok": True})
+    args.successor_history_recovery_root = history_root
+    args.successor_history_controlled_private_root = history_private
+
+    def authenticate_history(
+        **kwargs: Any,
+    ) -> tuple[CaseDevPurchaseSnapshot, dict[str, bytes]]:
+        assert kwargs["successor_recovery_root"] == history_root.absolute()
+        assert kwargs["successor_controlled_private_root"] == history_private.absolute()
+        verified_calls.append({"history": kwargs})
+        return (
+            CaseDevPurchaseSnapshot(
+                operations=(
+                    {
+                        "candidate_id": "initial-case",
+                        "source_document_id": "initial-doc",
+                    },
+                ),
+                committed_amount_usd="3.05",
+                purchase_state_sha256="state-1",
+            ),
+            {str(history_marker.resolve()): history_marker.read_bytes()},
+        )
+
+    monkeypatch.setattr(
+        cli, "_authenticated_pre_successor_purchase_snapshot", authenticate_history
+    )
+    monkeypatch.setattr(
+        cli,
+        "read_case_dev_purchase_snapshot",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            purchase_state_sha256="current-state-2",
+            committed_amount_usd="6.10",
+            operations=[
+                {
+                    "candidate_id": "initial-case",
+                    "source_document_id": "initial-doc",
+                },
+                {
+                    "candidate_id": "successor-case",
+                    "source_document_id": "successor-doc",
+                },
+            ],
+        ),
+    )
+
+    assert cli._cmd_build_replacement_recovery_source(args) == 0
+    assert any("history" in call for call in verified_calls)
+    card = json.loads(
+        (
+            args.output_root / "run-cards/build-replacement-recovery-source-0000.json"
+        ).read_bytes()
+    )
+    assert (
+        card["source_commitments"][str(history_marker.resolve())]
+        == _commitment(history_marker)["sha256"]
+    )
+    assert card["purchase_state_sha256"] == "current-state-2"
+    assert card["schema_version"] == (
+        "legalforecast.replacement_recovery_source_run_card.v2"
+    )
+    assert card["replayed_purchase_state_sha256"] == "state-1"
+
+
+def _successor_history_helper_fixture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[dict[str, object], dict[str, Path]]:
+    purchase_policy = _write_json(tmp_path / "purchase-policy.json", {"ok": True})
+    cohort_policy = _write_json(tmp_path / "cohort-policy.json", {"ok": True})
+    ledger = tmp_path / "ledger.sqlite3"
+    ledger.write_bytes(b"ledger")
+    receipt = _write_json(tmp_path / "receipt.json", {"ok": True})
+    selection = _write_jsonl(
+        tmp_path / "selection.jsonl",
+        [
+            {
+                "candidate_id": "successor-case",
+                "documents": [
+                    {"source_document_id": "101"},
+                    {"source_document_id": "102"},
+                ],
+            }
+        ],
+    )
+    budget = _write_json(
+        tmp_path / "budget.json",
+        {
+            "case_plans": [
+                {
+                    "candidate_id": "successor-case",
+                    "purchase_document_ids": ["101", "102"],
+                }
+            ]
+        },
+    )
+    attempt = _write_json(tmp_path / "attempt.json", {"ok": True})
+    authority = _write_json(tmp_path / "authority.json", {"ok": True})
+    recovery_root = tmp_path / "recovery"
+    recovery_card = _write_json(
+        recovery_root / "run-cards/recover-recap-fetch-quarantine.json",
+        {"ok": True},
+    )
+    coordinates = SimpleNamespace(
+        kind="successor",
+        selection_path=selection,
+        budget_plan_path=budget,
+        attempt_policy_path=attempt,
+        replacement_authority_path=authority,
+        purchase_policy_path=purchase_policy,
+        cohort_policy_path=cohort_policy,
+        purchase_ledger_path=ledger,
+    )
+    monkeypatch.setattr(
+        cli, "derive_recovery_source_coordinates", lambda _card: coordinates
+    )
+    monkeypatch.setattr(
+        cli,
+        "_replacement_consolidation_selection_keys",
+        lambda _records: {("successor-case", "101"), ("successor-case", "102")},
+    )
+    monkeypatch.setattr(cli, "_missing_core_budget_plan", lambda _artifact: object())
+    monkeypatch.setattr(
+        cli, "verify_recap_fetch_attempt_policy", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_materializer_recovery",
+        lambda **_kwargs: {
+            "verified_artifact_bytes": {
+                str(recovery_card.resolve()): recovery_card.read_bytes()
+            }
+        },
+    )
+    policy = SimpleNamespace(
+        cycle_id="cycle-1",
+        cohort_policy_sha256="cohort-sha",
+        policy_sha256="policy-sha",
+    )
+    baseline = {
+        "candidate_id": "initial-case",
+        "source_document_id": "1",
+        "reservation_usd": "3.05",
+    }
+    successor_rows = (
+        {
+            "candidate_id": "successor-case",
+            "source_document_id": "101",
+            "reservation_usd": "3.05",
+        },
+        {
+            "candidate_id": "successor-case",
+            "source_document_id": "102",
+            "reservation_usd": "3.05",
+        },
+    )
+    baseline_state = canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd="3.05",
+        operations=(baseline,),
+    )
+    request = SimpleNamespace(
+        baseline_operation_record_sha256s=(
+            canonical_purchase_operation_sha256(baseline),
+        ),
+        committed_spend_usd="3.05",
+        purchase_journal_state_sha256="sha256:" + baseline_state,
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_replacement_purchase_authority",
+        lambda **_kwargs: request,
+    )
+    return (
+        {
+            "successor_recovery_root": recovery_root,
+            "successor_controlled_private_root": tmp_path / "private",
+            "current_snapshot": CaseDevPurchaseSnapshot(
+                operations=(baseline, *successor_rows),
+                committed_amount_usd="9.15",
+                purchase_state_sha256="current-state",
+            ),
+            "policy": policy,
+            "policy_artifact": {"ok": True},
+            "cohort_artifact": {"ok": True},
+            "purchase_policy_path": purchase_policy,
+            "cohort_policy_path": cohort_policy,
+            "ledger_path": ledger,
+            "initial_controlled_private_root": tmp_path / "initial-private",
+            "initialization_receipt_path": receipt,
+            "capture": lambda path, **_kwargs: Path(path).read_bytes(),
+        },
+        {"budget": budget},
+    )
+
+
+def test_authenticated_successor_history_reconstructs_exact_prefix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kwargs, _ = _successor_history_helper_fixture(tmp_path, monkeypatch)
+
+    prefix, recovery_bytes = cli._authenticated_pre_successor_purchase_snapshot(
+        **kwargs
+    )
+
+    assert prefix.committed_amount_usd == "3.05"
+    assert len(prefix.operations) == 1
+    assert prefix.operations[0]["candidate_id"] == "initial-case"
+    assert recovery_bytes
+
+
+def test_authenticated_successor_history_threads_trailing_pairs_to_attempt_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kwargs, _ = _successor_history_helper_fixture(tmp_path, monkeypatch)
+    trailing = {("later-case", "999")}
+    observed: list[set[tuple[str, str]] | None] = []
+
+    def capture_attempt(*_args: object, **call_kwargs: object) -> None:
+        observed.append(
+            call_kwargs.get("allowed_additional_operation_pairs")  # type: ignore[arg-type]
+        )
+
+    monkeypatch.setattr(cli, "verify_recap_fetch_attempt_policy", capture_attempt)
+
+    cli._authenticated_pre_successor_purchase_snapshot(
+        **kwargs,
+        allowed_additional_operation_pairs=trailing,
+    )
+
+    assert observed == [trailing]
+
+
+def test_attempt_policy_nested_authority_replay_receives_trailing_pairs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    policy = SimpleNamespace(
+        has_verified_approval=True,
+        canonical_ledger_path=tmp_path / "ledger.sqlite3",
+        per_document_reservation_usd=Decimal("3.05"),
+        hard_cap_usd=Decimal("600.00"),
+        opening_committed_spend_usd=Decimal("0.00"),
+        opening_case_committed_spend_usd={},
+        max_per_case_usd=Decimal("30.50"),
+        cycle_id="cycle-1",
+        policy_sha256="policy-sha",
+        cohort_policy_sha256="cohort-sha",
+    )
+    budget_plan = SimpleNamespace(
+        dry_run=False,
+        total_estimated_cost=Decimal("3.05"),
+        case_plans=(
+            SimpleNamespace(candidate_id="case-1", purchase_document_ids=("101",)),
+        ),
+    )
+    selection_records = (
+        {
+            "candidate_id": "case-1",
+            "selected": True,
+            "exclusion_reasons": [],
+            "documents": [
+                {
+                    "source_document_id": "101",
+                    "redaction_or_seal_status": "unknown",
+                    "restriction_evidence": list(
+                        attempt_module.UNKNOWN_STATUS_EVIDENCE
+                    ),
+                    "is_sealed": None,
+                    "is_private": None,
+                    "is_available": False,
+                    "availability_status": "unavailable",
+                    "requires_paid_recovery": True,
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        attempt_module, "verify_case_dev_purchase_policy", lambda _artifact: policy
+    )
+    monkeypatch.setattr(
+        attempt_module,
+        "require_approved_case_dev_purchase_policy",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        attempt_module,
+        "_require_structured_inputs_match_authenticated_bytes",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        attempt_module,
+        "verify_case_dev_purchase_policy_cohort_binding",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        attempt_module,
+        "validate_recap_fetch_budget_plan_artifact",
+        lambda *_args, **_kwargs: None,
+    )
+    observed: list[set[tuple[str, str]] | None] = []
+    monkeypatch.setattr(
+        approval_module,
+        "verify_replacement_purchase_authority",
+        lambda **kwargs: observed.append(
+            kwargs.get("allowed_additional_operation_pairs")
+        ),
+    )
+    common = {
+        "purchase_policy_artifact": {"policy": "fixture"},
+        "cohort_policy_artifact": {"cohort": "fixture"},
+        "budget_plan": budget_plan,
+        "budget_plan_artifact": {"budget": "fixture"},
+        "selection_records": selection_records,
+        "budget_plan_bytes": b"budget",
+        "selection_bytes": b"selection",
+        "controlled_private_root": tmp_path / "initial-private",
+        "replacement_purchase_authority_artifact": {"authority": "fixture"},
+        "replacement_controlled_private_root": tmp_path / "successor-private",
+        "purchase_ledger_initialization_receipt_path": tmp_path / "receipt.json",
+    }
+    expected = attempt_module._build_recap_fetch_attempt_policy(
+        **common,
+        require_fresh_ledger_namespace=False,
+        allowed_additional_operation_pairs=None,
+    )
+    observed.clear()
+    trailing = {("later-case", "202")}
+
+    attempt_module.verify_recap_fetch_attempt_policy(
+        expected,
+        **common,
+        allowed_additional_operation_pairs=trailing,
+    )
+
+    assert observed == [trailing]
+
+
+@pytest.mark.parametrize(
+    ("argument", "label"),
+    [
+        ("expected_selection_path", "selection"),
+        ("expected_budget_plan_path", "budget plan"),
+        ("expected_authority_path", "purchase authority"),
+    ],
+)
+def test_authenticated_successor_history_rejects_descriptor_path_rebinding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    argument: str,
+    label: str,
+) -> None:
+    kwargs, _ = _successor_history_helper_fixture(tmp_path, monkeypatch)
+
+    with pytest.raises(
+        cli.ReplacementRecoverySourceError,
+        match=rf"{label} path differs from its descriptor",
+    ):
+        cli._authenticated_pre_successor_purchase_snapshot(
+            **kwargs,
+            **{argument: tmp_path / "other-source"},
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["arbitrary_extra", "missing_successor", "changed_baseline", "overlap"],
+)
+def test_authenticated_successor_history_rejects_nonexact_partition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    kwargs, paths = _successor_history_helper_fixture(tmp_path, monkeypatch)
+    snapshot = kwargs["current_snapshot"]
+    assert isinstance(snapshot, CaseDevPurchaseSnapshot)
+    operations = list(snapshot.operations)
+    if mutation == "arbitrary_extra":
+        operations.append(
+            {
+                "candidate_id": "unapproved-case",
+                "source_document_id": "999",
+                "reservation_usd": "3.05",
+            }
+        )
+    elif mutation == "missing_successor":
+        operations.pop()
+    elif mutation == "changed_baseline":
+        operations[0] = {**operations[0], "reservation_usd": "0.01"}
+    else:
+        budget = json.loads(paths["budget"].read_bytes())
+        budget["case_plans"][0]["candidate_id"] = "initial-case"
+        budget["case_plans"][0]["purchase_document_ids"][0] = "1"
+        _write_json(paths["budget"], budget)
+    kwargs["current_snapshot"] = CaseDevPurchaseSnapshot(
+        operations=tuple(operations),
+        committed_amount_usd=snapshot.committed_amount_usd,
+        purchase_state_sha256=snapshot.purchase_state_sha256,
+    )
+
+    with pytest.raises(
+        cli.ReplacementRecoverySourceError,
+        match=(
+            r"outside the approved successor tranche|exactly partition|overlaps|"
+            r"baseline operations are missing"
+        ),
+    ):
+        cli._authenticated_pre_successor_purchase_snapshot(**kwargs)
 
 
 def test_producer_dry_run_emits_card_without_writing(
