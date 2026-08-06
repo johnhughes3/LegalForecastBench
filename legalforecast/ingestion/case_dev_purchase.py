@@ -1740,6 +1740,20 @@ def canonical_purchase_state_sha256(
                 "committed_amount_usd": committed_amount_usd,
                 "operations": [dict(row) for row in operations],
             }
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def canonical_purchase_operation_sha256(operation: Mapping[str, Any]) -> str:
+    """Commit one logical purchase-operation record canonically."""
+
+    return hashlib.sha256(
+        json.dumps(
+            dict(operation),
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
         ).encode()
     ).hexdigest()
 

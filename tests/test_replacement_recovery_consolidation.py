@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 
 
 def _write_json(path: Path, value: object) -> Path:
@@ -147,6 +148,7 @@ def _prepare_fixture(
         "manifest_path": initial_root / "purchased-document-downloads.jsonl",
         "manifest_records": [initial_manifest_record],
         "document_root": initial_document_root,
+        "verified_artifact_bytes": {},
     }
     clearance_by_path[initial_clearance] = {
         "clearance_records": [initial_clearance_record],
@@ -225,6 +227,7 @@ def _prepare_fixture(
             "manifest_path": root / "purchased-document-downloads.jsonl",
             "manifest_records": [manifest_record],
             "document_root": document_root,
+            "verified_artifact_bytes": {},
         }
         clearance_by_path[clearance_path] = {
             "clearance_records": [clearance_record],
@@ -289,6 +292,32 @@ def _prepare_fixture(
         )
 
     monkeypatch.setattr(cli, "verify_replacement_purchase_authority", verify_authority)
+
+    def authenticate_history(
+        *,
+        successor_recovery_root: Path,
+        current_snapshot: CaseDevPurchaseSnapshot,
+        **_kwargs: object,
+    ) -> tuple[CaseDevPurchaseSnapshot, dict[str, bytes]]:
+        record = recovery_by_root[successor_recovery_root]["manifest_records"][0]
+        pair = (record["candidate_id"], record["source_document_id"])
+        predecessor = tuple(
+            operation
+            for operation in current_snapshot.operations
+            if (operation["candidate_id"], operation["source_document_id"]) != pair
+        )
+        return (
+            CaseDevPurchaseSnapshot(
+                operations=predecessor,
+                purchase_state_sha256=current_snapshot.purchase_state_sha256,
+                committed_amount_usd=current_snapshot.committed_amount_usd,
+            ),
+            {},
+        )
+
+    monkeypatch.setattr(
+        cli, "_authenticated_pre_successor_purchase_snapshot", authenticate_history
+    )
     monkeypatch.setattr(
         cli,
         "_replacement_consolidation_terminal_omissions",
@@ -858,6 +887,140 @@ def test_multi_tranche_consolidation_materializes_promoted_purchased_documents(
         {("case-2", "doc-2")},
         set(),
     ]
+
+
+def test_consolidation_replays_each_recovery_at_its_authenticated_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_pairs = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=all_pairs)
+    fixture_recovery = cli._verify_materializer_recovery
+    observed: dict[str, set[tuple[str, str]]] = {}
+
+    def capture_history(**kwargs: object) -> dict[str, object]:
+        root = Path(kwargs["recovery_root"])  # type: ignore[arg-type]
+        operations = kwargs["purchase_operations"]
+        observed[root.parent.name] = {
+            (operation["candidate_id"], operation["source_document_id"])
+            for operation in operations  # type: ignore[union-attr]
+        }
+        return fixture_recovery(**kwargs)
+
+    monkeypatch.setattr(cli, "_verify_materializer_recovery", capture_history)
+
+    cli._prepare_replacement_recovery_consolidation(args)
+
+    assert observed == {
+        "initial": {("base-case", "base-doc")},
+        "tranche-1": {("base-case", "base-doc"), ("case-1", "doc-1")},
+        "tranche-2": all_pairs,
+    }
+
+
+def test_consolidation_rejects_ledger_drift_before_completed_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_pairs = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=all_pairs)
+    operations = tuple(
+        {"candidate_id": candidate_id, "source_document_id": document_id}
+        for candidate_id, document_id in sorted(all_pairs)
+    )
+    snapshots = iter(
+        (
+            SimpleNamespace(
+                operations=operations,
+                purchase_state_sha256="a" * 64,
+                committed_amount_usd="0.00",
+            ),
+            SimpleNamespace(
+                operations=operations,
+                purchase_state_sha256="b" * 64,
+                committed_amount_usd="0.00",
+            ),
+        )
+    )
+    monkeypatch.setattr(
+        cli,
+        "read_case_dev_purchase_snapshot",
+        lambda *_args, **_kwargs: next(snapshots),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="purchase ledger changed during replacement recovery consolidation",
+    ):
+        cli._cmd_consolidate_replacement_recovery(args)
+
+    assert not (
+        args.output_root / "run-cards" / "consolidate-replacement-recovery.json"
+    ).exists()
+
+
+@pytest.mark.parametrize("drift", ["budget", "recovery"])
+def test_consolidation_rejects_reverse_forward_source_drift_before_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    drift: str,
+) -> None:
+    all_pairs = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=all_pairs)
+    original_history = cli._authenticated_pre_successor_purchase_snapshot
+    original_recovery = cli._verify_materializer_recovery
+    changed = False
+    marker = _write_json(tmp_path / "recovery-marker.json", {"version": 1})
+
+    def drift_after_reverse(**kwargs: object) -> object:
+        nonlocal changed
+        result = original_history(**kwargs)
+        if changed:
+            return result
+        changed = True
+        if drift == "budget":
+            budget_path = Path(kwargs["expected_budget_plan_path"])  # type: ignore[arg-type]
+            capture = kwargs["capture"]
+            capture(budget_path, label="test reverse budget")  # type: ignore[operator]
+            budget_path.write_bytes(budget_path.read_bytes() + b" ")
+            return result
+        old_bytes = marker.read_bytes()
+        marker.write_text(
+            json.dumps({"version": 2}, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        snapshot, recovery_bytes = result  # type: ignore[misc]
+        return snapshot, {**recovery_bytes, str(marker.resolve()): old_bytes}
+
+    def forward_recovery(**kwargs: object) -> dict[str, object]:
+        result = dict(original_recovery(**kwargs))
+        if drift == "recovery":
+            result["verified_artifact_bytes"] = {
+                str(marker.resolve()): marker.read_bytes()
+            }
+        return result
+
+    monkeypatch.setattr(
+        cli, "_authenticated_pre_successor_purchase_snapshot", drift_after_reverse
+    )
+    monkeypatch.setattr(cli, "_verify_materializer_recovery", forward_recovery)
+
+    with pytest.raises(cli.CommandError, match="conflicts with prior snapshot"):
+        cli._cmd_consolidate_replacement_recovery(args)
+
+    assert not (
+        args.output_root / "run-cards" / "consolidate-replacement-recovery.json"
+    ).exists()
 
 
 def test_consolidation_rejects_selected_purchased_document_absent_from_ledger(

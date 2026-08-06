@@ -31,6 +31,12 @@ uv run legalforecast acquisition build-replacement-recovery-source \
 
 A successor uses a positive `--ordinal` and adds `--replacement-controlled-private-root`.
 
+When the canonical ledger has advanced through a later authenticated successor, the ordinal-zero producer also accepts the paired `--successor-history-recovery-root` and `--successor-history-controlled-private-root` arguments.
+
+That mode replays the later authority, attempt policy, and recovery; requires the current journal to partition into the authority's exact ordered baseline hashes plus exactly its disjoint approved operation pairs; and verifies the historical initial recovery against the reconstructed baseline snapshot.
+
+The history arguments are rejected for positive ordinals or when supplied singly.
+
 ## Descriptor schemas
 
 An initial descriptor contains exactly:
@@ -73,9 +79,15 @@ The producer captures every file authenticated by the recovery verifier, includi
 
 ## Producer run card
 
-The companion run card uses `schema_version=legalforecast.replacement_recovery_source_run_card.v1` and `stage=build-replacement-recovery-source`.
+The companion run card uses `stage=build-replacement-recovery-source`.
 
-It contains the exact source paths and SHA-256 commitments captured during replay, the current canonical purchase-state digest, the descriptor output commitment, and explicit false provider/paid activity flags.
+Ordinary production uses `schema_version=legalforecast.replacement_recovery_source_run_card.v1`.
+
+Authenticated historical ordinal-zero replay uses the closed `legalforecast.replacement_recovery_source_run_card.v2` schema, which adds `replayed_purchase_state_sha256` for the reconstructed historical prefix.
+
+Both versions contain the exact source paths and SHA-256 commitments captured during replay, the current canonical purchase-state digest in `purchase_state_sha256`, the descriptor output commitment, and explicit false provider/paid activity flags.
+
+The v2 historical digest is distinct from the current digest and never replaces or relabels it.
 
 It contains no wall-clock timestamp, so identical evidence at identical canonical paths produces identical bytes.
 

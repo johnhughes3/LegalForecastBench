@@ -94,6 +94,7 @@ def generate_recap_fetch_attempt_policy(
         purchase_ledger_initialization_receipt_path=(
             purchase_ledger_initialization_receipt_path
         ),
+        allowed_additional_operation_pairs=None,
     )
 
 
@@ -111,6 +112,7 @@ def _build_recap_fetch_attempt_policy(
     replacement_purchase_authority_artifact: Mapping[str, object] | None,
     replacement_controlled_private_root: Path | None,
     purchase_ledger_initialization_receipt_path: Path | None,
+    allowed_additional_operation_pairs: set[tuple[str, str]] | None,
 ) -> dict[str, object]:
     """Build minting or replay evidence under an explicit private mode."""
 
@@ -188,6 +190,7 @@ def _build_recap_fetch_attempt_policy(
                 purchase_ledger_initialization_receipt_path=cast(
                     Path, purchase_ledger_initialization_receipt_path
                 ),
+                allowed_additional_operation_pairs=(allowed_additional_operation_pairs),
             )
         if purchase_policy.has_verified_approval:
             _require_structured_inputs_match_authenticated_bytes(
@@ -292,6 +295,7 @@ def verify_recap_fetch_attempt_policy(
     replacement_purchase_authority_artifact: Mapping[str, object] | None = None,
     replacement_controlled_private_root: Path | None = None,
     purchase_ledger_initialization_receipt_path: Path | None = None,
+    allowed_additional_operation_pairs: set[tuple[str, str]] | None = None,
 ) -> dict[str, dict[str, str]]:
     """Replay existing attempt authority without minting after initialization."""
 
@@ -312,6 +316,7 @@ def verify_recap_fetch_attempt_policy(
         purchase_ledger_initialization_receipt_path=(
             purchase_ledger_initialization_receipt_path
         ),
+        allowed_additional_operation_pairs=allowed_additional_operation_pairs,
     )
     if dict(artifact) != expected:
         raise RecapFetchAttemptPolicyError(
