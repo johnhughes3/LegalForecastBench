@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -262,7 +263,11 @@ def test_materializer_artifact_validation_normalizes_lstat_oserror(
             return artifact.absolute()
 
         def lstat(self) -> os.stat_result:
-            raise PermissionError(artifact)
+            raise PermissionError(
+                errno.EACCES,
+                os.strerror(errno.EACCES),
+                artifact,
+            )
 
         def __str__(self) -> str:
             return str(artifact)
