@@ -174,6 +174,40 @@ def test_read_only_replay_rejects_unrecorded_replacement_event(tmp_path: Path) -
         assert journal.replacement_events() == ()
 
 
+def test_ranked_reserve_rejects_document_shared_across_candidates(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    reserves = [json.loads(line) for line in fixture["reserve_bytes"].splitlines()]
+    reserves[1]["purchase_document_ids"] = list(reserves[0]["purchase_document_ids"])
+    reserve_bytes = _jsonl(reserves)
+    projection = dict(fixture["projection"])
+    projection["ranked_reserve_sha256"] = _canonical_sha(reserves)
+    output_commitments = dict(cast(dict[str, object], projection["output_commitments"]))
+    output_commitments["target-cohort-ranked-reserve.jsonl"] = _sha(reserve_bytes)
+    projection["output_commitments"] = output_commitments
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="document is shared across candidates",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=projection,
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=reserve_bytes,
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=_terminal_bytes("case-050"),
+                expected_terminal_exclusions_sha256=_sha(_terminal_bytes("case-050")),
+                purchase_journal=journal,
+            )
+
+
 @pytest.mark.parametrize(
     ("terminal", "retryable"),
     ((False, False), (True, True)),
@@ -2329,6 +2363,47 @@ def test_cli_replays_full_projection_and_emits_provider_free_outputs(
     assert "immutable output differs" in replay_console.err
     replayed_outputs = {name: path.read_bytes() for name, path in outputs.items()}
     assert replayed_outputs == original_outputs
+
+
+def test_cli_rejects_incomplete_post_purchase_replay_bundle(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    command = [
+        "acquisition",
+        "plan-ranked-reserve-replacements",
+        "--target-cohort-root",
+        str(tmp_path / "target"),
+        "--purchase-policy",
+        str(tmp_path / "purchase-policy.json"),
+        "--controlled-private-root",
+        str(tmp_path / "initial-private"),
+        "--purchase-ledger",
+        str(tmp_path / "purchase-ledger.sqlite3"),
+        "--purchase-ledger-initialization-receipt",
+        str(tmp_path / "initialization.json"),
+        "--purchase-result",
+        str(tmp_path / "purchase-result.jsonl"),
+        "--purchase-run-card",
+        str(tmp_path / "purchase-run-card.json"),
+        "--screening-snapshot-manifest",
+        str(tmp_path / "screening-manifest.json"),
+        "--prior-ranked-result",
+        str(tmp_path / "prior-result.json"),
+        "--output",
+        str(tmp_path / "result.json"),
+        "--active-selection-output",
+        str(tmp_path / "active.jsonl"),
+        "--replacement-selection-output",
+        str(tmp_path / "replacement.jsonl"),
+        "--successor-exclusions-output",
+        str(tmp_path / "successor-exclusions.jsonl"),
+        "--replacement-budget-plan-output",
+        str(tmp_path / "replacement-budget.json"),
+    ]
+
+    assert cli.main(command) == 2
+    assert "complete authority bundle" in capsys.readouterr().err
 
 
 def test_cli_derives_mixed_partition_without_nested_purchase_journal_lock(

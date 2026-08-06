@@ -21,7 +21,9 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
+    CaseDevPurchaseSnapshot,
     canonical_purchase_operation_sha256,
+    canonical_purchase_state_sha256,
     require_approved_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
@@ -52,6 +54,9 @@ from legalforecast.ingestion.ranked_reserve_replacement import (
     RESULT_SCHEMA_VERSION as _RANKED_RESERVE_RESULT_SCHEMA,
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    VerifiedRankedReservePostPurchaseReplay,
+    _mint_verified_ranked_reserve_post_purchase_replay,  # pyright: ignore[reportPrivateUsage]
+    ranked_reserve_result_bytes,
     validate_authenticated_legacy_replay,
 )
 
@@ -1398,6 +1403,212 @@ def verify_replacement_purchase_authority(
     return request
 
 
+def verify_ranked_reserve_post_purchase_replay(
+    *,
+    prior_result: Mapping[str, object],
+    prior_result_bytes: bytes,
+    authority_artifact: Mapping[str, object],
+    controlled_private_root: Path,
+    initial_purchase_policy_artifact: Mapping[str, object],
+    initial_controlled_private_root: Path,
+    cohort_policy_artifact: Mapping[str, object],
+    budget_plan_bytes: bytes,
+    selection_bytes: bytes,
+    purchase_ledger_path: Path,
+    purchase_ledger_initialization_receipt_path: Path,
+) -> VerifiedRankedReservePostPurchaseReplay:
+    """Prove the exact authority-approved transition after tranche purchase."""
+
+    request = verify_replacement_purchase_authority(
+        authority_artifact=authority_artifact,
+        controlled_private_root=controlled_private_root,
+        initial_purchase_policy_artifact=initial_purchase_policy_artifact,
+        initial_controlled_private_root=initial_controlled_private_root,
+        cohort_policy_artifact=cohort_policy_artifact,
+        budget_plan_bytes=budget_plan_bytes,
+        selection_bytes=selection_bytes,
+        purchase_ledger_path=purchase_ledger_path,
+        purchase_ledger_initialization_receipt_path=(
+            purchase_ledger_initialization_receipt_path
+        ),
+    )
+    _verify_ranked_result_identity(prior_result)
+    if prior_result.get("schema_version") != _CURRENT_RANKED_RESERVE_RESULT_SCHEMA:
+        raise ReplacementPurchaseApprovalError(
+            "post-purchase replay requires the authenticated prior v3 result"
+        )
+    if ranked_reserve_result_bytes(prior_result) != prior_result_bytes:
+        raise ReplacementPurchaseApprovalError(
+            "prior ranked result is not canonical JSON"
+        )
+    prior_result_sha256 = _sha256(prior_result_bytes)
+    if request.replacement_result_sha256 != prior_result_sha256:
+        raise ReplacementPurchaseApprovalError(
+            "prior ranked result differs from exact successor approval"
+        )
+    if (
+        prior_result.get("purchase_journal_state_sha256")
+        != request.purchase_journal_state_sha256
+        or prior_result.get("committed_spend_usd") != request.committed_spend_usd
+        or tuple(
+            _sha(value, "prior ranked tranche event SHA-256")
+            for value in _sequence(
+                prior_result.get("tranche_event_record_sha256s"),
+                "prior ranked tranche event SHA-256s",
+            )
+        )
+        != request.replacement_event_record_sha256s
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "prior ranked result differs from the authority baseline"
+        )
+    replay = validate_authenticated_legacy_replay(
+        prior_result.get("authenticated_legacy_replay")
+    )
+    precursor = _mapping(replay.get("precursor_result"), "legacy precursor result")
+    monetary_fields = (
+        "committed_spend_usd",
+        "reserved_replacement_spend_usd",
+        "remaining_headroom_usd",
+    )
+    if any(
+        prior_result.get(field) != precursor.get(field) for field in monetary_fields
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "prior v3 monetary state differs from its authenticated v2 precursor"
+        )
+
+    try:
+        policy = verify_case_dev_purchase_policy(initial_purchase_policy_artifact)
+        with CaseDevPurchaseJournal(
+            purchase_ledger_path.resolve(),
+            policy=policy,
+            read_only=True,
+            controlled_private_root=initial_controlled_private_root,
+            initialization_receipt_path=(
+                purchase_ledger_initialization_receipt_path.resolve()
+            ),
+        ) as journal:
+            journal.require_reconciled()
+            current_snapshot = journal.authenticated_snapshot()
+    except (CaseDevPurchaseLedgerError, OSError, ValueError) as exc:
+        raise ReplacementPurchaseApprovalError(str(exc)) from exc
+
+    operation_rows = tuple(
+        (canonical_purchase_operation_sha256(operation), operation)
+        for operation in current_snapshot.operations
+    )
+    operation_hashes = tuple(digest for digest, _operation in operation_rows)
+    baseline_hashes = request.baseline_operation_record_sha256s
+    if len(set(operation_hashes)) != len(operation_hashes) or len(
+        set(baseline_hashes)
+    ) != len(baseline_hashes):
+        raise ReplacementPurchaseApprovalError(
+            "post-purchase replay contains duplicate canonical operations"
+        )
+    baseline_hash_set = set(baseline_hashes)
+    baseline_rows = tuple(
+        operation for digest, operation in operation_rows if digest in baseline_hash_set
+    )
+    if (
+        tuple(
+            canonical_purchase_operation_sha256(operation)
+            for operation in baseline_rows
+        )
+        != baseline_hashes
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "post-purchase replay lost, changed, or reordered a baseline operation"
+        )
+    successor_rows = tuple(
+        operation
+        for digest, operation in operation_rows
+        if digest not in baseline_hash_set
+    )
+    approved_by_candidate = _approved_documents_by_candidate(request, budget_plan_bytes)
+    approved_pairs = {
+        (candidate_id, document_id)
+        for candidate_id, document_ids in approved_by_candidate.items()
+        for document_id in document_ids
+    }
+    successor_pairs: set[tuple[str, str]] = set()
+    successor_amount = Decimal("0.00")
+    successor_hashes: list[str] = []
+    for operation in successor_rows:
+        pair = (
+            _text(operation.get("candidate_id"), "successor candidate ID"),
+            _text(operation.get("source_document_id"), "successor document ID"),
+        )
+        if pair in successor_pairs:
+            raise ReplacementPurchaseApprovalError(
+                "post-purchase replay repeats an approved successor operation"
+            )
+        successor_pairs.add(pair)
+        if operation.get("reservation_usd") != _money(
+            policy.per_document_reservation_usd
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "successor operation reservation differs from the unchanged policy"
+            )
+        if not _operation_commits_spend(operation):
+            raise ReplacementPurchaseApprovalError(
+                "approved successor operation is not retained as committed spend"
+            )
+        successor_amount += _operation_committed_amount(operation)
+        successor_hashes.append(canonical_purchase_operation_sha256(operation))
+    if successor_pairs != approved_pairs or len(successor_rows) != len(approved_pairs):
+        raise ReplacementPurchaseApprovalError(
+            "current purchase journal does not exactly contain the approved "
+            "successor tranche"
+        )
+    baseline_committed = _usd(
+        request.committed_spend_usd, "authority baseline committed spend"
+    )
+    baseline_state_sha256 = canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd=_money(baseline_committed),
+        operations=baseline_rows,
+    )
+    if "sha256:" + baseline_state_sha256 != request.purchase_journal_state_sha256:
+        raise ReplacementPurchaseApprovalError(
+            "authority baseline operations do not reproduce the prior journal state"
+        )
+    if (
+        _usd(current_snapshot.committed_amount_usd, "current committed spend")
+        != baseline_committed + successor_amount
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "current committed spend does not equal the authenticated transition"
+        )
+    baseline_snapshot = CaseDevPurchaseSnapshot(
+        operations=baseline_rows,
+        committed_amount_usd=_money(baseline_committed),
+        purchase_state_sha256=baseline_state_sha256,
+    )
+    return _mint_verified_ranked_reserve_post_purchase_replay(
+        prior_result=prior_result,
+        prior_result_sha256="sha256:" + prior_result_sha256,
+        authenticated_legacy_replay=replay,
+        precursor_committed_spend=_usd(
+            precursor.get("committed_spend_usd"), "legacy committed spend"
+        ),
+        precursor_reserved_spend=_usd(
+            precursor.get("reserved_replacement_spend_usd"),
+            "legacy reserved spend",
+        ),
+        precursor_remaining_headroom=_usd(
+            precursor.get("remaining_headroom_usd"), "legacy remaining headroom"
+        ),
+        baseline_snapshot=baseline_snapshot,
+        current_snapshot=current_snapshot,
+        replacement_purchase_authority_sha256=_text(
+            authority_artifact.get("authority_sha256"), "authority SHA-256"
+        ),
+        baseline_operation_record_sha256s=baseline_hashes,
+        successor_operation_record_sha256s=successor_hashes,
+    )
+
+
 def _request_from_record(
     record: Mapping[str, object],
 ) -> ReplacementPurchaseApprovalRequest:
@@ -1796,6 +2007,21 @@ def _operation_commits_spend(operation: Mapping[str, object]) -> bool:
             and operation.get("reconciliation") is None
         )
     )
+
+
+def _operation_committed_amount(operation: Mapping[str, object]) -> Decimal:
+    """Return one cap-committing operation's canonical journal contribution."""
+
+    reservation = _usd(operation.get("reservation_usd"), "operation reservation")
+    raw_actual = operation.get("actual_usd")
+    actual = (
+        Decimal("0.00")
+        if raw_actual is None
+        else _usd(raw_actual, "operation actual cost")
+    )
+    if operation.get("status") == "confirmed":
+        return reservation if raw_actual is None else actual
+    return max(reservation, actual)
 
 
 def _verify_result_identity(result: Mapping[str, object]) -> None:

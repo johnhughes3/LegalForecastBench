@@ -15,7 +15,13 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
-from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
+    CaseDevPurchasePolicy,
+    CaseDevPurchaseSnapshot,
+    canonical_purchase_operation_sha256,
+    canonical_purchase_state_sha256,
+)
 from legalforecast.ingestion.docket_decision_text_source import (
     DocketDecisionTextSourceError,
     VerifiedTerminalPurchaseDispositionAuthority,
@@ -46,8 +52,14 @@ AUTHENTICATED_RESULT_SCHEMA_VERSION = (
 CURRENT_REPLAY_RESULT_SCHEMA_VERSION = (
     "legalforecast.ranked_reserve_replacement_result.v3"
 )
+POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION = (
+    "legalforecast.ranked_reserve_replacement_result.v4"
+)
 LEGACY_REPLAY_PROOF_SCHEMA_VERSION = (
     "legalforecast.ranked_reserve_legacy_event_replay.v1"
+)
+POST_PURCHASE_REPLAY_PROOF_SCHEMA_VERSION = (
+    "legalforecast.ranked_reserve_post_purchase_replay.v1"
 )
 _PROJECTION_SCHEMA_VERSION = "legalforecast.target_cohort_projection.v1"
 _RESERVE_SCHEMA_VERSION = "legalforecast.target_cohort_ranked_reserve.v1"
@@ -122,10 +134,95 @@ _LEGACY_REPLAY_PROOF_FIELDS = frozenset(
         "historical_state_substitution_only",
     }
 )
+_CURRENT_REPLAY_RESULT_FIELDS = _V2_RESULT_FIELDS | {"authenticated_legacy_replay"}
+_POST_PURCHASE_REPLAY_PROOF_FIELDS = frozenset(
+    {
+        "schema_version",
+        "prior_result",
+        "prior_result_sha256",
+        "replacement_purchase_authority_sha256",
+        "baseline_purchase_journal_state_sha256",
+        "baseline_committed_spend_usd",
+        "baseline_operation_record_sha256s",
+        "current_purchase_journal_state_sha256",
+        "current_committed_spend_usd",
+        "successor_operation_record_sha256s",
+    }
+)
 
 
 class RankedReserveReplacementError(ValueError):
     """Raised when frozen lineage, terminality, or budget cannot be proven."""
+
+
+_VERIFIED_POST_PURCHASE_REPLAY_TOKEN = object()
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class VerifiedRankedReservePostPurchaseReplay:
+    """Authority-authenticated transition from one prior v3 purchase state."""
+
+    prior_result: JsonRecord
+    prior_result_sha256: str
+    authenticated_legacy_replay: JsonRecord
+    precursor_committed_spend: Decimal
+    precursor_reserved_spend: Decimal
+    precursor_remaining_headroom: Decimal
+    baseline_snapshot: CaseDevPurchaseSnapshot
+    current_snapshot: CaseDevPurchaseSnapshot
+    replacement_purchase_authority_sha256: str
+    baseline_operation_record_sha256s: tuple[str, ...]
+    successor_operation_record_sha256s: tuple[str, ...]
+    _token: object
+
+    def __init__(self, **_values: object) -> None:
+        raise TypeError(
+            "VerifiedRankedReservePostPurchaseReplay is created only by "
+            "replacement-authority replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        """Return whether the value came from the private verifier seam."""
+
+        return self._token is _VERIFIED_POST_PURCHASE_REPLAY_TOKEN
+
+
+def _mint_verified_ranked_reserve_post_purchase_replay(  # pyright: ignore[reportUnusedFunction]
+    *,
+    prior_result: Mapping[str, object],
+    prior_result_sha256: str,
+    authenticated_legacy_replay: Mapping[str, object],
+    precursor_committed_spend: Decimal,
+    precursor_reserved_spend: Decimal,
+    precursor_remaining_headroom: Decimal,
+    baseline_snapshot: CaseDevPurchaseSnapshot,
+    current_snapshot: CaseDevPurchaseSnapshot,
+    replacement_purchase_authority_sha256: str,
+    baseline_operation_record_sha256s: Sequence[str],
+    successor_operation_record_sha256s: Sequence[str],
+) -> VerifiedRankedReservePostPurchaseReplay:
+    """Mint the opaque planner capability after full authority verification."""
+
+    replay = object.__new__(VerifiedRankedReservePostPurchaseReplay)
+    values: dict[str, object] = {
+        "prior_result": dict(prior_result),
+        "prior_result_sha256": prior_result_sha256,
+        "authenticated_legacy_replay": dict(authenticated_legacy_replay),
+        "precursor_committed_spend": precursor_committed_spend,
+        "precursor_reserved_spend": precursor_reserved_spend,
+        "precursor_remaining_headroom": precursor_remaining_headroom,
+        "baseline_snapshot": baseline_snapshot,
+        "current_snapshot": current_snapshot,
+        "replacement_purchase_authority_sha256": (
+            replacement_purchase_authority_sha256
+        ),
+        "baseline_operation_record_sha256s": tuple(baseline_operation_record_sha256s),
+        "successor_operation_record_sha256s": tuple(successor_operation_record_sha256s),
+        "_token": _VERIFIED_POST_PURCHASE_REPLAY_TOKEN,
+    }
+    for name, value in values.items():
+        object.__setattr__(replay, name, value)
+    return replay
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +247,10 @@ class RankedReserveReplacementPlan:
     replacement_event_record_sha256s: tuple[str, ...]
     tranche_event_record_sha256s: tuple[str, ...]
     legacy_replay_proof: JsonRecord | None = None
+    post_purchase_replay_proof: JsonRecord | None = None
+    legacy_precursor_committed_spend: Decimal | None = None
+    legacy_precursor_reserved_spend: Decimal | None = None
+    legacy_precursor_remaining_headroom: Decimal | None = None
 
     @property
     def active_candidate_ids(self) -> tuple[str, ...]:
@@ -199,6 +300,9 @@ def plan_ranked_reserve_replacements(
     legacy_ranked_result: Mapping[str, object] | None = None,
     legacy_ranked_result_sha256: str | None = None,
     authenticated_legacy_replay: Mapping[str, object] | None = None,
+    verified_post_purchase_replay: (
+        VerifiedRankedReservePostPurchaseReplay | None
+    ) = None,
 ) -> RankedReserveReplacementPlan:
     """Plan deterministic reserve promotions from explicit terminal evidence.
 
@@ -317,18 +421,22 @@ def plan_ranked_reserve_replacements(
             raise RankedReserveReplacementError(
                 f"frozen reserve cost conflicts with purchase policy: {candidate_id}"
             )
+    current_purchase_snapshot = purchase_journal.authenticated_snapshot()
     committed = _money_decimal(
-        purchase_journal.committed_amount_usd, "committed purchase spend"
+        current_purchase_snapshot.committed_amount_usd,
+        "committed purchase spend",
     )
     operation_by_document: dict[str, Mapping[str, Any]] = {}
-    for operation in purchase_journal.operation_records():
+    for operation in current_purchase_snapshot.operations:
         document_id = _required_string(operation, "source_document_id", "operation")
         if document_id in operation_by_document:
             raise RankedReserveReplacementError(
                 "purchase journal repeats a document operation"
             )
         operation_by_document[document_id] = operation
-    purchase_journal_state_sha256 = "sha256:" + purchase_journal.purchase_state_sha256()
+    purchase_journal_state_sha256 = (
+        "sha256:" + current_purchase_snapshot.purchase_state_sha256
+    )
     prior_events = _replacement_events(
         purchase_journal.replacement_events(),
         projection_sha256=projection_sha256,
@@ -392,6 +500,7 @@ def plan_ranked_reserve_replacements(
         )
     terminal_disposition: JsonRecord | None = None
     legacy_replay_proof: JsonRecord | None = None
+    legacy_precursor_budget: tuple[Decimal, Decimal, Decimal] | None = None
     try:
         verified_retrieval_records = (
             verified_residual_terminal_records(
@@ -417,11 +526,19 @@ def plan_ranked_reserve_replacements(
         raise RankedReserveReplacementError(
             "legacy ranked result and digest must be supplied together"
         )
-    if legacy_ranked_result is not None and authenticated_legacy_replay is not None:
-        raise RankedReserveReplacementError(
-            "legacy ranked result and authenticated replay are mutually exclusive"
+    replay_modes = sum(
+        value is not None
+        for value in (
+            legacy_ranked_result,
+            authenticated_legacy_replay,
+            verified_post_purchase_replay,
         )
-    if legacy_ranked_result is not None or authenticated_legacy_replay is not None:
+    )
+    if replay_modes > 1:
+        raise RankedReserveReplacementError(
+            "ranked replay authority modes are mutually exclusive"
+        )
+    if replay_modes:
         if terminal_purchase_disposition_authority is None or not prior_events:
             raise RankedReserveReplacementError(
                 "legacy ranked replay requires authenticated disposition and "
@@ -443,6 +560,60 @@ def plan_ranked_reserve_replacements(
                 prior_events=prior_events,
             )
             historical_state = cast(str, legacy["purchase_journal_state_sha256"])
+            legacy_precursor_budget = (committed, reserved, available_before_new)
+        elif verified_post_purchase_replay is not None:
+            if (
+                type(verified_post_purchase_replay)
+                is not VerifiedRankedReservePostPurchaseReplay
+                or not verified_post_purchase_replay.is_replay_minted()
+            ):
+                raise RankedReserveReplacementError(
+                    "post-purchase replay lacks verified replacement authority"
+                )
+            if verified_post_purchase_replay.current_snapshot != (
+                current_purchase_snapshot
+            ):
+                raise RankedReserveReplacementError(
+                    "purchase journal changed after post-purchase replay verification"
+                )
+            prior_result = verified_post_purchase_replay.prior_result
+            if (
+                _bytes_sha256(ranked_reserve_result_bytes(prior_result))
+                != verified_post_purchase_replay.prior_result_sha256
+                or prior_result.get("projection_sha256") != projection_sha256
+                or prior_result.get("cycle_id") != policy.cycle_id
+                or prior_result.get("purchase_policy_sha256")
+                != "sha256:" + policy.policy_sha256
+                or prior_result.get("replacement_event_record_sha256s")
+                != [event["record_sha256"] for event in prior_events]
+                or prior_result.get("tranche_event_record_sha256s")
+                != [event["record_sha256"] for event in prior_events]
+            ):
+                raise RankedReserveReplacementError(
+                    "verified post-purchase precursor targets another ranked replay"
+                )
+            legacy_replay_proof = validate_authenticated_legacy_replay(
+                verified_post_purchase_replay.authenticated_legacy_replay
+            )
+            legacy = _validate_legacy_ranked_result(
+                cast(Mapping[str, object], legacy_replay_proof["precursor_result"]),
+                expected_sha256=cast(
+                    str, legacy_replay_proof["precursor_result_sha256"]
+                ),
+                projection_sha256=projection_sha256,
+                cycle_id=policy.cycle_id,
+                purchase_policy_sha256="sha256:" + policy.policy_sha256,
+                prior_events=prior_events,
+            )
+            historical_state = cast(
+                str,
+                legacy_replay_proof["historical_purchase_journal_state_sha256"],
+            )
+            legacy_precursor_budget = (
+                verified_post_purchase_replay.precursor_committed_spend,
+                verified_post_purchase_replay.precursor_reserved_spend,
+                verified_post_purchase_replay.precursor_remaining_headroom,
+            )
         else:
             legacy_replay_proof = validate_authenticated_legacy_replay(
                 authenticated_legacy_replay
@@ -461,6 +632,7 @@ def plan_ranked_reserve_replacements(
                 str,
                 legacy_replay_proof["historical_purchase_journal_state_sha256"],
             )
+            legacy_precursor_budget = (committed, reserved, available_before_new)
         try:
             (
                 historical_records,
@@ -477,6 +649,41 @@ def plan_ranked_reserve_replacements(
         if historical_disposition != legacy.get("terminal_disposition"):
             raise RankedReserveReplacementError(
                 "legacy ranked result differs from reconstructed terminal disposition"
+            )
+        expected_proof_current_terminal_evidence_sha256 = (
+            current_terminal_evidence_sha256
+        )
+        if verified_post_purchase_replay is not None:
+            try:
+                (
+                    _baseline_records,
+                    baseline_disposition,
+                    baseline_terminal_evidence_sha256,
+                    _post_purchase_terminal_evidence_sha256,
+                ) = reconstruct_historical_terminal_disposition(
+                    terminal_purchase_disposition_authority,
+                    purchase_journal=purchase_journal,
+                    historical_purchase_journal_state_sha256=cast(
+                        str,
+                        verified_post_purchase_replay.prior_result[
+                            "purchase_journal_state_sha256"
+                        ],
+                    ),
+                )
+            except (
+                DocketDecisionTextSourceError,
+                TerminalPurchaseFailureError,
+            ) as exc:
+                raise RankedReserveReplacementError(str(exc)) from exc
+            if baseline_disposition != verified_post_purchase_replay.prior_result.get(
+                "terminal_disposition"
+            ):
+                raise RankedReserveReplacementError(
+                    "post-purchase authority baseline differs from the prior "
+                    "terminal disposition"
+                )
+            expected_proof_current_terminal_evidence_sha256 = (
+                baseline_terminal_evidence_sha256
             )
         try:
             terminal_records = [
@@ -519,7 +726,7 @@ def plan_ranked_reserve_replacements(
             or legacy_replay_proof.get("historical_terminal_evidence_sha256")
             != historical_terminal_evidence_sha256
             or legacy_replay_proof.get("current_terminal_evidence_sha256")
-            != current_terminal_evidence_sha256
+            != expected_proof_current_terminal_evidence_sha256
             or legacy_replay_proof.get("authenticated_event_record_sha256s")
             != [event["record_sha256"] for event in prior_events]
         ):
@@ -743,6 +950,38 @@ def plan_ranked_reserve_replacements(
         event_hash_by_displaced[displaced_id] for displaced_id in tranche_displaced_ids
     )
 
+    post_purchase_replay_proof: JsonRecord | None = None
+    if verified_post_purchase_replay is not None:
+        post_purchase_replay_proof = {
+            "schema_version": POST_PURCHASE_REPLAY_PROOF_SCHEMA_VERSION,
+            "prior_result": dict(verified_post_purchase_replay.prior_result),
+            "prior_result_sha256": verified_post_purchase_replay.prior_result_sha256,
+            "replacement_purchase_authority_sha256": (
+                verified_post_purchase_replay.replacement_purchase_authority_sha256
+            ),
+            "baseline_purchase_journal_state_sha256": (
+                "sha256:"
+                + verified_post_purchase_replay.baseline_snapshot.purchase_state_sha256
+            ),
+            "baseline_committed_spend_usd": (
+                verified_post_purchase_replay.baseline_snapshot.committed_amount_usd
+            ),
+            "baseline_operation_record_sha256s": list(
+                verified_post_purchase_replay.baseline_operation_record_sha256s
+            ),
+            "current_purchase_journal_state_sha256": (
+                "sha256:"
+                + verified_post_purchase_replay.current_snapshot.purchase_state_sha256
+            ),
+            "current_committed_spend_usd": (
+                verified_post_purchase_replay.current_snapshot.committed_amount_usd
+            ),
+            "successor_operation_record_sha256s": list(
+                verified_post_purchase_replay.successor_operation_record_sha256s
+            ),
+        }
+        validate_authenticated_post_purchase_replay(post_purchase_replay_proof)
+
     return RankedReserveReplacementPlan(
         projection_sha256=projection_sha256,
         cycle_id=policy.cycle_id,
@@ -764,6 +1003,16 @@ def plan_ranked_reserve_replacements(
         replacement_event_record_sha256s=tuple(event_hashes),
         tranche_event_record_sha256s=tranche_event_hashes,
         legacy_replay_proof=legacy_replay_proof,
+        post_purchase_replay_proof=post_purchase_replay_proof,
+        legacy_precursor_committed_spend=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[0]
+        ),
+        legacy_precursor_reserved_spend=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[1]
+        ),
+        legacy_precursor_remaining_headroom=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[2]
+        ),
     )
 
 
@@ -889,6 +1138,14 @@ def bind_ranked_reserve_outputs(
             "replacement budget-plan output differs from the planned record"
         )
     if plan.legacy_replay_proof is not None:
+        if (
+            plan.legacy_precursor_committed_spend is None
+            or plan.legacy_precursor_reserved_spend is None
+            or plan.legacy_precursor_remaining_headroom is None
+        ):
+            raise RankedReserveReplacementError(
+                "legacy ranked replay lacks authenticated precursor budget"
+            )
         proof = validate_authenticated_legacy_replay(plan.legacy_replay_proof)
         precursor = cast(JsonRecord, proof["precursor_result"])
         try:
@@ -920,9 +1177,11 @@ def bind_ranked_reserve_outputs(
             ),
             "active_case_count": len(plan.active_selection),
             "replacement_case_count": len(plan.replacement_selection),
-            "committed_spend_usd": plan.committed_spend_usd,
-            "reserved_replacement_spend_usd": (plan.reserved_replacement_spend_usd),
-            "remaining_headroom_usd": plan.remaining_headroom_usd,
+            "committed_spend_usd": _money(plan.legacy_precursor_committed_spend),
+            "reserved_replacement_spend_usd": _money(
+                plan.legacy_precursor_reserved_spend
+            ),
+            "remaining_headroom_usd": _money(plan.legacy_precursor_remaining_headroom),
             "successor_approval_required": plan.successor_approval_required,
             "replacement_event_record_sha256s": list(
                 plan.replacement_event_record_sha256s
@@ -941,7 +1200,9 @@ def bind_ranked_reserve_outputs(
             )
     result: JsonRecord = {
         "schema_version": (
-            CURRENT_REPLAY_RESULT_SCHEMA_VERSION
+            POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
+            if plan.post_purchase_replay_proof is not None
+            else CURRENT_REPLAY_RESULT_SCHEMA_VERSION
             if plan.legacy_replay_proof is not None
             else (
                 AUTHENTICATED_RESULT_SCHEMA_VERSION
@@ -981,6 +1242,21 @@ def bind_ranked_reserve_outputs(
         )
     if plan.legacy_replay_proof is not None:
         result["authenticated_legacy_replay"] = dict(plan.legacy_replay_proof)
+    if plan.post_purchase_replay_proof is not None:
+        proof = validate_authenticated_post_purchase_replay(
+            plan.post_purchase_replay_proof
+        )
+        if (
+            proof["current_purchase_journal_state_sha256"]
+            != result["purchase_journal_state_sha256"]
+            or proof["current_committed_spend_usd"] != result["committed_spend_usd"]
+            or proof["prior_result"].get("authenticated_legacy_replay")
+            != result.get("authenticated_legacy_replay")
+        ):
+            raise RankedReserveReplacementError(
+                "post-purchase replay proof differs from the emitted result"
+            )
+        result["authenticated_post_purchase_replay"] = proof
     return result
 
 
@@ -1058,6 +1334,197 @@ def validate_authenticated_legacy_replay(value: object) -> JsonRecord:
             "authenticated legacy replay differs from its canonical precursor"
         )
     proof["precursor_result"] = precursor
+    return proof
+
+
+def validate_authenticated_post_purchase_replay(value: object) -> JsonRecord:
+    """Validate the closed proof of an approved post-purchase transition."""
+
+    proof = dict(_mapping(value, "authenticated post-purchase replay"))
+    if (
+        set(proof) != set(_POST_PURCHASE_REPLAY_PROOF_FIELDS)
+        or proof.get("schema_version") != POST_PURCHASE_REPLAY_PROOF_SCHEMA_VERSION
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated post-purchase replay has an unsupported schema"
+        )
+    for field in (
+        "prior_result_sha256",
+        "baseline_purchase_journal_state_sha256",
+        "current_purchase_journal_state_sha256",
+    ):
+        _digest(proof.get(field), f"authenticated post-purchase replay {field}")
+    _raw_sha256(
+        proof.get("replacement_purchase_authority_sha256"),
+        "authenticated post-purchase replay replacement authority",
+    )
+    prior_result = dict(_mapping(proof.get("prior_result"), "prior ranked result"))
+    if (
+        prior_result.get("schema_version") != CURRENT_REPLAY_RESULT_SCHEMA_VERSION
+        or set(prior_result) != set(_CURRENT_REPLAY_RESULT_FIELDS)
+        or _bytes_sha256(ranked_reserve_result_bytes(prior_result))
+        != proof["prior_result_sha256"]
+        or prior_result.get("purchase_journal_state_sha256")
+        != proof["baseline_purchase_journal_state_sha256"]
+        or prior_result.get("committed_spend_usd")
+        != proof["baseline_committed_spend_usd"]
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated post-purchase replay differs from its prior ranked result"
+        )
+    legacy_replay = validate_authenticated_legacy_replay(
+        prior_result.get("authenticated_legacy_replay")
+    )
+    precursor = cast(JsonRecord, legacy_replay["precursor_result"])
+    if any(
+        prior_result.get(field) != precursor.get(field)
+        for field in (
+            "committed_spend_usd",
+            "reserved_replacement_spend_usd",
+            "remaining_headroom_usd",
+        )
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated post-purchase prior result changed precursor money"
+        )
+    baseline_hashes = _operation_digest_list(
+        proof.get("baseline_operation_record_sha256s"),
+        "post-purchase baseline operation hashes",
+    )
+    successor_hashes = _operation_digest_list(
+        proof.get("successor_operation_record_sha256s"),
+        "post-purchase successor operation hashes",
+    )
+    if (
+        not baseline_hashes
+        or not successor_hashes
+        or len(baseline_hashes) != len(set(baseline_hashes))
+        or len(successor_hashes) != len(set(successor_hashes))
+        or set(baseline_hashes) & set(successor_hashes)
+        or _money_decimal(
+            proof.get("baseline_committed_spend_usd"),
+            "post-purchase baseline committed spend",
+        )
+        >= _money_decimal(
+            proof.get("current_committed_spend_usd"),
+            "post-purchase current committed spend",
+        )
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated post-purchase replay has an invalid operation partition"
+        )
+    proof["prior_result"] = prior_result
+    proof["baseline_operation_record_sha256s"] = baseline_hashes
+    proof["successor_operation_record_sha256s"] = successor_hashes
+    return proof
+
+
+def authenticate_post_purchase_replay_against_snapshot(
+    value: object,
+    *,
+    policy: CaseDevPurchasePolicy,
+    snapshot: CaseDevPurchaseSnapshot,
+) -> JsonRecord:
+    """Reproduce the proof's exact baseline/current operation partition."""
+
+    proof = validate_authenticated_post_purchase_replay(value)
+    if (
+        proof["current_purchase_journal_state_sha256"]
+        != "sha256:" + snapshot.purchase_state_sha256
+        or proof["current_committed_spend_usd"] != snapshot.committed_amount_usd
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated post-purchase replay differs from the current journal"
+        )
+    rows = tuple(
+        (canonical_purchase_operation_sha256(operation), operation)
+        for operation in snapshot.operations
+    )
+    current_hashes = tuple(digest for digest, _operation in rows)
+    baseline_hashes = tuple(cast(list[str], proof["baseline_operation_record_sha256s"]))
+    successor_hashes = tuple(
+        cast(list[str], proof["successor_operation_record_sha256s"])
+    )
+    baseline_set = set(baseline_hashes)
+    baseline_rows = tuple(
+        operation for digest, operation in rows if digest in baseline_set
+    )
+    successor_rows = tuple(
+        operation for digest, operation in rows if digest not in baseline_set
+    )
+    if (
+        tuple(
+            canonical_purchase_operation_sha256(operation)
+            for operation in baseline_rows
+        )
+        != baseline_hashes
+        or tuple(
+            canonical_purchase_operation_sha256(operation)
+            for operation in successor_rows
+        )
+        != successor_hashes
+        or set(current_hashes) != baseline_set | set(successor_hashes)
+        or len(current_hashes) != len(baseline_hashes) + len(successor_hashes)
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated post-purchase replay differs from journal operations"
+        )
+    baseline_state = canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd=cast(str, proof["baseline_committed_spend_usd"]),
+        operations=baseline_rows,
+    )
+    if "sha256:" + baseline_state != proof["baseline_purchase_journal_state_sha256"]:
+        raise RankedReserveReplacementError(
+            "authenticated post-purchase replay baseline does not reproduce its state"
+        )
+    return proof
+
+
+def require_verified_post_purchase_replay(
+    result: Mapping[str, object],
+    capability: VerifiedRankedReservePostPurchaseReplay | None,
+) -> JsonRecord:
+    """Bind a public v4 result to its verifier-issued transition capability."""
+
+    if (
+        type(capability) is not VerifiedRankedReservePostPurchaseReplay
+        or not capability.is_replay_minted()
+    ):
+        raise RankedReserveReplacementError(
+            "post-purchase v4 result lacks verified replacement authority"
+        )
+    expected: JsonRecord = {
+        "schema_version": POST_PURCHASE_REPLAY_PROOF_SCHEMA_VERSION,
+        "prior_result": dict(capability.prior_result),
+        "prior_result_sha256": capability.prior_result_sha256,
+        "replacement_purchase_authority_sha256": (
+            capability.replacement_purchase_authority_sha256
+        ),
+        "baseline_purchase_journal_state_sha256": (
+            "sha256:" + capability.baseline_snapshot.purchase_state_sha256
+        ),
+        "baseline_committed_spend_usd": (
+            capability.baseline_snapshot.committed_amount_usd
+        ),
+        "baseline_operation_record_sha256s": list(
+            capability.baseline_operation_record_sha256s
+        ),
+        "current_purchase_journal_state_sha256": (
+            "sha256:" + capability.current_snapshot.purchase_state_sha256
+        ),
+        "current_committed_spend_usd": capability.current_snapshot.committed_amount_usd,
+        "successor_operation_record_sha256s": list(
+            capability.successor_operation_record_sha256s
+        ),
+    }
+    proof = validate_authenticated_post_purchase_replay(
+        result.get("authenticated_post_purchase_replay")
+    )
+    if proof != validate_authenticated_post_purchase_replay(expected):
+        raise RankedReserveReplacementError(
+            "post-purchase v4 result differs from verified replacement authority"
+        )
     return proof
 
 
@@ -1173,6 +1640,7 @@ def _verify_reserve(
     records: Sequence[JsonRecord], *, selected_count: int
 ) -> dict[str, JsonRecord]:
     result: dict[str, JsonRecord] = {}
+    all_document_ids: set[str] = set()
     for index, record in enumerate(records, start=1):
         candidate_id = _candidate_id(record, "ranked reserve")
         if (
@@ -1206,6 +1674,12 @@ def _verify_reserve(
             raise RankedReserveReplacementError(
                 "ranked reserve document obligations are inconsistent"
             )
+        document_id_set = set(cast(list[str], raw_document_ids))
+        if all_document_ids & document_id_set:
+            raise RankedReserveReplacementError(
+                "ranked reserve document is shared across candidates"
+            )
+        all_document_ids.update(document_id_set)
         cost = _money_decimal(record.get("estimated_cost_usd"), "reserve cost")
         if cost < 0:
             raise RankedReserveReplacementError("reserve cost must be nonnegative")
@@ -1459,6 +1933,23 @@ def _money(value: Decimal) -> str:
 def _digest(value: object, source: str) -> str:
     if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
         raise RankedReserveReplacementError(f"{source} must be a sha256 digest")
+    return value
+
+
+def _operation_digest_list(value: object, source: str) -> list[str]:
+    if not isinstance(value, list):
+        raise RankedReserveReplacementError(f"{source} must be a list")
+    result: list[str] = []
+    for item in cast(list[object], value):
+        result.append(_raw_sha256(item, source))
+    return result
+
+
+def _raw_sha256(value: object, source: str) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        raise RankedReserveReplacementError(
+            f"{source} must be a canonical SHA-256 digest"
+        )
     return value
 
 
