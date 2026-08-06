@@ -913,6 +913,114 @@ def test_run_cycle_help_describes_safe_resume_boundaries(
     assert "dispatch" in help_text
 
 
+@pytest.mark.parametrize(
+    ("overlap_flag", "expected_flag"),
+    [
+        ("private-root", "--controlled-private-store-root"),
+        ("explicit-authority", "--authority-output"),
+        ("explicit-log", "--log-output"),
+        ("output-ancestor", "--output-root"),
+    ],
+)
+def test_run_cycle_rejects_disclosure_writes_under_frozen_authority_root(
+    tmp_path: Path,
+    overlap_flag: str,
+    expected_flag: str,
+) -> None:
+    frozen_root = tmp_path / "frozen-source"
+    output_root = tmp_path / "review-artifacts"
+    private_root = tmp_path / "review-private"
+    authority_output = output_root / "authority.json"
+    log_output = output_root / "logs" / "review.jsonl"
+    if overlap_flag == "private-root":
+        private_root = frozen_root / "private"
+    elif overlap_flag == "explicit-authority":
+        authority_output = frozen_root / "authority.json"
+    elif overlap_flag == "explicit-log":
+        log_output = frozen_root / "review.jsonl"
+    else:
+        output_root = tmp_path
+        authority_output = output_root / "authority.json"
+        log_output = output_root / "logs" / "review.jsonl"
+    init_root = tmp_path / "init"
+    init_run_card = init_root / "run-cards" / "init-cycle.json"
+    review_run_card = output_root / "run-cards" / "review.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--output-root",
+                    str(init_root),
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(init_run_card),
+                    "--execute",
+                    "--resume",
+                ],
+                run_card=init_run_card,
+            ),
+            _stage(
+                stage_id="review-disclosure",
+                command="review-disclosure-exceptions",
+                boundary="model_provider",
+                arguments=[
+                    "--output-root",
+                    str(output_root),
+                    "--routing-plan",
+                    str(tmp_path / "plan.json"),
+                    "--exception-worksheet",
+                    str(tmp_path / "worksheet.json"),
+                    "--plan-run-card",
+                    str(tmp_path / "plan-run-card.json"),
+                    "--document-root",
+                    str(tmp_path / "documents"),
+                    "--frozen-authority-root",
+                    str(frozen_root),
+                    "--provider-journal",
+                    str(private_root / "provider-attempts.sqlite3"),
+                    "--provider-spend-authority",
+                    str(private_root / "provider-spend-authority.sqlite3"),
+                    "--controlled-private-store-root",
+                    str(private_root),
+                    "--authority-output",
+                    str(authority_output),
+                    "--private-records-output",
+                    str(private_root / "private-records.json"),
+                    "--log-output",
+                    str(log_output),
+                    "--run-card-output",
+                    str(review_run_card),
+                    "--execute",
+                    "--resume",
+                ],
+                run_card=review_run_card,
+            ),
+        ],
+    )
+    calls: list[str] = []
+
+    with pytest.raises(
+        CycleOrchestratorError,
+        match=rf"writable path {expected_flag} overlaps --frozen-authority-root",
+    ):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=tmp_path / "state",
+            execute=True,
+            permissions=BoundaryPermissions(network=True, model_provider=True),
+            executor=lambda command, _arguments: calls.append(command) or 0,
+        )
+
+    assert calls == []
+    assert not (tmp_path / "state").exists()
+    assert not init_root.exists()
+
+
 def test_run_cycle_allowlist_contains_only_receipted_acquisition_commands(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

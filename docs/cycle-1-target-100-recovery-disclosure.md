@@ -16,6 +16,8 @@ The two initial-recovery templates are:
 
 Both templates are partial cycle continuations and begin with `init-cycle`. Render them with `uv run legalforecast acquisition render-cycle-config --help`; the renderer validates every stage against the current CLI before publishing the config.
 
+The disclosure artifact root and controlled private root must both be outside and disjoint from the frozen authority source root. Use sibling roots: neither writable root may equal, contain, or be contained by the frozen root. The renderer and cycle orchestrator reject an overlapping layout before any stage runs, while `review-disclosure-exceptions` repeats the containment checks immediately before provider activity.
+
 Both continuations consume the initial recovery v2 outputs in place: `recap-fetch-quarantine-downloads.jsonl`, `purchased-case-relevance.jsonl`, `post-recovery-restriction-evidence.jsonl`, and `documents/recap-fetch-quarantine` beneath `RECOVERY_ROOT`. These paths are the exact outputs committed by `cycle-1-target-100.exact100-initial-recovery.template.json`; no compatibility alias, hand-copy, or alternate recovery root is part of the supported flow.
 
 Ranked-reserve replacement recovery first uses one shared, closed prefix:

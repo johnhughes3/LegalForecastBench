@@ -686,6 +686,80 @@ def _validate_cycle_stage_identity(config: AcquisitionCycleConfig) -> None:
                 raise CycleOrchestratorError(
                     "finalize-corpus target count differs from the cycle"
                 )
+        if stage.command == "review-disclosure-exceptions":
+            _validate_disclosure_review_stage_layout(stage)
+
+
+def _validate_disclosure_review_stage_layout(stage: CycleStage) -> None:
+    """Reject writable review paths that overlap the frozen authority tree."""
+
+    def required_path(flag: str) -> Path:
+        values = _flag_values(stage.arguments, flag)
+        if len(values) != 1 or not values[0]:
+            raise CycleOrchestratorError(
+                f"stage {stage.stage_id} must provide exactly one {flag}"
+            )
+        path = Path(values[0])
+        if not path.is_absolute():
+            raise CycleOrchestratorError(
+                f"stage {stage.stage_id} {flag} must be absolute"
+            )
+        return path
+
+    def optional_output(flag: str, default: Path) -> Path:
+        values = _flag_values(stage.arguments, flag)
+        if len(values) > 1:
+            raise CycleOrchestratorError(
+                f"stage {stage.stage_id} must not repeat {flag}"
+            )
+        path = Path(values[0]) if values else default
+        if not path.is_absolute():
+            raise CycleOrchestratorError(
+                f"stage {stage.stage_id} {flag} must be absolute"
+            )
+        return path
+
+    frozen_root = required_path("--frozen-authority-root")
+    output_root = required_path("--output-root")
+    private_root = required_path("--controlled-private-store-root")
+    writable_paths = {
+        "--output-root": output_root,
+        "--controlled-private-store-root": private_root,
+        "--provider-journal": required_path("--provider-journal"),
+        "--provider-spend-authority": required_path("--provider-spend-authority"),
+        "--authority-output": optional_output(
+            "--authority-output",
+            output_root / "disclosure-model-review-authority.json",
+        ),
+        "--private-records-output": optional_output(
+            "--private-records-output",
+            private_root / "disclosure-model-review-private-records.json",
+        ),
+        "--run-card-output": stage.run_card,
+        "--log-output": optional_output(
+            "--log-output",
+            output_root / "logs" / "review-disclosure-exceptions.jsonl",
+        ),
+    }
+    try:
+        frozen_resolved = frozen_root.resolve()
+        resolved_writable = {
+            name: path.resolve() for name, path in writable_paths.items()
+        }
+    except (OSError, RuntimeError) as exc:
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} disclosure review paths cannot be resolved"
+        ) from exc
+    for name, path in resolved_writable.items():
+        if (
+            path == frozen_resolved
+            or path.is_relative_to(frozen_resolved)
+            or frozen_resolved.is_relative_to(path)
+        ):
+            raise CycleOrchestratorError(
+                f"stage {stage.stage_id} writable path {name} overlaps "
+                "--frozen-authority-root"
+            )
 
 
 def _require_config_unchanged(config: AcquisitionCycleConfig) -> None:
