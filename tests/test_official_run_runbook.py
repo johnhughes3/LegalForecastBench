@@ -1372,6 +1372,10 @@ def test_exact100_initial_recovery_uses_bounded_partial_cycle_template() -> None
         'initial_disclosure_private_root="/absolute/path/to/'
         'controlled-private-disclosure-root"'
     ) in runbook
+    assert "Always render the authenticated-model template first" in runbook
+    assert "distinct config and state root" in runbook
+    assert "initial_disclosure_no_review_state_root" in runbook
+    assert "same seven variable assignments above" in runbook
     assert "--execute --allow-network --allow-model-provider --json" in runbook
     assert '--recovery-root "$quarantine_recovery_root"' in runbook
     assert (

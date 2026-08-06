@@ -2242,7 +2242,7 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --execute --resume
 ```
 
-The canonical exact-100 descriptor path must use one of the v3 continuations in [the recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md), not the legacy manual clearance card above. The commands below select `manifests/cycle-1-target-100.initial-recovery-disclosure.template.json` for authenticated model review. Substitute `manifests/cycle-1-target-100.initial-recovery-disclosure-no-review.template.json` only when the authenticated plan proves that the model-review-eligible set is empty; that provider-free branch omits the `--allow-model-provider` invocation.
+The canonical exact-100 descriptor path must use one of the v3 continuations in [the recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md), not the legacy manual clearance card above. Always render the authenticated-model template first and execute it provider-free through the immutable plan. Continue with its model stage when the plan contains model-review-eligible exceptions. If the plan proves that set is empty, render the no-review template to a distinct config and state root while reusing the exact same disclosure artifact, private, purchase, recovery, repository, and target-cohort roots; execute that continuation provider-free and never invoke `--allow-model-provider`.
 
 ```bash
 initial_disclosure_root="$preparation_root/purchased-recovery-disclosure"
@@ -2275,7 +2275,19 @@ uv run legalforecast acquisition run-cycle \
   --state-root "$initial_disclosure_state_root" \
   --execute --json
 
-# Authenticated model-review template only; omit for the no-review template.
+# Inspect the completed 01-plan artifacts now. If the authenticated plan proves
+# the model-review-eligible set is empty, render the no-review template to a
+# distinct config/state root with the same seven variable assignments above:
+#
+#   initial_disclosure_no_review_cycle_root="$preparation_root/purchased-recovery-disclosure-no-review-cycle"
+#   initial_disclosure_no_review_config="$initial_disclosure_no_review_cycle_root/acquisition-cycle.json"
+#   initial_disclosure_no_review_state_root="$initial_disclosure_no_review_cycle_root/orchestrator"
+#   initial_disclosure_no_review_template="$repo_root/manifests/cycle-1-target-100.initial-recovery-disclosure-no-review.template.json"
+#
+# Execute that config provider-free and skip both commands below. Its replay of
+# 00-cycle and 01-plan must match the existing artifacts exactly.
+
+# Authenticated model-review branch only.
 uv run legalforecast acquisition run-cycle \
   --config "$initial_disclosure_config" \
   --state-root "$initial_disclosure_state_root" \
