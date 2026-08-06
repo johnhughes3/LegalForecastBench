@@ -89,18 +89,13 @@ With both, the runtime keeps the original v2 policy hash, canonical ledger, hard
 Safe resume requires every pre-approval operation record to remain byte-identical and permits only a suffix of operations for the approved candidate/document pairs, while committed spend may advance only inside the approved tranche envelope.
 An unrelated post-approval ledger operation invalidates the successor even when total spend remains below the tranche ceiling.
 
-Repeat `plan-clearance-replacements -> record successor approval and authority -> generate the exact successor broker policy -> protected broker deployment and activation verification -> purchase -> recover -> review and clear -> resolve -> accumulate clearance` until the next planning pass emits no replacement case plans.
-Each repetition is a separate run-cycle stage block with a new successor private root and immutable outputs; a prior tranche approval never authorizes a later tranche.
-[`manifests/cycle-1-target-100.replacement-purchase-tranche.template.json`](../../manifests/cycle-1-target-100.replacement-purchase-tranche.template.json) is the checked-in partial coordinator plan for one such tranche.
-Its human stage records the exact decision and publishes the provider-free authority and attempt policy.
-The next provider-free stage generates `replacement-recap-fetch-broker-policy.json` from the exact successor budget, selection, attempt policy, public authority, successor private root, unchanged initialization receipt, and unchanged initial policy.
-It deliberately omits `--broad-frontier-allowlist`: an approved-v2 successor authorizes only those exact tranche bytes, and broad mode is rejected.
-Policy generation does not deploy or activate anything.
-Stop after its completion card, inspect the generated policy and digest, deploy and activate those exact bytes through the protected secure-gate RECAP Fetch broker control plane, and independently verify that the active cycle and purchase-policy identity refer to that deployment before enabling `run-cycle --allow-network --allow-paid`.
-The coordinator cannot perform, infer, or adopt that deployment.
-The paid stage must carry the same generated artifact with `--broker-policy`; the CLI replay-verifies it against the exact successor authority before loading broker identity or provider configuration.
-Never continue merely because a policy file exists locally, never substitute a broad frontier, and never reuse the active policy from an earlier tranche.
-After recovery and human disclosure review, `accumulate-replacement-clearance` recursively authenticates the prior cumulative clearance and the current tranche clearance, reproduces their manifests and restriction evidence, reconciles every document against the canonical purchase ledger, and emits the only clearance/card pair accepted by the next planning or reprojection pass.
+The generalized clearance-frontier loop remains a historical authority mode, but it is not the Cycle 1 ranked-reserve operational path.
+[`manifests/cycle-1-target-100.replacement-purchase-tranche.template.json`](../../manifests/cycle-1-target-100.replacement-purchase-tranche.template.json) is the checked-in partial coordinator for the authenticated ranked-reserve tranche.
+Its human stage binds the exact ranked-reserve projection digest, records the decision, and publishes the provider-free authority and attempt policy without accepting a clearance frontier.
+Its paid stage uses direct CourtListener RECAP Fetch with the canonical request ledger, exact successor authority, unchanged initial purchase policy and canonical ledger, and `--request-budget-max-wait-seconds 3700`.
+It neither generates nor accepts a broker policy, and rendering or preflighting the plan performs no provider request, fee acknowledgement, purchase, or model call.
+A prior tranche approval never authorizes a later tranche.
+After recovery and authenticated disclosure clearance, `accumulate-replacement-clearance` recursively authenticates the prior cumulative clearance and the current tranche clearance, reproduces their manifests and restriction evidence, reconciles every document against the canonical purchase ledger, and emits the only clearance/card pair accepted by the next planning or reprojection pass.
 For the first tranche, set `PRIOR_CLEARANCE` and `PRIOR_CLEARANCE_RUN_CARD` to the authenticated initial purchased clearance; for every later tranche, set them to the preceding tranche's `07-cumulative-clearance` outputs.
 Never concatenate or hand-assemble clearance JSONL between tranches.
 
@@ -143,9 +138,7 @@ All new public outputs stay below `SUCCESSOR_ARTIFACT_ROOT`, while provider jour
 `build-replacement-exclusions` also authenticates displaced and quarantined candidates; `finalize-corpus` requires both its successor ledger and producer run card for selected-XOR-excluded reconciliation.
 Missing standard projection artifacts, incomplete recovery descriptors, stale purchase paths, changed purchase authority, stale DynamoDB provider authority, unauthenticated successor exclusions, and changed document bytes fail closed.
 
-Generate each replacement secure-gate broker policy only from the narrow, non-dry-run successor plan in that tranche.
-`--broad-frontier-allowlist` is reserved for unapproved dry-run planning and is invalid once approved-v2 exact-selection authority exists.
-The broker continues to enforce the unchanged signed Cycle cap, per-case cap, reservation, and canonical purchase journal on each request after the exact successor policy is protectedly deployed and activated.
+The older clearance-frontier broker flow is retained only for replay of that historical authority mode; do not route the Cycle 1 ranked-reserve tranche through it.
 
 Planner-derived replacement exclusions are intermediate audit evidence, not a new eligibility rule.
 The terminal successor exclusion ledger preserves those reasons where applicable, removes every now-selected candidate from older target exclusions, adds immutable quarantine/replacement outcomes, and is accepted only when `selected xor excluded` covers the complete screened pool.

@@ -628,11 +628,14 @@ def test_checked_in_replacement_tranche_template_requires_successor_authority(
     config = load_cycle_config(output)
 
     assert receipt["completion_mode"] == "partial"
-    assert receipt["stage_count"] == 10
+    assert receipt["stage_count"] == 9
+    assert receipt["provider_activity_requested"] is False
+    assert receipt["provider_activity_executed"] is False
+    assert receipt["paid_activity_requested"] is False
+    assert receipt["paid_activity_executed"] is False
     assert [stage.command for stage in config.stages] == [
         "init-cycle",
         "record-replacement-purchase-approval",
-        "generate-recap-fetch-broker-policy",
         "purchase-missing-recap-fetch",
         "recover-recap-fetch-quarantine",
         "plan-disclosure-provenance",
@@ -644,14 +647,13 @@ def test_checked_in_replacement_tranche_template_requires_successor_authority(
     approval_stage = config.stages[1]
     assert "--authority-output" in approval_stage.arguments
     assert "--attempt-policy-output" in approval_stage.arguments
-    broker_stage = config.stages[2]
-    assert broker_stage.boundary.value == "provider_free"
-    assert "--replacement-purchase-authority" in broker_stage.arguments
-    assert "--replacement-controlled-private-root" in broker_stage.arguments
-    assert "--purchase-ledger-initialization-receipt" in broker_stage.arguments
-    assert "--attempt-policy" in broker_stage.arguments
-    assert "--broad-frontier-allowlist" not in broker_stage.arguments
-    broker_output = broker_stage.arguments[broker_stage.arguments.index("--output") + 1]
+    assert "--frontier" not in approval_stage.arguments
+    assert (
+        approval_stage.arguments[
+            approval_stage.arguments.index("--ranked-reserve-projection-sha256") + 1
+        ]
+        == "sha256:1dab63dd17c69fd0222b58d6e30af67ad56550ca6578262f1089222a68257e56"
+    )
     paid_stage = next(
         stage
         for stage in config.stages
@@ -661,11 +663,21 @@ def test_checked_in_replacement_tranche_template_requires_successor_authority(
     assert "--replacement-purchase-authority" in paid_stage.arguments
     assert "--replacement-controlled-private-root" in paid_stage.arguments
     assert "--purchase-ledger-initialization-receipt" in paid_stage.arguments
-    assert paid_stage.arguments[paid_stage.arguments.index("--broker-policy") + 1] == (
-        broker_output
+    assert "--broker-policy" not in paid_stage.arguments
+    assert "--direct-courtlistener-purchase" in paid_stage.arguments
+    assert paid_stage.arguments[paid_stage.arguments.index("--budget-plan") + 1] == str(
+        assignments["REPLACEMENT_ROOT"] / "01-plan" / "replacement-budget-plan.json"
+    )
+    assert (
+        paid_stage.arguments[
+            paid_stage.arguments.index("--request-budget-max-wait-seconds") + 1
+        ]
+        == "3700"
     )
     assert "--acknowledge-pacer-fees" in paid_stage.arguments
-    assert config.stages.index(broker_stage) < config.stages.index(paid_stage)
+    assert not any(
+        stage.command == "generate-recap-fetch-broker-policy" for stage in config.stages
+    )
     recovery = next(
         stage
         for stage in config.stages
@@ -685,6 +697,9 @@ def test_checked_in_replacement_tranche_template_requires_successor_authority(
     assert accumulation.arguments[
         accumulation.arguments.index("--prior-purchased-clearance") + 1
     ] == str(assignments["PRIOR_CLEARANCE"])
+    rendered = output.read_text(encoding="utf-8")
+    assert "replacement-frontier.json" not in rendered
+    assert "recap-fetch-broker" not in rendered
 
 
 def test_checked_in_replacement_reprojection_consumes_active_exact_100_selection(
@@ -834,6 +849,21 @@ def test_replacement_corpus_consolidates_promoted_purchases_and_exclusions(
     assert materialize.arguments[
         materialize.arguments.index("--purchased-clearance-run-card") + 1
     ] == str(consolidation.run_card)
+    assert materialize.arguments[
+        materialize.arguments.index("--purchase-result") + 1
+    ] == str(
+        assignments["PURCHASE_ROOT"]
+        / "07-purchase"
+        / "purchased-document-downloads.jsonl"
+    )
+    assert materialize.arguments[
+        materialize.arguments.index("--purchase-run-card") + 1
+    ] == str(
+        assignments["PURCHASE_ROOT"]
+        / "07-purchase"
+        / "run-cards"
+        / "purchase-missing-recap-fetch.json"
+    )
     selection_consumers = [
         stage for stage in config.stages if "--selection" in stage.arguments
     ]

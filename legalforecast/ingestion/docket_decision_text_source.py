@@ -1955,7 +1955,7 @@ def _capture_selection_records(
             )
         record = cast(JsonRecord, value)
         try:
-            producer_bytes = (
+            legacy_producer_bytes = (
                 json.dumps(
                     record,
                     sort_keys=True,
@@ -1963,11 +1963,12 @@ def _capture_selection_records(
                 )
                 + "\n"
             ).encode()
-        except (TypeError, ValueError) as exc:
+            successor_producer_bytes = _canonical_record_bytes(record) + b"\n"
+        except (DocketDecisionTextSourceError, TypeError, ValueError) as exc:
             raise DocketDecisionTextSourceError(
                 f"selection payload line {line_number} is not canonical"
             ) from exc
-        if producer_bytes != line:
+        if line not in {legacy_producer_bytes, successor_producer_bytes}:
             raise DocketDecisionTextSourceError(
                 f"selection payload line {line_number} differs from producer encoding"
             )
