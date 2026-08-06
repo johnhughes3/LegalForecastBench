@@ -15,7 +15,10 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
-from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
+    canonical_purchase_state_sha256,
+)
 from legalforecast.ingestion.docket_decision_text_source import (
     DocketDecisionTextSourceError,
     VerifiedTerminalPurchaseDispositionAuthority,
@@ -534,6 +537,7 @@ def plan_ranked_reserve_replacements(
             purchase_journal=purchase_journal,
             prior_events=prior_events,
             current_committed=committed,
+            historical_purchase_journal_state_sha256=historical_state,
         )
     terminal_by_id = _verify_terminal_records(
         terminal_records,
@@ -1492,6 +1496,7 @@ def _reconstruct_legacy_precursor_budget(
     purchase_journal: CaseDevPurchaseJournal,
     prior_events: Sequence[Mapping[str, Any]],
     current_committed: Decimal,
+    historical_purchase_journal_state_sha256: str,
 ) -> tuple[Decimal, Decimal, Decimal]:
     """Recover the v2 budget view before its reserved tranche was purchased."""
 
@@ -1556,6 +1561,21 @@ def _reconstruct_legacy_precursor_budget(
     if historical_committed < 0 or historical_remaining < 0:
         raise RankedReserveReplacementError(
             "reconstructed legacy monetary state exceeds purchase-policy bounds"
+        )
+    historical_operations = tuple(
+        operation
+        for document_id, operation in operations.items()
+        if document_id not in event_documents
+    )
+    reconstructed_state = "sha256:" + canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd=_money(historical_committed),
+        operations=historical_operations,
+    )
+    if reconstructed_state != historical_purchase_journal_state_sha256:
+        raise RankedReserveReplacementError(
+            "reconstructed legacy monetary state does not reproduce the "
+            "historical purchase journal commitment"
         )
     return historical_committed, historical_reserved, historical_remaining
 

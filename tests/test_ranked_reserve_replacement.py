@@ -650,7 +650,7 @@ def test_v3_replay_binds_current_state_and_preserves_legacy_cohort_bytes(
 ) -> None:
     fixture = _fixture(
         tmp_path,
-        hard_cap_usd="27.45",
+        hard_cap_usd="30.50",
         reserve_document_counts=(3, 4, 4, 4, 4),
     )
     historical_records = {
@@ -785,11 +785,8 @@ def test_v3_replay_binds_current_state_and_preserves_legacy_cohort_bytes(
                     fees={"total_usd": "3.05"},
                 )
 
-        # This models an unrelated post-plan recovery transition: it advances
-        # the aggregate journal identity without changing the terminal universe.
-        journal.record_quarantined_material_bytes(
-            "doc-unrelated", content_sha256="f" * 64, byte_count=123
-        )
+        # The committed replacement operations advance the aggregate journal
+        # identity without changing the terminal universe.
         current_state = "sha256:" + journal.purchase_state_sha256()
         assert current_state != historical_state
         residual_records = current_records
@@ -934,6 +931,42 @@ def test_v3_replay_binds_current_state_and_preserves_legacy_cohort_bytes(
                 replacement_selection_bytes=replacement_bytes,
                 successor_exclusions_bytes=exclusion_bytes,
                 replacement_budget_plan_bytes=budget_bytes,
+            )
+
+        later_plan = MissingCoreBudgetPlan(
+            case_plans=(
+                _case_purchase_plan("unrelated-later", "doc-unrelated-later", journal),
+            ),
+            cost_per_document=journal.policy.per_document_reservation_usd,
+            max_projected_budget=journal.policy.per_document_reservation_usd,
+            max_missing_core_documents_per_case=1,
+            dry_run=False,
+            target_case_count=1,
+        )
+        journal.plan(later_plan)
+        assert journal.submit("doc-unrelated-later")
+        journal.confirm(
+            "doc-unrelated-later",
+            response={"status": "delivered"},
+            fees={"total_usd": "3.05"},
+        )
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="does not reproduce the historical purchase journal commitment",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=current_bytes,
+                expected_terminal_exclusions_sha256=_sha(current_bytes),
+                purchase_journal=journal,
+                terminal_purchase_disposition_authority=disposition,
+                precommit_revalidator=lambda: None,
+                authenticated_legacy_replay=proof,
+                allow_new_replacement_events=False,
             )
 
         def reject_embedded_disposition(_value: object) -> dict[str, object]:
