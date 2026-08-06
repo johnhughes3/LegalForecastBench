@@ -64,6 +64,8 @@ Authenticated runs emit `legalforecast.ranked_reserve_replacement_result.v2`, wh
 
 When a fresh replay follows an unrelated, authenticated purchase-material recovery, the command accepts `--legacy-ranked-result` as a singly linked canonical v2 witness and emits `legalforecast.ranked_reserve_replacement_result.v3`. The v3 top level commits the current journal state and current terminal disposition. Its closed `authenticated_legacy_replay` object proves that substituting only the historical aggregate journal-state commitment reconstructs the complete legacy terminal-evidence artifact and every durable replacement-event source hash. The proof embeds the canonical v2 `precursor_result` and binds its digest, so every downstream replay can reauthenticate the predecessor rather than trusting self-asserted hashes. Legacy replay cannot append replacement events. The active selection, replacement selection, successor exclusions, and replacement budget plan must be independently rendered byte-identically to their v2 commitments; prior output bytes are never copied.
 
+After an approved successor tranche has actually committed its reserved purchases, a raw legacy replay is insufficient because the current journal no longer has the precursor's monetary state. Use the complete post-purchase authority bundle instead. The verifier requires the exact canonical prior v3 bytes named by the successor purchase authority, the prior replacement selection and budget plan, that authority's controlled private root, and the approved cohort policy. It proves that the current journal partitions exactly into the authority-recorded baseline operation hashes and the complete approved cap-committing successor operations. New document IDs may sort before or between baseline IDs; the invariant is the authenticated baseline vector plus a disjoint and exhaustive approved complement, not a positional prefix. The prior v3 outer monetary fields must equal its nested v2 precursor, and the nested `authenticated_legacy_replay` proof is preserved unchanged in the new v3 result.
+
 The proof schema `legalforecast.ranked_reserve_legacy_event_replay.v1` is closed to exactly these fields: `schema_version`, `precursor_result`, `precursor_result_sha256`, `precursor_active_selection_sha256`, `precursor_replacement_selection_sha256`, `precursor_successor_exclusions_sha256`, `precursor_replacement_budget_plan_sha256`, `historical_purchase_journal_state_sha256`, `historical_terminal_evidence_sha256`, `current_terminal_evidence_sha256`, `authenticated_event_record_sha256s`, and `historical_state_substitution_only`.
 The legacy `--terminal-exclusions` mode remains available only for authenticated non-retrieval downstream exclusions and is mutually exclusive with purchase-result disposition mode.
 
@@ -100,6 +102,19 @@ For the recovery-only replay that follows an unrelated journal-state advance, ru
 ```
 
 Do not use that option for an initial v2 plan.
+
+For the post-purchase replay that follows commitment of the approved successor tranche, omit `--legacy-ranked-result` and add the complete authority bundle before the outputs:
+
+```zsh
+  --prior-ranked-result "$prior_plan_root/replacement-result.json" \
+  --prior-replacement-selection "$prior_plan_root/replacement-selection.jsonl" \
+  --prior-replacement-budget-plan "$prior_plan_root/replacement-budget-plan.json" \
+  --replacement-purchase-authority "$successor_authority_root/replacement-purchase-authority.json" \
+  --replacement-controlled-private-root "$successor_private_root" \
+  --cohort-policy "$cohort_policy"
+```
+
+All six options are required together and only with the authenticated purchase-result disposition mode. This verification is provider-free and read-only: it does not purchase, recover, dispatch, or deploy anything.
 
 The planner authenticates the target projection through the existing full semantic replay, not by reading the projection summary alone.
 It then binds the exact selected, reserve, original-exclusion, and full source-pool bytes; verifies counts, canonical ID and reserve commitments, reserve ranks and costs, and resolved-pool reconciliation; authenticates the exact residual terminal digest from the exhaustive disposition authority; and appends replay-safe hash-chained decisions to the existing purchase journal only after all validation and cap checks pass.

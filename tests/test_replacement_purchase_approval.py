@@ -4,12 +4,14 @@ import argparse
 import hashlib
 import json
 import sqlite3
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli
+import legalforecast.ingestion.ranked_reserve_replacement as ranked_reserve_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
@@ -51,6 +53,7 @@ from legalforecast.ingestion.replacement_purchase_approval import (
     build_replacement_purchase_approval_request,
     generate_replacement_purchase_authority,
     record_replacement_purchase_approval,
+    verify_ranked_reserve_post_purchase_replay,
     verify_replacement_purchase_approval,
     verify_replacement_purchase_authority,
 )
@@ -137,6 +140,7 @@ def _ranked_authority_fixture(
     *,
     monkeypatch: pytest.MonkeyPatch,
     prior_unpaid_tranche: bool = False,
+    baseline_document_id: str | None = None,
 ) -> dict[str, Any]:
     """Build exact ranked planner, budget-producer, and output-binder artifacts."""
 
@@ -193,6 +197,32 @@ def _ranked_authority_fixture(
         controlled_private_root=approved.controlled_private_root,
         initialization_receipt_path=approved.initialization_receipt,
     ) as journal:
+        if baseline_document_id is not None:
+            baseline_plan = MissingCoreBudgetPlan(
+                case_plans=(
+                    CaseMissingCorePurchasePlan(
+                        candidate_id="baseline-case",
+                        purchase_document_ids=(baseline_document_id,),
+                        missing_core_document_count=1,
+                        estimated_cost=policy.per_document_reservation_usd,
+                        audit_only_document_count=0,
+                        dry_run=False,
+                        missing_core_roles=("motion",),
+                    ),
+                ),
+                cost_per_document=policy.per_document_reservation_usd,
+                max_projected_budget=policy.per_document_reservation_usd,
+                max_missing_core_documents_per_case=1,
+                dry_run=False,
+                target_case_count=1,
+            )
+            journal.plan(baseline_plan)
+            assert journal.submit(baseline_document_id)
+            journal.confirm(
+                baseline_document_id,
+                response={"status": "delivered"},
+                fees={"total_usd": f"{policy.per_document_reservation_usd:.2f}"},
+            )
         terminal_bytes = _ranked_terminal_bytes("case-050")
         ranked_plan = plan_ranked_reserve_replacements(
             projection=ranked_projection,
@@ -246,6 +276,14 @@ def _ranked_authority_fixture(
         "selection_path": selection_path,
         "result_path": result_path,
         "projection_sha256": projection_sha256,
+        "ranked_projection": ranked_projection,
+        "selected_bytes": selected_bytes,
+        "reserve_bytes": reserve_bytes,
+        "source_pool_bytes": source_pool_bytes,
+        "original_exclusions_bytes": original_exclusions_bytes,
+        "terminal_bytes": terminal_bytes,
+        "active_bytes": _ranked_jsonl(ranked_plan.active_selection),
+        "successor_exclusions_bytes": _ranked_jsonl(ranked_plan.successor_exclusions),
         "policy": policy,
         "ranked_plan": ranked_plan,
     }
@@ -935,6 +973,338 @@ def test_current_ranked_result_binds_canonical_legacy_precursor(
         match="differs from its canonical precursor",
     ):
         _build_ranked_request(fixture)
+
+
+def _post_purchase_ranked_replay_fixture(
+    tmp_path: Path,
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+    purchased_document_count: int | None = None,
+) -> dict[str, Any]:
+    fixture = _ranked_authority_fixture(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        baseline_document_id="zzz-baseline-document",
+    )
+    result = cast(dict[str, object], json.loads(fixture["result_path"].read_bytes()))
+    baseline_state = cast(str, result["purchase_journal_state_sha256"])
+    baseline_disposition = _ranked_disposition_record(
+        residual_sha256=cast(str, result["terminal_exclusions_sha256"]),
+        purchase_journal_state_sha256=baseline_state,
+    )
+    result["schema_version"] = "legalforecast.ranked_reserve_replacement_result.v2"
+    historical_state = "sha256:" + "9" * 64
+    historical_disposition = _ranked_disposition_record(
+        residual_sha256=cast(str, result["terminal_exclusions_sha256"]),
+        purchase_journal_state_sha256=historical_state,
+    )
+    result["purchase_journal_state_sha256"] = historical_state
+    result["terminal_disposition"] = historical_disposition
+    result["terminal_disposition_sha256"] = _ranked_canonical_sha(
+        historical_disposition
+    )
+    precursor = cast(dict[str, object], json.loads(ranked_reserve_result_bytes(result)))
+    precursor_bytes = ranked_reserve_result_bytes(precursor)
+    result["schema_version"] = "legalforecast.ranked_reserve_replacement_result.v3"
+    result["purchase_journal_state_sha256"] = baseline_state
+    result["terminal_disposition"] = baseline_disposition
+    result["terminal_disposition_sha256"] = _ranked_canonical_sha(baseline_disposition)
+    result["authenticated_legacy_replay"] = {
+        "schema_version": "legalforecast.ranked_reserve_legacy_event_replay.v1",
+        "precursor_result": precursor,
+        "precursor_result_sha256": _sha256_uri(precursor_bytes),
+        "precursor_active_selection_sha256": result["active_selection_sha256"],
+        "precursor_replacement_selection_sha256": result[
+            "replacement_selection_sha256"
+        ],
+        "precursor_successor_exclusions_sha256": result["successor_exclusions_sha256"],
+        "precursor_replacement_budget_plan_sha256": result[
+            "replacement_budget_plan_sha256"
+        ],
+        "historical_purchase_journal_state_sha256": historical_state,
+        "historical_terminal_evidence_sha256": "sha256:" + "a" * 64,
+        "current_terminal_evidence_sha256": "sha256:" + "b" * 64,
+        "authenticated_event_record_sha256s": result[
+            "replacement_event_record_sha256s"
+        ],
+        "historical_state_substitution_only": True,
+    }
+    prior_bytes = ranked_reserve_result_bytes(result)
+    fixture["result_path"].write_bytes(prior_bytes)
+    request = _build_ranked_request(fixture)
+    successor_root = (tmp_path / "post-purchase-successor-private").resolve()
+    checkpoint, run_card = record_replacement_purchase_approval(
+        request=request,
+        controlled_private_root=successor_root,
+        decision="approve",
+        typed_confirmation=request.required_confirmation("approve"),
+        reviewer_id="John Hughes",
+        recorded_at_utc="2026-08-06T18:00:00Z",
+    )
+    verified = verify_replacement_purchase_approval(
+        request=request,
+        controlled_private_root=successor_root,
+        checkpoint_path=checkpoint,
+        run_card_path=run_card,
+    )
+    authority = generate_replacement_purchase_authority(verified)
+    plan = fixture["ranked_plan"].replacement_plan
+    all_documents = tuple(
+        document_id
+        for case_plan in plan.case_plans
+        for document_id in case_plan.purchase_document_ids
+    )
+    limit = (
+        len(all_documents)
+        if purchased_document_count is None
+        else purchased_document_count
+    )
+    with CaseDevPurchaseJournal(
+        fixture["ledger_path"],
+        policy=fixture["policy"],
+        controlled_private_root=fixture["initial_private_root"],
+        initialization_receipt_path=fixture["receipt_path"],
+    ) as journal:
+        journal.plan(plan)
+        for document_id in all_documents[:limit]:
+            assert journal.submit(document_id)
+            journal.confirm(
+                document_id,
+                response={"status": "delivered"},
+                fees={
+                    "total_usd": (
+                        f"{fixture['policy'].per_document_reservation_usd:.2f}"
+                    )
+                },
+            )
+    return {
+        **fixture,
+        "prior_result": result,
+        "prior_bytes": prior_bytes,
+        "request": request,
+        "successor_root": successor_root,
+        "authority": authority,
+        "all_documents": all_documents,
+        "precursor_bytes": precursor_bytes,
+    }
+
+
+def _verify_post_purchase_ranked_replay(fixture: Mapping[str, Any]) -> object:
+    return verify_ranked_reserve_post_purchase_replay(
+        prior_result=fixture["prior_result"],
+        prior_result_bytes=fixture["prior_bytes"],
+        authority_artifact=fixture["authority"],
+        controlled_private_root=fixture["successor_root"],
+        initial_purchase_policy_artifact=fixture["policy_artifact"],
+        initial_controlled_private_root=fixture["initial_private_root"],
+        cohort_policy_artifact=fixture["cohort_artifact"],
+        budget_plan_bytes=fixture["budget_path"].read_bytes(),
+        selection_bytes=fixture["selection_path"].read_bytes(),
+        purchase_ledger_path=fixture["ledger_path"],
+        purchase_ledger_initialization_receipt_path=fixture["receipt_path"],
+    )
+
+
+def test_post_purchase_ranked_replay_proves_exact_authority_transition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _post_purchase_ranked_replay_fixture(tmp_path, monkeypatch=monkeypatch)
+
+    replay = cast(Any, _verify_post_purchase_ranked_replay(fixture))
+
+    assert replay.is_replay_minted()
+    assert replay.baseline_snapshot.purchase_state_sha256 == str(
+        fixture["request"].purchase_journal_state_sha256
+    ).removeprefix("sha256:")
+    assert len(replay.baseline_snapshot.operations) == 1
+    assert len(replay.successor_operation_record_sha256s) == len(
+        fixture["all_documents"]
+    )
+    assert (
+        ranked_reserve_result_bytes(
+            replay.authenticated_legacy_replay["precursor_result"]
+        )
+        == fixture["precursor_bytes"]
+    )
+
+
+def test_verified_post_purchase_transition_plans_and_binds_current_v3(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _post_purchase_ranked_replay_fixture(tmp_path, monkeypatch=monkeypatch)
+    replay = cast(Any, _verify_post_purchase_ranked_replay(fixture))
+    terminal_record = cast(
+        dict[str, object], json.loads(fixture["terminal_bytes"].decode().strip())
+    )
+    terminal_records = {cast(str, terminal_record["candidate_id"]): terminal_record}
+    current_state = "sha256:" + replay.current_snapshot.purchase_state_sha256
+    current_disposition = _ranked_disposition_record(
+        residual_sha256=cast(
+            str, fixture["prior_result"]["terminal_exclusions_sha256"]
+        ),
+        purchase_journal_state_sha256=current_state,
+    )
+    historical_state = cast(
+        str,
+        replay.authenticated_legacy_replay["historical_purchase_journal_state_sha256"],
+    )
+    baseline_state = cast(str, fixture["prior_result"]["purchase_journal_state_sha256"])
+    reconstruction_states: list[str] = []
+    original_replacement_events = ranked_reserve_module._replacement_events
+    tranche_budget_cap = Decimal(
+        cast(str, fixture["prior_result"]["reserved_replacement_spend_usd"])
+    ) + Decimal(cast(str, fixture["prior_result"]["remaining_headroom_usd"]))
+
+    def authenticated_replacement_events(
+        records: object,
+        *,
+        projection_sha256: str,
+        reserve_by_id: object,
+    ) -> tuple[dict[str, Any], ...]:
+        events = original_replacement_events(
+            cast(Any, records),
+            projection_sha256=projection_sha256,
+            reserve_by_id=cast(Any, reserve_by_id),
+        )
+        return tuple(
+            {
+                **event,
+                "tranche_max_projected_budget_usd": f"{tranche_budget_cap:.2f}",
+            }
+            for event in events
+        )
+
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "_replacement_events",
+        authenticated_replacement_events,
+    )
+
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "verified_residual_terminal_records",
+        lambda _authority, *, purchase_journal: terminal_records,
+    )
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "verified_terminal_purchase_disposition_record",
+        lambda _authority, *, purchase_journal: current_disposition,
+    )
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "_verify_terminal_records",
+        lambda records, selected_ids, *, verified_retrieval_records: {
+            cast(str, record["candidate_id"]): record for record in records
+        },
+    )
+
+    def reconstruct(
+        _authority: object,
+        *,
+        purchase_journal: CaseDevPurchaseJournal,
+        historical_purchase_journal_state_sha256: str,
+    ) -> tuple[dict[str, dict[str, object]], dict[str, object], str, str]:
+        del purchase_journal
+        reconstruction_states.append(historical_purchase_journal_state_sha256)
+        if historical_purchase_journal_state_sha256 == historical_state:
+            precursor = cast(
+                dict[str, object],
+                replay.authenticated_legacy_replay["precursor_result"],
+            )
+            return (
+                terminal_records,
+                cast(dict[str, object], precursor["terminal_disposition"]),
+                "sha256:" + "a" * 64,
+                "sha256:" + "c" * 64,
+            )
+        assert historical_purchase_journal_state_sha256 == baseline_state
+        return (
+            terminal_records,
+            cast(dict[str, object], fixture["prior_result"]["terminal_disposition"]),
+            "sha256:" + "b" * 64,
+            "sha256:" + "c" * 64,
+        )
+
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "reconstruct_historical_terminal_disposition",
+        reconstruct,
+    )
+    with CaseDevPurchaseJournal(
+        fixture["ledger_path"],
+        policy=fixture["policy"],
+        controlled_private_root=fixture["initial_private_root"],
+        initialization_receipt_path=fixture["receipt_path"],
+    ) as journal:
+        plan = plan_ranked_reserve_replacements(
+            projection=fixture["ranked_projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["original_exclusions_bytes"],
+            terminal_exclusions_bytes=fixture["terminal_bytes"],
+            expected_terminal_exclusions_sha256=_sha256_uri(fixture["terminal_bytes"]),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=cast(Any, object()),
+            precommit_revalidator=lambda: None,
+            allow_new_replacement_events=False,
+            verified_post_purchase_replay=replay,
+        )
+    active_bytes = _ranked_jsonl(plan.active_selection)
+    replacement_bytes = _ranked_jsonl(plan.replacement_selection)
+    exclusions_bytes = _ranked_jsonl(plan.successor_exclusions)
+    budget_bytes = _ranked_canonical_json(plan.replacement_plan.to_record())
+
+    result = bind_ranked_reserve_outputs(
+        plan,
+        active_selection_bytes=active_bytes,
+        replacement_selection_bytes=replacement_bytes,
+        successor_exclusions_bytes=exclusions_bytes,
+        replacement_budget_plan_bytes=budget_bytes,
+    )
+
+    assert reconstruction_states == [historical_state, baseline_state]
+    assert result["purchase_journal_state_sha256"] == current_state
+    assert (
+        result["authenticated_legacy_replay"]
+        == fixture["prior_result"]["authenticated_legacy_replay"]
+    )
+
+
+def test_post_purchase_ranked_replay_requires_complete_approved_complement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _post_purchase_ranked_replay_fixture(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        purchased_document_count=0,
+    )
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="is not retained as committed spend",
+    ):
+        _verify_post_purchase_ranked_replay(fixture)
+
+
+def test_post_purchase_ranked_replay_rejects_prior_result_not_named_by_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _post_purchase_ranked_replay_fixture(tmp_path, monkeypatch=monkeypatch)
+    tampered = cast(dict[str, object], json.loads(fixture["prior_bytes"]))
+    tampered["remaining_headroom_usd"] = "0.01"
+    fixture["prior_result"] = tampered
+    fixture["prior_bytes"] = ranked_reserve_result_bytes(tampered)
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="differs from exact successor approval",
+    ):
+        _verify_post_purchase_ranked_replay(fixture)
 
 
 def test_ranked_v2_authority_records_replays_and_verifies_exact_source(

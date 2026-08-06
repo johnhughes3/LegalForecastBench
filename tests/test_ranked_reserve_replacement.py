@@ -2365,6 +2365,47 @@ def test_cli_replays_full_projection_and_emits_provider_free_outputs(
     assert replayed_outputs == original_outputs
 
 
+def test_cli_rejects_incomplete_post_purchase_replay_bundle(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    command = [
+        "acquisition",
+        "plan-ranked-reserve-replacements",
+        "--target-cohort-root",
+        str(tmp_path / "target"),
+        "--purchase-policy",
+        str(tmp_path / "purchase-policy.json"),
+        "--controlled-private-root",
+        str(tmp_path / "initial-private"),
+        "--purchase-ledger",
+        str(tmp_path / "purchase-ledger.sqlite3"),
+        "--purchase-ledger-initialization-receipt",
+        str(tmp_path / "initialization.json"),
+        "--purchase-result",
+        str(tmp_path / "purchase-result.jsonl"),
+        "--purchase-run-card",
+        str(tmp_path / "purchase-run-card.json"),
+        "--screening-snapshot-manifest",
+        str(tmp_path / "screening-manifest.json"),
+        "--prior-ranked-result",
+        str(tmp_path / "prior-result.json"),
+        "--output",
+        str(tmp_path / "result.json"),
+        "--active-selection-output",
+        str(tmp_path / "active.jsonl"),
+        "--replacement-selection-output",
+        str(tmp_path / "replacement.jsonl"),
+        "--successor-exclusions-output",
+        str(tmp_path / "successor-exclusions.jsonl"),
+        "--replacement-budget-plan-output",
+        str(tmp_path / "replacement-budget.json"),
+    ]
+
+    assert cli.main(command) == 2
+    assert "complete authority bundle" in capsys.readouterr().err
+
+
 def test_cli_derives_mixed_partition_without_nested_purchase_journal_lock(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -598,6 +598,7 @@ from legalforecast.ingestion.purchased_document_recovery import (
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
     RankedReserveReplacementError,
+    VerifiedRankedReservePostPurchaseReplay,
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
     ranked_reserve_result_bytes,
@@ -666,6 +667,7 @@ from legalforecast.ingestion.replacement_purchase_approval import (
     build_replacement_purchase_approval_request,
     generate_replacement_purchase_authority,
     record_replacement_purchase_approval,
+    verify_ranked_reserve_post_purchase_replay,
     verify_replacement_purchase_approval,
     verify_replacement_purchase_authority,
 )
@@ -5654,6 +5656,20 @@ def _add_plan_ranked_reserve_replacements_arguments(
             "recovery advancement."
         ),
     )
+    parser.add_argument(
+        "--prior-ranked-result",
+        type=Path,
+        help=(
+            "Canonical prior v3 ranked result named by the successor purchase "
+            "authority. Supply only as part of the complete post-purchase replay "
+            "bundle."
+        ),
+    )
+    parser.add_argument("--prior-replacement-selection", type=Path)
+    parser.add_argument("--prior-replacement-budget-plan", type=Path)
+    parser.add_argument("--replacement-purchase-authority", type=Path)
+    parser.add_argument("--replacement-controlled-private-root", type=Path)
+    parser.add_argument("--cohort-policy", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--active-selection-output", type=Path, required=True)
     parser.add_argument("--replacement-selection-output", type=Path, required=True)
@@ -23522,6 +23538,22 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
     purchase_run_card_path = cast(Path | None, args.purchase_run_card)
     snapshot_manifest_path = cast(Path | None, args.screening_snapshot_manifest)
     legacy_ranked_result_path = cast(Path | None, args.legacy_ranked_result)
+    post_purchase_paths = {
+        "prior_ranked_result": cast(Path | None, args.prior_ranked_result),
+        "prior_replacement_selection": cast(
+            Path | None, args.prior_replacement_selection
+        ),
+        "prior_replacement_budget_plan": cast(
+            Path | None, args.prior_replacement_budget_plan
+        ),
+        "replacement_purchase_authority": cast(
+            Path | None, args.replacement_purchase_authority
+        ),
+        "replacement_controlled_private_root": cast(
+            Path | None, args.replacement_controlled_private_root
+        ),
+        "cohort_policy": cast(Path | None, args.cohort_policy),
+    }
     policy_path = cast(Path, args.purchase_policy)
     output = cast(Path, args.output)
     active_output = cast(Path, args.active_selection_output)
@@ -23559,6 +23591,28 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
             raise RankedReserveReplacementError(
                 "legacy ranked replay requires authenticated purchase disposition"
             )
+        supplied_post_purchase_paths = {
+            name: path for name, path in post_purchase_paths.items() if path is not None
+        }
+        if supplied_post_purchase_paths and len(supplied_post_purchase_paths) != len(
+            post_purchase_paths
+        ):
+            missing = sorted(
+                set(post_purchase_paths) - set(supplied_post_purchase_paths)
+            )
+            raise RankedReserveReplacementError(
+                "post-purchase ranked replay requires the complete authority bundle; "
+                "missing " + ", ".join(missing)
+            )
+        if supplied_post_purchase_paths and not authenticated_terminal_mode:
+            raise RankedReserveReplacementError(
+                "post-purchase ranked replay requires authenticated purchase "
+                "disposition"
+            )
+        if legacy_ranked_result_path is not None and supplied_post_purchase_paths:
+            raise RankedReserveReplacementError(
+                "legacy v2 and post-purchase v3 replay modes are mutually exclusive"
+            )
         writable_paths = (
             output,
             active_output,
@@ -23569,6 +23623,16 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
         protected_roots = (
             target_root.resolve(strict=False),
             cast(Path, args.controlled_private_root).resolve(strict=False),
+            *(
+                (
+                    cast(
+                        Path,
+                        post_purchase_paths["replacement_controlled_private_root"],
+                    ).resolve(strict=False),
+                )
+                if supplied_post_purchase_paths
+                else ()
+            ),
         )
         protected_files = {
             policy_path.resolve(strict=False),
@@ -23585,6 +23649,11 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                     purchase_run_card_path,
                     snapshot_manifest_path,
                     legacy_ranked_result_path,
+                    *(
+                        tuple(supplied_post_purchase_paths.values())
+                        if supplied_post_purchase_paths
+                        else ()
+                    ),
                 )
                 if path is not None
             ),
@@ -23686,15 +23755,70 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                 raise RankedReserveReplacementError(
                     "terminal exclusion digest file must have one terminal newline"
                 )
-        purchase_policy = verify_case_dev_purchase_policy(
-            _projection_json_object(
-                read_unique_regular_file(policy_path), source=policy_path
-            )
+        purchase_policy_artifact = _projection_json_object(
+            read_unique_regular_file(policy_path), source=policy_path
         )
+        purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
         require_approved_case_dev_purchase_policy(
             purchase_policy,
             controlled_private_root=cast(Path, args.controlled_private_root),
         )
+        verified_post_purchase_replay: (
+            VerifiedRankedReservePostPurchaseReplay | None
+        ) = None
+        prior_ranked_result_bytes: bytes | None = None
+        post_purchase_source_snapshots: dict[Path, bytes] = {}
+        if supplied_post_purchase_paths:
+            prior_ranked_result_path = cast(
+                Path, post_purchase_paths["prior_ranked_result"]
+            )
+            post_purchase_source_snapshots = {
+                path: read_unique_regular_file(path)
+                for name, path in supplied_post_purchase_paths.items()
+                if name != "replacement_controlled_private_root"
+            }
+            prior_ranked_result_bytes = post_purchase_source_snapshots[
+                prior_ranked_result_path
+            ]
+            prior_ranked_result = _projection_json_object(
+                prior_ranked_result_bytes, source=prior_ranked_result_path
+            )
+            prior_selection_path = cast(
+                Path, post_purchase_paths["prior_replacement_selection"]
+            )
+            prior_budget_path = cast(
+                Path, post_purchase_paths["prior_replacement_budget_plan"]
+            )
+            replacement_authority_path = cast(
+                Path, post_purchase_paths["replacement_purchase_authority"]
+            )
+            cohort_policy_path = cast(Path, post_purchase_paths["cohort_policy"])
+            verified_post_purchase_replay = verify_ranked_reserve_post_purchase_replay(
+                prior_result=prior_ranked_result,
+                prior_result_bytes=prior_ranked_result_bytes,
+                authority_artifact=_projection_json_object(
+                    post_purchase_source_snapshots[replacement_authority_path],
+                    source=replacement_authority_path,
+                ),
+                controlled_private_root=cast(
+                    Path,
+                    post_purchase_paths["replacement_controlled_private_root"],
+                ),
+                initial_purchase_policy_artifact=purchase_policy_artifact,
+                initial_controlled_private_root=cast(
+                    Path, args.controlled_private_root
+                ),
+                cohort_policy_artifact=_projection_json_object(
+                    post_purchase_source_snapshots[cohort_policy_path],
+                    source=cohort_policy_path,
+                ),
+                budget_plan_bytes=post_purchase_source_snapshots[prior_budget_path],
+                selection_bytes=post_purchase_source_snapshots[prior_selection_path],
+                purchase_ledger_path=cast(Path, args.purchase_ledger),
+                purchase_ledger_initialization_receipt_path=cast(
+                    Path, args.purchase_ledger_initialization_receipt
+                ),
+            )
         docket_descriptor: _MaterializerDocketDecisionAuthority | None = None
         authenticated_terminal_snapshots: dict[Path, bytes] = {}
         with CaseDevPurchaseJournal(
@@ -23727,6 +23851,11 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                         {legacy_ranked_result_path: legacy_ranked_result_bytes}
                         if legacy_ranked_result_path is not None
                         and legacy_ranked_result_bytes is not None
+                        else {}
+                    ),
+                    **(
+                        post_purchase_source_snapshots
+                        if supplied_post_purchase_paths
                         else {}
                     ),
                 }
@@ -23792,7 +23921,11 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                 precommit_revalidator=precommit_revalidator,
                 legacy_ranked_result=legacy_ranked_result,
                 legacy_ranked_result_sha256=legacy_ranked_result_sha256,
-                allow_new_replacement_events=legacy_ranked_result is None,
+                verified_post_purchase_replay=verified_post_purchase_replay,
+                allow_new_replacement_events=(
+                    legacy_ranked_result is None
+                    and verified_post_purchase_replay is None
+                ),
             )
         if docket_descriptor is not None:
             _require_snapshot_unchanged(
@@ -23814,6 +23947,22 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
             successor_exclusions_bytes=exclusions_bytes,
             replacement_budget_plan_bytes=budget_bytes,
         )
+        if verified_post_purchase_replay is not None:
+            final_purchase_snapshot = read_case_dev_purchase_snapshot(
+                cast(Path, args.purchase_ledger),
+                policy=purchase_policy,
+                controlled_private_root=cast(Path, args.controlled_private_root),
+                initialization_receipt_path=cast(
+                    Path, args.purchase_ledger_initialization_receipt
+                ),
+            )
+            if (
+                final_purchase_snapshot
+                != verified_post_purchase_replay.current_snapshot
+            ):
+                raise RankedReserveReplacementError(
+                    "purchase journal changed during post-purchase ranked replay"
+                )
         resume = cast(bool, args.resume)
         _write_immutable_bytes(active_output, active_bytes, resume=resume)
         _write_immutable_bytes(replacement_output, replacement_bytes, resume=resume)

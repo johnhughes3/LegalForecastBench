@@ -15,7 +15,10 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
-from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
+    CaseDevPurchaseSnapshot,
+)
 from legalforecast.ingestion.docket_decision_text_source import (
     DocketDecisionTextSourceError,
     VerifiedTerminalPurchaseDispositionAuthority,
@@ -128,6 +131,73 @@ class RankedReserveReplacementError(ValueError):
     """Raised when frozen lineage, terminality, or budget cannot be proven."""
 
 
+_VERIFIED_POST_PURCHASE_REPLAY_TOKEN = object()
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class VerifiedRankedReservePostPurchaseReplay:
+    """Authority-authenticated transition from one prior v3 purchase state."""
+
+    prior_result: JsonRecord
+    prior_result_sha256: str
+    authenticated_legacy_replay: JsonRecord
+    precursor_committed_spend: Decimal
+    precursor_reserved_spend: Decimal
+    precursor_remaining_headroom: Decimal
+    baseline_snapshot: CaseDevPurchaseSnapshot
+    current_snapshot: CaseDevPurchaseSnapshot
+    replacement_purchase_authority_sha256: str
+    successor_operation_record_sha256s: tuple[str, ...]
+    _token: object
+
+    def __init__(self, **_values: object) -> None:
+        raise TypeError(
+            "VerifiedRankedReservePostPurchaseReplay is created only by "
+            "replacement-authority replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        """Return whether the value came from the private verifier seam."""
+
+        return self._token is _VERIFIED_POST_PURCHASE_REPLAY_TOKEN
+
+
+def _mint_verified_ranked_reserve_post_purchase_replay(  # pyright: ignore[reportUnusedFunction]
+    *,
+    prior_result: Mapping[str, object],
+    prior_result_sha256: str,
+    authenticated_legacy_replay: Mapping[str, object],
+    precursor_committed_spend: Decimal,
+    precursor_reserved_spend: Decimal,
+    precursor_remaining_headroom: Decimal,
+    baseline_snapshot: CaseDevPurchaseSnapshot,
+    current_snapshot: CaseDevPurchaseSnapshot,
+    replacement_purchase_authority_sha256: str,
+    successor_operation_record_sha256s: Sequence[str],
+) -> VerifiedRankedReservePostPurchaseReplay:
+    """Mint the opaque planner capability after full authority verification."""
+
+    replay = object.__new__(VerifiedRankedReservePostPurchaseReplay)
+    values: dict[str, object] = {
+        "prior_result": dict(prior_result),
+        "prior_result_sha256": prior_result_sha256,
+        "authenticated_legacy_replay": dict(authenticated_legacy_replay),
+        "precursor_committed_spend": precursor_committed_spend,
+        "precursor_reserved_spend": precursor_reserved_spend,
+        "precursor_remaining_headroom": precursor_remaining_headroom,
+        "baseline_snapshot": baseline_snapshot,
+        "current_snapshot": current_snapshot,
+        "replacement_purchase_authority_sha256": (
+            replacement_purchase_authority_sha256
+        ),
+        "successor_operation_record_sha256s": tuple(successor_operation_record_sha256s),
+        "_token": _VERIFIED_POST_PURCHASE_REPLAY_TOKEN,
+    }
+    for name, value in values.items():
+        object.__setattr__(replay, name, value)
+    return replay
+
+
 @dataclass(frozen=True, slots=True)
 class RankedReserveReplacementPlan:
     """Authenticated successor projection with no execution authority."""
@@ -150,6 +220,9 @@ class RankedReserveReplacementPlan:
     replacement_event_record_sha256s: tuple[str, ...]
     tranche_event_record_sha256s: tuple[str, ...]
     legacy_replay_proof: JsonRecord | None = None
+    legacy_precursor_committed_spend: Decimal | None = None
+    legacy_precursor_reserved_spend: Decimal | None = None
+    legacy_precursor_remaining_headroom: Decimal | None = None
 
     @property
     def active_candidate_ids(self) -> tuple[str, ...]:
@@ -199,6 +272,9 @@ def plan_ranked_reserve_replacements(
     legacy_ranked_result: Mapping[str, object] | None = None,
     legacy_ranked_result_sha256: str | None = None,
     authenticated_legacy_replay: Mapping[str, object] | None = None,
+    verified_post_purchase_replay: (
+        VerifiedRankedReservePostPurchaseReplay | None
+    ) = None,
 ) -> RankedReserveReplacementPlan:
     """Plan deterministic reserve promotions from explicit terminal evidence.
 
@@ -317,18 +393,22 @@ def plan_ranked_reserve_replacements(
             raise RankedReserveReplacementError(
                 f"frozen reserve cost conflicts with purchase policy: {candidate_id}"
             )
+    current_purchase_snapshot = purchase_journal.authenticated_snapshot()
     committed = _money_decimal(
-        purchase_journal.committed_amount_usd, "committed purchase spend"
+        current_purchase_snapshot.committed_amount_usd,
+        "committed purchase spend",
     )
     operation_by_document: dict[str, Mapping[str, Any]] = {}
-    for operation in purchase_journal.operation_records():
+    for operation in current_purchase_snapshot.operations:
         document_id = _required_string(operation, "source_document_id", "operation")
         if document_id in operation_by_document:
             raise RankedReserveReplacementError(
                 "purchase journal repeats a document operation"
             )
         operation_by_document[document_id] = operation
-    purchase_journal_state_sha256 = "sha256:" + purchase_journal.purchase_state_sha256()
+    purchase_journal_state_sha256 = (
+        "sha256:" + current_purchase_snapshot.purchase_state_sha256
+    )
     prior_events = _replacement_events(
         purchase_journal.replacement_events(),
         projection_sha256=projection_sha256,
@@ -392,6 +472,7 @@ def plan_ranked_reserve_replacements(
         )
     terminal_disposition: JsonRecord | None = None
     legacy_replay_proof: JsonRecord | None = None
+    legacy_precursor_budget: tuple[Decimal, Decimal, Decimal] | None = None
     try:
         verified_retrieval_records = (
             verified_residual_terminal_records(
@@ -417,11 +498,19 @@ def plan_ranked_reserve_replacements(
         raise RankedReserveReplacementError(
             "legacy ranked result and digest must be supplied together"
         )
-    if legacy_ranked_result is not None and authenticated_legacy_replay is not None:
-        raise RankedReserveReplacementError(
-            "legacy ranked result and authenticated replay are mutually exclusive"
+    replay_modes = sum(
+        value is not None
+        for value in (
+            legacy_ranked_result,
+            authenticated_legacy_replay,
+            verified_post_purchase_replay,
         )
-    if legacy_ranked_result is not None or authenticated_legacy_replay is not None:
+    )
+    if replay_modes > 1:
+        raise RankedReserveReplacementError(
+            "ranked replay authority modes are mutually exclusive"
+        )
+    if replay_modes:
         if terminal_purchase_disposition_authority is None or not prior_events:
             raise RankedReserveReplacementError(
                 "legacy ranked replay requires authenticated disposition and "
@@ -443,6 +532,58 @@ def plan_ranked_reserve_replacements(
                 prior_events=prior_events,
             )
             historical_state = cast(str, legacy["purchase_journal_state_sha256"])
+            legacy_precursor_budget = (committed, reserved, available_before_new)
+        elif verified_post_purchase_replay is not None:
+            if (
+                type(verified_post_purchase_replay)
+                is not VerifiedRankedReservePostPurchaseReplay
+                or not verified_post_purchase_replay.is_replay_minted()
+            ):
+                raise RankedReserveReplacementError(
+                    "post-purchase replay lacks verified replacement authority"
+                )
+            if verified_post_purchase_replay.current_snapshot != (
+                current_purchase_snapshot
+            ):
+                raise RankedReserveReplacementError(
+                    "purchase journal changed after post-purchase replay verification"
+                )
+            prior_result = verified_post_purchase_replay.prior_result
+            if (
+                prior_result.get("projection_sha256") != projection_sha256
+                or prior_result.get("cycle_id") != policy.cycle_id
+                or prior_result.get("purchase_policy_sha256")
+                != "sha256:" + policy.policy_sha256
+                or prior_result.get("replacement_event_record_sha256s")
+                != [event["record_sha256"] for event in prior_events]
+                or prior_result.get("tranche_event_record_sha256s")
+                != [event["record_sha256"] for event in prior_events]
+            ):
+                raise RankedReserveReplacementError(
+                    "verified post-purchase precursor targets another ranked replay"
+                )
+            legacy_replay_proof = validate_authenticated_legacy_replay(
+                verified_post_purchase_replay.authenticated_legacy_replay
+            )
+            legacy = _validate_legacy_ranked_result(
+                cast(Mapping[str, object], legacy_replay_proof["precursor_result"]),
+                expected_sha256=cast(
+                    str, legacy_replay_proof["precursor_result_sha256"]
+                ),
+                projection_sha256=projection_sha256,
+                cycle_id=policy.cycle_id,
+                purchase_policy_sha256="sha256:" + policy.policy_sha256,
+                prior_events=prior_events,
+            )
+            historical_state = cast(
+                str,
+                legacy_replay_proof["historical_purchase_journal_state_sha256"],
+            )
+            legacy_precursor_budget = (
+                verified_post_purchase_replay.precursor_committed_spend,
+                verified_post_purchase_replay.precursor_reserved_spend,
+                verified_post_purchase_replay.precursor_remaining_headroom,
+            )
         else:
             legacy_replay_proof = validate_authenticated_legacy_replay(
                 authenticated_legacy_replay
@@ -461,6 +602,7 @@ def plan_ranked_reserve_replacements(
                 str,
                 legacy_replay_proof["historical_purchase_journal_state_sha256"],
             )
+            legacy_precursor_budget = (committed, reserved, available_before_new)
         try:
             (
                 historical_records,
@@ -477,6 +619,41 @@ def plan_ranked_reserve_replacements(
         if historical_disposition != legacy.get("terminal_disposition"):
             raise RankedReserveReplacementError(
                 "legacy ranked result differs from reconstructed terminal disposition"
+            )
+        expected_proof_current_terminal_evidence_sha256 = (
+            current_terminal_evidence_sha256
+        )
+        if verified_post_purchase_replay is not None:
+            try:
+                (
+                    _baseline_records,
+                    baseline_disposition,
+                    baseline_terminal_evidence_sha256,
+                    _post_purchase_terminal_evidence_sha256,
+                ) = reconstruct_historical_terminal_disposition(
+                    terminal_purchase_disposition_authority,
+                    purchase_journal=purchase_journal,
+                    historical_purchase_journal_state_sha256=cast(
+                        str,
+                        verified_post_purchase_replay.prior_result[
+                            "purchase_journal_state_sha256"
+                        ],
+                    ),
+                )
+            except (
+                DocketDecisionTextSourceError,
+                TerminalPurchaseFailureError,
+            ) as exc:
+                raise RankedReserveReplacementError(str(exc)) from exc
+            if baseline_disposition != verified_post_purchase_replay.prior_result.get(
+                "terminal_disposition"
+            ):
+                raise RankedReserveReplacementError(
+                    "post-purchase authority baseline differs from the prior "
+                    "terminal disposition"
+                )
+            expected_proof_current_terminal_evidence_sha256 = (
+                baseline_terminal_evidence_sha256
             )
         try:
             terminal_records = [
@@ -519,7 +696,7 @@ def plan_ranked_reserve_replacements(
             or legacy_replay_proof.get("historical_terminal_evidence_sha256")
             != historical_terminal_evidence_sha256
             or legacy_replay_proof.get("current_terminal_evidence_sha256")
-            != current_terminal_evidence_sha256
+            != expected_proof_current_terminal_evidence_sha256
             or legacy_replay_proof.get("authenticated_event_record_sha256s")
             != [event["record_sha256"] for event in prior_events]
         ):
@@ -764,6 +941,15 @@ def plan_ranked_reserve_replacements(
         replacement_event_record_sha256s=tuple(event_hashes),
         tranche_event_record_sha256s=tranche_event_hashes,
         legacy_replay_proof=legacy_replay_proof,
+        legacy_precursor_committed_spend=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[0]
+        ),
+        legacy_precursor_reserved_spend=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[1]
+        ),
+        legacy_precursor_remaining_headroom=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[2]
+        ),
     )
 
 
@@ -889,6 +1075,14 @@ def bind_ranked_reserve_outputs(
             "replacement budget-plan output differs from the planned record"
         )
     if plan.legacy_replay_proof is not None:
+        if (
+            plan.legacy_precursor_committed_spend is None
+            or plan.legacy_precursor_reserved_spend is None
+            or plan.legacy_precursor_remaining_headroom is None
+        ):
+            raise RankedReserveReplacementError(
+                "legacy ranked replay lacks authenticated precursor budget"
+            )
         proof = validate_authenticated_legacy_replay(plan.legacy_replay_proof)
         precursor = cast(JsonRecord, proof["precursor_result"])
         try:
@@ -920,9 +1114,11 @@ def bind_ranked_reserve_outputs(
             ),
             "active_case_count": len(plan.active_selection),
             "replacement_case_count": len(plan.replacement_selection),
-            "committed_spend_usd": plan.committed_spend_usd,
-            "reserved_replacement_spend_usd": (plan.reserved_replacement_spend_usd),
-            "remaining_headroom_usd": plan.remaining_headroom_usd,
+            "committed_spend_usd": _money(plan.legacy_precursor_committed_spend),
+            "reserved_replacement_spend_usd": _money(
+                plan.legacy_precursor_reserved_spend
+            ),
+            "remaining_headroom_usd": _money(plan.legacy_precursor_remaining_headroom),
             "successor_approval_required": plan.successor_approval_required,
             "replacement_event_record_sha256s": list(
                 plan.replacement_event_record_sha256s
