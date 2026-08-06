@@ -12,7 +12,8 @@ from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, cast
+from types import SimpleNamespace
+from typing import Any, ClassVar, cast
 
 import legalforecast.cli as cli
 import legalforecast.ingestion.recap_fetch_attempt_policy as attempt_policy_module
@@ -417,6 +418,32 @@ def test_build_and_require_authenticated_public_material_delivery_authority() ->
         resolved_records=records,
         expected_purchase_policy_sha256="1" * 64,
     )
+    relabeled_v4 = deepcopy(records[0])
+    relabeled_v4.update(
+        {
+            "schema_version": (
+                "legalforecast.resolved_post_recovery_public_document.v4"
+            ),
+            "clearance_basis": "provider_free_recovered_public",
+            "recovered_public_lineage": {},
+        }
+    )
+    for field in (
+        "reviews_artifact_sha256",
+        "review_receipt_sha256",
+        "review_authority_sha256",
+    ):
+        relabeled_v4.pop(field)
+    relabeled_v4["record_sha256"] = _hash(
+        {name: value for name, value in relabeled_v4.items() if name != "record_sha256"}
+    )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="resolved document delivery authority is invalid",
+    ):
+        cast(Any, resolved_module._validate_resolved_record)(
+            relabeled_v4, key=("case-1", "123")
+        )
     with pytest.raises(
         ResolvedPostRecoveryError,
         match="purchase policy differs from attempt authority",
@@ -879,6 +906,371 @@ def test_recovered_public_capability_builds_and_requires_resolved_v2(
             **_external_kwargs(kwargs),
             verified_recovery_capability=capability,
         )
+
+
+def test_recovered_public_capability_authorizes_exact_direct_queue_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    operation["reservation_usd"] = "3.05"
+    operation["response"] = {
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "reservation_usd": "3.05",
+        "queue_id": "77",
+        "reservation_id": f"direct:{operation['operation_key']}",
+    }
+    inputs["purchase_operation_records"] = [operation]
+    lineage = {
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": "4" * 64,
+        "recovery_restriction_evidence_sha256": "5" * 64,
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": _hash(operation),
+        "purchase_operation_key": operation["operation_key"],
+        "fresh_recap_detail_sha256": "2" * 64,
+        **cli._direct_queue_delivery_lineage(
+            operation,
+            purchase_policy_sha256="1" * 64,
+            recovery_run_card_sha256="3" * 64,
+            recovery_manifest_sha256="4" * 64,
+            recovery_restriction_sha256="5" * 64,
+            purchase_state_sha256="6" * 64,
+        ),
+    }
+    clearance = deepcopy(inputs["clearance_records"][0])
+    clearance.update(
+        {
+            "restriction_evidence": [
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+            ],
+            "reviewer_id": None,
+            "controlled_store_provenance": ("courtlistener-rest://recap-documents/123"),
+            "reviewed_at": None,
+            "clearance_basis": "provider_free_recovered_public",
+            "routing_plan_sha256": "7" * 64,
+            "recovered_public_lineage": lineage,
+        }
+    )
+    inputs.update(
+        {
+            "clearance_records": [clearance],
+            "clearance_artifact_bytes": _jsonl_bytes([clearance]),
+        }
+    )
+    capability = issue_recovered_public_capability(monkeypatch, [lineage])
+
+    records = build_recovered(
+        **inputs,
+        verified_recovery_capability=capability,
+    )
+
+    assert records[0]["schema_version"] == (
+        "legalforecast.resolved_post_recovery_public_document.v4"
+    )
+    assert records[0]["delivery_authority"] == (
+        "authenticated_direct_courtlistener_queue"
+    )
+    assert (
+        records[0]["direct_queue_delivery_authority"]
+        == lineage["direct_queue_delivery_authority"]
+    )
+    assert "broker_receipt_sha256" not in records[0]
+    assert "broker_receipt_state" not in records[0]
+    require_recovered(
+        selection_records=inputs["selection_records"],
+        download_records=inputs["download_records"],
+        clearance_records=[clearance],
+        resolved_records=records,
+        **_external_kwargs(inputs),
+        verified_recovery_capability=capability,
+    )
+    require_resolved_post_recovery_operation_bindings(
+        purchase_operation_records=[operation],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
+    )
+
+    mutations: tuple[tuple[str, object], ...] = (
+        ("status", "confirmed"),
+        ("source_provider", "courtlistener"),
+        ("queue_id", "0"),
+        ("reservation_id", "reservation-1"),
+        ("reservation_usd", "3.06"),
+        ("queue_response_sha256", "8" * 64),
+        ("broker_receipts", []),
+    )
+    for field, value in mutations:
+        changed = deepcopy(operation)
+        if field == "status":
+            changed[field] = value
+        elif field == "queue_response_sha256":
+            changed["material_evidence"][field] = value
+        else:
+            changed["response"][field] = value
+        with pytest.raises(
+            ResolvedPostRecoveryError,
+            match="direct queue delivery authority",
+        ):
+            build_recovered(
+                **{**inputs, "purchase_operation_records": [changed]},
+                verified_recovery_capability=capability,
+            )
+
+    tampered = deepcopy(records[0])
+    tampered["direct_queue_delivery_authority"]["queue_id"] = "78"
+    tampered["record_sha256"] = _hash(
+        {name: value for name, value in tampered.items() if name != "record_sha256"}
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="direct queue"):
+        require_recovered(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=[clearance],
+            resolved_records=[tampered],
+            **_external_kwargs(inputs),
+            verified_recovery_capability=capability,
+        )
+
+    open_schema = deepcopy(records[0])
+    open_schema["broker_receipts"] = []
+    open_schema["record_sha256"] = _hash(
+        {name: value for name, value in open_schema.items() if name != "record_sha256"}
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="direct queue"):
+        require_recovered(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=[clearance],
+            resolved_records=[open_schema],
+            **_external_kwargs(inputs),
+            verified_recovery_capability=capability,
+        )
+
+
+def test_cli_derives_direct_queue_authority_from_authenticated_recovery_bytes(
+    tmp_path: Path,
+) -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    operation["reservation_usd"] = "3.05"
+    operation["response"] = {
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "reservation_usd": "3.05",
+        "queue_id": "77",
+        "reservation_id": f"direct:{operation['operation_key']}",
+    }
+    manifest_path = tmp_path / "manifest.jsonl"
+    restriction_path = tmp_path / "restrictions.jsonl"
+    run_card_path = tmp_path / "run-card.json"
+    manifest_record = {
+        **inputs["download_records"][0],
+        "fresh_recap_detail_sha256": "2" * 64,
+    }
+    manifest_path.write_bytes(_jsonl_bytes([manifest_record]))
+    restriction_path.write_bytes(_jsonl_bytes(inputs["restriction_records"]))
+    _write_object(
+        run_card_path,
+        {"output_commitments": {"purchase_state_sha256": "6" * 64}},
+    )
+    recovery = {
+        "run_card_path": run_card_path,
+        "manifest_records": [manifest_record],
+        "historical_purchase_operations": [operation],
+        "historical_purchase_state_sha256": "6" * 64,
+        "purchase_policy_sha256": "1" * 64,
+        "verified_artifact_bytes": {
+            str(run_card_path.resolve()): run_card_path.read_bytes(),
+            str(manifest_path.resolve()): manifest_path.read_bytes(),
+            str(restriction_path.resolve()): restriction_path.read_bytes(),
+        },
+    }
+
+    rows = cli._derive_recovered_public_lineage_rows(
+        recovery,
+        expected_manifest_path=manifest_path,
+        expected_restriction_path=restriction_path,
+    )
+
+    assert len(rows) == 1
+    authority = rows[0]["direct_queue_delivery_authority"]
+    assert authority["purchase_operation_sha256"] == _hash(operation)
+    assert authority["purchase_response_sha256"] == _hash(operation["response"])
+    assert authority["queue_response_sha256"] == "3" * 64
+    assert "broker_receipts" not in operation["response"]
+
+
+def test_cli_rejects_direct_queue_broker_history_without_side_effects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    broker_receipts = deepcopy(operation["response"]["broker_receipts"])
+    operation["reservation_usd"] = "3.05"
+    operation["response"] = {
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "reservation_usd": "3.05",
+        "queue_id": "77",
+        "reservation_id": f"direct:{operation['operation_key']}",
+    }
+    lineage = {
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": "4" * 64,
+        "recovery_restriction_evidence_sha256": "5" * 64,
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": _hash(operation),
+        "purchase_operation_key": operation["operation_key"],
+        "fresh_recap_detail_sha256": "2" * 64,
+        **cli._direct_queue_delivery_lineage(
+            operation,
+            purchase_policy_sha256="1" * 64,
+            recovery_run_card_sha256="3" * 64,
+            recovery_manifest_sha256="4" * 64,
+            recovery_restriction_sha256="5" * 64,
+            purchase_state_sha256="6" * 64,
+        ),
+    }
+    clearance = deepcopy(inputs["clearance_records"][0])
+    clearance.update(
+        {
+            "restriction_evidence": [
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+            ],
+            "reviewer_id": None,
+            "controlled_store_provenance": "courtlistener-rest://recap-documents/123",
+            "reviewed_at": None,
+            "clearance_basis": "provider_free_recovered_public",
+            "routing_plan_sha256": "7" * 64,
+            "recovered_public_lineage": lineage,
+        }
+    )
+    capability = issue_recovered_public_capability(monkeypatch, [lineage])
+    clearance_kwargs = {
+        **_external_kwargs(inputs),
+        "clearance_artifact_bytes": _jsonl_bytes([clearance]),
+        "_verified_recovery_capability": capability,
+    }
+
+    changed_operation = deepcopy(operation)
+    changed_operation["response"]["broker_receipts"] = broker_receipts
+
+    class ObservedJournal:
+        clear_calls = 0
+        operations: ClassVar[list[dict[str, Any]]] = [changed_operation]
+
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> ObservedJournal:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def purchase_state_sha256(self) -> str:
+            return "9" * 64
+
+        def operation_records(self) -> list[dict[str, Any]]:
+            return deepcopy(self.operations)
+
+        def clear_unknown_material(self, *_args: object, **_kwargs: object) -> None:
+            type(self).clear_calls += 1
+
+    paths = {
+        "selection": tmp_path / "selection.jsonl",
+        "purchase_policy": tmp_path / "purchase-policy.json",
+        "cohort_policy": tmp_path / "cohort-policy.json",
+        "budget_plan": tmp_path / "budget-plan.json",
+        "purchase_ledger": tmp_path / "purchases.sqlite3",
+        "attempt_policy": tmp_path / "attempt-policy.json",
+        "download_manifest": tmp_path / "downloads.jsonl",
+        "disclosure_clearance": tmp_path / "clearance.jsonl",
+        "clearance_run_card": tmp_path / "clearance-run-card.json",
+        "restriction_evidence": tmp_path / "restrictions.jsonl",
+    }
+    _write_records(paths["selection"], inputs["selection_records"])
+    _write_records(paths["download_manifest"], inputs["download_records"])
+    _write_records(paths["disclosure_clearance"], [clearance])
+    _write_object(paths["clearance_run_card"], {})
+    _write_records(paths["restriction_evidence"], inputs["restriction_records"])
+    _write_object(paths["attempt_policy"], inputs["attempt_policy_artifact"])
+    for name in (
+        "purchase_policy",
+        "cohort_policy",
+        "budget_plan",
+    ):
+        _write_object(paths[name], {})
+
+    monkeypatch.setattr(cli, "_preflight_current_purchase_snapshot", lambda _args: None)
+    monkeypatch.setattr(
+        cli, "_preflight_approved_purchase_input_bytes", lambda _args: None
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_case_dev_purchase_policy",
+        lambda _artifact: SimpleNamespace(
+            canonical_ledger_path=paths["purchase_ledger"].resolve(),
+            policy_sha256="1" * 64,
+        ),
+    )
+    monkeypatch.setattr(
+        cli, "require_approved_case_dev_purchase_policy", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        cli, "verify_approved_purchase_input_bytes", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_case_dev_purchase_policy_cohort_binding",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(cli, "_missing_core_budget_plan", lambda _artifact: object())
+    monkeypatch.setattr(
+        cli, "verify_recap_fetch_attempt_policy", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        cli,
+        "_authenticated_clearance_lineage_inputs",
+        lambda *_args, **_kwargs: (clearance_kwargs, ()),
+    )
+    monkeypatch.setattr(cli, "CaseDevPurchaseJournal", ObservedJournal)
+
+    output_root = tmp_path / "output"
+    command = [
+        "acquisition",
+        "resolve-post-recovery-documents",
+        *[
+            value
+            for name, path in paths.items()
+            for value in (f"--{name.replace('_', '-')}", str(path))
+        ],
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+    journal_before = deepcopy(ObservedJournal.operations)
+
+    assert cli.main(command) == 2
+
+    assert "direct queue delivery authority conflicts with purchase" in (
+        capsys.readouterr().err
+    )
+    assert ObservedJournal.operations == journal_before
+    assert ObservedJournal.clear_calls == 0
+    assert not (output_root / "resolved-post-recovery-documents.jsonl").exists()
+    assert not (output_root / "run-cards/resolve-post-recovery-documents.json").exists()
 
 
 def test_url_free_recovered_marker_model_clearance_reaches_source_descriptor(
