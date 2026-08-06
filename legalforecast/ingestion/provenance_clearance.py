@@ -239,7 +239,7 @@ def _recovered_public_capability_boundary() -> tuple[
                 raise ProvenanceClearanceError(
                     "invalid recovered-public purchase operation key"
                 )
-            if direct_authority is not None:
+            if "direct_queue_delivery_authority" in row:
                 _validate_direct_queue_delivery_authority(
                     direct_authority,
                     key=key,

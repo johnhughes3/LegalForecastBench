@@ -283,8 +283,9 @@ def test_unknown_attempt_authority_replay_is_idempotent_after_submit(
             )
 
 
+@pytest.mark.parametrize("nested_direct_queue", (False, True))
 def test_unknown_material_clearance_is_independent_of_unresolved_billing(
-    tmp_path: Path,
+    tmp_path: Path, nested_direct_queue: bool
 ) -> None:
     ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
@@ -325,6 +326,16 @@ def test_unknown_material_clearance_is_independent_of_unresolved_billing(
             "parser_eligible": True,
             "packet_eligible": True,
         }
+        if nested_direct_queue:
+            resolved.pop("queue_response_sha256")
+            resolved.update(
+                {
+                    "delivery_authority": ("authenticated_direct_courtlistener_queue"),
+                    "direct_queue_delivery_authority": {
+                        "queue_response_sha256": "c" * 64
+                    },
+                }
+            )
         resolved["record_sha256"] = hashlib.sha256(
             json.dumps(resolved, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()

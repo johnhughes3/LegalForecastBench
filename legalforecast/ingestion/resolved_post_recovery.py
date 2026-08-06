@@ -1229,6 +1229,12 @@ def require_resolved_post_recovery_operation_bindings(
                 f"canonical purchase material state is not resolvable: {key}"
             )
         material = _mapping(operation.get("material_evidence"), "material evidence")
+        preclear = dict(operation)
+        preclear["material_state"] = "recovered_pending_clearance"
+        preclear_material = dict(material)
+        preclear_material.pop("clearance_record_sha256", None)
+        preclear["material_evidence"] = preclear_material
+        preclear["resolved_document_sha256"] = None
         expected = {
             "candidate_id": operation.get("candidate_id"),
             "source_document_id": operation.get("source_document_id"),
@@ -1240,7 +1246,7 @@ def require_resolved_post_recovery_operation_bindings(
             "content_sha256": material.get("content_sha256"),
             "byte_count": material.get("byte_count"),
             **_delivery_authority_fields(
-                operation,
+                preclear,
                 key=key,
                 expected_purchase_policy_sha256=expected_purchase_policy_sha256,
                 verified_recovered_lineage=(
@@ -1254,12 +1260,6 @@ def require_resolved_post_recovery_operation_bindings(
             raise ResolvedPostRecoveryError(
                 f"resolved record differs from canonical purchase journal: {key}"
             )
-        preclear = dict(operation)
-        preclear["material_state"] = "recovered_pending_clearance"
-        preclear_material = dict(material)
-        preclear_material.pop("clearance_record_sha256", None)
-        preclear["material_evidence"] = preclear_material
-        preclear["resolved_document_sha256"] = None
         if record.get("purchase_operation_sha256") != _sha256(preclear):
             raise ResolvedPostRecoveryError(
                 f"resolved purchase operation commitment changed: {key}"

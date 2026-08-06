@@ -850,6 +850,14 @@ def test_recovered_public_capability_builds_and_requires_resolved_v2(
         }
     )
     clearance_bytes = _jsonl_bytes([clearance])
+    with pytest.raises(
+        cli.ProvenanceClearanceError,
+        match="invalid direct queue delivery authority",
+    ):
+        issue_recovered_public_capability(
+            monkeypatch,
+            [{**lineage, "direct_queue_delivery_authority": None}],
+        )
     capability = issue_recovered_public_capability(monkeypatch, [lineage])
     kwargs = {
         **inputs,
@@ -992,6 +1000,17 @@ def test_recovered_public_capability_authorizes_exact_direct_queue_delivery(
     )
     require_resolved_post_recovery_operation_bindings(
         purchase_operation_records=[operation],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
+    )
+    cleared_operation = deepcopy(operation)
+    cleared_operation["material_state"] = "cleared_public"
+    cleared_operation["resolved_document_sha256"] = records[0]["record_sha256"]
+    cleared_operation["material_evidence"]["clearance_record_sha256"] = records[0][
+        "clearance_record_sha256"
+    ]
+    require_resolved_post_recovery_operation_bindings(
+        purchase_operation_records=[cleared_operation],
         resolved_records=records,
         expected_purchase_policy_sha256="1" * 64,
     )
