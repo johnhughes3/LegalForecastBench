@@ -866,6 +866,57 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
         )
 
 
+def test_legacy_quarantine_compatibility_rejects_reassembled_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clearance_card = cli_module.canonical_json_bytes(
+        {"quarantine_all_exceptions_without_review": True}
+    )
+    projection = cli_module.canonical_json_bytes(
+        {"clearance_run_card_sha256": cli_module._bytes_sha256(clearance_card)}  # pyright: ignore[reportPrivateUsage]
+    )
+    projection_run_card = cli_module.canonical_json_bytes(
+        {"projection_sha256": cli_module._bytes_sha256(projection)}  # pyright: ignore[reportPrivateUsage]
+    )
+    for name, artifact in (
+        ("_APPROVED_V4_LEGACY_PROJECTION_SHA256", projection),
+        ("_APPROVED_V4_LEGACY_PROJECTION_RUN_CARD_SHA256", projection_run_card),
+        ("_APPROVED_V4_LEGACY_CLEARANCE_RUN_CARD_SHA256", clearance_card),
+    ):
+        monkeypatch.setattr(
+            cli_module,
+            name,
+            "sha256:" + hashlib.sha256(artifact).hexdigest(),
+        )
+
+    assert cli_module._approved_v4_legacy_quarantine_is_pinned(  # pyright: ignore[reportPrivateUsage]
+        projection_summary_bytes=projection,
+        projection_run_card_bytes=projection_run_card,
+        clearance_run_card_bytes=clearance_card,
+    )
+
+    reassembled_clearance_card = cli_module.canonical_json_bytes({})
+    reassembled_projection = cli_module.canonical_json_bytes(
+        {
+            "clearance_run_card_sha256": cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+                reassembled_clearance_card
+            )
+        }
+    )
+    reassembled_projection_run_card = cli_module.canonical_json_bytes(
+        {
+            "projection_sha256": cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+                reassembled_projection
+            )
+        }
+    )
+    assert not cli_module._approved_v4_legacy_quarantine_is_pinned(  # pyright: ignore[reportPrivateUsage]
+        projection_summary_bytes=reassembled_projection,
+        projection_run_card_bytes=reassembled_projection_run_card,
+        clearance_run_card_bytes=reassembled_clearance_card,
+    )
+
+
 def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

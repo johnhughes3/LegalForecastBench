@@ -1440,6 +1440,36 @@ def _completed_two_case_projection(
     }
 
 
+def test_new_completed_projection_cannot_enable_legacy_quarantine_compatibility(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    completed = _completed_two_case_projection(
+        tmp_path / "completed-projection",
+        provenance_first=True,
+        monkeypatch=monkeypatch,
+    )
+    original = cli_module._verify_materializer_clearance_lineage  # pyright: ignore[reportPrivateUsage]
+    observed_compatibility: list[bool] = []
+
+    def capture_compatibility(**kwargs: Any) -> dict[str, object]:
+        observed_compatibility.append(
+            bool(kwargs.get("allow_legacy_implicit_quarantine", False))
+        )
+        return original(**kwargs)
+
+    monkeypatch.setattr(
+        cli_module,
+        "_verify_materializer_clearance_lineage",
+        capture_compatibility,
+    )
+
+    cli_module.verify_completed_target_cohort_projection_for_purchase_approval(
+        completed["projection"]
+    )
+
+    assert observed_compatibility == [False]
+
+
 def _materialized_two_case_cohort(
     tmp_path: Path,
     *,
