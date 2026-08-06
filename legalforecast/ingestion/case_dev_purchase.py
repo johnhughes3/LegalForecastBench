@@ -43,9 +43,65 @@ PURCHASE_LEDGER_INITIALIZATION_SCHEMA_VERSION = (
 UNKNOWN_PUBLIC_MATERIAL_RECOVERY_SCHEMA_VERSION = (
     "legalforecast.unknown_public_material_recovery.v1"
 )
+COURTLISTENER_URL_COMMITMENT_CORRECTION_SCHEMA_VERSION = (
+    "legalforecast.courtlistener_url_commitment_correction.v1"
+)
+_COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY = "courtlistener_url_commitment_correction"
+_COURTLISTENER_RECAP_FETCH_PROVIDER = "courtlistener.recap-fetch+pacer"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _INITIALIZATION_ID = re.compile(r"[0-9a-f]{32}")
 _CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
+_CANONICAL_QUEUE_ID = re.compile(r"[1-9][0-9]*")
+
+
+def _is_canonical_operation_key(value: str) -> bool:
+    try:
+        return str(uuid.UUID(value)) == value
+    except ValueError:
+        return False
+
+
+def _courtlistener_url_correction_record(
+    *,
+    cycle_id: str,
+    purchase_policy_sha256: str,
+    candidate_id: str,
+    document_id: str,
+    operation_key: str,
+    queue_id: str,
+    reservation_id: str,
+    reservation_usd: str,
+    attempt_policy_sha256: str,
+    attempt_document_sha256: str,
+    provider_detail_sha256: str,
+    queue_response_sha256: str,
+    legacy_download_url_sha256: str,
+    corrected_download_url_sha256: str,
+) -> dict[str, object]:
+    record: dict[str, object] = {
+        "schema_version": COURTLISTENER_URL_COMMITMENT_CORRECTION_SCHEMA_VERSION,
+        "cycle_id": cycle_id,
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "operation_key": operation_key,
+        "source_provider": _COURTLISTENER_RECAP_FETCH_PROVIDER,
+        "queue_id": queue_id,
+        "reservation_id": reservation_id,
+        "reservation_usd": reservation_usd,
+        "attempt_policy_sha256": attempt_policy_sha256,
+        "attempt_document_sha256": attempt_document_sha256,
+        "provider_detail_sha256": provider_detail_sha256,
+        "queue_response_sha256": queue_response_sha256,
+        "legacy_download_url_sha256": legacy_download_url_sha256,
+        "corrected_download_url_sha256": corrected_download_url_sha256,
+        "material_authority": "unknown_status_attempt",
+        "material_status": PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value,
+        "pre_byte_correction": True,
+    }
+    record["record_sha256"] = hashlib.sha256(_canonical(record).encode()).hexdigest()
+    return record
+
 
 _PURCHASE_LEDGER_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS purchase_ledger (
@@ -2122,6 +2178,170 @@ class CaseDevPurchaseJournal:
             raise
         self._connection.commit()
 
+    def correct_legacy_courtlistener_url_commitment(
+        self,
+        document_id: str,
+        *,
+        candidate_id: str,
+        operation_key: str,
+        attempt_policy_sha256: str,
+        attempt_document_sha256: str,
+        provider_detail_sha256: str,
+        queue_response_sha256: str,
+        legacy_download_url_sha256: str,
+        corrected_download_url_sha256: str,
+    ) -> None:
+        """CAS-repair the one pre-byte relative-path normalization defect."""
+
+        for label, digest in (
+            ("attempt policy", attempt_policy_sha256),
+            ("attempt document", attempt_document_sha256),
+            ("provider detail", provider_detail_sha256),
+            ("queue response", queue_response_sha256),
+            ("legacy download URL", legacy_download_url_sha256),
+            ("corrected download URL", corrected_download_url_sha256),
+        ):
+            if _SHA256.fullmatch(digest) is None:
+                raise CaseDevPurchaseLedgerError(
+                    f"{label} digest must be lowercase SHA-256"
+                )
+        if legacy_download_url_sha256 == corrected_download_url_sha256:
+            raise CaseDevPurchaseLedgerError(
+                "CourtListener URL correction must change the commitment"
+            )
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            operation = self._operation(document_id)
+            material = self._material(document_id)
+            if operation is None or material is None:
+                raise CaseDevPurchaseLedgerError("purchase operation is missing")
+            try:
+                response_value: object = (
+                    None
+                    if operation["response_json"] is None
+                    else json.loads(str(operation["response_json"]))
+                )
+            except (TypeError, ValueError) as exc:
+                raise CaseDevPurchaseLedgerError(
+                    "queued purchase provider evidence is invalid"
+                ) from exc
+            if not isinstance(response_value, dict):
+                raise CaseDevPurchaseLedgerError(
+                    "queued purchase lacks canonical provider evidence"
+                )
+            response = cast(dict[str, Any], response_value)
+            queue_id = response.get("queue_id")
+            reservation_id = response.get("reservation_id")
+            expected_reservation = _money(self.policy.per_document_reservation_usd)
+            if (
+                str(operation["status"]) != "queued"
+                or str(operation["candidate_id"]) != candidate_id
+                or operation["operation_key"] != operation_key
+                or not _is_canonical_operation_key(operation_key)
+                or operation["reservation_usd"] != expected_reservation
+                or operation["actual_usd"] is not None
+                or operation["reconciliation_json"] is not None
+                or operation["error"] is not None
+                or response.get("source_provider")
+                != _COURTLISTENER_RECAP_FETCH_PROVIDER
+                or not isinstance(queue_id, str)
+                or _CANONICAL_QUEUE_ID.fullmatch(queue_id) is None
+                or not isinstance(reservation_id, str)
+                or not reservation_id
+                or reservation_id.strip() != reservation_id
+                or response.get("reservation_usd") != expected_reservation
+                or str(material["authority"]) != "unknown_status_attempt"
+                or str(material["status"])
+                != PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value
+                or material["attempt_policy_sha256"] != attempt_policy_sha256
+                or material["attempt_document_sha256"] != attempt_document_sha256
+                or material["provider_detail_sha256"] != provider_detail_sha256
+                or material["queue_response_sha256"] != queue_response_sha256
+                or material["content_sha256"] is not None
+                or material["byte_count"] is not None
+                or material["clearance_record_sha256"] is not None
+                or material["resolved_record_sha256"] is not None
+                or self._unknown_public_recovery(document_id) is not None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "CourtListener URL correction authority conflicts"
+                )
+            record = _courtlistener_url_correction_record(
+                cycle_id=self.policy.cycle_id,
+                purchase_policy_sha256=self.policy.policy_sha256,
+                candidate_id=candidate_id,
+                document_id=document_id,
+                operation_key=operation_key,
+                queue_id=queue_id,
+                reservation_id=reservation_id,
+                reservation_usd=expected_reservation,
+                attempt_policy_sha256=attempt_policy_sha256,
+                attempt_document_sha256=attempt_document_sha256,
+                provider_detail_sha256=provider_detail_sha256,
+                queue_response_sha256=queue_response_sha256,
+                legacy_download_url_sha256=legacy_download_url_sha256,
+                corrected_download_url_sha256=corrected_download_url_sha256,
+            )
+            prior_record = response.get(_COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY)
+            if prior_record is not None:
+                if (
+                    prior_record != record
+                    or material["download_url_sha256"] != corrected_download_url_sha256
+                ):
+                    raise CaseDevPurchaseLedgerError(
+                        "CourtListener URL correction replay conflicts"
+                    )
+                self._connection.commit()
+                return
+            if material["download_url_sha256"] != legacy_download_url_sha256:
+                raise CaseDevPurchaseLedgerError(
+                    "CourtListener URL correction legacy commitment conflicts"
+                )
+            response[_COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY] = record
+            operation_cursor = self._connection.execute(
+                """UPDATE purchase_operations SET response_json=?
+                WHERE source_document_id=? AND status='queued'
+                  AND operation_key=? AND reservation_usd=?
+                  AND actual_usd IS NULL AND reconciliation_json IS NULL
+                  AND error IS NULL AND response_json=?""",
+                (
+                    _canonical(response),
+                    document_id,
+                    operation_key,
+                    expected_reservation,
+                    operation["response_json"],
+                ),
+            )
+            material_cursor = self._connection.execute(
+                """UPDATE purchase_material_state SET download_url_sha256=?
+                WHERE source_document_id=?
+                  AND authority='unknown_status_attempt'
+                  AND status='available_pending_quarantine'
+                  AND attempt_policy_sha256=? AND attempt_document_sha256=?
+                  AND provider_detail_sha256=? AND queue_response_sha256=?
+                  AND download_url_sha256=?
+                  AND content_sha256 IS NULL AND byte_count IS NULL
+                  AND clearance_record_sha256 IS NULL
+                  AND resolved_record_sha256 IS NULL""",
+                (
+                    corrected_download_url_sha256,
+                    document_id,
+                    attempt_policy_sha256,
+                    attempt_document_sha256,
+                    provider_detail_sha256,
+                    queue_response_sha256,
+                    legacy_download_url_sha256,
+                ),
+            )
+            if operation_cursor.rowcount != 1 or material_cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "CourtListener URL correction compare-and-swap failed"
+                )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
     def mark_unknown_public_material_available(
         self,
         document_id: str,
@@ -2440,6 +2660,13 @@ class CaseDevPurchaseJournal:
             if row["response_json"] is None
             else cast(Mapping[str, Any], json.loads(str(row["response_json"])))
         )
+        if response is not None:
+            self._validate_courtlistener_url_correction(
+                document_id,
+                operation=row,
+                material=material,
+                response=response,
+            )
         evidence: dict[str, Any] = {
             "candidate_id": str(row["candidate_id"]),
             "status": str(row["status"]),
@@ -2501,6 +2728,31 @@ class CaseDevPurchaseJournal:
             )
             evidence["public_material_recovery"] = dict(public_recovery)
         return evidence
+
+    def _validate_courtlistener_url_correction(
+        self,
+        document_id: str,
+        *,
+        operation: sqlite3.Row,
+        material: sqlite3.Row,
+        response: Mapping[str, Any],
+    ) -> None:
+        value = response.get(_COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY)
+        if value is None:
+            return
+        _validate_courtlistener_url_correction_record(
+            value,
+            document_id=document_id,
+            operation=operation,
+            material=material,
+            response=response,
+            cycle_id=self.policy.cycle_id,
+            purchase_policy_sha256=self.policy.policy_sha256,
+            per_document_reservation_usd=_money(
+                self.policy.per_document_reservation_usd
+            ),
+            has_public_recovery=self._unknown_public_recovery(document_id) is not None,
+        )
 
     def record_broker_receipt(
         self, document_id: str, receipt: Mapping[str, Any]
@@ -3597,6 +3849,51 @@ def _validate_purchase_material_state_rows(
             raise CaseDevPurchaseLedgerError(
                 f"cleared material lacks confirmed immutable lineage: {document_id}"
             )
+        operation = connection.execute(
+            "SELECT * FROM purchase_operations WHERE source_document_id=?",
+            (document_id,),
+        ).fetchone()
+        if operation is not None and operation["response_json"] is not None:
+            try:
+                response_value: object = json.loads(str(operation["response_json"]))
+            except (TypeError, ValueError) as exc:
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase operation response_json is invalid: {document_id}"
+                ) from exc
+            if not isinstance(response_value, Mapping):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase operation response_json must be an object: {document_id}"
+                )
+            response = cast(Mapping[str, object], response_value)
+            if _COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY in response:
+                ledger = connection.execute(
+                    """SELECT cycle_id, per_document_reservation_usd
+                    FROM purchase_ledger WHERE singleton=1"""
+                ).fetchone()
+                if ledger is None:
+                    raise CaseDevPurchaseLedgerError(
+                        "CourtListener URL correction lacks ledger identity"
+                    )
+                _validate_courtlistener_url_correction_record(
+                    response[_COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY],
+                    document_id=document_id,
+                    operation=operation,
+                    material=row,
+                    response=response,
+                    cycle_id=str(ledger["cycle_id"]),
+                    purchase_policy_sha256=purchase_policy_sha256,
+                    per_document_reservation_usd=str(
+                        ledger["per_document_reservation_usd"]
+                    ),
+                    has_public_recovery=(
+                        connection.execute(
+                            """SELECT 1 FROM unknown_public_material_recoveries
+                            WHERE source_document_id=?""",
+                            (document_id,),
+                        ).fetchone()
+                        is not None
+                    ),
+                )
     if not _table_exists(connection, "unknown_public_material_recoveries"):
         return
     recovery_rows = connection.execute(
@@ -3627,6 +3924,83 @@ def _validate_purchase_material_state_rows(
             row,
             material,
             purchase_policy_sha256=purchase_policy_sha256,
+        )
+
+
+def _validate_courtlistener_url_correction_record(
+    value: object,
+    *,
+    document_id: str,
+    operation: sqlite3.Row,
+    material: sqlite3.Row,
+    response: Mapping[str, Any],
+    cycle_id: str,
+    purchase_policy_sha256: str,
+    per_document_reservation_usd: str,
+    has_public_recovery: bool,
+) -> None:
+    if not isinstance(value, Mapping):
+        raise CaseDevPurchaseLedgerError(
+            "CourtListener URL correction record is invalid"
+        )
+    record = cast(Mapping[str, object], value)
+    legacy = record.get("legacy_download_url_sha256")
+    corrected = record.get("corrected_download_url_sha256")
+    queue_id = response.get("queue_id")
+    reservation_id = response.get("reservation_id")
+    operation_key = operation["operation_key"]
+    if (
+        not isinstance(legacy, str)
+        or _SHA256.fullmatch(legacy) is None
+        or not isinstance(corrected, str)
+        or _SHA256.fullmatch(corrected) is None
+        or legacy == corrected
+        or not isinstance(queue_id, str)
+        or _CANONICAL_QUEUE_ID.fullmatch(queue_id) is None
+        or not isinstance(reservation_id, str)
+        or not reservation_id
+        or reservation_id.strip() != reservation_id
+        or not isinstance(operation_key, str)
+        or not _is_canonical_operation_key(operation_key)
+        or _CANONICAL_USD.fullmatch(per_document_reservation_usd) is None
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "CourtListener URL correction record is invalid"
+        )
+    expected = _courtlistener_url_correction_record(
+        cycle_id=cycle_id,
+        purchase_policy_sha256=purchase_policy_sha256,
+        candidate_id=str(operation["candidate_id"]),
+        document_id=document_id,
+        operation_key=operation_key,
+        queue_id=queue_id,
+        reservation_id=reservation_id,
+        reservation_usd=per_document_reservation_usd,
+        attempt_policy_sha256=str(material["attempt_policy_sha256"]),
+        attempt_document_sha256=str(material["attempt_document_sha256"]),
+        provider_detail_sha256=str(material["provider_detail_sha256"]),
+        queue_response_sha256=str(material["queue_response_sha256"]),
+        legacy_download_url_sha256=legacy,
+        corrected_download_url_sha256=corrected,
+    )
+    if (
+        dict(record) != expected
+        or operation["status"] not in {"queued", "confirmed", "failed", "unknown"}
+        or operation["reservation_usd"] != per_document_reservation_usd
+        or response.get("reservation_usd") != per_document_reservation_usd
+        or material["download_url_sha256"] != corrected
+        or str(material["authority"]) != "unknown_status_attempt"
+        or str(material["status"])
+        not in {
+            PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value,
+            PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE.value,
+            PurchaseMaterialState.CLEARED_PUBLIC.value,
+        }
+        or response.get("source_provider") != _COURTLISTENER_RECAP_FETCH_PROVIDER
+        or has_public_recovery
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "CourtListener URL correction record conflicts with purchase lineage"
         )
 
 

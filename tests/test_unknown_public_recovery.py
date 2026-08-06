@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
+    CaseDevPurchaseLedgerError,
     PurchaseMaterialState,
     generate_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
@@ -163,6 +164,336 @@ def test_recovery_discovers_public_unknown_material_and_quarantines_without_post
     assert records[0]["parser_eligible"] is False
     assert records[0]["packet_eligible"] is False
     assert (tmp_path / "quarantine/case-1/123.pdf").read_bytes().startswith(b"%PDF")
+
+
+def test_recovery_repairs_exact_legacy_relative_url_commitment_before_bytes(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchase.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    allowed = {
+        "123": {
+            "case_id": "case-1",
+            "selection_document_sha256": "9" * 64,
+        }
+    }
+    relative_path = "recap/gov.uscourts.example.123/gov.uscourts.example.123.1.0.pdf"
+    detail = {
+        "id": 123,
+        "is_available": True,
+        "is_sealed": None,
+        "is_private": False,
+        "filepath_local": relative_path,
+    }
+    detail_digest = hashlib.sha256(
+        json.dumps(detail, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    legacy_url = f"https://www.courtlistener.com/{relative_path}"
+    corrected_url = f"https://storage.courtlistener.com/{relative_path}"
+    corrected_digest = hashlib.sha256(corrected_url.encode()).hexdigest()
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        journal.authorize_unknown_material_attempts(
+            allowed, attempt_policy_sha256="a" * 64
+        )
+        assert journal.submit("123") is True
+        journal.queue(
+            "123",
+            response={
+                "source_provider": "courtlistener.recap-fetch+pacer",
+                "reservation_usd": "3.05",
+                "queue_id": "77",
+                "reservation_id": "reservation-123",
+            },
+        )
+        journal.mark_material_available_for_quarantine(
+            "123",
+            provider_detail_sha256=detail_digest,
+            queue_response_sha256="8" * 64,
+            download_url_sha256=hashlib.sha256(legacy_url.encode()).hexdigest(),
+        )
+
+        with pytest.raises(RecapFetchQuarantineRecoveryError, match="download failed"):
+            recover_recap_fetch_quarantine_documents(
+                journal=journal,
+                allowed_documents=allowed,
+                attempt_policy_sha256="a" * 64,
+                output_root=tmp_path / "quarantine",
+                source=FixtureFreeDocumentSource({}),
+                config=CourtListenerRecapFetchConfig(api_token="fixture"),
+                transport=_detail_transport(detail),
+            )
+
+        pending = journal.operation_evidence("123")
+        assert pending is not None
+        assert pending["material_state"] is (
+            PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE
+        )
+        journal.correct_legacy_courtlistener_url_commitment(
+            "123",
+            candidate_id="case-1",
+            operation_key=str(pending["operation_key"]),
+            attempt_policy_sha256="a" * 64,
+            attempt_document_sha256="9" * 64,
+            provider_detail_sha256=detail_digest,
+            queue_response_sha256="8" * 64,
+            legacy_download_url_sha256=hashlib.sha256(legacy_url.encode()).hexdigest(),
+            corrected_download_url_sha256=corrected_digest,
+        )
+        source = FixtureFreeDocumentSource({corrected_url: b"%PDF-1.4\npublic\n%%EOF"})
+        records, restrictions, terminal_unavailable = (
+            recover_recap_fetch_quarantine_documents(
+                journal=journal,
+                allowed_documents=allowed,
+                attempt_policy_sha256="a" * 64,
+                output_root=tmp_path / "quarantine",
+                source=source,
+                config=CourtListenerRecapFetchConfig(api_token="fixture"),
+                transport=_detail_transport(detail),
+            )
+        )
+
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        assert operation["material_state"] is (
+            PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE
+        )
+        assert operation["material_evidence"]["download_url_sha256"] == (
+            corrected_digest
+        )
+        operation_key = str(operation["operation_key"])
+        journal.record_broker_receipt(
+            "123",
+            {
+                "operation_key": operation_key,
+                "reservation_id": "reservation-123",
+                "cycle_id": "cycle-1",
+                "purchase_policy_sha256": policy.policy_sha256,
+                "recap_document": "123",
+                "case_id": "case-1",
+                "client_code": "test",
+                "reservation_usd": "3.05",
+                "id": "77",
+                "state": "confirmed",
+                "authoritative_fee_usd": "3.05",
+                "billing_evidence": {"evidence_sha256": "f" * 64},
+            },
+        )
+        journal.reconcile_unknown_broker_billing(
+            "123",
+            actual_usd="3.05",
+            evidence_sha256="f" * 64,
+            source_reference=f"recap-fetch-broker:{operation_key}:{'f' * 64}",
+        )
+        journal.reconcile(
+            {
+                "source_document_id": "123",
+                "disposition": "write_off",
+                "source_type": "support_confirmation",
+                "source_reference": "fixture://post-confirmation-write-off",
+                "pacer_fees": None,
+                "download_url": None,
+            }
+        )
+
+    assert len(records) == len(restrictions) == 1
+    assert terminal_unavailable == ()
+    assert source.requested_urls == (corrected_url,)
+
+    with CaseDevPurchaseJournal(ledger, policy=policy) as reopened:
+        operation = reopened.operation_evidence("123")
+        assert operation is not None
+        assert operation["status"] == "unknown"
+        assert operation["actual_usd"] == "3.05"
+        assert operation["material_state"] is (
+            PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE
+        )
+
+    with closing(sqlite3.connect(ledger)) as connection:
+        row = connection.execute(
+            "SELECT response_json FROM purchase_operations "
+            "WHERE source_document_id='123'"
+        ).fetchone()
+        assert row is not None
+        original_response_json = str(row[0])
+        response = json.loads(original_response_json)
+        response["courtlistener_url_commitment_correction"]["record_sha256"] = "0" * 64
+        connection.execute(
+            "UPDATE purchase_operations SET response_json=? "
+            "WHERE source_document_id='123'",
+            (json.dumps(response, sort_keys=True, separators=(",", ":")),),
+        )
+        connection.commit()
+    with pytest.raises(CaseDevPurchaseLedgerError, match="correction record"):
+        with CaseDevPurchaseJournal(ledger, policy=policy):
+            pass
+    with closing(sqlite3.connect(ledger)) as connection:
+        connection.execute(
+            "UPDATE purchase_operations SET response_json=? "
+            "WHERE source_document_id='123'",
+            (original_response_json,),
+        )
+        connection.execute(
+            "UPDATE purchase_operations SET operation_key=NULL "
+            "WHERE source_document_id='123'"
+        )
+        connection.commit()
+    with pytest.raises(CaseDevPurchaseLedgerError, match="correction record"):
+        with CaseDevPurchaseJournal(ledger, policy=policy):
+            pass
+    with closing(sqlite3.connect(ledger)) as connection:
+        connection.execute(
+            "UPDATE purchase_operations SET operation_key='not-a-uuid' "
+            "WHERE source_document_id='123'"
+        )
+        connection.commit()
+    with pytest.raises(CaseDevPurchaseLedgerError, match="correction record"):
+        with CaseDevPurchaseJournal(ledger, policy=policy):
+            pass
+    with closing(sqlite3.connect(ledger)) as connection:
+        connection.execute(
+            "UPDATE purchase_operations SET operation_key=? "
+            "WHERE source_document_id='123'",
+            (response["courtlistener_url_commitment_correction"]["operation_key"],),
+        )
+        connection.execute(
+            "UPDATE purchase_operations SET response_json='[]' "
+            "WHERE source_document_id='123'"
+        )
+        connection.commit()
+    with pytest.raises(CaseDevPurchaseLedgerError, match="must be an object"):
+        with CaseDevPurchaseJournal(ledger, policy=policy):
+            pass
+
+
+@pytest.mark.parametrize(
+    "conflict",
+    (
+        "wrong_url",
+        "changed_detail",
+        "destination",
+        "actual",
+        "reconciliation",
+        "error",
+        "reservation",
+    ),
+)
+def test_recovery_rejects_unsafe_legacy_url_correction(
+    tmp_path: Path, conflict: str
+) -> None:
+    ledger = (tmp_path / "purchase.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    allowed = {
+        "123": {
+            "case_id": "case-1",
+            "selection_document_sha256": "9" * 64,
+        }
+    }
+    relative_path = "recap/gov.uscourts.example.123/document.pdf"
+    detail = {
+        "id": 123,
+        "is_available": True,
+        "is_sealed": None,
+        "is_private": False,
+        "filepath_local": relative_path,
+    }
+    detail_digest = hashlib.sha256(
+        json.dumps(detail, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    legacy_url = f"https://www.courtlistener.com/{relative_path}"
+    legacy_digest = hashlib.sha256(legacy_url.encode()).hexdigest()
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        journal.authorize_unknown_material_attempts(
+            allowed, attempt_policy_sha256="a" * 64
+        )
+        assert journal.submit("123") is True
+        journal.queue(
+            "123",
+            response={
+                "source_provider": "courtlistener.recap-fetch+pacer",
+                "reservation_usd": "3.05",
+                "queue_id": "77",
+                "reservation_id": "reservation-123",
+            },
+        )
+        journal.mark_material_available_for_quarantine(
+            "123",
+            provider_detail_sha256=(
+                "6" * 64 if conflict == "changed_detail" else detail_digest
+            ),
+            queue_response_sha256="8" * 64,
+            download_url_sha256=(
+                "7" * 64 if conflict == "wrong_url" else legacy_digest
+            ),
+        )
+        if conflict == "destination":
+            destination = tmp_path / "quarantine/case-1/123.pdf"
+            destination.parent.mkdir(parents=True)
+            destination.symlink_to(tmp_path / "missing.pdf")
+        if conflict in {"actual", "reconciliation", "error", "reservation"}:
+            with closing(sqlite3.connect(ledger)) as connection:
+                if conflict == "reservation":
+                    row = connection.execute(
+                        "SELECT response_json FROM purchase_operations "
+                        "WHERE source_document_id='123'"
+                    ).fetchone()
+                    assert row is not None
+                    response = json.loads(str(row[0]))
+                    response["reservation_usd"] = "2.00"
+                    connection.execute(
+                        "UPDATE purchase_operations SET response_json=? "
+                        "WHERE source_document_id='123'",
+                        (json.dumps(response, sort_keys=True, separators=(",", ":")),),
+                    )
+                else:
+                    field = {
+                        "actual": "actual_usd",
+                        "reconciliation": "reconciliation_json",
+                        "error": "error",
+                    }[conflict]
+                    value = "1.00" if conflict == "actual" else "{}"
+                    connection.execute(
+                        f"UPDATE purchase_operations SET {field}=? "
+                        "WHERE source_document_id='123'",
+                        (value,),
+                    )
+                connection.commit()
+
+        with pytest.raises(
+            RecapFetchQuarantineRecoveryError,
+            match="conflicts with delivery commitment",
+        ):
+            recover_recap_fetch_quarantine_documents(
+                journal=journal,
+                allowed_documents=allowed,
+                attempt_policy_sha256="a" * 64,
+                output_root=tmp_path / "quarantine",
+                source=FixtureFreeDocumentSource({}),
+                config=CourtListenerRecapFetchConfig(api_token="fixture"),
+                transport=FixtureRecapFetchTransport(
+                    [
+                        RecordedRecapFetchResponse(
+                            method="GET",
+                            path="/recap-documents/123/",
+                            form={},
+                            status_code=200,
+                            payload=detail,
+                        )
+                    ]
+                ),
+            )
+
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        assert operation["material_state"] is (
+            PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE
+        )
+        assert operation["material_evidence"]["download_url_sha256"] == (
+            "7" * 64 if conflict == "wrong_url" else legacy_digest
+        )
 
 
 def test_terminal_writer_names_conflicting_artifact(tmp_path: Path) -> None:
@@ -552,6 +883,22 @@ def _public_detail() -> dict[str, object]:
         "is_private": False,
         "filepath_local": "https://storage.courtlistener.com/123.pdf",
     }
+
+
+def _detail_transport(
+    detail: dict[str, object],
+) -> FixtureRecapFetchTransport:
+    return FixtureRecapFetchTransport(
+        [
+            RecordedRecapFetchResponse(
+                method="GET",
+                path="/recap-documents/123/",
+                form={},
+                status_code=200,
+                payload=detail,
+            )
+        ]
+    )
 
 
 def _policy(ledger: Path) -> dict[str, object]:
