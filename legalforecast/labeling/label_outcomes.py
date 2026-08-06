@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
 
-from legalforecast.unitization.schemas import PredictionUnit
+from legalforecast.unitization import PredictionUnit, prediction_unit_from_record
 
 
 class AmendmentClass(StrEnum):
@@ -238,6 +238,84 @@ class StageBLabelingResult:
             ],
             "requires_frozen_unit_workflow": self.requires_frozen_unit_workflow,
         }
+
+
+def stage_b_labeling_input_from_record(record: object) -> StageBLabelingInput:
+    """Decode one strict JSON-like record into a Stage B labeling input."""
+
+    decoded_record = _mapping(record, "stage_b_labeling_input")
+    decision_record = _mapping(
+        _required(decoded_record, "decision_text"),
+        "decision_text",
+    )
+    return StageBLabelingInput(
+        candidate_id=_required_str(decoded_record, "candidate_id"),
+        case_id=_required_str(decoded_record, "case_id"),
+        frozen_units=tuple(
+            prediction_unit_from_record(unit)
+            for unit in _required_record_sequence(decoded_record, "frozen_units")
+        ),
+        decision_text=stage_b_decision_text_from_record(decision_record),
+        unit_findings=tuple(
+            _stage_b_unit_finding_from_record(finding)
+            for finding in _required_record_sequence(decoded_record, "unit_findings")
+        ),
+        missing_unit_flags=tuple(
+            _stage_b_missing_unit_flag_from_record(flag)
+            for flag in _optional_record_sequence(
+                decoded_record,
+                "missing_unit_flags",
+            )
+        ),
+    )
+
+
+def stage_b_decision_text_from_record(record: object) -> StageBDecisionText:
+    """Decode one strict input record containing full decision text.
+
+    This consumes labeling input records with a ``text`` field; it does not
+    decode the redacted output shape returned by ``StageBDecisionText.to_record()``,
+    which contains only ``text_sha256``.
+    """
+
+    decoded_record = _mapping(record, "stage_b_decision_text")
+    return StageBDecisionText(
+        document_id=_required_str(decoded_record, "document_id"),
+        entered_date=_required_str(decoded_record, "entered_date"),
+        text=_required_str(decoded_record, "text"),
+        is_first_written_disposition=_optional_bool(
+            decoded_record,
+            "is_first_written_disposition",
+            default=True,
+        ),
+    )
+
+
+def _stage_b_unit_finding_from_record(
+    record: Mapping[str, Any],
+) -> StageBUnitFinding:
+    return StageBUnitFinding(
+        unit_id=_required_str(record, "unit_id"),
+        resolution=UnitResolution(_required_str(record, "resolution")),
+        amendment_signal=AmendmentSignal(_required_str(record, "amendment_signal")),
+        supporting_excerpt=_required_str(record, "supporting_excerpt"),
+        labeler_confidence=_required_float(record, "labeler_confidence"),
+        page=_optional_int(record, "page"),
+        paragraph=_optional_int(record, "paragraph"),
+        notes=_optional_str(record, "notes"),
+    )
+
+
+def _stage_b_missing_unit_flag_from_record(
+    record: Mapping[str, Any],
+) -> StageBMissingUnitFlag:
+    return StageBMissingUnitFlag(
+        missing_unit_description=_required_str(record, "missing_unit_description"),
+        supporting_excerpt=_required_str(record, "supporting_excerpt"),
+        page=_optional_int(record, "page"),
+        paragraph=_optional_int(record, "paragraph"),
+        notes=_optional_str(record, "notes"),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -686,6 +764,15 @@ def _required_record_sequence(
     return tuple(
         _mapping(item, f"{field_name} item") for item in cast(Sequence[object], value)
     )
+
+
+def _optional_record_sequence(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[dict[str, Any], ...]:
+    if field_name not in record or record[field_name] is None:
+        return ()
+    return _required_record_sequence(record, field_name)
 
 
 def _required(record: Mapping[str, Any], field_name: str) -> Any:

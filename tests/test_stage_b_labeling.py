@@ -12,6 +12,7 @@ from legalforecast.labeling import (
     StageBUnitFinding,
     UnitResolution,
     label_stage_b_outcomes,
+    stage_b_labeling_input_from_record,
 )
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
 
@@ -48,6 +49,66 @@ def test_stage_b_labels_clean_grant_with_express_leave_to_amend() -> None:
     assert label.label_confidence == pytest.approx(0.96)
     assert label.supporting_citations[0].document_id == "decision-1"
     json.dumps(result.to_record())
+
+
+def test_stage_b_labeling_input_from_record_reconstructs_nested_input() -> None:
+    excerpt = "Count I is dismissed with leave to amend within 21 days."
+    decision = _decision(excerpt)
+    finding = StageBUnitFinding(
+        unit_id="count_i_issuer",
+        resolution=UnitResolution.FULLY_DISMISSED,
+        amendment_signal=AmendmentSignal.EXPRESS_LEAVE_TO_AMEND,
+        supporting_excerpt=excerpt,
+        labeler_confidence=0.96,
+        page=12,
+    )
+    missing_flag = StageBMissingUnitFlag(
+        missing_unit_description="Count II is absent from frozen units.",
+        supporting_excerpt=excerpt,
+        notes="Route for repair.",
+    )
+    expected = StageBLabelingInput(
+        candidate_id="cand-1",
+        case_id="case-1",
+        frozen_units=(_unit("count_i_issuer"),),
+        decision_text=decision,
+        unit_findings=(finding,),
+        missing_unit_flags=(missing_flag,),
+    )
+    record = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "frozen_units": [expected.frozen_units[0].to_record()],
+        "decision_text": {
+            "document_id": decision.document_id,
+            "entered_date": decision.entered_date,
+            "text": decision.text,
+        },
+        "unit_findings": [finding.to_record()],
+        "missing_unit_flags": [missing_flag.to_record(decision)],
+    }
+
+    assert stage_b_labeling_input_from_record(record) == expected
+
+
+def test_stage_b_labeling_input_from_record_rejects_malformed_boundaries() -> None:
+    with pytest.raises(ValueError, match="stage_b_labeling_input must be an object"):
+        stage_b_labeling_input_from_record(None)
+
+    with pytest.raises(ValueError, match="unit_findings must be a list"):
+        stage_b_labeling_input_from_record(
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "frozen_units": [_unit("count_i_issuer").to_record()],
+                "decision_text": {
+                    "document_id": "decision-1",
+                    "entered_date": "2026-05-18",
+                    "text": "The motion is denied.",
+                },
+                "unit_findings": "count_i_issuer",
+            }
+        )
 
 
 def test_stage_b_labels_clean_denial_and_grant_in_part_as_survival() -> None:
