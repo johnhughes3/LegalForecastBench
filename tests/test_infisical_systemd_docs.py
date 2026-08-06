@@ -105,7 +105,25 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
     assert "/agents/sandbox/**" not in launcher_docs
     assert "dependent-secret parser and labeling views" in launcher_docs
 
-    assert launcher_docs.count('env -i PATH="$PATH"') == 4
+    assert launcher_docs.count('env -i PATH="$PATH"') == 5
+    assert _stage_sentinel(
+        launcher_docs, "/agents/sandbox/legalforecastbench/acquisition"
+    ) == (
+        ("COURTLISTENER_API_TOKEN", "PACER_USERNAME", "PACER_PASSWORD"),
+        (
+            "RECAP_FETCH_BROKER_URL",
+            "RECAP_FETCH_BROKER_MACHINE_ID",
+            "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK",
+            "RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON",
+            "RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256",
+            "MISTRAL_API_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GEMINI_API_KEY",
+        ),
+        REQUIRED_LOOP,
+        FORBIDDEN_LOOP,
+    )
     parser_sentinel = _stage_sentinel(
         launcher_docs, "/agents/sandbox/legalforecastbench/parser"
     )
@@ -172,6 +190,19 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
     assert "acquisition-systemd-launcher.md" in runbook
     assert "authoritative masked Infisical UI inventory" in runbook
     assert "zsh -dfc" in runbook
+
+
+def test_acquisition_systemd_docs_make_direct_target100_purchase_canonical() -> None:
+    docs = (ROOT / "docs" / "acquisition-systemd-launcher.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "canonical checked-in target-100 path" in docs
+    assert "`--direct-courtlistener-purchase`" in docs
+    assert "Direct recovery requires only `COURTLISTENER_API_TOKEN`" in docs
+    assert "optional broker transport" in docs
+    assert "does not weaken or replace" in docs
+    assert "Paid RECAP Fetch uses only" not in docs
 
 
 def test_acquisition_systemd_docs_require_exact_recap_fetch_client_view() -> None:

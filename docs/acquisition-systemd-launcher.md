@@ -24,7 +24,10 @@ User service managers can retain imported environment variables, so every secret
 The launcher and its sandbox child then inherit only that allowlist plus the stage settings injected by `infisical-agent-sandbox`.
 
 Use the dedicated `/agents/sandbox/legalforecastbench/parser` or `/agents/sandbox/legalforecastbench/labeling` path for those stages.
-Paid RECAP Fetch uses only `/agents/sandbox/legalforecastbench/recap-fetch-broker-client`.
+The canonical checked-in target-100 path runs direct CourtListener RECAP Fetch purchase and recovery through `/agents/sandbox/legalforecastbench/acquisition`.
+The paid command must include `--direct-courtlistener-purchase`, and its acquisition view must provide nonempty `COURTLISTENER_API_TOKEN`, `PACER_USERNAME`, and `PACER_PASSWORD`.
+Direct recovery requires only `COURTLISTENER_API_TOKEN` and never acknowledges or incurs a new fee.
+An optional broker transport may instead use `/agents/sandbox/legalforecastbench/recap-fetch-broker-client` with its separate five-name client identity, but it does not weaken or replace the purchase policy, exact successor approval, attempt policy, ledger, budget caps, explicit fee acknowledgement, or immutable receipt gates.
 These and `/agents/sandbox/legalforecastbench/acquisition` are the launcher's exact dedicated sandbox paths; every root, alias, parent, and unrelated path is rejected before the sandbox helper can run.
 The parser stage view must resolve exactly `MISTRAL_API_KEY`; the labeling stage view must resolve exactly `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY`.
 Configure those names as Infisical dependent-secret references to the canonical values under `/agents/sandbox/legalforecastbench/acquisition` so credential rotation propagates without creating another stored value.
@@ -36,6 +39,15 @@ The masked Infisical UI inventory is the authoritative exact-inventory check and
 Then run the defense-in-depth sentinels below from an allowlisted empty caller environment; they inspect zsh parameter-name metadata, expand required values only to confirm they are nonempty, and reject every known cross-stage credential without printing or exporting a value:
 
 ```bash
+env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
+  infisical-agent-sandbox run --env dev \
+  --path /agents/sandbox/legalforecastbench/acquisition \
+  -- zsh -dfc '
+    required=(COURTLISTENER_API_TOKEN PACER_USERNAME PACER_PASSWORD)
+    forbidden=(RECAP_FETCH_BROKER_URL RECAP_FETCH_BROKER_MACHINE_ID RECAP_FETCH_BROKER_PRIVATE_KEY_JWK RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256 MISTRAL_API_KEY OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY)
+    for name in $required; do (( ${+parameters[$name]} )) && [[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done
+    for name in $forbidden; do (( ! ${+parameters[$name]} )) || { print -u2 -- "$name=unexpected"; exit 1; }; done'
+
 env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
   infisical-agent-sandbox run --env dev \
   --path /agents/sandbox/legalforecastbench/parser \
@@ -58,14 +70,14 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
 The sentinels are not a substitute for the complete masked UI inventory because their forbidden lists are intentionally finite.
 Do not broaden an Infisical path to make a unit start.
 
-The broker-client view is deliberately different from the dependent-secret parser and labeling views.
+The broker-client view is deliberately different from the direct acquisition view and the dependent-secret parser and labeling views, and it is used only by the optional broker transport.
 It contains exactly `RECAP_FETCH_BROKER_URL`, `RECAP_FETCH_BROKER_MACHINE_ID`, `RECAP_FETCH_BROKER_PRIVATE_KEY_JWK`, `RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON`, and `RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256` as ordinary secret values written only after the reviewed broker activation has produced and bound them.
 They are never dependent references and never folder imports.
 The private JWK authenticates only the bounded broker client; it is not a PACER credential.
-Raw `PACER_USERNAME`, `PACER_PASSWORD`, and `COURTLISTENER_API_TOKEN` remain broker-custodied and must never appear in this agent-readable view.
+Raw `PACER_USERNAME`, `PACER_PASSWORD`, and `COURTLISTENER_API_TOKEN` remain broker-custodied when this transport is selected and must never appear in the broker-client view.
 Terraform owns only the empty folder; the activation-derived values must stay out of Git, Terraform state, command arguments, logs, and receipts.
 
-Before every paid RECAP Fetch launch, require an immutable successful activation/routing receipt and a complete masked Infisical UI inventory showing exactly those five ordinary-value names, imports disabled, and no other row.
+Before every brokered RECAP Fetch launch, require an immutable successful activation/routing receipt and a complete masked Infisical UI inventory showing exactly those five ordinary-value names, imports disabled, and no other row.
 Close the write-capable provisioning session, then run this defense-in-depth name-only sentinel from an allowlisted empty caller environment.
 It prints only the five expected names with `present`, never a value:
 
@@ -92,7 +104,8 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
 ```
 
 The masked inventory remains authoritative for every name, while the sentinel proves that the launch-time environment contains the five nonempty client settings, no extra `RECAP_FETCH_BROKER_*` setting, and none of the known raw provider or cross-stage credentials.
-Folder creation, a passing sentinel, or possession of a client JWK is not purchase authority; the frozen purchase, attempt, broker, ledger, budget, and explicit fee-acknowledgement gates still apply.
+Folder creation, a passing sentinel, or possession of a client JWK is not purchase authority; the frozen purchase, attempt, broker, ledger, budget, and explicit fee-acknowledgement gates still apply to the optional broker transport.
+Direct purchase has no broker-policy or broker-activation prerequisite, but the same frozen purchase, attempt, ledger, budget, successor-approval, explicit fee-acknowledgement, run-card, and receipt gates remain mandatory.
 
 Downstream launchers must require all of the following before consuming an acquisition output:
 
