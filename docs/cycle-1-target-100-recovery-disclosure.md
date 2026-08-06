@@ -16,16 +16,20 @@ The two initial-recovery templates are:
 
 Both templates are partial cycle continuations and begin with `init-cycle`. Render them with `uv run legalforecast acquisition render-cycle-config --help`; the renderer validates every stage against the current CLI before publishing the config.
 
-Ranked-reserve replacement recovery has the same two closed branches:
+Ranked-reserve replacement recovery first uses one shared, closed prefix:
 
-- `manifests/cycle-1-target-100.replacement-purchase-tranche.template.json` for authenticated model review when the v3 plan identifies eligible exceptions.
-- `manifests/cycle-1-target-100.replacement-purchase-tranche-no-review.template.json` when the authenticated v3 plan proves the eligible set is empty.
+- `manifests/cycle-1-target-100.replacement-recovery-disclosure-plan.template.json` records the exact successor authority, purchases and recovers only that tranche, and completes the immutable v3 plan and worksheet under `PLAN_ROOT`.
 
-Both replacement templates preserve the exact successor purchase authority and attempt policy through purchase, recovery, disclosure finalization, resolution, and cumulative-clearance publication.
+Only after that plan run card is completed may the operator select exactly one post-plan continuation:
+
+- `manifests/cycle-1-target-100.replacement-disclosure-model-continuation.template.json` when the authenticated worksheet contains model-review-eligible exceptions.
+- `manifests/cycle-1-target-100.replacement-disclosure-empty-continuation.template.json` when the authenticated plan proves the eligible set is empty.
+
+Both continuations bind the same `PLAN_ROOT`, begin after planning, and cannot recreate or overwrite the plan outputs. They preserve the exact successor purchase authority and attempt policy through disclosure finalization, resolution, and cumulative-clearance publication. Re-rendering or resuming a suffix therefore cannot purchase the tranche again.
 
 ## Fail-closed routing
 
-The plan-proven provider-free branch is not a general operator override. The finalizer replays the completed plan run card, its source and output commitments, the current document tree, and any recovered-public authority. It rejects the branch if even one exact exception is eligible for model review.
+The plan-proven provider-free branch is not a general operator override. The finalizer replays the completed plan run card, its source and output commitments, the current document tree, and any recovered-public authority. It rejects the branch if even one exact exception is eligible for model review. The model suffix and empty suffix are mutually exclusive authority modes; a continuation must never combine them or silently omit both.
 
 The older quarantine-all workflow remains available only through the explicit `--quarantine-all-exceptions-without-review` compatibility flag. It quarantines every exception and is not the supported target-100 continuation. Omitting model authority, the empty-set proof, and that explicit compatibility flag fails closed.
 

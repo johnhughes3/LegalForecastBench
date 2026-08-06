@@ -7779,6 +7779,15 @@ def _add_acquisition_model_disclosure_review_arguments(
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--routing-plan", type=Path, required=True)
     parser.add_argument("--exception-worksheet", type=Path, required=True)
+    parser.add_argument(
+        "--plan-run-card",
+        type=Path,
+        required=True,
+        help=(
+            "Completed plan-disclosure-provenance run card binding the exact "
+            "routing plan and exception worksheet."
+        ),
+    )
     parser.add_argument("--document-root", type=Path, required=True)
     parser.add_argument("--frozen-authority-root", type=Path, required=True)
     parser.add_argument("--provider-journal", type=Path, required=True)
@@ -9436,6 +9445,7 @@ def _disclosure_failure_context(
             (
                 cast(Path, args.routing_plan),
                 cast(Path, args.exception_worksheet),
+                cast(Path, args.plan_run_card),
                 cast(Path, args.document_root),
                 cast(Path, args.frozen_authority_root),
             ),
@@ -17969,6 +17979,7 @@ def _verify_external_completed_cycle_stage(
         if stage.command == "review-disclosure-exceptions":
             plan_path = _cycle_stage_path(stage, "--routing-plan")
             worksheet_path = _cycle_stage_path(stage, "--exception-worksheet")
+            plan_run_card_path = _cycle_stage_path(stage, "--plan-run-card")
             document_root = _cycle_stage_path(stage, "--document-root")
             authority_path = _cycle_stage_path(stage, "--authority-output")
             private_path = _cycle_stage_path(stage, "--private-records-output")
@@ -17977,6 +17988,9 @@ def _verify_external_completed_cycle_stage(
             )
             worksheet_bytes = _read_singly_linked_regular_input(
                 worksheet_path, label="external disclosure worksheet"
+            )
+            plan_run_card_bytes = _read_singly_linked_regular_input(
+                plan_run_card_path, label="external disclosure plan run card"
             )
             authority_bytes = _read_singly_linked_regular_input(
                 authority_path, label="external disclosure review authority"
@@ -18014,6 +18028,16 @@ def _verify_external_completed_cycle_stage(
                         "byte_count": len(data),
                     }
                 )
+            _verify_model_review_plan_run_card(
+                run_card_bytes=plan_run_card_bytes,
+                run_card_path=plan_run_card_path,
+                plan_path=plan_path,
+                plan_bytes=plan_bytes,
+                worksheet_path=worksheet_path,
+                worksheet_bytes=worksheet_bytes,
+                document_root=document_root,
+                document_tree=document_tree,
+            )
             raw_sources = run_card.get("source_commitments")
             if not isinstance(raw_sources, Mapping):
                 raise CommandError("external disclosure sources are missing")
@@ -18029,6 +18053,12 @@ def _verify_external_completed_cycle_stage(
                 "document_count": len(document_tree),
             }:
                 raise CommandError("external disclosure document tree changed")
+            _validate_named_path_commitment(
+                cast(Mapping[str, object], raw_sources),
+                name="plan_run_card",
+                expected_path=plan_run_card_path,
+                expected_sha256=_bytes_sha256(plan_run_card_bytes),
+            )
             capability = replay_authenticated_disclosure_model_review(
                 routing_plan=plan,
                 routing_plan_bytes=plan_bytes,
@@ -42700,6 +42730,7 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     plan_path = cast(Path, args.routing_plan)
     worksheet_path = cast(Path, args.exception_worksheet)
+    plan_run_card_path = cast(Path, args.plan_run_card)
     raw_document_root = cast(Path, args.document_root)
     raw_frozen_root = cast(Path, args.frozen_authority_root)
     raw_journal_path = cast(Path, args.provider_journal)
@@ -42739,14 +42770,15 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
         path.resolve() for path in (authority_path, private_path, run_card_path)
     )
     _validate_disclosure_review_paths(
-        input_paths=(plan_path, worksheet_path),
+        input_paths=(plan_path, worksheet_path, plan_run_card_path),
         output_paths=(authority_path, private_path, run_card_path),
         protected_roots=(document_root, frozen_root),
     )
     if journal_path == spend_path:
         raise CommandError("provider journal and spend authority must be distinct")
     if any(
-        state_path in {plan_path.resolve(), worksheet_path.resolve()}
+        state_path
+        in {plan_path.resolve(), worksheet_path.resolve(), plan_run_card_path.resolve()}
         for state_path in (journal_path, spend_path)
     ):
         raise CommandError("model-review provider state aliases a content input")
@@ -42770,6 +42802,9 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
         plan_bytes = _read_singly_linked_regular_input(plan_path, label="routing plan")
         worksheet_bytes = _read_singly_linked_regular_input(
             worksheet_path, label="exception worksheet"
+        )
+        plan_run_card_bytes = _read_singly_linked_regular_input(
+            plan_run_card_path, label="plan run card"
         )
         plan = _projection_json_object(plan_bytes, source=plan_path)
         worksheet = _projection_json_object(worksheet_bytes, source=worksheet_path)
@@ -42799,6 +42834,16 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
                     "byte_count": len(data),
                 }
             )
+        _verify_model_review_plan_run_card(
+            run_card_bytes=plan_run_card_bytes,
+            run_card_path=plan_run_card_path,
+            plan_path=plan_path,
+            plan_bytes=plan_bytes,
+            worksheet_path=worksheet_path,
+            worksheet_bytes=worksheet_bytes,
+            document_root=document_root,
+            document_tree=tree,
+        )
     except (OSError, ProvenanceClearanceError, ReviewBundleError) as exc:
         raise CommandError(str(exc)) from exc
     if _acquisition_dry_run(args):
@@ -42846,6 +42891,10 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
             "exception_worksheet": {
                 "path": str(worksheet_path.resolve()),
                 "sha256": _bytes_sha256(worksheet_bytes),
+            },
+            "plan_run_card": {
+                "path": str(plan_run_card_path.resolve()),
+                "sha256": _bytes_sha256(plan_run_card_bytes),
             },
             "document_root": {
                 "path": str(document_root),
@@ -42898,6 +42947,72 @@ def _model_review_eligible_plan_documents(
             if document.get("route") == "exception_review"
         )
     )
+
+
+def _verify_model_review_plan_run_card(
+    *,
+    run_card_bytes: bytes,
+    run_card_path: Path,
+    plan_path: Path,
+    plan_bytes: bytes,
+    worksheet_path: Path,
+    worksheet_bytes: bytes,
+    document_root: Path,
+    document_tree: Sequence[Mapping[str, object]],
+) -> None:
+    """Bind paid model review to the exact completed disclosure plan."""
+
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    expected_run_card_bytes = (
+        json.dumps(dict(run_card), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    if run_card_bytes != expected_run_card_bytes:
+        raise ProvenanceClearanceError(
+            "model review plan run card does not use exact producer serialization"
+        )
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "plan-disclosure-provenance"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+        or run_card.get("output_paths")
+        != [str(plan_path.resolve()), str(worksheet_path.resolve())]
+    ):
+        raise ProvenanceClearanceError(
+            "model review requires the exact completed v3 plan run card"
+        )
+    raw_sources = run_card.get("source_commitments")
+    raw_outputs = run_card.get("output_commitments")
+    if not isinstance(raw_sources, Mapping) or not isinstance(raw_outputs, Mapping):
+        raise ProvenanceClearanceError("model review plan run card lacks commitments")
+    sources = cast(Mapping[str, object], raw_sources)
+    outputs = cast(Mapping[str, object], raw_outputs)
+    _validate_named_path_commitment(
+        outputs,
+        name="routing_plan",
+        expected_path=plan_path,
+        expected_sha256=_bytes_sha256(plan_bytes),
+    )
+    _validate_named_path_commitment(
+        outputs,
+        name="exception_worksheet",
+        expected_path=worksheet_path,
+        expected_sha256=_bytes_sha256(worksheet_bytes),
+    )
+    document_commitment = sources.get("document_root")
+    if not isinstance(document_commitment, Mapping) or dict(
+        cast(Mapping[str, object], document_commitment)
+    ) != {
+        "path": str(document_root.resolve()),
+        "tree_sha256": _canonical_json_sha256(document_tree),
+        "document_count": len(document_tree),
+    }:
+        raise ProvenanceClearanceError(
+            "model review plan run card document commitment changed"
+        )
 
 
 def _verify_no_model_review_plan_run_card(

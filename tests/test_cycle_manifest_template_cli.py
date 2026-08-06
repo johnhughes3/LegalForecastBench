@@ -598,15 +598,18 @@ def test_checked_in_target_100_template_is_a_complete_acquisition_plan(
     assert "/tmp" not in template.read_text(encoding="utf-8")
 
 
-def test_checked_in_replacement_tranche_template_requires_successor_authority(
+def test_checked_in_replacement_templates_branch_only_after_authenticated_plan(
     tmp_path: Path,
 ) -> None:
-    template = (
-        Path(__file__).parents[1]
-        / "manifests"
-        / "cycle-1-target-100.replacement-purchase-tranche.template.json"
-    )
-    output = tmp_path / "replacement-cycle.json"
+    manifests = Path(__file__).parents[1] / "manifests"
+    templates = {
+        "plan": manifests
+        / "cycle-1-target-100.replacement-recovery-disclosure-plan.template.json",
+        "model": manifests
+        / "cycle-1-target-100.replacement-disclosure-model-continuation.template.json",
+        "empty": manifests
+        / "cycle-1-target-100.replacement-disclosure-empty-continuation.template.json",
+    }
     assignments = {
         "REPO_ROOT": tmp_path / "repo",
         "SOURCE_ROOT": tmp_path / "source",
@@ -616,116 +619,128 @@ def test_checked_in_replacement_tranche_template_requires_successor_authority(
         "PRIOR_CLEARANCE_RUN_CARD": (
             tmp_path / "prior" / "run-cards" / "clear-provenance-disclosures.json"
         ),
+        "PLAN_ROOT": tmp_path / "replacement" / "04-disclosure-plan",
         "REPLACEMENT_ROOT": tmp_path / "replacement",
         "SUCCESSOR_PRIVATE_ROOT": tmp_path / "private-successor",
     }
+    rendered = {}
+    receipts = {}
+    for mode, template in templates.items():
+        template_payload = json.loads(template.read_bytes())
+        variables = template_payload["variables"]
+        output = tmp_path / f"{mode}-replacement-cycle.json"
+        receipts[mode] = render_cycle_config(
+            template_path=template,
+            output_path=output,
+            variable_assignments=[f"{name}={assignments[name]}" for name in variables],
+        )
+        rendered[mode] = load_cycle_config(output)
 
-    receipt = render_cycle_config(
-        template_path=template,
-        output_path=output,
-        variable_assignments=[f"{name}={path}" for name, path in assignments.items()],
-    )
-    config = load_cycle_config(output)
-
-    assert receipt["completion_mode"] == "partial"
-    assert receipt["stage_count"] == 9
-    assert receipt["provider_activity_requested"] is False
-    assert receipt["provider_activity_executed"] is False
-    assert receipt["paid_activity_requested"] is False
-    assert receipt["paid_activity_executed"] is False
-    assert [stage.command for stage in config.stages] == [
+    assert all(receipt["completion_mode"] == "partial" for receipt in receipts.values())
+    assert [stage.command for stage in rendered["plan"].stages] == [
         "init-cycle",
         "record-replacement-purchase-approval",
         "purchase-missing-recap-fetch",
         "recover-recap-fetch-quarantine",
         "plan-disclosure-provenance",
+    ]
+    assert [stage.command for stage in rendered["model"].stages] == [
+        "init-cycle",
         "review-disclosure-exceptions",
         "finalize-provenance-quarantine",
         "resolve-post-recovery-documents",
         "accumulate-replacement-clearance",
     ]
-    approval_stage = config.stages[1]
-    assert "--authority-output" in approval_stage.arguments
-    assert "--attempt-policy-output" in approval_stage.arguments
-    assert "--frontier" not in approval_stage.arguments
+    assert [stage.command for stage in rendered["empty"].stages] == [
+        "init-cycle",
+        "finalize-provenance-quarantine",
+        "resolve-post-recovery-documents",
+        "accumulate-replacement-clearance",
+    ]
+
+    approval = rendered["plan"].stages[1]
+    purchase = rendered["plan"].stages[2]
+    recovery = rendered["plan"].stages[3]
+    plan = rendered["plan"].stages[4]
+    assert "--authority-output" in approval.arguments
+    assert "--attempt-policy-output" in approval.arguments
+    assert "--frontier" not in approval.arguments
     assert (
-        approval_stage.arguments[
-            approval_stage.arguments.index("--ranked-reserve-projection-sha256") + 1
+        approval.arguments[
+            approval.arguments.index("--ranked-reserve-projection-sha256") + 1
         ]
         == "sha256:1dab63dd17c69fd0222b58d6e30af67ad56550ca6578262f1089222a68257e56"
     )
-    paid_stage = next(
-        stage
-        for stage in config.stages
-        if stage.command == "purchase-missing-recap-fetch"
-    )
-    assert paid_stage.boundary.value == "paid"
-    assert "--replacement-purchase-authority" in paid_stage.arguments
-    assert "--replacement-controlled-private-root" in paid_stage.arguments
-    assert "--purchase-ledger-initialization-receipt" in paid_stage.arguments
-    assert "--broker-policy" not in paid_stage.arguments
-    assert "--direct-courtlistener-purchase" in paid_stage.arguments
-    assert paid_stage.arguments[paid_stage.arguments.index("--budget-plan") + 1] == str(
+    assert "--replacement-purchase-authority" in purchase.arguments
+    assert "--replacement-purchase-authority" in recovery.arguments
+    assert "--replacement-controlled-private-root" in purchase.arguments
+    assert "--purchase-ledger-initialization-receipt" in purchase.arguments
+    assert purchase.boundary.value == "paid"
+    assert "--direct-courtlistener-purchase" in purchase.arguments
+    assert "--acknowledge-pacer-fees" in purchase.arguments
+    assert "--broker-policy" not in purchase.arguments
+    assert purchase.arguments[purchase.arguments.index("--budget-plan") + 1] == str(
         assignments["REPLACEMENT_ROOT"] / "01-plan" / "replacement-budget-plan.json"
     )
     assert (
-        paid_stage.arguments[
-            paid_stage.arguments.index("--request-budget-max-wait-seconds") + 1
+        purchase.arguments[
+            purchase.arguments.index("--request-budget-max-wait-seconds") + 1
         ]
         == "3700"
     )
-    assert "--acknowledge-pacer-fees" in paid_stage.arguments
-    assert not any(
-        stage.command == "generate-recap-fetch-broker-policy" for stage in config.stages
-    )
-    recovery = next(
-        stage
-        for stage in config.stages
-        if stage.command == "recover-recap-fetch-quarantine"
-    )
-    assert "--replacement-purchase-authority" in recovery.arguments
     assert "--target-projection-run-card" not in recovery.arguments
-    disclosure_plan = next(
-        stage
+    assert "--schema-version" in plan.arguments
+    assert plan.arguments[plan.arguments.index("--schema-version") + 1] == "v3"
+    assert plan.run_card == (
+        assignments["PLAN_ROOT"] / "run-cards" / "plan-disclosure-provenance.json"
+    )
+
+    model = rendered["model"]
+    review = model.stages[1]
+    model_finalizer = model.stages[2]
+    assert review.boundary.value == "model_provider"
+    assert review.arguments[review.arguments.index("--routing-plan") + 1] == str(
+        assignments["PLAN_ROOT"] / "disclosure-provenance-plan.json"
+    )
+    assert review.arguments[review.arguments.index("--plan-run-card") + 1] == str(
+        assignments["PLAN_ROOT"] / "run-cards" / "plan-disclosure-provenance.json"
+    )
+    assert "--model-review-authority" in model_finalizer.arguments
+    assert "--require-no-model-review-eligible-exceptions" not in (
+        model_finalizer.arguments
+    )
+
+    empty = rendered["empty"]
+    empty_finalizer = empty.stages[1]
+    assert all(stage.boundary.value == "provider_free" for stage in empty.stages)
+    assert "--require-no-model-review-eligible-exceptions" in (
+        empty_finalizer.arguments
+    )
+    assert empty_finalizer.arguments[
+        empty_finalizer.arguments.index("--plan-run-card") + 1
+    ] == str(assignments["PLAN_ROOT"] / "run-cards" / "plan-disclosure-provenance.json")
+
+    post_plan_commands = {
+        stage.command for config in (model, empty) for stage in config.stages
+    }
+    assert "plan-disclosure-provenance" not in post_plan_commands
+    assert "purchase-missing-recap-fetch" not in post_plan_commands
+    assert not any(
+        stage.command == "generate-recap-fetch-broker-policy"
+        for config in rendered.values()
         for stage in config.stages
-        if stage.command == "plan-disclosure-provenance"
     )
-    assert (
-        disclosure_plan.arguments[
-            disclosure_plan.arguments.index("--schema-version") + 1
-        ]
-        == "v3"
-    )
-    disclosure_review = next(
-        stage
-        for stage in config.stages
-        if stage.command == "review-disclosure-exceptions"
-    )
-    assert disclosure_review.boundary.value == "model_provider"
-    disclosure_finalizer = next(
-        stage
-        for stage in config.stages
-        if stage.command == "finalize-provenance-quarantine"
-    )
-    assert disclosure_finalizer.boundary.value == "provider_free"
-    resolver = next(
-        stage
-        for stage in config.stages
-        if stage.command == "resolve-post-recovery-documents"
-    )
-    assert "--replacement-purchase-authority" in resolver.arguments
-    assert "--replacement-controlled-private-root" in resolver.arguments
-    assert resolver.arguments[
-        resolver.arguments.index("--clearance-run-card") + 1
-    ] == str(disclosure_finalizer.run_card)
-    accumulation = config.stages[-1]
-    assert accumulation.command == "accumulate-replacement-clearance"
-    assert accumulation.arguments[
-        accumulation.arguments.index("--prior-purchased-clearance") + 1
-    ] == str(assignments["PRIOR_CLEARANCE"])
-    rendered = output.read_text(encoding="utf-8")
-    assert "replacement-frontier.json" not in rendered
-    assert "recap-fetch-broker" not in rendered
+    for config in (model, empty):
+        resolver = config.stages[-2]
+        accumulator = config.stages[-1]
+        assert "--replacement-purchase-authority" in resolver.arguments
+        assert "--replacement-controlled-private-root" in resolver.arguments
+        assert accumulator.arguments[
+            accumulator.arguments.index("--prior-purchased-clearance") + 1
+        ] == str(assignments["PRIOR_CLEARANCE"])
+    assert not {"evaluate", "freeze", "dispatch"} & {
+        stage.command for config in rendered.values() for stage in config.stages
+    }
 
 
 def test_checked_in_replacement_reprojection_consumes_active_exact_100_selection(
