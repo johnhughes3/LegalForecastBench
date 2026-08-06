@@ -17,6 +17,8 @@ Use generated local metadata to locate these existing absolute paths:
 - the completed purchase result and run card plus the pinned complete screening snapshot used to derive the terminal retained-versus-residual partition; and
 - a new continuation output root outside every frozen and private evidence root.
 
+`continuation_root` names the parent replacement-cycle root used by the checked-in downstream coordinators. The planner owns its canonical `01-plan` child; do not bind `continuation_root` to an `01-plan` directory or create a manual alias.
+
 Each terminal record has the closed schema `legalforecast.ranked_reserve_terminal_exclusion.v1` and exactly these fields:
 
 ```json
@@ -80,11 +82,11 @@ uv run legalforecast acquisition plan-ranked-reserve-replacements \
   --purchase-result "$purchase_result_root/purchased-document-downloads.jsonl" \
   --purchase-run-card "$purchase_result_root/run-cards/purchase-missing-recap-fetch.json" \
   --screening-snapshot-manifest "$screening_snapshot_root/manifest.json" \
-  --output "$continuation_root/replacement-result.json" \
-  --active-selection-output "$continuation_root/active-selection.jsonl" \
-  --replacement-selection-output "$continuation_root/replacement-selection.jsonl" \
-  --successor-exclusions-output "$continuation_root/successor-exclusions.jsonl" \
-  --replacement-budget-plan-output "$continuation_root/replacement-budget-plan.json"
+  --output "$continuation_root/01-plan/replacement-result.json" \
+  --active-selection-output "$continuation_root/01-plan/active-selection.jsonl" \
+  --replacement-selection-output "$continuation_root/01-plan/replacement-selection.jsonl" \
+  --successor-exclusions-output "$continuation_root/01-plan/successor-exclusions.jsonl" \
+  --replacement-budget-plan-output "$continuation_root/01-plan/replacement-budget-plan.json"
 ```
 
 The planner authenticates the target projection through the existing full semantic replay, not by reading the projection summary alone.
@@ -97,7 +99,7 @@ Rank 3 is not attempted, inspected as an alternative, or authorized; with three 
 
 ## Required stop
 
-Review `replacement-result.json` before doing anything downstream.
+Review `01-plan/replacement-result.json` before doing anything downstream.
 Its activity and authority flags must all remain false.
 If `successor_approval_required` is true, record and replay a new exact successor approval for `replacement-selection.jsonl` and `replacement-budget-plan.json`; do not reuse the original target-100 approval as authority for those documents.
 Until that approval path authenticates this ranked-reserve result schema, stop without purchasing.

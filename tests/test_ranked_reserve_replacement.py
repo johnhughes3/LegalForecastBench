@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from string import Template
 from types import SimpleNamespace
 from typing import TypedDict, cast
 
@@ -2367,7 +2368,9 @@ def test_cli_requires_one_complete_terminal_evidence_mode(tmp_path: Path) -> Non
     assert status == 2
 
 
-def test_v4_continuation_template_has_no_paid_or_downstream_stage() -> None:
+def test_v4_continuation_template_renders_canonical_plan_contract(
+    tmp_path: Path,
+) -> None:
     template_path = (
         Path(__file__).parents[1]
         / "manifests"
@@ -2380,11 +2383,33 @@ def test_v4_continuation_template_has_no_paid_or_downstream_stage() -> None:
     )
     assert template["command"]["name"] == "plan-ranked-reserve-replacements"
     assert template["command"]["boundary"] == "provider_free"
-    arguments = template["command"]["arguments"]
+    assignments = {name: str(tmp_path / name.lower()) for name in template["variables"]}
+    arguments = [
+        Template(argument).substitute(assignments)
+        for argument in template["command"]["arguments"]
+    ]
     assert "--purchase-result" in arguments
     assert "--purchase-run-card" in arguments
     assert "--screening-snapshot-manifest" in arguments
     assert "--terminal-exclusions" not in arguments
+    purchase_result = Path(arguments[arguments.index("--purchase-result") + 1])
+    assert purchase_result == (
+        Path(assignments["PURCHASE_RESULT_ROOT"]) / "purchased-document-downloads.jsonl"
+    )
+    assert "courtlistener-recap-fetch-purchases.json" not in "\n".join(arguments)
+
+    continuation_root = Path(assignments["CONTINUATION_ROOT"])
+    output_contract = {
+        "--output": "replacement-result.json",
+        "--active-selection-output": "active-selection.jsonl",
+        "--replacement-selection-output": "replacement-selection.jsonl",
+        "--successor-exclusions-output": "successor-exclusions.jsonl",
+        "--replacement-budget-plan-output": "replacement-budget-plan.json",
+    }
+    for option, filename in output_contract.items():
+        assert Path(arguments[arguments.index(option) + 1]) == (
+            continuation_root / "01-plan" / filename
+        )
     assert template["authority"] == {
         "dispatch_authorized": False,
         "evaluation_authorized": False,
