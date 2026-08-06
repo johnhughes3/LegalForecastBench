@@ -225,7 +225,12 @@ def _recovered_public_capability_boundary() -> tuple[
         for raw in rows:
             row = dict(raw)
             key = _key(row)
-            if key in indexed or set(row) != expected:
+            direct_authority = row.get("direct_queue_delivery_authority")
+            row_fields = set(row)
+            if key in indexed or (
+                row_fields != expected
+                and row_fields != expected | {"direct_queue_delivery_authority"}
+            ):
                 raise ProvenanceClearanceError(
                     "invalid recovered-public verifier evidence"
                 )
@@ -246,6 +251,12 @@ def _recovered_public_capability_boundary() -> tuple[
                 raise ProvenanceClearanceError(
                     "invalid recovered-public purchase operation key"
                 )
+            if "direct_queue_delivery_authority" in row:
+                _validate_direct_queue_delivery_authority(
+                    direct_authority,
+                    key=key,
+                    lineage=row,
+                )
             indexed[key] = row
         capability = object()
         capabilities[capability] = indexed
@@ -262,6 +273,78 @@ def _recovered_public_capability_boundary() -> tuple[
             ) from None
 
     return issue, consume
+
+
+def _validate_direct_queue_delivery_authority(
+    value: object,
+    *,
+    key: tuple[str, str],
+    lineage: Mapping[str, object],
+) -> None:
+    """Require one closed direct-queue proof derived by the raw verifier."""
+
+    if not isinstance(value, Mapping):
+        raise ProvenanceClearanceError("invalid direct queue delivery authority")
+    authority = cast(Mapping[str, object], value)
+    expected_fields = {
+        "schema_version",
+        "source_provider",
+        "purchase_status",
+        "operation_key",
+        "queue_id",
+        "reservation_id",
+        "reservation_usd",
+        "queue_response_sha256",
+        "purchase_policy_sha256",
+        "purchase_operation_sha256",
+        "purchase_response_sha256",
+        "recovery_run_card_sha256",
+        "recovery_manifest_sha256",
+        "recovery_restriction_evidence_sha256",
+        "purchase_state_sha256",
+    }
+    operation_key = authority.get("operation_key")
+    queue_id = authority.get("queue_id")
+    reservation_usd = authority.get("reservation_usd")
+    if (
+        set(authority) != expected_fields
+        or authority.get("schema_version")
+        != "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+        or authority.get("source_provider") != COURTLISTENER_RECAP_FETCH_PROVIDER
+        or authority.get("purchase_status") != "queued"
+        or operation_key != lineage.get("purchase_operation_key")
+        or authority.get("purchase_operation_sha256")
+        != lineage.get("purchase_operation_sha256")
+        or authority.get("recovery_run_card_sha256")
+        != lineage.get("recovery_run_card_sha256")
+        or authority.get("recovery_manifest_sha256")
+        != lineage.get("recovery_manifest_sha256")
+        or authority.get("recovery_restriction_evidence_sha256")
+        != lineage.get("recovery_restriction_evidence_sha256")
+        or authority.get("purchase_state_sha256")
+        != lineage.get("purchase_state_sha256")
+        or not isinstance(operation_key, str)
+        or _UUID4.fullmatch(operation_key) is None
+        or not isinstance(queue_id, str)
+        or re.fullmatch(r"[1-9][0-9]*", queue_id) is None
+        or authority.get("reservation_id") != f"direct:{operation_key}"
+        or not isinstance(reservation_usd, str)
+        or re.fullmatch(r"(?:0|[1-9][0-9]*)\.[0-9]{2}", reservation_usd) is None
+    ):
+        raise ProvenanceClearanceError(
+            f"invalid direct queue delivery authority: {key}"
+        )
+    for field in (
+        "queue_response_sha256",
+        "purchase_policy_sha256",
+        "purchase_operation_sha256",
+        "purchase_response_sha256",
+        "recovery_run_card_sha256",
+        "recovery_manifest_sha256",
+        "recovery_restriction_evidence_sha256",
+        "purchase_state_sha256",
+    ):
+        _digest(authority, field)
 
 
 (

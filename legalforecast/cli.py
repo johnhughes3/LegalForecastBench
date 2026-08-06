@@ -39513,6 +39513,7 @@ def _verify_materializer_quarantine_recovery(
         },
         "historical_purchase_operations": historical_operations,
         "historical_purchase_state_sha256": historical_purchase_state_sha256,
+        "purchase_policy_sha256": purchase_policy.policy_sha256,
     }
 
 
@@ -43704,6 +43705,7 @@ def _derive_recovered_public_lineage_rows(
     raw_outputs = recovery_run_card.get("output_commitments")
     raw_historical_operations = recovery.get("historical_purchase_operations")
     historical_state_sha256 = recovery.get("historical_purchase_state_sha256")
+    purchase_policy_sha256 = recovery.get("purchase_policy_sha256")
     if (
         not isinstance(raw_outputs, Mapping)
         or not isinstance(raw_historical_operations, Sequence)
@@ -43771,9 +43773,105 @@ def _derive_recovered_public_lineage_rows(
                 ),
                 "purchase_operation_key": operation_key,
                 "fresh_recap_detail_sha256": fresh_recap_detail_sha256,
+                **_direct_queue_delivery_lineage(
+                    operation,
+                    purchase_policy_sha256=(
+                        purchase_policy_sha256
+                        if isinstance(purchase_policy_sha256, str)
+                        else None
+                    ),
+                    recovery_run_card_sha256=recovery_run_card_sha256,
+                    recovery_manifest_sha256=recovery_manifest_sha256,
+                    recovery_restriction_sha256=recovery_restriction_sha256,
+                    purchase_state_sha256=historical_state_sha256,
+                ),
             }
         )
     return lineage_rows
+
+
+def _direct_queue_delivery_lineage(
+    operation: Mapping[str, Any],
+    *,
+    purchase_policy_sha256: str | None,
+    recovery_run_card_sha256: str,
+    recovery_manifest_sha256: str,
+    recovery_restriction_sha256: str,
+    purchase_state_sha256: str,
+) -> dict[str, object]:
+    """Project direct queued delivery only from an authenticated journal row."""
+
+    if operation.get("public_material_recovery") is not None:
+        return {}
+    raw_response = operation.get("response")
+    raw_material = operation.get("material_evidence")
+    operation_key = operation.get("operation_key")
+    if not isinstance(raw_response, Mapping) or not isinstance(raw_material, Mapping):
+        return {}
+    response = cast(Mapping[str, Any], raw_response)
+    material = cast(Mapping[str, Any], raw_material)
+    response_keys = set(response)
+    base_response_keys = {
+        "source_provider",
+        "reservation_usd",
+        "queue_id",
+        "reservation_id",
+    }
+    allowed_response_keys = base_response_keys | {
+        "courtlistener_url_commitment_correction"
+    }
+    queue_id = response.get("queue_id")
+    reservation_usd = response.get("reservation_usd")
+    queue_response_sha256 = material.get("queue_response_sha256")
+    if (
+        operation.get("status") != "queued"
+        or response.get("source_provider") != "courtlistener.recap-fetch+pacer"
+        or not isinstance(purchase_policy_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", purchase_policy_sha256) is None
+        or (
+            response_keys != base_response_keys
+            and response_keys != allowed_response_keys
+        )
+        or "broker_receipts" in response
+        or not isinstance(operation_key, str)
+        or re.fullmatch(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+            operation_key,
+        )
+        is None
+        or not isinstance(queue_id, str)
+        or re.fullmatch(r"[1-9][0-9]*", queue_id) is None
+        or response.get("reservation_id") != f"direct:{operation_key}"
+        or not isinstance(reservation_usd, str)
+        or reservation_usd != operation.get("reservation_usd")
+        or not isinstance(queue_response_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", queue_response_sha256) is None
+    ):
+        return {}
+    authority: dict[str, object] = {
+        "schema_version": (
+            "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+        ),
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "purchase_status": "queued",
+        "operation_key": operation_key,
+        "queue_id": queue_id,
+        "reservation_id": f"direct:{operation_key}",
+        "reservation_usd": reservation_usd,
+        "queue_response_sha256": queue_response_sha256,
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "purchase_operation_sha256": _recovered_public_lineage_digest(
+            _canonical_json_sha256(operation), label="purchase operation"
+        ),
+        "purchase_response_sha256": _recovered_public_lineage_digest(
+            _canonical_json_sha256(response), label="purchase response"
+        ),
+        "recovery_run_card_sha256": recovery_run_card_sha256,
+        "recovery_manifest_sha256": recovery_manifest_sha256,
+        "recovery_restriction_evidence_sha256": recovery_restriction_sha256,
+        "purchase_state_sha256": purchase_state_sha256,
+    }
+    return {"direct_queue_delivery_authority": authority}
 
 
 def _authenticate_recovered_public_raw_evidence(
