@@ -396,6 +396,40 @@ def test_read_only_identity_rejects_path_swap_during_read(
     assert read_descriptor in closed_descriptors
 
 
+def test_read_only_close_rejects_mode_mutation_during_snapshot_copy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.close()
+    original_copy = purchase_module._copy_regular_single_link_file  # pyright: ignore[reportPrivateUsage]
+    mutated = False
+
+    def mutate_mode_after_copy(source: Path, destination: Path) -> None:
+        nonlocal mutated
+        original_copy(source, destination)
+        if not mutated and source == journal.path:
+            source.chmod(0o640)
+            mutated = True
+
+    monkeypatch.setattr(
+        purchase_module, "_copy_regular_single_link_file", mutate_mode_after_copy
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="purchase ledger filesystem state changed during read-only audit",
+    ):
+        with CaseDevPurchaseJournal(
+            journal.path, policy=policy, read_only=True
+        ) as read_only_journal:
+            assert read_only_journal.operation_records() == ()
+
+    assert mutated is True
+    assert journal.path.stat().st_mode & 0o777 == 0o640
+
+
 def test_purchase_snapshot_rejects_semantically_corrupt_material_state(
     tmp_path: Path,
 ) -> None:

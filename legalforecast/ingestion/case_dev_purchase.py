@@ -1609,7 +1609,8 @@ class CaseDevPurchaseJournal:
         self._read_only = read_only
         self._snapshot_directory: tempfile.TemporaryDirectory[str] | None = None
         self._snapshot_before: (
-            tuple[tuple[str, int, int, int, int, int, str], ...] | None
+            tuple[tuple[str, int, int, int, int, int, int, int, int, int, str], ...]
+            | None
         ) = None
         if allow_create:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -3709,8 +3710,8 @@ def _copy_regular_single_link_file(source: Path, destination: Path) -> None:
 
 def _purchase_snapshot_filesystem_identity(
     paths: tuple[Path, ...],
-) -> tuple[tuple[str, int, int, int, int, int, str], ...]:
-    identities: list[tuple[str, int, int, int, int, int, str]] = []
+) -> tuple[tuple[str, int, int, int, int, int, int, int, int, int, str], ...]:
+    identities: list[tuple[str, int, int, int, int, int, int, int, int, int, str]] = []
     for path in paths:
         try:
             metadata = path.lstat()
@@ -3727,7 +3728,8 @@ def _purchase_snapshot_filesystem_identity(
             if (
                 not stat.S_ISREG(opened.st_mode)
                 or opened.st_nlink != 1
-                or (opened.st_dev, opened.st_ino) != (metadata.st_dev, metadata.st_ino)
+                or _purchase_snapshot_stat_identity(opened)
+                != _purchase_snapshot_stat_identity(metadata)
             ):
                 raise CaseDevPurchaseLedgerError(
                     f"purchase ledger path changed during read-only audit: {path}"
@@ -3740,20 +3742,8 @@ def _purchase_snapshot_filesystem_identity(
         if (
             not stat.S_ISREG(final.st_mode)
             or final.st_nlink != 1
-            or (
-                final.st_dev,
-                final.st_ino,
-                final.st_size,
-                final.st_atime_ns,
-                final.st_mtime_ns,
-            )
-            != (
-                opened.st_dev,
-                opened.st_ino,
-                opened.st_size,
-                opened.st_atime_ns,
-                opened.st_mtime_ns,
-            )
+            or _purchase_snapshot_stat_identity(final)
+            != _purchase_snapshot_stat_identity(opened)
         ):
             raise CaseDevPurchaseLedgerError(
                 f"purchase ledger path changed during read-only audit: {path}"
@@ -3766,10 +3756,30 @@ def _purchase_snapshot_filesystem_identity(
                 final.st_size,
                 final.st_atime_ns,
                 final.st_mtime_ns,
+                stat.S_IMODE(final.st_mode),
+                final.st_uid,
+                final.st_gid,
+                final.st_ctime_ns,
                 digest.hexdigest(),
             )
         )
     return tuple(identities)
+
+
+def _purchase_snapshot_stat_identity(
+    metadata: os.stat_result,
+) -> tuple[int, int, int, int, int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_size,
+        metadata.st_atime_ns,
+        metadata.st_mtime_ns,
+        stat.S_IMODE(metadata.st_mode),
+        metadata.st_uid,
+        metadata.st_gid,
+        metadata.st_ctime_ns,
+    )
 
 
 def _read_only_snapshot_open_flags() -> int:
