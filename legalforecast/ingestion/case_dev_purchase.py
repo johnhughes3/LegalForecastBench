@@ -6001,6 +6001,60 @@ def _validate_unknown_public_recovery_record(
         )
 
 
+def validate_unknown_public_recovery_evidence(
+    record: Mapping[str, object],
+    operation: Mapping[str, object],
+    *,
+    candidate_id: str,
+    document_id: str,
+    purchase_policy_sha256: str,
+) -> None:
+    """Authenticate a journal-exported v1 or corrected-v2 public recovery."""
+
+    if operation.get("candidate_id") != candidate_id or (
+        "source_document_id" in operation
+        and operation.get("source_document_id") != document_id
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery operation identity conflicts"
+        )
+    material_evidence_value = operation.get("material_evidence")
+    if not isinstance(material_evidence_value, Mapping):
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery lacks material evidence"
+        )
+    material_evidence = cast(Mapping[str, object], material_evidence_value)
+    material_state = operation.get("material_state")
+    normalized_material_state = (
+        material_state.value
+        if isinstance(material_state, PurchaseMaterialState)
+        else material_state
+    )
+    normalized_operation: Mapping[str, object] = {
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "operation_key": operation.get("operation_key"),
+        "status": operation.get("status"),
+        "reservation_usd": operation.get("reservation_usd"),
+        "actual_usd": operation.get("actual_usd"),
+    }
+    normalized_material: Mapping[str, object] = {
+        "authority": operation.get("material_authority"),
+        "status": normalized_material_state,
+        "attempt_policy_sha256": operation.get("attempt_policy_sha256"),
+        "attempt_document_sha256": operation.get("attempt_document_sha256"),
+        "provider_detail_sha256": material_evidence.get("provider_detail_sha256"),
+        "queue_response_sha256": material_evidence.get("queue_response_sha256"),
+        "download_url_sha256": material_evidence.get("download_url_sha256"),
+    }
+    _validate_unknown_public_recovery_record(
+        record,
+        normalized_operation,
+        normalized_material,
+        purchase_policy_sha256=purchase_policy_sha256,
+    )
+
+
 def _decode_unknown_public_recovery_row(
     row: Mapping[str, object] | sqlite3.Row,
 ) -> Mapping[str, object]:

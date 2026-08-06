@@ -13,6 +13,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     PurchaseMaterialState,
     generate_case_dev_purchase_policy,
+    validate_unknown_public_recovery_evidence,
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.courtlistener_recap_fetch import (
@@ -450,6 +451,21 @@ def test_recovery_repairs_authenticated_unknown_public_legacy_url_before_bytes(
         correction = recovery["courtlistener_url_commitment_correction"]
         assert correction["legacy_download_url_sha256"] == legacy_digest
         assert correction["corrected_download_url_sha256"] == corrected_digest
+        for mismatched_operation in (
+            {**corrected_operation, "candidate_id": "other-case"},
+            {**corrected_operation, "source_document_id": "other-document"},
+        ):
+            with pytest.raises(
+                CaseDevPurchaseLedgerError,
+                match="operation identity conflicts",
+            ):
+                validate_unknown_public_recovery_evidence(
+                    recovery,
+                    mismatched_operation,
+                    candidate_id="case-1",
+                    document_id="123",
+                    purchase_policy_sha256=policy.policy_sha256,
+                )
         journal.correct_unknown_public_recovery_url_commitment(
             "123",
             candidate_id="case-1",
