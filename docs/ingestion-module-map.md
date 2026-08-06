@@ -30,6 +30,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | Module | Responsibility |
 | --- | --- |
 | [`corpus_readiness.py`](../legalforecast/ingestion/corpus_readiness.py) | Clean-corpus readiness checks. |
+| [`corpus_completion_summary.py`](../legalforecast/ingestion/corpus_completion_summary.py) | Provider-free terminal funnel, spend, case-mix, and adjudication audit. |
 | [`cycle_acquisition_assembler.py`](../legalforecast/ingestion/cycle_acquisition_assembler.py) | Content-addressed immutable batch assembly. |
 | [`cycle_acquisition_store.py`](../legalforecast/ingestion/cycle_acquisition_store.py) | Resumable state for one acquisition cycle. |
 | [`cycle_manifest_template.py`](../legalforecast/ingestion/cycle_manifest_template.py) | Canonical configs from path-parameterized templates. |

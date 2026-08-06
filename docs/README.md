@@ -84,6 +84,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 **Spend authority and purchase**
 
+- [corpus-completion-summary-v1.md](schemas/corpus-completion-summary-v1.md): deterministic terminal acquisition, adjudication, case-mix, and canonical purchase-ledger audit.
 - [provider-cycle-caps-v1.md](schemas/provider-cycle-caps-v1.md): the immutable pre-labeling commitment for provider and account spend.
 - [provider-cycle-caps-successor-v1.md](schemas/provider-cycle-caps-successor-v1.md): provider-free derivation of the authority-enabled caps artifact from immutable legacy caps.
 - [case-dev-purchase-policy-v2.md](schemas/case-dev-purchase-policy-v2.md): the sole public derived authority for a new official document-purchase session.

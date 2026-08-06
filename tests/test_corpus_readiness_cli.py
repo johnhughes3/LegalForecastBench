@@ -452,6 +452,25 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
         "labels": inputs / "original-llm-label-labels.jsonl",
         "audit": inputs / "original-llm-label-audit.jsonl",
     }
+    finalize_card = json.loads(
+        (output_root / "run-cards" / "finalize-corpus.json").read_text(encoding="utf-8")
+    )
+    committed_paths = {
+        "materialization_run_card": inputs / "materialization-run-card.json",
+        "model_registry": REGISTRY,
+        "unitization_review_queue": inputs / "unitization-review-queue.jsonl",
+        "unitization_adjudications": inputs / "unitization-adjudications.jsonl",
+        "lawyer_review_queue": inputs / "review-queue.jsonl",
+        "lawyer_review_audit": inputs / "lawyer-review-audit.jsonl",
+    }
+    assert finalize_card["completion_summary_input_commitments"] == {
+        name: {
+            "path": str(path.resolve()),
+            "sha256": sha256_file(path),
+            "byte_count": len(path.read_bytes()),
+        }
+        for name, path in committed_paths.items()
+    }
 
 
 def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
