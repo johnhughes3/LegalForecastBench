@@ -615,6 +615,16 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
             {"policy": {"cycle_id": "cycle-public-marker-test"}}
         )
     )
+    successor_history_root = tmp_path / "successor-history-recovery"
+    successor_history_card = (
+        successor_history_root / "run-cards/recover-recap-fetch-quarantine.json"
+    )
+    successor_history_card.parent.mkdir(parents=True)
+    successor_history_card.write_bytes(
+        cli_module.canonical_json_bytes({"authenticated": "successor-history"})
+    )
+    successor_history_private_root = tmp_path / "successor-history-private"
+    successor_history_private_root.mkdir()
     recovery = {
         "run_card_path": recovery_run_card_path,
         "manifest_path": paths["manifest"],
@@ -673,6 +683,28 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
             purchase_state_sha256=purchase_state_sha256,
             operations=(operation,),
         ),
+    )
+
+    def verify_successor_history(
+        **kwargs: object,
+    ) -> tuple[object, Mapping[str, bytes]]:
+        assert kwargs["successor_recovery_root"] == successor_history_root
+        assert (
+            kwargs["successor_controlled_private_root"]
+            == successor_history_private_root
+        )
+        capture = cast(Callable[..., bytes], kwargs["capture"])
+        payload = capture(
+            successor_history_card, label="successor history recovery run card"
+        )
+        return kwargs["current_snapshot"], {
+            os.path.abspath(successor_history_card): payload
+        }
+
+    monkeypatch.setattr(
+        cli_module,
+        "_authenticated_pre_successor_purchase_snapshot",
+        verify_successor_history,
     )
     verification_arguments = [
         "--recovery-run-card",
@@ -750,6 +782,39 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         )
     )
     clearance_root = tmp_path / "provider-free-clearance"
+    successor_history_arguments = [
+        "--successor-history-recovery-root",
+        str(successor_history_root),
+        "--successor-history-controlled-private-root",
+        str(successor_history_private_root),
+    ]
+    partial_history_root = tmp_path / "partial-history-clearance"
+    assert (
+        main(
+            [
+                *_public_marker_command(
+                    paths,
+                    cohort_policy=cohort_policy,
+                    public_marker_policy=public_marker_policy,
+                    clearance_root=partial_history_root,
+                    resume=True,
+                ),
+                *verification_arguments,
+                "--successor-history-recovery-root",
+                str(successor_history_root),
+            ]
+        )
+        == 2
+    )
+    assert not (partial_history_root / "disclosure-clearance.jsonl").exists()
+    assert not (partial_history_root / "disclosure-quarantine.jsonl").exists()
+    partial_failure_card = json.loads(
+        (
+            partial_history_root / "run-cards/finalize-provenance-quarantine.json"
+        ).read_text()
+    )
+    assert partial_failure_card["status"] == "failed"
+    assert partial_failure_card["paid_activity_executed"] is False
     assert (
         main(
             [
@@ -761,6 +826,7 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
                     resume=True,
                 ),
                 *verification_arguments,
+                *successor_history_arguments,
             ]
         )
         == 0
@@ -803,6 +869,58 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
     assert run_card["paid_activity_executed"] is False
     assert run_card["human_review_requested"] is False
     assert run_card["human_review_executed"] is False
+    history = run_card["authenticated_successor_history"]
+    assert history["recovery_root"] == str(successor_history_root.resolve())
+    assert history["initial_controlled_private_root"] == str(paths["private"].resolve())
+    assert history["controlled_private_root"] == str(
+        successor_history_private_root.resolve()
+    )
+    assert history["replayed_purchase_state_sha256"] == purchase_state_sha256
+    assert history["source_names"] == ["successor_history_source_0000"]
+    assert run_card["source_commitments"]["successor_history_source_0000"] == {
+        "path": str(successor_history_card.resolve()),
+        "sha256": "sha256:"
+        + hashlib.sha256(successor_history_card.read_bytes()).hexdigest(),
+    }
+    published_history = successor_history_card.read_bytes()
+    published_outputs = {
+        path: path.read_bytes()
+        for path in (
+            clearance_root / "disclosure-clearance.jsonl",
+            clearance_root / "disclosure-quarantine.jsonl",
+            clearance_run_card_path,
+        )
+    }
+    successor_history_card.write_bytes(b"tampered successor history\n")
+    assert (
+        main(
+            [
+                *_public_marker_command(
+                    paths,
+                    cohort_policy=cohort_policy,
+                    public_marker_policy=public_marker_policy,
+                    clearance_root=clearance_root,
+                    resume=True,
+                ),
+                *verification_arguments,
+                *successor_history_arguments,
+            ]
+        )
+        == 2
+    )
+    assert published_outputs == {path: path.read_bytes() for path in published_outputs}
+    with pytest.raises(cli_module.CommandError):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_root / "disclosure-clearance.jsonl",
+            clearance_run_card_path=clearance_run_card_path,
+        )
+    successor_history_card.unlink()
+    with pytest.raises(cli_module.CommandError):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_root / "disclosure-clearance.jsonl",
+            clearance_run_card_path=clearance_run_card_path,
+        )
+    successor_history_card.write_bytes(published_history)
     authority = run_card["recovered_public_authority"]
     assert authority["kind"] == "verified_recap_fetch_recovery"
     assert authority["document_count"] == 1

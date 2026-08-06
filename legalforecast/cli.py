@@ -7939,6 +7939,24 @@ def _add_acquisition_quarantine_provenance_exceptions_arguments(
             "empty-set, or quarantine-all modes."
         ),
     )
+    parser.add_argument(
+        "--successor-history-recovery-root",
+        type=Path,
+        help=(
+            "Later replacement recovery whose authenticated purchase suffix is "
+            "removed before replaying an earlier recovered-public authority. "
+            "Accepted only with --public-marker-clearance-policy and the paired "
+            "controlled-private root."
+        ),
+    )
+    parser.add_argument(
+        "--successor-history-controlled-private-root",
+        type=Path,
+        help=(
+            "Controlled-private authority root for --successor-history-recovery-"
+            "root. The two history arguments must be supplied together."
+        ),
+    )
     _add_recovered_public_clearance_verification_arguments(parser)
     parser.set_defaults(handler=_cmd_acquisition_quarantine_provenance_exceptions)
 
@@ -43768,34 +43786,45 @@ def _authenticate_recovered_public_raw_evidence(
     ledger_path: Path,
     initialization_receipt_path: Path,
     controlled_private_root: Path | None,
+    successor_history_recovery_root: Path | None = None,
+    successor_history_controlled_private_root: Path | None = None,
 ) -> Mapping[str, object]:
     """Authenticate recovery bytes, policies, and live ledger state together."""
 
+    verified_bytes: dict[str, bytes] = {}
+
+    def capture(path: Path, *, label: str) -> bytes:
+        payload = _read_singly_linked_regular_input(path, label=label)
+        _merge_verified_artifact_bytes(
+            verified_bytes,
+            {os.path.abspath(path): payload},
+            label="recovered-public successor history",
+        )
+        return payload
+
     selection_records = _projection_jsonl_records(
-        _read_singly_linked_regular_input(
-            selection_path, label="recovered-public selection"
-        ),
+        capture(selection_path, label="recovered-public selection"),
         source=selection_path,
     )
-    purchase_policy = verify_case_dev_purchase_policy(
-        _projection_json_object(
-            _read_singly_linked_regular_input(
-                purchase_policy_path, label="recovered-public purchase policy"
-            ),
-            source=purchase_policy_path,
-        )
+    purchase_policy_bytes = capture(
+        purchase_policy_path, label="recovered-public purchase policy"
     )
+    purchase_policy_artifact = _projection_json_object(
+        purchase_policy_bytes, source=purchase_policy_path
+    )
+    purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
     require_approved_case_dev_purchase_policy(
         purchase_policy, controlled_private_root=controlled_private_root
     )
+    cohort_policy_bytes = capture(
+        cohort_policy_path, label="recovered-public cohort policy"
+    )
+    cohort_policy_artifact = _projection_json_object(
+        cohort_policy_bytes, source=cohort_policy_path
+    )
     verify_case_dev_purchase_policy_cohort_binding(
         purchase_policy,
-        _projection_json_object(
-            _read_singly_linked_regular_input(
-                cohort_policy_path, label="recovered-public cohort policy"
-            ),
-            source=cohort_policy_path,
-        ),
+        cohort_policy_artifact,
     )
     if ledger_path.resolve() != purchase_policy.canonical_ledger_path:
         raise CommandError(
@@ -43807,7 +43836,77 @@ def _authenticate_recovered_public_raw_evidence(
         controlled_private_root=controlled_private_root,
         initialization_receipt_path=initialization_receipt_path,
     )
-    return _verify_materializer_quarantine_recovery(
+    history_roots = (
+        successor_history_recovery_root,
+        successor_history_controlled_private_root,
+    )
+    if any(path is not None for path in history_roots) and not all(
+        path is not None for path in history_roots
+    ):
+        raise CommandError(
+            "successor history recovery and controlled-private roots must be "
+            "supplied together"
+        )
+    verification_snapshot = purchase_snapshot
+    history: dict[str, object] | None = None
+    if (
+        successor_history_recovery_root is not None
+        and successor_history_controlled_private_root is not None
+    ):
+        if controlled_private_root is None:
+            raise CommandError(
+                "successor history requires --controlled-private-root for the "
+                "initial purchase authority"
+            )
+        try:
+            verification_snapshot, history_recovery_bytes = (
+                _authenticated_pre_successor_purchase_snapshot(
+                    successor_recovery_root=successor_history_recovery_root,
+                    successor_controlled_private_root=(
+                        successor_history_controlled_private_root
+                    ),
+                    current_snapshot=purchase_snapshot,
+                    policy=purchase_policy,
+                    policy_artifact=purchase_policy_artifact,
+                    cohort_artifact=cohort_policy_artifact,
+                    purchase_policy_path=purchase_policy_path,
+                    cohort_policy_path=cohort_policy_path,
+                    ledger_path=ledger_path.resolve(),
+                    initial_controlled_private_root=controlled_private_root,
+                    initialization_receipt_path=initialization_receipt_path,
+                    capture=capture,
+                )
+            )
+        except (
+            OSError,
+            RecapFetchAttemptPolicyError,
+            ReplacementPurchaseApprovalError,
+            ReplacementRecoverySourceError,
+            ValueError,
+        ) as exc:
+            raise CommandError(str(exc)) from exc
+        _merge_verified_artifact_bytes(
+            verified_bytes,
+            history_recovery_bytes,
+            label="recovered-public successor history",
+        )
+        history = {
+            "recovery_root": successor_history_recovery_root.resolve(),
+            "initial_controlled_private_root": controlled_private_root.resolve(),
+            "controlled_private_root": (
+                successor_history_controlled_private_root.resolve()
+            ),
+            "replayed_purchase_state_sha256": (
+                verification_snapshot.purchase_state_sha256
+            ),
+            "source_paths": tuple(
+                sorted(
+                    (Path(path).resolve() for path in history_recovery_bytes),
+                    key=str,
+                )
+            ),
+        }
+    recovery = _verify_materializer_quarantine_recovery(
         recovery_root=recovery_root,
         run_card_path=run_card_path,
         selection_path=selection_path,
@@ -43817,10 +43916,23 @@ def _authenticate_recovered_public_raw_evidence(
         purchase_policy_path=purchase_policy_path,
         cohort_policy_path=cohort_policy_path,
         ledger_path=ledger_path.resolve(),
-        purchase_operations=purchase_snapshot.operations,
-        purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
-        purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        purchase_operations=verification_snapshot.operations,
+        purchase_committed_amount_usd=verification_snapshot.committed_amount_usd,
+        purchase_state_sha256=verification_snapshot.purchase_state_sha256,
     )
+    raw_recovery_bytes = recovery.get("verified_artifact_bytes")
+    if not isinstance(raw_recovery_bytes, Mapping):
+        raise CommandError("recovered-public verification lacks exact recovery bytes")
+    _merge_verified_artifact_bytes(
+        verified_bytes,
+        cast(Mapping[str, bytes], raw_recovery_bytes),
+        label="recovered-public recovery",
+    )
+    result = dict(recovery)
+    result["verified_artifact_bytes"] = verified_bytes
+    if history is not None:
+        result["authenticated_successor_history"] = history
+    return result
 
 
 def _verified_recovered_public_clearance_capability(
@@ -43831,7 +43943,12 @@ def _verified_recovered_public_clearance_capability(
     expected_case_relevance_path: Path,
     expected_review_requests_path: Path,
     expected_document_root: Path,
-) -> tuple[object | None, dict[str, object] | None, tuple[Path, ...]]:
+) -> tuple[
+    object | None,
+    dict[str, object] | None,
+    tuple[Path, ...],
+    dict[str, object] | None,
+]:
     """Authenticate recovery and current purchase state before issuing authority."""
 
     names = (
@@ -43844,7 +43961,18 @@ def _verified_recovered_public_clearance_capability(
     )
     values = {name: cast(Path | None, getattr(args, name, None)) for name in names}
     if all(value is None for value in values.values()):
-        return None, None, ()
+        if any(
+            getattr(args, name, None) is not None
+            for name in (
+                "successor_history_recovery_root",
+                "successor_history_controlled_private_root",
+            )
+        ):
+            raise CommandError(
+                "successor history requires the complete recovered-public "
+                "verification argument set"
+            )
+        return None, None, (), None
     missing = [name for name, value in values.items() if value is None]
     if missing:
         raise CommandError(
@@ -43872,6 +44000,13 @@ def _verified_recovered_public_clearance_capability(
         label="recovered-public purchase ledger initialization receipt",
     )
     controlled_private_root = cast(Path | None, args.controlled_private_root)
+    successor_history_recovery_root = cast(
+        Path | None, getattr(args, "successor_history_recovery_root", None)
+    )
+    successor_history_controlled_private_root = cast(
+        Path | None,
+        getattr(args, "successor_history_controlled_private_root", None),
+    )
     recovery = _authenticate_recovered_public_raw_evidence(
         recovery_root=run_card_path.parents[1],
         run_card_path=run_card_path,
@@ -43881,6 +44016,10 @@ def _verified_recovered_public_clearance_capability(
         ledger_path=ledger_path,
         initialization_receipt_path=initialization_receipt_path,
         controlled_private_root=controlled_private_root,
+        successor_history_recovery_root=successor_history_recovery_root,
+        successor_history_controlled_private_root=(
+            successor_history_controlled_private_root
+        ),
     )
     expected_paths = {
         "manifest_path": expected_manifest_path,
@@ -43935,6 +44074,10 @@ def _verified_recovered_public_clearance_capability(
         ledger_path=ledger_path,
         initialization_receipt_path=initialization_receipt_path,
         controlled_private_root=controlled_private_root,
+        successor_history_recovery_root=successor_history_recovery_root,
+        successor_history_controlled_private_root=(
+            successor_history_controlled_private_root
+        ),
         expected_manifest_path=expected_manifest_path,
         expected_restriction_path=expected_restriction_path,
         expected_case_relevance_path=expected_case_relevance_path,
@@ -43973,7 +44116,24 @@ def _verified_recovered_public_clearance_capability(
         ),
         "document_count": len(lineage_rows),
     }
-    return capability, authority, tuple(paths.values())
+    raw_history = recovery.get("authenticated_successor_history")
+    history = (
+        dict(cast(Mapping[str, object], raw_history))
+        if isinstance(raw_history, Mapping)
+        else None
+    )
+    if history is not None:
+        raw_history_paths = history.get("source_paths")
+        if not isinstance(raw_history_paths, tuple) or not all(
+            isinstance(path, Path)
+            for path in cast(tuple[object, ...], raw_history_paths)
+        ):
+            raise CommandError("successor history lacks exact source paths")
+        history["source_bytes"] = {
+            os.path.abspath(path): verified_bytes[os.path.abspath(path)]
+            for path in cast(tuple[Path, ...], raw_history_paths)
+        }
+    return capability, authority, tuple(paths.values()), history
 
 
 def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int:
@@ -44046,6 +44206,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             verified_recovery_capability,
             recovered_public_authority,
             recovery_input_paths,
+            _successor_history,
         ) = _verified_recovered_public_clearance_capability(
             args,
             expected_manifest_path=manifest_path,
@@ -44924,6 +45085,16 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
     plan_run_card_path = cast(Path | None, args.plan_run_card)
     public_marker_policy_path = cast(Path | None, args.public_marker_clearance_policy)
     public_marker_mode = public_marker_policy_path is not None
+    successor_history_recovery_root = cast(
+        Path | None, args.successor_history_recovery_root
+    )
+    successor_history_controlled_private_root = cast(
+        Path | None, args.successor_history_controlled_private_root
+    )
+    successor_history_roots = (
+        successor_history_recovery_root,
+        successor_history_controlled_private_root,
+    )
     require_no_model_review = cast(
         bool, args.require_no_model_review_eligible_exceptions
     )
@@ -44971,6 +45142,20 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
     if require_no_model_review and public_marker_mode:
         raise CommandError(
             "public-marker policy and empty-eligible-set modes are mutually exclusive"
+        )
+    if any(path is not None for path in successor_history_roots) and not all(
+        path is not None for path in successor_history_roots
+    ):
+        raise CommandError(
+            "--successor-history-recovery-root and --successor-history-controlled-"
+            "private-root must be supplied together"
+        )
+    if any(path is not None for path in successor_history_roots) and not (
+        public_marker_mode and plan_run_card_path is not None
+    ):
+        raise CommandError(
+            "successor history is accepted only for authenticated public-marker "
+            "finalization"
         )
     if (require_no_model_review or public_marker_mode) and any(
         value is not None for value in model_values
@@ -45043,6 +45228,7 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             verified_recovery_capability,
             recovered_public_authority,
             recovery_input_paths,
+            authenticated_successor_history,
         ) = _verified_recovered_public_clearance_capability(
             args,
             expected_manifest_path=manifest_path,
@@ -45051,6 +45237,83 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             expected_review_requests_path=requests_path,
             expected_document_root=document_root,
         )
+        history_source_paths: dict[str, Path] = {}
+        history_source_bytes: dict[str, bytes] = {}
+        history_run_card_record: dict[str, object] | None = None
+        if authenticated_successor_history is not None:
+            if set(authenticated_successor_history) != {
+                "recovery_root",
+                "initial_controlled_private_root",
+                "controlled_private_root",
+                "replayed_purchase_state_sha256",
+                "source_paths",
+                "source_bytes",
+            }:
+                raise CommandError("authenticated successor history fields differ")
+            history_root = authenticated_successor_history.get("recovery_root")
+            history_private_root = authenticated_successor_history.get(
+                "controlled_private_root"
+            )
+            initial_private_root = authenticated_successor_history.get(
+                "initial_controlled_private_root"
+            )
+            history_state = authenticated_successor_history.get(
+                "replayed_purchase_state_sha256"
+            )
+            raw_history_paths = authenticated_successor_history.get("source_paths")
+            raw_history_bytes = authenticated_successor_history.get("source_bytes")
+            if (
+                not isinstance(history_root, Path)
+                or not isinstance(initial_private_root, Path)
+                or not isinstance(history_private_root, Path)
+                or not isinstance(history_state, str)
+                or re.fullmatch(r"[0-9a-f]{64}", history_state) is None
+                or not isinstance(raw_history_paths, tuple)
+                or not all(
+                    isinstance(path, Path)
+                    for path in cast(tuple[object, ...], raw_history_paths)
+                )
+                or not isinstance(raw_history_bytes, Mapping)
+            ):
+                raise CommandError("authenticated successor history is invalid")
+            excluded_history_paths = {
+                path.resolve()
+                for path in (
+                    *source_paths.values(),
+                    *recovery_input_paths,
+                    document_root,
+                )
+            }
+            unique_history_paths = tuple(
+                path
+                for path in cast(tuple[Path, ...], raw_history_paths)
+                if path.resolve() not in excluded_history_paths
+            )
+            if not unique_history_paths or len(
+                {path.resolve() for path in unique_history_paths}
+            ) != len(unique_history_paths):
+                raise CommandError(
+                    "authenticated successor history sources are empty or repeated"
+                )
+            for index, path in enumerate(unique_history_paths):
+                name = f"successor_history_source_{index:04d}"
+                key = os.path.abspath(path)
+                payload = cast(Mapping[str, bytes], raw_history_bytes).get(key)
+                if not isinstance(payload, bytes):
+                    raise CommandError(
+                        "authenticated successor history lacks exact source bytes"
+                    )
+                history_source_paths[name] = path
+                history_source_bytes[name] = payload
+            history_run_card_record = {
+                "recovery_root": str(history_root.resolve()),
+                "initial_controlled_private_root": str(initial_private_root.resolve()),
+                "controlled_private_root": str(history_private_root.resolve()),
+                "replayed_purchase_state_sha256": history_state,
+                "source_names": list(history_source_paths),
+            }
+        elif any(path is not None for path in successor_history_roots):
+            raise CommandError("successor history verification did not authenticate")
         document_snapshot = _capture_provenance_document_snapshot(
             manifest_records, document_root=document_root
         )
@@ -45227,9 +45490,19 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
     dry_run = _acquisition_dry_run(args)
     if dry_run:
         return 0
+    finalizer_source_paths = {**source_paths, **history_source_paths}
+    finalizer_source_bytes = {**source_bytes, **history_source_bytes}
+    _validate_disclosure_review_paths(
+        input_paths=tuple(finalizer_source_paths.values()),
+        output_paths=(clearance_path, quarantine_path, run_card_path),
+        protected_roots=(document_root,),
+    )
     source_commitments: dict[str, dict[str, object]] = {
-        name: {"path": str(path.resolve()), "sha256": _bytes_sha256(source_bytes[name])}
-        for name, path in source_paths.items()
+        name: {
+            "path": str(path.resolve()),
+            "sha256": _bytes_sha256(finalizer_source_bytes[name]),
+        }
+        for name, path in finalizer_source_paths.items()
     }
     document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
     source_commitments["document_root"] = {
@@ -45282,6 +45555,7 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             str(path.resolve())
             for path in (
                 *source_paths.values(),
+                *history_source_paths.values(),
                 *recovery_input_paths,
                 document_root,
             )
@@ -45369,8 +45643,21 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             if recovered_public_authority is not None
             else {}
         ),
+        **(
+            {"authenticated_successor_history": history_run_card_record}
+            if history_run_card_record is not None
+            else {}
+        ),
     }
     run_card_bytes = canonical_json_bytes(run_card)
+    if history_source_paths:
+        _require_snapshot_unchanged(
+            {
+                path: history_source_bytes[name]
+                for name, path in history_source_paths.items()
+            },
+            label="authenticated successor history",
+        )
     if run_card_path.exists() or run_card_path.is_symlink():
         if not cast(bool, args.resume):
             raise CommandError(
@@ -47514,6 +47801,49 @@ def _verify_provider_free_provenance_quarantine_run_card(
         if isinstance(raw_recovered_authority, Mapping)
         else None
     )
+    raw_successor_history = run_card.get("authenticated_successor_history")
+    successor_history = (
+        cast(Mapping[str, object], raw_successor_history)
+        if isinstance(raw_successor_history, Mapping)
+        else None
+    )
+    successor_history_source_names: tuple[str, ...] = ()
+    if successor_history is not None:
+        raw_names = successor_history.get("source_names")
+        history_state = successor_history.get("replayed_purchase_state_sha256")
+        if (
+            set(successor_history)
+            != {
+                "recovery_root",
+                "initial_controlled_private_root",
+                "controlled_private_root",
+                "replayed_purchase_state_sha256",
+                "source_names",
+            }
+            or not isinstance(successor_history.get("recovery_root"), str)
+            or not successor_history.get("recovery_root")
+            or not isinstance(
+                successor_history.get("initial_controlled_private_root"), str
+            )
+            or not successor_history.get("initial_controlled_private_root")
+            or not isinstance(successor_history.get("controlled_private_root"), str)
+            or not successor_history.get("controlled_private_root")
+            or not isinstance(history_state, str)
+            or re.fullmatch(r"[0-9a-f]{64}", history_state) is None
+            or not isinstance(raw_names, list)
+            or not all(isinstance(name, str) for name in cast(list[object], raw_names))
+        ):
+            raise CommandError("invalid authenticated successor history")
+        successor_history_source_names = tuple(cast(list[str], raw_names))
+        if (
+            not successor_history_source_names
+            or successor_history_source_names
+            != tuple(
+                f"successor_history_source_{index:04d}"
+                for index in range(len(successor_history_source_names))
+            )
+        ):
+            raise CommandError("authenticated successor history sources differ")
     expected_fields = {
         "schema_version",
         "stage",
@@ -47564,6 +47894,8 @@ def _verify_provider_free_provenance_quarantine_run_card(
     )
     if recovered_authority is not None:
         expected_fields.add("recovered_public_authority")
+    if successor_history is not None:
+        expected_fields.add("authenticated_successor_history")
     if model_schema:
         expected_fields.add("model_review_state")
         expected_fields.add("resume")
@@ -47609,6 +47941,10 @@ def _verify_provider_free_provenance_quarantine_run_card(
         )
         != 1
         or (no_model_review_mode and (model_schema or public_marker_schema))
+        or (
+            successor_history is not None
+            and (not public_marker_schema or recovered_authority is None)
+        )
         or (explicit_quarantine_all_mode and (model_schema or no_model_review_mode))
         or (
             no_model_review_mode
@@ -47654,6 +47990,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
             if public_marker_schema
             else ()
         )
+        + successor_history_source_names
     )
     paths = {name: _materializer_committed_path(sources, name) for name in source_names}
     if set(sources) != {*source_names, "document_root"}:
@@ -47708,6 +48045,22 @@ def _verify_provider_free_provenance_quarantine_run_card(
     recovery_cohort_policy_path: Path | None = None
     ledger_path: Path | None = None
     state_sha256: str | None = None
+    successor_history_source_snapshot: dict[str, bytes] = {}
+    if successor_history is not None:
+        for name in successor_history_source_names:
+            path = paths[name]
+            payload = _captured_or_stable_input(
+                path,
+                label=name.replace("_", " "),
+                captured_artifact_bytes=captured_artifact_bytes,
+            )
+            _validate_named_path_commitment(
+                sources,
+                name=name,
+                expected_path=path,
+                expected_sha256=_bytes_sha256(payload),
+            )
+            successor_history_source_snapshot[os.path.abspath(path)] = payload
     if recovered_authority is not None:
         if (
             set(recovered_authority)
@@ -47790,6 +48143,79 @@ def _verify_provider_free_provenance_quarantine_run_card(
         selected_document_keys = _replacement_consolidation_selection_keys(
             selection_records
         )
+        verification_snapshot = purchase_snapshot
+        if successor_history is not None:
+            history_recovery_root = Path(cast(str, successor_history["recovery_root"]))
+            history_private_root = Path(
+                cast(str, successor_history["controlled_private_root"])
+            )
+
+            def capture_successor_history(path: Path, *, label: str) -> bytes:
+                payload = successor_history_source_snapshot.get(os.path.abspath(path))
+                if payload is None:
+                    return _read_singly_linked_regular_input(path, label=label)
+                return payload
+
+            try:
+                verification_snapshot, verified_history_bytes = (
+                    _authenticated_pre_successor_purchase_snapshot(
+                        successor_recovery_root=history_recovery_root,
+                        successor_controlled_private_root=history_private_root,
+                        current_snapshot=purchase_snapshot,
+                        policy=purchase_policy,
+                        policy_artifact=_projection_json_object(
+                            purchase_policy_bytes, source=purchase_policy_path
+                        ),
+                        cohort_artifact=_projection_json_object(
+                            recovery_cohort_policy_bytes,
+                            source=recovery_cohort_policy_path,
+                        ),
+                        purchase_policy_path=purchase_policy_path,
+                        cohort_policy_path=recovery_cohort_policy_path,
+                        ledger_path=ledger_path,
+                        initial_controlled_private_root=Path(
+                            cast(
+                                str,
+                                successor_history["initial_controlled_private_root"],
+                            )
+                        ),
+                        initialization_receipt_path=initialization_receipt_path,
+                        capture=capture_successor_history,
+                    )
+                )
+            except (
+                OSError,
+                RecapFetchAttemptPolicyError,
+                ReplacementPurchaseApprovalError,
+                ReplacementRecoverySourceError,
+                ValueError,
+            ) as exc:
+                raise CommandError(str(exc)) from exc
+            core_history_paths = {
+                path.resolve()
+                for path in (
+                    selection_path,
+                    purchase_policy_path,
+                    ledger_path,
+                    initialization_receipt_path,
+                    recovery_cohort_policy_path,
+                )
+            }
+            unique_verified_history = {
+                os.path.abspath(Path(path).resolve()): payload
+                for path, payload in verified_history_bytes.items()
+                if Path(path).resolve() not in core_history_paths
+            }
+            if unique_verified_history != successor_history_source_snapshot:
+                raise CommandError(
+                    "authenticated successor history source coverage changed"
+                )
+            if successor_history.get("replayed_purchase_state_sha256") != (
+                verification_snapshot.purchase_state_sha256
+            ):
+                raise CommandError(
+                    "authenticated successor history purchase state changed"
+                )
         recovery = _verify_materializer_quarantine_recovery(
             recovery_root=recovery_run_card_path.parents[1],
             run_card_path=recovery_run_card_path,
@@ -47798,9 +48224,9 @@ def _verify_provider_free_provenance_quarantine_run_card(
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=recovery_cohort_policy_path,
             ledger_path=ledger_path,
-            purchase_operations=purchase_snapshot.operations,
-            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
-            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+            purchase_operations=verification_snapshot.operations,
+            purchase_committed_amount_usd=verification_snapshot.committed_amount_usd,
+            purchase_state_sha256=verification_snapshot.purchase_state_sha256,
         )
         historical_state_sha256 = recovery.get("historical_purchase_state_sha256")
         if state_sha256 != historical_state_sha256:
@@ -48014,7 +48440,26 @@ def _verify_provider_free_provenance_quarantine_run_card(
                 cohort_policy_path=recovery_cohort_policy_path,
                 ledger_path=ledger_path,
                 initialization_receipt_path=initialization_receipt_path,
-                controlled_private_root=None,
+                controlled_private_root=(
+                    Path(
+                        cast(
+                            str,
+                            successor_history["initial_controlled_private_root"],
+                        )
+                    )
+                    if successor_history is not None
+                    else None
+                ),
+                successor_history_recovery_root=(
+                    Path(cast(str, successor_history["recovery_root"]))
+                    if successor_history is not None
+                    else None
+                ),
+                successor_history_controlled_private_root=(
+                    Path(cast(str, successor_history["controlled_private_root"]))
+                    if successor_history is not None
+                    else None
+                ),
                 expected_manifest_path=paths["download_manifest"],
                 expected_restriction_path=paths["restriction_evidence"],
                 expected_case_relevance_path=paths["case_relevance"],
@@ -48272,6 +48717,14 @@ def _verify_provider_free_provenance_quarantine_run_card(
             for name, expected_value in expected_counts.items()
         ):
             raise ProvenanceClearanceError("provider-free quarantine summary mismatch")
+        if successor_history_source_snapshot:
+            _require_snapshot_unchanged(
+                {
+                    Path(path): payload
+                    for path, payload in successor_history_source_snapshot.items()
+                },
+                label="authenticated successor history",
+            )
         _require_provenance_document_snapshot_unchanged(
             document_snapshot, document_root=document_root
         )

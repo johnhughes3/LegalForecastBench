@@ -2251,6 +2251,8 @@ initial_disclosure_cycle_root="$preparation_root/purchased-recovery-disclosure-c
 initial_disclosure_config="$initial_disclosure_cycle_root/acquisition-cycle.json"
 initial_disclosure_state_root="$initial_disclosure_cycle_root/orchestrator"
 initial_disclosure_template="$repo_root/manifests/cycle-1-target-100.initial-recovery-disclosure.template.json"
+successor_history_recovery_root="/absolute/path/to/completed-successor-recovery"
+successor_history_private_root="/absolute/path/to/successor-purchase-private-root"
 
 mkdir -p "$initial_disclosure_cycle_root"
 
@@ -2300,6 +2302,8 @@ uv run legalforecast acquisition finalize-provenance-quarantine \
   --purchase-ledger-initialization-receipt "$purchase_authority_root/purchase-ledger-initialization.json" \
   --controlled-private-root "$purchase_private_root" \
   --recovery-cohort-policy "$repo_root/docs/cohort-policy-cycle-1-target-100-2026-07-25.json" \
+  --successor-history-recovery-root "$successor_history_recovery_root" \
+  --successor-history-controlled-private-root "$successor_history_private_root" \
   --clearance-output "$initial_disclosure_root/03-clearance/disclosure-clearance.jsonl" \
   --quarantine-output "$initial_disclosure_root/03-clearance/disclosure-quarantine.jsonl" \
   --run-card-output "$initial_disclosure_root/03-clearance/run-cards/finalize-provenance-quarantine.json" \
