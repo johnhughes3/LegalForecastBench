@@ -404,8 +404,25 @@ def test_post_purchase_v4_result_requires_exact_full_result_capability() -> None
     successor = project_zero_cost_successor(**fixture.kwargs)
     assert successor.state["selected_case_count"] == 100
 
+    original_reserved = fixture.ranked_result["reserved_replacement_spend_usd"]
+    original_headroom = fixture.ranked_result["remaining_headroom_usd"]
     fixture.ranked_result["reserved_replacement_spend_usd"] = "999.00"
     fixture.ranked_result["remaining_headroom_usd"] = "0.00"
+    fixture.refresh()
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="differs from authenticated ranked-reserve replay",
+    ):
+        project_zero_cost_successor(**fixture.kwargs)
+
+    fixture.ranked_result["reserved_replacement_spend_usd"] = original_reserved
+    fixture.ranked_result["remaining_headroom_usd"] = original_headroom
+    disposition = dict(fixture.ranked_result["terminal_disposition"])
+    disposition["purchase_result_sha256"] = "sha256:" + "9" * 64
+    fixture.ranked_result["terminal_disposition"] = disposition
+    fixture.ranked_result["terminal_disposition_sha256"] = (
+        ranked_reserve_canonical_sha256(disposition)
+    )
     fixture.refresh()
     with pytest.raises(
         ZeroCostSuccessorError,

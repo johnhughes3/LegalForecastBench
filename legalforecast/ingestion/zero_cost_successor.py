@@ -102,7 +102,7 @@ _VERIFIED_POST_PURCHASE_RANKED_RESULT_TOKEN = object()
 class VerifiedPostPurchaseRankedResult:
     """Opaque fully replayed v4 ranked-result capability."""
 
-    ranked_result: JsonRecord
+    ranked_result_bytes: bytes
     transition: VerifiedRankedReservePostPurchaseReplay
     _token: object
 
@@ -125,7 +125,9 @@ def _mint_verified_post_purchase_ranked_result(  # pyright: ignore[reportUnusedF
 
     require_verified_post_purchase_replay(ranked_result, transition)
     verified = object.__new__(VerifiedPostPurchaseRankedResult)
-    object.__setattr__(verified, "ranked_result", dict(ranked_result))
+    object.__setattr__(
+        verified, "ranked_result_bytes", ranked_reserve_result_bytes(ranked_result)
+    )
     object.__setattr__(verified, "transition", transition)
     object.__setattr__(verified, "_token", _VERIFIED_POST_PURCHASE_RANKED_RESULT_TOKEN)
     return verified
@@ -203,25 +205,26 @@ def project_zero_cost_successor(
             raise ZeroCostSuccessorError(
                 "post-purchase v4 result lacks full authenticated producer replay"
             )
-        authenticated_result: Mapping[str, object] = (
-            authenticated_ranked_result.ranked_result
-        )
         try:
             require_verified_post_purchase_replay(
-                authenticated_result, authenticated_ranked_result.transition
+                ranked_result, authenticated_ranked_result.transition
             )
         except ValueError as exc:
             raise ZeroCostSuccessorError(str(exc)) from exc
+        if ranked_result_bytes != authenticated_ranked_result.ranked_result_bytes:
+            raise ZeroCostSuccessorError(
+                "ranked result differs from authenticated ranked-reserve replay"
+            )
     else:
         if not isinstance(authenticated_ranked_result, Mapping):
             raise ZeroCostSuccessorError(
                 "verified post-purchase result cannot authenticate a legacy result"
             )
         authenticated_result = authenticated_ranked_result
-    if ranked_result != authenticated_result:
-        raise ZeroCostSuccessorError(
-            "ranked result differs from authenticated ranked-reserve replay"
-        )
+        if ranked_result != authenticated_result:
+            raise ZeroCostSuccessorError(
+                "ranked result differs from authenticated ranked-reserve replay"
+            )
     residual_ids = {
         _required_text(pair, "candidate_id")
         for pair in _mapping_sequence(
