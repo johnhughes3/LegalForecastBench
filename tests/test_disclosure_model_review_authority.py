@@ -749,6 +749,66 @@ def test_provider_free_recovery_accepts_exact_prompt_schema_echo(
     assert rows == [(1, "reconstruction_failed"), (2, "settled")]
 
 
+def test_provider_free_recovery_accepts_attempt_one_redundant_response_schema_echo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_validator = authority_module._validate_semantic
+    plan, _plan_bytes, _worksheet, _worksheet_bytes, _documents = _inputs()
+    document_sha256 = cast(
+        str, cast(list[dict[str, object]], plan["documents"])[0]["sha256"]
+    )
+    payload = _provider_payload(document_sha256)
+    candidates = cast(list[dict[str, object]], payload["candidates"])
+    content = cast(dict[str, object], candidates[0]["content"])
+    parts = cast(list[dict[str, object]], content["parts"])
+    semantic = json.loads(cast(str, parts[0]["text"]))
+    semantic["response_schema_version"] = (
+        "legalforecast.disclosure_model_review_batch_response.v1"
+    )
+    raw_output = json.dumps(semantic, indent=2) + "\n"
+    parts[0]["text"] = raw_output
+    calls = 0
+
+    def transport(_request: Request, _timeout: float) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return payload
+
+    def legacy_rejection(*_args: object, **_kwargs: object) -> object:
+        raise DisclosureModelReviewAuthorityError(
+            "legacy redundant response schema rejection"
+        )
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", legacy_rejection)
+    with pytest.raises(
+        DisclosureModelReviewAuthorityError,
+        match="legacy redundant response schema rejection",
+    ):
+        _authenticate(tmp_path, transport=transport)
+    assert calls == 1
+
+    monkeypatch.setattr(authority_module, "_validate_semantic", original_validator)
+    capability = _authenticate(tmp_path, transport=transport)
+
+    assert calls == 1
+    assert disclosure_model_review_provider_call_executed(capability) is False
+    assert (
+        public_disclosure_model_review_record(capability)["journal_attempt_ordinal"]
+        == 1
+    )
+    [private_record] = private_disclosure_model_review_records(capability)
+    assert (
+        private_record["batch_response_sha256"]
+        == hashlib.sha256(raw_output.encode()).hexdigest()
+    )
+    with sqlite3.connect(tmp_path / "provider-attempts.sqlite3") as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [(1, "settled")]
+
+
 def test_provider_free_recovery_uses_older_valid_failed_response(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

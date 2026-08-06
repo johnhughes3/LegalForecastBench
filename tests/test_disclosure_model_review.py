@@ -754,13 +754,26 @@ def test_batch_response_accepts_exact_prompt_schema_echo() -> None:
     assert review.batch_response_sha256 == hashlib.sha256(response_bytes).hexdigest()
 
 
+def test_batch_response_accepts_exact_redundant_response_schema_echo() -> None:
+    batch, response = _single_document_batch()
+    response["response_schema_version"] = (
+        "legalforecast.disclosure_model_review_batch_response.v1"
+    )
+    response_bytes = json.dumps(response, indent=2).encode()
+
+    [review] = validate_model_review_batch_response(
+        response,
+        response_bytes=response_bytes,
+        batch_prompt=batch,
+        reviewer=_reviewer(),
+    )
+
+    assert review.batch_response_sha256 == hashlib.sha256(response_bytes).hexdigest()
+
+
 @pytest.mark.parametrize(
     ("schema_version", "response_schema_version"),
     [
-        (
-            "legalforecast.disclosure_model_review_batch_response.v1",
-            "legalforecast.disclosure_model_review_batch_response.v1",
-        ),
         (
             "legalforecast.disclosure_model_review_batch_prompt.v1",
             "legalforecast.disclosure_model_review_response.v1",
@@ -777,6 +790,26 @@ def test_batch_response_rejects_inexact_prompt_schema_echo(
     batch, response = _single_document_batch()
     response["schema_version"] = schema_version
     response["response_schema_version"] = response_schema_version
+
+    with pytest.raises(DisclosureModelReviewError, match="invalid model batch"):
+        validate_model_review_batch_response(
+            response,
+            response_bytes=json.dumps(response).encode(),
+            batch_prompt=batch,
+            reviewer=_reviewer(),
+        )
+
+
+@pytest.mark.parametrize(
+    "alias",
+    ["prompt_schema_version", "batch_response_schema_version"],
+)
+def test_batch_response_rejects_extra_schema_alias(alias: str) -> None:
+    batch, response = _single_document_batch()
+    response["response_schema_version"] = (
+        "legalforecast.disclosure_model_review_batch_response.v1"
+    )
+    response[alias] = "legalforecast.disclosure_model_review_batch_response.v1"
 
     with pytest.raises(DisclosureModelReviewError, match="invalid model batch"):
         validate_model_review_batch_response(

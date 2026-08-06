@@ -585,20 +585,29 @@ def validate_model_review_batch_response(
         "document_count",
         "items",
     }
-    prompt_schema_echo_fields = expected_fields | {"response_schema_version"}
+    schema_echo_fields = expected_fields | {"response_schema_version"}
     standard_response_envelope = (
         set(response) == expected_fields
         and response.get("schema_version") == BATCH_RESPONSE_SCHEMA_VERSION
     )
     exact_prompt_schema_echo = (
-        set(response) == prompt_schema_echo_fields
+        set(response) == schema_echo_fields
         and response.get("schema_version") == BATCH_PROMPT_SCHEMA_VERSION
+        and response.get("response_schema_version") == BATCH_RESPONSE_SCHEMA_VERSION
+    )
+    exact_redundant_response_schema_echo = (
+        set(response) == schema_echo_fields
+        and response.get("schema_version") == BATCH_RESPONSE_SCHEMA_VERSION
         and response.get("response_schema_version") == BATCH_RESPONSE_SCHEMA_VERSION
     )
     raw_items_value = response.get("items")
     document_count = _nonnegative_int(response.get("document_count"), "document_count")
     if (
-        not (standard_response_envelope or exact_prompt_schema_echo)
+        not (
+            standard_response_envelope
+            or exact_prompt_schema_echo
+            or exact_redundant_response_schema_echo
+        )
         or response.get("model_id") != reviewer.model_id
         or response.get("model_version") != reviewer.model_version_or_snapshot
         or document_count != len(batch_prompt.prompts)
