@@ -453,9 +453,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
         "audit": inputs / "original-llm-label-audit.jsonl",
     }
     finalize_card = json.loads(
-        (output_root / "run-cards" / "finalize-corpus.json").read_text(
-            encoding="utf-8"
-        )
+        (output_root / "run-cards" / "finalize-corpus.json").read_text(encoding="utf-8")
     )
     committed_paths = {
         "materialization_run_card": inputs / "materialization-run-card.json",

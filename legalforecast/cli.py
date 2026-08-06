@@ -58229,10 +58229,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             lawyer_review_queue=lawyer_review_path,
             lawyer_review_audit=lawyer_review_audit_path,
         )
-        completion_summary_commitments = (
-            _completion_summary_finalize_input_commitments(
-                completion_summary_inputs
-            )
+        completion_summary_commitments = _completion_summary_finalize_input_commitments(
+            completion_summary_inputs
         )
         resolved_path = (
             materialization_paths[3] if len(materialization_paths) == 4 else None
@@ -58623,9 +58621,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 ),
                 required_clean_count=target_clean_cases,
             )
-        _require_completion_summary_finalize_inputs_unchanged(
-            completion_summary_inputs
-        )
+        _require_completion_summary_finalize_inputs_unchanged(completion_summary_inputs)
         _acquisition_output_root(args)
         _write_jsonl(complete_ledger_path, complete_ledger_records)
         readiness_record = report.to_record()
@@ -58658,9 +58654,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         require_clean_corpus_ready(report)
 
     if not dry_run:
-        _require_completion_summary_finalize_inputs_unchanged(
-            completion_summary_inputs
-        )
+        _require_completion_summary_finalize_inputs_unchanged(completion_summary_inputs)
     _write_acquisition_completion(
         args,
         stage="finalize-corpus",

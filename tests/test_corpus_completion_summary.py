@@ -351,9 +351,7 @@ def test_stage_b_non_string_audit_status_is_domain_error(
         tmp_path,
         monkeypatch=monkeypatch,
         stage_b_queue=({"review_id": "stage-b-1"},),
-        stage_b_audit=(
-            {"review_id": "stage-b-1", "status": ["resolved"]},
-        ),
+        stage_b_audit=({"review_id": "stage-b-1", "status": ["resolved"]},),
         bead_references=("stage-b-1=LegalForecastBench-review-1",),
     )
 

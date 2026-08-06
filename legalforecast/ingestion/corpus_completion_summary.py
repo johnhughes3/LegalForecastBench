@@ -765,9 +765,7 @@ def _summarize_adjudications(
             else ()
         )
         if not review_ids:
-            review_ids = (
-                _required_str(record, "review_id", "Stage A adjudication"),
-            )
+            review_ids = (_required_str(record, "review_id", "Stage A adjudication"),)
         if len(set(review_ids)) != len(review_ids):
             raise CorpusCompletionSummaryError(
                 "Stage A adjudication review_ids must be unique"
@@ -789,9 +787,7 @@ def _summarize_adjudications(
         if status is not None and not isinstance(status, str):
             raise CorpusCompletionSummaryError("Stage B queue status is invalid")
         if status in _RESOLVED_REVIEW_STATUSES:
-            resolved_stage_b.add(
-                _required_str(record, "review_id", "Stage B queue")
-            )
+            resolved_stage_b.add(_required_str(record, "review_id", "Stage B queue"))
     for record in stage_b_audit:
         review_id = record.get("review_id")
         status = record.get("status")
