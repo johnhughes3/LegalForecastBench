@@ -14,6 +14,19 @@ It has the common provider-free fields documented in [provenance-quarantine-clea
 Its disposition kind is `v3_authenticated_recovered_public_markers_clear_else_quarantine` and additionally commits the policy schema and SHA-256 plus `markers_are_diagnostic_only: true` and the exact `public_marker_clear_count`.
 All provider, human-review, paid-activity, and override fields remain false.
 
+When the canonical purchase journal contains a later replacement tranche, the
+finalizer may also accept the paired `--successor-history-recovery-root` and
+`--successor-history-controlled-private-root` arguments. This route reuses the
+replacement recovery-source verifier to prove the exact original ledger prefix
+and the exact authorized successor suffix; it never accepts operation ignore
+lists or an unchecked current-state projection. The completed clearance card
+then contains a closed `authenticated_successor_history` record with the
+initial and successor authority roots, the replayed purchase-state SHA-256, and
+an ordered list of `successor_history_source_NNNN` commitments. Every listed
+source is also present in `input_paths` and `source_commitments`. Missing,
+changed, reordered, or partially supplied history fails closed during both
+production and downstream replay.
+
 The existing v3 routing plan, worksheet, and clearance-row schemas are unchanged.
 Eligible marker rows reuse `clearance_basis: "provider_free_recovered_public"`, null reviewer metadata, the exact recovered-public lineage, and `courtlistener-rest://recap-documents/<document-id>` provenance.
 This preserves downstream resolver, materializer, and packet semantics while the distinct run-card schema prevents an old quarantine-only card from being reinterpreted.
@@ -31,6 +44,8 @@ uv run legalforecast acquisition finalize-provenance-quarantine \
   --plan-run-card <completed-plan-disclosure-provenance-run-card.json> \
   --public-marker-clearance-policy <owner-policy.json> \
   --cohort-policy <frozen-cohort-policy.json> \
+  --successor-history-recovery-root <completed-successor-recovery-root> \
+  --successor-history-controlled-private-root <successor-private-authority-root> \
   --execute --no-resume
 ```
 

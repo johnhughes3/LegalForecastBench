@@ -91,6 +91,8 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
     ledger_path: Path,
     initialization_receipt_path: Path,
     controlled_private_root: Path | None,
+    successor_history_recovery_root: Path | None,
+    successor_history_controlled_private_root: Path | None,
     expected_manifest_path: Path,
     expected_restriction_path: Path,
     expected_case_relevance_path: Path,
@@ -124,6 +126,10 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
             ledger_path=ledger_path,
             initialization_receipt_path=initialization_receipt_path,
             controlled_private_root=controlled_private_root,
+            successor_history_recovery_root=successor_history_recovery_root,
+            successor_history_controlled_private_root=(
+                successor_history_controlled_private_root
+            ),
         ),
     )
     expected_paths = {
@@ -177,6 +183,8 @@ def _recovered_public_capability_boundary() -> tuple[
         ledger_path: Path,
         initialization_receipt_path: Path,
         controlled_private_root: Path | None,
+        successor_history_recovery_root: Path | None = None,
+        successor_history_controlled_private_root: Path | None = None,
         expected_manifest_path: Path,
         expected_restriction_path: Path,
         expected_case_relevance_path: Path,
@@ -192,6 +200,10 @@ def _recovered_public_capability_boundary() -> tuple[
             ledger_path=ledger_path,
             initialization_receipt_path=initialization_receipt_path,
             controlled_private_root=controlled_private_root,
+            successor_history_recovery_root=successor_history_recovery_root,
+            successor_history_controlled_private_root=(
+                successor_history_controlled_private_root
+            ),
             expected_manifest_path=expected_manifest_path,
             expected_restriction_path=expected_restriction_path,
             expected_case_relevance_path=expected_case_relevance_path,
