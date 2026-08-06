@@ -500,3 +500,21 @@ def test_producer_resume_rejects_digest_drift(
 
     with pytest.raises(cli.CommandError, match="source input commitment changed"):
         cli._cmd_build_replacement_recovery_source(args)
+
+
+def test_producer_dry_run_emits_card_without_writing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args, _, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    args.execute = False
+
+    assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+    card = json.loads(capsys.readouterr().out)
+    assert card["dry_run"] is True
+    assert card["execute"] is False
+    assert card["provider_activity_requested"] is False
+    assert card["paid_activity_requested"] is False
+    assert not args.output_root.exists()
