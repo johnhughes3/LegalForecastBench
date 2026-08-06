@@ -581,6 +581,86 @@ def _require_clearance_restriction(
         )
 
 
+def _require_direct_queue_delivery_lineage(
+    lineage: Mapping[str, object], *, key: tuple[str, str]
+) -> None:
+    """Validate the closed direct CourtListener queue proof in recovery lineage."""
+
+    raw = lineage.get("direct_queue_delivery_authority")
+    if not isinstance(raw, Mapping):
+        raise DisclosureClearanceError(
+            f"recovered-public direct queue lineage is invalid: {key}"
+        )
+    authority = cast(Mapping[str, object], raw)
+    fields = {
+        "schema_version",
+        "source_provider",
+        "purchase_status",
+        "operation_key",
+        "queue_id",
+        "reservation_id",
+        "reservation_usd",
+        "queue_response_sha256",
+        "purchase_policy_sha256",
+        "purchase_operation_sha256",
+        "purchase_response_sha256",
+        "recovery_run_card_sha256",
+        "recovery_manifest_sha256",
+        "recovery_restriction_evidence_sha256",
+        "purchase_state_sha256",
+    }
+    operation_key = authority.get("operation_key")
+    queue_id = authority.get("queue_id")
+    reservation_usd = authority.get("reservation_usd")
+    if (
+        set(authority) != fields
+        or authority.get("schema_version")
+        != "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+        or authority.get("source_provider") != "courtlistener.recap-fetch+pacer"
+        or authority.get("purchase_status") != "queued"
+        or operation_key != lineage.get("purchase_operation_key")
+        or authority.get("purchase_operation_sha256")
+        != lineage.get("purchase_operation_sha256")
+        or authority.get("recovery_run_card_sha256")
+        != lineage.get("recovery_run_card_sha256")
+        or authority.get("recovery_manifest_sha256")
+        != lineage.get("recovery_manifest_sha256")
+        or authority.get("recovery_restriction_evidence_sha256")
+        != lineage.get("recovery_restriction_evidence_sha256")
+        or authority.get("purchase_state_sha256")
+        != lineage.get("purchase_state_sha256")
+        or not isinstance(operation_key, str)
+        or re.fullmatch(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+            operation_key,
+        )
+        is None
+        or authority.get("reservation_id") != f"direct:{operation_key}"
+        or not isinstance(queue_id, str)
+        or re.fullmatch(r"[1-9][0-9]*", queue_id) is None
+        or not isinstance(reservation_usd, str)
+        or re.fullmatch(r"(?:0|[1-9][0-9]*)\.[0-9]{2}", reservation_usd) is None
+    ):
+        raise DisclosureClearanceError(
+            f"recovered-public direct queue lineage is invalid: {key}"
+        )
+    for field in (
+        "queue_response_sha256",
+        "purchase_policy_sha256",
+        "purchase_operation_sha256",
+        "purchase_response_sha256",
+        "recovery_run_card_sha256",
+        "recovery_manifest_sha256",
+        "recovery_restriction_evidence_sha256",
+        "purchase_state_sha256",
+    ):
+        value = authority.get(field)
+        if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+            raise DisclosureClearanceError(
+                f"recovered-public direct queue lineage hash is invalid: {key}"
+            )
+
+
 def _require_clearance_provenance(
     row: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
@@ -628,7 +708,10 @@ def _require_clearance_provenance(
                 f"recovered-public clearance lacks closed lineage: {key}"
             )
         lineage = cast(Mapping[str, object], raw_lineage)
-        if set(lineage) != expected_fields:
+        lineage_fields = set(lineage)
+        if lineage_fields != expected_fields and lineage_fields != expected_fields | {
+            "direct_queue_delivery_authority"
+        }:
             raise DisclosureClearanceError(
                 f"recovered-public clearance lacks closed lineage: {key}"
             )
@@ -667,6 +750,8 @@ def _require_clearance_provenance(
             raise DisclosureClearanceError(
                 f"recovered-public clearance operation identity is invalid: {key}"
             )
+        if "direct_queue_delivery_authority" in lineage:
+            _require_direct_queue_delivery_lineage(lineage, key=key)
         _require_routing_plan_hash(row, key=key)
         return
     if basis == "affirmative_public_provenance":

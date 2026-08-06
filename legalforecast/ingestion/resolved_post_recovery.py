@@ -51,6 +51,39 @@ RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3 = (
 RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4 = (
     "legalforecast.resolved_post_recovery_public_document.v4"
 )
+_DIRECT_QUEUE_RESOLVED_FIELDS = frozenset(
+    {
+        "schema_version",
+        "candidate_id",
+        "source_document_id",
+        "recovery_origin",
+        "attempt_policy_sha256",
+        "selection_document_sha256",
+        "purchase_operation_sha256",
+        "operation_key",
+        "delivery_authority",
+        "purchase_policy_sha256",
+        "direct_queue_delivery_authority",
+        "fresh_recap_detail_sha256",
+        "download_url_sha256",
+        "download_record_sha256",
+        "content_sha256",
+        "byte_count",
+        "clearance_record_sha256",
+        "clearance_run_card_sha256",
+        "clearance_artifact_sha256",
+        "cohort_policy_artifact_sha256",
+        "restriction_evidence_artifact_sha256",
+        "restriction_evidence_rows_sha256",
+        "fresh_detail_public_evidence_sha256",
+        "restriction_status",
+        "parser_eligible",
+        "packet_eligible",
+        "clearance_basis",
+        "recovered_public_lineage",
+        "record_sha256",
+    }
+)
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
 FRESH_PUBLIC_RESTRICTION_SCHEMA_VERSION = (
     "legalforecast.post_recovery_restriction_evidence.v1"
@@ -752,7 +785,9 @@ def _build_resolved_post_recovery_documents_core(
             attempt_policy_sha256=policy_sha256,
             selection_document_sha256=selection_sha256,
             expected_purchase_policy_sha256=purchase_policy_sha256,
-            allow_authenticated_direct_queue_recovery=(recovered_lineages is not None),
+            verified_recovered_lineage=(
+                None if recovered_lineages is None else recovered_lineages.get(key)
+            ),
         )
         _validate_download(
             download,
@@ -774,12 +809,14 @@ def _build_resolved_post_recovery_documents_core(
             operation,
             key=key,
             expected_purchase_policy_sha256=purchase_policy_sha256,
-            allow_authenticated_direct_queue_recovery=(recovered_lineages is not None),
+            verified_recovered_lineage=(
+                None if recovered_lineages is None else recovered_lineages.get(key)
+            ),
         )
         schema_version = (
             RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
             if delivery_authority.get("delivery_authority")
-            == "authenticated_direct_courtlistener_queue_recovery"
+            == "authenticated_direct_courtlistener_queue"
             else (
                 RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
                 if delivery_authority.get("delivery_authority")
@@ -1029,13 +1066,6 @@ def _require_resolved_post_recovery_documents_core(
     restrictions = _group_index(restriction_records, "restriction evidence")
     for key, record in resolved.items():
         _validate_resolved_record(record, key=key)
-        if (
-            record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
-            and recovered_lineages is None
-        ):
-            raise ResolvedPostRecoveryError(
-                f"resolved direct queue authority lacks verifier capability: {key}"
-            )
         download = downloads.get(key)
         clearance = clearances.get(key)
         if download is None or clearance is None:
@@ -1162,14 +1192,13 @@ def _require_resolved_recovered_public_parse_requests(  # pyright: ignore[report
 ) -> None:
     """Bind parser requests through recovered-public verifier authority."""
 
-    recovered_lineages = _consume_recovered_public_clearance_capability(
-        verified_recovery_capability
-    )
     _require_resolved_post_recovery_parse_requests_core(
         selection_records=selection_records,
         request_records=request_records,
         resolved_records=resolved_records,
-        recovered_lineages=recovered_lineages,
+        recovered_lineages=_consume_recovered_public_clearance_capability(
+            verified_recovery_capability
+        ),
     )
 
 
@@ -1201,17 +1230,16 @@ def _require_resolved_post_recovery_parse_requests_core(
             raise ResolvedPostRecoveryError(
                 f"resolved unknown document lacks parse request: {key}"
             )
-        _validate_resolved_record(record, key=key)
-        direct_v4 = (
-            record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
-        )
-        if direct_v4 and (
+        if record.get(
+            "schema_version"
+        ) == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4 and (
             recovered_lineages is None
             or record.get("recovered_public_lineage") != recovered_lineages.get(key)
         ):
             raise ResolvedPostRecoveryError(
-                f"resolved direct queue authority lacks verifier capability: {key}"
+                "V4 resolved records require verifier-issued recovery authority"
             )
+        _validate_resolved_record(record, key=key)
         if (
             request.get("expected_sha256") != record.get("content_sha256")
             or request.get("expected_byte_count") != record.get("byte_count")
@@ -1248,14 +1276,13 @@ def _require_resolved_recovered_public_operation_bindings(  # pyright: ignore[re
 ) -> None:
     """Verify operation bindings through recovered-public verifier authority."""
 
-    recovered_lineages = _consume_recovered_public_clearance_capability(
-        verified_recovery_capability
-    )
     _require_resolved_post_recovery_operation_bindings_core(
         purchase_operation_records=purchase_operation_records,
         resolved_records=resolved_records,
         expected_purchase_policy_sha256=expected_purchase_policy_sha256,
-        recovered_lineages=recovered_lineages,
+        recovered_lineages=_consume_recovered_public_clearance_capability(
+            verified_recovery_capability
+        ),
     )
 
 
@@ -1277,15 +1304,14 @@ def _require_resolved_post_recovery_operation_bindings_core(
     for key, record in resolved.items():
         operation = operations[key]
         _validate_resolved_record(record, key=key)
-        direct_v4 = (
-            record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
-        )
-        if direct_v4 and (
+        if record.get(
+            "schema_version"
+        ) == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4 and (
             recovered_lineages is None
             or record.get("recovered_public_lineage") != recovered_lineages.get(key)
         ):
             raise ResolvedPostRecoveryError(
-                f"resolved direct queue authority lacks verifier capability: {key}"
+                "V4 resolved records require verifier-issued recovery authority"
             )
         state = operation.get("material_state")
         if state not in {"recovered_pending_clearance", "cleared_public"}:
@@ -1293,6 +1319,12 @@ def _require_resolved_post_recovery_operation_bindings_core(
                 f"canonical purchase material state is not resolvable: {key}"
             )
         material = _mapping(operation.get("material_evidence"), "material evidence")
+        preclear = dict(operation)
+        preclear["material_state"] = "recovered_pending_clearance"
+        preclear_material = dict(material)
+        preclear_material.pop("clearance_record_sha256", None)
+        preclear["material_evidence"] = preclear_material
+        preclear["resolved_document_sha256"] = None
         expected = {
             "candidate_id": operation.get("candidate_id"),
             "source_document_id": operation.get("source_document_id"),
@@ -1304,22 +1336,20 @@ def _require_resolved_post_recovery_operation_bindings_core(
             "content_sha256": material.get("content_sha256"),
             "byte_count": material.get("byte_count"),
             **_delivery_authority_fields(
-                operation,
+                preclear,
                 key=key,
                 expected_purchase_policy_sha256=expected_purchase_policy_sha256,
-                allow_authenticated_direct_queue_recovery=direct_v4,
+                verified_recovered_lineage=(
+                    cast(Mapping[str, object], record.get("recovered_public_lineage"))
+                    if isinstance(record.get("recovered_public_lineage"), Mapping)
+                    else None
+                ),
             ),
         }
         if any(record.get(name) != value for name, value in expected.items()):
             raise ResolvedPostRecoveryError(
                 f"resolved record differs from canonical purchase journal: {key}"
             )
-        preclear = dict(operation)
-        preclear["material_state"] = "recovered_pending_clearance"
-        preclear_material = dict(material)
-        preclear_material.pop("clearance_record_sha256", None)
-        preclear["material_evidence"] = preclear_material
-        preclear["resolved_document_sha256"] = None
         if record.get("purchase_operation_sha256") != _sha256(preclear):
             raise ResolvedPostRecoveryError(
                 f"resolved purchase operation commitment changed: {key}"
@@ -1475,7 +1505,7 @@ def _validate_operation(
     attempt_policy_sha256: str,
     selection_document_sha256: str,
     expected_purchase_policy_sha256: str,
-    allow_authenticated_direct_queue_recovery: bool = False,
+    verified_recovered_lineage: Mapping[str, object] | None = None,
 ) -> None:
     if (
         operation.get("material_authority") != UNKNOWN_RECOVERY_ORIGIN
@@ -1501,9 +1531,7 @@ def _validate_operation(
         operation,
         key=key,
         expected_purchase_policy_sha256=expected_purchase_policy_sha256,
-        allow_authenticated_direct_queue_recovery=(
-            allow_authenticated_direct_queue_recovery
-        ),
+        verified_recovered_lineage=verified_recovered_lineage,
     )
 
 
@@ -1583,12 +1611,116 @@ def _terminal_delivery_receipt(
     return terminal
 
 
+def _verified_direct_queue_delivery_authority(
+    operation: Mapping[str, Any],
+    *,
+    key: tuple[str, str],
+    expected_purchase_policy_sha256: str,
+    verified_recovered_lineage: Mapping[str, object] | None,
+) -> dict[str, object] | None:
+    """Rebuild a direct queued proof only from verifier-issued recovery lineage."""
+
+    if verified_recovered_lineage is None:
+        return None
+    raw_authority = verified_recovered_lineage.get("direct_queue_delivery_authority")
+    if raw_authority is None:
+        return None
+    if not isinstance(raw_authority, Mapping):
+        raise ResolvedPostRecoveryError(
+            f"direct queue delivery authority is invalid: {key}"
+        )
+    response = _mapping(operation.get("response"), "purchase response")
+    material = _mapping(operation.get("material_evidence"), "material evidence")
+    operation_key = _uuid4(operation.get("operation_key"))
+    base_response_fields = {
+        "source_provider",
+        "reservation_usd",
+        "queue_id",
+        "reservation_id",
+    }
+    allowed_response_fields = base_response_fields | {
+        "courtlistener_url_commitment_correction"
+    }
+    queue_id = response.get("queue_id")
+    reservation_usd = response.get("reservation_usd")
+    purchase_policy_sha256 = _required_sha(
+        expected_purchase_policy_sha256, "expected purchase policy"
+    )
+    if (
+        operation.get("status") != "queued"
+        or operation.get("actual_usd") is not None
+        or operation.get("reconciliation") is not None
+        or operation.get("error") is not None
+        or response.get("source_provider") != "courtlistener.recap-fetch+pacer"
+        or (
+            set(response) != base_response_fields
+            and set(response) != allowed_response_fields
+        )
+        or "broker_receipts" in response
+        or not isinstance(queue_id, str)
+        or re.fullmatch(r"[1-9][0-9]*", queue_id) is None
+        or response.get("reservation_id") != f"direct:{operation_key}"
+        or not isinstance(reservation_usd, str)
+        or re.fullmatch(r"(?:0|[1-9][0-9]*)\.[0-9]{2}", reservation_usd) is None
+        or operation.get("reservation_usd") != reservation_usd
+        or verified_recovered_lineage.get("purchase_operation_key") != operation_key
+        or verified_recovered_lineage.get("purchase_operation_sha256")
+        != _sha256(operation)
+    ):
+        raise ResolvedPostRecoveryError(
+            f"direct queue delivery authority conflicts with purchase: {key}"
+        )
+    correction = response.get("courtlistener_url_commitment_correction")
+    if correction is not None and not isinstance(correction, Mapping):
+        raise ResolvedPostRecoveryError(
+            f"direct queue delivery correction is invalid: {key}"
+        )
+    authority: dict[str, object] = {
+        "schema_version": (
+            "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+        ),
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "purchase_status": "queued",
+        "operation_key": operation_key,
+        "queue_id": queue_id,
+        "reservation_id": f"direct:{operation_key}",
+        "reservation_usd": reservation_usd,
+        "queue_response_sha256": _required_sha(
+            material.get("queue_response_sha256"), "queue response"
+        ),
+        "purchase_policy_sha256": purchase_policy_sha256,
+        "purchase_operation_sha256": _sha256(operation),
+        "purchase_response_sha256": _sha256(response),
+        "recovery_run_card_sha256": _required_sha(
+            verified_recovered_lineage.get("recovery_run_card_sha256"),
+            "recovery run card",
+        ),
+        "recovery_manifest_sha256": _required_sha(
+            verified_recovered_lineage.get("recovery_manifest_sha256"),
+            "recovery manifest",
+        ),
+        "recovery_restriction_evidence_sha256": _required_sha(
+            verified_recovered_lineage.get("recovery_restriction_evidence_sha256"),
+            "recovery restriction evidence",
+        ),
+        "purchase_state_sha256": _required_sha(
+            verified_recovered_lineage.get("purchase_state_sha256"),
+            "purchase state",
+        ),
+    }
+    if dict(cast(Mapping[str, object], raw_authority)) != authority:
+        raise ResolvedPostRecoveryError(
+            f"direct queue delivery authority changed after verification: {key}"
+        )
+    return authority
+
+
 def _delivery_authority_fields(
     operation: Mapping[str, Any],
     *,
     key: tuple[str, str],
     expected_purchase_policy_sha256: str,
-    allow_authenticated_direct_queue_recovery: bool = False,
+    verified_recovered_lineage: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Return one exact delivery authority without synthesizing broker evidence."""
 
@@ -1596,16 +1728,25 @@ def _delivery_authority_fields(
     raw_public_recovery = operation.get("public_material_recovery")
     if raw_public_recovery is None:
         response = _mapping(operation.get("response"), "purchase response")
-        if (
-            allow_authenticated_direct_queue_recovery
-            and "broker_receipts" not in response
-        ):
-            return _authenticated_direct_queue_delivery_authority(
-                operation,
-                response=response,
-                material=material,
-                key=key,
-                expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+        reservation_id = response.get("reservation_id")
+        claims_direct_delivery = isinstance(
+            reservation_id, str
+        ) and reservation_id.startswith("direct:")
+        direct_authority = _verified_direct_queue_delivery_authority(
+            operation,
+            key=key,
+            expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+            verified_recovered_lineage=verified_recovered_lineage,
+        )
+        if direct_authority is not None:
+            return {
+                "delivery_authority": "authenticated_direct_courtlistener_queue",
+                "purchase_policy_sha256": expected_purchase_policy_sha256,
+                "direct_queue_delivery_authority": direct_authority,
+            }
+        if claims_direct_delivery:
+            raise ResolvedPostRecoveryError(
+                f"direct queue delivery lacks verified authority: {key}"
             )
         receipt = _terminal_delivery_receipt(operation, key=key)
         purchase_policy_sha256 = _required_sha(
@@ -1659,158 +1800,6 @@ def _delivery_authority_fields(
         "purchase_policy_sha256": purchase_policy_sha256,
         "public_material_recovery_sha256": _sha256(recovery),
     }
-
-
-def _authenticated_direct_queue_delivery_authority(
-    operation: Mapping[str, Any],
-    *,
-    response: Mapping[str, Any],
-    material: Mapping[str, Any],
-    key: tuple[str, str],
-    expected_purchase_policy_sha256: str,
-) -> dict[str, object]:
-    """Bind a direct RECAP Fetch queue result to recovered-public authority."""
-
-    operation_key = _uuid4(operation.get("operation_key"))
-    expected_reservation_id = f"direct:{operation_key}"
-    base_response_fields = {
-        "queue_id",
-        "reservation_id",
-        "reservation_usd",
-        "source_provider",
-    }
-    response_fields = frozenset(response)
-    if (
-        operation.get("status") != "queued"
-        or operation.get("actual_usd") is not None
-        or operation.get("reconciliation") is not None
-        or operation.get("error") is not None
-        or response_fields
-        not in {
-            frozenset(base_response_fields),
-            frozenset(
-                {
-                    *base_response_fields,
-                    "courtlistener_url_commitment_correction",
-                }
-            ),
-        }
-        or response.get("source_provider") != "courtlistener.recap-fetch+pacer"
-        or response.get("reservation_id") != expected_reservation_id
-        or response.get("reservation_usd") != operation.get("reservation_usd")
-    ):
-        raise ResolvedPostRecoveryError(
-            f"direct CourtListener queue authority is invalid: {key}"
-        )
-    queue_id = response.get("queue_id")
-    if not isinstance(queue_id, str) or re.fullmatch(r"[1-9][0-9]*", queue_id) is None:
-        raise ResolvedPostRecoveryError(
-            f"direct CourtListener queue authority is invalid: {key}"
-        )
-    _required_text(response.get("reservation_usd"), "reservation_usd")
-    correction = response.get("courtlistener_url_commitment_correction")
-    if correction is not None:
-        _validate_direct_queue_url_correction(
-            correction,
-            operation=operation,
-            response=response,
-            material=material,
-            key=key,
-            expected_purchase_policy_sha256=expected_purchase_policy_sha256,
-        )
-    return {
-        "delivery_authority": ("authenticated_direct_courtlistener_queue_recovery"),
-        "purchase_policy_sha256": _required_sha(
-            expected_purchase_policy_sha256, "expected purchase policy"
-        ),
-        "queue_response_sha256": _required_sha(
-            material.get("queue_response_sha256"), "queue response"
-        ),
-    }
-
-
-def _validate_direct_queue_url_correction(
-    value: object,
-    *,
-    operation: Mapping[str, Any],
-    response: Mapping[str, Any],
-    material: Mapping[str, Any],
-    key: tuple[str, str],
-    expected_purchase_policy_sha256: str,
-) -> None:
-    """Replay the closed journal URL-correction record on a direct queue row."""
-
-    if not isinstance(value, Mapping):
-        raise ResolvedPostRecoveryError(
-            f"direct CourtListener URL correction is invalid: {key}"
-        )
-    correction = cast(Mapping[str, object], value)
-    expected_fields = {
-        "schema_version",
-        "cycle_id",
-        "purchase_policy_sha256",
-        "candidate_id",
-        "source_document_id",
-        "operation_key",
-        "source_provider",
-        "queue_id",
-        "reservation_id",
-        "reservation_usd",
-        "attempt_policy_sha256",
-        "attempt_document_sha256",
-        "provider_detail_sha256",
-        "queue_response_sha256",
-        "legacy_download_url_sha256",
-        "corrected_download_url_sha256",
-        "billing_authority",
-        "material_authority",
-        "material_status",
-        "pre_byte_correction",
-        "record_sha256",
-    }
-    committed = correction.get("record_sha256")
-    unhashed = {
-        field: item for field, item in correction.items() if field != "record_sha256"
-    }
-    if (
-        set(correction) != expected_fields
-        or correction.get("schema_version")
-        != "legalforecast.courtlistener_url_commitment_correction.v1"
-        or not isinstance(correction.get("cycle_id"), str)
-        or not correction.get("cycle_id")
-        or correction.get("purchase_policy_sha256") != expected_purchase_policy_sha256
-        or correction.get("candidate_id") != key[0]
-        or correction.get("source_document_id") != key[1]
-        or correction.get("operation_key") != operation.get("operation_key")
-        or correction.get("source_provider") != "courtlistener.recap-fetch+pacer"
-        or correction.get("queue_id") != response.get("queue_id")
-        or correction.get("reservation_id") != response.get("reservation_id")
-        or correction.get("reservation_usd") != operation.get("reservation_usd")
-        or correction.get("attempt_policy_sha256")
-        != operation.get("attempt_policy_sha256")
-        or correction.get("attempt_document_sha256")
-        != operation.get("attempt_document_sha256")
-        or correction.get("provider_detail_sha256")
-        != material.get("provider_detail_sha256")
-        or correction.get("queue_response_sha256")
-        != material.get("queue_response_sha256")
-        or correction.get("corrected_download_url_sha256")
-        != material.get("download_url_sha256")
-        or correction.get("legacy_download_url_sha256")
-        == correction.get("corrected_download_url_sha256")
-        or correction.get("billing_authority") != {"state": "queued_unbilled"}
-        or correction.get("material_authority") != UNKNOWN_RECOVERY_ORIGIN
-        or correction.get("material_status") != "available_pending_quarantine"
-        or correction.get("pre_byte_correction") is not True
-        or committed != _sha256(unhashed)
-    ):
-        raise ResolvedPostRecoveryError(
-            f"direct CourtListener URL correction is invalid: {key}"
-        )
-    _required_sha(correction.get("legacy_download_url_sha256"), "legacy download URL")
-    _required_sha(
-        correction.get("corrected_download_url_sha256"), "corrected download URL"
-    )
 
 
 def _validate_download(
@@ -1976,6 +1965,70 @@ def _fresh_public_restriction_record_from_resolved(
     return matches[0]
 
 
+def _validate_resolved_direct_queue_delivery_authority(
+    record: Mapping[str, object], *, key: tuple[str, str]
+) -> None:
+    """Validate the closed direct-queue proof carried by one v4 record."""
+
+    raw = record.get("direct_queue_delivery_authority")
+    if not isinstance(raw, Mapping):
+        raise ResolvedPostRecoveryError(
+            f"resolved direct queue delivery authority is invalid: {key}"
+        )
+    authority = cast(Mapping[str, object], raw)
+    fields = {
+        "schema_version",
+        "source_provider",
+        "purchase_status",
+        "operation_key",
+        "queue_id",
+        "reservation_id",
+        "reservation_usd",
+        "queue_response_sha256",
+        "purchase_policy_sha256",
+        "purchase_operation_sha256",
+        "purchase_response_sha256",
+        "recovery_run_card_sha256",
+        "recovery_manifest_sha256",
+        "recovery_restriction_evidence_sha256",
+        "purchase_state_sha256",
+    }
+    operation_key = _uuid4(authority.get("operation_key"))
+    queue_id = authority.get("queue_id")
+    reservation_usd = authority.get("reservation_usd")
+    if (
+        set(authority) != fields
+        or authority.get("schema_version")
+        != "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+        or authority.get("source_provider") != "courtlistener.recap-fetch+pacer"
+        or authority.get("purchase_status") != "queued"
+        or operation_key != record.get("operation_key")
+        or authority.get("reservation_id") != f"direct:{operation_key}"
+        or not isinstance(queue_id, str)
+        or re.fullmatch(r"[1-9][0-9]*", queue_id) is None
+        or not isinstance(reservation_usd, str)
+        or re.fullmatch(r"(?:0|[1-9][0-9]*)\.[0-9]{2}", reservation_usd) is None
+        or authority.get("purchase_policy_sha256")
+        != record.get("purchase_policy_sha256")
+        or authority.get("purchase_operation_sha256")
+        != record.get("purchase_operation_sha256")
+    ):
+        raise ResolvedPostRecoveryError(
+            f"resolved direct queue delivery authority is invalid: {key}"
+        )
+    for field in (
+        "queue_response_sha256",
+        "purchase_policy_sha256",
+        "purchase_operation_sha256",
+        "purchase_response_sha256",
+        "recovery_run_card_sha256",
+        "recovery_manifest_sha256",
+        "recovery_restriction_evidence_sha256",
+        "purchase_state_sha256",
+    ):
+        _required_sha(authority.get(field), field)
+
+
 def _validate_resolved_record(
     record: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
@@ -2047,6 +2100,7 @@ def _validate_resolved_record(
         "queue_response_sha256",
     }
     public_fields = {"public_material_recovery_sha256"}
+    direct_fields = {"direct_queue_delivery_authority"}
     if record.get("schema_version") in {
         RESOLVED_POST_RECOVERY_SCHEMA_VERSION,
         RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V2,
@@ -2055,62 +2109,39 @@ def _validate_resolved_record(
             delivery_authority is not None
             or not broker_fields.issubset(record)
             or public_fields.intersection(record)
+            or direct_fields.intersection(record)
         ):
             raise ResolvedPostRecoveryError(
                 f"resolved broker delivery authority is invalid: {key}"
             )
         digest_fields.extend(("broker_receipt_sha256", "queue_response_sha256"))
         _required_text(record.get("broker_receipt_state"), "broker receipt state")
-    elif delivery_authority == "authenticated_public_material_recovery":
+    elif (
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
+        and delivery_authority == "authenticated_public_material_recovery"
+    ):
         if (
-            record.get("schema_version") != RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V3
-            or not public_fields.issubset(record)
+            not public_fields.issubset(record)
             or broker_fields.intersection(record)
+            or direct_fields.intersection(record)
         ):
             raise ResolvedPostRecoveryError(
                 f"resolved public delivery authority is invalid: {key}"
             )
         digest_fields.append("public_material_recovery_sha256")
     elif (
-        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
-        and delivery_authority == "authenticated_direct_courtlistener_queue_recovery"
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+        and delivery_authority == "authenticated_direct_courtlistener_queue"
     ):
-        allowed_v4_fields = {
-            "schema_version",
-            "candidate_id",
-            "source_document_id",
-            "recovery_origin",
-            "attempt_policy_sha256",
-            "selection_document_sha256",
-            "purchase_operation_sha256",
-            "operation_key",
-            "delivery_authority",
-            "purchase_policy_sha256",
-            "queue_response_sha256",
-            "fresh_recap_detail_sha256",
-            "download_url_sha256",
-            "download_record_sha256",
-            "content_sha256",
-            "byte_count",
-            "clearance_record_sha256",
-            "clearance_run_card_sha256",
-            "clearance_artifact_sha256",
-            "cohort_policy_artifact_sha256",
-            "restriction_evidence_artifact_sha256",
-            "restriction_evidence_rows_sha256",
-            "fresh_detail_public_evidence_sha256",
-            "restriction_status",
-            "parser_eligible",
-            "packet_eligible",
-            "clearance_basis",
-            "recovered_public_lineage",
-            "record_sha256",
-        }
-        if set(record) != allowed_v4_fields:
+        if (
+            set(record) != set(_DIRECT_QUEUE_RESOLVED_FIELDS)
+            or broker_fields.intersection(record)
+            or public_fields.intersection(record)
+        ):
             raise ResolvedPostRecoveryError(
                 f"resolved direct queue delivery authority is invalid: {key}"
             )
-        digest_fields.append("queue_response_sha256")
+        _validate_resolved_direct_queue_delivery_authority(record, key=key)
     else:
         raise ResolvedPostRecoveryError(
             f"resolved document delivery authority is invalid: {key}"
@@ -2129,6 +2160,15 @@ def _validate_resolved_record(
         if any(field in record for field in review_fields):
             raise ResolvedPostRecoveryError(
                 f"resolved recovered-public lineage is contradictory: {key}"
+            )
+        if schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4 and (
+            cast(Mapping[str, object], raw_lineage).get(
+                "direct_queue_delivery_authority"
+            )
+            != record.get("direct_queue_delivery_authority")
+        ):
+            raise ResolvedPostRecoveryError(
+                f"resolved direct queue recovery lineage changed: {key}"
             )
     else:
         if raw_lineage is not None:
