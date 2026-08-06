@@ -1173,6 +1173,7 @@ def _verify_reserve(
     records: Sequence[JsonRecord], *, selected_count: int
 ) -> dict[str, JsonRecord]:
     result: dict[str, JsonRecord] = {}
+    all_document_ids: set[str] = set()
     for index, record in enumerate(records, start=1):
         candidate_id = _candidate_id(record, "ranked reserve")
         if (
@@ -1206,6 +1207,12 @@ def _verify_reserve(
             raise RankedReserveReplacementError(
                 "ranked reserve document obligations are inconsistent"
             )
+        document_id_set = set(cast(list[str], raw_document_ids))
+        if all_document_ids & document_id_set:
+            raise RankedReserveReplacementError(
+                "ranked reserve document is shared across candidates"
+            )
+        all_document_ids.update(document_id_set)
         cost = _money_decimal(record.get("estimated_cost_usd"), "reserve cost")
         if cost < 0:
             raise RankedReserveReplacementError("reserve cost must be nonnegative")

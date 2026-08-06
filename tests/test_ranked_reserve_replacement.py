@@ -174,6 +174,40 @@ def test_read_only_replay_rejects_unrecorded_replacement_event(tmp_path: Path) -
         assert journal.replacement_events() == ()
 
 
+def test_ranked_reserve_rejects_document_shared_across_candidates(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    reserves = [json.loads(line) for line in fixture["reserve_bytes"].splitlines()]
+    reserves[1]["purchase_document_ids"] = list(reserves[0]["purchase_document_ids"])
+    reserve_bytes = _jsonl(reserves)
+    projection = dict(fixture["projection"])
+    projection["ranked_reserve_sha256"] = _canonical_sha(reserves)
+    output_commitments = dict(cast(dict[str, object], projection["output_commitments"]))
+    output_commitments["target-cohort-ranked-reserve.jsonl"] = _sha(reserve_bytes)
+    projection["output_commitments"] = output_commitments
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="document is shared across candidates",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=projection,
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=reserve_bytes,
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=_terminal_bytes("case-050"),
+                expected_terminal_exclusions_sha256=_sha(_terminal_bytes("case-050")),
+                purchase_journal=journal,
+            )
+
+
 @pytest.mark.parametrize(
     ("terminal", "retryable"),
     ((False, False), (True, True)),
