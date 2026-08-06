@@ -934,12 +934,34 @@ def _acquire_existing_purchase_ledger_lock(path: Path) -> int:
         raise CaseDevPurchaseLedgerBusyError(
             f"cycle purchase journal is already locked: {path}"
         ) from exc
+    try:
+        locked_stat = os.fstat(lock_fd)
+        path_stat = lock_path.lstat()
+    except OSError as exc:
+        _release_purchase_ledger_lock(lock_fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger lock path changed while acquiring read-only lock"
+        ) from exc
+    if (
+        not stat.S_ISREG(locked_stat.st_mode)
+        or locked_stat.st_nlink != 1
+        or not stat.S_ISREG(path_stat.st_mode)
+        or path_stat.st_nlink != 1
+        or (locked_stat.st_dev, locked_stat.st_ino)
+        != (path_stat.st_dev, path_stat.st_ino)
+    ):
+        _release_purchase_ledger_lock(lock_fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger lock path changed while acquiring read-only lock"
+        )
     return lock_fd
 
 
 def _release_purchase_ledger_lock(lock_fd: int) -> None:
-    fcntl.flock(lock_fd, fcntl.LOCK_UN)
-    os.close(lock_fd)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    finally:
+        os.close(lock_fd)
 
 
 def _refuse_existing_purchase_ledger(path: Path) -> None:
@@ -1543,7 +1565,7 @@ def _bind_purchase_ledger_policy(
 
 
 class CaseDevPurchaseJournal:
-    """Single-writer durable state machine for non-idempotent paid POSTs."""
+    """Durable purchase state machine with an explicit byte-preserving reader."""
 
     def __init__(
         self,
@@ -1551,9 +1573,14 @@ class CaseDevPurchaseJournal:
         *,
         policy: CaseDevPurchasePolicy,
         allow_create: bool = False,
+        read_only: bool = False,
         controlled_private_root: Path | None = None,
         initialization_receipt_path: Path | None = None,
     ) -> None:
+        if allow_create and read_only:
+            raise CaseDevPurchaseLedgerError(
+                "read-only purchase journals cannot create a ledger"
+            )
         require_approved_case_dev_purchase_policy(
             policy, controlled_private_root=controlled_private_root
         )
@@ -1579,13 +1606,54 @@ class CaseDevPurchaseJournal:
             )
         self.policy = policy
         self._closed = False
+        self._read_only = read_only
+        self._snapshot_directory: tempfile.TemporaryDirectory[str] | None = None
+        self._snapshot_before: (
+            tuple[tuple[str, int, int, int, int, int, int, int, int, int, str], ...]
+            | None
+        ) = None
         if allow_create:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         else:
             _require_existing_purchase_ledger_file(self.path)
         self._lock_path = Path(f"{self.path}.lock")
-        self._lock_fd = _acquire_purchase_ledger_lock(self.path)
+        self._lock_fd = (
+            _acquire_existing_purchase_ledger_lock(self.path)
+            if read_only
+            else _acquire_purchase_ledger_lock(self.path)
+        )
         try:
+            if read_only:
+                observed_paths = _purchase_ledger_reserved_paths(self.path)
+                self._snapshot_before = _purchase_snapshot_filesystem_identity(
+                    observed_paths
+                )
+                self._snapshot_directory = tempfile.TemporaryDirectory(
+                    prefix="legalforecast-purchase-audit-"
+                )
+                snapshot_path = Path(self._snapshot_directory.name) / self.path.name
+                _copy_purchase_snapshot_namespace(self.path, snapshot_path)
+                self._connection = sqlite3.connect(snapshot_path, isolation_level=None)
+                self._connection.row_factory = sqlite3.Row
+                self._connection.execute("PRAGMA foreign_keys=ON")
+                integrity = self._connection.execute("PRAGMA quick_check").fetchone()
+                if integrity is None or str(integrity[0]) != "ok":
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase ledger failed read-only SQLite quick_check"
+                    )
+                ledger_initialization_id = _bind_purchase_ledger_policy(
+                    self._connection, policy, insert=False
+                )
+                if (
+                    initialization_id is not None
+                    and ledger_initialization_id != initialization_id
+                ):
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase ledger initialization identity does not match receipt"
+                    )
+                _verify_purchase_snapshot_schema(self._connection)
+                self._connection.execute("PRAGMA query_only=ON")
+                return
             if not self.path.exists():
                 if not allow_create:
                     raise CaseDevPurchaseLedgerError(
@@ -1608,11 +1676,27 @@ class CaseDevPurchaseJournal:
             self._connection.execute("PRAGMA synchronous=FULL")
             self._create_schema()
             self._bind_policy(insert=allow_create)
-        except BaseException:
+        except BaseException as primary_error:
+            cleanup_errors: list[BaseException] = []
             connection = getattr(self, "_connection", None)
             if connection is not None:
-                connection.close()
-            _release_purchase_ledger_lock(self._lock_fd)
+                try:
+                    connection.close()
+                except BaseException as exc:
+                    cleanup_errors.append(exc)
+            if self._snapshot_directory is not None:
+                try:
+                    self._snapshot_directory.cleanup()
+                except BaseException as exc:
+                    cleanup_errors.append(exc)
+            try:
+                _release_purchase_ledger_lock(self._lock_fd)
+            except BaseException as exc:
+                cleanup_errors.append(exc)
+            if cleanup_errors:
+                raise primary_error from BaseExceptionGroup(
+                    "purchase journal cleanup failed", cleanup_errors
+                )
             raise
 
     def __enter__(self) -> CaseDevPurchaseJournal:
@@ -1629,9 +1713,22 @@ class CaseDevPurchaseJournal:
     def close(self) -> None:
         if self._closed:
             return
-        self._connection.close()
-        _release_purchase_ledger_lock(self._lock_fd)
-        self._closed = True
+        try:
+            self._connection.close()
+            if self._snapshot_directory is not None:
+                self._snapshot_directory.cleanup()
+            if self._read_only:
+                after = _purchase_snapshot_filesystem_identity(
+                    _purchase_ledger_reserved_paths(self.path)
+                )
+                if after != self._snapshot_before:
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase ledger filesystem state changed during "
+                        "read-only audit"
+                    )
+        finally:
+            _release_purchase_ledger_lock(self._lock_fd)
+            self._closed = True
 
     def plan(self, plan: MissingCoreBudgetPlan) -> None:
         """Persist every intent as planned before any submission can occur."""
@@ -2810,6 +2907,41 @@ class CaseDevPurchaseJournal:
         ).fetchall()
         return tuple(_purchase_operation_record(row) for row in rows)
 
+    def authenticated_snapshot(self) -> CaseDevPurchaseSnapshot:
+        """Validate caps and commit the complete logical purchase state."""
+
+        operations = _read_purchase_operation_records(self._connection)
+        committed = _read_committed_amount(self._connection, policy=self.policy)
+        if Decimal(committed) > self.policy.hard_cap_usd:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger committed amount exceeds the immutable hard cap"
+            )
+        for candidate_id in sorted({str(row["candidate_id"]) for row in operations}):
+            candidate_amount = _read_candidate_committed_amount(
+                self._connection,
+                policy=self.policy,
+                candidate_id=candidate_id,
+            )
+            if candidate_amount > self.policy.max_per_case_usd:
+                raise CaseDevPurchaseLedgerError(
+                    f"{candidate_id} committed amount exceeds the per-case cap"
+                )
+        digest = hashlib.sha256(
+            _canonical(
+                {
+                    "cycle_id": self.policy.cycle_id,
+                    "cohort_policy_sha256": self.policy.cohort_policy_sha256,
+                    "purchase_policy_sha256": self.policy.policy_sha256,
+                    "committed_amount_usd": committed,
+                    "operations": [dict(row) for row in operations],
+                }
+            ).encode()
+        ).hexdigest()
+        return CaseDevPurchaseSnapshot(
+            operations=operations,
+            purchase_state_sha256=digest,
+        )
+
     def candidate_committed_amount_usd(self, candidate_id: str) -> str:
         """Return journal-derived committed spend for one candidate.
 
@@ -3501,136 +3633,193 @@ def read_case_dev_purchase_snapshot(
     initialization_receipt_path: Path | None = None,
 ) -> CaseDevPurchaseSnapshot:
     """Read authenticated purchase state without changing ledger filesystem state."""
-
-    require_approved_case_dev_purchase_policy(
-        policy, controlled_private_root=controlled_private_root
-    )
-    if policy.has_verified_approval:
-        if initialization_receipt_path is None:
-            raise CaseDevPurchaseLedgerError(
-                "approved v2 snapshot requires an initialization receipt"
-            )
-        initialization_id = _verify_runtime_purchase_ledger_initialization_lineage(
-            initialization_receipt_path, policy=policy
-        )
-    else:
-        initialization_id = None
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
-    _require_existing_purchase_ledger_file(ledger_path)
-    sidecars = tuple(
-        Path(f"{ledger_path}{suffix}") for suffix in ("-wal", "-shm", "-journal")
-    )
-    present_sidecars = [sidecar for sidecar in sidecars if sidecar.exists()]
-    if present_sidecars:
-        raise CaseDevPurchaseLedgerBusyError(
-            "read-only purchase audit requires a checkpointed ledger without "
-            "SQLite sidecars"
-        )
-    observed_paths = (ledger_path, Path(f"{ledger_path}.lock"), *sidecars)
-    before = _purchase_snapshot_filesystem_identity(observed_paths)
-    lock_fd = _acquire_existing_purchase_ledger_lock(ledger_path)
     try:
-        if any(sidecar.exists() for sidecar in sidecars):
-            raise CaseDevPurchaseLedgerBusyError(
-                "purchase ledger gained SQLite sidecars before read-only audit"
-            )
-        uri = f"file:{quote(ledger_path.as_posix(), safe='/')}?mode=ro&immutable=1"
-        connection = sqlite3.connect(uri, uri=True, isolation_level=None)
-        connection.row_factory = sqlite3.Row
-        try:
-            connection.execute("PRAGMA query_only=ON")
-            integrity = connection.execute("PRAGMA quick_check").fetchone()
-            if integrity is None or str(integrity[0]) != "ok":
-                raise CaseDevPurchaseLedgerError(
-                    "purchase ledger failed read-only SQLite quick_check"
-                )
-            ledger_initialization_id = _bind_purchase_ledger_policy(
-                connection, policy, insert=False
-            )
-            if (
-                initialization_id is not None
-                and ledger_initialization_id != initialization_id
-            ):
-                raise CaseDevPurchaseLedgerError(
-                    "purchase ledger initialization identity does not match receipt"
-                )
-            _verify_purchase_snapshot_schema(connection)
-            operations = _read_purchase_operation_records(connection)
-            committed = _read_committed_amount(connection, policy=policy)
-            if Decimal(committed) > policy.hard_cap_usd:
-                raise CaseDevPurchaseLedgerError(
-                    "purchase ledger committed amount exceeds the immutable hard cap"
-                )
-            for candidate_id in {str(row["candidate_id"]) for row in operations}:
-                candidate_amount = _read_candidate_committed_amount(
-                    connection,
-                    policy=policy,
-                    candidate_id=candidate_id,
-                )
-                if candidate_amount > policy.max_per_case_usd:
-                    raise CaseDevPurchaseLedgerError(
-                        f"{candidate_id} committed amount exceeds the per-case cap"
-                    )
-            digest = hashlib.sha256(
-                _canonical(
-                    {
-                        "cycle_id": policy.cycle_id,
-                        "cohort_policy_sha256": policy.cohort_policy_sha256,
-                        "purchase_policy_sha256": policy.policy_sha256,
-                        "committed_amount_usd": committed,
-                        "operations": [dict(row) for row in operations],
-                    }
-                ).encode()
-            ).hexdigest()
-        finally:
-            connection.close()
+        with CaseDevPurchaseJournal(
+            ledger_path,
+            policy=policy,
+            read_only=True,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
+        ) as journal:
+            snapshot = journal.authenticated_snapshot()
     except sqlite3.Error as exc:
         raise CaseDevPurchaseLedgerError(
             "purchase ledger is not a complete authenticated SQLite journal"
         ) from exc
-    finally:
-        # Keep the descriptor close explicit in this read-only path. Besides
-        # making its lifetime obvious to static analysis, the nested finally
-        # guarantees close even if unlocking itself reports an OS error.
+    return snapshot
+
+
+def _copy_purchase_snapshot_namespace(source: Path, destination: Path) -> None:
+    """Copy committed SQLite bytes into an expendable recovery namespace.
+
+    SQLite may need to create shared-memory state or checkpoint committed WAL
+    frames merely to expose the current logical database. Performing that work
+    on this private copy keeps every canonical file byte-for-byte untouched.
+    The canonical ``-shm`` file is intentionally observed but not copied; it is
+    transient coordination state tied to the original namespace.
+    """
+
+    for suffix in ("", "-wal", "-journal"):
+        source_path = Path(f"{source}{suffix}")
         try:
-            fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        finally:
-            os.close(lock_fd)
-    after = _purchase_snapshot_filesystem_identity(observed_paths)
-    if after != before:
+            source_path.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise CaseDevPurchaseLedgerError(
+                f"purchase ledger snapshot namespace inspection failed: {source_path}"
+            ) from exc
+        _copy_regular_single_link_file(source_path, Path(f"{destination}{suffix}"))
+
+
+def _copy_regular_single_link_file(source: Path, destination: Path) -> None:
+    try:
+        _copy_regular_single_link_file_os(source, destination)
+    except OSError as exc:
         raise CaseDevPurchaseLedgerError(
-            "purchase ledger filesystem state changed during read-only audit"
+            f"purchase ledger snapshot copy failed: {source}"
+        ) from exc
+
+
+def _copy_regular_single_link_file_os(source: Path, destination: Path) -> None:
+    source_flags = _read_only_snapshot_open_flags()
+    source_fd = os.open(source, source_flags)
+    destination_fd: int | None = None
+    try:
+        opened = os.fstat(source_fd)
+        current = source.lstat()
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_nlink != 1
+            or (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino)
+        ):
+            raise CaseDevPurchaseLedgerError(
+                f"purchase ledger path changed while copying read-only: {source}"
+            )
+        destination_fd = os.open(
+            destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
         )
-    return CaseDevPurchaseSnapshot(
-        operations=operations,
-        purchase_state_sha256=digest,
-    )
+        while chunk := os.read(source_fd, 1024 * 1024):
+            remaining = memoryview(chunk)
+            while remaining:
+                written = os.write(destination_fd, remaining)
+                remaining = remaining[written:]
+        final = source.lstat()
+        if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (
+            final.st_dev,
+            final.st_ino,
+            final.st_size,
+            final.st_mtime_ns,
+        ):
+            raise CaseDevPurchaseLedgerError(
+                f"purchase ledger path changed while copying read-only: {source}"
+            )
+    finally:
+        try:
+            if destination_fd is not None:
+                os.close(destination_fd)
+        finally:
+            os.close(source_fd)
 
 
 def _purchase_snapshot_filesystem_identity(
     paths: tuple[Path, ...],
-) -> tuple[tuple[str, int, int, int, int, str], ...]:
-    identities: list[tuple[str, int, int, int, int, str]] = []
+) -> tuple[tuple[str, int, int, int, int, int, int, int, int, int, str], ...]:
+    identities: list[tuple[str, int, int, int, int, int, int, int, int, int, str]] = []
     for path in paths:
         try:
             metadata = path.lstat()
         except FileNotFoundError:
             continue
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        except OSError as exc:
             raise CaseDevPurchaseLedgerError(
-                f"purchase ledger path is not a singly linked regular file: {path}"
-            )
-        identities.append(
-            (
-                str(path),
-                metadata.st_dev,
-                metadata.st_ino,
-                metadata.st_size,
-                metadata.st_mtime_ns,
-                hashlib.sha256(path.read_bytes()).hexdigest(),
-            )
-        )
+                f"purchase ledger metadata inspection failed: {path}"
+            ) from exc
+        identities.append(_purchase_snapshot_file_identity(path, metadata))
     return tuple(identities)
+
+
+def _purchase_snapshot_file_identity(
+    path: Path,
+    metadata: os.stat_result,
+) -> tuple[str, int, int, int, int, int, int, int, int, int, str]:
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger path is not a singly linked regular file: {path}"
+        )
+    try:
+        descriptor = os.open(path, _read_only_snapshot_open_flags())
+        digest = hashlib.sha256()
+        try:
+            opened = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or _purchase_snapshot_stat_identity(opened)
+                != _purchase_snapshot_stat_identity(metadata)
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase ledger path changed during read-only audit: {path}"
+                )
+            while chunk := os.read(descriptor, 1024 * 1024):
+                digest.update(chunk)
+        finally:
+            os.close(descriptor)
+        final = path.lstat()
+        if (
+            not stat.S_ISREG(final.st_mode)
+            or final.st_nlink != 1
+            or _purchase_snapshot_stat_identity(final)
+            != _purchase_snapshot_stat_identity(opened)
+        ):
+            raise CaseDevPurchaseLedgerError(
+                f"purchase ledger path changed during read-only audit: {path}"
+            )
+        return (
+            str(path),
+            final.st_dev,
+            final.st_ino,
+            final.st_size,
+            final.st_atime_ns,
+            final.st_mtime_ns,
+            stat.S_IMODE(final.st_mode),
+            final.st_uid,
+            final.st_gid,
+            final.st_ctime_ns,
+            digest.hexdigest(),
+        )
+    except OSError as exc:
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger filesystem inspection failed: {path}"
+        ) from exc
+
+
+def _purchase_snapshot_stat_identity(
+    metadata: os.stat_result,
+) -> tuple[int, int, int, int, int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_size,
+        metadata.st_atime_ns,
+        metadata.st_mtime_ns,
+        stat.S_IMODE(metadata.st_mode),
+        metadata.st_uid,
+        metadata.st_gid,
+        metadata.st_ctime_ns,
+    )
+
+
+def _read_only_snapshot_open_flags() -> int:
+    if not hasattr(os, "O_NOATIME"):
+        raise CaseDevPurchaseLedgerError(
+            "byte-preserving purchase audit requires O_NOATIME support"
+        )
+    flags = os.O_RDONLY | os.O_NOATIME
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
 
 
 def _verify_purchase_snapshot_schema(connection: sqlite3.Connection) -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sqlite3
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
@@ -447,6 +448,49 @@ def _build_ranked_request(
         source_authority_kind="ranked_reserve_projection",
         source_authority_sha256=fixture["projection_sha256"],
     )
+
+
+def test_ranked_approval_request_preserves_wal_present_ledger_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _ranked_authority_fixture(tmp_path, monkeypatch=monkeypatch)
+    ledger_path = cast(Path, fixture["ledger_path"])
+    anchor = sqlite3.connect(ledger_path, isolation_level=None)
+    try:
+        anchor.execute("PRAGMA wal_autocheckpoint=0")
+        anchor.execute("BEGIN")
+        anchor.execute("SELECT COUNT(*) FROM purchase_operations").fetchone()
+        with sqlite3.connect(ledger_path, isolation_level=None) as writer:
+            writer.execute("PRAGMA wal_autocheckpoint=0")
+            writer.execute("CREATE TABLE wal_only_approval_fixture (sentinel INTEGER)")
+        reserved_paths = (
+            ledger_path,
+            Path(f"{ledger_path}.lock"),
+            Path(f"{ledger_path}-wal"),
+            Path(f"{ledger_path}-shm"),
+            Path(f"{ledger_path}-journal"),
+        )
+        before = {
+            path: (path.read_bytes(), path.stat().st_mtime_ns)
+            for path in reserved_paths
+            if path.exists()
+        }
+        assert Path(f"{ledger_path}-wal") in before
+        assert Path(f"{ledger_path}-shm") in before
+
+        request = _build_ranked_request(fixture)
+
+        after = {
+            path: (path.read_bytes(), path.stat().st_mtime_ns)
+            for path in reserved_paths
+            if path.exists()
+        }
+        assert before == after
+        assert set(before) == set(after)
+        assert request.purchase_ledger_path == str(ledger_path)
+    finally:
+        anchor.close()
 
 
 def test_exact_successor_approval_records_replays_and_publishes(
