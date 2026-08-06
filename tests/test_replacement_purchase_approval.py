@@ -1132,6 +1132,24 @@ def test_post_purchase_ranked_replay_proves_exact_authority_transition(
     )
 
 
+def test_post_purchase_ranked_replay_rejects_prefixed_authority_digest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _post_purchase_ranked_replay_fixture(tmp_path, monkeypatch=monkeypatch)
+    authority = dict(fixture["authority"])
+    authority["authority_sha256"] = (
+        "sha256:" + cast(str, authority["authority_sha256"])
+    )
+    fixture["authority"] = authority
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="replacement purchase authority hash differs",
+    ):
+        _verify_post_purchase_ranked_replay(fixture)
+
+
 def test_verified_post_purchase_transition_plans_and_binds_current_v4(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
