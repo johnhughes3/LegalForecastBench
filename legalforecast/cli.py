@@ -809,7 +809,9 @@ from legalforecast.ingestion.zero_cost_successor import (
     STATE_SCHEMA_VERSION as ZERO_COST_SUCCESSOR_STATE_SCHEMA,
 )
 from legalforecast.ingestion.zero_cost_successor import (
+    VerifiedPostPurchaseRankedResult,
     ZeroCostSuccessorError,
+    _mint_verified_post_purchase_ranked_result,  # pyright: ignore[reportPrivateUsage]
     project_zero_cost_successor,
 )
 from legalforecast.labeling import (
@@ -24026,7 +24028,7 @@ def _authenticate_ranked_reserve_precursor(
     ranked_result: Mapping[str, object],
     verified_post_purchase_replay: VerifiedRankedReservePostPurchaseReplay
     | None = None,
-) -> Mapping[str, object]:
+) -> Mapping[str, object] | VerifiedPostPurchaseRankedResult:
     """Substantively replay the producer authority behind the ranked result."""
 
     policy = verify_case_dev_purchase_policy(
@@ -24127,6 +24129,10 @@ def _authenticate_ranked_reserve_precursor(
     ):
         raise ZeroCostSuccessorError(
             "ranked result differs from authenticated ranked-reserve replay"
+        )
+    if verified_post_purchase_replay is not None:
+        return _mint_verified_post_purchase_ranked_result(
+            authenticated_result, verified_post_purchase_replay
         )
     return authenticated_result
 

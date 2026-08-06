@@ -6,12 +6,14 @@ import os
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    _mint_verified_ranked_reserve_post_purchase_replay,
     ranked_reserve_canonical_sha256,
     ranked_reserve_result_bytes,
 )
@@ -19,6 +21,7 @@ from legalforecast.ingestion.zero_cost_successor import (
     CONFIG_SCHEMA_VERSION,
     STATE_SCHEMA_VERSION,
     ZeroCostSuccessorError,
+    _mint_verified_post_purchase_ranked_result,
     project_zero_cost_successor,
 )
 
@@ -325,6 +328,50 @@ def _upgrade_fixture_to_post_purchase_replay(fixture: Fixture) -> None:
     fixture.refresh()
 
 
+def _verified_v4_transition(fixture: Fixture) -> object:
+    proof = fixture.ranked_result["authenticated_post_purchase_replay"]
+    assert isinstance(proof, dict)
+    prior_result = proof["prior_result"]
+    assert isinstance(prior_result, dict)
+    legacy_replay = prior_result["authenticated_legacy_replay"]
+    assert isinstance(legacy_replay, dict)
+    precursor = legacy_replay["precursor_result"]
+    assert isinstance(precursor, dict)
+    return _mint_verified_ranked_reserve_post_purchase_replay(
+        prior_result=prior_result,
+        prior_result_sha256=str(proof["prior_result_sha256"]),
+        authenticated_legacy_replay=legacy_replay,
+        precursor_committed_spend=Decimal(str(precursor["committed_spend_usd"])),
+        precursor_reserved_spend=Decimal(
+            str(precursor["reserved_replacement_spend_usd"])
+        ),
+        precursor_remaining_headroom=Decimal(str(precursor["remaining_headroom_usd"])),
+        baseline_snapshot=CaseDevPurchaseSnapshot(
+            operations=(),
+            committed_amount_usd=str(proof["baseline_committed_spend_usd"]),
+            purchase_state_sha256=str(
+                proof["baseline_purchase_journal_state_sha256"]
+            ).removeprefix("sha256:"),
+        ),
+        current_snapshot=CaseDevPurchaseSnapshot(
+            operations=(),
+            committed_amount_usd=str(proof["current_committed_spend_usd"]),
+            purchase_state_sha256=str(
+                proof["current_purchase_journal_state_sha256"]
+            ).removeprefix("sha256:"),
+        ),
+        replacement_purchase_authority_sha256=str(
+            proof["replacement_purchase_authority_sha256"]
+        ),
+        baseline_operation_record_sha256s=list(
+            proof["baseline_operation_record_sha256s"]
+        ),
+        successor_operation_record_sha256s=list(
+            proof["successor_operation_record_sha256s"]
+        ),
+    )
+
+
 def test_current_v3_result_accepts_closed_legacy_replay_proof() -> None:
     fixture = _fixture()
     _upgrade_fixture_to_current_replay(fixture)
@@ -334,13 +381,37 @@ def test_current_v3_result_accepts_closed_legacy_replay_proof() -> None:
     assert successor.state["selected_case_count"] == 100
 
 
-def test_post_purchase_v4_result_accepts_closed_transition_proof() -> None:
+def test_post_purchase_v4_result_rejects_self_authenticated_forged_mapping() -> None:
     fixture = _fixture()
     _upgrade_fixture_to_post_purchase_replay(fixture)
 
-    successor = project_zero_cost_successor(**fixture.kwargs)
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="lacks full authenticated producer replay",
+    ):
+        project_zero_cost_successor(**fixture.kwargs)
 
+
+def test_post_purchase_v4_result_requires_exact_full_result_capability() -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_post_purchase_replay(fixture)
+    full_capability = _mint_verified_post_purchase_ranked_result(
+        fixture.ranked_result,
+        cast(Any, _verified_v4_transition(fixture)),
+    )
+    fixture.kwargs["authenticated_ranked_result"] = full_capability
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
     assert successor.state["selected_case_count"] == 100
+
+    fixture.ranked_result["reserved_replacement_spend_usd"] = "999.00"
+    fixture.ranked_result["remaining_headroom_usd"] = "0.00"
+    fixture.refresh()
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="differs from authenticated ranked-reserve replay",
+    ):
+        project_zero_cost_successor(**fixture.kwargs)
 
 
 @pytest.mark.parametrize(
@@ -743,14 +814,22 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     monkeypatch.setattr(
         cli, "_verify_authenticated_clearance_run_card", lambda **_kwargs: ()
     )
-    verified_token = object()
+    verified_token: object = object()
     authentication_tokens: list[object | None] = []
 
     def authenticate_precursor(**kwargs: object) -> dict[str, Any]:
         token = kwargs.get("verified_post_purchase_replay")
         authentication_tokens.append(token)
         assert token is (verified_token if post_purchase_v4 else None)
-        return fixture.kwargs["authenticated_ranked_result"]
+        ranked = fixture.kwargs["authenticated_ranked_result"]
+        if post_purchase_v4:
+            return cast(
+                dict[str, Any],
+                _mint_verified_post_purchase_ranked_result(
+                    ranked, cast(Any, verified_token)
+                ),
+            )
+        return ranked
 
     monkeypatch.setattr(
         cli, "_authenticate_ranked_reserve_precursor", authenticate_precursor
@@ -807,6 +886,7 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     if post_purchase_v4:
         proof = fixture.ranked_result["authenticated_post_purchase_replay"]
         assert isinstance(proof, dict)
+        verified_token = _verified_v4_transition(fixture)
         prior_result_path = tmp_path / "prior-ranked-result.json"
         prior_result_path.write_bytes(
             ranked_reserve_result_bytes(proof["prior_result"])

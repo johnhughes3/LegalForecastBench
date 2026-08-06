@@ -24,8 +24,10 @@ from legalforecast.ingestion.docket_decision_text_source import (
 from legalforecast.ingestion.ranked_reserve_replacement import (
     CURRENT_REPLAY_RESULT_SCHEMA_VERSION,
     POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION,
+    VerifiedRankedReservePostPurchaseReplay,
     ranked_reserve_canonical_sha256,
     ranked_reserve_result_bytes,
+    require_verified_post_purchase_replay,
     validate_authenticated_legacy_replay,
     validate_authenticated_post_purchase_replay,
 )
@@ -93,6 +95,42 @@ class ZeroCostSuccessorError(ValueError):
     """Raised when the exact-100 successor cannot be authenticated."""
 
 
+_VERIFIED_POST_PURCHASE_RANKED_RESULT_TOKEN = object()
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class VerifiedPostPurchaseRankedResult:
+    """Opaque fully replayed v4 ranked-result capability."""
+
+    ranked_result: JsonRecord
+    transition: VerifiedRankedReservePostPurchaseReplay
+    _token: object
+
+    def __init__(self, **_values: object) -> None:
+        raise TypeError(
+            "VerifiedPostPurchaseRankedResult is created only by full ranked replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        """Return whether full producer replay minted this result."""
+
+        return self._token is _VERIFIED_POST_PURCHASE_RANKED_RESULT_TOKEN
+
+
+def _mint_verified_post_purchase_ranked_result(  # pyright: ignore[reportUnusedFunction]
+    ranked_result: Mapping[str, object],
+    transition: VerifiedRankedReservePostPurchaseReplay,
+) -> VerifiedPostPurchaseRankedResult:
+    """Mint a v4 result capability after exact full-result reconstruction."""
+
+    require_verified_post_purchase_replay(ranked_result, transition)
+    verified = object.__new__(VerifiedPostPurchaseRankedResult)
+    object.__setattr__(verified, "ranked_result", dict(ranked_result))
+    object.__setattr__(verified, "transition", transition)
+    object.__setattr__(verified, "_token", _VERIFIED_POST_PURCHASE_RANKED_RESULT_TOKEN)
+    return verified
+
+
 @dataclass(frozen=True, slots=True)
 class ZeroCostSuccessor:
     """Closed exact-100 selection, config, and terminal state."""
@@ -115,7 +153,9 @@ def project_zero_cost_successor(
     source_pool: Sequence[Mapping[str, Any]],
     ranked_result: Mapping[str, object],
     ranked_result_bytes: bytes,
-    authenticated_ranked_result: Mapping[str, object],
+    authenticated_ranked_result: (
+        Mapping[str, object] | VerifiedPostPurchaseRankedResult
+    ),
     active_selection: Sequence[Mapping[str, Any]],
     active_selection_bytes: bytes,
     replacement_selection: Sequence[Mapping[str, Any]],
@@ -151,7 +191,34 @@ def project_zero_cost_successor(
         successor_exclusions_bytes=successor_exclusions_bytes,
         replacement_budget_plan_bytes=replacement_budget_plan_bytes,
     )
-    if ranked_result != authenticated_ranked_result:
+    is_post_purchase_v4 = (
+        ranked_result.get("schema_version")
+        == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
+    )
+    if is_post_purchase_v4:
+        if (
+            type(authenticated_ranked_result) is not VerifiedPostPurchaseRankedResult
+            or not authenticated_ranked_result.is_replay_minted()
+        ):
+            raise ZeroCostSuccessorError(
+                "post-purchase v4 result lacks full authenticated producer replay"
+            )
+        authenticated_result: Mapping[str, object] = (
+            authenticated_ranked_result.ranked_result
+        )
+        try:
+            require_verified_post_purchase_replay(
+                authenticated_result, authenticated_ranked_result.transition
+            )
+        except ValueError as exc:
+            raise ZeroCostSuccessorError(str(exc)) from exc
+    else:
+        if not isinstance(authenticated_ranked_result, Mapping):
+            raise ZeroCostSuccessorError(
+                "verified post-purchase result cannot authenticate a legacy result"
+            )
+        authenticated_result = authenticated_ranked_result
+    if ranked_result != authenticated_result:
         raise ZeroCostSuccessorError(
             "ranked result differs from authenticated ranked-reserve replay"
         )

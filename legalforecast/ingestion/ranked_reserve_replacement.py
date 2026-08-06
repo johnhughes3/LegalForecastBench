@@ -1481,6 +1481,53 @@ def authenticate_post_purchase_replay_against_snapshot(
     return proof
 
 
+def require_verified_post_purchase_replay(
+    result: Mapping[str, object],
+    capability: VerifiedRankedReservePostPurchaseReplay | None,
+) -> JsonRecord:
+    """Bind a public v4 result to its verifier-issued transition capability."""
+
+    if (
+        type(capability) is not VerifiedRankedReservePostPurchaseReplay
+        or not capability.is_replay_minted()
+    ):
+        raise RankedReserveReplacementError(
+            "post-purchase v4 result lacks verified replacement authority"
+        )
+    expected: JsonRecord = {
+        "schema_version": POST_PURCHASE_REPLAY_PROOF_SCHEMA_VERSION,
+        "prior_result": dict(capability.prior_result),
+        "prior_result_sha256": capability.prior_result_sha256,
+        "replacement_purchase_authority_sha256": (
+            capability.replacement_purchase_authority_sha256
+        ),
+        "baseline_purchase_journal_state_sha256": (
+            "sha256:" + capability.baseline_snapshot.purchase_state_sha256
+        ),
+        "baseline_committed_spend_usd": (
+            capability.baseline_snapshot.committed_amount_usd
+        ),
+        "baseline_operation_record_sha256s": list(
+            capability.baseline_operation_record_sha256s
+        ),
+        "current_purchase_journal_state_sha256": (
+            "sha256:" + capability.current_snapshot.purchase_state_sha256
+        ),
+        "current_committed_spend_usd": capability.current_snapshot.committed_amount_usd,
+        "successor_operation_record_sha256s": list(
+            capability.successor_operation_record_sha256s
+        ),
+    }
+    proof = validate_authenticated_post_purchase_replay(
+        result.get("authenticated_post_purchase_replay")
+    )
+    if proof != validate_authenticated_post_purchase_replay(expected):
+        raise RankedReserveReplacementError(
+            "post-purchase v4 result differs from verified replacement authority"
+        )
+    return proof
+
+
 def _replacement_events(
     records: Sequence[Mapping[str, Any]],
     *,
