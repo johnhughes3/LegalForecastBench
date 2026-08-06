@@ -77,7 +77,7 @@ uv run legalforecast acquisition plan-ranked-reserve-replacements \
   --controlled-private-root "$initial_private_root" \
   --purchase-ledger "$purchase_ledger" \
   --purchase-ledger-initialization-receipt "$purchase_ledger_receipt" \
-  --purchase-result "$purchase_result_root/courtlistener-recap-fetch-purchases.json" \
+  --purchase-result "$purchase_result_root/purchased-document-downloads.jsonl" \
   --purchase-run-card "$purchase_result_root/run-cards/purchase-missing-recap-fetch.json" \
   --screening-snapshot-manifest "$screening_snapshot_root/manifest.json" \
   --output "$continuation_root/replacement-result.json" \
@@ -101,6 +101,11 @@ Review `replacement-result.json` before doing anything downstream.
 Its activity and authority flags must all remain false.
 If `successor_approval_required` is true, record and replay a new exact successor approval for `replacement-selection.jsonl` and `replacement-budget-plan.json`; do not reuse the original target-100 approval as authority for those documents.
 Until that approval path authenticates this ranked-reserve result schema, stop without purchasing.
+
+After the operator records that exact successor approval, render [`cycle-1-target-100.replacement-purchase-tranche.template.json`](../manifests/cycle-1-target-100.replacement-purchase-tranche.template.json).
+The template binds the ranked-reserve projection digest `sha256:1dab63dd17c69fd0222b58d6e30af67ad56550ca6578262f1089222a68257e56` directly; it does not accept the older clearance-replacement frontier.
+Its paid stage uses `--direct-courtlistener-purchase`, the existing CourtListener request ledger, the successor attempt policy and purchase authority, and the unchanged Cycle ledger and caps.
+It neither generates nor accepts a RECAP Fetch broker policy, and rendering or preflighting it performs no provider call, fee acknowledgement, or purchase.
 
 An `active_case_count` below 100 is a precursor only.
 A separately authenticated zero-cost clearance successor must bring it back to exactly 100 before the replacement reprojection and corpus templates may rebuild acquisition materialization, Stage A, Stage B, packet inputs, or corpus readiness.

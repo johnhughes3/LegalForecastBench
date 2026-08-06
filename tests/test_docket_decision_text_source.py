@@ -498,7 +498,7 @@ def test_terminal_disposition_rejects_selection_records_with_an_unrelated_digest
             )
 
 
-def test_terminal_disposition_rejects_digest_valid_nonproducer_selection_encoding(
+def test_terminal_disposition_accepts_compact_successor_selection_encoding(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -525,14 +525,58 @@ def test_terminal_disposition_rejects_digest_valid_nonproducer_selection_encodin
             result_path=tmp_path / "purchase-result.json",
             terminal_pairs=(("72192698", "485754024", 3),),
         )
+        sources = verify_docket_decision_text_sources(
+            selection_payload=compact_payload,
+            expected_selection_payload_sha256=hashlib.sha256(
+                compact_payload
+            ).hexdigest(),
+            screening_snapshot=snapshot,
+            expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
+            terminal_purchase_failure_authority=failure_authority,
+            purchase_journal=journal,
+        )
+
+        assert verified_docket_decision_source_records(
+            sources.terminal_purchase_disposition_authority(purchase_journal=journal),
+            purchase_journal=journal,
+        )
+
+
+def test_terminal_disposition_rejects_digest_valid_nonproducer_selection_encoding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allow_historical_v1_algorithm_fixtures(monkeypatch)
+    selection, snapshot = _fixture(raw=True)
+    nonproducer_payload = (
+        json.dumps(
+            selection,
+            ensure_ascii=False,
+            sort_keys=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode()
+    policy = _terminal_policy(tmp_path)
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path,
+        policy=policy,
+        allow_create=True,
+    ) as journal:
+        failure_authority = _terminal_failure_authority(
+            journal,
+            result_path=tmp_path / "purchase-result.json",
+            terminal_pairs=(("72192698", "485754024", 3),),
+        )
         with pytest.raises(
             DocketDecisionTextSourceError,
-            match="differs from producer encoding",
+            match="differs from producer encodings",
         ):
             verify_docket_decision_text_sources(
-                selection_payload=compact_payload,
+                selection_payload=nonproducer_payload,
                 expected_selection_payload_sha256=hashlib.sha256(
-                    compact_payload
+                    nonproducer_payload
                 ).hexdigest(),
                 screening_snapshot=snapshot,
                 expected_snapshot_manifest_sha256=snapshot.manifest_sha256,
