@@ -227,6 +227,42 @@ def test_opinion_docket_gap_path_validation_preserves_cli_error_contract(
     )
 
 
+@pytest.mark.parametrize(
+    ("failing_target", "expected_label"),
+    (
+        ("snapshot", "immutable screening snapshot"),
+        ("output", "plan-opinion-docket-gaps output"),
+    ),
+)
+@pytest.mark.parametrize("error_type", (OSError, RuntimeError))
+def test_opinion_docket_gap_resolution_failures_preserve_cli_error_contract(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    failing_target: str,
+    expected_label: str,
+    error_type: type[Exception],
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    output = tmp_path / "plan.jsonl"
+    target = snapshot if failing_target == "snapshot" else output
+    original_resolve = Path.resolve
+
+    def resolve(path: Path, *, strict: bool = False) -> Path:
+        if path == target:
+            raise error_type("platform-specific resolution failure")
+        return original_resolve(path, strict=strict)
+
+    monkeypatch.setattr(Path, "resolve", resolve)
+
+    with pytest.raises(cli.CommandError) as exc_info:
+        cli._validate_opinion_docket_gap_paths(
+            snapshot_path=snapshot,
+            writable_paths=(output,),
+        )
+
+    assert str(exc_info.value) == f"cannot resolve {expected_label} path: {target}"
+
+
 def test_plan_opinion_docket_gaps_records_invalid_manifest_pin_failure(
     tmp_path: Path,
     capsys: CaptureFixture[str],

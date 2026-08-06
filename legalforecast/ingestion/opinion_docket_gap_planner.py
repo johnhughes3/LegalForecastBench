@@ -38,10 +38,16 @@ def validate_opinion_docket_gap_paths(
 ) -> None:
     """Protect the authenticated snapshot and keep all planner outputs distinct."""
 
-    snapshot_root = snapshot_path.resolve()
+    snapshot_root = _resolve_planner_path(
+        snapshot_path,
+        label="immutable screening snapshot",
+    )
     resolved_outputs: list[tuple[Path, Path]] = []
     for path in writable_paths:
-        resolved = path.resolve()
+        resolved = _resolve_planner_path(
+            path,
+            label="plan-opinion-docket-gaps output",
+        )
         if resolved == snapshot_root or resolved.is_relative_to(snapshot_root):
             raise OpinionDocketGapPlanningError(
                 "plan-opinion-docket-gaps output must be outside the immutable "
@@ -94,6 +100,17 @@ def validate_opinion_docket_gap_paths(
                     "plan-opinion-docket-gaps output aliases immutable snapshot "
                     f"evidence: {output}"
                 )
+
+
+def _resolve_planner_path(path: Path, *, label: str) -> Path:
+    """Resolve one planner path behind the stable domain-error boundary."""
+
+    try:
+        return path.resolve()
+    except (OSError, RuntimeError) as exc:
+        raise OpinionDocketGapPlanningError(
+            f"cannot resolve {label} path: {path}"
+        ) from exc
 
 
 @dataclass(frozen=True, slots=True)
