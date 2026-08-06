@@ -12700,26 +12700,80 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         clearance_run_card = _projection_json_object(
             clearance_run_card_bytes, source=clearance_run_card_path
         )
-        if (
-            clearance_run_card.get("schema_version")
-            == "legalforecast.provenance_public_marker_clearance_run_card.v1"
-        ):
-            raise CommandError(
-                "retained-cohort extension does not yet support public-marker "
-                "clearance lineage"
-            )
         disclosure_clearance_path = _named_committed_path(
             clearance_run_card,
             commitment_group="output_commitments",
             name="disclosure_clearance",
         )
+        public_marker_clearance = clearance_run_card.get("schema_version") == (
+            "legalforecast.provenance_public_marker_clearance_run_card.v1"
+        )
+        verified_public_marker_lineage: Mapping[str, object] | None = None
+        public_marker_snapshot: Mapping[str, bytes] | None = None
+        public_marker_input_paths: tuple[Path, ...] = ()
         raw_clearance_authority = clearance_run_card.get("clearance_authority")
         clearance_authority_kind = (
             cast(Mapping[str, object], raw_clearance_authority).get("kind")
             if isinstance(raw_clearance_authority, Mapping)
             else None
         )
-        if clearance_authority_kind == "provenance_first_with_john_exceptions":
+        if public_marker_clearance:
+            clearance_sources = clearance_run_card.get("source_commitments")
+            if not isinstance(clearance_sources, Mapping):
+                raise CommandError("public-marker clearance lacks source commitments")
+            download_manifest_path = _named_committed_path(
+                clearance_run_card,
+                commitment_group="source_commitments",
+                name="download_manifest",
+            )
+            public_marker_snapshot = _capture_clearance_artifact_snapshot(
+                run_card=clearance_run_card,
+                run_card_path=clearance_run_card_path,
+                clearance_path=disclosure_clearance_path,
+                initial_artifact_bytes={
+                    os.path.abspath(clearance_run_card_path): clearance_run_card_bytes,
+                    os.path.abspath(disclosure_clearance_path): (
+                        _read_retained_extension_artifact(disclosure_clearance_path)
+                    ),
+                },
+            )
+            verified_public_marker_lineage = _verify_materializer_clearance_lineage(
+                manifest_path=download_manifest_path,
+                clearance_path=disclosure_clearance_path,
+                run_card_path=clearance_run_card_path,
+                captured_artifact_bytes=public_marker_snapshot,
+            )
+            if verified_public_marker_lineage.get("lineage_kind") != (
+                "provider_free_recovered_public"
+            ):
+                raise CommandError(
+                    "public-marker retained extension lacks recovered-public authority"
+                )
+            raw_verified_bytes = verified_public_marker_lineage.get(
+                "verified_artifact_bytes"
+            )
+            if not isinstance(raw_verified_bytes, Mapping):
+                raise CommandError(
+                    "public-marker clearance replay lacks immutable artifact bytes"
+                )
+            typed_verified_bytes = cast(Mapping[object, object], raw_verified_bytes)
+            if not all(
+                isinstance(path, str) and isinstance(payload, bytes)
+                for path, payload in typed_verified_bytes.items()
+            ):
+                raise CommandError(
+                    "public-marker clearance replay lacks immutable artifact bytes"
+                )
+            public_marker_snapshot = {
+                cast(str, path): cast(bytes, payload)
+                for path, payload in typed_verified_bytes.items()
+            }
+            public_marker_input_paths = tuple(
+                Path(path) for path in sorted(public_marker_snapshot)
+            )
+            reviews_path = None
+            review_receipt_path = None
+        elif clearance_authority_kind == "provenance_first_with_john_exceptions":
             reviews_path = _named_committed_path(
                 clearance_run_card,
                 commitment_group="source_commitments",
@@ -12774,8 +12828,12 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         frontier_path,
         frontier_run_card_path,
         clearance_run_card_path,
-        reviews_path,
-        review_receipt_path,
+        *(
+            (reviews_path, review_receipt_path)
+            if reviews_path is not None and review_receipt_path is not None
+            else ()
+        ),
+        *public_marker_input_paths,
         cohort_policy_path,
         snapshot_path,
         purchase_policy_path,
@@ -12838,10 +12896,18 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
                 frontier_run_card_path
             ),
             "clearance_run_card": clearance_run_card_bytes,
-            "reviews": _read_retained_extension_artifact(reviews_path),
-            "review_receipt": _read_retained_extension_artifact(review_receipt_path),
             "restriction_evidence": _read_retained_extension_artifact(
                 restriction_evidence_path
+            ),
+            **(
+                {
+                    "reviews": _read_retained_extension_artifact(reviews_path),
+                    "review_receipt": _read_retained_extension_artifact(
+                        review_receipt_path
+                    ),
+                }
+                if reviews_path is not None and review_receipt_path is not None
+                else {}
             ),
         }
     except OSError as exc:
@@ -12869,6 +12935,8 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         clearance_run_card_path=clearance_run_card_path,
         reviews_path=reviews_path,
         review_receipt_path=review_receipt_path,
+        verified_public_marker_lineage=verified_public_marker_lineage,
+        public_marker_snapshot=public_marker_snapshot,
         cohort_policy_path=cohort_policy_path,
         restriction_evidence_path=restriction_evidence_path,
         disclosure_clearance_path=disclosure_clearance_path,
@@ -12943,6 +13011,32 @@ def _named_committed_path(
     return Path(raw_path)
 
 
+def _clearance_source_commitment_sha256s(
+    run_card: Mapping[str, Any],
+) -> dict[str, str]:
+    """Return every replayed source identity without inventing review artifacts."""
+
+    raw_sources = run_card.get("source_commitments")
+    if not isinstance(raw_sources, Mapping):
+        raise CommandError("clearance run card lacks source commitments")
+    identities: dict[str, str] = {}
+    for raw_name, raw_commitment in cast(Mapping[object, object], raw_sources).items():
+        if (
+            not isinstance(raw_name, str)
+            or not raw_name
+            or not isinstance(raw_commitment, Mapping)
+        ):
+            raise CommandError("clearance source commitment is invalid")
+        commitment = cast(Mapping[str, object], raw_commitment)
+        digest = commitment.get("sha256", commitment.get("tree_sha256"))
+        if not _valid_prefixed_sha256(digest):
+            raise CommandError(
+                f"clearance source commitment {raw_name} lacks a SHA-256 identity"
+            )
+        identities[raw_name] = cast(str, digest)
+    return dict(sorted(identities.items()))
+
+
 def _authenticated_extension_lineage(
     *,
     preparation_root: Path,
@@ -12952,8 +13046,10 @@ def _authenticated_extension_lineage(
     frontier_path: Path,
     frontier_run_card_path: Path,
     clearance_run_card_path: Path,
-    reviews_path: Path,
-    review_receipt_path: Path,
+    reviews_path: Path | None,
+    review_receipt_path: Path | None,
+    verified_public_marker_lineage: Mapping[str, object] | None,
+    public_marker_snapshot: Mapping[str, bytes] | None,
     cohort_policy_path: Path,
     restriction_evidence_path: Path,
     disclosure_clearance_path: Path,
@@ -13046,8 +13142,44 @@ def _authenticated_extension_lineage(
         if isinstance(raw_clearance_authority, Mapping)
         else None
     )
+    public_marker_schema = clearance_run_card.get("schema_version") == (
+        "legalforecast.provenance_public_marker_clearance_run_card.v1"
+    )
+    clearance_source_commitment_sha256s: Mapping[str, str] | None = None
+    clearance_authority_sha256: str | None = None
     clearance_snapshot: dict[str, bytes] = {}
-    if clearance_authority_kind == "provenance_first_with_john_exceptions":
+    if public_marker_schema:
+        if (
+            verified_public_marker_lineage is None
+            or public_marker_snapshot is None
+            or verified_public_marker_lineage.get("lineage_kind")
+            != "provider_free_recovered_public"
+        ):
+            raise CommandError(
+                "public-marker clearance lacks authenticated recovered-public replay"
+            )
+        clearance_snapshot = dict(public_marker_snapshot)
+        if (
+            clearance_snapshot.get(os.path.abspath(clearance_run_card_path))
+            != (lineage_bytes["clearance_run_card"])
+        ):
+            raise CommandError("public-marker clearance run card changed after replay")
+        clearance_source_commitment_sha256s = _clearance_source_commitment_sha256s(
+            clearance_run_card
+        )
+        recovered_authority = clearance_run_card.get("recovered_public_authority")
+        if not isinstance(recovered_authority, Mapping):
+            raise CommandError(
+                "public-marker clearance lacks recovered-public authority"
+            )
+        clearance_authority_sha256 = _bytes_sha256(
+            canonical_json_bytes(cast(Mapping[str, object], recovered_authority))
+        )
+        clearance_reviews_sha256 = None
+        clearance_review_receipt_sha256 = None
+    elif clearance_authority_kind == "provenance_first_with_john_exceptions":
+        if reviews_path is None or review_receipt_path is None:
+            raise CommandError("provenance clearance lacks exception review artifacts")
         clearance_snapshot = _capture_clearance_artifact_snapshot(
             run_card=clearance_run_card,
             run_card_path=clearance_run_card_path,
@@ -13094,8 +13226,10 @@ def _authenticated_extension_lineage(
         clearance_reviews_sha256 = _bytes_sha256(lineage_bytes["reviews"])
         clearance_review_receipt_sha256 = _bytes_sha256(lineage_bytes["review_receipt"])
     else:
-        clearance_reviews_sha256 = ""
-        clearance_review_receipt_sha256 = ""
+        if reviews_path is None or review_receipt_path is None:
+            raise CommandError("legacy clearance lacks review artifacts")
+        clearance_reviews_sha256 = None
+        clearance_review_receipt_sha256 = None
     review_requests_path = _named_committed_path(
         clearance_run_card,
         commitment_group="source_commitments",
@@ -13103,7 +13237,10 @@ def _authenticated_extension_lineage(
     )
     review_worksheet_name = (
         "exception_worksheet"
-        if clearance_authority_kind == "provenance_first_with_john_exceptions"
+        if (
+            public_marker_schema
+            or clearance_authority_kind == "provenance_first_with_john_exceptions"
+        )
         else "review_worksheet"
     )
     review_worksheet_path = _named_committed_path(
@@ -13118,7 +13255,10 @@ def _authenticated_extension_lineage(
     )
     if committed_cohort_policy_path.resolve() != cohort_policy_path.resolve():
         raise CommandError("clearance committed a different cohort policy")
-    if clearance_authority_kind == "provenance_first_with_john_exceptions":
+    if (
+        public_marker_schema
+        or clearance_authority_kind == "provenance_first_with_john_exceptions"
+    ):
         reviewer_policy_path = _named_committed_path(
             clearance_run_card,
             commitment_group="source_commitments",
@@ -13132,11 +13272,14 @@ def _authenticated_extension_lineage(
         )
     raw_review_authority = clearance_run_card.get("review_authority")
     if (
-        clearance_authority_kind != "provenance_first_with_john_exceptions"
+        not public_marker_schema
+        and clearance_authority_kind != "provenance_first_with_john_exceptions"
         and not isinstance(raw_review_authority, Mapping)
     ):
         raise CommandError("clear-disclosures run card lacks review authority")
-    if clearance_authority_kind == "provenance_first_with_john_exceptions":
+    if public_marker_schema:
+        authority_record: Mapping[str, object] = {}
+    elif clearance_authority_kind == "provenance_first_with_john_exceptions":
         authority_record = cast(Mapping[str, object], raw_clearance_authority)
     else:
         authority_record = cast(Mapping[str, object], raw_review_authority)
@@ -13147,26 +13290,35 @@ def _authenticated_extension_lineage(
         if clearance_authority_kind == "provenance_first_with_john_exceptions"
         else ("reviews", "review_receipt")
     )
-    for name, path, digest in (
-        (
-            review_commitment_names[0],
-            reviews_path,
-            _bytes_sha256(lineage_bytes["reviews"]),
-        ),
-        (
-            review_commitment_names[1],
-            review_receipt_path,
-            _bytes_sha256(lineage_bytes["review_receipt"]),
-        ),
-    ):
-        _validate_named_path_commitment(
-            cast(Mapping[str, object], clearance_sources),
-            name=name,
-            expected_path=path,
-            expected_sha256=digest,
-        )
+    if not public_marker_schema:
+        if reviews_path is None or review_receipt_path is None:
+            raise CommandError("clearance review paths are missing")
+        for name, path, digest in (
+            (
+                review_commitment_names[0],
+                reviews_path,
+                _bytes_sha256(lineage_bytes["reviews"]),
+            ),
+            (
+                review_commitment_names[1],
+                review_receipt_path,
+                _bytes_sha256(lineage_bytes["review_receipt"]),
+            ),
+        ):
+            _validate_named_path_commitment(
+                cast(Mapping[str, object], clearance_sources),
+                name=name,
+                expected_path=path,
+                expected_sha256=digest,
+            )
+    review_requests_bytes = b""
+    worksheet_bytes = b""
+    reviewer_policy_bytes = b""
+    cohort_policy_artifact_bytes = b""
     try:
-        if clearance_authority_kind == "provenance_first_with_john_exceptions":
+        if public_marker_schema:
+            frontier_rows = _verified_target_cohort_frontier_rows(frontier)
+        elif clearance_authority_kind == "provenance_first_with_john_exceptions":
             review_requests_bytes = clearance_snapshot[
                 os.path.abspath(review_requests_path)
             ]
@@ -13188,7 +13340,12 @@ def _authenticated_extension_lineage(
             cohort_policy_artifact_bytes = _read_retained_extension_artifact(
                 committed_cohort_policy_path
             )
-        if clearance_authority_kind != "provenance_first_with_john_exceptions":
+        if (
+            not public_marker_schema
+            and clearance_authority_kind != "provenance_first_with_john_exceptions"
+        ):
+            if review_receipt_path is None:
+                raise CommandError("legacy clearance review receipt path is missing")
             legacy_disclosure_authority = load_main_disclosure_review_authority(
                 _projection_json_object(
                     cohort_policy_artifact_bytes, source=committed_cohort_policy_path
@@ -13237,7 +13394,10 @@ def _authenticated_extension_lineage(
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
-    if clearance_authority_kind != "provenance_first_with_john_exceptions":
+    if (
+        not public_marker_schema
+        and clearance_authority_kind != "provenance_first_with_john_exceptions"
+    ):
         if legacy_review_authority is None or legacy_disclosure_authority is None:
             raise CommandError("legacy disclosure authority verification failed")
         expected_authority = _clearance_review_authority_record(
@@ -13353,6 +13513,8 @@ def _authenticated_extension_lineage(
         clearance_run_card_sha256=_bytes_sha256(lineage_bytes["clearance_run_card"]),
         clearance_reviews_sha256=clearance_reviews_sha256,
         clearance_review_receipt_sha256=clearance_review_receipt_sha256,
+        clearance_source_commitment_sha256s=(clearance_source_commitment_sha256s),
+        clearance_authority_sha256=clearance_authority_sha256,
         restriction_evidence_sha256=_bytes_sha256(
             lineage_bytes["restriction_evidence"]
         ),

@@ -646,14 +646,82 @@ def test_cli_rejects_changed_authenticated_review_receipt(tmp_path: Path) -> Non
     assert main(argv) == 2
 
 
-def test_cli_explicitly_rejects_public_marker_clearance_for_extension(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_cli_replays_public_marker_clearance_without_legacy_review_flags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     argv, _, _, _ = _cli_fixture(tmp_path)
     clearance_card_path = Path(argv[argv.index("--clearance-run-card") + 1])
     card = json.loads(clearance_card_path.read_text())
+    preparation_root = Path(argv[argv.index("--preparation-root") + 1])
+    case_relevance_path = preparation_root / "03-gap-bridge/case-relevance.jsonl"
+    clearance_root = clearance_card_path.parent
+    routing_plan = clearance_root / "routing-plan.json"
+    exception_worksheet = clearance_root / "exception-worksheet.json"
+    plan_run_card = clearance_root / "plan-run-card.json"
+    public_marker_policy = clearance_root / "public-marker-policy.json"
+    recovery_run_card = clearance_root / "recovery-run-card.json"
+    document_root = clearance_root / "documents"
+    document_root.mkdir()
+    (document_root / "document.pdf").write_bytes(b"authenticated public document")
+    for path, record in (
+        (routing_plan, {"schema_version": "routing.v1"}),
+        (exception_worksheet, {"schema_version": "worksheet.v1"}),
+        (plan_run_card, {"schema_version": "plan-card.v1"}),
+        (public_marker_policy, {"schema_version": "public-marker-policy.v1"}),
+        (recovery_run_card, {"schema_version": "recovery-card.v1"}),
+    ):
+        path.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
     card["schema_version"] = (
         "legalforecast.provenance_public_marker_clearance_run_card.v1"
+    )
+    card["stage"] = "finalize-provenance-quarantine"
+    card.update(
+        {
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "human_review_requested": False,
+            "human_review_executed": False,
+        }
+    )
+    legacy_sources = card["source_commitments"]
+    card["source_commitments"] = {
+        "download_manifest": legacy_sources["download_manifest"],
+        "case_relevance": _path_commitment(case_relevance_path),
+        "restriction_evidence": legacy_sources["restriction_evidence"],
+        "review_requests": legacy_sources["review_requests"],
+        "exception_worksheet": _path_commitment(exception_worksheet),
+        "routing_plan": _path_commitment(routing_plan),
+        "plan_run_card": _path_commitment(plan_run_card),
+        "public_marker_clearance_policy": _path_commitment(public_marker_policy),
+        "cohort_policy": legacy_sources["cohort_policy"],
+        "document_root": {
+            "path": str(document_root),
+            "tree_sha256": "sha256:" + "f" * 64,
+            "document_count": 1,
+        },
+    }
+    card["disposition_policy"] = {
+        "kind": "v3_authenticated_recovered_public_markers_clear_else_quarantine",
+        "human_or_model_override_permitted": False,
+        "public_marker_clearance_policy_schema_version": (
+            "legalforecast.disclosure_public_marker_policy.v1"
+        ),
+        "public_marker_clearance_policy_sha256": _sha(
+            public_marker_policy.read_bytes()
+        ),
+        "markers_are_diagnostic_only": True,
+    }
+    card["recovered_public_authority"] = {
+        "kind": "verified_recap_fetch_recovery",
+        "recovery_run_card": _path_commitment(recovery_run_card),
+        "recovery_manifest_sha256": "sha256:" + "1" * 64,
+        "recovery_restriction_evidence_sha256": "sha256:" + "2" * 64,
+    }
+    card.pop("review_authority")
+    quarantine_path = clearance_root / "disclosure-quarantine.jsonl"
+    quarantine_path.write_bytes(b"")
+    card["output_commitments"]["disclosure_quarantine"] = _path_commitment(
+        quarantine_path
     )
     clearance_card_path.write_text(
         json.dumps(card, sort_keys=True) + "\n", encoding="utf-8"
@@ -662,10 +730,69 @@ def test_cli_explicitly_rejects_public_marker_clearance_for_extension(
         index = argv.index(option)
         del argv[index : index + 2]
 
-    assert main(argv) == 2
-    assert (
-        "retained-cohort extension does not yet support public-marker "
-        "clearance lineage" in capsys.readouterr().err
+    base_root = Path(argv[argv.index("--base-cohort-root") + 1])
+    base_summary_path = base_root / "target-cohort-projection.json"
+    base_summary = json.loads(base_summary_path.read_text())
+    old_clearance_sha = base_summary["clearance_run_card_sha256"]
+    new_clearance_sha = _sha(clearance_card_path.read_bytes())
+    base_summary["clearance_run_card_sha256"] = new_clearance_sha
+    for path, digest in list(base_summary["input_commitments"].items()):
+        if digest == old_clearance_sha:
+            base_summary["input_commitments"][path] = new_clearance_sha
+    base_summary_path.write_text(
+        json.dumps(base_summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    verified_paths = {
+        str(clearance_card_path.resolve()): clearance_card_path.read_bytes(),
+        str(
+            Path(card["output_commitments"]["disclosure_clearance"]["path"]).resolve()
+        ): Path(
+            card["output_commitments"]["disclosure_clearance"]["path"]
+        ).read_bytes(),
+        **{
+            str(Path(commitment["path"]).resolve()): Path(
+                commitment["path"]
+            ).read_bytes()
+            for commitment in card["source_commitments"].values()
+            if "sha256" in commitment
+        },
+        str(quarantine_path.resolve()): quarantine_path.read_bytes(),
+    }
+    replay_calls: list[dict[str, object]] = []
+
+    def verify_public_marker(**kwargs: object) -> dict[str, object]:
+        replay_calls.append(kwargs)
+        return {
+            "lineage_kind": "provider_free_recovered_public",
+            "verified_artifact_bytes": verified_paths,
+            "restriction_path": Path(
+                card["source_commitments"]["restriction_evidence"]["path"]
+            ),
+        }
+
+    monkeypatch.setattr(
+        cli_module, "_verify_materializer_clearance_lineage", verify_public_marker
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_capture_clearance_artifact_snapshot",
+        lambda **_kwargs: verified_paths,
+    )
+
+    assert main(argv) == 0
+    assert len(replay_calls) == 1
+    assert replay_calls[0]["captured_artifact_bytes"] == verified_paths
+    output_root = Path(argv[argv.index("--output-root") + 1])
+    extension = json.loads((output_root / "retained-cohort-extension.json").read_text())
+    lineage = extension["source_commitments"]["authenticated_pool_lineage"]
+    assert "clearance_reviews_sha256" not in lineage
+    assert "clearance_review_receipt_sha256" not in lineage
+    assert set(lineage["clearance_source_commitment_sha256s"]) == set(
+        card["source_commitments"]
+    )
+    assert lineage["clearance_authority_sha256"] == cli_module._bytes_sha256(  # pyright: ignore[reportPrivateUsage]
+        cli_module.canonical_json_bytes(card["recovered_public_authority"])
     )
 
 
@@ -1357,6 +1484,8 @@ def _lineage(
         clearance_run_card_sha256="sha256:" + "8" * 64,
         clearance_reviews_sha256="sha256:" + "9" * 64,
         clearance_review_receipt_sha256="sha256:" + "a" * 64,
+        clearance_source_commitment_sha256s=None,
+        clearance_authority_sha256=None,
         restriction_evidence_sha256="sha256:" + "e" * 64,
         preparation_cost_per_document_usd=cost_per_document_usd,
         preparation_max_projected_budget_usd=max_projected_budget_usd,
