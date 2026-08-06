@@ -1176,6 +1176,7 @@ def test_recovery_receipt_failure_precedes_runtime_construction(
         manifest_output=None,
         case_relevance_output=None,
         restriction_evidence_output=None,
+        terminal_unavailable_output=None,
         review_requests_output=None,
         document_output_root=None,
         courtlistener_fixture=None,

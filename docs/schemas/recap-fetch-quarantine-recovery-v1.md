@@ -1,0 +1,9 @@
+# RECAP Fetch quarantine recovery v1
+
+`acquisition recover-recap-fetch-quarantine` is a noncharging recovery boundary for documents authorized by an immutable RECAP Fetch attempt policy.
+
+The completed run partitions every authorized document exactly once between `recap-fetch-quarantine-downloads.jsonl` and `terminal-unavailable-operations.jsonl`. A recovered row is backed by a fresh authenticated CourtListener detail response, public-status evidence, immutable PDF bytes, and the canonical purchase journal. A terminal-unavailable row is emitted only for an authenticated `failed` journal operation whose durable queue response, operation key, reservation, material state, and exact terminal status 3, 6, or 7 prove a cap-counted provider failure. Terminal rows cause no CourtListener request and no paid redispatch.
+
+The terminal artifact uses `legalforecast.recap_fetch_terminal_unavailable.v1`. Each row is URL-free and binds the candidate and document identities, attempt-policy and selection-document hashes, purchase operation key, terminal queue status, retained reservation, and canonical ledger-operation hash. The recovery run card commits the artifact bytes, the complete purchase-state hash, and the authorized, recovered, and terminal counts. Those counts and the two output identity sets must exactly conserve the attempt policy.
+
+Pre-dispatch failures, retryable or unknown outcomes, explicit or ambiguous material evidence, positive restriction evidence, malformed queue responses, noncanonical operation keys, and identity or commitment drift fail closed. The terminal manifest never makes a document parser- or packet-eligible and is not authority to dispatch another provider or paid request.
