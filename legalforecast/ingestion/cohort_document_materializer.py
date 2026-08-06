@@ -24,6 +24,28 @@ class CohortDocumentMaterializationError(ValueError):
     """Raised when immutable source documents cannot be safely materialized."""
 
 
+class MaterializerArtifactValidationError(CohortDocumentMaterializationError):
+    """Raised when an artifact itself is not a safe regular file."""
+
+
+def require_materializer_artifact(path: Path, *, label: str) -> None:
+    """Require one regular, single-link artifact reached without symlinks."""
+
+    require_non_symlink_components(path)
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        metadata = None
+    if metadata is None or not stat.S_ISREG(metadata.st_mode):
+        raise MaterializerArtifactValidationError(
+            f"{label} must be a regular non-symlink file: {path}"
+        )
+    if metadata.st_nlink != 1:
+        raise MaterializerArtifactValidationError(
+            f"{label} must not be hardlinked: {path}"
+        )
+
+
 def validate_materializer_writable_paths(
     *,
     output_root: Path,
