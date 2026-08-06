@@ -453,12 +453,14 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
     "provider_activity_field",
     ["provider_activity_requested", "provider_activity_executed"],
 )
+@pytest.mark.parametrize("successor", [False, True])
 def test_producer_accepts_public_marker_provider_free_clearance_schema(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     provider_activity_field: str,
+    successor: bool,
 ) -> None:
-    args, paths, _verified_calls = _fixture(tmp_path, monkeypatch, successor=False)
+    args, paths, _verified_calls = _fixture(tmp_path, monkeypatch, successor=successor)
     clearance_card = json.loads(paths["clearance_card"].read_bytes())
     clearance_card["schema_version"] = (
         "legalforecast.provenance_public_marker_clearance_run_card.v1"
