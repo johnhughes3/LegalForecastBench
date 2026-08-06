@@ -25137,6 +25137,9 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=cohort_policy_path,
             ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
         )
         raw_recovery_bytes = recovery.get("verified_artifact_bytes")
         if not isinstance(raw_recovery_bytes, Mapping):

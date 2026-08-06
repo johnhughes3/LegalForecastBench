@@ -63,6 +63,10 @@ Successor ordinals are positive.
 
 The recovery run card must declare `authority_mode=initial_projection` for ordinal zero or `authority_mode=replacement_successor` for a successor.
 
+New descriptor production requires `schema_version=legalforecast.recap_fetch_quarantine_recovery_run_card.v2`, including its exact terminal-unavailable partition and authorized, recovered, and terminal counts.
+
+The downstream index keeps compatibility with already-existing historical descriptors, but this producer does not mint a descriptor from the legacy six-output `legalforecast.acquisition_run_card.v1` recovery shape.
+
 Extra or missing recovery source commitments fail closed.
 
 The producer captures every file authenticated by the recovery verifier, including the committed terminal-unavailable operation ledger when the recovery contains terminal purchase outcomes.

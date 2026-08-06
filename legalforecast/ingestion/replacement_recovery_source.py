@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import cast
 
 SOURCE_RUN_CARD_SCHEMA = "legalforecast.replacement_recovery_source_run_card.v1"
-RECOVERY_RUN_CARD_SCHEMA = "legalforecast.acquisition_run_card.v1"
+RECOVERY_RUN_CARD_SCHEMA = "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
+RESOLVED_RUN_CARD_SCHEMA = "legalforecast.acquisition_run_card.v1"
 RECOVERY_STAGE = "recover-recap-fetch-quarantine"
 INITIAL_KIND = "initial_v2"
 SUCCESSOR_KIND = "successor"
@@ -254,7 +255,7 @@ def derive_resolved_source_coordinates(
     """Authenticate the closed path projection of a resolve-stage run card."""
 
     if (
-        card.get("schema_version") != RECOVERY_RUN_CARD_SCHEMA
+        card.get("schema_version") != RESOLVED_RUN_CARD_SCHEMA
         or card.get("stage") != RESOLVED_STAGE
         or card.get("status") != "completed"
         or card.get("dry_run") is not False

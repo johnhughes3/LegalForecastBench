@@ -134,7 +134,9 @@ def _fixture(
     _write_json(
         recovery_card,
         {
-            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "schema_version": (
+                "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
+            ),
             "stage": "recover-recap-fetch-quarantine",
             "status": "completed",
             "dry_run": False,
@@ -227,6 +229,11 @@ def _fixture(
     def verify_recovery(**kwargs: Any) -> dict[str, object]:
         verified_calls.append({"recovery": kwargs})
         assert Path(kwargs["selection_path"]).resolve() == selection.resolve()
+        assert kwargs["purchase_operations"] == [
+            {"candidate_id": candidate_id, "source_document_id": document_id}
+        ]
+        assert kwargs["purchase_committed_amount_usd"] == "3.05"
+        assert kwargs["purchase_state_sha256"] == "state-1"
         return {
             "recovery_stage": "recover-recap-fetch-quarantine",
             "manifest_path": manifest,
@@ -292,6 +299,7 @@ def _fixture(
         "read_case_dev_purchase_snapshot",
         lambda *_args, **_kwargs: SimpleNamespace(
             purchase_state_sha256="state-1",
+            committed_amount_usd="3.05",
             operations=[
                 {"candidate_id": candidate_id, "source_document_id": document_id}
             ],
@@ -450,6 +458,23 @@ def test_producer_rejects_noncanonical_initial_authority_mode(
         match="authority_mode is not initial_projection or replacement_successor",
     ):
         cli._cmd_build_replacement_recovery_source(args)
+
+
+def test_producer_rejects_historical_v1_recovery_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["recovery_card"].read_bytes())
+    card["schema_version"] = "legalforecast.acquisition_run_card.v1"
+    _write_json(paths["recovery_card"], card)
+
+    with pytest.raises(
+        cli.CommandError,
+        match="completed provider-free recovery run card",
+    ):
+        cli._cmd_build_replacement_recovery_source(args)
+    assert not args.output_root.exists()
 
 
 def test_producer_rejects_resolved_run_card_rebinding_and_extra_commitment(
