@@ -10,6 +10,8 @@ from typing import Any
 import legalforecast.cli as cli
 import pytest
 
+_VERIFIED_POLICY_SHA256 = "7" * 64
+
 
 def _json_bytes(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True) + "\n").encode()
@@ -286,7 +288,10 @@ def _fixture(
     monkeypatch.setattr(
         cli,
         "verify_case_dev_purchase_policy",
-        lambda _artifact: SimpleNamespace(canonical_ledger_path=ledger.resolve()),
+        lambda _artifact: SimpleNamespace(
+            canonical_ledger_path=ledger.resolve(),
+            policy_sha256=_VERIFIED_POLICY_SHA256,
+        ),
     )
     monkeypatch.setattr(
         cli, "require_approved_case_dev_purchase_policy", lambda *_args, **_kwargs: None
@@ -373,6 +378,13 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
     args, paths, verified_calls = _fixture(tmp_path, monkeypatch, successor=successor)
 
     assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+    resolved_binding = next(
+        call["resolved"] for call in verified_calls if "resolved" in call
+    )
+    assert (
+        resolved_binding["expected_purchase_policy_sha256"] == _VERIFIED_POLICY_SHA256
+    )
 
     kind = "successor" if successor else "initial_v2"
     descriptor_path = args.output_root / (
