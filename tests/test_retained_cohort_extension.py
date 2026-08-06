@@ -646,8 +646,12 @@ def test_cli_rejects_changed_authenticated_review_receipt(tmp_path: Path) -> Non
     assert main(argv) == 2
 
 
+@pytest.mark.parametrize("tamper_after_replay", [False, True])
 def test_cli_replays_public_marker_clearance_without_legacy_review_flags(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tamper_after_replay: bool,
 ) -> None:
     argv, _, _, _ = _cli_fixture(tmp_path)
     clearance_card_path = Path(argv[argv.index("--clearance-run-card") + 1])
@@ -763,6 +767,13 @@ def test_cli_replays_public_marker_clearance_without_legacy_review_flags(
 
     def verify_public_marker(**kwargs: object) -> dict[str, object]:
         replay_calls.append(kwargs)
+        if tamper_after_replay:
+            clearance_path = Path(
+                card["output_commitments"]["disclosure_clearance"]["path"]
+            )
+            clearance_path.write_bytes(
+                clearance_path.read_bytes().rstrip(b"\n") + b" \n"
+            )
         return {
             "lineage_kind": "provider_free_recovered_public",
             "verified_artifact_bytes": verified_paths,
@@ -779,6 +790,14 @@ def test_cli_replays_public_marker_clearance_without_legacy_review_flags(
         "_capture_clearance_artifact_snapshot",
         lambda **_kwargs: verified_paths,
     )
+
+    if tamper_after_replay:
+        assert main(argv) == 2
+        assert (
+            "clear-disclosures disclosure_clearance commitment mismatch"
+            in capsys.readouterr().err
+        )
+        return
 
     assert main(argv) == 0
     assert len(replay_calls) == 1
