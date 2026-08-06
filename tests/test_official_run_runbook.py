@@ -1373,10 +1373,49 @@ def test_exact100_initial_recovery_uses_bounded_partial_cycle_template() -> None
         'controlled-private-disclosure-root"'
     ) in runbook
     assert "Always render the authenticated-model template first" in runbook
-    assert "distinct config and state root" in runbook
-    assert "initial_disclosure_no_review_state_root" in runbook
-    assert "same seven variable assignments above" in runbook
+    assert "provider-free post-plan suffix" in runbook
+    assert "Do not render the full no-review cycle template" in runbook
+    assert (
+        "render the no-review template to a distinct config and state root"
+        not in runbook
+    )
     assert "--execute --allow-network --allow-model-provider --json" in runbook
+    no_review_marker = "uv run legalforecast acquisition finalize-provenance-quarantine"
+    model_review_marker = (
+        "If the authenticated plan contains model-review-eligible exceptions"
+    )
+    _prefix, no_review_separator, no_review_tail = runbook.partition(no_review_marker)
+    assert no_review_separator == no_review_marker
+    no_review_section, model_review_separator, _suffix = no_review_tail.partition(
+        model_review_marker
+    )
+    assert model_review_separator == model_review_marker
+    assert (
+        '--plan-run-card "$initial_disclosure_root/01-plan/run-cards/'
+        'plan-disclosure-provenance.json"'
+    ) in no_review_section
+    assert "--require-no-model-review-eligible-exceptions" in no_review_section
+    assert (
+        "uv run legalforecast acquisition resolve-post-recovery-documents"
+        in no_review_section
+    )
+    assert (
+        '--clearance-run-card "$initial_disclosure_root/03-clearance/run-cards/'
+        'finalize-provenance-quarantine.json"'
+    ) in no_review_section
+    assert (
+        '--run-card-output "$initial_disclosure_root/04-resolved/run-cards/'
+        'resolve-post-recovery-documents.json"'
+    ) in no_review_section
+    for mutating_prefix_command in (
+        "init-cycle",
+        "render-cycle-config",
+        "run-cycle",
+        "00-cycle",
+        "--allow-model-provider",
+    ):
+        assert mutating_prefix_command not in no_review_section
+    assert no_review_section.count("--execute --resume") == 2
     assert '--recovery-root "$quarantine_recovery_root"' in runbook
     assert (
         "--purchased-clearance-run-card "
