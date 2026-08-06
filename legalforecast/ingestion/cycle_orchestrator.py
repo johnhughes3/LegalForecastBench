@@ -994,6 +994,7 @@ def _completion_card_view(card: Mapping[str, object]) -> Mapping[str, object]:
     approval_run_card_schemas = {
         "legalforecast.purchase_approval_run_card.v1",
         "legalforecast.replacement_purchase_approval_run_card.v1",
+        "legalforecast.replacement_purchase_approval_run_card.v2",
     }
     if card.get("schema_version") not in approval_run_card_schemas:
         return card

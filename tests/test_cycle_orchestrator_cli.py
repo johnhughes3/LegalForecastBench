@@ -3049,6 +3049,10 @@ def test_run_cycle_authorizes_only_one_boundary_stage_per_invocation(
             "record-replacement-purchase-approval",
             "legalforecast.replacement_purchase_approval_run_card.v1",
         ),
+        (
+            "record-replacement-purchase-approval",
+            "legalforecast.replacement_purchase_approval_run_card.v2",
+        ),
     ],
 )
 def test_run_cycle_receipts_closed_purchase_approval_run_card(
@@ -3165,6 +3169,10 @@ def test_run_cycle_receipts_closed_purchase_approval_run_card(
             "legalforecast.replacement_purchase_approval_run_card.v1",
             "record-replacement-purchase-approval",
         ),
+        (
+            "legalforecast.replacement_purchase_approval_run_card.v2",
+            "record-replacement-purchase-approval",
+        ),
     ],
 )
 def test_completion_card_view_rejects_non_approving_decision(
@@ -3203,6 +3211,116 @@ def test_completion_card_view_rejects_non_approving_decision(
                 "run_card": body,
                 "run_card_sha256": hashlib.sha256(body_bytes).hexdigest(),
             }
+        )
+
+
+@pytest.mark.parametrize(
+    ("body_change", "expected_error"),
+    [
+        ({"status": "pending"}, "run card is not an executed completion"),
+        ({"decision": "reject"}, "not an approving, activity-free decision"),
+        ({"dry_run": True}, "body fields differ from its closed schema"),
+        (
+            {"provider_activity_requested": True},
+            "not an approving, activity-free decision",
+        ),
+        (
+            {"provider_activity_executed": True},
+            "not an approving, activity-free decision",
+        ),
+        (
+            {"paid_activity_requested": True},
+            "not an approving, activity-free decision",
+        ),
+        (
+            {"paid_activity_executed": True},
+            "not an approving, activity-free decision",
+        ),
+    ],
+)
+def test_run_cycle_rejects_noncompletion_v2_replacement_approval(
+    tmp_path: Path,
+    body_change: dict[str, object],
+    expected_error: str,
+) -> None:
+    init_card = tmp_path / "init.json"
+    approval_card = tmp_path / "approval.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(init_card),
+                    "--execute",
+                ],
+                run_card=init_card,
+            ),
+            _stage(
+                stage_id="approve",
+                command="record-replacement-purchase-approval",
+                boundary="human",
+                arguments=[
+                    "--run-card-output",
+                    str(approval_card),
+                    "--execute",
+                ],
+                run_card=approval_card,
+            ),
+        ],
+    )
+
+    def write_card(command: str, _arguments: tuple[str, ...]) -> int:
+        if command == "init-cycle":
+            _write_completion_card(init_card, stage=command)
+            return 0
+        body: dict[str, object] = {
+            "stage": "record-replacement-purchase-approval",
+            "status": "completed",
+            "decision": "approve",
+            "request_sha256": "a" * 64,
+            "checkpoint_sha256": "b" * 64,
+            "reviewer_id": "John Hughes",
+            "recorded_at_utc": "2026-08-06T00:00:00Z",
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "pacer_fee_acknowledged": False,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+        }
+        body.update(body_change)
+        body_bytes = json.dumps(
+            body,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+        approval_card.write_bytes(
+            canonical_json_bytes(
+                {
+                    "schema_version": (
+                        "legalforecast.replacement_purchase_approval_run_card.v2"
+                    ),
+                    "run_card": body,
+                    "run_card_sha256": hashlib.sha256(body_bytes).hexdigest(),
+                }
+            )
+        )
+        return 0
+
+    with pytest.raises(CycleOrchestratorError, match=expected_error):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=tmp_path / "state",
+            execute=True,
+            permissions=BoundaryPermissions(human=True),
+            executor=write_card,
         )
 
 
