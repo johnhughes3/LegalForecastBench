@@ -33,6 +33,8 @@ from legalforecast.labeling.label_outcomes import (
     UnitResolution,
     label_stage_b_outcomes,
     outcome_label_from_record,
+    stage_b_decision_text_from_record,
+    stage_b_labeling_input_from_record,
 )
 from legalforecast.labeling.lawyer_review import (
     AdjudicatedReview,
@@ -82,4 +84,6 @@ __all__ = [
     "outcome_label_from_record",
     "run_labeling_models",
     "sample_unanimous_labels_for_audit",
+    "stage_b_decision_text_from_record",
+    "stage_b_labeling_input_from_record",
 ]

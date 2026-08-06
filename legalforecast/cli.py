@@ -796,7 +796,11 @@ from legalforecast.ingestion.zero_cost_successor import (
     ZeroCostSuccessorError,
     project_zero_cost_successor,
 )
-from legalforecast.labeling import outcome_label_from_record
+from legalforecast.labeling import (
+    outcome_label_from_record,
+    stage_b_decision_text_from_record,
+    stage_b_labeling_input_from_record,
+)
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
     evaluate_cycle_label_audit,
@@ -807,7 +811,6 @@ from legalforecast.labeling.label_outcomes import (
     OutcomeLabel,
     StageBDecisionText,
     StageBLabelingInput,
-    StageBMissingUnitFlag,
     StageBUnitFinding,
     UnitResolution,
     label_stage_b_outcomes,
@@ -9945,7 +9948,7 @@ def _cmd_label(args: argparse.Namespace) -> int:
 
     labels: list[JsonRecord] = []
     for record in records:
-        result = label_stage_b_outcomes(_stage_b_input(record))
+        result = label_stage_b_outcomes(stage_b_labeling_input_from_record(record))
         labels.extend(cast(list[JsonRecord], result.to_record()["labels"]))
     _write_jsonl(output_path, labels)
     _log_event("label", "artifact_written", output_path, len(labels))
@@ -59789,74 +59792,18 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
     )
 
 
-def _stage_b_input(record: Mapping[str, Any]) -> StageBLabelingInput:
-    return StageBLabelingInput(
-        candidate_id=_required_str(record, "candidate_id"),
-        case_id=_required_str(record, "case_id"),
-        frozen_units=tuple(
-            prediction_unit_from_record(unit)
-            for unit in _required_record_sequence(record, "frozen_units")
-        ),
-        decision_text=_stage_b_decision(_required_record(record, "decision_text")),
-        unit_findings=tuple(
-            _stage_b_finding(finding)
-            for finding in _required_record_sequence(record, "unit_findings")
-        ),
-        missing_unit_flags=tuple(
-            _stage_b_missing_flag(flag)
-            for flag in _optional_record_sequence(record, "missing_unit_flags")
-        ),
-    )
-
-
 def _decision_texts_from_records(
     records: Sequence[Mapping[str, Any]],
 ) -> dict[str, StageBDecisionText]:
     decision_texts: dict[str, StageBDecisionText] = {}
     for record in records:
-        decision_text = _stage_b_decision(record)
+        decision_text = stage_b_decision_text_from_record(record)
         if decision_text.document_id in decision_texts:
             raise CommandError(
                 f"duplicate decision text for document_id {decision_text.document_id!r}"
             )
         decision_texts[decision_text.document_id] = decision_text
     return decision_texts
-
-
-def _stage_b_decision(record: Mapping[str, Any]) -> StageBDecisionText:
-    return StageBDecisionText(
-        document_id=_required_str(record, "document_id"),
-        entered_date=_required_str(record, "entered_date"),
-        text=_required_str(record, "text"),
-        is_first_written_disposition=_optional_bool(
-            record,
-            "is_first_written_disposition",
-            default=True,
-        ),
-    )
-
-
-def _stage_b_finding(record: Mapping[str, Any]) -> StageBUnitFinding:
-    return StageBUnitFinding(
-        unit_id=_required_str(record, "unit_id"),
-        resolution=UnitResolution(_required_str(record, "resolution")),
-        amendment_signal=AmendmentSignal(_required_str(record, "amendment_signal")),
-        supporting_excerpt=_required_str(record, "supporting_excerpt"),
-        labeler_confidence=_required_float(record, "labeler_confidence"),
-        page=_optional_int(record, "page"),
-        paragraph=_optional_int(record, "paragraph"),
-        notes=_optional_str(record, "notes"),
-    )
-
-
-def _stage_b_missing_flag(record: Mapping[str, Any]) -> StageBMissingUnitFlag:
-    return StageBMissingUnitFlag(
-        missing_unit_description=_required_str(record, "missing_unit_description"),
-        supporting_excerpt=_required_str(record, "supporting_excerpt"),
-        page=_optional_int(record, "page"),
-        paragraph=_optional_int(record, "paragraph"),
-        notes=_optional_str(record, "notes"),
-    )
 
 
 def _packet_texts(
@@ -60520,13 +60467,6 @@ def _optional_int_tuple(value: object) -> tuple[int, ...] | None:
             raise ValueError("integer tuple field must contain integers")
         values.append(item)
     return tuple(values)
-
-
-def _required_float(record: Mapping[str, Any], field_name: str) -> float:
-    value = _required(record, field_name)
-    if not isinstance(value, int | float) or isinstance(value, bool):
-        raise ValueError(f"{field_name} must be a number")
-    return _finite_float(float(value), field_name)
 
 
 def _optional_float(
