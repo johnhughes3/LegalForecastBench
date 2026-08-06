@@ -528,10 +528,15 @@ def test_producer_rejects_clearance_extra_commitment(
     [
         ("schema_version", "legalforecast.acquisition_run_card.v1"),
         ("stage", "other-stage"),
+        ("status", "failed"),
+        ("dry_run", True),
+        ("execute", False),
         ("provider_activity_requested", True),
         ("provider_activity_executed", True),
         ("human_review_requested", True),
         ("human_review_executed", True),
+        ("paid_activity_requested", True),
+        ("paid_activity_executed", True),
     ],
 )
 def test_producer_rejects_clearance_card_outside_provider_free_contract(
@@ -543,6 +548,39 @@ def test_producer_rejects_clearance_card_outside_provider_free_contract(
     args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
     card = json.loads(paths["clearance_card"].read_bytes())
     card[field] = value
+    _write_json(paths["clearance_card"], card)
+
+    with pytest.raises(
+        cli.CommandError,
+        match="completed provider-free clearance run card",
+    ):
+        cli._cmd_build_replacement_recovery_source(args)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "schema_version",
+        "stage",
+        "status",
+        "dry_run",
+        "execute",
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "human_review_requested",
+        "human_review_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+    ],
+)
+def test_producer_rejects_clearance_card_missing_contract_field(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["clearance_card"].read_bytes())
+    del card[field]
     _write_json(paths["clearance_card"], card)
 
     with pytest.raises(
