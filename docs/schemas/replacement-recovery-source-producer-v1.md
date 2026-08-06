@@ -75,7 +75,19 @@ The downstream index keeps compatibility with already-existing historical descri
 
 Extra or missing recovery source commitments fail closed.
 
-The producer captures every file authenticated by the recovery verifier, including the committed terminal-unavailable operation ledger when the recovery contains terminal purchase outcomes.
+The producer captures every file authenticated by the recovery verifier, including the committed terminal-unavailable operation ledger.
+
+That ledger is evidence of provider outcome only; it is not authority to omit selected documents.
+
+When the ledger is nonempty, the resolver and source producer additionally require the complete terminal-disposition bundle: the distinct final disposition selection, screening snapshot manifest, purchase result, and purchase run card.
+
+They replay the existing terminal-purchase disposition verifier against the current purchase journal and require its exhaustive `terminal_failure_pairs` to equal the recovery ledger's exact document-key partition.
+
+The original recovery selection remains unchanged; the distinct disposition selection is used only to authenticate the terminal partition.
+
+The resolver run card commits the terminal ledger path, digest, and record count plus the four disposition-source paths, whose bytes are covered by the ordinary indexed source commitments.
+
+Recovery evidence without this independent disposition authority fails closed and cannot subtract a selected document.
 
 ## Producer run card
 

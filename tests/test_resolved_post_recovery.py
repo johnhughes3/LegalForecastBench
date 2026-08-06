@@ -86,6 +86,7 @@ from tests.purchase_approval_fixtures import (
 )
 from tests.recovered_public_capability_helpers import (
     issue_recovered_public_capability,
+    issue_terminal_disposition_capability,
 )
 
 
@@ -899,7 +900,6 @@ def test_recovered_public_capability_builds_and_requires_resolved_v2(
             **_external_kwargs(kwargs),
             verified_recovery_capability=capability,
         )
-
     wrong_basis = deepcopy(records[0])
     wrong_basis["clearance_basis"] = "affirmative_public_provenance"
     wrong_basis["record_sha256"] = _hash(
@@ -1083,6 +1083,218 @@ def test_recovered_public_capability_authorizes_exact_direct_queue_delivery(
             resolved_records=[open_schema],
             **_external_kwargs(inputs),
             verified_recovery_capability=capability,
+        )
+
+
+def test_recovered_public_resolver_omits_authenticated_terminal_partition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    operation["reservation_usd"] = "3.05"
+    operation["response"] = {
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "reservation_usd": "3.05",
+        "queue_id": "77",
+        "reservation_id": f"direct:{operation['operation_key']}",
+    }
+    inputs["purchase_operation_records"] = [operation]
+    lineage = {
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": "4" * 64,
+        "recovery_restriction_evidence_sha256": "5" * 64,
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": _hash(operation),
+        "purchase_operation_key": operation["operation_key"],
+        "fresh_recap_detail_sha256": "2" * 64,
+        **cli._direct_queue_delivery_lineage(
+            operation,
+            purchase_policy_sha256="1" * 64,
+            recovery_run_card_sha256="3" * 64,
+            recovery_manifest_sha256="4" * 64,
+            recovery_restriction_sha256="5" * 64,
+            purchase_state_sha256="6" * 64,
+        ),
+    }
+    clearance = deepcopy(inputs["clearance_records"][0])
+    clearance.update(
+        {
+            "restriction_evidence": [
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+            ],
+            "reviewer_id": None,
+            "controlled_store_provenance": "courtlistener-rest://recap-documents/123",
+            "reviewed_at": None,
+            "clearance_basis": "provider_free_recovered_public",
+            "routing_plan_sha256": "7" * 64,
+            "recovered_public_lineage": lineage,
+        }
+    )
+    inputs.update(
+        {
+            "clearance_records": [clearance],
+            "clearance_artifact_bytes": _jsonl_bytes([clearance]),
+        }
+    )
+
+    terminal_document = {
+        "source_document_id": "456",
+        "redaction_or_seal_status": "unknown",
+        "is_sealed": None,
+        "is_private": None,
+        "is_available": False,
+        "availability_status": "unavailable",
+        "requires_paid_recovery": True,
+    }
+    inputs["selection_records"].append(
+        {
+            "candidate_id": "case-terminal",
+            "selected": True,
+            "exclusion_reasons": [],
+            "documents": [terminal_document],
+        }
+    )
+    attempt = inputs["attempt_policy_artifact"]
+    policy = cast(dict[str, object], attempt["policy"])
+    allowed = cast(list[dict[str, object]], policy["allowed_documents"])
+    allowed.append(
+        {
+            "case_id": "case-terminal",
+            "recap_document": "456",
+            "evidence_class": "unknown_status_quarantine",
+            "selection_document_sha256": _hash(terminal_document),
+        }
+    )
+    attempt["policy_sha256"] = _hash(policy)
+    operation["attempt_policy_sha256"] = attempt["policy_sha256"]
+    inputs["download_records"][0]["attempt_policy_sha256"] = attempt["policy_sha256"]
+    lineage["purchase_operation_sha256"] = _hash(operation)
+    lineage.update(
+        cli._direct_queue_delivery_lineage(
+            operation,
+            purchase_policy_sha256="1" * 64,
+            recovery_run_card_sha256="3" * 64,
+            recovery_manifest_sha256="4" * 64,
+            recovery_restriction_sha256="5" * 64,
+            purchase_state_sha256="6" * 64,
+        )
+    )
+    inputs["clearance_records"][0]["recovered_public_lineage"] = lineage
+    inputs["clearance_artifact_bytes"] = _jsonl_bytes(inputs["clearance_records"])
+    terminal_operation = deepcopy(operation)
+    terminal_operation.update(
+        {
+            "candidate_id": "case-terminal",
+            "source_document_id": "456",
+            "status": "failed",
+            "attempt_document_sha256": _hash(terminal_document),
+        }
+    )
+    inputs["purchase_operation_records"].append(terminal_operation)
+    terminal = {
+        "schema_version": "legalforecast.recap_fetch_terminal_unavailable.v1",
+        "candidate_id": "case-terminal",
+        "source_document_id": "456",
+    }
+    capability = issue_recovered_public_capability(
+        monkeypatch,
+        [lineage],
+        terminal_records=[terminal],
+    )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="does not exactly cover recovered documents",
+    ):
+        build_recovered(
+            **inputs,
+            verified_recovery_capability=capability,
+        )
+    terminal_capability = issue_terminal_disposition_capability(
+        monkeypatch,
+        capability,
+        [terminal],
+    )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="terminal disposition authority requires recovered-public authority",
+    ):
+        build_recovered(
+            **inputs,
+            verified_terminal_disposition_capability=terminal_capability,
+        )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="terminal disposition authority requires recovered-public authority",
+    ):
+        require_recovered(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=inputs["clearance_records"],
+            resolved_records=[],
+            **_external_kwargs(inputs),
+            verified_terminal_disposition_capability=terminal_capability,
+        )
+
+    records = build_recovered(
+        **inputs,
+        verified_recovery_capability=capability,
+        verified_terminal_disposition_capability=terminal_capability,
+    )
+
+    assert [(row["candidate_id"], row["source_document_id"]) for row in records] == [
+        ("case-1", "123")
+    ]
+    require_recovered(
+        selection_records=inputs["selection_records"],
+        download_records=inputs["download_records"],
+        clearance_records=inputs["clearance_records"],
+        resolved_records=records,
+        **_external_kwargs(inputs),
+        verified_recovery_capability=capability,
+        verified_terminal_disposition_capability=terminal_capability,
+    )
+
+    forged_terminal = {
+        **records[0],
+        "candidate_id": "case-terminal",
+        "source_document_id": "456",
+    }
+    with pytest.raises(ResolvedPostRecoveryError, match="coverage mismatch"):
+        require_recovered(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=inputs["clearance_records"],
+            resolved_records=[*records, forged_terminal],
+            **_external_kwargs(inputs),
+            verified_recovery_capability=capability,
+            verified_terminal_disposition_capability=terminal_capability,
+        )
+    with pytest.raises(ResolvedPostRecoveryError, match="terminal-unavailable"):
+        resolved_module._require_resolved_recovered_public_operation_bindings(  # pyright: ignore[reportPrivateUsage]
+            purchase_operation_records=inputs["purchase_operation_records"],
+            resolved_records=[*records, forged_terminal],
+            expected_purchase_policy_sha256="1" * 64,
+            verified_recovery_capability=capability,
+            verified_terminal_disposition_capability=terminal_capability,
+        )
+    forged_request = {
+        "candidate_id": "case-terminal",
+        "source_document_id": "456",
+        "recovery_origin": "unknown_status_attempt",
+        "resolved_post_recovery_sha256": forged_terminal["record_sha256"],
+    }
+    with pytest.raises(ResolvedPostRecoveryError, match="overlaps parser requests"):
+        resolved_module._require_resolved_recovered_public_parse_requests(  # pyright: ignore[reportPrivateUsage]
+            selection_records=inputs["selection_records"],
+            request_records=[forged_request],
+            resolved_records=[*records, forged_terminal],
+            verified_recovery_capability=capability,
+            verified_terminal_disposition_capability=terminal_capability,
         )
 
 
@@ -1898,9 +2110,100 @@ def test_resolve_post_recovery_cli_help_names_all_lineage_inputs(
         "--reviews",
         "--review-receipt",
         "--restriction-evidence",
+        "--terminal-disposition-selection",
+        "--terminal-disposition-snapshot-manifest",
+        "--terminal-purchase-result",
+        "--terminal-purchase-run-card",
         "--resolved-output",
     ):
         assert flag in help_text
+
+
+@pytest.mark.parametrize(
+    ("terminal_record_count", "bundle_present", "accepted"),
+    ((0, False, True), (0, True, False), (1, False, False), (1, True, True)),
+)
+def test_terminal_disposition_bundle_exactly_tracks_terminal_partition(
+    tmp_path: Path,
+    terminal_record_count: int,
+    bundle_present: bool,
+    accepted: bool,
+) -> None:
+    source = tmp_path / "terminal-source.json"
+    bundle: tuple[Path, Path, Path, Path] | tuple[()] = (
+        (source, source, source, source) if bundle_present else ()
+    )
+
+    if accepted:
+        cli._require_terminal_disposition_bundle(
+            terminal_record_count=terminal_record_count,
+            terminal_disposition_paths=bundle,
+        )
+        return
+    with pytest.raises(
+        cli.CommandError,
+        match="must exactly match a nonempty terminal-unavailable recovery partition",
+    ):
+        cli._require_terminal_disposition_bundle(
+            terminal_record_count=terminal_record_count,
+            terminal_disposition_paths=bundle,
+        )
+
+
+def test_authenticated_snapshot_collision_is_rejected(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "shared-authenticated-source.json"
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="authenticated source snapshot collision",
+    ):
+        cli._merge_authenticated_source_snapshots(
+            {source: b'{"source":"recovery"}\n'},
+            {source: b'{"source":"terminal"}\n'},
+        )
+
+
+def test_authenticated_source_drift_precedes_output_and_journal_mutation(
+    tmp_path: Path,
+) -> None:
+    terminal_source = tmp_path / "authenticated-recovery-source.json"
+    verified_bytes = b'{"status":"verified"}\n'
+    terminal_source.write_bytes(verified_bytes)
+    verifier_snapshots = {terminal_source: verified_bytes}
+    terminal_source.write_bytes(b'{"status":"rebound"}\n')
+    resolved_path = tmp_path / "resolved-post-recovery-documents.jsonl"
+    cleared_document_ids: list[str] = []
+
+    class RecordingJournal:
+        def clear_unknown_material(
+            self,
+            source_document_id: str,
+            *,
+            resolved_record: Mapping[str, Any],
+        ) -> None:
+            del resolved_record
+            cleared_document_ids.append(source_document_id)
+
+    with pytest.raises(
+        cli.CommandError,
+        match="resolved post-recovery authenticated source changed during execution",
+    ):
+        cli._publish_resolved_post_recovery_documents(
+            resolved_path=resolved_path,
+            resolved_records=(
+                {
+                    "candidate_id": "case-1",
+                    "source_document_id": "document-1",
+                },
+            ),
+            purchase_journal=cast(CaseDevPurchaseJournal, RecordingJournal()),
+            authenticated_source_snapshots=verifier_snapshots,
+        )
+
+    assert not resolved_path.exists()
+    assert cleared_document_ids == []
+    assert not (tmp_path / "run-cards/resolve-post-recovery-documents.json").exists()
 
 
 def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(

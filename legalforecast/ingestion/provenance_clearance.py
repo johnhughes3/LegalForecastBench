@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
@@ -81,6 +82,36 @@ class ProvenanceClearanceError(ValueError):
     """Raised when provenance routing is incomplete, contradictory, or changed."""
 
 
+@dataclass(frozen=True, slots=True)
+class AuthenticatedTerminalUnavailablePartition:
+    """Verifier-owned identity and bytes commitment for terminal omissions."""
+
+    path: Path
+    sha256: str
+    record_count: int
+    keys: frozenset[tuple[str, str]]
+
+
+@dataclass(frozen=True, slots=True)
+class _AuthenticatedRecoveredPublicEvidence:
+    """Raw recovery replay projected into capability state."""
+
+    lineage_rows: tuple[Mapping[str, object], ...]
+    terminal_records: tuple[Mapping[str, object], ...]
+    terminal_path: Path | None
+    terminal_sha256: str | None
+    source_snapshots: Mapping[Path, bytes]
+
+
+@dataclass(frozen=True, slots=True)
+class _RecoveredPublicCapabilityState:
+    """Opaque recovered and terminal authority kept behind one capability."""
+
+    lineages: Mapping[tuple[str, str], Mapping[str, object]]
+    terminal: AuthenticatedTerminalUnavailablePartition | None
+    source_snapshots: Mapping[Path, bytes]
+
+
 def _authenticate_recovered_public_lineage_from_raw_evidence(
     *,
     recovery_root: Path,
@@ -98,7 +129,7 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
     expected_case_relevance_path: Path,
     expected_review_requests_path: Path,
     expected_document_root: Path,
-) -> Sequence[Mapping[str, object]]:
+) -> _AuthenticatedRecoveredPublicEvidence:
     """Replay raw recovery evidence before deriving capability state."""
 
     # The CLI owns the complete recovery replay because it composes the purchase
@@ -155,23 +186,91 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
         raise ProvenanceClearanceError(
             "recovered-public recovery committed different terminal unavailable path"
         )
-    return cast(
-        Sequence[Mapping[str, object]],
-        derive(
-            recovery,
-            expected_manifest_path=expected_manifest_path,
-            expected_restriction_path=expected_restriction_path,
+    raw_verified = recovery.get("verified_artifact_bytes")
+    if not isinstance(raw_verified, Mapping):
+        raise ProvenanceClearanceError(
+            "recovered-public recovery lacks authenticated artifact bytes"
+        )
+    source_snapshots: dict[Path, bytes] = {}
+    for raw_path, payload in cast(Mapping[object, object], raw_verified).items():
+        if not isinstance(raw_path, str) or not isinstance(payload, bytes):
+            raise ProvenanceClearanceError(
+                "recovered-public recovery contains invalid authenticated bytes"
+            )
+        path = Path(raw_path)
+        if not path.is_absolute():
+            raise ProvenanceClearanceError(
+                "recovered-public recovery contains a relative authenticated path"
+            )
+        resolved_path = path.resolve()
+        existing = source_snapshots.get(resolved_path)
+        if existing is not None and existing != payload:
+            raise ProvenanceClearanceError(
+                "recovered-public recovery contains conflicting authenticated bytes"
+            )
+        source_snapshots[resolved_path] = payload
+    if terminal_unavailable_path is None:
+        terminal_bytes: bytes | None = None
+        terminal_records: tuple[Mapping[str, object], ...] = ()
+    else:
+        try:
+            terminal_bytes = source_snapshots[terminal_unavailable_path.resolve()]
+        except KeyError as exc:
+            raise ProvenanceClearanceError(
+                "recovered-public recovery lacks terminal unavailable bytes"
+            ) from exc
+        terminal_records = _jsonl_mapping_records(
+            terminal_bytes, label="terminal unavailable operations"
+        )
+    return _AuthenticatedRecoveredPublicEvidence(
+        lineage_rows=tuple(
+            cast(
+                Sequence[Mapping[str, object]],
+                derive(
+                    recovery,
+                    expected_manifest_path=expected_manifest_path,
+                    expected_restriction_path=expected_restriction_path,
+                ),
+            )
         ),
+        terminal_records=terminal_records,
+        terminal_path=terminal_unavailable_path,
+        terminal_sha256=(
+            hashlib.sha256(terminal_bytes).hexdigest()
+            if terminal_bytes is not None
+            else None
+        ),
+        source_snapshots=source_snapshots,
     )
+
+
+def _jsonl_mapping_records(
+    payload: bytes, *, label: str
+) -> tuple[Mapping[str, object], ...]:
+    """Parse exact JSONL objects from verifier-owned bytes."""
+
+    try:
+        parsed = tuple(
+            json.loads(line)
+            for line in payload.decode("utf-8").splitlines()
+            if line.strip()
+        )
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ProvenanceClearanceError(f"{label} bytes are malformed") from exc
+    if not all(isinstance(record, Mapping) for record in parsed):
+        raise ProvenanceClearanceError(f"{label} contains a non-object row")
+    return cast(tuple[Mapping[str, object], ...], parsed)
 
 
 def _recovered_public_capability_boundary() -> tuple[
     Callable[..., object],
     Callable[[object | None], Mapping[tuple[str, str], Mapping[str, object]]],
+    Callable[[object | None], AuthenticatedTerminalUnavailablePartition | None],
+    Callable[[object | None], Mapping[Path, bytes]],
 ]:
     """Keep verifier-issued recovered-public authority opaque to callers."""
 
-    capabilities: dict[object, dict[tuple[str, str], Mapping[str, object]]] = {}
+    capabilities: dict[object, _RecoveredPublicCapabilityState] = {}
 
     def issue(
         *,
@@ -191,7 +290,7 @@ def _recovered_public_capability_boundary() -> tuple[
         expected_review_requests_path: Path,
         expected_document_root: Path,
     ) -> object:
-        rows = _authenticate_recovered_public_lineage_from_raw_evidence(
+        evidence = _authenticate_recovered_public_lineage_from_raw_evidence(
             recovery_root=recovery_root,
             run_card_path=run_card_path,
             selection_path=selection_path,
@@ -222,7 +321,7 @@ def _recovered_public_capability_boundary() -> tuple[
             "purchase_operation_key",
             "fresh_recap_detail_sha256",
         }
-        for raw in rows:
+        for raw in evidence.lineage_rows:
             # Capability issuance must sever every caller-owned mutable reference,
             # including the nested direct-queue proof.
             row = deepcopy(dict(raw))
@@ -260,21 +359,77 @@ def _recovered_public_capability_boundary() -> tuple[
                     lineage=row,
                 )
             indexed[key] = row
+        terminal_keys: set[tuple[str, str]] = set()
+        for raw in evidence.terminal_records:
+            row = dict(raw)
+            if row.get("schema_version") != (
+                "legalforecast.recap_fetch_terminal_unavailable.v1"
+            ):
+                raise ProvenanceClearanceError(
+                    "invalid terminal-unavailable verifier evidence"
+                )
+            key = (
+                _required_text(row, "candidate_id"),
+                _required_text(row, "source_document_id"),
+            )
+            if key in terminal_keys:
+                raise ProvenanceClearanceError(
+                    "terminal-unavailable verifier evidence repeats a document"
+                )
+            terminal_keys.add(key)
+        if set(indexed) & terminal_keys:
+            raise ProvenanceClearanceError(
+                "terminal-unavailable partition overlaps recovered material"
+            )
         capability = object()
-        capabilities[capability] = indexed
+        capabilities[capability] = _RecoveredPublicCapabilityState(
+            lineages=indexed,
+            terminal=(
+                AuthenticatedTerminalUnavailablePartition(
+                    path=evidence.terminal_path,
+                    sha256=evidence.terminal_sha256,
+                    record_count=len(evidence.terminal_records),
+                    keys=frozenset(terminal_keys),
+                )
+                if evidence.terminal_path is not None
+                and evidence.terminal_sha256 is not None
+                else None
+            ),
+            source_snapshots=dict(evidence.source_snapshots),
+        )
         return capability
 
     def consume(
         capability: object | None,
     ) -> Mapping[tuple[str, str], Mapping[str, object]]:
         try:
-            return deepcopy(capabilities[capability])
+            return deepcopy(capabilities[capability].lineages)
         except (KeyError, TypeError):
             raise ProvenanceClearanceError(
                 "recovered-public clearance requires a verifier-issued capability"
             ) from None
 
-    return issue, consume
+    def consume_terminal(
+        capability: object | None,
+    ) -> AuthenticatedTerminalUnavailablePartition | None:
+        try:
+            return deepcopy(capabilities[capability].terminal)
+        except (KeyError, TypeError):
+            raise ProvenanceClearanceError(
+                "terminal-unavailable partition requires a verifier-issued capability"
+            ) from None
+
+    def consume_source_snapshots(
+        capability: object | None,
+    ) -> Mapping[Path, bytes]:
+        try:
+            return dict(capabilities[capability].source_snapshots)
+        except (KeyError, TypeError):
+            raise ProvenanceClearanceError(
+                "recovered-public source snapshots require a verifier-issued capability"
+            ) from None
+
+    return issue, consume, consume_terminal, consume_source_snapshots
 
 
 def _validate_direct_queue_delivery_authority(
@@ -354,6 +509,8 @@ def _validate_direct_queue_delivery_authority(
 (
     _issue_recovered_public_clearance_capability,
     _consume_recovered_public_clearance_capability,
+    _consume_recovered_public_terminal_partition,
+    _consume_recovered_public_source_snapshots,
 ) = _recovered_public_capability_boundary()
 del _recovered_public_capability_boundary
 

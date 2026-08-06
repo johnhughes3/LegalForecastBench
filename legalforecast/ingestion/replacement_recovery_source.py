@@ -24,6 +24,10 @@ INITIAL_KIND = "initial_v2"
 SUCCESSOR_KIND = "successor"
 RESOLVED_STAGE = "resolve-post-recovery-documents"
 
+_TERMINAL_DISPOSITION_SOURCE_NAMES = frozenset(
+    {"selection", "snapshot_manifest", "purchase_result", "purchase_run_card"}
+)
+
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 
 
@@ -53,6 +57,9 @@ class ResolvedSourceCoordinates:
     resolved_sha256: str
     input_paths: tuple[Path, ...]
     input_sha256: tuple[str, ...]
+    terminal_unavailable_path: Path
+    terminal_unavailable_sha256: str
+    terminal_unavailable_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,6 +274,10 @@ def derive_resolved_source_coordinates(
     expected_input_paths: Sequence[Path],
     expected_ledger_path: Path,
     expected_purchase_state_sha256: str,
+    expected_terminal_unavailable_path: Path,
+    expected_terminal_unavailable_sha256: str,
+    expected_terminal_unavailable_count: int,
+    expected_terminal_disposition_paths: Mapping[str, Path] | None,
 ) -> ResolvedSourceCoordinates:
     """Authenticate the closed path projection of a resolve-stage run card."""
 
@@ -288,6 +299,60 @@ def derive_resolved_source_coordinates(
         raise ReplacementRecoverySourceError(
             "resolved source omits authenticated recovery inputs"
         )
+    raw_terminal = _string_mapping(
+        card.get("terminal_unavailable_partition"),
+        label="resolved terminal-unavailable partition",
+    )
+    if set(raw_terminal) != {"path", "sha256", "record_count"}:
+        raise ReplacementRecoverySourceError(
+            "resolved terminal-unavailable partition fields differ"
+        )
+    terminal_path, terminal_sha256 = _path_commitment(
+        {
+            "path": raw_terminal.get("path"),
+            "sha256": raw_terminal.get("sha256"),
+        },
+        label="resolved terminal-unavailable partition",
+    )
+    terminal_count = raw_terminal.get("record_count")
+    if (
+        terminal_path.resolve() != expected_terminal_unavailable_path.resolve()
+        or terminal_sha256 != expected_terminal_unavailable_sha256
+        or type(terminal_count) is not int
+        or terminal_count != expected_terminal_unavailable_count
+        or terminal_path.resolve() not in {path.resolve() for path in inputs}
+    ):
+        raise ReplacementRecoverySourceError(
+            "resolved terminal-unavailable partition changed"
+        )
+    raw_disposition_sources = card.get("terminal_disposition_sources")
+    if expected_terminal_unavailable_count:
+        disposition_sources = _string_mapping(
+            raw_disposition_sources,
+            label="resolved terminal disposition sources",
+        )
+        if (
+            set(disposition_sources) != set(_TERMINAL_DISPOSITION_SOURCE_NAMES)
+            or expected_terminal_disposition_paths is None
+            or set(expected_terminal_disposition_paths)
+            != set(_TERMINAL_DISPOSITION_SOURCE_NAMES)
+        ):
+            raise ReplacementRecoverySourceError(
+                "resolved terminal disposition sources differ"
+            )
+        for name, expected_path in expected_terminal_disposition_paths.items():
+            raw_path = disposition_sources.get(name)
+            if (
+                not isinstance(raw_path, str)
+                or Path(raw_path).resolve() != expected_path.resolve()
+            ):
+                raise ReplacementRecoverySourceError(
+                    "resolved terminal disposition source path rebound"
+                )
+    elif raw_disposition_sources is not None:
+        raise ReplacementRecoverySourceError(
+            "resolved terminal disposition sources lack terminal failures"
+        )
     raw_sources = _string_mapping(
         card.get("source_commitments"), label="resolved source commitments"
     )
@@ -296,7 +361,7 @@ def derive_resolved_source_coordinates(
         raise ReplacementRecoverySourceError(
             "resolved source commitments have extra or missing fields"
         )
-    source_digests: list[str] = []
+    source_digests_by_path: dict[Path, str] = {}
     for index, input_path in enumerate(inputs):
         committed_path, digest = _path_commitment(
             raw_sources[f"input_{index:02d}"],
@@ -306,7 +371,12 @@ def derive_resolved_source_coordinates(
             raise ReplacementRecoverySourceError(
                 "resolved source commitment path rebound"
             )
-        source_digests.append(digest)
+        source_digests_by_path[input_path.resolve()] = digest
+    expected_resolved_paths = {path.resolve() for path in expected_input_paths}
+    ordered_inputs = (
+        *expected_input_paths,
+        *(path for path in inputs if path.resolve() not in expected_resolved_paths),
+    )
     raw_outputs = card.get("output_paths")
     outputs = _path_sequence(raw_outputs, label="resolved output_paths")
     if len(outputs) != 2 or outputs[1].resolve() != expected_ledger_path.resolve():
@@ -343,8 +413,13 @@ def derive_resolved_source_coordinates(
     return ResolvedSourceCoordinates(
         resolved_path=resolved_path,
         resolved_sha256=resolved_sha256,
-        input_paths=inputs,
-        input_sha256=tuple(source_digests),
+        input_paths=tuple(ordered_inputs),
+        input_sha256=tuple(
+            source_digests_by_path[path.resolve()] for path in ordered_inputs
+        ),
+        terminal_unavailable_path=terminal_path,
+        terminal_unavailable_sha256=terminal_sha256,
+        terminal_unavailable_count=terminal_count,
     )
 
 

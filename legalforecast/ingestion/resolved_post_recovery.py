@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
     validate_unknown_public_recovery_evidence,
 )
@@ -27,8 +28,13 @@ from legalforecast.ingestion.disclosure_clearance import (
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthority,
 )
+from legalforecast.ingestion.docket_decision_text_source import (
+    VerifiedTerminalPurchaseDispositionAuthority,
+    verified_terminal_purchase_disposition_record,
+)
 from legalforecast.ingestion.provenance_clearance import (
     _consume_recovered_public_clearance_capability,  # pyright: ignore[reportPrivateUsage]
+    _consume_recovered_public_terminal_partition,  # pyright: ignore[reportPrivateUsage]
 )
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     BOUNDED_FETCH_ATTEMPT_AUTHORITY,
@@ -101,6 +107,79 @@ FRESH_PUBLIC_UNKNOWN_SEAL_EVIDENCE = (
     "courtlistener_recap_fetch_no_positive_private_marker",
     "courtlistener_recap_fetch_public_download_url_allowlisted",
 )
+
+
+def _terminal_disposition_capability_boundary() -> tuple[
+    Callable[..., object], Callable[[object | None], frozenset[tuple[str, str]]]
+]:
+    """Require independent terminal-disposition replay before any omission."""
+
+    capabilities: dict[object, frozenset[tuple[str, str]]] = {}
+
+    def issue(
+        *,
+        authority: VerifiedTerminalPurchaseDispositionAuthority,
+        purchase_journal: CaseDevPurchaseJournal,
+        verified_recovery_capability: object,
+    ) -> object:
+        record = verified_terminal_purchase_disposition_record(
+            authority,
+            purchase_journal=purchase_journal,
+        )
+        raw_pairs = record.get("terminal_failure_pairs")
+        if not isinstance(raw_pairs, list):
+            raise ResolvedPostRecoveryError(
+                "terminal disposition lacks its exhaustive failure pairs"
+            )
+        pairs: set[tuple[str, str]] = set()
+        for raw_pair in cast(list[object], raw_pairs):
+            if not isinstance(raw_pair, Mapping):
+                raise ResolvedPostRecoveryError(
+                    "terminal disposition contains an invalid failure pair"
+                )
+            pair_record = cast(Mapping[str, object], raw_pair)
+            pair = (
+                _required_text(pair_record.get("candidate_id"), "candidate_id"),
+                _required_text(
+                    pair_record.get("source_document_id"), "source_document_id"
+                ),
+            )
+            if pair in pairs:
+                raise ResolvedPostRecoveryError(
+                    "terminal disposition repeats a failure pair"
+                )
+            pairs.add(pair)
+        recovery_partition = _consume_recovered_public_terminal_partition(
+            verified_recovery_capability
+        )
+        if recovery_partition is None:
+            raise ResolvedPostRecoveryError(
+                "terminal disposition lacks a terminal recovery partition"
+            )
+        if pairs != set(recovery_partition.keys):
+            raise ResolvedPostRecoveryError(
+                "terminal disposition differs from recovery terminal partition"
+            )
+        capability = object()
+        capabilities[capability] = frozenset(pairs)
+        return capability
+
+    def consume(capability: object | None) -> frozenset[tuple[str, str]]:
+        try:
+            return capabilities[capability]
+        except (KeyError, TypeError):
+            raise ResolvedPostRecoveryError(
+                "terminal omission requires verifier-issued disposition authority"
+            ) from None
+
+    return issue, consume
+
+
+(
+    _issue_terminal_disposition_capability,
+    _consume_terminal_disposition_capability,
+) = _terminal_disposition_capability_boundary()
+del _terminal_disposition_capability_boundary
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _UUID4 = re.compile(
@@ -683,10 +762,19 @@ def _build_resolved_post_recovery_documents_core(
     allow_test_service_identity: bool = False,
     verified_lineage_capability: object | None = None,
     verified_recovery_capability: object | None = None,
+    verified_terminal_disposition_capability: object | None = None,
 ) -> tuple[dict[str, object], ...]:
     """Build exact resolved records for every unknown-origin selected document."""
 
     recovered_lineages: Mapping[tuple[str, str], Mapping[str, object]] | None = None
+    terminal_keys: frozenset[tuple[str, str]] = frozenset()
+    if (
+        verified_terminal_disposition_capability is not None
+        and verified_recovery_capability is None
+    ):
+        raise ResolvedPostRecoveryError(
+            "terminal disposition authority requires recovered-public authority"
+        )
     if verified_recovery_capability is not None:
         if verified_lineage_capability is not None:
             raise ResolvedPostRecoveryError(
@@ -695,6 +783,10 @@ def _build_resolved_post_recovery_documents_core(
         recovered_lineages = _consume_recovered_public_clearance_capability(
             verified_recovery_capability
         )
+        if verified_terminal_disposition_capability is not None:
+            terminal_keys = _consume_terminal_disposition_capability(
+                verified_terminal_disposition_capability
+            )
         clearance_lineage = None
     elif verified_lineage_capability is not None:
         clearance_lineage = _bind_internal_verified_provenance_lineage(
@@ -744,7 +836,19 @@ def _build_resolved_post_recovery_documents_core(
     downloads = _index(download_records, "download")
     clearances = _index(clearance_records, "clearance")
     restrictions = _group_index(restriction_records, "restriction evidence")
-    required = set(unknown_selection)
+    if not terminal_keys <= set(unknown_selection):
+        raise ResolvedPostRecoveryError(
+            "terminal-unavailable partition is outside unknown selected documents"
+        )
+    if terminal_keys - set(operations):
+        raise ResolvedPostRecoveryError(
+            "purchase operation lacks terminal-unavailable coverage"
+        )
+    required = set(unknown_selection) - terminal_keys
+    if recovered_lineages is not None and set(recovered_lineages) != required:
+        raise ResolvedPostRecoveryError(
+            "recovered-public capability does not exactly cover recovered documents"
+        )
     for label, index in (
         ("purchase operation", operations),
         ("download", downloads),
@@ -900,14 +1004,27 @@ def _build_resolved_post_recovery_documents_with_authenticated_lineage(  # pyrig
 
 
 def _build_resolved_recovered_public(  # pyright: ignore[reportUnusedFunction]
-    *, verified_recovery_capability: object | None = None, **kwargs: Any
+    *,
+    verified_recovery_capability: object | None = None,
+    verified_terminal_disposition_capability: object | None = None,
+    **kwargs: Any,
 ) -> tuple[dict[str, object], ...]:
     """Build through the verifier-issued recovered-public capability path."""
 
+    if (
+        verified_terminal_disposition_capability is not None
+        and verified_recovery_capability is None
+    ):
+        raise ResolvedPostRecoveryError(
+            "terminal disposition authority requires recovered-public authority"
+        )
     _consume_recovered_public_clearance_capability(verified_recovery_capability)
     return _build_resolved_post_recovery_documents_core(
         **kwargs,
         verified_recovery_capability=verified_recovery_capability,
+        verified_terminal_disposition_capability=(
+            verified_terminal_disposition_capability
+        ),
     )
 
 
@@ -998,10 +1115,19 @@ def _require_resolved_post_recovery_documents_core(
     allow_test_service_identity: bool = False,
     verified_lineage_capability: object | None = None,
     verified_recovery_capability: object | None = None,
+    verified_terminal_disposition_capability: object | None = None,
 ) -> None:
     """Require exact resolved coverage whenever selection originated unknown."""
 
     recovered_lineages: Mapping[tuple[str, str], Mapping[str, object]] | None = None
+    terminal_keys: frozenset[tuple[str, str]] = frozenset()
+    if (
+        verified_terminal_disposition_capability is not None
+        and verified_recovery_capability is None
+    ):
+        raise ResolvedPostRecoveryError(
+            "terminal disposition authority requires recovered-public authority"
+        )
     if verified_recovery_capability is not None:
         if verified_lineage_capability is not None:
             raise ResolvedPostRecoveryError(
@@ -1010,6 +1136,10 @@ def _require_resolved_post_recovery_documents_core(
         recovered_lineages = _consume_recovered_public_clearance_capability(
             verified_recovery_capability
         )
+        if verified_terminal_disposition_capability is not None:
+            terminal_keys = _consume_terminal_disposition_capability(
+                verified_terminal_disposition_capability
+            )
         lineage = None
     elif verified_lineage_capability is not None:
         lineage = _bind_internal_verified_provenance_lineage(
@@ -1047,12 +1177,21 @@ def _require_resolved_post_recovery_documents_core(
             restriction_artifact_bytes=restriction_artifact_bytes,
             allow_test_service_identity=allow_test_service_identity,
         )
-    required = set(_unknown_selection(selection_records))
+    unknown_selection = set(_unknown_selection(selection_records))
+    if not terminal_keys <= unknown_selection:
+        raise ResolvedPostRecoveryError(
+            "terminal-unavailable partition is outside unknown selected documents"
+        )
+    required = unknown_selection - terminal_keys
     download_unknown = {
         key
         for key, record in _index(download_records, "download").items()
         if record.get("recovery_origin") == UNKNOWN_RECOVERY_ORIGIN
     }
+    if terminal_keys & download_unknown:
+        raise ResolvedPostRecoveryError(
+            "terminal-unavailable partition overlaps recovered download material"
+        )
     required |= download_unknown
     resolved = _index(resolved_records, "resolved post-recovery document")
     if set(resolved) != required:
@@ -1142,14 +1281,27 @@ def _require_resolved_post_recovery_documents_with_authenticated_lineage(  # pyr
 
 
 def _require_resolved_recovered_public(  # pyright: ignore[reportUnusedFunction]
-    *, verified_recovery_capability: object | None = None, **kwargs: Any
+    *,
+    verified_recovery_capability: object | None = None,
+    verified_terminal_disposition_capability: object | None = None,
+    **kwargs: Any,
 ) -> None:
     """Require resolved rows through recovered-public verifier authority."""
 
+    if (
+        verified_terminal_disposition_capability is not None
+        and verified_recovery_capability is None
+    ):
+        raise ResolvedPostRecoveryError(
+            "terminal disposition authority requires recovered-public authority"
+        )
     _consume_recovered_public_clearance_capability(verified_recovery_capability)
     _require_resolved_post_recovery_documents_core(
         **kwargs,
         verified_recovery_capability=verified_recovery_capability,
+        verified_terminal_disposition_capability=(
+            verified_terminal_disposition_capability
+        ),
     )
 
 
@@ -1189,16 +1341,26 @@ def _require_resolved_recovered_public_parse_requests(  # pyright: ignore[report
     request_records: Sequence[Mapping[str, Any]],
     resolved_records: Sequence[Mapping[str, Any]],
     verified_recovery_capability: object | None = None,
+    verified_terminal_disposition_capability: object | None = None,
 ) -> None:
     """Bind parser requests through recovered-public verifier authority."""
 
+    recovered_lineages = _consume_recovered_public_clearance_capability(
+        verified_recovery_capability
+    )
+    terminal_keys: frozenset[tuple[str, str]] = (
+        _consume_terminal_disposition_capability(
+            verified_terminal_disposition_capability
+        )
+        if verified_terminal_disposition_capability is not None
+        else frozenset()
+    )
     _require_resolved_post_recovery_parse_requests_core(
         selection_records=selection_records,
         request_records=request_records,
         resolved_records=resolved_records,
-        recovered_lineages=_consume_recovered_public_clearance_capability(
-            verified_recovery_capability
-        ),
+        recovered_lineages=recovered_lineages,
+        terminal_keys=terminal_keys,
     )
 
 
@@ -1208,11 +1370,21 @@ def _require_resolved_post_recovery_parse_requests_core(
     request_records: Sequence[Mapping[str, Any]],
     resolved_records: Sequence[Mapping[str, Any]],
     recovered_lineages: Mapping[tuple[str, str], Mapping[str, object]] | None,
+    terminal_keys: frozenset[tuple[str, str]] = frozenset(),
 ) -> None:
     """Bind parser requests with optional verifier-owned recovered lineage."""
 
     requests = _index(request_records, "parse request")
-    required = set(_unknown_selection(selection_records))
+    unknown_selection = set(_unknown_selection(selection_records))
+    if not terminal_keys <= unknown_selection:
+        raise ResolvedPostRecoveryError(
+            "terminal-unavailable partition is outside unknown selected documents"
+        )
+    if terminal_keys & set(requests):
+        raise ResolvedPostRecoveryError(
+            "terminal-unavailable partition overlaps parser requests"
+        )
+    required = unknown_selection - terminal_keys
     required.update(
         key
         for key, request in requests.items()
@@ -1273,16 +1445,24 @@ def _require_resolved_recovered_public_operation_bindings(  # pyright: ignore[re
     resolved_records: Sequence[Mapping[str, Any]],
     expected_purchase_policy_sha256: str,
     verified_recovery_capability: object | None = None,
+    verified_terminal_disposition_capability: object | None = None,
 ) -> None:
     """Verify operation bindings through recovered-public verifier authority."""
 
+    recovered_lineages = _consume_recovered_public_clearance_capability(
+        verified_recovery_capability
+    )
+    terminal_keys: frozenset[tuple[str, str]] = frozenset()
+    if verified_terminal_disposition_capability is not None:
+        terminal_keys = _consume_terminal_disposition_capability(
+            verified_terminal_disposition_capability
+        )
     _require_resolved_post_recovery_operation_bindings_core(
         purchase_operation_records=purchase_operation_records,
         resolved_records=resolved_records,
         expected_purchase_policy_sha256=expected_purchase_policy_sha256,
-        recovered_lineages=_consume_recovered_public_clearance_capability(
-            verified_recovery_capability
-        ),
+        recovered_lineages=recovered_lineages,
+        terminal_keys=terminal_keys,
     )
 
 
@@ -1292,11 +1472,16 @@ def _require_resolved_post_recovery_operation_bindings_core(
     resolved_records: Sequence[Mapping[str, Any]],
     expected_purchase_policy_sha256: str,
     recovered_lineages: Mapping[tuple[str, str], Mapping[str, object]] | None,
+    terminal_keys: frozenset[tuple[str, str]] = frozenset(),
 ) -> None:
     """Verify canonical operation state with optional verifier-owned lineage."""
 
     operations = _index(purchase_operation_records, "purchase operation")
     resolved = _index(resolved_records, "resolved post-recovery document")
+    if terminal_keys & set(resolved):
+        raise ResolvedPostRecoveryError(
+            "terminal-unavailable partition overlaps resolved operation material"
+        )
     if set(resolved) - set(operations):
         raise ResolvedPostRecoveryError(
             "canonical purchase journal lacks resolved operation coverage"
