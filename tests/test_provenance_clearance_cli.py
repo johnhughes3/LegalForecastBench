@@ -891,7 +891,8 @@ def test_legacy_quarantine_compatibility_rejects_reassembled_projection(
     assert clearance_run_card["disposition_policy"]["kind"] == (
         "v3_auto_clear_else_quarantine"
     )
-    assert clearance_run_card.pop("quarantine_all_exceptions_without_review") is True
+    quarantine_all = clearance_run_card.pop("quarantine_all_exceptions_without_review")
+    assert quarantine_all is True
     clearance_run_card_path.write_bytes(
         cli_module.canonical_json_bytes(clearance_run_card)
     )
