@@ -173,6 +173,10 @@ def test_model_review_requires_completed_plan_before_provider_call(
         provider_calls += 1
         return capability
 
+    def private_records_for_capability(value: object) -> tuple[()]:
+        assert value is capability
+        return ()
+
     monkeypatch.setattr(
         cli_module, "validate_exception_review_worksheet_v3", lambda *_a, **_k: ()
     )
@@ -187,7 +191,7 @@ def test_model_review_requires_completed_plan_before_provider_call(
     monkeypatch.setattr(
         cli_module,
         "private_disclosure_model_review_records",
-        lambda value: () if value is capability else ({"unexpected": True},),
+        private_records_for_capability,
     )
     monkeypatch.setattr(
         cli_module,
