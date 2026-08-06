@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from legalforecast.ingestion import provenance_clearance as provenance_module
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION_V1,
     DisclosurePdfScan,
@@ -25,6 +24,9 @@ from legalforecast.ingestion.provenance_clearance import (
     canonical_json_bytes,
     exception_review_worksheet_v3,
     validate_exception_review_worksheet_v3,
+)
+from tests.recovered_public_capability_helpers import (
+    issue_recovered_public_capability,
 )
 
 PUBLIC_EVIDENCE = ["courtlistener_public_download_record_checked"]
@@ -243,6 +245,7 @@ def test_v3_provider_free_finalizer_rejects_v2_and_wrong_hash(
 
 def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
     fresh_sha = "2" * 64
@@ -312,9 +315,7 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
                 "download_manifest_bytes": _jsonl(explicit_null_manifest),
             },
         )
-    empty_capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-        []
-    )
+    empty_capability = issue_recovered_public_capability(monkeypatch, [])
     with pytest.raises(ProvenanceClearanceError, match="must omit source_url"):
         build_provenance_clearance_plan_v3(
             requests,
@@ -350,9 +351,7 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
         "purchase_operation_key": operation_key,
         "fresh_recap_detail_sha256": fresh_sha,
     }
-    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-        [lineage]
-    )
+    capability = issue_recovered_public_capability(monkeypatch, [lineage])
     plan = build_provenance_clearance_plan_v3(
         requests,
         manifest,
@@ -447,7 +446,10 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
         )
 
 
-def test_v3_recovered_public_requires_exact_capability_coverage(tmp_path: Path) -> None:
+def test_v3_recovered_public_requires_exact_capability_coverage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
     manifest[0].update(
         {
@@ -456,9 +458,7 @@ def test_v3_recovered_public_requires_exact_capability_coverage(tmp_path: Path) 
         }
     )
     manifest[0].pop("source_url")
-    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-        []
-    )
+    capability = issue_recovered_public_capability(monkeypatch, [])
 
     with pytest.raises(ProvenanceClearanceError, match="coverage"):
         build_provenance_clearance_plan_v3(
@@ -477,6 +477,7 @@ def test_v3_recovered_public_requires_exact_capability_coverage(tmp_path: Path) 
 
 def test_v3_mixed_manifest_preserves_legacy_row_and_scopes_recovery_capability(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
     recovered_data = b"recovered document bytes"
@@ -553,9 +554,7 @@ def test_v3_mixed_manifest_preserves_legacy_row_and_scopes_recovery_capability(
         "purchase_operation_key": operation_key,
         "fresh_recap_detail_sha256": fresh_sha,
     }
-    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-        [lineage]
-    )
+    capability = issue_recovered_public_capability(monkeypatch, [lineage])
     scan = DisclosurePdfScan(
         parsed_page_count=1,
         text_scanned_page_numbers=(1,),
@@ -589,8 +588,8 @@ def test_v3_mixed_manifest_preserves_legacy_row_and_scopes_recovery_capability(
     assert recovered["recovered_public_lineage"] == lineage
 
     extra_lineage = {**lineage, "source_document_id": "entry-extra"}
-    extra_capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-        [lineage, extra_lineage]
+    extra_capability = issue_recovered_public_capability(
+        monkeypatch, [lineage, extra_lineage]
     )
     with pytest.raises(ProvenanceClearanceError, match="coverage"):
         build_provenance_clearance_plan_v3(
@@ -676,9 +675,7 @@ def test_v3_recovered_public_rejects_contradictions_and_routes_scan_exceptions(
         "purchase_operation_key": "00000000-0000-4000-8000-000000000000",
         "fresh_recap_detail_sha256": "2" * 64,
     }
-    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-        [lineage]
-    )
+    capability = issue_recovered_public_capability(monkeypatch, [lineage])
 
     def build() -> dict[str, object]:
         return build_provenance_clearance_plan_v3(
