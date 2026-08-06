@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
+import json
 import os
 import sqlite3
 from contextlib import closing
@@ -48,6 +50,26 @@ pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
 def test_canonical_purchase_operation_rejects_nonfinite_numbers(value: float) -> None:
     with pytest.raises(ValueError, match="Out of range float values"):
         canonical_purchase_operation_sha256({"reservation_usd": value})
+
+
+def test_canonical_purchase_operation_matches_legacy_approval_digest() -> None:
+    operation = {
+        "candidate_id": "courtlistener-docket-123",
+        "source_document_id": "456",
+        "material_evidence": {"provider_note": "public café"},
+        "reservation_usd": "3.05",
+    }
+    legacy_digest = hashlib.sha256(
+        json.dumps(
+            operation,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+
+    assert canonical_purchase_operation_sha256(operation) == legacy_digest
 
 
 def test_purchase_client_blocks_without_live_flag_or_acknowledgment() -> None:
