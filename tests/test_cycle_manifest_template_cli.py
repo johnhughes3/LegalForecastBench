@@ -639,8 +639,8 @@ def test_checked_in_replacement_tranche_template_requires_successor_authority(
         "purchase-missing-recap-fetch",
         "recover-recap-fetch-quarantine",
         "plan-disclosure-provenance",
-        "record-disclosure-review-decisions",
-        "clear-provenance-disclosures",
+        "review-disclosure-exceptions",
+        "finalize-provenance-quarantine",
         "resolve-post-recovery-documents",
         "accumulate-replacement-clearance",
     ]
@@ -685,6 +685,29 @@ def test_checked_in_replacement_tranche_template_requires_successor_authority(
     )
     assert "--replacement-purchase-authority" in recovery.arguments
     assert "--target-projection-run-card" not in recovery.arguments
+    disclosure_plan = next(
+        stage
+        for stage in config.stages
+        if stage.command == "plan-disclosure-provenance"
+    )
+    assert (
+        disclosure_plan.arguments[
+            disclosure_plan.arguments.index("--schema-version") + 1
+        ]
+        == "v3"
+    )
+    disclosure_review = next(
+        stage
+        for stage in config.stages
+        if stage.command == "review-disclosure-exceptions"
+    )
+    assert disclosure_review.boundary.value == "model_provider"
+    disclosure_finalizer = next(
+        stage
+        for stage in config.stages
+        if stage.command == "finalize-provenance-quarantine"
+    )
+    assert disclosure_finalizer.boundary.value == "provider_free"
     resolver = next(
         stage
         for stage in config.stages
@@ -692,6 +715,9 @@ def test_checked_in_replacement_tranche_template_requires_successor_authority(
     )
     assert "--replacement-purchase-authority" in resolver.arguments
     assert "--replacement-controlled-private-root" in resolver.arguments
+    assert resolver.arguments[
+        resolver.arguments.index("--clearance-run-card") + 1
+    ] == str(disclosure_finalizer.run_card)
     accumulation = config.stages[-1]
     assert accumulation.command == "accumulate-replacement-clearance"
     assert accumulation.arguments[

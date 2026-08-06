@@ -182,6 +182,35 @@ def test_prompt_rejects_ineligible_exception_rows(
         build_marker_page_prompt(row, document_bytes=data)
 
 
+def test_eligibility_accepts_unique_builder_order_for_quarantined_row() -> None:
+    data = _pdf("ordinary procedural history")
+    row = _row(data)
+    row.update(
+        {
+            "route_reasons": [
+                "positive_restriction_evidence",
+                "affirmative_public_provenance_unproven",
+            ],
+            "restriction_evidence": ["courtlistener_recap_document_is_sealed_true"],
+            "exception_clearance_permitted": False,
+        }
+    )
+
+    assert model_review.model_review_eligible_documents((row,)) == ()
+
+
+def test_eligibility_rejects_duplicate_structural_reasons() -> None:
+    data = _pdf("ordinary procedural history")
+    row = _row(data)
+    row["route_reasons"] = [
+        "positive_restriction_evidence",
+        "positive_restriction_evidence",
+    ]
+
+    with pytest.raises(DisclosureModelReviewError, match="unique"):
+        model_review.model_review_eligible_documents((row,))
+
+
 def test_response_validation_and_public_projection_do_not_leak_raw_text() -> None:
     data = _pdf(
         "ordinary procedural history",

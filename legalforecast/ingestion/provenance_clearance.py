@@ -412,13 +412,14 @@ def build_provenance_clearance_plan_v3(
             visibility=relevance_index[key],
             lineage=recovery_lineage,
         ):
-            scan = cast(Mapping[str, object], document["disclosure_pdf_scan"])
-            if scan.get("coverage_status") == "complete" and not document.get(
-                "automated_markers"
-            ):
+            document["recovered_public_lineage"] = dict(recovery_lineage)
+            document["route_reasons"] = [
+                reason
+                for reason in cast(list[str], document["route_reasons"])
+                if reason != "affirmative_public_provenance_unproven"
+            ]
+            if not document["route_reasons"]:
                 document["route"] = "auto_clear"
-                document["route_reasons"] = []
-                document["recovered_public_lineage"] = dict(recovery_lineage)
         if document["route"] == "john_exception_review":
             document["route"] = "exception_review"
         document["exception_clearance_permitted"] = document.pop(
@@ -739,7 +740,7 @@ def build_provider_free_quarantine_records_v3(
         key = _key(document)
         automatic = document.get("route") == "auto_clear"
         recovered_lineage = document.get("recovered_public_lineage")
-        recovered_public = automatic and isinstance(recovered_lineage, Mapping)
+        recovered_public = isinstance(recovered_lineage, Mapping)
         records.append(
             ClearanceRecord(
                 candidate_id=key[0],
@@ -767,7 +768,7 @@ def build_provider_free_quarantine_records_v3(
                 free_or_purchased=_required_text(document, "free_or_purchased"),
                 clearance_basis=(
                     "provider_free_recovered_public"
-                    if recovered_public
+                    if automatic and recovered_public
                     else "affirmative_public_provenance"
                     if automatic
                     else "provider_free_exception_quarantine"
@@ -859,7 +860,7 @@ def build_authenticated_model_provenance_clearance_records_v3(
         key = _key(document)
         automatic = document.get("route") == "auto_clear"
         recovered_lineage = document.get("recovered_public_lineage")
-        recovered_public = automatic and isinstance(recovered_lineage, Mapping)
+        recovered_public = isinstance(recovered_lineage, Mapping)
         decision = decisions.get(key)
         status = (
             "cleared"
@@ -895,7 +896,7 @@ def build_authenticated_model_provenance_clearance_records_v3(
                 free_or_purchased=_required_text(document, "free_or_purchased"),
                 clearance_basis=(
                     "provider_free_recovered_public"
-                    if recovered_public
+                    if automatic and recovered_public
                     else "affirmative_public_provenance"
                     if automatic
                     else "authenticated_model_exception_review"
@@ -1117,10 +1118,7 @@ def _validate_plan_document_v3(
     actual_fields = set(row)
     recovered_lineage = row.get("recovered_public_lineage")
     if actual_fields == expected_fields | {"recovered_public_lineage"}:
-        if (
-            not isinstance(recovered_lineage, Mapping)
-            or row.get("route") != "auto_clear"
-        ):
+        if not isinstance(recovered_lineage, Mapping):
             raise ProvenanceClearanceError(
                 f"invalid recovered-public routing lineage: {key}"
             )
@@ -1138,12 +1136,26 @@ def _validate_plan_document_v3(
     if recovered_lineage is None:
         _validate_plan_document(legacy, key=key)
         return
+    recovered_reasons = _text_list(row, "route_reasons")
+    if recovered_reasons not in (
+        [],
+        ["page_scan_coverage_incomplete"],
+        ["automated_marker_present"],
+        ["page_scan_coverage_incomplete", "automated_marker_present"],
+    ):
+        raise ProvenanceClearanceError(
+            f"invalid recovered-public routing decision: {key}"
+        )
     if legacy.get("source_url") is None:
         legacy["source_url"] = f"courtlistener-rest://recap-documents/{key[1]}"
     legacy["route"] = "john_exception_review"
-    legacy["route_reasons"] = ["affirmative_public_provenance_unproven"]
+    legacy["route_reasons"] = [
+        "affirmative_public_provenance_unproven",
+        *recovered_reasons,
+    ]
     _validate_plan_document(legacy, key=key)
-    if row.get("route_reasons") != []:
+    expected_route = "auto_clear" if not recovered_reasons else "exception_review"
+    if row.get("route") != expected_route:
         raise ProvenanceClearanceError(
             f"invalid recovered-public routing decision: {key}"
         )

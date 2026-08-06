@@ -45,6 +45,26 @@ _REST_PUBLIC_EVIDENCE = frozenset(
         "courtlistener_rest_public_download_url_allowlisted",
     }
 )
+_RECOVERED_PUBLIC_EVIDENCE = frozenset(
+    {
+        "courtlistener_recap_fetch_fresh_detail_exact_match",
+        "courtlistener_recap_fetch_is_available_true",
+        "courtlistener_recap_fetch_is_sealed_false",
+        "courtlistener_recap_fetch_no_positive_private_marker",
+    }
+)
+_RECOVERED_PUBLIC_UNKNOWN_SEAL_EVIDENCE = frozenset(
+    {
+        "courtlistener_recap_fetch_fresh_detail_exact_match",
+        "courtlistener_recap_fetch_is_available_true",
+        "courtlistener_recap_fetch_is_sealed_unknown",
+        "courtlistener_recap_fetch_public_download_url_allowlisted",
+        "courtlistener_recap_fetch_no_positive_private_marker",
+    }
+)
+_UUID4 = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+)
 _POSITIVE_RESTRICTION_EVIDENCE = re.compile(
     r"(?:^|_)(?:sealed|private|restricted|under_seal)(?:_true|$)"
 )
@@ -701,6 +721,8 @@ def _positive_restriction(document: Mapping[str, object]) -> bool:
 def _affirmative_courtlistener_provenance(
     document: Mapping[str, object],
 ) -> bool:
+    if _affirmative_recovered_courtlistener_provenance(document):
+        return True
     if (
         document.get("source_provider") != "courtlistener"
         or document.get("free_or_purchased") != "free"
@@ -722,6 +744,63 @@ def _affirmative_courtlistener_provenance(
         and document.get("is_sealed") is None
         and document.get("is_private") is None
     )
+
+
+def _affirmative_recovered_courtlistener_provenance(
+    document: Mapping[str, object],
+) -> bool:
+    raw_lineage = document.get("recovered_public_lineage")
+    if not isinstance(raw_lineage, Mapping):
+        return False
+    lineage = cast(Mapping[str, object], raw_lineage)
+    expected_fields = {
+        "candidate_id",
+        "source_document_id",
+        "recovery_run_card_sha256",
+        "recovery_manifest_sha256",
+        "recovery_restriction_evidence_sha256",
+        "purchase_state_sha256",
+        "purchase_operation_sha256",
+        "purchase_operation_key",
+        "fresh_recap_detail_sha256",
+    }
+    if (
+        set(lineage) != expected_fields
+        or document.get("source_provider") != "courtlistener_recap_fetch"
+        or document.get("free_or_purchased") != "purchased"
+        or document.get("source_url") is not None
+        or lineage.get("candidate_id") != document.get("candidate_id")
+        or lineage.get("source_document_id") != document.get("source_document_id")
+        or not isinstance(document.get("source_url_or_reference"), str)
+        or not cast(str, document["source_url_or_reference"]).strip()
+        or document.get("restriction_status") != "public"
+        or document.get("is_private") is True
+        or document.get("is_sealed") is True
+    ):
+        return False
+    for field in (
+        "recovery_run_card_sha256",
+        "recovery_manifest_sha256",
+        "recovery_restriction_evidence_sha256",
+        "purchase_state_sha256",
+        "purchase_operation_sha256",
+        "fresh_recap_detail_sha256",
+    ):
+        if (
+            not isinstance(value := lineage.get(field), str)
+            or _SHA256.fullmatch(value) is None
+        ):
+            return False
+    operation_key = lineage.get("purchase_operation_key")
+    if not isinstance(operation_key, str) or _UUID4.fullmatch(operation_key) is None:
+        return False
+    evidence = frozenset(_text_list(document.get("restriction_evidence")))
+    expected_evidence = (
+        _RECOVERED_PUBLIC_EVIDENCE
+        if document.get("is_sealed") is False
+        else _RECOVERED_PUBLIC_UNKNOWN_SEAL_EVIDENCE
+    )
+    return evidence == expected_evidence
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:
@@ -747,8 +826,8 @@ def _text_list(value: object) -> list[str]:
     ):
         raise DisclosureModelReviewError("expected a list of non-empty strings")
     result = cast(list[str], values)
-    if result != sorted(set(result)):
-        raise DisclosureModelReviewError("string list must be sorted and unique")
+    if len(result) != len(set(result)):
+        raise DisclosureModelReviewError("string list values must be unique")
     return result
 
 

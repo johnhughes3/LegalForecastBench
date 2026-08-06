@@ -102,10 +102,11 @@ Its activity and authority flags must all remain false.
 If `successor_approval_required` is true, record and replay a new exact successor approval for `replacement-selection.jsonl` and `replacement-budget-plan.json`; do not reuse the original target-100 approval as authority for those documents.
 Until that approval path authenticates this ranked-reserve result schema, stop without purchasing.
 
-After the operator records that exact successor approval, render [`cycle-1-target-100.replacement-purchase-tranche.template.json`](../manifests/cycle-1-target-100.replacement-purchase-tranche.template.json).
+After the operator records that exact successor approval, render [`cycle-1-target-100.replacement-purchase-tranche.template.json`](../manifests/cycle-1-target-100.replacement-purchase-tranche.template.json) when the v3 disclosure plan identifies model-review-eligible exceptions, or [`cycle-1-target-100.replacement-purchase-tranche-no-review.template.json`](../manifests/cycle-1-target-100.replacement-purchase-tranche-no-review.template.json) when the authenticated plan proves that set is empty.
 The template binds the ranked-reserve projection digest `sha256:1dab63dd17c69fd0222b58d6e30af67ad56550ca6578262f1089222a68257e56` directly; it does not accept the older clearance-replacement frontier.
 Its paid stage uses `--direct-courtlistener-purchase`, the existing CourtListener request ledger, the successor attempt policy and purchase authority, and the unchanged Cycle ledger and caps.
 It neither generates nor accepts a RECAP Fetch broker policy, and rendering or preflighting it performs no provider call, fee acknowledgement, or purchase.
+The disclosure continuation is `plan-disclosure-provenance` followed by authenticated model review only when eligible, `finalize-provenance-quarantine`, and `resolve-post-recovery-documents`; the no-review template omits the model stage and requires the plan-run-card empty-set proof.
 
 An `active_case_count` below 100 is a precursor only.
 A separately authenticated zero-cost clearance successor must bring it back to exactly 100 before the replacement reprojection and corpus templates may rebuild acquisition materialization, Stage A, Stage B, packet inputs, or corpus readiness.

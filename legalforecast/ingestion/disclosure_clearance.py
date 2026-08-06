@@ -531,7 +531,11 @@ def _require_clearance_restriction(
                 f"John-reviewed {label} has positive restriction evidence: {key}"
             )
         return
-    if basis == "provider_free_recovered_public":
+    recovered_model_review = (
+        basis == "authenticated_model_exception_review"
+        and isinstance(row.get("recovered_public_lineage"), Mapping)
+    )
+    if basis == "provider_free_recovered_public" or recovered_model_review:
         evidence_value = row.get("restriction_evidence")
         accepted = {
             (
@@ -581,10 +585,23 @@ def _require_clearance_provenance(
     row: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
     basis = row.get("clearance_basis")
-    if basis == "provider_free_recovered_public":
-        if row.get("reviewed_at") is not None or row.get("reviewer_id") is not None:
+    recovered_model_review = (
+        basis == "authenticated_model_exception_review"
+        and isinstance(row.get("recovered_public_lineage"), Mapping)
+    )
+    if basis == "provider_free_recovered_public" or recovered_model_review:
+        reviewer_id = _optional_str(row, "reviewer_id")
+        if basis == "provider_free_recovered_public" and (
+            row.get("reviewed_at") is not None or reviewer_id is not None
+        ):
             raise DisclosureClearanceError(
                 f"recovered-public clearance unexpectedly has a reviewer: {key}"
+            )
+        if recovered_model_review and (
+            row.get("reviewed_at") is not None or reviewer_id is None
+        ):
+            raise DisclosureClearanceError(
+                f"model-reviewed recovered-public clearance lacks authority: {key}"
             )
         provenance = _optional_str(row, "controlled_store_provenance")
         if (
@@ -671,6 +688,22 @@ def _require_clearance_provenance(
                 f"CourtListener source: {key}"
             )
         _require_routing_plan_hash(row, key=key)
+        return
+    if basis == "authenticated_model_exception_review":
+        _require_routing_plan_hash(row, key=key)
+        if row.get("reviewed_at") is not None:
+            raise DisclosureClearanceError(
+                f"model-reviewed clearance has a human review timestamp: {key}"
+            )
+        reviewer_id = _optional_str(row, "reviewer_id")
+        provenance = _optional_str(row, "controlled_store_provenance")
+        if (
+            reviewer_id is None
+            or provenance != "private-store://disclosure/model-review"
+        ):
+            raise DisclosureClearanceError(
+                f"model-reviewed clearance lacks model authority provenance: {key}"
+            )
         return
     if basis == "john_exception_review":
         _require_routing_plan_hash(row, key=key)

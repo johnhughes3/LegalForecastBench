@@ -277,11 +277,73 @@ def _provider_free_command(
         str(paths["output"] / "disclosure-exception-worksheet.json"),
         "--cohort-policy",
         str(cohort_policy),
+        "--quarantine-all-exceptions-without-review",
         "--output-root",
         str(clearance_root),
         "--execute",
         "--resume" if resume else "--no-resume",
     ]
+
+
+def _no_model_review_command(
+    paths: Mapping[str, Path],
+    *,
+    cohort_policy: Path,
+    clearance_root: Path,
+) -> list[str]:
+    provider_free = _provider_free_command(
+        paths,
+        cohort_policy=cohort_policy,
+        clearance_root=clearance_root,
+    )
+    provider_free.remove("--quarantine-all-exceptions-without-review")
+    return [
+        *provider_free,
+        "--plan-run-card",
+        str(paths["output"] / "run-cards/plan-disclosure-provenance.json"),
+        "--require-no-model-review-eligible-exceptions",
+    ]
+
+
+def test_finalizer_rejects_implicit_provider_free_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    command = _provider_free_command(
+        paths,
+        cohort_policy=cohort_policy,
+        clearance_root=tmp_path / "implicit-provider-free",
+    )
+    command.remove("--quarantine-all-exceptions-without-review")
+
+    assert main(command) == 2
+    assert "finalization requires complete model authority" in capsys.readouterr().err
+
+
+def test_provider_free_schema_documents_both_explicit_modes() -> None:
+    schema = (
+        Path(__file__).resolve().parents[1]
+        / "docs/schemas/provenance-quarantine-clearance-v1.md"
+    ).read_text(encoding="utf-8")
+
+    assert "--quarantine-all-exceptions-without-review" in schema
+    assert "`quarantine_all_exceptions_without_review`: `true`" in schema
+    assert "--plan-run-card" in schema
+    assert "--require-no-model-review-eligible-exceptions" in schema
+    assert "`model_review_eligible_exception_count`: `0`" in schema
+    assert "`no_model_review_eligible_exceptions_required`: `true`" in schema
+    assert "`plan_run_card` source commitment" in schema
+    assert (
+        "Omitting model authority, both empty-set proof flags, and the explicit "
+        "compatibility flag fails closed."
+    ) in schema
 
 
 def test_provider_free_failure_metadata_uses_finalizer_stage(tmp_path: Path) -> None:
@@ -886,6 +948,18 @@ def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
         expected_restriction_path=paths["restrictions"],
     )
     original_run_card_bytes = run_card_path.read_bytes()
+    implicit_mode_run_card = dict(run_card)
+    implicit_mode_run_card.pop("quarantine_all_exceptions_without_review")
+    run_card_path.write_bytes(cli_module.canonical_json_bytes(implicit_mode_run_card))
+    with pytest.raises(cli_module.CommandError, match="invalid provenance clearance"):
+        cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+            clearance_path=clearance_path,
+            clearance_run_card_path=run_card_path,
+            expected_download_manifest_path=paths["manifest"],
+            expected_restriction_path=paths["restrictions"],
+        )
+    run_card_path.write_bytes(original_run_card_bytes)
+
     run_card_path.write_text(json.dumps(run_card, sort_keys=True), encoding="utf-8")
     with pytest.raises(cli_module.CommandError, match="not canonical"):
         cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
@@ -1023,6 +1097,237 @@ def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
             expected_restriction_path=paths["restrictions"],
         )
     run_card_path.write_bytes(snapshots[run_card_path][0])
+
+
+def test_no_model_review_finalizer_rejects_model_eligible_exception(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    clearance_root = tmp_path / "no-model-clearance"
+
+    assert (
+        main(
+            _no_model_review_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+            )
+        )
+        == 2
+    )
+
+    assert "model-review-eligible exceptions" in capsys.readouterr().err
+    assert not (clearance_root / "disclosure-clearance.jsonl").exists()
+    assert not (clearance_root / "disclosure-quarantine.jsonl").exists()
+
+
+def test_no_model_review_finalizer_quarantines_positive_restriction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _inputs(tmp_path)
+    for name in ("requests", "manifest", "restrictions"):
+        rows = [json.loads(line) for line in paths[name].read_text().splitlines()]
+        _jsonl(
+            paths[name],
+            [row for row in rows if row["source_document_id"] in {"auto", "sealed"}],
+        )
+    relevance = json.loads(paths["relevance"].read_text())
+    relevance["documents"] = [
+        row
+        for row in relevance["documents"]
+        if row["source_document_id"] in {"auto", "sealed"}
+    ]
+    _jsonl(paths["relevance"], [relevance])
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    monkeypatch.setattr(
+        cli_module,
+        "replay_authenticated_disclosure_model_review",
+        lambda **_kwargs: pytest.fail("empty eligible set must not use model replay"),
+    )
+    clearance_root = tmp_path / "no-model-clearance"
+
+    assert (
+        main(
+            _no_model_review_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+            )
+        )
+        == 0
+    )
+
+    rows = [
+        json.loads(line)
+        for line in (clearance_root / "disclosure-clearance.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    by_id = {row["source_document_id"]: row for row in rows}
+    assert by_id["auto"]["status"] == "cleared"
+    assert by_id["sealed"]["status"] == "quarantined"
+    assert by_id["sealed"]["clearance_basis"] == ("provider_free_exception_quarantine")
+    run_card = json.loads(
+        (
+            clearance_root / "run-cards" / "finalize-provenance-quarantine.json"
+        ).read_text()
+    )
+    assert run_card["provider_activity_requested"] is False
+    assert run_card["provider_activity_executed"] is False
+    assert run_card["model_review_eligible_exception_count"] == 0
+    assert run_card["no_model_review_eligible_exceptions_required"] is True
+    assert "plan_run_card" in run_card["source_commitments"]
+    cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+        clearance_path=clearance_root / "disclosure-clearance.jsonl",
+        clearance_run_card_path=(
+            clearance_root / "run-cards/finalize-provenance-quarantine.json"
+        ),
+        expected_download_manifest_path=paths["manifest"],
+        expected_restriction_path=paths["restrictions"],
+    )
+
+
+def test_no_model_review_relative_plan_paths_replay_from_clearance_commitments(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    absolute_paths = _inputs(tmp_path)
+    for name in ("requests", "manifest", "restrictions"):
+        rows = [
+            json.loads(line) for line in absolute_paths[name].read_text().splitlines()
+        ]
+        _jsonl(
+            absolute_paths[name],
+            [row for row in rows if row["source_document_id"] == "auto"],
+        )
+    relevance = json.loads(absolute_paths["relevance"].read_text())
+    relevance["documents"] = [
+        row for row in relevance["documents"] if row["source_document_id"] == "auto"
+    ]
+    _jsonl(absolute_paths["relevance"], [relevance])
+    _install_document_scanner(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    paths = {
+        name: Path(os.path.relpath(path, tmp_path))
+        for name, path in absolute_paths.items()
+    }
+    paths["private"] = absolute_paths["private"]
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = Path("cohort-policy.json")
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    clearance_root = Path("relative-no-model-clearance")
+
+    assert (
+        main(
+            _no_model_review_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+            )
+        )
+        == 0
+    )
+
+    cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+        clearance_path=(clearance_root / "disclosure-clearance.jsonl").resolve(),
+        clearance_run_card_path=(
+            clearance_root / "run-cards/finalize-provenance-quarantine.json"
+        ).resolve(),
+        expected_download_manifest_path=absolute_paths["manifest"],
+        expected_restriction_path=absolute_paths["restrictions"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("drift", "expected_error"),
+    [
+        ("output_commitment", "routing_plan commitment mismatch"),
+        ("input_paths", "exact completed v3 plan run card"),
+        ("noncanonical", "exact producer serialization"),
+    ],
+)
+def test_no_model_review_finalizer_rejects_plan_run_card_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    drift: str,
+    expected_error: str,
+) -> None:
+    paths = _inputs(tmp_path)
+    for name in ("requests", "manifest", "restrictions"):
+        rows = [json.loads(line) for line in paths[name].read_text().splitlines()]
+        _jsonl(
+            paths[name],
+            [row for row in rows if row["source_document_id"] == "auto"],
+        )
+    relevance = json.loads(paths["relevance"].read_text())
+    relevance["documents"] = [
+        row for row in relevance["documents"] if row["source_document_id"] == "auto"
+    ]
+    _jsonl(paths["relevance"], [relevance])
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    plan_run_card_path = paths["output"] / "run-cards/plan-disclosure-provenance.json"
+    plan_run_card = json.loads(plan_run_card_path.read_text())
+    if drift == "output_commitment":
+        plan_run_card["output_commitments"]["routing_plan"]["sha256"] = (
+            "sha256:" + "0" * 64
+        )
+        plan_run_card_path.write_text(
+            json.dumps(
+                plan_run_card,
+                indent=2,
+                sort_keys=True,
+                allow_nan=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    elif drift == "input_paths":
+        plan_run_card["input_paths"] = [*plan_run_card["input_paths"], "/extra"]
+        plan_run_card_path.write_text(
+            json.dumps(
+                plan_run_card,
+                indent=2,
+                sort_keys=True,
+                allow_nan=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    else:
+        plan_run_card_path.write_text(
+            json.dumps(plan_run_card, indent=4, sort_keys=True, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+
+    assert (
+        main(
+            _no_model_review_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=tmp_path / "no-model-clearance",
+            )
+        )
+        == 2
+    )
+    assert expected_error in capsys.readouterr().err
 
 
 def test_provider_free_v3_finalizer_replays_v1_scanner_plan(
