@@ -9,7 +9,7 @@ from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from legalforecast.ingestion.canonical_json import (
     canonical_json_bytes as _canonical_json_bytes,
@@ -81,15 +81,123 @@ class ProvenanceClearanceError(ValueError):
     """Raised when provenance routing is incomplete, contradictory, or changed."""
 
 
+def _authenticate_recovered_public_lineage_from_raw_evidence(
+    *,
+    recovery_root: Path,
+    run_card_path: Path,
+    selection_path: Path,
+    purchase_policy_path: Path,
+    cohort_policy_path: Path,
+    ledger_path: Path,
+    initialization_receipt_path: Path,
+    controlled_private_root: Path | None,
+    expected_manifest_path: Path,
+    expected_restriction_path: Path,
+    expected_case_relevance_path: Path,
+    expected_review_requests_path: Path,
+    expected_document_root: Path,
+) -> Sequence[Mapping[str, object]]:
+    """Replay raw recovery evidence before deriving capability state."""
+
+    # The CLI owns the complete recovery replay because it composes the purchase
+    # policy, ledger, run-card, and immutable artifact verifiers. Capability
+    # issuance remains here so authenticated state cannot be constructed by a
+    # caller that merely knows the resulting lineage fields.
+    from legalforecast import cli as cli_module
+
+    authenticate = cast(
+        Any,
+        cli_module._authenticate_recovered_public_raw_evidence,  # pyright: ignore[reportPrivateUsage]
+    )
+    derive = cast(
+        Any,
+        cli_module._derive_recovered_public_lineage_rows,  # pyright: ignore[reportPrivateUsage]
+    )
+    recovery = cast(
+        Mapping[str, object],
+        authenticate(
+            recovery_root=recovery_root,
+            run_card_path=run_card_path,
+            selection_path=selection_path,
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            ledger_path=ledger_path,
+            initialization_receipt_path=initialization_receipt_path,
+            controlled_private_root=controlled_private_root,
+        ),
+    )
+    expected_paths = {
+        "manifest_path": expected_manifest_path,
+        "restriction_path": expected_restriction_path,
+        "case_relevance_path": expected_case_relevance_path,
+        "review_requests_path": expected_review_requests_path,
+        "document_root": expected_document_root,
+    }
+    for name, expected in expected_paths.items():
+        actual = recovery.get(name)
+        if not isinstance(actual, Path) or actual.resolve() != expected.resolve():
+            raise ProvenanceClearanceError(
+                "recovered-public recovery committed different "
+                f"{name.replace('_', ' ')}"
+            )
+    terminal_unavailable_path = recovery.get("terminal_unavailable_path")
+    if terminal_unavailable_path is not None and (
+        not isinstance(terminal_unavailable_path, Path)
+        or terminal_unavailable_path.resolve()
+        != (recovery_root / "terminal-unavailable-operations.jsonl").resolve()
+    ):
+        raise ProvenanceClearanceError(
+            "recovered-public recovery committed different terminal unavailable path"
+        )
+    return cast(
+        Sequence[Mapping[str, object]],
+        derive(
+            recovery,
+            expected_manifest_path=expected_manifest_path,
+            expected_restriction_path=expected_restriction_path,
+        ),
+    )
+
+
 def _recovered_public_capability_boundary() -> tuple[
-    Callable[[Sequence[Mapping[str, object]]], object],
+    Callable[..., object],
     Callable[[object | None], Mapping[tuple[str, str], Mapping[str, object]]],
 ]:
     """Keep verifier-issued recovered-public authority opaque to callers."""
 
     capabilities: dict[object, dict[tuple[str, str], Mapping[str, object]]] = {}
 
-    def issue(rows: Sequence[Mapping[str, object]]) -> object:
+    def issue(
+        *,
+        recovery_root: Path,
+        run_card_path: Path,
+        selection_path: Path,
+        purchase_policy_path: Path,
+        cohort_policy_path: Path,
+        ledger_path: Path,
+        initialization_receipt_path: Path,
+        controlled_private_root: Path | None,
+        expected_manifest_path: Path,
+        expected_restriction_path: Path,
+        expected_case_relevance_path: Path,
+        expected_review_requests_path: Path,
+        expected_document_root: Path,
+    ) -> object:
+        rows = _authenticate_recovered_public_lineage_from_raw_evidence(
+            recovery_root=recovery_root,
+            run_card_path=run_card_path,
+            selection_path=selection_path,
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            ledger_path=ledger_path,
+            initialization_receipt_path=initialization_receipt_path,
+            controlled_private_root=controlled_private_root,
+            expected_manifest_path=expected_manifest_path,
+            expected_restriction_path=expected_restriction_path,
+            expected_case_relevance_path=expected_case_relevance_path,
+            expected_review_requests_path=expected_review_requests_path,
+            expected_document_root=expected_document_root,
+        )
         indexed: dict[tuple[str, str], Mapping[str, object]] = {}
         expected = {
             "candidate_id",
@@ -135,7 +243,7 @@ def _recovered_public_capability_boundary() -> tuple[
         capability: object | None,
     ) -> Mapping[tuple[str, str], Mapping[str, object]]:
         try:
-            return capabilities[capability]
+            return deepcopy(capabilities[capability])
         except (KeyError, TypeError):
             raise ProvenanceClearanceError(
                 "recovered-public clearance requires a verifier-issued capability"

@@ -552,6 +552,7 @@ from legalforecast.ingestion.provenance_clearance import (
 )
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
+    _consume_recovered_public_clearance_capability,  # pyright: ignore[reportPrivateUsage]
     _issue_recovered_public_clearance_capability,  # pyright: ignore[reportPrivateUsage]
     build_authenticated_model_provenance_clearance_records_v3,
     build_exception_inspection_map,
@@ -38892,27 +38893,19 @@ def _verify_materializer_clearance_lineage(
             "routing_plan",
             captured_artifact_bytes=verified_snapshot,
         )
-        _verify_authenticated_clearance_run_card(
-            clearance_path=clearance_path,
-            clearance_run_card_path=run_card_path,
-            expected_download_manifest_path=manifest_path,
-            expected_restriction_path=restriction_path,
-            captured_artifact_bytes=verified_snapshot,
-            allow_legacy_implicit_quarantine=allow_legacy_implicit_quarantine,
+        _, authenticated_recovery_capability = (
+            _verify_authenticated_clearance_run_card_with_capability(
+                clearance_path=clearance_path,
+                clearance_run_card_path=run_card_path,
+                expected_download_manifest_path=manifest_path,
+                expected_restriction_path=restriction_path,
+                captured_artifact_bytes=verified_snapshot,
+                allow_legacy_implicit_quarantine=allow_legacy_implicit_quarantine,
+            )
         )
         clearance_records = _projection_jsonl_records(
             verified_snapshot[os.path.abspath(clearance_path)],
             source=clearance_path,
-        )
-        recovered_lineages = [
-            cast(Mapping[str, object], lineage)
-            for record in clearance_records
-            if isinstance(lineage := record.get("recovered_public_lineage"), Mapping)
-        ]
-        authenticated_recovery_capability = (
-            _issue_recovered_public_clearance_capability(recovered_lineages)
-            if recovered_lineages
-            else None
         )
         return {
             "lineage_kind": (
@@ -42890,6 +42883,71 @@ def _derive_recovered_public_lineage_rows(
     return lineage_rows
 
 
+def _authenticate_recovered_public_raw_evidence(
+    *,
+    recovery_root: Path,
+    run_card_path: Path,
+    selection_path: Path,
+    purchase_policy_path: Path,
+    cohort_policy_path: Path,
+    ledger_path: Path,
+    initialization_receipt_path: Path,
+    controlled_private_root: Path | None,
+) -> Mapping[str, object]:
+    """Authenticate recovery bytes, policies, and live ledger state together."""
+
+    selection_records = _projection_jsonl_records(
+        _read_singly_linked_regular_input(
+            selection_path, label="recovered-public selection"
+        ),
+        source=selection_path,
+    )
+    purchase_policy = verify_case_dev_purchase_policy(
+        _projection_json_object(
+            _read_singly_linked_regular_input(
+                purchase_policy_path, label="recovered-public purchase policy"
+            ),
+            source=purchase_policy_path,
+        )
+    )
+    require_approved_case_dev_purchase_policy(
+        purchase_policy, controlled_private_root=controlled_private_root
+    )
+    verify_case_dev_purchase_policy_cohort_binding(
+        purchase_policy,
+        _projection_json_object(
+            _read_singly_linked_regular_input(
+                cohort_policy_path, label="recovered-public cohort policy"
+            ),
+            source=cohort_policy_path,
+        ),
+    )
+    if ledger_path.resolve() != purchase_policy.canonical_ledger_path:
+        raise CommandError(
+            "--purchase-ledger conflicts with the canonical policy locator"
+        )
+    purchase_snapshot = read_case_dev_purchase_snapshot(
+        ledger_path.resolve(),
+        policy=purchase_policy,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt_path,
+    )
+    return _verify_materializer_quarantine_recovery(
+        recovery_root=recovery_root,
+        run_card_path=run_card_path,
+        selection_path=selection_path,
+        selected_document_keys=_replacement_consolidation_selection_keys(
+            selection_records
+        ),
+        purchase_policy_path=purchase_policy_path,
+        cohort_policy_path=cohort_policy_path,
+        ledger_path=ledger_path.resolve(),
+        purchase_operations=purchase_snapshot.operations,
+        purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+        purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+    )
+
+
 def _verified_recovered_public_clearance_capability(
     args: argparse.Namespace,
     *,
@@ -42928,12 +42986,6 @@ def _verified_recovered_public_clearance_capability(
     selection_bytes = _read_singly_linked_regular_input(
         selection_path, label="recovered-public selection"
     )
-    selection_records = _projection_jsonl_records(
-        selection_bytes, source=selection_path
-    )
-    selected_document_keys = _replacement_consolidation_selection_keys(
-        selection_records
-    )
     purchase_policy_bytes = _read_singly_linked_regular_input(
         purchase_policy_path, label="recovered-public purchase policy"
     )
@@ -42944,38 +42996,16 @@ def _verified_recovered_public_clearance_capability(
         initialization_receipt_path,
         label="recovered-public purchase ledger initialization receipt",
     )
-    purchase_policy = verify_case_dev_purchase_policy(
-        _projection_json_object(purchase_policy_bytes, source=purchase_policy_path)
-    )
     controlled_private_root = cast(Path | None, args.controlled_private_root)
-    require_approved_case_dev_purchase_policy(
-        purchase_policy, controlled_private_root=controlled_private_root
-    )
-    verify_case_dev_purchase_policy_cohort_binding(
-        purchase_policy,
-        _projection_json_object(cohort_policy_bytes, source=cohort_policy_path),
-    )
-    if ledger_path != purchase_policy.canonical_ledger_path:
-        raise CommandError(
-            "--purchase-ledger conflicts with the canonical policy locator"
-        )
-    purchase_snapshot = read_case_dev_purchase_snapshot(
-        ledger_path,
-        policy=purchase_policy,
-        controlled_private_root=controlled_private_root,
-        initialization_receipt_path=initialization_receipt_path,
-    )
-    recovery = _verify_materializer_quarantine_recovery(
+    recovery = _authenticate_recovered_public_raw_evidence(
         recovery_root=run_card_path.parents[1],
         run_card_path=run_card_path,
         selection_path=selection_path,
-        selected_document_keys=selected_document_keys,
         purchase_policy_path=purchase_policy_path,
         cohort_policy_path=cohort_policy_path,
         ledger_path=ledger_path,
-        purchase_operations=purchase_snapshot.operations,
-        purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
-        purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        initialization_receipt_path=initialization_receipt_path,
+        controlled_private_root=controlled_private_root,
     )
     expected_paths = {
         "manifest_path": expected_manifest_path,
@@ -43021,7 +43051,28 @@ def _verified_recovered_public_clearance_capability(
         raise CommandError(
             "recovered-public verification lacks historical purchase state"
         )
-    capability = _issue_recovered_public_clearance_capability(lineage_rows)
+    capability = _issue_recovered_public_clearance_capability(
+        recovery_root=run_card_path.parents[1],
+        run_card_path=run_card_path,
+        selection_path=selection_path,
+        purchase_policy_path=purchase_policy_path,
+        cohort_policy_path=cohort_policy_path,
+        ledger_path=ledger_path,
+        initialization_receipt_path=initialization_receipt_path,
+        controlled_private_root=controlled_private_root,
+        expected_manifest_path=expected_manifest_path,
+        expected_restriction_path=expected_restriction_path,
+        expected_case_relevance_path=expected_case_relevance_path,
+        expected_review_requests_path=expected_review_requests_path,
+        expected_document_root=expected_document_root,
+    )
+    if _materializer_record_index(
+        list(_consume_recovered_public_clearance_capability(capability).values()),
+        label="capability-authenticated recovered-public lineage",
+    ) != _materializer_record_index(
+        lineage_rows, label="recovered-public verification lineage"
+    ):
+        raise CommandError("recovered-public evidence changed during authentication")
     authority: dict[str, object] = {
         "kind": "verified_recap_fetch_recovery",
         "recovery_run_card": _file_commitment_from_bytes(run_card_path, run_card_bytes),
@@ -46154,7 +46205,7 @@ def _authenticated_clearance_lineage_from_run_card(
     )
 
 
-def _verify_authenticated_clearance_run_card(
+def _verify_authenticated_clearance_run_card_with_capability(
     *,
     clearance_path: Path,
     clearance_run_card_path: Path,
@@ -46162,7 +46213,7 @@ def _verify_authenticated_clearance_run_card(
     expected_restriction_path: Path | None = None,
     captured_artifact_bytes: Mapping[str, bytes] | None = None,
     allow_legacy_implicit_quarantine: bool = False,
-) -> tuple[Path, ...]:
+) -> tuple[tuple[Path, ...], object | None]:
     """Independently replay signed clearance and return its immutable inputs."""
 
     run_card_bytes = _captured_or_stable_input(
@@ -46207,13 +46258,16 @@ def _verify_authenticated_clearance_run_card(
         else None
     )
     if authority_kind == "provenance_first_with_john_exceptions":
-        return _verify_provenance_clearance_run_card(
-            clearance_path=clearance_path,
-            clearance_run_card_path=clearance_run_card_path,
-            run_card=run_card,
-            expected_download_manifest_path=expected_download_manifest_path,
-            expected_restriction_path=expected_restriction_path,
-            captured_artifact_bytes=verified_snapshot,
+        return (
+            _verify_provenance_clearance_run_card(
+                clearance_path=clearance_path,
+                clearance_run_card_path=clearance_run_card_path,
+                run_card=run_card,
+                expected_download_manifest_path=expected_download_manifest_path,
+                expected_restriction_path=expected_restriction_path,
+                captured_artifact_bytes=verified_snapshot,
+            ),
+            None,
         )
 
     kwargs, paths = _authenticated_clearance_lineage_from_run_card(
@@ -46233,6 +46287,28 @@ def _verify_authenticated_clearance_run_card(
         )
     except (OSError, ResolvedPostRecoveryError) as exc:
         raise CommandError(str(exc)) from exc
+    return paths, None
+
+
+def _verify_authenticated_clearance_run_card(
+    *,
+    clearance_path: Path,
+    clearance_run_card_path: Path,
+    expected_download_manifest_path: Path | None = None,
+    expected_restriction_path: Path | None = None,
+    captured_artifact_bytes: Mapping[str, bytes] | None = None,
+    allow_legacy_implicit_quarantine: bool = False,
+) -> tuple[Path, ...]:
+    """Independently replay signed clearance and return immutable inputs."""
+
+    paths, _ = _verify_authenticated_clearance_run_card_with_capability(
+        clearance_path=clearance_path,
+        clearance_run_card_path=clearance_run_card_path,
+        expected_download_manifest_path=expected_download_manifest_path,
+        expected_restriction_path=expected_restriction_path,
+        captured_artifact_bytes=captured_artifact_bytes,
+        allow_legacy_implicit_quarantine=allow_legacy_implicit_quarantine,
+    )
     return paths
 
 
@@ -46454,7 +46530,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
     expected_restriction_path: Path | None,
     captured_artifact_bytes: Mapping[str, bytes] | None = None,
     allow_legacy_implicit_quarantine: bool = False,
-) -> tuple[Path, ...]:
+) -> tuple[tuple[Path, ...], object | None]:
     """Replay a v3 plan whose exception rows are all quarantined."""
 
     raw_recovered_authority = run_card.get("recovered_public_authority")
@@ -46630,6 +46706,9 @@ def _verify_provider_free_provenance_quarantine_run_card(
     recovery_input_paths: tuple[Path, ...] = ()
     recovery_capability: object | None = None
     recovery: Mapping[str, object] | None = None
+    recovery_run_card_path: Path | None = None
+    selection_path: Path | None = None
+    selected_document_keys: set[tuple[str, str]] | None = None
     purchase_policy_path: Path | None = None
     initialization_receipt_path: Path | None = None
     recovery_cohort_policy_path: Path | None = None
@@ -46714,13 +46793,14 @@ def _verify_provider_free_provenance_quarantine_run_card(
             policy=purchase_policy,
             initialization_receipt_path=initialization_receipt_path,
         )
+        selected_document_keys = _replacement_consolidation_selection_keys(
+            selection_records
+        )
         recovery = _verify_materializer_quarantine_recovery(
             recovery_root=recovery_run_card_path.parents[1],
             run_card_path=recovery_run_card_path,
             selection_path=selection_path,
-            selected_document_keys=_replacement_consolidation_selection_keys(
-                selection_records
-            ),
+            selected_document_keys=selected_document_keys,
             purchase_policy_path=purchase_policy_path,
             cohort_policy_path=recovery_cohort_policy_path,
             ledger_path=ledger_path,
@@ -46837,6 +46917,9 @@ def _verify_provider_free_provenance_quarantine_run_card(
             if (
                 not isinstance(raw_documents, list)
                 or recovery is None
+                or recovery_run_card_path is None
+                or selection_path is None
+                or selected_document_keys is None
                 or purchase_policy_path is None
                 or initialization_receipt_path is None
                 or recovery_cohort_policy_path is None
@@ -46930,8 +47013,34 @@ def _verify_provider_free_provenance_quarantine_run_card(
                     "recovered-public routing lineage changed"
                 )
             recovery_capability = _issue_recovered_public_clearance_capability(
-                expected_lineage_rows
+                recovery_root=recovery_run_card_path.parents[1],
+                run_card_path=recovery_run_card_path,
+                selection_path=selection_path,
+                purchase_policy_path=purchase_policy_path,
+                cohort_policy_path=recovery_cohort_policy_path,
+                ledger_path=ledger_path,
+                initialization_receipt_path=initialization_receipt_path,
+                controlled_private_root=None,
+                expected_manifest_path=paths["download_manifest"],
+                expected_restriction_path=paths["restriction_evidence"],
+                expected_case_relevance_path=paths["case_relevance"],
+                expected_review_requests_path=paths["review_requests"],
+                expected_document_root=document_root,
             )
+            if _materializer_record_index(
+                list(
+                    _consume_recovered_public_clearance_capability(
+                        recovery_capability
+                    ).values()
+                ),
+                label="capability-authenticated recovered-public lineage",
+            ) != _materializer_record_index(
+                expected_lineage_rows,
+                label="recovered-public replay lineage",
+            ):
+                raise ProvenanceClearanceError(
+                    "recovered-public evidence changed during authentication"
+                )
         plan = build_provenance_clearance_plan_v3(
             _projection_jsonl_records(
                 source_bytes["review_requests"], source=paths["review_requests"]
@@ -47105,10 +47214,13 @@ def _verify_provider_free_provenance_quarantine_run_card(
     ) as exc:
         raise CommandError(str(exc)) from exc
     return (
-        clearance_run_card_path,
-        *tuple(paths[name] for name in source_names),
-        committed_quarantine,
-        document_root,
+        (
+            clearance_run_card_path,
+            *tuple(paths[name] for name in source_names),
+            committed_quarantine,
+            document_root,
+        ),
+        recovery_capability,
     )
 
 

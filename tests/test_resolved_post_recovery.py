@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli
-import legalforecast.ingestion.provenance_clearance as provenance_module
 import legalforecast.ingestion.recap_fetch_attempt_policy as attempt_policy_module
 import legalforecast.ingestion.resolved_post_recovery as resolved_module
 import pytest
@@ -83,6 +82,9 @@ from tests.purchase_approval_fixtures import (
     allow_historical_v1_algorithm_fixtures,
     build_approved_purchase_fixture,
     build_completed_projection_fixture,
+)
+from tests.recovered_public_capability_helpers import (
+    issue_recovered_public_capability,
 )
 
 
@@ -787,7 +789,9 @@ def test_omitted_or_tampered_resolved_lineage_fails_closed() -> None:
         )
 
 
-def test_recovered_public_capability_builds_and_requires_resolved_v2() -> None:
+def test_recovered_public_capability_builds_and_requires_resolved_v2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     inputs = _inputs()
     operation = inputs["purchase_operation_records"][0]
     lineage = {
@@ -819,9 +823,7 @@ def test_recovered_public_capability_builds_and_requires_resolved_v2() -> None:
         }
     )
     clearance_bytes = _jsonl_bytes([clearance])
-    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-        [lineage]
-    )
+    capability = issue_recovered_public_capability(monkeypatch, [lineage])
     kwargs = {
         **inputs,
         "clearance_records": [clearance],
@@ -950,11 +952,7 @@ def test_url_free_recovered_marker_model_clearance_reaches_source_descriptor(
         "purchase_operation_key": operation["operation_key"],
         "fresh_recap_detail_sha256": material["provider_detail_sha256"],
     }
-    recovery_capability = (
-        provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
-            [lineage]
-        )
-    )
+    recovery_capability = issue_recovered_public_capability(monkeypatch, [lineage])
     scan = DisclosurePdfScan(
         parsed_page_count=1,
         text_scanned_page_numbers=(1,),
