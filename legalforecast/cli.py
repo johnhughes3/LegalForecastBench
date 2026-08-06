@@ -559,12 +559,21 @@ from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan,
     build_provenance_clearance_plan_v3,
     build_provenance_clearance_records,
+    build_provider_free_public_marker_records_v3,
     build_provider_free_quarantine_records_v3,
     document_scanner_for_plan,
     exception_review_worksheet,
     exception_review_worksheet_v3,
     validate_exception_review_worksheet,
     validate_exception_review_worksheet_v3,
+)
+from legalforecast.ingestion.public_marker_clearance_policy import (
+    SCHEMA_VERSION as PUBLIC_MARKER_CLEARANCE_POLICY_SCHEMA_VERSION,
+)
+from legalforecast.ingestion.public_marker_clearance_policy import (
+    PublicMarkerClearancePolicy,
+    PublicMarkerClearancePolicyError,
+    verify_public_marker_clearance_policy,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
 from legalforecast.ingestion.purchase_approval import (
@@ -2315,15 +2324,16 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition_provider_free_quarantine = acquisition_subparsers.add_parser(
         "finalize-provenance-quarantine",
         help=(
-            "Clear v3 automatic rows and conservatively quarantine every "
-            "exception without a reviewer or provider call."
+            "Finalize v3 rows under an explicit provider-free, model, or "
+            "quarantine-only disposition policy."
         ),
         description=(
             "Recompute the exact v3 provenance routing plan and worksheet from "
-            "immutable inputs and document bytes. Publish clearance only for "
-            "auto_clear rows and publish every exception_review row as "
-            "quarantined. This command never contacts a provider and never claims "
-            "human or model review authority."
+            "immutable inputs and document bytes. The provider-free public-marker "
+            "mode clears only marker-only rows carrying verifier-issued fresh "
+            "CourtListener public provenance and complete scan coverage; other "
+            "provider-free modes remain quarantine-only. The finalizer itself "
+            "never contacts a provider."
         ),
     )
     _add_acquisition_quarantine_provenance_exceptions_arguments(
@@ -7853,7 +7863,8 @@ def _add_acquisition_quarantine_provenance_exceptions_arguments(
         type=Path,
         help=(
             "Completed plan-disclosure-provenance run card. It is accepted only "
-            "with --require-no-model-review-eligible-exceptions."
+            "with --require-no-model-review-eligible-exceptions or "
+            "--public-marker-clearance-policy."
         ),
     )
     parser.add_argument(
@@ -7872,6 +7883,16 @@ def _add_acquisition_quarantine_provenance_exceptions_arguments(
             "Explicit legacy-safe mode that quarantines every v3 exception. It "
             "cannot be combined with model authority or the authenticated "
             "empty-eligible-set continuation."
+        ),
+    )
+    parser.add_argument(
+        "--public-marker-clearance-policy",
+        type=Path,
+        help=(
+            "Immutable owner policy authorizing provider-free clearance only for "
+            "marker-only rows with verifier-issued recovered-public CourtListener "
+            "lineage. Requires --plan-run-card and cannot be combined with model, "
+            "empty-set, or quarantine-all modes."
         ),
     )
     _add_recovered_public_clearance_verification_arguments(parser)
@@ -12679,6 +12700,14 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         clearance_run_card = _projection_json_object(
             clearance_run_card_bytes, source=clearance_run_card_path
         )
+        if (
+            clearance_run_card.get("schema_version")
+            == "legalforecast.provenance_public_marker_clearance_run_card.v1"
+        ):
+            raise CommandError(
+                "retained-cohort extension does not yet support public-marker "
+                "clearance lineage"
+            )
         disclosure_clearance_path = _named_committed_path(
             clearance_run_card,
             commitment_group="output_commitments",
@@ -14012,10 +14041,15 @@ def _validate_clearance_run_card_commitments(
     source_paths: Mapping[str, Path],
     source_sha256: Mapping[str, str],
 ) -> None:
-    if (
-        run_card.get("schema_version")
-        == "legalforecast.provenance_quarantine_clearance_run_card.v1"
-    ):
+    provider_free_schema = run_card.get("schema_version")
+    public_marker_schema = (
+        provider_free_schema
+        == "legalforecast.provenance_public_marker_clearance_run_card.v1"
+    )
+    if provider_free_schema in {
+        "legalforecast.provenance_quarantine_clearance_run_card.v1",
+        "legalforecast.provenance_public_marker_clearance_run_card.v1",
+    }:
         if (
             run_card.get("stage") != "finalize-provenance-quarantine"
             or run_card.get("status") != "completed"
@@ -14057,13 +14091,26 @@ def _validate_clearance_run_card_commitments(
             expected_path=source_paths["disclosure_clearance"],
             expected_sha256=source_sha256["disclosure_clearance"],
         )
+        expected_kind = (
+            "v3_authenticated_recovered_public_markers_clear_else_quarantine"
+            if public_marker_schema
+            else "v3_auto_clear_else_quarantine"
+        )
+        policy = cast(Mapping[str, object], disposition_policy)
         if (
-            cast(Mapping[str, object], disposition_policy).get("kind")
-            != "v3_auto_clear_else_quarantine"
-            or cast(Mapping[str, object], disposition_policy).get(
-                "human_or_model_override_permitted"
+            policy.get("kind") != expected_kind
+            or policy.get("human_or_model_override_permitted") is not False
+            or (
+                public_marker_schema
+                and (
+                    policy.get("public_marker_clearance_policy_schema_version")
+                    != PUBLIC_MARKER_CLEARANCE_POLICY_SCHEMA_VERSION
+                    or not _valid_prefixed_sha256(
+                        policy.get("public_marker_clearance_policy_sha256")
+                    )
+                    or policy.get("markers_are_diagnostic_only") is not True
+                )
             )
-            is not False
         ):
             raise CommandError("provider-free quarantine disposition policy is invalid")
         return
@@ -38932,10 +38979,11 @@ def _verify_materializer_clearance_lineage(
     )
     if committed_manifest.resolve() != manifest_path.resolve():
         raise CommandError("purchased clearance committed a different manifest")
-    if (
-        run_card.get("schema_version")
-        == "legalforecast.provenance_quarantine_clearance_run_card.v1"
-    ):
+    provider_free_schema = run_card.get("schema_version")
+    if provider_free_schema in {
+        "legalforecast.provenance_quarantine_clearance_run_card.v1",
+        "legalforecast.provenance_public_marker_clearance_run_card.v1",
+    }:
         case_relevance_path = _materializer_committed_path(
             source_records,
             "case_relevance",
@@ -38965,6 +39013,16 @@ def _verify_materializer_clearance_lineage(
             source_records,
             "routing_plan",
             captured_artifact_bytes=verified_snapshot,
+        )
+        public_marker_policy_path = (
+            _materializer_committed_path(
+                source_records,
+                "public_marker_clearance_policy",
+                captured_artifact_bytes=verified_snapshot,
+            )
+            if provider_free_schema
+            == "legalforecast.provenance_public_marker_clearance_run_card.v1"
+            else None
         )
         _, authenticated_recovery_capability = (
             _verify_authenticated_clearance_run_card_with_capability(
@@ -39008,6 +39066,11 @@ def _verify_materializer_clearance_lineage(
             "worksheet_path": worksheet_path,
             "cohort_policy_path": cohort_policy_path,
             "routing_plan_path": routing_plan_path,
+            **(
+                {"public_marker_policy_path": public_marker_policy_path}
+                if public_marker_policy_path is not None
+                else {}
+            ),
         }
     clearance_authority = run_card.get("clearance_authority")
     authority_kind = (
@@ -44120,6 +44183,8 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
     worksheet_path = cast(Path, args.exception_worksheet)
     cohort_policy_path = cast(Path, args.cohort_policy)
     plan_run_card_path = cast(Path | None, args.plan_run_card)
+    public_marker_policy_path = cast(Path | None, args.public_marker_clearance_policy)
+    public_marker_mode = public_marker_policy_path is not None
     require_no_model_review = cast(
         bool, args.require_no_model_review_eligible_exceptions
     )
@@ -44157,17 +44222,27 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
     model_values = tuple(
         cast(Path | None, getattr(args, name)) for name in model_argument_names
     )
-    if require_no_model_review != (plan_run_card_path is not None):
+    if (require_no_model_review or public_marker_mode) != (
+        plan_run_card_path is not None
+    ):
         raise CommandError(
-            "--plan-run-card and "
-            "--require-no-model-review-eligible-exceptions must be supplied together"
+            "--plan-run-card is required exactly with the authenticated empty-set "
+            "or public-marker policy mode"
         )
-    if require_no_model_review and any(value is not None for value in model_values):
+    if require_no_model_review and public_marker_mode:
         raise CommandError(
-            "no-model-review finalization cannot accept model-review arguments"
+            "public-marker policy and empty-eligible-set modes are mutually exclusive"
+        )
+    if (require_no_model_review or public_marker_mode) and any(
+        value is not None for value in model_values
+    ):
+        raise CommandError(
+            "provider-free policy finalization cannot accept model-review arguments"
         )
     if quarantine_all_without_review and (
-        require_no_model_review or any(value is not None for value in model_values)
+        require_no_model_review
+        or public_marker_mode
+        or any(value is not None for value in model_values)
     ):
         raise CommandError(
             "quarantine-all mode cannot be combined with model review or the "
@@ -44184,13 +44259,17 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         not model_mode
         and not require_no_model_review
         and not quarantine_all_without_review
+        and not public_marker_mode
     ):
         raise CommandError(
             "finalization requires complete model authority, authenticated "
-            "empty-eligible-set proof, or --quarantine-all-exceptions-without-review"
+            "empty-eligible-set proof, public-marker policy, or "
+            "--quarantine-all-exceptions-without-review"
         )
     if plan_run_card_path is not None:
         source_paths["plan_run_card"] = plan_run_card_path
+    if public_marker_policy_path is not None:
+        source_paths["public_marker_clearance_policy"] = public_marker_policy_path
     if model_mode:
         for name, value in zip(model_argument_names[:3], model_values[:3], strict=True):
             source_paths[name] = cast(Path, value)
@@ -44270,11 +44349,26 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             raise ProvenanceClearanceError(
                 "v3 exception worksheet differs from the immutable routing plan"
             )
-        cohort_policy_sha256 = verify_cohort_policy(
-            _projection_json_object(
-                source_bytes["cohort_policy"], source=cohort_policy_path
-            )
+        cohort_policy_artifact = _projection_json_object(
+            source_bytes["cohort_policy"], source=cohort_policy_path
         )
+        cohort_policy_sha256 = verify_cohort_policy(cohort_policy_artifact)
+        public_marker_policy = None
+        if public_marker_mode:
+            public_marker_policy_artifact = _projection_json_object(
+                source_bytes["public_marker_clearance_policy"],
+                source=public_marker_policy_path,
+            )
+            if source_bytes["public_marker_clearance_policy"] != canonical_json_bytes(
+                public_marker_policy_artifact
+            ):
+                raise ProvenanceClearanceError(
+                    "public-marker policy requires exact canonical serialization"
+                )
+            public_marker_policy = verify_public_marker_clearance_policy(
+                public_marker_policy_artifact,
+                cohort_policy_artifact=cohort_policy_artifact,
+            )
         routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
         no_model_review_eligible_count: int | None = None
         if require_no_model_review:
@@ -44285,6 +44379,24 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
                     "provider-free no-review finalization found "
                     "model-review-eligible exceptions"
                 )
+            document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
+            _verify_no_model_review_plan_run_card(
+                run_card_bytes=source_bytes["plan_run_card"],
+                run_card_path=cast(Path, plan_run_card_path),
+                plan_path=plan_path,
+                plan_bytes=plan_bytes,
+                worksheet_path=worksheet_path,
+                worksheet_bytes=worksheet_bytes,
+                plan=recomputed_plan,
+                worksheet=worksheet,
+                source_paths=source_paths,
+                source_bytes=source_bytes,
+                document_root=document_root,
+                document_tree=document_tree,
+                recovered_public_authority=recovered_public_authority,
+                recovery_input_paths=recovery_input_paths,
+            )
+        if public_marker_mode:
             document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
             _verify_no_model_review_plan_run_card(
                 run_card_bytes=source_bytes["plan_run_card"],
@@ -44342,6 +44454,11 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
                 model_review_capability=capability,
                 routing_plan_sha256=routing_plan_sha256,
             )
+        elif public_marker_mode:
+            records = build_provider_free_public_marker_records_v3(
+                recomputed_plan,
+                routing_plan_sha256=routing_plan_sha256,
+            )
         else:
             records = build_provider_free_quarantine_records_v3(
                 recomputed_plan,
@@ -44355,11 +44472,17 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         DisclosureModelReviewAuthorityError,
         OSError,
         ProvenanceClearanceError,
+        PublicMarkerClearancePolicyError,
     ) as exc:
         raise CommandError(str(exc)) from exc
 
     rows = [record.to_record() for record in records]
     quarantined = [row for row in rows if row["status"] == "quarantined"]
+    public_marker_clear_count = (
+        len(records) - cast(int, recomputed_plan["auto_clear_count"]) - len(quarantined)
+        if public_marker_mode
+        else 0
+    )
     clearance_bytes = b"".join(canonical_json_bytes(row) for row in rows)
     quarantine_bytes = b"".join(canonical_json_bytes(row) for row in quarantined)
     dry_run = _acquisition_dry_run(args)
@@ -44389,11 +44512,17 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         "schema_version": (
             "legalforecast.provenance_model_clearance_run_card.v1"
             if model_mode
+            else "legalforecast.provenance_public_marker_clearance_run_card.v1"
+            if public_marker_mode
             else "legalforecast.provenance_quarantine_clearance_run_card.v1"
         ),
         "stage": "finalize-provenance-quarantine",
         "status": "completed",
-        **({"resume": True} if model_mode else {}),
+        **(
+            {"resume": cast(bool, args.resume)}
+            if model_mode or public_marker_mode
+            else {}
+        ),
         "dry_run": False,
         "execute": True,
         "provider_activity_requested": False,
@@ -44405,6 +44534,11 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         "record_count": len(records),
         "auto_clear_count": recomputed_plan["auto_clear_count"],
         "exception_quarantine_count": len(quarantined),
+        **(
+            {"public_marker_clear_count": public_marker_clear_count}
+            if public_marker_mode
+            else {}
+        ),
         "input_paths": [
             str(path.resolve())
             for path in (
@@ -44423,6 +44557,8 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             "kind": (
                 "v3_auto_clear_authenticated_model_else_quarantine"
                 if model_mode
+                else "v3_authenticated_recovered_public_markers_clear_else_quarantine"
+                if public_marker_mode
                 else (
                     "v3_auto_clear_no_model_eligible_else_quarantine"
                     if require_no_model_review
@@ -44437,7 +44573,25 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             "cohort_policy_sha256": "sha256:" + cohort_policy_sha256,
             "auto_clear_count": recomputed_plan["auto_clear_count"],
             "exception_quarantine_count": len(quarantined),
+            **(
+                {"public_marker_clear_count": public_marker_clear_count}
+                if public_marker_mode
+                else {}
+            ),
             "human_or_model_override_permitted": model_mode,
+            **(
+                {
+                    "public_marker_clearance_policy_schema_version": (
+                        PUBLIC_MARKER_CLEARANCE_POLICY_SCHEMA_VERSION
+                    ),
+                    "public_marker_clearance_policy_sha256": (
+                        "sha256:" + cast(Any, public_marker_policy).policy_sha256
+                    ),
+                    "markers_are_diagnostic_only": True,
+                }
+                if public_marker_mode
+                else {}
+            ),
         },
         **(
             {
@@ -46025,10 +46179,10 @@ def _authenticated_clearance_lineage_inputs(
             if isinstance(authority, Mapping)
             else None
         )
-        provider_free_run_card = (
-            run_card.get("schema_version")
-            == "legalforecast.provenance_quarantine_clearance_run_card.v1"
-        )
+        provider_free_run_card = run_card.get("schema_version") in {
+            "legalforecast.provenance_quarantine_clearance_run_card.v1",
+            "legalforecast.provenance_public_marker_clearance_run_card.v1",
+        }
         if (
             authority_kind == "provenance_first_with_john_exceptions"
             or provider_free_run_card
@@ -46077,6 +46231,15 @@ def _authenticated_clearance_lineage_inputs(
                     "worksheet_path",
                     "routing_plan_path",
                     "cohort_policy_path",
+                    *(
+                        ("public_marker_policy_path",)
+                        if run_card.get("schema_version")
+                        == (
+                            "legalforecast."
+                            "provenance_public_marker_clearance_run_card.v1"
+                        )
+                        else ()
+                    ),
                 )
                 if provider_free_run_card
                 else (
@@ -46295,10 +46458,10 @@ def _verify_authenticated_clearance_run_card_with_capability(
         captured_artifact_bytes=captured_artifact_bytes,
     )
     run_card = _projection_json_object(run_card_bytes, source=clearance_run_card_path)
-    provider_free_schema = (
-        run_card.get("schema_version")
-        == "legalforecast.provenance_quarantine_clearance_run_card.v1"
-    )
+    provider_free_schema = run_card.get("schema_version") in {
+        "legalforecast.provenance_quarantine_clearance_run_card.v1",
+        "legalforecast.provenance_public_marker_clearance_run_card.v1",
+    }
     model_schema = (
         run_card.get("schema_version")
         == "legalforecast.provenance_model_clearance_run_card.v1"
@@ -46637,6 +46800,10 @@ def _verify_provider_free_provenance_quarantine_run_card(
         run_card.get("schema_version")
         == "legalforecast.provenance_model_clearance_run_card.v1"
     )
+    public_marker_schema = (
+        run_card.get("schema_version")
+        == "legalforecast.provenance_public_marker_clearance_run_card.v1"
+    )
     no_model_review_mode = (
         run_card.get("no_model_review_eligible_exceptions_required") is True
     )
@@ -46649,6 +46816,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
         and _bytes_sha256(canonical_json_bytes(run_card))
         == _APPROVED_V4_LEGACY_CLEARANCE_RUN_CARD_SHA256
         and not model_schema
+        and not public_marker_schema
         and not no_model_review_mode
         and not explicit_quarantine_all_mode
         and isinstance(raw_policy, Mapping)
@@ -46660,17 +46828,22 @@ def _verify_provider_free_provenance_quarantine_run_card(
     if model_schema:
         expected_fields.add("model_review_state")
         expected_fields.add("resume")
+    if public_marker_schema:
+        expected_fields.add("resume")
     if no_model_review_mode:
         expected_fields.add("model_review_eligible_exception_count")
         expected_fields.add("no_model_review_eligible_exceptions_required")
     if explicit_quarantine_all_mode:
         expected_fields.add("quarantine_all_exceptions_without_review")
+    if public_marker_schema:
+        expected_fields.add("public_marker_clear_count")
     if (
         set(run_card) != expected_fields
         or run_card.get("schema_version")
         not in {
             "legalforecast.provenance_quarantine_clearance_run_card.v1",
             "legalforecast.provenance_model_clearance_run_card.v1",
+            "legalforecast.provenance_public_marker_clearance_run_card.v1",
         }
         or run_card.get("stage") != "finalize-provenance-quarantine"
         or run_card.get("status") != "completed"
@@ -46682,17 +46855,21 @@ def _verify_provider_free_provenance_quarantine_run_card(
         or run_card.get("human_review_executed") is not False
         or run_card.get("paid_activity_requested") is not False
         or run_card.get("paid_activity_executed") is not False
-        or (model_schema and run_card.get("resume") is not True)
+        or (
+            (model_schema or public_marker_schema)
+            and not isinstance(run_card.get("resume"), bool)
+        )
         or sum(
             (
                 model_schema,
+                public_marker_schema,
                 no_model_review_mode,
                 explicit_quarantine_all_mode,
                 legacy_implicit_quarantine_mode,
             )
         )
         != 1
-        or (no_model_review_mode and model_schema)
+        or (no_model_review_mode and (model_schema or public_marker_schema))
         or (explicit_quarantine_all_mode and (model_schema or no_model_review_mode))
         or (
             no_model_review_mode
@@ -46733,6 +46910,11 @@ def _verify_provider_free_provenance_quarantine_run_card(
             else ()
         )
         + (("plan_run_card",) if no_model_review_mode else ())
+        + (
+            ("plan_run_card", "public_marker_clearance_policy")
+            if public_marker_schema
+            else ()
+        )
     )
     paths = {name: _materializer_committed_path(sources, name) for name in source_names}
     if set(sources) != {*source_names, "document_root"}:
@@ -47148,6 +47330,25 @@ def _verify_provider_free_provenance_quarantine_run_card(
             )
         )
         routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        public_marker_policy: PublicMarkerClearancePolicy | None = None
+        if no_model_review_mode or public_marker_schema:
+            if public_marker_schema:
+                public_marker_policy_artifact = _projection_json_object(
+                    source_bytes["public_marker_clearance_policy"],
+                    source=paths["public_marker_clearance_policy"],
+                )
+                if source_bytes[
+                    "public_marker_clearance_policy"
+                ] != canonical_json_bytes(public_marker_policy_artifact):
+                    raise ProvenanceClearanceError(
+                        "public-marker policy requires exact canonical serialization"
+                    )
+                public_marker_policy = verify_public_marker_clearance_policy(
+                    public_marker_policy_artifact,
+                    cohort_policy_artifact=_projection_json_object(
+                        source_bytes["cohort_policy"], source=paths["cohort_policy"]
+                    ),
+                )
         if no_model_review_mode:
             eligible = _model_review_eligible_plan_documents(plan)
             if eligible:
@@ -47155,6 +47356,23 @@ def _verify_provider_free_provenance_quarantine_run_card(
                     "provider-free no-review finalization found "
                     "model-review-eligible exceptions"
                 )
+            _verify_no_model_review_plan_run_card(
+                run_card_bytes=source_bytes["plan_run_card"],
+                run_card_path=paths["plan_run_card"],
+                plan_path=paths["routing_plan"],
+                plan_bytes=plan_bytes,
+                worksheet_path=paths["exception_worksheet"],
+                worksheet_bytes=worksheet_bytes,
+                plan=plan,
+                worksheet=worksheet,
+                source_paths=paths,
+                source_bytes=source_bytes,
+                document_root=document_root,
+                document_tree=tree,
+                recovered_public_authority=recovered_authority,
+                recovery_input_paths=recovery_input_paths,
+            )
+        if public_marker_schema:
             _verify_no_model_review_plan_run_card(
                 run_card_bytes=source_bytes["plan_run_card"],
                 run_card_path=paths["plan_run_card"],
@@ -47216,6 +47434,10 @@ def _verify_provider_free_provenance_quarantine_run_card(
                 model_review_capability=capability,
                 routing_plan_sha256=routing_plan_sha256,
             )
+        elif public_marker_schema:
+            records = build_provider_free_public_marker_records_v3(
+                plan, routing_plan_sha256=routing_plan_sha256
+            )
         else:
             records = build_provider_free_quarantine_records_v3(
                 plan, routing_plan_sha256=routing_plan_sha256
@@ -47236,6 +47458,8 @@ def _verify_provider_free_provenance_quarantine_run_card(
             "kind": (
                 "v3_auto_clear_authenticated_model_else_quarantine"
                 if model_schema
+                else "v3_authenticated_recovered_public_markers_clear_else_quarantine"
+                if public_marker_schema
                 else (
                     "v3_auto_clear_no_model_eligible_else_quarantine"
                     if no_model_review_mode
@@ -47252,7 +47476,31 @@ def _verify_provider_free_provenance_quarantine_run_card(
             "exception_quarantine_count": sum(
                 record.status == "quarantined" for record in records
             ),
+            **(
+                {
+                    "public_marker_clear_count": (
+                        len(records)
+                        - cast(int, plan["auto_clear_count"])
+                        - sum(record.status == "quarantined" for record in records)
+                    )
+                }
+                if public_marker_schema
+                else {}
+            ),
             "human_or_model_override_permitted": model_schema,
+            **(
+                {
+                    "public_marker_clearance_policy_schema_version": (
+                        PUBLIC_MARKER_CLEARANCE_POLICY_SCHEMA_VERSION
+                    ),
+                    "public_marker_clearance_policy_sha256": (
+                        "sha256:" + cast(Any, public_marker_policy).policy_sha256
+                    ),
+                    "markers_are_diagnostic_only": True,
+                }
+                if public_marker_schema
+                else {}
+            ),
         }
         if (
             type(disposition_policy.get("auto_clear_count")) is not int
@@ -47267,6 +47515,17 @@ def _verify_provider_free_provenance_quarantine_run_card(
             "auto_clear_count": plan["auto_clear_count"],
             "exception_quarantine_count": sum(
                 record.status == "quarantined" for record in records
+            ),
+            **(
+                {
+                    "public_marker_clear_count": (
+                        len(records)
+                        - cast(int, plan["auto_clear_count"])
+                        - sum(record.status == "quarantined" for record in records)
+                    )
+                }
+                if public_marker_schema
+                else {}
             ),
         }
         if any(
@@ -47283,6 +47542,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
         CohortPolicyError,
         OSError,
         ProvenanceClearanceError,
+        PublicMarkerClearancePolicyError,
         TargetCohortProjectionError,
     ) as exc:
         raise CommandError(str(exc)) from exc

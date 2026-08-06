@@ -1372,7 +1372,7 @@ def test_exact100_initial_recovery_uses_bounded_partial_cycle_template() -> None
         'initial_disclosure_private_root="/absolute/path/to/'
         'controlled-private-disclosure-root"'
     ) in runbook
-    assert "Always render the authenticated-model template first" in runbook
+    assert "Render the authenticated-model template first" in runbook
     assert "provider-free post-plan suffix" in runbook
     assert "Do not render the full no-review cycle template" in runbook
     assert (
@@ -1382,7 +1382,7 @@ def test_exact100_initial_recovery_uses_bounded_partial_cycle_template() -> None
     assert "--execute --allow-network --allow-model-provider --json" in runbook
     no_review_marker = "uv run legalforecast acquisition finalize-provenance-quarantine"
     model_review_marker = (
-        "If the authenticated plan contains model-review-eligible exceptions"
+        "The separately authenticated model continuation remains available"
     )
     _prefix, no_review_separator, no_review_tail = runbook.partition(no_review_marker)
     assert no_review_separator == no_review_marker
@@ -1394,7 +1394,11 @@ def test_exact100_initial_recovery_uses_bounded_partial_cycle_template() -> None
         '--plan-run-card "$initial_disclosure_root/01-plan/run-cards/'
         'plan-disclosure-provenance.json"'
     ) in no_review_section
-    assert "--require-no-model-review-eligible-exceptions" in no_review_section
+    assert "--require-no-model-review-eligible-exceptions" not in no_review_section
+    assert (
+        '--public-marker-clearance-policy "$repo_root/docs/'
+        'disclosure-public-marker-policy-cycle-1-2026-08-06.json"'
+    ) in no_review_section
     assert (
         "uv run legalforecast acquisition resolve-post-recovery-documents"
         in no_review_section

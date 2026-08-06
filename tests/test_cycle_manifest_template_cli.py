@@ -762,8 +762,15 @@ def test_checked_in_replacement_templates_branch_only_after_authenticated_plan(
     empty = rendered["empty"]
     empty_finalizer = empty.stages[1]
     assert all(stage.boundary.value == "provider_free" for stage in empty.stages)
-    assert "--require-no-model-review-eligible-exceptions" in (
+    assert "--require-no-model-review-eligible-exceptions" not in (
         empty_finalizer.arguments
+    )
+    assert empty_finalizer.arguments[
+        empty_finalizer.arguments.index("--public-marker-clearance-policy") + 1
+    ] == str(
+        assignments["REPO_ROOT"]
+        / "docs"
+        / "disclosure-public-marker-policy-cycle-1-2026-08-06.json"
     )
     assert empty_finalizer.arguments[
         empty_finalizer.arguments.index("--plan-run-card") + 1

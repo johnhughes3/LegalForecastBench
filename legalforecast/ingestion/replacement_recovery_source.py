@@ -10,7 +10,12 @@ from typing import cast
 
 SOURCE_RUN_CARD_SCHEMA = "legalforecast.replacement_recovery_source_run_card.v1"
 RECOVERY_RUN_CARD_SCHEMA = "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
-CLEARANCE_RUN_CARD_SCHEMA = "legalforecast.provenance_quarantine_clearance_run_card.v1"
+CLEARANCE_RUN_CARD_SCHEMAS = frozenset(
+    {
+        "legalforecast.provenance_quarantine_clearance_run_card.v1",
+        "legalforecast.provenance_public_marker_clearance_run_card.v1",
+    }
+)
 RESOLVED_RUN_CARD_SCHEMA = "legalforecast.acquisition_run_card.v1"
 RECOVERY_STAGE = "recover-recap-fetch-quarantine"
 CLEARANCE_STAGE = "finalize-provenance-quarantine"
@@ -209,8 +214,10 @@ def derive_clearance_source_coordinates(
 ) -> ClearanceSourceCoordinates:
     """Derive and close the clearance output selected by its producer card."""
 
+    schema_version = card.get("schema_version")
     if (
-        card.get("schema_version") != CLEARANCE_RUN_CARD_SCHEMA
+        not isinstance(schema_version, str)
+        or schema_version not in CLEARANCE_RUN_CARD_SCHEMAS
         or card.get("stage") != CLEARANCE_STAGE
         or card.get("status") != "completed"
         or card.get("dry_run") is not False

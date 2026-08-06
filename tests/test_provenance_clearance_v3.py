@@ -20,6 +20,7 @@ from legalforecast.ingestion.provenance_clearance import (
     build_provenance_clearance_plan,
     build_provenance_clearance_plan_v3,
     build_provenance_clearance_records,
+    build_provider_free_public_marker_records_v3,
     build_provider_free_quarantine_records_v3,
     canonical_json_bytes,
     exception_review_worksheet_v3,
@@ -718,8 +719,47 @@ def test_v3_recovered_public_rejects_contradictions_and_routes_scan_exceptions(
     if field in {"scan_coverage_status", "scan_markers"}:
         assert document["recovered_public_lineage"] == lineage
         assert exception_review_worksheet_v3(plan)["documents"] == [document]
+        routing_sha256 = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+        public_marker_records = build_provider_free_public_marker_records_v3(
+            plan,
+            routing_plan_sha256=routing_sha256,
+        )
         if field == "scan_markers":
-            routing_sha256 = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+            assert public_marker_records[0].status == "cleared"
+            assert public_marker_records[0].clearance_basis == (
+                "provider_free_recovered_public"
+            )
+            assert public_marker_records[0].automated_markers == ("medical",)
+            assert public_marker_records[0].recovered_public_lineage == lineage
+            mixed_plan = deepcopy(plan)
+            mixed_document = cast(list[dict[str, object]], mixed_plan["documents"])[0]
+            mixed_scan = cast(dict[str, object], mixed_document["disclosure_pdf_scan"])
+            mixed_scan["text_scanned_page_numbers"] = []
+            mixed_scan["text_scanned_page_count"] = 0
+            mixed_scan["unscanned_page_numbers"] = [1]
+            mixed_scan["coverage_status"] = "incomplete"
+            mixed_document["route_reasons"] = [
+                "page_scan_coverage_incomplete",
+                "automated_marker_present",
+            ]
+            mixed_plan["document_set_sha256"] = hashlib.sha256(
+                canonical_json_bytes(mixed_plan["documents"])
+            ).hexdigest()
+            mixed_sha256 = hashlib.sha256(canonical_json_bytes(mixed_plan)).hexdigest()
+            mixed_record = build_provider_free_public_marker_records_v3(
+                mixed_plan,
+                routing_plan_sha256=mixed_sha256,
+            )[0]
+            assert mixed_record.status == "quarantined"
+            assert mixed_record.clearance_basis == (
+                "provider_free_exception_quarantine"
+            )
+        else:
+            assert public_marker_records[0].status == "quarantined"
+            assert public_marker_records[0].clearance_basis == (
+                "provider_free_exception_quarantine"
+            )
+        if field == "scan_markers":
             monkeypatch.setattr(
                 "legalforecast.ingestion.disclosure_model_review_authority.public_disclosure_model_review_record",
                 lambda _capability: {
@@ -756,6 +796,112 @@ def test_v3_recovered_public_rejects_contradictions_and_routes_scan_exceptions(
             require_clearance_policy(
                 record, key=("case-a", "entry-1"), label="resolved document"
             )
+
+
+@pytest.mark.parametrize(
+    ("candidate_id", "document_id", "marker"),
+    [
+        ("70571896", "474693052", "medical"),
+        ("71033614", "454697368", "medical"),
+        ("72001561", "461064575", "medical"),
+        ("72288139", "469045191", "minor"),
+    ],
+)
+def test_cycle_1_named_public_marker_rows_clear_from_recovered_public_proof(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    candidate_id: str,
+    document_id: str,
+    marker: str,
+) -> None:
+    root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
+    for row in (requests[0], manifest[0], restrictions[0]):
+        row["candidate_id"] = candidate_id
+        row["source_document_id"] = document_id
+    relevance[0]["candidate_id"] = candidate_id
+    relevance_document = cast(list[dict[str, object]], relevance[0]["documents"])[0]
+    relevance_document["source_document_id"] = document_id
+    relevance_document["source_url_or_reference"] = f"recap-document:{document_id}"
+    operation_key = "00000000-0000-4000-8000-000000000000"
+    fresh_sha256 = "2" * 64
+    manifest[0].update(
+        {
+            "free_or_purchased": "purchased",
+            "source_provider": "courtlistener.recap-fetch+pacer",
+            "purchase_operation_key": operation_key,
+            "fresh_recap_detail_sha256": fresh_sha256,
+        }
+    )
+    manifest[0].pop("source_url")
+    evidence = [
+        "courtlistener_recap_fetch_fresh_detail_exact_match",
+        "courtlistener_recap_fetch_is_available_true",
+        "courtlistener_recap_fetch_is_sealed_false",
+        "courtlistener_recap_fetch_no_positive_private_marker",
+    ]
+    restrictions[0].update(
+        {
+            "source_provider": "courtlistener_recap_fetch_fresh_detail",
+            "fresh_recap_detail_sha256": fresh_sha256,
+            "is_available": True,
+            "is_sealed": False,
+            "is_private": None,
+            "redaction_or_seal_status": "public",
+            "restriction_evidence": evidence,
+        }
+    )
+    requests[0].update(
+        {
+            "free_or_purchased": "purchased",
+            "restriction_evidence": evidence,
+        }
+    )
+    lineage = {
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": hashlib.sha256(_jsonl(manifest)).hexdigest(),
+        "recovery_restriction_evidence_sha256": hashlib.sha256(
+            _jsonl(restrictions)
+        ).hexdigest(),
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": "7" * 64,
+        "purchase_operation_key": operation_key,
+        "fresh_recap_detail_sha256": fresh_sha256,
+    }
+    capability = issue_recovered_public_capability(monkeypatch, [lineage])
+    plan = build_provenance_clearance_plan_v3(
+        requests,
+        manifest,
+        restrictions,
+        relevance,
+        document_root=root,
+        review_requests_bytes=_jsonl(requests),
+        download_manifest_bytes=_jsonl(manifest),
+        restriction_evidence_bytes=_jsonl(restrictions),
+        case_relevance_bytes=_jsonl(relevance),
+        document_scanner=lambda _: DisclosurePdfScan(
+            parsed_page_count=1,
+            text_scanned_page_numbers=(1,),
+            ocr_scanned_page_numbers=(),
+            unscanned_page_numbers=(),
+            coverage_status="complete",
+            diagnostics=(),
+            automated_markers=(marker,),
+        ),
+        verified_recovery_capability=capability,
+    )
+    routing_sha256 = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+
+    record = build_provider_free_public_marker_records_v3(
+        plan,
+        routing_plan_sha256=routing_sha256,
+    )[0]
+
+    assert record.status == "cleared"
+    assert record.clearance_basis == "provider_free_recovered_public"
+    assert record.automated_markers == (marker,)
+    assert record.recovered_public_lineage == lineage
 
 
 def test_v3_worksheet_does_not_alias_plan_documents(tmp_path: Path) -> None:

@@ -5,7 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
@@ -378,7 +378,6 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
     args, paths, verified_calls = _fixture(tmp_path, monkeypatch, successor=successor)
 
     assert cli._cmd_build_replacement_recovery_source(args) == 0
-
     resolved_binding = next(
         call["resolved"] for call in verified_calls if "resolved" in call
     )
@@ -448,6 +447,46 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
 
     args.resume = True
     assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+
+@pytest.mark.parametrize(
+    "provider_activity_field",
+    ["provider_activity_requested", "provider_activity_executed"],
+)
+@pytest.mark.parametrize("successor", [False, True])
+def test_producer_accepts_public_marker_provider_free_clearance_schema(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    provider_activity_field: str,
+    successor: bool,
+) -> None:
+    args, paths, _verified_calls = _fixture(tmp_path, monkeypatch, successor=successor)
+    clearance_card = json.loads(paths["clearance_card"].read_bytes())
+    clearance_card["schema_version"] = (
+        "legalforecast.provenance_public_marker_clearance_run_card.v1"
+    )
+    paths["clearance_card"].write_bytes(_json_bytes(clearance_card))
+
+    def refresh_resolver_commitment() -> None:
+        resolved_card = json.loads(paths["resolved_card"].read_bytes())
+        input_paths = cast(list[str], resolved_card["input_paths"])
+        index = input_paths.index(str(paths["clearance_card"].resolve()))
+        resolved_card["source_commitments"][f"input_{index:02d}"] = _commitment(
+            paths["clearance_card"]
+        )
+        paths["resolved_card"].write_bytes(_json_bytes(resolved_card))
+
+    refresh_resolver_commitment()
+
+    assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+    clearance_card[provider_activity_field] = True
+    paths["clearance_card"].write_bytes(_json_bytes(clearance_card))
+    refresh_resolver_commitment()
+    args.resume = False
+    args.output_root = tmp_path / "rejected"
+    with pytest.raises(cli.CommandError, match="provider-free clearance run card"):
+        cli._cmd_build_replacement_recovery_source(args)
 
 
 def test_producer_rejects_mode_ordinal_and_private_root_mismatch(
@@ -539,6 +578,8 @@ def test_producer_rejects_clearance_extra_commitment(
     ("field", "value"),
     [
         ("schema_version", "legalforecast.acquisition_run_card.v1"),
+        ("schema_version", []),
+        ("schema_version", {}),
         ("stage", "other-stage"),
         ("status", "failed"),
         ("dry_run", True),
