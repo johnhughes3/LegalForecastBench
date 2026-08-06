@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import os
 import stat
@@ -28,22 +29,87 @@ class MaterializerArtifactValidationError(CohortDocumentMaterializationError):
     """Raised when an artifact itself is not a safe regular file."""
 
 
-def require_materializer_artifact(path: Path, *, label: str) -> None:
-    """Require one regular, single-link artifact reached without symlinks."""
+def require_materializer_artifact(path: Path, *, label: str) -> bytes:
+    """Read one regular, single-link artifact through its validated descriptor."""
 
     require_non_symlink_components(path)
     try:
-        metadata = path.lstat()
+        descriptor = _open_materializer_artifact(path)
     except OSError:
-        metadata = None
-    if metadata is None or not stat.S_ISREG(metadata.st_mode):
         raise MaterializerArtifactValidationError(
             f"{label} must be a regular non-symlink file: {path}"
-        )
-    if metadata.st_nlink != 1:
+        ) from None
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise MaterializerArtifactValidationError(
+                f"{label} must be a regular non-symlink file: {path}"
+            )
+        if metadata.st_nlink != 1:
+            raise MaterializerArtifactValidationError(
+                f"{label} must not be hardlinked: {path}"
+            )
+        payload = bytearray()
+        while chunk := os.read(descriptor, _CHUNK_SIZE):
+            payload.extend(chunk)
+        after = os.fstat(descriptor)
+        if _artifact_identity(metadata) != _artifact_identity(after):
+            raise MaterializerArtifactValidationError(
+                f"{label} changed while it was being read: {path}"
+            )
+        return bytes(payload)
+    except OSError as exc:
         raise MaterializerArtifactValidationError(
-            f"{label} must not be hardlinked: {path}"
+            f"{label} could not be read safely: {path}: {exc}"
+        ) from exc
+    finally:
+        os.close(descriptor)
+
+
+def _open_materializer_artifact(path: Path) -> int:
+    """Open every path component without following links."""
+
+    no_follow = getattr(os, "O_NOFOLLOW", None)
+    if no_follow is None:
+        raise OSError(errno.ENOTSUP, "no-follow artifact opens are unavailable")
+    absolute = path.absolute()
+    traversal_only = getattr(os, "O_PATH", getattr(os, "O_SEARCH", os.O_RDONLY))
+    directory_flags = (
+        traversal_only
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_DIRECTORY", 0)
+        | no_follow
+    )
+    directory_fd = os.open(absolute.anchor, directory_flags)
+    try:
+        for component in absolute.parts[1:-1]:
+            next_fd = os.open(component, directory_flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+        return os.open(
+            absolute.name,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | no_follow
+            | getattr(os, "O_NONBLOCK", 0),
+            dir_fd=directory_fd,
         )
+    finally:
+        os.close(directory_fd)
+
+
+def _artifact_identity(metadata: os.stat_result) -> tuple[int, ...]:
+    """Track the complete content-relevant identity of the open inode."""
+
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+        metadata.st_nlink,
+    )
 
 
 def validate_materializer_writable_paths(

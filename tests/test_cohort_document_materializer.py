@@ -4,10 +4,12 @@ import errno
 import hashlib
 import json
 import os
+import sqlite3
+import stat
 from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any
 
 import legalforecast.cli as cli
 import pytest
@@ -184,30 +186,70 @@ def test_materializer_artifact_validation_accepts_regular_single_link_file(
     artifact = tmp_path / "artifact.json"
     artifact.write_text("{}\n", encoding="utf-8")
 
-    class ArtifactPathProbe:
-        def __init__(self, path: Path) -> None:
-            self.path = path
-            self.lstat_calls = 0
+    assert require_materializer_artifact(artifact, label="test artifact") == b"{}\n"
 
-        def absolute(self) -> Path:
-            return self.path.absolute()
 
-        def lstat(self) -> os.stat_result:
-            self.lstat_calls += 1
-            return self.path.lstat()
+def test_materializer_artifact_consumption_is_bound_to_validated_descriptor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "artifact.json"
+    artifact.write_bytes(b'"validated"\n')
+    replacement = tmp_path / "replacement.json"
+    replacement.write_bytes(b'"replacement"\n')
+    retained = tmp_path / "retained.json"
+    real_fstat = os.fstat
+    replaced = False
+    validated_metadata: os.stat_result | None = None
 
-        def is_file(self) -> bool:
-            pytest.fail("artifact validation must reuse lstat metadata")
+    def replace_after_validation(descriptor: int) -> os.stat_result:
+        nonlocal replaced, validated_metadata
+        metadata = real_fstat(descriptor)
+        if stat.S_ISREG(metadata.st_mode) and not replaced:
+            validated_metadata = metadata
+            artifact.rename(retained)
+            replacement.rename(artifact)
+            replaced = True
+        return validated_metadata or metadata
 
-        def stat(self, *, follow_symlinks: bool = True) -> os.stat_result:
-            del follow_symlinks
-            pytest.fail("artifact validation must reuse lstat metadata")
+    monkeypatch.setattr(materializer_module.os, "fstat", replace_after_validation)
 
-    probe = ArtifactPathProbe(artifact)
+    commitment = cli._materializer_file_commitment(artifact)
 
-    require_materializer_artifact(cast(Path, probe), label="test artifact")
+    assert replaced is True
+    assert commitment == {
+        "path": os.path.abspath(artifact),
+        "sha256": "sha256:" + hashlib.sha256(b'"validated"\n').hexdigest(),
+    }
+    assert artifact.read_bytes() == b'"replacement"\n'
+    assert retained.read_bytes() == b'"validated"\n'
 
-    assert probe.lstat_calls == 1
+
+def test_materializer_artifact_identity_tracks_ctime(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifact.json"
+    artifact.write_bytes(b"{}\n")
+    metadata = artifact.stat()
+
+    identity = materializer_module._artifact_identity(metadata)
+
+    assert identity[-2] == metadata.st_ctime_ns
+
+
+def test_materializer_commitment_lexically_normalizes_parent_components(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "artifact.json"
+    artifact.write_bytes(b"{}\n")
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    path_with_parent = nested / ".." / artifact.name
+
+    commitment = cli._materializer_file_commitment(path_with_parent)
+
+    assert commitment == {
+        "path": str(artifact),
+        "sha256": "sha256:" + hashlib.sha256(b"{}\n").hexdigest(),
+    }
 
 
 def test_materializer_artifact_validation_rejects_symlink_component(
@@ -224,7 +266,20 @@ def test_materializer_artifact_validation_rejects_symlink_component(
     assert str(exc_info.value) == f"symlink in trusted root path: {artifact}"
 
 
-@pytest.mark.parametrize("kind", ("missing", "directory"))
+@pytest.mark.skipif(not hasattr(os, "O_PATH"), reason="requires O_PATH")
+def test_materializer_artifact_traverses_search_only_directory(tmp_path: Path) -> None:
+    protected = tmp_path / "protected"
+    protected.mkdir()
+    artifact = protected / "artifact.json"
+    artifact.write_bytes(b"{}\n")
+    protected.chmod(0o111)
+    try:
+        assert require_materializer_artifact(artifact, label="test artifact") == b"{}\n"
+    finally:
+        protected.chmod(0o755)
+
+
+@pytest.mark.parametrize("kind", ("missing", "directory", "fifo"))
 def test_materializer_artifact_validation_rejects_non_file(
     tmp_path: Path,
     kind: str,
@@ -232,6 +287,8 @@ def test_materializer_artifact_validation_rejects_non_file(
     artifact = tmp_path / "artifact"
     if kind == "directory":
         artifact.mkdir()
+    elif kind == "fifo":
+        os.mkfifo(artifact)
 
     with pytest.raises(CohortDocumentMaterializationError) as exc_info:
         require_materializer_artifact(artifact, label="test artifact")
@@ -253,29 +310,33 @@ def test_materializer_artifact_validation_rejects_hardlink(tmp_path: Path) -> No
     assert str(exc_info.value) == f"test artifact must not be hardlinked: {artifact}"
 
 
-def test_materializer_artifact_validation_normalizes_lstat_oserror(
+def test_materializer_artifact_validation_normalizes_open_oserror(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     artifact = tmp_path / "artifact.json"
+    artifact.write_text("{}\n", encoding="utf-8")
+    real_open = os.open
 
-    class UnreadableArtifactPath:
-        def absolute(self) -> Path:
-            return artifact.absolute()
-
-        def lstat(self) -> os.stat_result:
+    def deny_artifact_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        if path == artifact.name:
             raise PermissionError(
                 errno.EACCES,
                 os.strerror(errno.EACCES),
                 artifact,
             )
+        return real_open(path, flags, mode, dir_fd=dir_fd)
 
-        def __str__(self) -> str:
-            return str(artifact)
+    monkeypatch.setattr(materializer_module.os, "open", deny_artifact_open)
 
     with pytest.raises(CohortDocumentMaterializationError) as exc_info:
-        require_materializer_artifact(
-            cast(Path, UnreadableArtifactPath()), label="test artifact"
-        )
+        require_materializer_artifact(artifact, label="test artifact")
 
     assert str(exc_info.value) == (
         f"test artifact must be a regular non-symlink file: {artifact}"
@@ -310,6 +371,42 @@ def test_materializer_artifact_validation_preserves_cli_component_error_cause(
 
     assert str(exc_info.value) == f"symlink in trusted root path: {artifact}"
     assert isinstance(exc_info.value.__cause__, CohortDocumentMaterializationError)
+
+
+def test_provider_journal_snapshot_includes_committed_wal_rows(tmp_path: Path) -> None:
+    journal = tmp_path / "provider.sqlite3"
+    connection = sqlite3.connect(journal, isolation_level=None)
+    try:
+        assert connection.execute("PRAGMA journal_mode = WAL").fetchone() == ("wal",)
+        connection.execute("PRAGMA wal_autocheckpoint = 0")
+        connection.execute(
+            """CREATE TABLE provider_attempts (
+                stage TEXT NOT NULL,
+                logical_call_key TEXT NOT NULL,
+                attempt_ordinal INTEGER NOT NULL,
+                status TEXT NOT NULL
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO provider_attempts VALUES (?, ?, ?, ?)",
+            ("llm-unitize", "unit-1", 1, "settled"),
+        )
+        assert Path(f"{journal}-wal").is_file()
+
+        records, _commitment = cli._provider_journal_stage_snapshot(
+            journal, stage="llm-unitize"
+        )
+    finally:
+        connection.close()
+
+    assert records == (
+        {
+            "stage": "llm-unitize",
+            "logical_call_key": "unit-1",
+            "attempt_ordinal": 1,
+            "status": "settled",
+        },
+    )
 
 
 def test_materialize_cohort_documents_help_is_authoritative(
