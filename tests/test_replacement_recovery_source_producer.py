@@ -739,7 +739,26 @@ def test_producer_rejects_purchase_ledger_drift_before_run_card_publication(
         match="purchase ledger changed during recovery source production",
     ):
         cli._cmd_build_replacement_recovery_source(args)
-    assert (args.output_root / "0000-initial-v2.json").is_file()
+    assert not (args.output_root / "0000-initial-v2.json").exists()
+    assert not (
+        args.output_root / "run-cards/build-replacement-recovery-source-0000.json"
+    ).exists()
+
+
+def test_producer_rejects_source_drift_before_descriptor_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, _, _ = _fixture(tmp_path, monkeypatch, successor=False)
+
+    def reject_changed_source(*_args: object, **_kwargs: object) -> None:
+        raise cli.CommandError("replacement recovery source input changed")
+
+    monkeypatch.setattr(cli, "_require_snapshot_unchanged", reject_changed_source)
+
+    with pytest.raises(cli.CommandError, match="source input changed"):
+        cli._cmd_build_replacement_recovery_source(args)
+    assert not (args.output_root / "0000-initial-v2.json").exists()
     assert not (
         args.output_root / "run-cards/build-replacement-recovery-source-0000.json"
     ).exists()

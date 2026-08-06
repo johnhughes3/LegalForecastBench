@@ -25828,12 +25828,6 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
         if not cast(bool, args.execute):
             print(json.dumps(card, sort_keys=True))
             return 0
-        _ensure_projection_artifact(
-            descriptor_path,
-            descriptor_bytes,
-            resume=cast(bool, args.resume),
-            stage="build-replacement-recovery-source",
-        )
         _require_snapshot_unchanged(
             source_snapshots,
             label="replacement recovery source input",
@@ -25854,6 +25848,12 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             raise ReplacementRecoverySourceError(
                 "purchase ledger changed during recovery source production"
             )
+        _ensure_projection_artifact(
+            descriptor_path,
+            descriptor_bytes,
+            resume=cast(bool, args.resume),
+            stage="build-replacement-recovery-source",
+        )
         _ensure_projection_artifact(
             run_card_path,
             _projection_json_bytes(card),
