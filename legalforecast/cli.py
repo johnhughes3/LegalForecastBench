@@ -682,12 +682,15 @@ from legalforecast.ingestion.replacement_recovery_source import (
     derive_resolved_source_coordinates,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
+    RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4,
     ResolvedPostRecoveryError,
     _build_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
     _build_resolved_recovered_public,  # pyright: ignore[reportPrivateUsage]
     _issue_verified_lineage_capability,  # pyright: ignore[reportPrivateUsage]
     _require_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
     _require_resolved_recovered_public,  # pyright: ignore[reportPrivateUsage]
+    _require_resolved_recovered_public_operation_bindings,  # pyright: ignore[reportPrivateUsage]
+    _require_resolved_recovered_public_parse_requests,  # pyright: ignore[reportPrivateUsage]
     build_resolved_post_recovery_documents,
     require_resolved_post_recovery_documents,
     require_resolved_post_recovery_operation_bindings,
@@ -26055,11 +26058,36 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             resolved_records = _projection_jsonl_records(
                 resolved_bytes, source=resolved_path
             )
-            require_resolved_post_recovery_operation_bindings(
-                purchase_operation_records=verification_snapshot.operations,
-                resolved_records=resolved_records,
-                expected_purchase_policy_sha256=policy.policy_sha256,
-            )
+            if any(
+                record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+                for record in resolved_records
+            ):
+                clearance_kwargs = _materializer_clearance_lineage_kwargs(
+                    clearance_path=clearance_coordinates.clearance_path,
+                    run_card_path=clearance_card_path,
+                    lineage=clearance,
+                )
+                _require_resolved_post_recovery_dispatch(
+                    selection_records=selection_records,
+                    download_records=purchased_manifest,
+                    clearance_records=cast(
+                        Sequence[Mapping[str, Any]], clearance["clearance_records"]
+                    ),
+                    resolved_records=resolved_records,
+                    **clearance_kwargs,
+                )
+                _require_resolved_operation_bindings_dispatch(
+                    clearance_kwargs=clearance_kwargs,
+                    purchase_operation_records=verification_snapshot.operations,
+                    resolved_records=resolved_records,
+                    expected_purchase_policy_sha256=policy.policy_sha256,
+                )
+            else:
+                require_resolved_post_recovery_operation_bindings(
+                    purchase_operation_records=verification_snapshot.operations,
+                    resolved_records=resolved_records,
+                    expected_purchase_policy_sha256=policy.policy_sha256,
+                )
 
         descriptor = build_recovery_source_descriptor(
             coordinates=coordinates,
@@ -37049,6 +37077,11 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             else []
         )
         if needs_resolved_lineage:
+            clearance_kwargs = _materializer_clearance_lineage_kwargs(
+                clearance_path=purchased_clearance_path,
+                run_card_path=purchased_clearance_card_path,
+                lineage=purchased_clearance_lineage,
+            )
             _require_resolved_post_recovery_dispatch(
                 selection_records=selection_records,
                 download_records=purchased_manifest,
@@ -37057,13 +37090,10 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
                     purchased_clearance_lineage["clearance_records"],
                 ),
                 resolved_records=resolved_records,
-                **_materializer_clearance_lineage_kwargs(
-                    clearance_path=purchased_clearance_path,
-                    run_card_path=purchased_clearance_card_path,
-                    lineage=purchased_clearance_lineage,
-                ),
+                **clearance_kwargs,
             )
-            require_resolved_post_recovery_operation_bindings(
+            _require_resolved_operation_bindings_dispatch(
+                clearance_kwargs=clearance_kwargs,
                 purchase_operation_records=operations,
                 resolved_records=resolved_records,
                 expected_purchase_policy_sha256=purchase_policy.policy_sha256,
@@ -40214,6 +40244,71 @@ def _require_resolved_post_recovery_dispatch(**kwargs: Any) -> None:
     )
 
 
+def _require_resolved_operation_bindings_dispatch(
+    *,
+    clearance_kwargs: Mapping[str, Any],
+    purchase_operation_records: Sequence[Mapping[str, Any]],
+    resolved_records: Sequence[Mapping[str, Any]],
+    expected_purchase_policy_sha256: str,
+) -> None:
+    """Replay direct-queue bindings only through recovered-public authority."""
+
+    recovered = clearance_kwargs.get("_verified_recovery_capability")
+    requires_recovered_authority = any(
+        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+        for record in resolved_records
+    )
+    if recovered is None:
+        if requires_recovered_authority:
+            raise ResolvedPostRecoveryError(
+                "V4 resolved records require verifier-issued recovery authority"
+            )
+        require_resolved_post_recovery_operation_bindings(
+            purchase_operation_records=purchase_operation_records,
+            resolved_records=resolved_records,
+            expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+        )
+        return
+    _require_resolved_recovered_public_operation_bindings(
+        purchase_operation_records=purchase_operation_records,
+        resolved_records=resolved_records,
+        expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+        verified_recovery_capability=recovered,
+    )
+
+
+def _require_resolved_parse_requests_dispatch(
+    *,
+    clearance_kwargs: Mapping[str, Any],
+    selection_records: Sequence[Mapping[str, Any]],
+    request_records: Sequence[Mapping[str, Any]],
+    resolved_records: Sequence[Mapping[str, Any]],
+) -> None:
+    """Replay direct-queue parse bindings only through verifier authority."""
+
+    recovered = clearance_kwargs.get("_verified_recovery_capability")
+    requires_recovered_authority = any(
+        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+        for record in resolved_records
+    )
+    arguments = {
+        "selection_records": selection_records,
+        "request_records": request_records,
+        "resolved_records": resolved_records,
+    }
+    if recovered is None:
+        if requires_recovered_authority:
+            raise ResolvedPostRecoveryError(
+                "V4 resolved records require verifier-issued recovery authority"
+            )
+        require_resolved_post_recovery_parse_requests(**arguments)
+        return
+    _require_resolved_recovered_public_parse_requests(
+        **arguments,
+        verified_recovery_capability=recovered,
+    )
+
+
 def _verify_materializer_purchase_operations(
     operations: Sequence[Mapping[str, Any]],
     *,
@@ -40485,6 +40580,7 @@ class _VerifiedMaterializedDownstreamLineage:
     selection_records: tuple[Mapping[str, Any], ...]
     resolved_records: tuple[Mapping[str, Any], ...]
     document_tree: Mapping[str, bytes]
+    recovered_public_capability: object | None = None
     fresh_ledger_namespace: Path | None = None
     docket_decision_authority: _MaterializerDocketDecisionAuthority | None = None
 
@@ -41026,7 +41122,13 @@ def _verify_materialized_downstream_lineage(
             if resolved_path is not None
             else []
         )
+        clearance_kwargs: dict[str, Any] = {}
         if needs_resolved_lineage:
+            clearance_kwargs = _materializer_clearance_lineage_kwargs(
+                clearance_path=purchased_clearance_path,
+                run_card_path=purchased_clearance_card_path,
+                lineage=purchased_lineage,
+            )
             _require_resolved_post_recovery_dispatch(
                 selection_records=selection_records,
                 download_records=purchased_manifest,
@@ -41034,13 +41136,10 @@ def _verify_materialized_downstream_lineage(
                     Sequence[Mapping[str, Any]], purchased_lineage["clearance_records"]
                 ),
                 resolved_records=resolved_records,
-                **_materializer_clearance_lineage_kwargs(
-                    clearance_path=purchased_clearance_path,
-                    run_card_path=purchased_clearance_card_path,
-                    lineage=purchased_lineage,
-                ),
+                **clearance_kwargs,
             )
-            require_resolved_post_recovery_operation_bindings(
+            _require_resolved_operation_bindings_dispatch(
+                clearance_kwargs=clearance_kwargs,
                 purchase_operation_records=snapshot.operations,
                 resolved_records=resolved_records,
                 expected_purchase_policy_sha256=purchase_policy.policy_sha256,
@@ -41308,6 +41407,9 @@ def _verify_materialized_downstream_lineage(
         selection_records=tuple(selection_records),
         resolved_records=tuple(resolved_records),
         document_tree=dict(document_tree_snapshot),
+        recovered_public_capability=clearance_kwargs.get(
+            "_verified_recovery_capability"
+        ),
         docket_decision_authority=docket_decision_descriptor,
     )
 
@@ -48774,6 +48876,7 @@ def _require_current_purchase_lineage(
     *,
     needs_resolved_lineage: bool,
     resolved_records: Sequence[Mapping[str, Any]],
+    clearance_kwargs: Mapping[str, Any],
 ) -> tuple[tuple[Path, ...], str | None]:
     if not needs_resolved_lineage:
         return (), None
@@ -48804,7 +48907,8 @@ def _require_current_purchase_lineage(
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         )
-        require_resolved_post_recovery_operation_bindings(
+        _require_resolved_operation_bindings_dispatch(
+            clearance_kwargs=clearance_kwargs,
             purchase_operation_records=snapshot.operations,
             resolved_records=resolved_records,
             expected_purchase_policy_sha256=policy.policy_sha256,
@@ -48937,7 +49041,8 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
                     resolved_records=resolved_records,
                     **clearance_kwargs,
                 )
-                require_resolved_post_recovery_operation_bindings(
+                _require_resolved_operation_bindings_dispatch(
+                    clearance_kwargs=clearance_kwargs,
                     purchase_operation_records=operations,
                     resolved_records=resolved_records,
                     expected_purchase_policy_sha256=policy.policy_sha256,
@@ -48958,7 +49063,8 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
                         _required_str(record, "source_document_id"),
                         resolved_record=record,
                     )
-                require_resolved_post_recovery_operation_bindings(
+                _require_resolved_operation_bindings_dispatch(
+                    clearance_kwargs=clearance_kwargs,
                     purchase_operation_records=journal.operation_records(),
                     resolved_records=resolved_records,
                     expected_purchase_policy_sha256=policy.policy_sha256,
@@ -49147,6 +49253,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
                 args,
                 needs_resolved_lineage=needs_resolved_lineage,
                 resolved_records=resolved_records,
+                clearance_kwargs=clearance_kwargs,
             )
         )
     resolved_index = {
@@ -49376,6 +49483,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
             "unknown-origin material requires --selection for exact lineage"
         )
     clearance_lineage_paths: tuple[Path, ...] = ()
+    _clearance_kwargs: dict[str, Any] = {}
     if needs_resolved_lineage and not is_materialized:
         _clearance_kwargs, clearance_lineage_paths = (
             _authenticated_clearance_lineage_inputs(args, clearance_path=clearance_path)
@@ -49384,7 +49492,18 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         try:
             require_cleared_parse_requests(request_records, clearance_records)
             if needs_resolved_lineage:
-                require_resolved_post_recovery_parse_requests(
+                parse_clearance_kwargs = _clearance_kwargs
+                if is_materialized and materialization_lineage is not None:
+                    recovered_capability = (
+                        materialization_lineage.recovered_public_capability
+                    )
+                    parse_clearance_kwargs = (
+                        {}
+                        if recovered_capability is None
+                        else {"_verified_recovery_capability": recovered_capability}
+                    )
+                _require_resolved_parse_requests_dispatch(
+                    clearance_kwargs=parse_clearance_kwargs,
                     selection_records=selection_records,
                     request_records=request_records,
                     resolved_records=resolved_records,
@@ -49401,6 +49520,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 args,
                 needs_resolved_lineage=needs_resolved_lineage,
                 resolved_records=resolved_records,
+                clearance_kwargs=_clearance_kwargs,
             )
         )
     completion_input_paths = (
@@ -55555,6 +55675,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 args,
                 needs_resolved_lineage=needs_resolved_lineage,
                 resolved_records=resolved_records,
+                clearance_kwargs=clearance_kwargs,
             )
         )
     raw_html_snapshot = {} if dry_run else _materializer_tree_snapshot(raw_html_dir)
