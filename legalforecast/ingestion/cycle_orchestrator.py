@@ -727,14 +727,8 @@ def _validate_disclosure_review_stage_layout(stage: CycleStage) -> None:
         "--controlled-private-store-root": private_root,
         "--provider-journal": required_path("--provider-journal"),
         "--provider-spend-authority": required_path("--provider-spend-authority"),
-        "--authority-output": optional_output(
-            "--authority-output",
-            output_root / "disclosure-model-review-authority.json",
-        ),
-        "--private-records-output": optional_output(
-            "--private-records-output",
-            private_root / "disclosure-model-review-private-records.json",
-        ),
+        "--authority-output": required_path("--authority-output"),
+        "--private-records-output": required_path("--private-records-output"),
         "--run-card-output": stage.run_card,
         "--log-output": optional_output(
             "--log-output",
@@ -1084,7 +1078,7 @@ def _receipt_record(
         "run_card_path": str(stage.run_card),
         "run_card_stage": stage.run_card_stage,
         "run_card_sha256": hashlib.sha256(run_card_payload).hexdigest(),
-        "output_commitments": _output_commitments(run_card),
+        "output_commitments": _output_commitments(stage, run_card),
     }
 
 
@@ -1281,8 +1275,34 @@ def _verify_external_disclosure_review_completion(
 ) -> None:
     """Authenticate the disclosure review card before semantic replay."""
 
+    expected_fields = {
+        "schema_version",
+        "stage",
+        "status",
+        "resume",
+        "dry_run",
+        "execute",
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "provider_call_executed_this_run",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "record_count",
+        "source_commitments",
+        "state_paths",
+        "model_review_authority",
+        "output_commitments",
+    }
+    record_count = run_card.get("record_count")
+    authority = run_card.get("model_review_authority")
+    if not isinstance(authority, Mapping):
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} external disclosure review is incomplete"
+        )
+    authority_record = cast(Mapping[str, object], authority)
     if (
-        run_card.get("schema_version")
+        set(run_card) != expected_fields
+        or run_card.get("schema_version")
         != "legalforecast.disclosure_model_review_run_card.v1"
         or run_card.get("stage") != "review-disclosure-exceptions"
         or run_card.get("status") != "completed"
@@ -1294,9 +1314,13 @@ def _verify_external_disclosure_review_completion(
         or run_card.get("paid_activity_requested") is not True
         or run_card.get("paid_activity_executed") is not True
         or not isinstance(run_card.get("provider_call_executed_this_run"), bool)
-        or not isinstance(run_card.get("record_count"), int)
-        or isinstance(run_card.get("record_count"), bool)
-        or cast(int, run_card.get("record_count")) < 1
+        or not isinstance(record_count, int)
+        or isinstance(record_count, bool)
+        or record_count < 1
+        or authority_record.get("schema_version")
+        != "legalforecast.disclosure_model_review_authority.v2"
+        or authority_record.get("stage") != "disclosure-exception-review-v3"
+        or authority_record.get("decision_count") != record_count
     ):
         raise CycleOrchestratorError(
             f"stage {stage.stage_id} external disclosure review is incomplete"
@@ -1328,6 +1352,7 @@ def _verify_external_disclosure_review_completion(
         "exception_worksheet": _required_stage_path_flag(
             stage, "--exception-worksheet"
         ),
+        "plan_run_card": _required_stage_path_flag(stage, "--plan-run-card"),
     }
     raw_sources = run_card.get("source_commitments")
     if not isinstance(raw_sources, Mapping):
@@ -1355,11 +1380,16 @@ def _verify_external_disclosure_review_completion(
             f"stage {stage.stage_id} external document commitment differs"
         )
     document_commitment = cast(Mapping[str, object], document_root)
+    document_count = document_commitment.get("document_count")
+    tree_sha256 = document_commitment.get("tree_sha256")
     if (
         set(document_commitment) != {"path", "tree_sha256", "document_count"}
         or document_commitment.get("path") != str(expected_document_root.resolve())
-        or not isinstance(document_commitment.get("tree_sha256"), str)
-        or not isinstance(document_commitment.get("document_count"), int)
+        or not isinstance(tree_sha256, str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", tree_sha256) is None
+        or not isinstance(document_count, int)
+        or isinstance(document_count, bool)
+        or document_count < record_count
     ):
         raise CycleOrchestratorError(
             f"stage {stage.stage_id} external document commitment differs"
@@ -2023,7 +2053,19 @@ def _required_int(record: Mapping[str, object], field: str) -> int:
     return value
 
 
-def _output_commitments(run_card: Mapping[str, object]) -> list[dict[str, object]]:
+def _output_commitments(
+    stage: CycleStage,
+    run_card: Mapping[str, object],
+) -> list[dict[str, object]]:
+    if stage.command == "review-disclosure-exceptions":
+        _verify_external_disclosure_review_completion(stage, run_card)
+        return [
+            _output_commitment(_required_stage_path_flag(stage, "--authority-output")),
+            _output_commitment(
+                _required_stage_path_flag(stage, "--private-records-output")
+            ),
+        ]
+
     raw_paths = run_card.get("output_paths")
     if not isinstance(raw_paths, list):
         raise CycleOrchestratorError("stage run card lacks output_paths")

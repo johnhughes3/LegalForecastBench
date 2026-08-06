@@ -3,10 +3,14 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import json
+import sqlite3
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Protocol, cast
+from urllib.request import Request
 
+import legalforecast.ingestion.disclosure_model_review_authority as authority_module
 import pytest
 from legalforecast import cli
 from legalforecast.cli import main
@@ -21,6 +25,8 @@ from legalforecast.ingestion.cycle_orchestrator import (
 )
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
+from legalforecast.ingestion.provenance_clearance import exception_review_worksheet_v3
+from reportlab.pdfgen.canvas import Canvas
 
 TARGET_CASE_COUNT = 100
 ROOT = Path(__file__).resolve().parents[1]
@@ -117,6 +123,303 @@ def _receipt_initial_stage(
         executor=execute_init,
     )
     assert status["completed_stage_count"] == 1
+
+
+def _disclosure_receipt_inputs() -> tuple[
+    dict[str, object],
+    bytes,
+    dict[str, object],
+    bytes,
+    dict[tuple[str, str], bytes],
+]:
+    pdf_output = BytesIO()
+    canvas = Canvas(pdf_output, invariant=1)
+    canvas.drawString(72, 720, "medical record cited only as a public allegation")
+    canvas.showPage()
+    canvas.save()
+    document_payload = pdf_output.getvalue()
+    document: dict[str, object] = {
+        "candidate_id": "case-a",
+        "source_document_id": "document-1",
+        "local_path": "case-a/document.pdf",
+        "sha256": hashlib.sha256(document_payload).hexdigest(),
+        "byte_count": len(document_payload),
+        "free_or_purchased": "free",
+        "source_provider": "courtlistener",
+        "source_url": "https://storage.courtlistener.com/recap/a.pdf",
+        "source_url_or_reference": ("https://storage.courtlistener.com/recap/a.pdf"),
+        "restriction_status": "unknown",
+        "restriction_evidence": sorted(
+            [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_true",
+                "courtlistener_rest_recap_document_is_sealed_unknown",
+                "courtlistener_rest_public_download_url_allowlisted",
+            ]
+        ),
+        "is_sealed": None,
+        "is_private": None,
+        "model_visible": False,
+        "contains_target_outcome": True,
+        "disclosure_pdf_scan": {
+            "schema_version": "legalforecast.disclosure_pdf_scan.v1",
+            "method": "pypdf_page_text_v1",
+            "parsed_page_count": 1,
+            "text_scanned_page_numbers": [1],
+            "text_scanned_page_count": 1,
+            "ocr_scanned_page_numbers": [],
+            "ocr_scanned_page_count": 0,
+            "unscanned_page_numbers": [],
+            "coverage_status": "complete",
+            "diagnostics": [],
+            "automated_markers": ["medical"],
+        },
+        "automated_markers": ["medical"],
+        "route": "exception_review",
+        "route_reasons": ["automated_marker_present"],
+        "exception_clearance_permitted": True,
+    }
+    documents = [document]
+    plan: dict[str, object] = {
+        "schema_version": "legalforecast.disclosure_provenance_routing_plan.v3",
+        "source_sha256": {
+            "review_requests": "a" * 64,
+            "download_manifest": "b" * 64,
+            "restriction_evidence": "c" * 64,
+            "case_relevance": "d" * 64,
+        },
+        "document_set_sha256": hashlib.sha256(
+            canonical_json_bytes(documents)
+        ).hexdigest(),
+        "document_count": 1,
+        "auto_clear_count": 0,
+        "exception_review_count": 1,
+        "documents": documents,
+    }
+    worksheet = exception_review_worksheet_v3(plan)
+    return (
+        plan,
+        canonical_json_bytes(plan),
+        worksheet,
+        canonical_json_bytes(worksheet),
+        {("case-a", "document-1"): document_payload},
+    )
+
+
+def _disclosure_provider_payload(document_sha256: str) -> dict[str, object]:
+    response = {
+        "schema_version": "legalforecast.disclosure_model_review_response.v1",
+        "candidate_id": "case-a",
+        "source_document_id": "document-1",
+        "document_sha256": document_sha256,
+        "model_id": "gemini-3.5-flash",
+        "model_version": "gemini-3.5-flash",
+        "decision": "cleared",
+        "sensitive_content": "absent",
+        "supporting_page_number": None,
+        "supporting_excerpt": None,
+    }
+    semantic = {
+        "schema_version": "legalforecast.disclosure_model_review_batch_response.v1",
+        "model_id": "gemini-3.5-flash",
+        "model_version": "gemini-3.5-flash",
+        "document_count": 1,
+        "items": [response],
+    }
+    raw_output = json.dumps(semantic, sort_keys=True, separators=(",", ":")) + "\n"
+    return {
+        "modelVersion": "models/gemini-3.5-flash",
+        "candidates": [{"content": {"parts": [{"text": raw_output}]}}],
+        "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 20},
+    }
+
+
+def _adoptable_disclosure_review_completion(
+    root: Path,
+    *,
+    run_card: Path,
+) -> tuple[
+    list[str],
+    tuple[Path, ...],
+    tuple[Path, Path],
+    dict[str, object],
+]:
+    output_root = root / "review"
+    private_root = root / "private"
+    frozen_root = ROOT
+    document_root = root / "documents"
+    routing_plan = root / "inputs" / "routing-plan.json"
+    worksheet = root / "inputs" / "worksheet.json"
+    plan_run_card = root / "inputs" / "plan-run-card.json"
+    authority = output_root / "disclosure-model-review-authority.json"
+    private_records = private_root / "disclosure-model-review-private-records.json"
+    journal = private_root / "provider-attempts.sqlite3"
+    spend_authority = private_root / "provider-spend-authority.sqlite3"
+
+    plan, plan_bytes, worksheet_record, worksheet_bytes, document_bytes = (
+        _disclosure_receipt_inputs()
+    )
+    document = cast(list[dict[str, object]], plan["documents"])[0]
+    document_payload = document_bytes[("case-a", "document-1")]
+    routing_plan.parent.mkdir(parents=True)
+    routing_plan.write_bytes(plan_bytes)
+    worksheet.write_bytes(worksheet_bytes)
+    document_path = document_root / cast(str, document["local_path"])
+    document_path.parent.mkdir(parents=True)
+    document_path.write_bytes(document_payload)
+    document_tree = {
+        cast(str, document["local_path"]): cli._bytes_sha256(document_payload)
+    }
+    plan_card = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "plan-disclosure-provenance",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "output_paths": [str(routing_plan.resolve()), str(worksheet.resolve())],
+        "source_commitments": {
+            "document_root": {
+                "path": str(document_root.resolve()),
+                "tree_sha256": cli._canonical_json_sha256(document_tree),
+                "document_count": 1,
+            }
+        },
+        "output_commitments": {
+            "routing_plan": {
+                "path": str(routing_plan.resolve()),
+                "sha256": cli._bytes_sha256(plan_bytes),
+            },
+            "exception_worksheet": {
+                "path": str(worksheet.resolve()),
+                "sha256": cli._bytes_sha256(worksheet_bytes),
+            },
+        },
+    }
+    plan_run_card.write_text(
+        json.dumps(plan_card, indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    payload = _disclosure_provider_payload(cast(str, document["sha256"]))
+
+    def transport(_request: Request, _timeout: float) -> dict[str, object]:
+        return payload
+
+    first = authority_module.authenticate_disclosure_model_review(
+        routing_plan=plan,
+        routing_plan_bytes=plan_bytes,
+        worksheet=worksheet_record,
+        worksheet_bytes=worksheet_bytes,
+        document_bytes_by_key=document_bytes,
+        provider_journal_path=journal,
+        provider_spend_authority_path=spend_authority,
+        source_root=frozen_root,
+        transport=transport,
+        environ={"GEMINI_API_KEY": "test-only"},
+        retry_backoff_seconds=0.0,
+    )
+    assert authority_module.disclosure_model_review_provider_call_executed(first)
+    replayed = authority_module.replay_authenticated_disclosure_model_review(
+        routing_plan=plan,
+        routing_plan_bytes=plan_bytes,
+        worksheet=worksheet_record,
+        worksheet_bytes=worksheet_bytes,
+        document_bytes_by_key=document_bytes,
+        provider_journal_path=journal,
+        provider_spend_authority_path=spend_authority,
+        source_root=frozen_root,
+    )
+    assert not authority_module.disclosure_model_review_provider_call_executed(replayed)
+    authority_record = authority_module.public_disclosure_model_review_record(replayed)
+    private_record_values = authority_module.private_disclosure_model_review_records(
+        replayed
+    )
+    [private_record] = private_record_values
+    authority.parent.mkdir(parents=True, exist_ok=True)
+    private_records.parent.mkdir(parents=True, exist_ok=True)
+    authority.write_bytes(canonical_json_bytes(authority_record))
+    private_records.write_bytes(canonical_json_bytes([private_record]))
+
+    def file_commitment(path: Path) -> dict[str, str]:
+        return {
+            "path": str(path.resolve()),
+            "sha256": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+
+    card = {
+        "schema_version": "legalforecast.disclosure_model_review_run_card.v1",
+        "stage": "review-disclosure-exceptions",
+        "status": "completed",
+        "resume": True,
+        "dry_run": False,
+        "execute": True,
+        "provider_activity_requested": True,
+        "provider_activity_executed": True,
+        "provider_call_executed_this_run": False,
+        "paid_activity_requested": True,
+        "paid_activity_executed": True,
+        "record_count": 1,
+        "source_commitments": {
+            "routing_plan": file_commitment(routing_plan),
+            "exception_worksheet": file_commitment(worksheet),
+            "plan_run_card": file_commitment(plan_run_card),
+            "document_root": {
+                "path": str(document_root.resolve()),
+                "tree_sha256": cli._canonical_json_sha256(document_tree),
+                "document_count": 1,
+            },
+        },
+        "state_paths": {
+            "provider_journal": str(journal.resolve()),
+            "provider_spend_authority": str(spend_authority.resolve()),
+            "frozen_authority_root": str(frozen_root.resolve()),
+        },
+        "model_review_authority": authority_record,
+        "output_commitments": {
+            "public_authority": file_commitment(authority),
+            "private_records": file_commitment(private_records),
+        },
+    }
+    run_card.parent.mkdir(parents=True, exist_ok=True)
+    run_card.write_bytes(canonical_json_bytes(card))
+    arguments = [
+        "--output-root",
+        str(output_root),
+        "--routing-plan",
+        str(routing_plan),
+        "--exception-worksheet",
+        str(worksheet),
+        "--plan-run-card",
+        str(plan_run_card),
+        "--document-root",
+        str(document_root),
+        "--frozen-authority-root",
+        str(frozen_root),
+        "--provider-journal",
+        str(journal),
+        "--provider-spend-authority",
+        str(spend_authority),
+        "--controlled-private-store-root",
+        str(private_root),
+        "--authority-output",
+        str(authority),
+        "--private-records-output",
+        str(private_records),
+        "--run-card-output",
+        str(run_card),
+        "--execute",
+        "--resume",
+    ]
+    fixture = {
+        "document": document,
+        "document_payload": document_payload,
+        "authority": authority_record,
+        "private_record": private_record,
+    }
+    return arguments, (authority, private_records), (journal, spend_authority), fixture
 
 
 def _adoptable_unitization_completion(
@@ -886,6 +1189,375 @@ def test_external_completed_disclosure_review_replays_authority(
     authority_path.write_bytes(canonical_json_bytes({"decision_count": 2}))
     with pytest.raises(CycleOrchestratorError, match="semantic replay failed"):
         cli._verify_external_completed_cycle_stage(stage, card)
+
+
+def test_run_cycle_adopts_completed_disclosure_review_without_provider_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    init_card = tmp_path / "init" / "run-card.json"
+    review_card = tmp_path / "review" / "run-card.json"
+    review_arguments, review_outputs, provider_state, _fixture = (
+        _adoptable_disclosure_review_completion(
+            tmp_path,
+            run_card=review_card,
+        )
+    )
+    clearance = tmp_path / "downstream" / "clearance.jsonl"
+    clearance_card = tmp_path / "downstream" / "clearance-run-card.json"
+    resolved = tmp_path / "downstream" / "resolved.jsonl"
+    resolver_card = tmp_path / "downstream" / "resolver-run-card.json"
+    state_root = tmp_path / "state"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(init_card),
+                    "--execute",
+                ],
+                run_card=init_card,
+            ),
+            _stage(
+                stage_id="review-disclosure",
+                command="review-disclosure-exceptions",
+                boundary="model_provider",
+                arguments=review_arguments,
+                run_card=review_card,
+            ),
+            _stage(
+                stage_id="finalize-disclosure",
+                command="finalize-provenance-quarantine",
+                boundary="provider_free",
+                arguments=[
+                    "--model-review-authority",
+                    str(review_outputs[0]),
+                    "--model-review-private-records",
+                    str(review_outputs[1]),
+                    "--model-review-run-card",
+                    str(review_card),
+                    "--clearance-output",
+                    str(clearance),
+                    "--run-card-output",
+                    str(clearance_card),
+                    "--execute",
+                ],
+                run_card=clearance_card,
+            ),
+            _stage(
+                stage_id="resolve-documents",
+                command="resolve-post-recovery-documents",
+                boundary="provider_free",
+                arguments=[
+                    "--disclosure-clearance",
+                    str(clearance),
+                    "--clearance-run-card",
+                    str(clearance_card),
+                    "--resolved-output",
+                    str(resolved),
+                    "--run-card-output",
+                    str(resolver_card),
+                    "--execute",
+                ],
+                run_card=resolver_card,
+            ),
+        ],
+    )
+    _receipt_initial_stage(
+        config=config,
+        state_root=state_root,
+        init_run_card=init_card,
+    )
+    provider_state_before = tuple(path.read_bytes() for path in provider_state)
+    with sqlite3.connect(provider_state[0]) as connection:
+        attempt_count_before = cast(
+            int,
+            connection.execute("SELECT COUNT(*) FROM provider_attempts").fetchone()[0],
+        )
+    assert attempt_count_before == 1
+
+    def forbidden_delegated_main(_arguments: tuple[str, ...]) -> int:
+        raise AssertionError("adoption must not invoke the provider stage")
+
+    monkeypatch.setattr("legalforecast.cli.main", forbidden_delegated_main)
+    monkeypatch.setattr(
+        cli,
+        "authenticate_disclosure_model_review",
+        lambda **_kwargs: pytest.fail("adoption must not invoke provider transport"),
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "run-cycle",
+                "--config",
+                str(config),
+                "--state-root",
+                str(state_root),
+                "--adopt-next-completed",
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    status = json.loads(capsys.readouterr().out)
+    assert status["stop_reason"] == "model_provider_stage_adopted"
+    assert status["next_stage"]["id"] == "finalize-disclosure"
+    assert tuple(path.read_bytes() for path in provider_state) == provider_state_before
+    with sqlite3.connect(provider_state[0]) as connection:
+        attempt_count_after = cast(
+            int,
+            connection.execute("SELECT COUNT(*) FROM provider_attempts").fetchone()[0],
+        )
+    assert attempt_count_after == attempt_count_before
+    assert (
+        json.loads(review_card.read_bytes())["provider_call_executed_this_run"] is False
+    )
+    receipt = json.loads(
+        (state_root / "receipts" / "0001-review-disclosure.json").read_bytes()
+    )
+    assert receipt["output_commitments"] == [
+        {
+            "path": str(path),
+            "kind": "file",
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "byte_count": len(path.read_bytes()),
+        }
+        for path in review_outputs
+    ]
+
+    consumed: list[str] = []
+
+    def consume_disclosure_outputs(
+        command: str,
+        arguments: tuple[str, ...],
+    ) -> int:
+        consumed.append(command)
+        if command == "finalize-provenance-quarantine":
+            assert str(review_outputs[0]) in arguments
+            assert str(review_outputs[1]) in arguments
+            assert str(review_card) in arguments
+            clearance.parent.mkdir(parents=True, exist_ok=True)
+            clearance.write_text('{"status":"cleared"}\n', encoding="utf-8")
+            _write_completion_card(
+                clearance_card,
+                stage=command,
+                output_paths=(clearance,),
+            )
+        else:
+            assert command == "resolve-post-recovery-documents"
+            assert str(clearance) in arguments
+            assert str(clearance_card) in arguments
+            resolved.write_text('{"status":"resolved"}\n', encoding="utf-8")
+            _write_completion_card(
+                resolver_card,
+                stage=command,
+                output_paths=(resolved,),
+            )
+        return 0
+
+    continuation = run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=consume_disclosure_outputs,
+    )
+    assert continuation["status"] == "completed"
+    assert consumed == [
+        "finalize-provenance-quarantine",
+        "resolve-post-recovery-documents",
+    ]
+    assert tuple(path.read_bytes() for path in provider_state) == provider_state_before
+    with sqlite3.connect(provider_state[0]) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM provider_attempts"
+        ).fetchone() == (attempt_count_before,)
+    assert (state_root / "receipts" / "0002-finalize-disclosure.json").is_file()
+    assert (state_root / "receipts" / "0003-resolve-documents.json").is_file()
+
+
+@pytest.mark.parametrize(
+    "missing_flag",
+    ["--authority-output", "--private-records-output"],
+)
+def test_run_cycle_requires_explicit_disclosure_receipt_outputs_before_execution(
+    tmp_path: Path,
+    missing_flag: str,
+) -> None:
+    init_card = tmp_path / "init" / "run-card.json"
+    review_card = tmp_path / "review" / "run-card.json"
+    review_arguments, _outputs, _state, _fixture = (
+        _adoptable_disclosure_review_completion(tmp_path, run_card=review_card)
+    )
+    flag_index = review_arguments.index(missing_flag)
+    del review_arguments[flag_index : flag_index + 2]
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(init_card),
+                    "--execute",
+                ],
+                run_card=init_card,
+            ),
+            _stage(
+                stage_id="review-disclosure",
+                command="review-disclosure-exceptions",
+                boundary="model_provider",
+                arguments=review_arguments,
+                run_card=review_card,
+            ),
+        ],
+    )
+    calls: list[str] = []
+
+    with pytest.raises(
+        CycleOrchestratorError,
+        match=rf"must provide exactly one {missing_flag}",
+    ):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=tmp_path / "state",
+            execute=True,
+            permissions=BoundaryPermissions(model_provider=True),
+            executor=lambda command, _arguments: calls.append(command) or 0,
+        )
+    assert calls == []
+    assert not (tmp_path / "state").exists()
+
+
+@pytest.mark.parametrize(
+    ("failure_kind", "expected_error"),
+    [
+        ("missing_output", "external output commitments differ"),
+        ("extra_output", "external output commitments differ"),
+        ("output_path", "output public_authority path differs"),
+        ("output_digest", "output public_authority commitment changed"),
+        ("missing_source", "external source commitments differ"),
+        ("extra_source", "external source commitments differ"),
+        ("source_path", "source routing_plan path differs"),
+        ("source_digest", "source routing_plan commitment changed"),
+        ("state_path", "external state paths differ"),
+        ("extra_state", "external state paths differ"),
+        ("missing_top_level", "external disclosure review is incomplete"),
+        ("extra_top_level", "external disclosure review is incomplete"),
+        ("authority_count", "external disclosure review is incomplete"),
+        ("document_digest", "external document commitment differs"),
+        ("document_count", "external document commitment differs"),
+        ("provider_call_type", "external disclosure review is incomplete"),
+    ],
+)
+def test_run_cycle_disclosure_adoption_rejects_inexact_commitments(
+    tmp_path: Path,
+    failure_kind: str,
+    expected_error: str,
+) -> None:
+    init_card = tmp_path / "init" / "run-card.json"
+    review_card = tmp_path / "review" / "run-card.json"
+    review_arguments, _review_outputs, _provider_state, _fixture = (
+        _adoptable_disclosure_review_completion(
+            tmp_path,
+            run_card=review_card,
+        )
+    )
+    state_root = tmp_path / "state"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(init_card),
+                    "--execute",
+                ],
+                run_card=init_card,
+            ),
+            _stage(
+                stage_id="review-disclosure",
+                command="review-disclosure-exceptions",
+                boundary="model_provider",
+                arguments=review_arguments,
+                run_card=review_card,
+            ),
+        ],
+    )
+    _receipt_initial_stage(
+        config=config,
+        state_root=state_root,
+        init_run_card=init_card,
+    )
+    card = json.loads(review_card.read_bytes())
+    outputs = cast(dict[str, dict[str, str]], card["output_commitments"])
+    sources = cast(dict[str, dict[str, object]], card["source_commitments"])
+    state_paths = cast(dict[str, str], card["state_paths"])
+    if failure_kind == "missing_output":
+        del outputs["private_records"]
+    elif failure_kind == "extra_output":
+        outputs["unexpected"] = dict(outputs["public_authority"])
+    elif failure_kind == "output_path":
+        outputs["public_authority"]["path"] = outputs["private_records"]["path"]
+    elif failure_kind == "output_digest":
+        outputs["public_authority"]["sha256"] = "sha256:" + "0" * 64
+    elif failure_kind == "missing_source":
+        del sources["plan_run_card"]
+    elif failure_kind == "extra_source":
+        sources["unexpected"] = dict(sources["routing_plan"])
+    elif failure_kind == "source_path":
+        sources["routing_plan"]["path"] = sources["exception_worksheet"]["path"]
+    elif failure_kind == "source_digest":
+        sources["routing_plan"]["sha256"] = "sha256:" + "0" * 64
+    elif failure_kind == "state_path":
+        state_paths["provider_journal"] = state_paths["provider_spend_authority"]
+    elif failure_kind == "extra_state":
+        state_paths["unexpected"] = state_paths["provider_journal"]
+    elif failure_kind == "missing_top_level":
+        del card["model_review_authority"]
+    elif failure_kind == "extra_top_level":
+        card["unexpected"] = False
+    elif failure_kind == "authority_count":
+        cast(dict[str, object], card["model_review_authority"])["decision_count"] = 2
+    elif failure_kind == "document_digest":
+        sources["document_root"]["tree_sha256"] = "sha256:not-a-digest"
+    elif failure_kind == "document_count":
+        sources["document_root"]["document_count"] = False
+    else:
+        card["provider_call_executed_this_run"] = "false"
+    review_card.write_bytes(canonical_json_bytes(card))
+
+    with pytest.raises(CycleOrchestratorError, match=expected_error):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=False,
+            adopt_next_completed=True,
+            external_stage_verifier=_accept_external_stage,
+            permissions=BoundaryPermissions(),
+            executor=lambda _command, _arguments: (_ for _ in ()).throw(
+                AssertionError("adoption must not execute the provider stage")
+            ),
+        )
+    assert not (state_root / "receipts" / "0001-review-disclosure.json").exists()
 
 
 def test_run_cycle_help_describes_safe_resume_boundaries(
