@@ -211,6 +211,46 @@ def test_eligibility_rejects_duplicate_structural_reasons() -> None:
         model_review.model_review_eligible_documents((row,))
 
 
+def test_eligibility_accepts_canonical_recovered_public_marker_row() -> None:
+    data = _pdf("medical record cited only as a public allegation")
+    row = _row(data)
+    row.update(
+        {
+            "free_or_purchased": "purchased",
+            "source_provider": "courtlistener.recap-fetch+pacer",
+            "source_url": None,
+            "source_url_or_reference": (
+                "https://www.courtlistener.com/api/rest/v4/recap-documents/entry-2/"
+            ),
+            "restriction_status": "public",
+            "restriction_evidence": [
+                "courtlistener_recap_fetch_fresh_detail_exact_match",
+                "courtlistener_recap_fetch_is_available_true",
+                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_no_positive_private_marker",
+            ],
+            "is_sealed": False,
+            "route_reasons": ["automated_marker_present"],
+            "recovered_public_lineage": {
+                "candidate_id": "courtlistener-docket-1",
+                "source_document_id": "entry-2",
+                "recovery_run_card_sha256": "1" * 64,
+                "recovery_manifest_sha256": "2" * 64,
+                "recovery_restriction_evidence_sha256": "3" * 64,
+                "purchase_state_sha256": "4" * 64,
+                "purchase_operation_sha256": "5" * 64,
+                "purchase_operation_key": "00000000-0000-4000-8000-000000000000",
+                "fresh_recap_detail_sha256": "6" * 64,
+            },
+        }
+    )
+
+    assert model_review.model_review_eligible_documents((row,)) == (row,)
+    changed = dict(row)
+    changed["source_provider"] = "courtlistener_recap_fetch"
+    assert model_review.model_review_eligible_documents((changed,)) == ()
+
+
 def test_response_validation_and_public_projection_do_not_leak_raw_text() -> None:
     data = _pdf(
         "ordinary procedural history",

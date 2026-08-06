@@ -899,11 +899,11 @@ def test_url_free_recovered_marker_model_clearance_reaches_source_descriptor(
             "sha256": content_sha256,
             "byte_count": len(data),
             "free_or_purchased": "purchased",
-            "source_provider": "courtlistener_recap_fetch",
-            "source_url": None,
+            "source_provider": "courtlistener.recap-fetch+pacer",
             "fresh_recap_detail_sha256": material["provider_detail_sha256"],
         }
     )
+    download.pop("source_url", None)
     restrictions = inputs["restriction_records"]
     requests = [
         {
@@ -939,8 +939,12 @@ def test_url_free_recovered_marker_model_clearance_reaches_source_descriptor(
         "candidate_id": "case-1",
         "source_document_id": "123",
         "recovery_run_card_sha256": "3" * 64,
-        "recovery_manifest_sha256": "4" * 64,
-        "recovery_restriction_evidence_sha256": "5" * 64,
+        "recovery_manifest_sha256": hashlib.sha256(
+            _jsonl_bytes([download])
+        ).hexdigest(),
+        "recovery_restriction_evidence_sha256": hashlib.sha256(
+            _jsonl_bytes(restrictions)
+        ).hexdigest(),
         "purchase_state_sha256": "6" * 64,
         "purchase_operation_sha256": _hash(operation),
         "purchase_operation_key": operation["operation_key"],

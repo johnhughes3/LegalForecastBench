@@ -250,12 +250,12 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
     manifest[0].update(
         {
             "free_or_purchased": "purchased",
-            "source_provider": "courtlistener_recap_fetch",
-            "source_url": None,
+            "source_provider": "courtlistener.recap-fetch+pacer",
             "purchase_operation_key": operation_key,
             "fresh_recap_detail_sha256": fresh_sha,
         }
     )
+    manifest[0].pop("source_url")
     requests[0]["free_or_purchased"] = "purchased"
     restrictions[0].update(
         {
@@ -295,13 +295,38 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
         "case_relevance_bytes": _jsonl(relevance),
         "document_scanner": lambda _: scan,
     }
-    plan_without_capability = build_provenance_clearance_plan_v3(
-        requests, manifest, restrictions, relevance, **kwargs
+    with pytest.raises(ProvenanceClearanceError, match="verifier-issued"):
+        build_provenance_clearance_plan_v3(
+            requests, manifest, restrictions, relevance, **kwargs
+        )
+    explicit_null_manifest = deepcopy(manifest)
+    explicit_null_manifest[0]["source_url"] = None
+    with pytest.raises(ProvenanceClearanceError, match="must omit source_url"):
+        build_provenance_clearance_plan_v3(
+            requests,
+            explicit_null_manifest,
+            restrictions,
+            relevance,
+            **{
+                **kwargs,
+                "download_manifest_bytes": _jsonl(explicit_null_manifest),
+            },
+        )
+    empty_capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
+        []
     )
-    assert (
-        cast(list[dict[str, object]], plan_without_capability["documents"])[0]["route"]
-        == "exception_review"
-    )
+    with pytest.raises(ProvenanceClearanceError, match="must omit source_url"):
+        build_provenance_clearance_plan_v3(
+            requests,
+            explicit_null_manifest,
+            restrictions,
+            relevance,
+            **{
+                **kwargs,
+                "download_manifest_bytes": _jsonl(explicit_null_manifest),
+            },
+            verified_recovery_capability=empty_capability,
+        )
     with pytest.raises(ProvenanceClearanceError, match="verifier-issued capability"):
         build_provenance_clearance_plan_v3(
             requests,
@@ -316,8 +341,10 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
         "candidate_id": "case-a",
         "source_document_id": "entry-1",
         "recovery_run_card_sha256": "3" * 64,
-        "recovery_manifest_sha256": "4" * 64,
-        "recovery_restriction_evidence_sha256": "5" * 64,
+        "recovery_manifest_sha256": hashlib.sha256(_jsonl(manifest)).hexdigest(),
+        "recovery_restriction_evidence_sha256": hashlib.sha256(
+            _jsonl(restrictions)
+        ).hexdigest(),
         "purchase_state_sha256": "6" * 64,
         "purchase_operation_sha256": "7" * 64,
         "purchase_operation_key": operation_key,
@@ -347,6 +374,223 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
         "courtlistener-rest://recap-documents/entry-1"
     )
 
+    for field, value in (
+        ("source_provider", "courtlistener_recap_fetch"),
+        ("source_provider", "other"),
+        ("source_url", None),
+        ("source_url", "https://storage.courtlistener.com/recap/a.pdf"),
+        ("purchase_operation_key", "11111111-1111-4111-8111-111111111111"),
+        ("fresh_recap_detail_sha256", "9" * 64),
+    ):
+        changed_manifest = deepcopy(manifest)
+        changed_manifest[0][field] = value
+        changed_kwargs = {
+            **kwargs,
+            "download_manifest_bytes": _jsonl(changed_manifest),
+        }
+        with pytest.raises(ProvenanceClearanceError):
+            build_provenance_clearance_plan_v3(
+                requests,
+                changed_manifest,
+                restrictions,
+                relevance,
+                **changed_kwargs,
+                verified_recovery_capability=capability,
+            )
+
+    changed_data = b"different authenticated document bytes"
+    (root / cast(str, manifest[0]["local_path"])).write_bytes(changed_data)
+    changed_manifest = deepcopy(manifest)
+    changed_manifest[0]["sha256"] = hashlib.sha256(changed_data).hexdigest()
+    changed_manifest[0]["byte_count"] = len(changed_data)
+    changed_requests = deepcopy(requests)
+    changed_requests[0]["sha256"] = changed_manifest[0]["sha256"]
+    changed_requests[0]["byte_count"] = changed_manifest[0]["byte_count"]
+    with pytest.raises(ProvenanceClearanceError, match="does not prove"):
+        build_provenance_clearance_plan_v3(
+            changed_requests,
+            changed_manifest,
+            restrictions,
+            relevance,
+            **{
+                **kwargs,
+                "review_requests_bytes": _jsonl(changed_requests),
+                "download_manifest_bytes": _jsonl(changed_manifest),
+            },
+            verified_recovery_capability=capability,
+        )
+
+    changed_restrictions = deepcopy(restrictions)
+    changed_restrictions[0]["schema_version"] = "tampered"
+    with pytest.raises(ProvenanceClearanceError, match="does not prove"):
+        build_provenance_clearance_plan_v3(
+            requests,
+            manifest,
+            changed_restrictions,
+            relevance,
+            **{
+                **kwargs,
+                "restriction_evidence_bytes": _jsonl(changed_restrictions),
+            },
+            verified_recovery_capability=capability,
+        )
+
+
+def test_v3_recovered_public_requires_exact_capability_coverage(tmp_path: Path) -> None:
+    root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
+    manifest[0].update(
+        {
+            "free_or_purchased": "purchased",
+            "source_provider": "courtlistener.recap-fetch+pacer",
+        }
+    )
+    manifest[0].pop("source_url")
+    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
+        []
+    )
+
+    with pytest.raises(ProvenanceClearanceError, match="coverage"):
+        build_provenance_clearance_plan_v3(
+            requests,
+            manifest,
+            restrictions,
+            relevance,
+            document_root=root,
+            review_requests_bytes=_jsonl(requests),
+            download_manifest_bytes=_jsonl(manifest),
+            restriction_evidence_bytes=_jsonl(restrictions),
+            case_relevance_bytes=_jsonl(relevance),
+            verified_recovery_capability=capability,
+        )
+
+
+def test_v3_mixed_manifest_preserves_legacy_row_and_scopes_recovery_capability(
+    tmp_path: Path,
+) -> None:
+    root, requests, manifest, restrictions, relevance = _fixture(tmp_path)
+    recovered_data = b"recovered document bytes"
+    recovered_relative = "case-a/entry-2.pdf"
+    (root / recovered_relative).write_bytes(recovered_data)
+    fresh_sha = "2" * 64
+    operation_key = "00000000-0000-4000-8000-000000000000"
+    manifest.append(
+        {
+            "candidate_id": "case-a",
+            "source_document_id": "entry-2",
+            "local_path": recovered_relative,
+            "sha256": hashlib.sha256(recovered_data).hexdigest(),
+            "byte_count": len(recovered_data),
+            "free_or_purchased": "purchased",
+            "source_provider": "courtlistener.recap-fetch+pacer",
+            "purchase_operation_key": operation_key,
+            "fresh_recap_detail_sha256": fresh_sha,
+        }
+    )
+    recovered_evidence = [
+        "courtlistener_recap_fetch_fresh_detail_exact_match",
+        "courtlistener_recap_fetch_is_available_true",
+        "courtlistener_recap_fetch_is_sealed_false",
+        "courtlistener_recap_fetch_no_positive_private_marker",
+    ]
+    restrictions.append(
+        {
+            "candidate_id": "case-a",
+            "source_document_id": "entry-2",
+            "source_provider": "courtlistener_recap_fetch_fresh_detail",
+            "fresh_recap_detail_sha256": fresh_sha,
+            "is_available": True,
+            "is_sealed": False,
+            "is_private": None,
+            "redaction_or_seal_status": "public",
+            "restriction_status": "public",
+            "restriction_evidence": recovered_evidence,
+        }
+    )
+    requests.append(
+        {
+            "schema_version": "legalforecast.disclosure_review_request.v1",
+            "candidate_id": "case-a",
+            "source_document_id": "entry-2",
+            "sha256": manifest[1]["sha256"],
+            "byte_count": len(recovered_data),
+            "free_or_purchased": "purchased",
+            "restriction_status": "public",
+            "restriction_evidence": recovered_evidence,
+            "required_human_decision": "cleared_or_quarantined",
+        }
+    )
+    cast(list[dict[str, object]], relevance[0]["documents"]).append(
+        {
+            "source_document_id": "entry-2",
+            "source_url_or_reference": (
+                "https://www.courtlistener.com/api/rest/v4/recap-documents/entry-2/"
+            ),
+            "model_visible": False,
+            "contains_target_outcome": True,
+        }
+    )
+    lineage = {
+        "candidate_id": "case-a",
+        "source_document_id": "entry-2",
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": hashlib.sha256(_jsonl(manifest)).hexdigest(),
+        "recovery_restriction_evidence_sha256": hashlib.sha256(
+            _jsonl(restrictions)
+        ).hexdigest(),
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": "7" * 64,
+        "purchase_operation_key": operation_key,
+        "fresh_recap_detail_sha256": fresh_sha,
+    }
+    capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
+        [lineage]
+    )
+    scan = DisclosurePdfScan(
+        parsed_page_count=1,
+        text_scanned_page_numbers=(1,),
+        ocr_scanned_page_numbers=(),
+        unscanned_page_numbers=(),
+        coverage_status="complete",
+        diagnostics=(),
+        automated_markers=(),
+    )
+    kwargs = {
+        "document_root": root,
+        "review_requests_bytes": _jsonl(requests),
+        "download_manifest_bytes": _jsonl(manifest),
+        "restriction_evidence_bytes": _jsonl(restrictions),
+        "case_relevance_bytes": _jsonl(relevance),
+        "document_scanner": lambda _: scan,
+    }
+    plan = build_provenance_clearance_plan_v3(
+        requests,
+        manifest,
+        restrictions,
+        relevance,
+        **kwargs,
+        verified_recovery_capability=capability,
+    )
+    legacy, recovered = cast(list[dict[str, object]], plan["documents"])
+    assert legacy["route"] == "auto_clear"
+    assert legacy["source_url"] == manifest[0]["source_url"]
+    assert "recovered_public_lineage" not in legacy
+    assert recovered["route"] == "auto_clear"
+    assert recovered["recovered_public_lineage"] == lineage
+
+    extra_lineage = {**lineage, "source_document_id": "entry-extra"}
+    extra_capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
+        [lineage, extra_lineage]
+    )
+    with pytest.raises(ProvenanceClearanceError, match="coverage"):
+        build_provenance_clearance_plan_v3(
+            requests,
+            manifest,
+            restrictions,
+            relevance,
+            **kwargs,
+            verified_recovery_capability=extra_capability,
+        )
+
 
 @pytest.mark.parametrize(
     ("field", "value"),
@@ -364,7 +608,7 @@ def test_v3_recovered_public_requires_verifier_capability_and_exact_closed_proof
         ("manifest_fresh_recap_detail_sha256", "9" * 64),
     ),
 )
-def test_v3_recovered_public_contradictions_remain_quarantined(
+def test_v3_recovered_public_rejects_contradictions_and_routes_scan_exceptions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     field: str,
@@ -374,12 +618,12 @@ def test_v3_recovered_public_contradictions_remain_quarantined(
     manifest[0].update(
         {
             "free_or_purchased": "purchased",
-            "source_provider": "courtlistener_recap_fetch",
-            "source_url": None,
+            "source_provider": "courtlistener.recap-fetch+pacer",
             "purchase_operation_key": "00000000-0000-4000-8000-000000000000",
             "fresh_recap_detail_sha256": "2" * 64,
         }
     )
+    manifest[0].pop("source_url")
     requests[0]["free_or_purchased"] = "purchased"
     evidence = [
         "courtlistener_recap_fetch_fresh_detail_exact_match",
@@ -412,8 +656,10 @@ def test_v3_recovered_public_contradictions_remain_quarantined(
         "candidate_id": "case-a",
         "source_document_id": "entry-1",
         "recovery_run_card_sha256": "3" * 64,
-        "recovery_manifest_sha256": "4" * 64,
-        "recovery_restriction_evidence_sha256": "5" * 64,
+        "recovery_manifest_sha256": hashlib.sha256(_jsonl(manifest)).hexdigest(),
+        "recovery_restriction_evidence_sha256": hashlib.sha256(
+            _jsonl(restrictions)
+        ).hexdigest(),
         "purchase_state_sha256": "6" * 64,
         "purchase_operation_sha256": "7" * 64,
         "purchase_operation_key": "00000000-0000-4000-8000-000000000000",
@@ -422,31 +668,43 @@ def test_v3_recovered_public_contradictions_remain_quarantined(
     capability = provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
         [lineage]
     )
-    plan = build_provenance_clearance_plan_v3(
-        requests,
-        manifest,
-        restrictions,
-        relevance,
-        document_root=root,
-        review_requests_bytes=_jsonl(requests),
-        download_manifest_bytes=_jsonl(manifest),
-        restriction_evidence_bytes=_jsonl(restrictions),
-        case_relevance_bytes=_jsonl(relevance),
-        document_scanner=lambda _: DisclosurePdfScan(
-            parsed_page_count=1,
-            text_scanned_page_numbers=(() if field == "scan_coverage_status" else (1,)),
-            ocr_scanned_page_numbers=(),
-            unscanned_page_numbers=((1,) if field == "scan_coverage_status" else ()),
-            coverage_status=(
-                cast(str, value) if field == "scan_coverage_status" else "complete"
+
+    def build() -> dict[str, object]:
+        return build_provenance_clearance_plan_v3(
+            requests,
+            manifest,
+            restrictions,
+            relevance,
+            document_root=root,
+            review_requests_bytes=_jsonl(requests),
+            download_manifest_bytes=_jsonl(manifest),
+            restriction_evidence_bytes=_jsonl(restrictions),
+            case_relevance_bytes=_jsonl(relevance),
+            document_scanner=lambda _: DisclosurePdfScan(
+                parsed_page_count=1,
+                text_scanned_page_numbers=(
+                    () if field == "scan_coverage_status" else (1,)
+                ),
+                ocr_scanned_page_numbers=(),
+                unscanned_page_numbers=(
+                    (1,) if field == "scan_coverage_status" else ()
+                ),
+                coverage_status=(
+                    cast(str, value) if field == "scan_coverage_status" else "complete"
+                ),
+                diagnostics=(),
+                automated_markers=(
+                    cast(tuple[str, ...], value) if field == "scan_markers" else ()
+                ),
             ),
-            diagnostics=(),
-            automated_markers=(
-                cast(tuple[str, ...], value) if field == "scan_markers" else ()
-            ),
-        ),
-        verified_recovery_capability=capability,
-    )
+            verified_recovery_capability=capability,
+        )
+
+    if field not in {"scan_coverage_status", "scan_markers"}:
+        with pytest.raises(ProvenanceClearanceError, match="does not prove"):
+            build()
+        return
+    plan = build()
     document = cast(list[dict[str, object]], plan["documents"])[0]
     assert document["route"] == "exception_review"
     if field in {"scan_coverage_status", "scan_markers"}:
@@ -490,8 +748,6 @@ def test_v3_recovered_public_contradictions_remain_quarantined(
             require_clearance_policy(
                 record, key=("case-a", "entry-1"), label="resolved document"
             )
-    else:
-        assert "recovered_public_lineage" not in document
 
 
 def test_v3_worksheet_does_not_alias_plan_documents(tmp_path: Path) -> None:

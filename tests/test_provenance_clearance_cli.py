@@ -511,27 +511,28 @@ def test_recovered_public_capability_flows_through_planner_and_finalizer(
     manifest[0].update(
         {
             "free_or_purchased": "purchased",
-            "source_provider": "courtlistener_recap_fetch",
-            "source_url": None,
+            "source_provider": "courtlistener.recap-fetch+pacer",
             "purchase_operation_key": operation_key,
             "fresh_recap_detail_sha256": fresh_sha,
         }
     )
+    manifest[0].pop("source_url")
     restrictions[0].update(
         {
             "schema_version": "legalforecast.post_recovery_restriction_evidence.v1",
             "source_provider": "courtlistener_recap_fetch_fresh_detail",
             "fresh_recap_detail_sha256": fresh_sha,
             "is_available": True,
-            "is_sealed": False,
+            "is_sealed": None,
             "is_private": None,
             "redaction_or_seal_status": "public",
             "restriction_status": "public",
             "restriction_evidence": [
                 "courtlistener_recap_fetch_fresh_detail_exact_match",
                 "courtlistener_recap_fetch_is_available_true",
-                "courtlistener_recap_fetch_is_sealed_false",
+                "courtlistener_recap_fetch_is_sealed_unknown",
                 "courtlistener_recap_fetch_no_positive_private_marker",
+                "courtlistener_recap_fetch_public_download_url_allowlisted",
             ],
         }
     )

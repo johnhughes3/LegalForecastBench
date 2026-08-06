@@ -14,6 +14,9 @@ from typing import cast
 from legalforecast.ingestion.canonical_json import (
     canonical_json_bytes as _canonical_json_bytes,
 )
+from legalforecast.ingestion.courtlistener_provider_identity import (
+    COURTLISTENER_RECAP_FETCH_PROVIDER,
+)
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION,
     PDF_SCAN_SCHEMA_VERSION_V1,
@@ -377,6 +380,62 @@ def build_provenance_clearance_plan_v3(
 ) -> dict[str, object]:
     """Build additive v3 routing with reviewer-neutral exception vocabulary."""
 
+    _require_records_match(review_requests, review_requests_bytes, "review requests")
+    _require_records_match(download_manifest, download_manifest_bytes, "manifest")
+    _require_records_match(
+        restriction_evidence,
+        restriction_evidence_bytes,
+        "restriction evidence",
+    )
+    _require_records_match(case_relevance, case_relevance_bytes, "case relevance")
+    recovered: Mapping[tuple[str, str], Mapping[str, object]] = (
+        {}
+        if verified_recovery_capability is None
+        else _consume_recovered_public_clearance_capability(
+            verified_recovery_capability
+        )
+    )
+    manifest_index = _index(download_manifest, "manifest")
+    restriction_index = _index(restriction_evidence, "restriction evidence")
+    relevance_index = _relevance_index(case_relevance)
+    missing_url_keys = {
+        key
+        for key, source in manifest_index.items()
+        if source.get("source_url") is None
+    }
+    url_free_keys = {
+        key for key, source in manifest_index.items() if "source_url" not in source
+    }
+    if missing_url_keys != url_free_keys:
+        raise ProvenanceClearanceError(
+            "recovered-public URL-free sources must omit source_url"
+        )
+    if missing_url_keys and verified_recovery_capability is None:
+        raise ProvenanceClearanceError(
+            "URL-free disclosure sources require a verifier-issued "
+            "recovered-public capability"
+        )
+    if verified_recovery_capability is not None and set(recovered) != url_free_keys:
+        raise ProvenanceClearanceError(
+            "recovered-public capability coverage differs from URL-free manifest"
+        )
+    recovery_manifest_sha256 = hashlib.sha256(download_manifest_bytes).hexdigest()
+    recovery_restriction_evidence_sha256 = hashlib.sha256(
+        restriction_evidence_bytes
+    ).hexdigest()
+    for key in sorted(url_free_keys):
+        if not _verified_recovered_public_document(
+            manifest_index[key],
+            restriction=restriction_index.get(key, {}),
+            visibility=relevance_index.get(key, {}),
+            lineage=recovered[key],
+            recovery_manifest_sha256=recovery_manifest_sha256,
+            recovery_restriction_evidence_sha256=(recovery_restriction_evidence_sha256),
+        ):
+            raise ProvenanceClearanceError(
+                f"recovered-public capability does not prove URL-free source: {key}"
+            )
+
     legacy = build_provenance_clearance_plan(
         review_requests,
         download_manifest,
@@ -390,28 +449,13 @@ def build_provenance_clearance_plan_v3(
         document_bytes_by_relative_path=document_bytes_by_relative_path,
         document_scanner=document_scanner,
     )
-    recovered: Mapping[tuple[str, str], Mapping[str, object]] = (
-        {}
-        if verified_recovery_capability is None
-        else _consume_recovered_public_clearance_capability(
-            verified_recovery_capability
-        )
-    )
-    manifest_index = _index(download_manifest, "manifest")
-    restriction_index = _index(restriction_evidence, "restriction evidence")
-    relevance_index = _relevance_index(case_relevance)
     legacy_documents = cast(list[dict[str, object]], legacy["documents"])
     documents: list[dict[str, object]] = []
     for legacy_document in legacy_documents:
         document = dict(legacy_document)
         key = _key(document)
         recovery_lineage = recovered.get(key)
-        if recovery_lineage is not None and _verified_recovered_public_document(
-            manifest_index[key],
-            restriction=restriction_index[key],
-            visibility=relevance_index[key],
-            lineage=recovery_lineage,
-        ):
+        if recovery_lineage is not None:
             document["recovered_public_lineage"] = dict(recovery_lineage)
             document["route_reasons"] = [
                 reason
@@ -1167,13 +1211,15 @@ def _verified_recovered_public_document(
     restriction: Mapping[str, object],
     visibility: Mapping[str, object],
     lineage: Mapping[str, object],
+    recovery_manifest_sha256: str,
+    recovery_restriction_evidence_sha256: str,
 ) -> bool:
     """Accept only the exact closed post-purchase CourtListener proof."""
 
     if (
-        source.get("source_provider") != "courtlistener_recap_fetch"
+        source.get("source_provider") != COURTLISTENER_RECAP_FETCH_PROVIDER
         or source.get("free_or_purchased") != "purchased"
-        or source.get("source_url") is not None
+        or "source_url" in source
         or restriction.get("source_provider")
         != "courtlistener_recap_fetch_fresh_detail"
         or restriction.get("is_available") is not True
@@ -1194,6 +1240,9 @@ def _verified_recovered_public_document(
         isinstance(fresh_sha, str)
         and source.get("fresh_recap_detail_sha256") == fresh_sha
         and lineage.get("fresh_recap_detail_sha256") == fresh_sha
+        and lineage.get("recovery_manifest_sha256") == recovery_manifest_sha256
+        and lineage.get("recovery_restriction_evidence_sha256")
+        == recovery_restriction_evidence_sha256
         and source.get("purchase_operation_key")
         == lineage.get("purchase_operation_key")
     )

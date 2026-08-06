@@ -23,6 +23,9 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     PurchaseMaterialState,
 )
+from legalforecast.ingestion.courtlistener_provider_identity import (
+    COURTLISTENER_RECAP_FETCH_PROVIDER,
+)
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     is_exact_unknown_status_evidence,
@@ -40,7 +43,6 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
     COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
 )
 
-COURTLISTENER_RECAP_FETCH_PROVIDER = "courtlistener.recap-fetch+pacer"
 _DEFAULT_BASE_URL = "https://www.courtlistener.com/api/rest/v4"
 _ALLOWED_HOSTS = frozenset({"www.courtlistener.com"})
 _RETRYABLE = frozenset({429, 500, 502, 503, 504})

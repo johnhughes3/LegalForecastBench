@@ -29,6 +29,9 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevServerError,
 )
 from legalforecast.ingestion.cohort_policy import verify_cohort_policy
+from legalforecast.ingestion.courtlistener_provider_identity import (
+    COURTLISTENER_RECAP_FETCH_PROVIDER as _COURTLISTENER_RECAP_FETCH_PROVIDER,
+)
 from legalforecast.ingestion.missing_core_budget import (
     CaseDocumentCapExceededError,
     MissingCoreBudgetPlan,
@@ -57,7 +60,6 @@ COURTLISTENER_URL_COMMITMENT_CORRECTION_SCHEMA_VERSION = (
     "legalforecast.courtlistener_url_commitment_correction.v1"
 )
 _COURTLISTENER_URL_COMMITMENT_CORRECTION_KEY = "courtlistener_url_commitment_correction"
-_COURTLISTENER_RECAP_FETCH_PROVIDER = "courtlistener.recap-fetch+pacer"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _INITIALIZATION_ID = re.compile(r"[0-9a-f]{32}")
 _CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
@@ -3443,7 +3445,7 @@ class CaseDevPurchaseJournal:
         )
         response = {
             **prior,
-            "source_provider": "courtlistener.recap-fetch+pacer",
+            "source_provider": _COURTLISTENER_RECAP_FETCH_PROVIDER,
             "reservation_usd": str(row["reservation_usd"]),
             "queue_id": queue_id,
             "reservation_id": reservation_id,
@@ -3546,8 +3548,9 @@ class CaseDevPurchaseJournal:
                     if row["response_json"] is None
                     else cast(Mapping[str, Any], json.loads(str(row["response_json"])))
                 )
-                if prior_response.get("source_provider") == (
-                    "courtlistener.recap-fetch+pacer"
+                if (
+                    prior_response.get("source_provider")
+                    == _COURTLISTENER_RECAP_FETCH_PROVIDER
                 ):
                     response = {
                         **prior_response,
@@ -4014,7 +4017,7 @@ class CaseDevPurchaseJournal:
                     source_document_id=document_id,
                     status=CaseDevPacerPurchaseStatus.QUARANTINED,
                     reason="unknown_status_material_pending_clearance",
-                    source_provider="courtlistener.recap-fetch+pacer",
+                    source_provider=_COURTLISTENER_RECAP_FETCH_PROVIDER,
                 )
             response_json = row["response_json"]
             if response_json is not None:
