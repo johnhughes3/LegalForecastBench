@@ -2246,7 +2246,7 @@ The canonical exact-100 descriptor path must use one of the v3 continuations in 
 
 ```bash
 initial_disclosure_root="$preparation_root/purchased-recovery-disclosure"
-initial_disclosure_private_root=<absolute-controlled-private-disclosure-root>
+initial_disclosure_private_root="/absolute/path/to/controlled-private-disclosure-root"
 initial_disclosure_cycle_root="$preparation_root/purchased-recovery-disclosure-cycle"
 initial_disclosure_config="$initial_disclosure_cycle_root/acquisition-cycle.json"
 initial_disclosure_state_root="$initial_disclosure_cycle_root/orchestrator"
