@@ -27,6 +27,8 @@ Use the dedicated `/agents/sandbox/legalforecastbench/parser` or `/agents/sandbo
 The canonical checked-in target-100 path runs direct CourtListener RECAP Fetch purchase and recovery through `/agents/sandbox/legalforecastbench/acquisition`.
 The paid command must include `--direct-courtlistener-purchase`, and its acquisition view must provide nonempty `COURTLISTENER_API_TOKEN`, `PACER_USERNAME`, and `PACER_PASSWORD`.
 Direct recovery requires only `COURTLISTENER_API_TOKEN` and never acknowledges or incurs a new fee.
+The two direct transport-specific preflights are not exact-inventory isolation checks: the shared acquisition view may also contain other acquisition-stage credentials and the canonical provider secrets used by dependent references.
+They prove that the credentials required for the selected direct operation are nonempty and that broker-client identity is absent, without printing or exporting a value.
 An optional broker transport may instead use `/agents/sandbox/legalforecastbench/recap-fetch-broker-client` with its separate five-name client identity, but it does not weaken or replace the purchase policy, exact successor approval, attempt policy, ledger, budget caps, explicit fee acknowledgement, or immutable receipt gates.
 These and `/agents/sandbox/legalforecastbench/acquisition` are the launcher's exact dedicated sandbox paths; every root, alias, parent, and unrelated path is rejected before the sandbox helper can run.
 The parser stage view must resolve exactly `MISTRAL_API_KEY`; the labeling stage view must resolve exactly `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY`.
@@ -35,8 +37,9 @@ Reference resolution requires the sandbox identity to read both the exact stage 
 Scope the identity's grants to those two paths only; it must not read a sibling sandbox or another LegalForecastBench stage path, and neither grant may be broadened to compensate for a broken reference.
 Do not copy credential values.
 Do not enable folder imports: an import would expose acquisition and unrelated provider credentials to the stage process.
-The masked Infisical UI inventory is the authoritative exact-inventory check and must match the stage allowlist before the stage starts.
-Then run the defense-in-depth sentinels below from an allowlisted empty caller environment; they inspect zsh parameter-name metadata, expand required values only to confirm they are nonempty, and reject every known cross-stage credential without printing or exporting a value:
+The masked Infisical UI inventory is the authoritative exact-inventory check and must match the parser or labeling stage allowlist before that stage starts.
+Then run the applicable defense-in-depth sentinel below from an allowlisted empty caller environment; each inspects zsh parameter-name metadata and expands required values only to confirm they are nonempty.
+The first direct preflight is for a paid purchase and the second is for token-only recovery; parser and labeling sentinels reject every known cross-stage credential without printing or exporting a value:
 
 ```bash
 env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
@@ -44,7 +47,16 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
   --path /agents/sandbox/legalforecastbench/acquisition \
   -- zsh -dfc '
     required=(COURTLISTENER_API_TOKEN PACER_USERNAME PACER_PASSWORD)
-    forbidden=(RECAP_FETCH_BROKER_URL RECAP_FETCH_BROKER_MACHINE_ID RECAP_FETCH_BROKER_PRIVATE_KEY_JWK RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256 MISTRAL_API_KEY OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY)
+    forbidden=(RECAP_FETCH_BROKER_URL RECAP_FETCH_BROKER_MACHINE_ID RECAP_FETCH_BROKER_PRIVATE_KEY_JWK RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256)
+    for name in $required; do (( ${+parameters[$name]} )) && [[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done
+    for name in $forbidden; do (( ! ${+parameters[$name]} )) || { print -u2 -- "$name=unexpected"; exit 1; }; done'
+
+env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" TERM="${TERM:-dumb}" \
+  infisical-agent-sandbox run --env dev \
+  --path /agents/sandbox/legalforecastbench/acquisition \
+  -- zsh -dfc '
+    required=(COURTLISTENER_API_TOKEN)
+    forbidden=(RECAP_FETCH_BROKER_URL RECAP_FETCH_BROKER_MACHINE_ID RECAP_FETCH_BROKER_PRIVATE_KEY_JWK RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256)
     for name in $required; do (( ${+parameters[$name]} )) && [[ -n ${(P)name} ]] || { print -u2 -- "$name=missing"; exit 1; }; done
     for name in $forbidden; do (( ! ${+parameters[$name]} )) || { print -u2 -- "$name=unexpected"; exit 1; }; done'
 
@@ -67,7 +79,8 @@ env -i PATH="$PATH" HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" SHELL="$SHELL" 
     for name in $forbidden; do (( ! ${+parameters[$name]} )) || { print -u2 -- "$name=unexpected"; exit 1; }; done'
 ```
 
-The sentinels are not a substitute for the complete masked UI inventory because their forbidden lists are intentionally finite.
+The parser, labeling, and broker-client sentinels are not a substitute for their complete masked UI inventories because their forbidden lists are intentionally finite.
+The acquisition preflights intentionally do not impose an exact inventory on the shared acquisition view; they separate direct transport from broker-client transport and verify only the credentials needed for the selected direct operation.
 Do not broaden an Infisical path to make a unit start.
 
 The broker-client view is deliberately different from the direct acquisition view and the dependent-secret parser and labeling views, and it is used only by the optional broker transport.
