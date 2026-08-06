@@ -150,6 +150,9 @@ class RankedReserveReplacementPlan:
     replacement_event_record_sha256s: tuple[str, ...]
     tranche_event_record_sha256s: tuple[str, ...]
     legacy_replay_proof: JsonRecord | None = None
+    legacy_precursor_committed_spend: Decimal | None = None
+    legacy_precursor_reserved_spend: Decimal | None = None
+    legacy_precursor_remaining_headroom: Decimal | None = None
 
     @property
     def active_candidate_ids(self) -> tuple[str, ...]:
@@ -392,6 +395,7 @@ def plan_ranked_reserve_replacements(
         )
     terminal_disposition: JsonRecord | None = None
     legacy_replay_proof: JsonRecord | None = None
+    legacy_precursor_budget: tuple[Decimal, Decimal, Decimal] | None = None
     try:
         verified_retrieval_records = (
             verified_residual_terminal_records(
@@ -526,6 +530,11 @@ def plan_ranked_reserve_replacements(
             raise RankedReserveReplacementError(
                 "authenticated legacy replay differs from fresh reconstruction"
             )
+        legacy_precursor_budget = _reconstruct_legacy_precursor_budget(
+            purchase_journal=purchase_journal,
+            prior_events=prior_events,
+            current_committed=committed,
+        )
     terminal_by_id = _verify_terminal_records(
         terminal_records,
         {
@@ -764,6 +773,15 @@ def plan_ranked_reserve_replacements(
         replacement_event_record_sha256s=tuple(event_hashes),
         tranche_event_record_sha256s=tranche_event_hashes,
         legacy_replay_proof=legacy_replay_proof,
+        legacy_precursor_committed_spend=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[0]
+        ),
+        legacy_precursor_reserved_spend=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[1]
+        ),
+        legacy_precursor_remaining_headroom=(
+            None if legacy_precursor_budget is None else legacy_precursor_budget[2]
+        ),
     )
 
 
@@ -889,6 +907,14 @@ def bind_ranked_reserve_outputs(
             "replacement budget-plan output differs from the planned record"
         )
     if plan.legacy_replay_proof is not None:
+        if (
+            plan.legacy_precursor_committed_spend is None
+            or plan.legacy_precursor_reserved_spend is None
+            or plan.legacy_precursor_remaining_headroom is None
+        ):
+            raise RankedReserveReplacementError(
+                "legacy ranked replay lacks reconstructed monetary state"
+            )
         proof = validate_authenticated_legacy_replay(plan.legacy_replay_proof)
         precursor = cast(JsonRecord, proof["precursor_result"])
         try:
@@ -920,9 +946,11 @@ def bind_ranked_reserve_outputs(
             ),
             "active_case_count": len(plan.active_selection),
             "replacement_case_count": len(plan.replacement_selection),
-            "committed_spend_usd": plan.committed_spend_usd,
-            "reserved_replacement_spend_usd": (plan.reserved_replacement_spend_usd),
-            "remaining_headroom_usd": plan.remaining_headroom_usd,
+            "committed_spend_usd": _money(plan.legacy_precursor_committed_spend),
+            "reserved_replacement_spend_usd": _money(
+                plan.legacy_precursor_reserved_spend
+            ),
+            "remaining_headroom_usd": _money(plan.legacy_precursor_remaining_headroom),
             "successor_approval_required": plan.successor_approval_required,
             "replacement_event_record_sha256s": list(
                 plan.replacement_event_record_sha256s
@@ -1457,6 +1485,79 @@ def _operation_cap_amount(operation: Mapping[str, Any]) -> tuple[bool, Decimal]:
     ):
         return True, max(reservation, actual)
     return False, Decimal("0.00")
+
+
+def _reconstruct_legacy_precursor_budget(
+    *,
+    purchase_journal: CaseDevPurchaseJournal,
+    prior_events: Sequence[Mapping[str, Any]],
+    current_committed: Decimal,
+) -> tuple[Decimal, Decimal, Decimal]:
+    """Recover the v2 budget view before its reserved tranche was purchased."""
+
+    policy = purchase_journal.policy
+    operations = {
+        _required_string(
+            operation, "source_document_id", "purchase operation"
+        ): operation
+        for operation in purchase_journal.operation_records()
+    }
+    event_documents: set[str] = set()
+    transitioned_spend = Decimal("0.00")
+    historical_reserved = Decimal("0.00")
+    for event in prior_events:
+        promoted_id = _required_string(event, "promoted_candidate_id", "event")
+        raw_documents = event.get("purchase_document_ids")
+        if not isinstance(raw_documents, list) or not raw_documents:
+            raise RankedReserveReplacementError(
+                "durable replacement event lacks purchase documents"
+            )
+        documents = cast(list[object], raw_documents)
+        if not all(isinstance(value, str) and value for value in documents):
+            raise RankedReserveReplacementError(
+                "durable replacement event has invalid purchase documents"
+            )
+        document_ids = cast(list[str], documents)
+        if event_documents & set(document_ids):
+            raise RankedReserveReplacementError(
+                "durable replacement events repeat a purchase document"
+            )
+        event_documents.update(document_ids)
+        event_cost = _money_decimal(
+            event.get("estimated_cost_usd"), "durable replacement event cost"
+        )
+        if event_cost != policy.per_document_reservation_usd * len(document_ids):
+            raise RankedReserveReplacementError(
+                "durable replacement event cost conflicts with purchase policy"
+            )
+        historical_reserved += event_cost
+        for document_id in document_ids:
+            operation = operations.get(document_id)
+            if operation is None:
+                continue
+            if (
+                operation.get("candidate_id") != promoted_id
+                or _money_decimal(
+                    operation.get("reservation_usd"), "event purchase reservation"
+                )
+                != policy.per_document_reservation_usd
+            ):
+                raise RankedReserveReplacementError(
+                    "event purchase operation conflicts with durable replacement"
+                )
+            commits_cap, amount = _operation_cap_amount(operation)
+            if commits_cap:
+                transitioned_spend += amount
+
+    historical_committed = current_committed - transitioned_spend
+    historical_remaining = (
+        policy.hard_cap_usd - historical_committed - historical_reserved
+    )
+    if historical_committed < 0 or historical_remaining < 0:
+        raise RankedReserveReplacementError(
+            "reconstructed legacy monetary state exceeds purchase-policy bounds"
+        )
+    return historical_committed, historical_reserved, historical_remaining
 
 
 def _money(value: Decimal) -> str:

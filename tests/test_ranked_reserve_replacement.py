@@ -771,6 +771,20 @@ def test_v3_replay_binds_current_state_and_preserves_legacy_cohort_bytes(
         )
         legacy_result_bytes = ranked_reserve_result_bytes(legacy_result)
 
+        # The durable v2 result was emitted before its replacement tranche was
+        # persisted and purchased.  A later provider-free replay must recover
+        # those historical monetary fields from the authenticated event and
+        # current journal, rather than substituting the current spend totals.
+        journal.plan(first.replacement_plan)
+        for case_plan in first.replacement_plan.case_plans:
+            for document_id in case_plan.purchase_document_ids:
+                assert journal.submit(document_id)
+                journal.confirm(
+                    document_id,
+                    response={"status": "delivered"},
+                    fees={"total_usd": "3.05"},
+                )
+
         # This models an unrelated post-plan recovery transition: it advances
         # the aggregate journal identity without changing the terminal universe.
         journal.record_quarantined_material_bytes(
