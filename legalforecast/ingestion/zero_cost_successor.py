@@ -22,8 +22,10 @@ from legalforecast.ingestion.docket_decision_text_source import (
     validate_terminal_purchase_disposition_record,
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    CURRENT_REPLAY_RESULT_SCHEMA_VERSION,
     ranked_reserve_canonical_sha256,
     ranked_reserve_result_bytes,
+    validate_authenticated_legacy_replay,
 )
 
 JsonRecord = dict[str, Any]
@@ -79,6 +81,7 @@ _RESULT_FIELDS = frozenset(
         "dispatch_authorized",
     }
 )
+_CURRENT_RESULT_FIELDS = _RESULT_FIELDS | {"authenticated_legacy_replay"}
 
 
 class ZeroCostSuccessorError(ValueError):
@@ -419,10 +422,16 @@ def _verify_ranked_result(
     successor_exclusions_bytes: bytes,
     replacement_budget_plan_bytes: bytes,
 ) -> Mapping[str, object]:
-    if (
-        frozenset(ranked_result) != _RESULT_FIELDS
-        or ranked_result.get("schema_version") != RESULT_SCHEMA_VERSION
-    ):
+    schema_version = ranked_result.get("schema_version")
+    expected_fields = (
+        _CURRENT_RESULT_FIELDS
+        if schema_version == CURRENT_REPLAY_RESULT_SCHEMA_VERSION
+        else _RESULT_FIELDS
+    )
+    if frozenset(ranked_result) != expected_fields or schema_version not in {
+        RESULT_SCHEMA_VERSION,
+        CURRENT_REPLAY_RESULT_SCHEMA_VERSION,
+    }:
         raise ZeroCostSuccessorError("unsupported ranked successor result")
     try:
         canonical = ranked_reserve_result_bytes(ranked_result)
@@ -496,6 +505,34 @@ def _verify_ranked_result(
         or disposition.get("partition_exhaustive") is not True
     ):
         raise ZeroCostSuccessorError("terminal disposition commitment mismatch")
+    if schema_version == CURRENT_REPLAY_RESULT_SCHEMA_VERSION:
+        try:
+            replay = validate_authenticated_legacy_replay(
+                ranked_result.get("authenticated_legacy_replay")
+            )
+        except ValueError as exc:
+            raise ZeroCostSuccessorError(str(exc)) from exc
+        companion_fields = {
+            "precursor_active_selection_sha256": "active_selection_sha256",
+            "precursor_replacement_selection_sha256": ("replacement_selection_sha256"),
+            "precursor_successor_exclusions_sha256": "successor_exclusions_sha256",
+            "precursor_replacement_budget_plan_sha256": (
+                "replacement_budget_plan_sha256"
+            ),
+        }
+        authenticated_events = replay.get("authenticated_event_record_sha256s")
+        if (
+            any(
+                replay.get(proof_field) != ranked_result.get(result_field)
+                for proof_field, result_field in companion_fields.items()
+            )
+            or authenticated_events
+            != ranked_result.get("replacement_event_record_sha256s")
+            or authenticated_events != ranked_result.get("tranche_event_record_sha256s")
+        ):
+            raise ZeroCostSuccessorError(
+                "authenticated legacy replay differs from current output commitments"
+            )
     return disposition
 
 

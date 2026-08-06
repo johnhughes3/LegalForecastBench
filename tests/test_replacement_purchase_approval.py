@@ -31,6 +31,7 @@ from legalforecast.ingestion.missing_core_budget import (
 from legalforecast.ingestion.ranked_reserve_replacement import (
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
+    ranked_reserve_result_bytes,
 )
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     UNKNOWN_STATUS_EVIDENCE,
@@ -869,6 +870,71 @@ def test_authenticated_ranked_result_binds_closed_terminal_disposition(
             match=expected_error,
         ):
             _build_ranked_request(fixture)
+
+
+def test_current_ranked_result_binds_canonical_legacy_precursor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _ranked_authority_fixture(tmp_path, monkeypatch=monkeypatch)
+    result = json.loads(fixture["result_path"].read_text(encoding="utf-8"))
+    disposition = _ranked_disposition_record(
+        residual_sha256=str(result["terminal_exclusions_sha256"]),
+        purchase_journal_state_sha256=str(result["purchase_journal_state_sha256"]),
+    )
+    result["schema_version"] = "legalforecast.ranked_reserve_replacement_result.v2"
+    result["terminal_disposition"] = disposition
+    result["terminal_disposition_sha256"] = _ranked_canonical_sha(disposition)
+    precursor = json.loads(ranked_reserve_result_bytes(result))
+    precursor_bytes = ranked_reserve_result_bytes(precursor)
+    result["schema_version"] = "legalforecast.ranked_reserve_replacement_result.v3"
+    result["authenticated_legacy_replay"] = {
+        "schema_version": "legalforecast.ranked_reserve_legacy_event_replay.v1",
+        "precursor_result": precursor,
+        "precursor_result_sha256": _sha256_uri(precursor_bytes),
+        "precursor_active_selection_sha256": result["active_selection_sha256"],
+        "precursor_replacement_selection_sha256": result[
+            "replacement_selection_sha256"
+        ],
+        "precursor_successor_exclusions_sha256": result["successor_exclusions_sha256"],
+        "precursor_replacement_budget_plan_sha256": result[
+            "replacement_budget_plan_sha256"
+        ],
+        "historical_purchase_journal_state_sha256": result[
+            "purchase_journal_state_sha256"
+        ],
+        "historical_terminal_evidence_sha256": "sha256:" + "a" * 64,
+        "current_terminal_evidence_sha256": "sha256:" + "b" * 64,
+        "authenticated_event_record_sha256s": result[
+            "replacement_event_record_sha256s"
+        ],
+        "historical_state_substitution_only": True,
+    }
+    fixture["result_path"].write_bytes(ranked_reserve_result_bytes(result))
+
+    request = _build_ranked_request(fixture)
+
+    assert (
+        request.replacement_result_sha256
+        == hashlib.sha256(fixture["result_path"].read_bytes()).hexdigest()
+    )
+    original_tranche_events = result["tranche_event_record_sha256s"]
+    result["tranche_event_record_sha256s"] = ["sha256:" + "d" * 64]
+    fixture["result_path"].write_bytes(ranked_reserve_result_bytes(result))
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="legacy replay differs from current commitments",
+    ):
+        _build_ranked_request(fixture)
+    result["tranche_event_record_sha256s"] = original_tranche_events
+    proof = cast(dict[str, object], result["authenticated_legacy_replay"])
+    proof["precursor_active_selection_sha256"] = "sha256:" + "c" * 64
+    fixture["result_path"].write_bytes(ranked_reserve_result_bytes(result))
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="differs from its canonical precursor",
+    ):
+        _build_ranked_request(fixture)
 
 
 def test_ranked_v2_authority_records_replays_and_verifies_exact_source(

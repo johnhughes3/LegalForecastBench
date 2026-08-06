@@ -47,6 +47,7 @@ from legalforecast.ingestion.strict_screen_evidence import (
 from legalforecast.ingestion.terminal_purchase_failure import (
     TerminalPurchaseFailureError,
     VerifiedTerminalPurchaseFailureAuthority,
+    reconstruct_historical_terminal_retrieval_records,
     verified_terminal_retrieval_records,
 )
 from legalforecast.selection.motion_linkage import link_mtd_dispositions
@@ -496,6 +497,85 @@ def verified_residual_terminal_records(
         )
         for record in residual
     }
+
+
+def reconstruct_historical_terminal_disposition(
+    authority: VerifiedTerminalPurchaseDispositionAuthority,
+    *,
+    purchase_journal: CaseDevPurchaseJournal,
+    historical_purchase_journal_state_sha256: str,
+) -> tuple[dict[str, JsonRecord], JsonRecord, str, str]:
+    """Rebuild a legacy residual partition from a fresh current authority.
+
+    This compatibility seam changes only the ambient journal-state commitment.
+    The current terminal universe, docket-text lineages, and exhaustive
+    retained/residual partition are replayed before any historical identity is
+    reconstructed.
+    """
+
+    _sources, current_residual = _replay_terminal_disposition(
+        authority, purchase_journal
+    )
+    current_universe = verified_terminal_retrieval_records(
+        authority._terminal_failure_authority,  # pyright: ignore[reportPrivateUsage]
+        purchase_journal=purchase_journal,
+    )
+    historical_universe = reconstruct_historical_terminal_retrieval_records(
+        authority._terminal_failure_authority,  # pyright: ignore[reportPrivateUsage]
+        purchase_journal=purchase_journal,
+        historical_purchase_journal_state_sha256=(
+            historical_purchase_journal_state_sha256
+        ),
+    )
+    residual_ids = tuple(
+        _required_string(record.get("candidate_id"), "residual candidate ID")
+        for record in current_residual
+    )
+    try:
+        historical_residual = tuple(
+            historical_universe[candidate_id] for candidate_id in residual_ids
+        )
+    except KeyError as exc:
+        raise DocketDecisionTextSourceError(
+            "historical terminal reconstruction lacks a residual candidate"
+        ) from exc
+    residual_bytes = _canonical_jsonl(historical_residual)
+    current_disposition = _json_record_bytes(
+        authority._disposition_bytes,  # pyright: ignore[reportPrivateUsage]
+        "terminal purchase disposition",
+    )
+    historical_disposition = dict(current_disposition)
+    historical_disposition["purchase_journal_state_sha256"] = (
+        historical_purchase_journal_state_sha256
+    )
+    historical_disposition["residual_terminal_exclusions_sha256"] = _bytes_sha256(
+        residual_bytes
+    )
+    current_artifacts = {
+        _required_string(
+            record.get("source_artifact_sha256"), "current terminal artifact"
+        )
+        for record in current_universe.values()
+    }
+    historical_artifacts = {
+        _required_string(
+            record.get("source_artifact_sha256"), "historical terminal artifact"
+        )
+        for record in historical_universe.values()
+    }
+    if len(current_artifacts) != 1 or len(historical_artifacts) != 1:
+        raise DocketDecisionTextSourceError(
+            "terminal reconstruction does not bind one exhaustive evidence artifact"
+        )
+    return (
+        {
+            cast(str, record["candidate_id"]): dict(record)
+            for record in historical_residual
+        },
+        historical_disposition,
+        historical_artifacts.pop(),
+        current_artifacts.pop(),
+    )
 
 
 def residual_terminal_exclusions_bytes(

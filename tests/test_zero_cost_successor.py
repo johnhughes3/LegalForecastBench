@@ -246,6 +246,102 @@ def test_ranked_result_serializer_has_explicit_ascii_contract() -> None:
     assert payload == b'{\n  "note": "r\\u00e9sum\\u00e9"\n}\n'
 
 
+def _upgrade_fixture_to_current_replay(fixture: Fixture) -> None:
+    fixture.ranked_result["tranche_event_record_sha256s"] = fixture.ranked_result[
+        "replacement_event_record_sha256s"
+    ]
+    precursor_bytes = ranked_reserve_result_bytes(fixture.ranked_result)
+    historical_state = str(fixture.ranked_result["purchase_journal_state_sha256"])
+    fixture.ranked_result["schema_version"] = (
+        "legalforecast.ranked_reserve_replacement_result.v3"
+    )
+    fixture.ranked_result["purchase_journal_state_sha256"] = "sha256:" + "6" * 64
+    disposition = dict(fixture.ranked_result["terminal_disposition"])
+    disposition["purchase_journal_state_sha256"] = "sha256:" + "6" * 64
+    fixture.ranked_result["terminal_disposition"] = disposition
+    fixture.ranked_result["terminal_disposition_sha256"] = (
+        ranked_reserve_canonical_sha256(disposition)
+    )
+    fixture.ranked_result["authenticated_legacy_replay"] = {
+        "schema_version": "legalforecast.ranked_reserve_legacy_event_replay.v1",
+        "precursor_result": json.loads(precursor_bytes),
+        "precursor_result_sha256": _sha(precursor_bytes),
+        "precursor_active_selection_sha256": fixture.ranked_result[
+            "active_selection_sha256"
+        ],
+        "precursor_replacement_selection_sha256": fixture.ranked_result[
+            "replacement_selection_sha256"
+        ],
+        "precursor_successor_exclusions_sha256": fixture.ranked_result[
+            "successor_exclusions_sha256"
+        ],
+        "precursor_replacement_budget_plan_sha256": fixture.ranked_result[
+            "replacement_budget_plan_sha256"
+        ],
+        "historical_purchase_journal_state_sha256": historical_state,
+        "historical_terminal_evidence_sha256": "sha256:" + "7" * 64,
+        "current_terminal_evidence_sha256": "sha256:" + "8" * 64,
+        "authenticated_event_record_sha256s": fixture.ranked_result[
+            "replacement_event_record_sha256s"
+        ],
+        "historical_state_substitution_only": True,
+    }
+    fixture.kwargs["authenticated_ranked_result"] = fixture.ranked_result
+    fixture.refresh()
+
+
+def test_current_v3_result_accepts_closed_legacy_replay_proof() -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_current_replay(fixture)
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
+
+    assert successor.state["selected_case_count"] == 100
+
+
+def test_current_v3_result_rejects_drifted_legacy_output_commitment() -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_current_replay(fixture)
+    proof = fixture.ranked_result["authenticated_legacy_replay"]
+    assert isinstance(proof, dict)
+    proof["precursor_active_selection_sha256"] = "sha256:" + "9" * 64
+    fixture.refresh()
+
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="authenticated legacy replay differs from its canonical precursor",
+    ):
+        project_zero_cost_successor(**fixture.kwargs)
+
+
+def test_current_v3_result_rejects_drifted_legacy_event_sequence() -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_current_replay(fixture)
+    proof = fixture.ranked_result["authenticated_legacy_replay"]
+    assert isinstance(proof, dict)
+    proof["authenticated_event_record_sha256s"] = ["sha256:" + "9" * 64]
+    fixture.refresh()
+
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="differs from its canonical precursor",
+    ):
+        project_zero_cost_successor(**fixture.kwargs)
+
+
+def test_current_v3_result_rejects_drifted_current_tranche_event_sequence() -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_current_replay(fixture)
+    fixture.ranked_result["tranche_event_record_sha256s"] = ["sha256:" + "9" * 64]
+    fixture.refresh()
+
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="authenticated legacy replay differs from current output commitments",
+    ):
+        project_zero_cost_successor(**fixture.kwargs)
+
+
 def test_rejects_newline_terminated_terminal_disposition_digest() -> None:
     fixture = _fixture()
     fixture.ranked_result["terminal_disposition_sha256"] = _sha(

@@ -2,7 +2,9 @@
 
 `legalforecast acquisition project-zero-cost-successor` is the provider-free bridge from the authenticated 99-case ranked-reserve precursor to an exact 100-case acquisition cohort.
 
-The command replays the complete original target projection, substantively replays the purchase policy, journal, initialization receipt, purchase result, purchase run card, and screening snapshot that issued the opaque terminal-disposition authority, and requires that authority's exact closed disposition to equal the `legalforecast.ranked_reserve_replacement_result.v2` terminal partition.
+The command replays the complete original target projection, substantively replays the purchase policy, journal, initialization receipt, purchase result, purchase run card, and screening snapshot that issued the opaque terminal-disposition authority, and requires that authority's exact closed disposition to equal the ranked-reserve result's terminal partition. It accepts the historical v2 result and the current-state v3 result. A v3 result must carry a closed `authenticated_legacy_replay` proof whose embedded canonical v2 precursor matches `precursor_result_sha256`, whose four precursor output commitments equal the independently verified current companion artifacts, and whose exhaustive event hashes equal the durable replacement-event sequence.
+
+The proof schema `legalforecast.ranked_reserve_legacy_event_replay.v1` contains exactly twelve fields: `schema_version`, `precursor_result`, `precursor_result_sha256`, `precursor_active_selection_sha256`, `precursor_replacement_selection_sha256`, `precursor_successor_exclusions_sha256`, `precursor_replacement_budget_plan_sha256`, `historical_purchase_journal_state_sha256`, `historical_terminal_evidence_sha256`, `current_terminal_evidence_sha256`, `authenticated_event_record_sha256s`, and `historical_state_substitution_only`.
 
 Only then does it prove that the active precursor is exactly 97 retained original cases plus frozen reserve ranks 1 and 2 and replays the completed model-backed disclosure-clearance run card.
 
