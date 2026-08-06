@@ -327,6 +327,25 @@ def test_finalizer_rejects_implicit_provider_free_mode(
     assert "finalization requires complete model authority" in capsys.readouterr().err
 
 
+def test_provider_free_schema_documents_both_explicit_modes() -> None:
+    schema = (
+        Path(__file__).resolve().parents[1]
+        / "docs/schemas/provenance-quarantine-clearance-v1.md"
+    ).read_text(encoding="utf-8")
+
+    assert "--quarantine-all-exceptions-without-review" in schema
+    assert "`quarantine_all_exceptions_without_review`: `true`" in schema
+    assert "--plan-run-card" in schema
+    assert "--require-no-model-review-eligible-exceptions" in schema
+    assert "`model_review_eligible_exception_count`: `0`" in schema
+    assert "`no_model_review_eligible_exceptions_required`: `true`" in schema
+    assert "`plan_run_card` source commitment" in schema
+    assert (
+        "Omitting model authority, both empty-set proof flags, and the explicit "
+        "compatibility flag fails closed."
+    ) in schema
+
+
 def test_provider_free_failure_metadata_uses_finalizer_stage(tmp_path: Path) -> None:
     paths = _inputs(tmp_path)
     command = _provider_free_command(
