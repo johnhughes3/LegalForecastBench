@@ -9,6 +9,7 @@ from legalforecast.labeling import (
     OutcomeCitation,
     OutcomeLabel,
     UnitResolution,
+    outcome_label_from_record,
 )
 
 
@@ -37,6 +38,75 @@ def _label(
         first_written_disposition_id="decision-42",
         first_written_disposition_date="2026-05-18",
     )
+
+
+def test_outcome_label_from_record_reconstructs_nested_label() -> None:
+    label = (
+        _label(
+            fully_dismissed=True,
+            amendment_class=(
+                AmendmentClass.DISMISSED_WITH_EXPRESS_AMENDMENT_OPPORTUNITY
+            ),
+        )
+        .with_later_procedural_change(LaterProceduralChange.RECONSIDERATION)
+        .with_later_procedural_change(LaterProceduralChange.APPEAL)
+    )
+
+    assert outcome_label_from_record(label.to_record()) == label
+
+
+def test_outcome_label_from_record_rejects_malformed_procedural_changes() -> None:
+    record = _label(
+        fully_dismissed=False,
+        amendment_class=AmendmentClass.NOT_FULLY_DISMISSED,
+    ).to_record()
+    record["later_procedural_changes"] = "appeal"
+
+    with pytest.raises(
+        ValueError,
+        match="later_procedural_changes must be a list of strings",
+    ):
+        outcome_label_from_record(record)
+
+
+def test_outcome_label_from_record_preserves_locked_default() -> None:
+    record = _label(
+        fully_dismissed=False,
+        amendment_class=AmendmentClass.NOT_FULLY_DISMISSED,
+    ).to_record()
+    record.pop("first_written_disposition_locked")
+
+    assert outcome_label_from_record(record).first_written_disposition_locked is True
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        (
+            "fully_dismissed",
+            "true",
+            "fully_dismissed must be a boolean or null",
+        ),
+        (
+            "supporting_citations",
+            "not-a-list",
+            "supporting_citations must be a list",
+        ),
+    ],
+)
+def test_outcome_label_from_record_preserves_strict_record_errors(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    record = _label(
+        fully_dismissed=True,
+        amendment_class=AmendmentClass.DISMISSED_WITH_EXPRESS_DENIAL_OF_LEAVE,
+    ).to_record()
+    record[field] = value
+
+    with pytest.raises(ValueError, match=message):
+        outcome_label_from_record(record)
 
 
 def test_full_dismissal_with_leave_to_amend_sets_primary_and_secondary_labels() -> None:
