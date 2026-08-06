@@ -1287,12 +1287,81 @@ def verified_courtlistener_download_url(value: object) -> str:
     return url
 
 
+def verified_courtlistener_filepath_local_url(value: object) -> str:
+    """Normalize a v4 ``filepath_local`` without changing generic URL rules."""
+
+    if not isinstance(value, str) or not value.strip() or value.strip() != value:
+        raise CourtListenerRecapFetchError("purchased document lacks a download URL")
+    if "\\" in value or any(
+        character.isspace() or ord(character) < 32 for character in value
+    ):
+        raise CourtListenerRecapFetchError(
+            "purchased document filepath_local is invalid"
+        )
+    try:
+        supplied = urllib.parse.urlparse(value)
+    except (UnicodeError, ValueError) as exc:
+        raise CourtListenerRecapFetchError(
+            "purchased document filepath_local is invalid"
+        ) from exc
+    if not supplied.scheme and supplied.netloc:
+        raise CourtListenerRecapFetchError(
+            "purchased document filepath_local is not a canonical RECAP path"
+        )
+    if value.startswith("recap/"):
+        if not _is_canonical_relative_recap_filepath(value):
+            raise CourtListenerRecapFetchError(
+                "purchased document filepath_local is not a canonical RECAP path"
+            )
+        return verified_courtlistener_download_url(
+            f"https://storage.courtlistener.com/{value}"
+        )
+    return verified_courtlistener_download_url(value)
+
+
+def legacy_www_url_for_relative_recap_filepath(value: object) -> str | None:
+    """Return the exact pre-fix normalization only for its canonical input."""
+
+    if not isinstance(value, str) or not _is_canonical_relative_recap_filepath(value):
+        return None
+    return verified_courtlistener_download_url(value)
+
+
+def _is_canonical_relative_recap_filepath(value: str) -> bool:
+    if (
+        not value.startswith("recap/")
+        or "\\" in value
+        or "%" in value
+        or not value.isascii()
+        or any(character.isspace() or ord(character) < 32 for character in value)
+    ):
+        return False
+    try:
+        parsed = urllib.parse.urlparse(value)
+    except (UnicodeError, ValueError):
+        return False
+    if (
+        parsed.scheme
+        or parsed.netloc
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+        or parsed.path != value
+        or "//" in parsed.path
+    ):
+        return False
+    return all(
+        segment not in {"", ".", ".."} for segment in value.split("/")
+    ) and value.lower().endswith(".pdf")
+
+
 def _verified_download(payload: Mapping[str, Any], document_id: str) -> str:
     _verify_recap_document(payload, document_id)
     if payload.get("is_available") is not True:
         raise CourtListenerRecapFetchError("purchased RECAP document is unavailable")
-    value = payload.get("filepath_local", payload.get("download_url"))
-    return verified_courtlistener_download_url(value)
+    if "filepath_local" in payload:
+        return verified_courtlistener_filepath_local_url(payload.get("filepath_local"))
+    return verified_courtlistener_download_url(payload.get("download_url"))
 
 
 def verified_recap_download_url(payload: Mapping[str, Any], document_id: str) -> str:

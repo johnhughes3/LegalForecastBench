@@ -30,6 +30,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchConfig,
     CourtListenerRecapFetchError,
     RecapFetchTransport,
+    legacy_www_url_for_relative_recap_filepath,
     verified_public_recap_download_url,
 )
 from legalforecast.ingestion.free_document_downloader import (
@@ -178,6 +179,56 @@ def recover_recap_fetch_quarantine_documents(
                 )
             operation = refreshed
         evidence = _mapping(operation.get("material_evidence"), "material evidence")
+        if (
+            detail_digest == evidence.get("provider_detail_sha256")
+            and url_digest != evidence.get("download_url_sha256")
+            and operation.get("status") in {"queued", "confirmed"}
+            and operation.get("material_state")
+            is PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE
+            and not os.path.lexists(destination)
+        ):
+            legacy_url = legacy_www_url_for_relative_recap_filepath(
+                detail.get("filepath_local")
+            )
+            legacy_digest = (
+                None
+                if legacy_url is None
+                else hashlib.sha256(legacy_url.encode("utf-8")).hexdigest()
+            )
+            queue_response_sha256 = evidence.get("queue_response_sha256")
+            operation_key = operation.get("operation_key")
+            if (
+                isinstance(legacy_digest, str)
+                and legacy_digest == evidence.get("download_url_sha256")
+                and isinstance(queue_response_sha256, str)
+                and isinstance(operation_key, str)
+            ):
+                try:
+                    journal.correct_legacy_courtlistener_url_commitment(
+                        document_id,
+                        candidate_id=candidate_id,
+                        operation_key=operation_key,
+                        attempt_policy_sha256=attempt_policy_sha256,
+                        attempt_document_sha256=selection_document_sha256,
+                        provider_detail_sha256=detail_digest,
+                        queue_response_sha256=queue_response_sha256,
+                        legacy_download_url_sha256=legacy_digest,
+                        corrected_download_url_sha256=url_digest,
+                    )
+                except CaseDevPurchaseLedgerError as exc:
+                    raise RecapFetchQuarantineRecoveryError(
+                        "fresh CourtListener material conflicts with delivery "
+                        f"commitment: {document_id}"
+                    ) from exc
+                refreshed = journal.operation_evidence(document_id)
+                if refreshed is None:
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase operation disappeared during URL correction"
+                    )
+                operation = refreshed
+                evidence = _mapping(
+                    operation.get("material_evidence"), "material evidence"
+                )
         if detail_digest != evidence.get(
             "provider_detail_sha256"
         ) or url_digest != evidence.get("download_url_sha256"):

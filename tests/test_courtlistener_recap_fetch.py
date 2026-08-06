@@ -26,6 +26,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     RecordedRecapFetchResponse,
     _verify_recap_document,
     verified_courtlistener_download_url,
+    verified_recap_download_url,
 )
 from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudget,
@@ -93,6 +94,72 @@ def test_verified_courtlistener_download_url_preserves_canonical_urls(
     )
 
     assert verified_courtlistener_download_url(value) == expected
+
+
+def test_v4_relative_filepath_local_resolves_against_public_storage() -> None:
+    relative_path = "recap/gov.uscourts.example.123/gov.uscourts.example.123.1.0.pdf"
+
+    assert (
+        verified_recap_download_url(
+            {
+                "id": 123,
+                "is_available": True,
+                "is_sealed": False,
+                "is_private": False,
+                "filepath_local": relative_path,
+            },
+            "123",
+        )
+        == f"https://storage.courtlistener.com/{relative_path}"
+    )
+
+
+def test_generic_relative_download_url_retains_website_normalization() -> None:
+    assert verified_courtlistener_download_url("recap/document.pdf") == (
+        "https://www.courtlistener.com/recap/document.pdf"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "//storage.courtlistener.com/recap/document.pdf",
+        "recap//document.pdf",
+        "recap/../document.pdf",
+        "recap/%2e%2e/document.pdf",
+        "recap/%252e%252e/document.pdf",
+        "recap/foo%2Fbar.pdf",
+        "recap\\document.pdf",
+        "recap/document.pdf?download=1",
+        "recap/document.pdf#fragment",
+    ),
+)
+def test_v4_filepath_local_rejects_noncanonical_relative_paths(value: str) -> None:
+    with pytest.raises(CourtListenerRecapFetchError):
+        verified_recap_download_url(
+            {
+                "id": 123,
+                "is_available": True,
+                "filepath_local": value,
+            },
+            "123",
+        )
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "https://www.courtlistener.com/recap/document.pdf",
+        "https://storage.courtlistener.com/recap/document.pdf",
+    ),
+)
+def test_v4_filepath_local_preserves_absolute_allowlisted_urls(value: str) -> None:
+    assert (
+        verified_recap_download_url(
+            {"id": 123, "is_available": True, "filepath_local": value}, "123"
+        )
+        == value
+    )
 
 
 @pytest.mark.parametrize(
