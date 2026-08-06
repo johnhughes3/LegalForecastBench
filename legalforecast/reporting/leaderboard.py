@@ -40,7 +40,13 @@ from legalforecast._record_validation import (
     required_str as _required_str,
 )
 from legalforecast.evals.baselines import BaselineId
-from legalforecast.evals.bootstrap import BootstrapInferenceResult, PairwiseDelta
+from legalforecast.evals.bootstrap import (
+    BootstrapConfig,
+    BootstrapInferenceResult,
+    ModelScoreInput,
+    PairwiseDelta,
+    paired_clustered_bootstrap,
+)
 from legalforecast.evals.scorers import ScoreSummary
 from legalforecast.reporting.calibration import calibration_records, calibration_svg
 from legalforecast.reporting.pareto import pareto_frontier_records
@@ -50,6 +56,25 @@ OBSERVED_RANK_TIER_CAVEAT = (
     "No bootstrap inference was supplied; rank tiers equal observed micro-Brier "
     "rank order only."
 )
+
+
+def infer_leaderboard_score_comparisons(
+    summaries: Sequence[ScoreSummary],
+    *,
+    replicates: int,
+    seed: int,
+) -> BootstrapInferenceResult | None:
+    """Build paired bootstrap inference when multiple model summaries exist."""
+
+    if len(summaries) < 2:
+        return None
+    return paired_clustered_bootstrap(
+        tuple(
+            ModelScoreInput(summary.model_id, summary.unit_scores)
+            for summary in summaries
+        ),
+        config=BootstrapConfig(replicates=replicates, seed=seed),
+    )
 
 
 @dataclass(frozen=True, slots=True)

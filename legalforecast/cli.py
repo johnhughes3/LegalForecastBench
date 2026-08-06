@@ -34,12 +34,6 @@ from legalforecast.evals.accounting import (
     OutputValidityStatus,
     accounting_records_from_inspect_run,
 )
-from legalforecast.evals.bootstrap import (
-    BootstrapConfig,
-    BootstrapInferenceResult,
-    ModelScoreInput,
-    paired_clustered_bootstrap,
-)
 from legalforecast.evals.inspect_task import (
     OfflineMockSolver,
     build_inspect_samples,
@@ -81,9 +75,6 @@ from legalforecast.evals.provider_spend_dynamodb import (
     DynamoDbProviderSpendAuthority,
 )
 from legalforecast.evals.run_record_scoring import score_run_records
-from legalforecast.evals.scorers import (
-    ScoreSummary,
-)
 from legalforecast.extraction.pdf_text import extract_pdf_text_with_ocr_fallback
 from legalforecast.ingestion.budgeted_courtlistener_html_source import (
     DurableBudgetedCourtListenerHTMLSource,
@@ -881,6 +872,7 @@ from legalforecast.reporting.fallback_pilot import (
 from legalforecast.reporting.leaderboard import (
     BenchmarkLeaderboardReport,
     build_benchmark_leaderboard_report,
+    infer_leaderboard_score_comparisons,
     summarize_accounting_leaderboard,
 )
 from legalforecast.reporting.pilot_readiness import (
@@ -10211,7 +10203,7 @@ def _cmd_report(args: argparse.Namespace) -> int:
         if accounting_records
         else ()
     )
-    inference = _report_inference(
+    inference = infer_leaderboard_score_comparisons(
         summaries,
         replicates=cast(int, args.bootstrap_replicates),
         seed=cast(int, args.bootstrap_seed),
@@ -58979,23 +58971,6 @@ def _write_report_artifacts(
     _write_text(html_path, report.to_html())
 
 
-def _report_inference(
-    summaries: Sequence[ScoreSummary],
-    *,
-    replicates: int,
-    seed: int,
-) -> BootstrapInferenceResult | None:
-    if len(summaries) < 2:
-        return None
-    return paired_clustered_bootstrap(
-        tuple(
-            ModelScoreInput(summary.model_id, summary.unit_scores)
-            for summary in summaries
-        ),
-        config=BootstrapConfig(replicates=replicates, seed=seed),
-    )
-
-
 def _run_fixture_e2e(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     documents_dir = output_dir / "documents"
@@ -59217,7 +59192,11 @@ def _run_fixture_e2e(output_dir: Path) -> None:
         accounting_rows=summarize_accounting_leaderboard(
             tuple(record.to_record() for record in accounting)
         ),
-        inference=_report_inference(summaries, replicates=30, seed=20260514),
+        inference=infer_leaderboard_score_comparisons(
+            summaries,
+            replicates=30,
+            seed=20260514,
+        ),
         title="Fixture Leaderboard",
     )
     _write_report_artifacts(
