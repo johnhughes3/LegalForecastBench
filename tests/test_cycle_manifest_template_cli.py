@@ -178,6 +178,55 @@ def test_render_cycle_config_cli_rejects_unknown_stage_argument(
     assert "arguments are invalid" in capsys.readouterr().err
 
 
+def test_render_cycle_config_rejects_disclosure_artifacts_under_frozen_root(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    template = (
+        Path(__file__).parents[1]
+        / "manifests"
+        / "cycle-1-target-100.initial-recovery-disclosure.template.json"
+    )
+    frozen_root = tmp_path / "frozen-source"
+    disclosure_root = frozen_root / "disclosure-artifacts"
+    assignments = {
+        "DISCLOSURE_ARTIFACT_ROOT": disclosure_root,
+        "DISCLOSURE_PRIVATE_ROOT": tmp_path / "disclosure-private",
+        "PURCHASE_PRIVATE_ROOT": tmp_path / "purchase-private",
+        "PURCHASE_ROOT": tmp_path / "purchase",
+        "RECOVERY_ROOT": tmp_path / "recovery",
+        "REPO_ROOT": frozen_root,
+        "TARGET_COHORT_ROOT": tmp_path / "target-cohort",
+    }
+    output = tmp_path / "cycle.json"
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "render-cycle-config",
+                "--template",
+                str(template),
+                *[
+                    argument
+                    for name, path in assignments.items()
+                    for argument in ("--variable", f"{name}={path}")
+                ],
+                "--output",
+                str(output),
+            ]
+        )
+        == 2
+    )
+
+    assert (
+        "writable path --output-root overlaps --frozen-authority-root"
+        in capsys.readouterr().err
+    )
+    assert not output.exists()
+    assert not disclosure_root.exists()
+
+
 @pytest.mark.parametrize(
     "assignments,match",
     [

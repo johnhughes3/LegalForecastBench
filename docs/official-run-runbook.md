@@ -2276,6 +2276,8 @@ uv run legalforecast acquisition run-cycle \
   --execute --json
 ```
 
+Keep `initial_disclosure_root` and `initial_disclosure_private_root` outside and disjoint from `repo_root`, which is the frozen authority source root. These writable roots should be siblings of the frozen checkout: neither may equal, contain, or be contained by it. Rendering and cycle loading fail before plan publication if a `review-disclosure-exceptions` artifact, private state path, or output overlaps that frozen tree; the review command enforces the same boundary again before provider activity.
+
 Inspect the completed `01-plan` artifacts now. If the authenticated plan proves the model-review-eligible set is empty, execute the provider-free post-plan suffix below and skip the model-review commands. Do not render the full no-review cycle template into a fresh state root: every cycle config starts with `init-cycle`, which would rewrite the already-receipted `00-cycle` run card. The finalizer instead authenticates the existing plan producer card and proves the eligible set is empty before publishing clearance; the resolver then consumes that exact clearance card.
 
 ```bash
