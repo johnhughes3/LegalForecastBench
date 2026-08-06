@@ -1138,9 +1138,7 @@ def test_post_purchase_ranked_replay_rejects_prefixed_authority_digest(
 ) -> None:
     fixture = _post_purchase_ranked_replay_fixture(tmp_path, monkeypatch=monkeypatch)
     authority = dict(fixture["authority"])
-    authority["authority_sha256"] = (
-        "sha256:" + cast(str, authority["authority_sha256"])
-    )
+    authority["authority_sha256"] = "sha256:" + cast(str, authority["authority_sha256"])
     fixture["authority"] = authority
 
     with pytest.raises(
