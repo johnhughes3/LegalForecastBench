@@ -748,6 +748,7 @@ def _build_resolved_post_recovery_documents_core(
             key=key,
             attempt_policy_sha256=policy_sha256,
             selection_document_sha256=selection_sha256,
+            expected_purchase_policy_sha256=purchase_policy_sha256,
         )
         _validate_download(
             download,
@@ -1162,6 +1163,7 @@ def require_resolved_post_recovery_operation_bindings(
     *,
     purchase_operation_records: Sequence[Mapping[str, Any]],
     resolved_records: Sequence[Mapping[str, Any]],
+    expected_purchase_policy_sha256: str,
 ) -> None:
     """Verify pre-clear, post-clear, and partially-cleared crash replays exactly."""
 
@@ -1190,7 +1192,11 @@ def require_resolved_post_recovery_operation_bindings(
             "download_url_sha256": material.get("download_url_sha256"),
             "content_sha256": material.get("content_sha256"),
             "byte_count": material.get("byte_count"),
-            **_delivery_authority_fields(operation, key=key),
+            **_delivery_authority_fields(
+                operation,
+                key=key,
+                expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+            ),
         }
         if any(record.get(name) != value for name, value in expected.items()):
             raise ResolvedPostRecoveryError(
@@ -1356,6 +1362,7 @@ def _validate_operation(
     key: tuple[str, str],
     attempt_policy_sha256: str,
     selection_document_sha256: str,
+    expected_purchase_policy_sha256: str,
 ) -> None:
     if (
         operation.get("material_authority") != UNKNOWN_RECOVERY_ORIGIN
@@ -1377,7 +1384,11 @@ def _validate_operation(
     ):
         _required_sha(material.get(field), field)
     _positive_int(material.get("byte_count"), "byte_count")
-    _delivery_authority_fields(operation, key=key)
+    _delivery_authority_fields(
+        operation,
+        key=key,
+        expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+    )
 
 
 def _terminal_delivery_receipt(
@@ -1460,7 +1471,7 @@ def _delivery_authority_fields(
     operation: Mapping[str, Any],
     *,
     key: tuple[str, str],
-    expected_purchase_policy_sha256: str | None = None,
+    expected_purchase_policy_sha256: str,
 ) -> dict[str, object]:
     """Return one exact delivery authority without synthesizing broker evidence."""
 
@@ -1471,9 +1482,8 @@ def _delivery_authority_fields(
         purchase_policy_sha256 = _required_sha(
             receipt.get("purchase_policy_sha256"), "purchase policy"
         )
-        if (
-            expected_purchase_policy_sha256 is not None
-            and purchase_policy_sha256 != expected_purchase_policy_sha256
+        if purchase_policy_sha256 != _required_sha(
+            expected_purchase_policy_sha256, "expected purchase policy"
         ):
             raise ResolvedPostRecoveryError(
                 f"purchase policy differs from attempt authority: {key}"
@@ -1494,9 +1504,8 @@ def _delivery_authority_fields(
     purchase_policy_sha256 = _required_sha(
         recovery.get("purchase_policy_sha256"), "purchase policy"
     )
-    if (
-        expected_purchase_policy_sha256 is not None
-        and purchase_policy_sha256 != expected_purchase_policy_sha256
+    if purchase_policy_sha256 != _required_sha(
+        expected_purchase_policy_sha256, "expected purchase policy"
     ):
         raise ResolvedPostRecoveryError(
             f"purchase policy differs from attempt authority: {key}"
@@ -1510,7 +1519,7 @@ def _delivery_authority_fields(
             operation,
             candidate_id=key[0],
             document_id=key[1],
-            purchase_policy_sha256=purchase_policy_sha256,
+            purchase_policy_sha256=expected_purchase_policy_sha256,
         )
     except CaseDevPurchaseLedgerError as exc:
         raise ResolvedPostRecoveryError(

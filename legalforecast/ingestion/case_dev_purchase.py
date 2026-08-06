@@ -6011,6 +6011,10 @@ def validate_unknown_public_recovery_evidence(
 ) -> None:
     """Authenticate a journal-exported v1 or corrected-v2 public recovery."""
 
+    if _SHA256.fullmatch(purchase_policy_sha256) is None:
+        raise CaseDevPurchaseLedgerError(
+            "unknown public recovery purchase policy is invalid"
+        )
     if operation.get("candidate_id") != candidate_id or (
         "source_document_id" in operation
         and operation.get("source_document_id") != document_id

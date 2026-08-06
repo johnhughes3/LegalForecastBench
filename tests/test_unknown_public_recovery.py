@@ -7,6 +7,7 @@ from contextlib import closing
 from decimal import Decimal
 from pathlib import Path
 
+import legalforecast.ingestion.recap_fetch_quarantine_recovery as recovery_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
@@ -451,6 +452,15 @@ def test_recovery_repairs_authenticated_unknown_public_legacy_url_before_bytes(
         correction = recovery["courtlistener_url_commitment_correction"]
         assert correction["legacy_download_url_sha256"] == legacy_digest
         assert correction["corrected_download_url_sha256"] == corrected_digest
+        assert not recovery_module._is_bound_public_recovery(
+            recovery,
+            operation=corrected_operation,
+            candidate_id="case-1",
+            document_id="123",
+            attempt_policy_sha256="a" * 64,
+            selection_document_sha256="9" * 64,
+            purchase_policy_sha256="0" * 64,
+        )
         for mismatched_operation in (
             {**corrected_operation, "candidate_id": "other-case"},
             {**corrected_operation, "source_document_id": "other-document"},
@@ -466,6 +476,17 @@ def test_recovery_repairs_authenticated_unknown_public_legacy_url_before_bytes(
                     document_id="123",
                     purchase_policy_sha256=policy.policy_sha256,
                 )
+        with pytest.raises(
+            CaseDevPurchaseLedgerError,
+            match="purchase policy is invalid",
+        ):
+            validate_unknown_public_recovery_evidence(
+                recovery,
+                corrected_operation,
+                candidate_id="case-1",
+                document_id="123",
+                purchase_policy_sha256="not-a-policy-sha",
+            )
         journal.correct_unknown_public_recovery_url_commitment(
             "123",
             candidate_id="case-1",

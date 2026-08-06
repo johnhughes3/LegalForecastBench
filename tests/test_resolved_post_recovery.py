@@ -411,8 +411,19 @@ def test_build_and_require_authenticated_public_material_delivery_authority() ->
         **_external_kwargs(inputs),
     )
     require_resolved_post_recovery_operation_bindings(
-        purchase_operation_records=[operation], resolved_records=records
+        purchase_operation_records=[operation],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="purchase policy differs from attempt authority",
+    ):
+        require_resolved_post_recovery_operation_bindings(
+            purchase_operation_records=[operation],
+            resolved_records=records,
+            expected_purchase_policy_sha256="9" * 64,
+        )
 
     wrong_policy = deepcopy(operation)
     wrong_policy["public_material_recovery"]["purchase_policy_sha256"] = "9" * 64
@@ -464,8 +475,19 @@ def test_resolved_recovery_accepts_exact_corrected_v2_and_rejects_tampering() ->
         **_external_kwargs(inputs),
     )
     require_resolved_post_recovery_operation_bindings(
-        purchase_operation_records=[operation], resolved_records=records
+        purchase_operation_records=[operation],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="purchase policy differs from attempt authority",
+    ):
+        require_resolved_post_recovery_operation_bindings(
+            purchase_operation_records=[operation],
+            resolved_records=records,
+            expected_purchase_policy_sha256="9" * 64,
+        )
 
     for field, value in (
         ("record_sha256", "0" * 64),
@@ -563,7 +585,9 @@ def test_public_material_authority_survives_later_billing_settlement(
         "authenticated_public_material_recovery"
     )
     require_resolved_post_recovery_operation_bindings(
-        purchase_operation_records=[operation], resolved_records=records
+        purchase_operation_records=[operation],
+        resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
 
 
@@ -1307,6 +1331,7 @@ def test_resolved_artifact_then_journal_clearance_is_crash_replayable(
     require_resolved_post_recovery_operation_bindings(
         purchase_operation_records=inputs["purchase_operation_records"],
         resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
     cleared_operation = deepcopy(inputs["purchase_operation_records"][0])
     cleared_operation["material_state"] = "cleared_public"
@@ -1317,6 +1342,7 @@ def test_resolved_artifact_then_journal_clearance_is_crash_replayable(
     require_resolved_post_recovery_operation_bindings(
         purchase_operation_records=[cleared_operation],
         resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
     )
     write_resolved_post_recovery_documents(artifact, records)
 
@@ -2347,6 +2373,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         require_resolved_post_recovery_operation_bindings(
             purchase_operation_records=snapshot.operations,
             resolved_records=_read_records(resolved_path),
+            expected_purchase_policy_sha256=purchase_policy.policy_sha256,
         )
         return cli._VerifiedMaterializedDownstreamLineage(
             paths=(

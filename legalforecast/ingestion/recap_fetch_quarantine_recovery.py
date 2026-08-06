@@ -148,6 +148,7 @@ def recover_recap_fetch_quarantine_documents(
             document_id=document_id,
             attempt_policy_sha256=attempt_policy_sha256,
             selection_document_sha256=selection_document_sha256,
+            purchase_policy_sha256=journal.policy.policy_sha256,
         )
         destination = _destination(output_root, candidate_id, document_id)
         detail = _fresh_detail(
@@ -765,6 +766,7 @@ def _validate_recoverable_operation(
     document_id: str,
     attempt_policy_sha256: str,
     selection_document_sha256: str,
+    purchase_policy_sha256: str,
 ) -> None:
     state = operation.get("material_state")
     if state is PurchaseMaterialState.NOT_RECOVERED:
@@ -794,6 +796,7 @@ def _validate_recoverable_operation(
         document_id=document_id,
         attempt_policy_sha256=attempt_policy_sha256,
         selection_document_sha256=selection_document_sha256,
+        purchase_policy_sha256=purchase_policy_sha256,
     )
     if has_queue == has_public_recovery:
         raise RecapFetchQuarantineRecoveryError(
@@ -1052,15 +1055,12 @@ def _is_bound_public_recovery(
     document_id: str,
     attempt_policy_sha256: str,
     selection_document_sha256: str,
+    purchase_policy_sha256: str,
 ) -> bool:
     if not isinstance(value, Mapping):
         return False
     recovery = cast(Mapping[str, object], value)
-    purchase_policy_sha256 = recovery.get("purchase_policy_sha256")
-    if (
-        not isinstance(purchase_policy_sha256, str)
-        or _SHA256.fullmatch(purchase_policy_sha256) is None
-    ):
+    if recovery.get("purchase_policy_sha256") != purchase_policy_sha256:
         return False
     normalized_operation = {
         **operation,
