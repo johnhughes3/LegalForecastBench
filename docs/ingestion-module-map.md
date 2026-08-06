@@ -191,6 +191,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`disclosure_review_bundle.py`](../legalforecast/ingestion/disclosure_review_bundle.py) | Deterministic externally signed review bundles. |
 | [`provenance_clearance.py`](../legalforecast/ingestion/provenance_clearance.py) | Provenance-first routing with human exceptions. |
 | [`recap_fetch_quarantine_recovery.py`](../legalforecast/ingestion/recap_fetch_quarantine_recovery.py) | Controlled recovery of unknown-status documents. |
+| [`replacement_recovery_source.py`](../legalforecast/ingestion/replacement_recovery_source.py) | Authenticated recovery-source descriptors for replacement consolidation. |
 
 ## 10. Spend authority, RECAP Fetch, and terminal outcomes
 
