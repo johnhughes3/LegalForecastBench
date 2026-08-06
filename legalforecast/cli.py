@@ -5695,7 +5695,8 @@ def _add_consolidate_replacement_recovery_arguments(
         required=True,
         help=(
             "Purchased-document manifest from the same final target projection; "
-            "its identities must be selected and present in the canonical ledger."
+            "it may be empty only when the authenticated selection carries exact "
+            "paid-recovery gap identities proved by the canonical ledger."
         ),
     )
     parser.add_argument("--purchase-policy", type=Path, required=True)
@@ -5706,6 +5707,24 @@ def _add_consolidate_replacement_recovery_arguments(
         "--purchase-ledger-initialization-receipt",
         type=Path,
         required=True,
+    )
+    parser.add_argument(
+        "--snapshot-manifest",
+        type=Path,
+        help=(
+            "Authenticated screening snapshot used with the terminal purchase "
+            "result and run card to prove exact audit-only decision omissions."
+        ),
+    )
+    parser.add_argument(
+        "--purchase-result",
+        type=Path,
+        help="Completed purchase result authenticating terminal decision omissions.",
+    )
+    parser.add_argument(
+        "--purchase-run-card",
+        type=Path,
+        help="Completed purchase run card authenticating terminal decision omissions.",
     )
     parser.add_argument("--run-card-output", type=Path)
     parser.add_argument("--execute", action="store_true")
@@ -25116,6 +25135,15 @@ class _ReplacementRecoveryConsolidation:
     resolved_records: tuple[JsonRecord, ...]
     document_bytes: Mapping[str, bytes]
     purchase_state_sha256: str
+    terminal_omission_inputs: Mapping[str, str] | None
+    docket_decision_partition: Mapping[str, object] | None
+
+
+@dataclass(frozen=True, slots=True)
+class _ReplacementConsolidationTerminalOmissions:
+    keys: frozenset[tuple[str, str]]
+    partition: Mapping[str, object]
+    source_snapshots: Mapping[Path, bytes]
 
 
 def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
@@ -25182,6 +25210,8 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
         "source_commitments": source_commitments,
         "output_commitments": output_commitments,
         "purchase_state_sha256": prepared.purchase_state_sha256,
+        "terminal_omission_inputs": prepared.terminal_omission_inputs,
+        "docket_decision_partition": prepared.docket_decision_partition,
         "paid_activity_requested": False,
         "paid_activity_executed": False,
         "provider_activity_requested": False,
@@ -25236,6 +25266,24 @@ def _prepare_replacement_recovery_consolidation(
     ledger_path = cast(Path, args.purchase_ledger).resolve()
     controlled_private_root = cast(Path, args.controlled_private_root).absolute()
     receipt_path = cast(Path, args.purchase_ledger_initialization_receipt).absolute()
+    snapshot_manifest_arg = cast(Path | None, getattr(args, "snapshot_manifest", None))
+    purchase_result_arg = cast(Path | None, getattr(args, "purchase_result", None))
+    purchase_run_card_arg = cast(Path | None, getattr(args, "purchase_run_card", None))
+    terminal_args = (
+        snapshot_manifest_arg,
+        purchase_result_arg,
+        purchase_run_card_arg,
+    )
+    if any(path is not None for path in terminal_args) and not all(
+        path is not None for path in terminal_args
+    ):
+        raise ValueError(
+            "snapshot manifest, purchase result, and purchase run card must be "
+            "supplied together"
+        )
+    terminal_paths = tuple(
+        path.absolute() for path in terminal_args if path is not None
+    )
     direct_paths = (
         index_path,
         index_run_card_path,
@@ -25244,6 +25292,7 @@ def _prepare_replacement_recovery_consolidation(
         purchase_policy_path,
         cohort_policy_path,
         receipt_path,
+        *terminal_paths,
     )
     snapshots = {
         path: _read_singly_linked_regular_input(
@@ -25296,7 +25345,7 @@ def _prepare_replacement_recovery_consolidation(
         snapshots[target_purchased_manifest_path],
         source=target_purchased_manifest_path,
     )
-    required_purchased_keys = {
+    projected_purchased_keys = {
         _materializer_record_key(record) for record in target_purchased_records
     }
     operation_keys = {
@@ -25306,21 +25355,50 @@ def _prepare_replacement_recovery_consolidation(
         )
         for operation in purchase_snapshot.operations
     }
-    expected_purchased_keys = selected_keys & operation_keys
     authenticated_purchased_keys = {
         _materializer_record_key(record)
         for record in cast(
             Sequence[Mapping[str, Any]], target_projection["purchased_manifest"]
         )
     }
-    if required_purchased_keys != authenticated_purchased_keys:
+    if projected_purchased_keys != authenticated_purchased_keys:
         raise ValueError(
             "target purchased manifest differs from authenticated target projection"
         )
-    if required_purchased_keys != expected_purchased_keys:
-        raise ValueError(
-            "target purchased manifest differs from final active ledger coverage"
+    active_paid_keys = _replacement_consolidation_active_paid_keys(
+        selection_records,
+        authenticated_purchased_keys=authenticated_purchased_keys,
+    )
+    terminal_omissions: _ReplacementConsolidationTerminalOmissions | None = None
+    if terminal_paths:
+        terminal_omissions = _replacement_consolidation_terminal_omissions(
+            selection_payload=snapshots[selection_path],
+            snapshot_manifest_path=terminal_paths[0],
+            purchase_result_path=terminal_paths[1],
+            purchase_run_card_path=terminal_paths[2],
+            purchase_policy=policy,
+            ledger_path=ledger_path,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=receipt_path,
+            selected_document_count=len(selected_keys),
         )
+        for path, payload in terminal_omissions.source_snapshots.items():
+            existing = snapshots.get(path)
+            if existing is not None and existing != payload:
+                raise ValueError(
+                    "terminal omission source conflicts with consolidation snapshot"
+                )
+            snapshots[path] = payload
+    omission_keys: set[tuple[str, str]] = (
+        set(terminal_omissions.keys) if terminal_omissions is not None else set()
+    )
+    if not omission_keys <= active_paid_keys:
+        raise ValueError("terminal decision omission is outside final paid-gap scope")
+    if not active_paid_keys <= operation_keys:
+        raise ValueError(
+            "final active paid-gap scope differs from canonical ledger coverage"
+        )
+    required_purchased_keys = active_paid_keys - omission_keys
     manifest_by_key: dict[tuple[str, str], JsonRecord] = {}
     clearance_by_key: dict[tuple[str, str], JsonRecord] = {}
     restriction_by_key: dict[tuple[str, str], list[JsonRecord]] = defaultdict(list)
@@ -25489,10 +25567,15 @@ def _prepare_replacement_recovery_consolidation(
             key = _materializer_record_key(record)
             if key not in required_purchased_keys:
                 continue
-            clearance_record = _materializer_record_index(
+            clearance_index = _materializer_record_index(
                 cast(Sequence[Mapping[str, Any]], clearance["clearance_records"]),
                 label="replacement tranche clearance",
-            )[key]
+            )
+            clearance_record = clearance_index.get(key)
+            if clearance_record is None or clearance_record.get("status") != "cleared":
+                raise ValueError(
+                    f"replacement recovery lacks cleared active document: {key}"
+                )
             _merge_replacement_consolidation_record(
                 manifest_by_key, key, dict(record), label="manifest"
             )
@@ -25569,6 +25652,20 @@ def _prepare_replacement_recovery_consolidation(
         ),
         document_bytes=document_bytes,
         purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        terminal_omission_inputs=(
+            {
+                "snapshot_manifest": str(terminal_paths[0]),
+                "purchase_result": str(terminal_paths[1]),
+                "purchase_run_card": str(terminal_paths[2]),
+            }
+            if terminal_paths
+            else None
+        ),
+        docket_decision_partition=(
+            dict(terminal_omissions.partition)
+            if terminal_omissions is not None
+            else None
+        ),
     )
 
 
@@ -25592,6 +25689,86 @@ def _replacement_consolidation_selection_keys(
     return keys
 
 
+def _replacement_consolidation_active_paid_keys(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    authenticated_purchased_keys: set[tuple[str, str]],
+) -> set[tuple[str, str]]:
+    """Return paid identities from an authenticated final target projection.
+
+    Older projections materialize purchased rows before recovery. The exact-100
+    successor instead commits an empty pre-recovery manifest and marks each
+    unacquired selected document as an explicit paid-recovery gap. Both forms
+    remain fail-closed and may be combined only for the same selected identity.
+    """
+
+    selected_keys = _replacement_consolidation_selection_keys(records)
+    if not authenticated_purchased_keys <= selected_keys:
+        raise ValueError("authenticated purchased document is outside final selection")
+    paid_gap_keys: set[tuple[str, str]] = set()
+    for record in records:
+        candidate_id = _required_str(record, "candidate_id")
+        for raw_document in _required_record_sequence(record, "documents"):
+            source_document_id = _required_str(raw_document, "source_document_id")
+            requires_paid = raw_document.get("requires_paid_recovery")
+            availability = raw_document.get("availability_status")
+            has_paid_gap_marker = requires_paid is True or availability == "unavailable"
+            if has_paid_gap_marker and not (
+                requires_paid is True and availability == "unavailable"
+            ):
+                raise ValueError(
+                    "final selection has inconsistent paid-recovery gap markers: "
+                    f"{(candidate_id, source_document_id)}"
+                )
+            if has_paid_gap_marker:
+                paid_gap_keys.add((candidate_id, source_document_id))
+    return authenticated_purchased_keys | paid_gap_keys
+
+
+def _replacement_consolidation_terminal_omissions(
+    *,
+    selection_payload: bytes,
+    snapshot_manifest_path: Path,
+    purchase_result_path: Path,
+    purchase_run_card_path: Path,
+    purchase_policy: CaseDevPurchasePolicy,
+    ledger_path: Path,
+    controlled_private_root: Path,
+    initialization_receipt_path: Path,
+    selected_document_count: int,
+) -> _ReplacementConsolidationTerminalOmissions:
+    """Authenticate only verifier-owned terminal decision-document omissions."""
+
+    with CaseDevPurchaseJournal(
+        ledger_path,
+        policy=purchase_policy,
+        read_only=True,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt_path,
+    ) as journal:
+        descriptor = _verify_materializer_docket_decision_authority(
+            selection_payload=selection_payload,
+            snapshot_manifest_path=snapshot_manifest_path,
+            purchase_result_path=purchase_result_path,
+            purchase_run_card_path=purchase_run_card_path,
+            purchase_journal=journal,
+            purchase_policy=purchase_policy,
+            ledger_path=ledger_path,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
+            selected_document_count=selected_document_count,
+        )
+        keys = verified_docket_decision_document_keys(
+            descriptor.authority,
+            purchase_journal=journal,
+        )
+    return _ReplacementConsolidationTerminalOmissions(
+        keys=frozenset(keys),
+        partition=dict(descriptor.partition),
+        source_snapshots=dict(descriptor.source_snapshots),
+    )
+
+
 def _merge_replacement_consolidation_record(
     records: dict[tuple[str, str], JsonRecord],
     key: tuple[str, str],
@@ -25600,8 +25777,10 @@ def _merge_replacement_consolidation_record(
     label: str,
 ) -> None:
     existing = records.get(key)
-    if existing is not None and existing != record:
-        raise ValueError(f"conflicting replacement recovery {label}: {key}")
+    if existing is not None:
+        raise ValueError(
+            f"duplicate or conflicting replacement recovery {label}: {key}"
+        )
     records[key] = record
 
 
@@ -36934,6 +37113,39 @@ def _verify_materializer_consolidated_recovery(
     source_commitments = card.get("source_commitments")
     if not isinstance(source_commitments, Mapping):
         raise CommandError("consolidated replacement recovery lacks source commitments")
+    raw_terminal_inputs = card.get("terminal_omission_inputs")
+    raw_partition = card.get("docket_decision_partition")
+    terminal_input_paths: dict[str, Path] | None = None
+    if raw_terminal_inputs is not None:
+        if not isinstance(raw_terminal_inputs, Mapping):
+            raise CommandError(
+                "consolidated replacement recovery terminal inputs differ"
+            )
+        terminal_inputs_record = cast(Mapping[str, Any], raw_terminal_inputs)
+        if set(terminal_inputs_record) != {
+            "snapshot_manifest",
+            "purchase_result",
+            "purchase_run_card",
+        }:
+            raise CommandError(
+                "consolidated replacement recovery terminal inputs differ"
+            )
+        terminal_input_paths = {
+            name: Path(_required_str(terminal_inputs_record, name)).absolute()
+            for name in (
+                "snapshot_manifest",
+                "purchase_result",
+                "purchase_run_card",
+            )
+        }
+        if not isinstance(raw_partition, Mapping):
+            raise CommandError(
+                "consolidated replacement recovery lacks terminal partition"
+            )
+    elif raw_partition is not None:
+        raise CommandError(
+            "consolidated replacement recovery terminal partition lacks inputs"
+        )
     verified_bytes: dict[str, bytes] = {os.path.abspath(run_card_path): run_card_bytes}
     for raw_path, expected_sha256 in cast(
         Mapping[object, object], source_commitments
@@ -36957,6 +37169,11 @@ def _verify_materializer_consolidated_recovery(
         purchase_policy_path,
         cohort_policy_path,
         inputs[8],
+        *(
+            tuple(terminal_input_paths.values())
+            if terminal_input_paths is not None
+            else ()
+        ),
     ):
         if os.path.abspath(required) not in verified_bytes:
             raise CommandError(
@@ -37073,6 +37290,21 @@ def _verify_materializer_consolidated_recovery(
             purchase_ledger=inputs[6],
             controlled_private_root=inputs[7],
             purchase_ledger_initialization_receipt=inputs[8],
+            snapshot_manifest=(
+                terminal_input_paths["snapshot_manifest"]
+                if terminal_input_paths is not None
+                else None
+            ),
+            purchase_result=(
+                terminal_input_paths["purchase_result"]
+                if terminal_input_paths is not None
+                else None
+            ),
+            purchase_run_card=(
+                terminal_input_paths["purchase_run_card"]
+                if terminal_input_paths is not None
+                else None
+            ),
         )
     )
     if (
@@ -37088,6 +37320,8 @@ def _verify_materializer_consolidated_recovery(
         != list(replay.resolved_records)
         or tree != dict(replay.document_bytes)
         or card.get("purchase_state_sha256") != replay.purchase_state_sha256
+        or raw_terminal_inputs != replay.terminal_omission_inputs
+        or raw_partition != replay.docket_decision_partition
     ):
         raise CommandError(
             "consolidated replacement recovery does not reproduce from tranches"

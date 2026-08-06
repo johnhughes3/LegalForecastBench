@@ -31,11 +31,26 @@ def _prepare_fixture(
     monkeypatch: pytest.MonkeyPatch,
     *,
     ledger_pairs: set[tuple[str, str]],
+    pre_recovery_projection: bool = False,
+    terminal_omission_pairs: set[tuple[str, str]] | None = None,
 ) -> tuple[argparse.Namespace, list[set[tuple[str, str]]]]:
+    terminal_omission_pairs = terminal_omission_pairs or set()
     selection_rows = [
         {
             "candidate_id": candidate_id,
-            "documents": [{"source_document_id": document_id}],
+            "documents": [
+                {
+                    "source_document_id": document_id,
+                    **(
+                        {
+                            "availability_status": "unavailable",
+                            "requires_paid_recovery": True,
+                        }
+                        if pre_recovery_projection
+                        else {}
+                    ),
+                }
+            ],
         }
         for candidate_id, document_id in (
             ("base-case", "base-doc"),
@@ -44,16 +59,21 @@ def _prepare_fixture(
         )
     ]
     selection = _write_jsonl(tmp_path / "active-selection.jsonl", selection_rows)
-    purchased_manifest = _write_jsonl(
-        tmp_path / "purchased-document-downloads.jsonl",
-        [
+    purchased_rows = (
+        []
+        if pre_recovery_projection
+        else [
             {"candidate_id": candidate_id, "source_document_id": document_id}
             for candidate_id, document_id in (
                 ("base-case", "base-doc"),
                 ("case-1", "doc-1"),
                 ("case-2", "doc-2"),
             )
-        ],
+        ]
+    )
+    purchased_manifest = _write_jsonl(
+        tmp_path / "purchased-document-downloads.jsonl",
+        purchased_rows,
     )
     monkeypatch.setattr(
         cli,
@@ -61,19 +81,21 @@ def _prepare_fixture(
         lambda _root: {
             "selection_path": selection,
             "selection_records": selection_rows,
-            "purchased_manifest": [
-                {"candidate_id": candidate_id, "source_document_id": document_id}
-                for candidate_id, document_id in (
-                    ("base-case", "base-doc"),
-                    ("case-1", "doc-1"),
-                    ("case-2", "doc-2"),
-                )
-            ],
+            "purchased_manifest": purchased_rows,
         },
     )
     policy_path = _write_json(tmp_path / "policy.json", {"fixture": "policy"})
     cohort_path = _write_json(tmp_path / "cohort.json", {"fixture": "cohort"})
     receipt_path = _write_json(tmp_path / "receipt.json", {"fixture": "receipt"})
+    snapshot_manifest = _write_json(
+        tmp_path / "snapshot" / "manifest.json", {"fixture": "snapshot"}
+    )
+    purchase_result = _write_json(
+        tmp_path / "purchase-result.json", {"fixture": "purchase-result"}
+    )
+    purchase_run_card = _write_json(
+        tmp_path / "purchase-run-card.json", {"fixture": "purchase-run-card"}
+    )
     ledger = (tmp_path / "ledger.sqlite3").resolve()
     private_root = (tmp_path / "private").resolve()
     private_root.mkdir()
@@ -267,6 +289,24 @@ def _prepare_fixture(
         )
 
     monkeypatch.setattr(cli, "verify_replacement_purchase_authority", verify_authority)
+    monkeypatch.setattr(
+        cli,
+        "_replacement_consolidation_terminal_omissions",
+        lambda **_kwargs: SimpleNamespace(
+            keys=frozenset(terminal_omission_pairs),
+            partition={
+                "schema_version": (
+                    "legalforecast.materializer_docket_decision_partition.v1"
+                ),
+                "audit_only_document_keys": [
+                    {"candidate_id": candidate_id, "source_document_id": document_id}
+                    for candidate_id, document_id in sorted(terminal_omission_pairs)
+                ],
+            },
+            source_snapshots={},
+        ),
+        raising=False,
+    )
     args = argparse.Namespace(
         output_root=tmp_path / "consolidated",
         tranche_index=index_path,
@@ -278,11 +318,343 @@ def _prepare_fixture(
         purchase_ledger=ledger,
         controlled_private_root=private_root,
         purchase_ledger_initialization_receipt=receipt_path,
+        snapshot_manifest=(snapshot_manifest if pre_recovery_projection else None),
+        purchase_result=(purchase_result if pre_recovery_projection else None),
+        purchase_run_card=(purchase_run_card if pre_recovery_projection else None),
         run_card_output=None,
         execute=True,
         resume=False,
     )
     return args, allowed_pairs
+
+
+def test_pre_recovery_empty_manifest_uses_paid_gaps_minus_terminal_omissions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    omitted = {("case-2", "doc-2")}
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+        terminal_omission_pairs=omitted,
+    )
+
+    prepared = cli._prepare_replacement_recovery_consolidation(args)
+
+    assert {
+        (row["candidate_id"], row["source_document_id"])
+        for row in prepared.manifest_records
+    } == all_paid - omitted
+    assert cli._cmd_consolidate_replacement_recovery(args) == 0
+    verified = cli._verify_materializer_consolidated_recovery(
+        recovery_root=args.output_root,
+        run_card_path=(
+            args.output_root / "run-cards" / "consolidate-replacement-recovery.json"
+        ),
+        selection_path=args.selection,
+        selected_document_keys=all_paid - omitted,
+        purchase_policy_path=args.purchase_policy,
+        cohort_policy_path=args.cohort_policy,
+        ledger_path=args.purchase_ledger,
+    )
+    assert {
+        (row["candidate_id"], row["source_document_id"])
+        for row in verified["manifest_records"]
+    } == all_paid - omitted
+
+
+def test_terminal_omission_replay_opens_purchase_journal_read_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    journal_arguments: dict[str, object] = {}
+    journal = object()
+
+    class _JournalContext:
+        def __init__(self, path: Path, **kwargs: object) -> None:
+            journal_arguments["path"] = path
+            journal_arguments.update(kwargs)
+
+        def __enter__(self) -> object:
+            return journal
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    descriptor = SimpleNamespace(
+        authority=object(),
+        partition={"audit_only_document_count": 1},
+        source_snapshots={tmp_path / "purchase-result.json": b"{}\n"},
+    )
+    monkeypatch.setattr(cli, "CaseDevPurchaseJournal", _JournalContext)
+    monkeypatch.setattr(
+        cli,
+        "_verify_materializer_docket_decision_authority",
+        lambda **kwargs: descriptor,
+    )
+    monkeypatch.setattr(
+        cli,
+        "verified_docket_decision_document_keys",
+        lambda authority, *, purchase_journal: {("case-1", "decision-1")},
+    )
+    policy = SimpleNamespace()
+    ledger_path = tmp_path / "purchase-ledger.sqlite3"
+    private_root = tmp_path / "private"
+    receipt_path = tmp_path / "receipt.json"
+
+    result = cli._replacement_consolidation_terminal_omissions(
+        selection_payload=b"{}\n",
+        snapshot_manifest_path=tmp_path / "snapshot-manifest.json",
+        purchase_result_path=tmp_path / "purchase-result.json",
+        purchase_run_card_path=tmp_path / "purchase-run-card.json",
+        purchase_policy=policy,
+        ledger_path=ledger_path,
+        controlled_private_root=private_root,
+        initialization_receipt_path=receipt_path,
+        selected_document_count=1,
+    )
+
+    assert result.keys == frozenset({("case-1", "decision-1")})
+    assert journal_arguments == {
+        "path": ledger_path,
+        "policy": policy,
+        "read_only": True,
+        "controlled_private_root": private_root,
+        "initialization_receipt_path": receipt_path,
+    }
+
+
+def test_pre_recovery_consolidation_rejects_missing_active_paid_document(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+    )
+    original = cli._verify_materializer_recovery
+    missing_root = (tmp_path / "tranche-2" / "recovery").resolve()
+
+    def omit_active(**kwargs: object) -> dict[str, object]:
+        result = dict(original(**kwargs))
+        if kwargs["recovery_root"] == missing_root:
+            result["manifest_records"] = []
+        return result
+
+    monkeypatch.setattr(cli, "_verify_materializer_recovery", omit_active)
+
+    with pytest.raises(
+        ValueError,
+        match="coverage differs from final active purchased cohort",
+    ):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_pre_recovery_consolidation_rejects_unledgered_paid_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs={
+            ("base-case", "base-doc"),
+            ("case-1", "doc-1"),
+        },
+        pre_recovery_projection=True,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="final active paid-gap scope differs from canonical ledger coverage",
+    ):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_pre_recovery_consolidation_requires_complete_terminal_authority_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+    )
+    args.purchase_result = None
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "snapshot manifest, purchase result, and purchase run card must be "
+            "supplied together"
+        ),
+    ):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_pre_recovery_consolidation_rejects_inconsistent_paid_gap_markers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+    )
+    selection_rows = [
+        json.loads(line)
+        for line in args.selection.read_text(encoding="utf-8").splitlines()
+    ]
+    selection_rows[0]["documents"][0]["availability_status"] = "available"
+    _write_jsonl(args.selection, selection_rows)
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        lambda _root: {
+            "selection_path": args.selection,
+            "selection_records": selection_rows,
+            "purchased_manifest": [],
+        },
+    )
+
+    with pytest.raises(ValueError, match="inconsistent paid-recovery gap markers"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_pre_recovery_consolidation_filters_historical_unselected_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+    )
+    final_rows = [
+        row
+        for row in (
+            json.loads(line)
+            for line in args.selection.read_text(encoding="utf-8").splitlines()
+        )
+        if row["candidate_id"] != "case-2"
+    ]
+    _write_jsonl(args.selection, final_rows)
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        lambda _root: {
+            "selection_path": args.selection,
+            "selection_records": final_rows,
+            "purchased_manifest": [],
+        },
+    )
+
+    prepared = cli._prepare_replacement_recovery_consolidation(args)
+
+    assert {
+        (row["candidate_id"], row["source_document_id"])
+        for row in prepared.manifest_records
+    } == all_paid - {("case-2", "doc-2")}
+
+
+def test_pre_recovery_consolidation_rejects_uncleared_active_document(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+    )
+    original = cli._verify_materializer_clearance_lineage
+    uncleared_path = (tmp_path / "tranche-1" / "clearance.jsonl").resolve()
+
+    def return_uncleared(**kwargs: object) -> dict[str, object]:
+        result = dict(original(**kwargs))
+        if kwargs["clearance_path"] == uncleared_path:
+            rows = [dict(row) for row in result["clearance_records"]]  # type: ignore[arg-type]
+            rows[0]["status"] = "quarantined"
+            result["clearance_records"] = rows
+        return result
+
+    monkeypatch.setattr(cli, "_verify_materializer_clearance_lineage", return_uncleared)
+
+    with pytest.raises(ValueError, match="lacks cleared active document"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_pre_recovery_consolidation_rejects_rebound_active_document(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+    )
+    original_recovery = cli._verify_materializer_recovery
+    original_clearance = cli._verify_materializer_clearance_lineage
+    first_root = (tmp_path / "tranche-1" / "recovery").resolve()
+    rebound_root = (tmp_path / "tranche-2" / "recovery").resolve()
+    first_clearance = (tmp_path / "tranche-1" / "clearance.jsonl").resolve()
+    rebound_clearance = (tmp_path / "tranche-2" / "clearance.jsonl").resolve()
+
+    def rebound_recovery(**kwargs: object) -> dict[str, object]:
+        if kwargs["recovery_root"] == rebound_root:
+            return dict(original_recovery(recovery_root=first_root))
+        return dict(original_recovery(**kwargs))
+
+    def rebound_clearance_lineage(**kwargs: object) -> dict[str, object]:
+        if kwargs["clearance_path"] == rebound_clearance:
+            return dict(original_clearance(clearance_path=first_clearance))
+        return dict(original_clearance(**kwargs))
+
+    monkeypatch.setattr(cli, "_verify_materializer_recovery", rebound_recovery)
+    monkeypatch.setattr(
+        cli,
+        "_verify_materializer_clearance_lineage",
+        rebound_clearance_lineage,
+    )
+
+    with pytest.raises(
+        ValueError, match="duplicate or conflicting replacement recovery manifest"
+    ):
+        cli._prepare_replacement_recovery_consolidation(args)
 
 
 def test_multi_tranche_consolidation_materializes_promoted_purchased_documents(
@@ -342,7 +714,7 @@ def test_consolidation_rejects_selected_purchased_document_absent_from_ledger(
 
     with pytest.raises(
         ValueError,
-        match="target purchased manifest differs from final active ledger coverage",
+        match="final active paid-gap scope differs from canonical ledger coverage",
     ):
         cli._prepare_replacement_recovery_consolidation(args)
 
