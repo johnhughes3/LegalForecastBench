@@ -31,6 +31,7 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    authenticate_post_purchase_replay_against_snapshot,
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
     ranked_reserve_result_bytes,
@@ -1129,7 +1130,7 @@ def test_post_purchase_ranked_replay_proves_exact_authority_transition(
     )
 
 
-def test_verified_post_purchase_transition_plans_and_binds_current_v3(
+def test_verified_post_purchase_transition_plans_and_binds_current_v4(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1271,6 +1272,39 @@ def test_verified_post_purchase_transition_plans_and_binds_current_v3(
         result["authenticated_legacy_replay"]
         == fixture["prior_result"]["authenticated_legacy_replay"]
     )
+    assert result["schema_version"] == (
+        "legalforecast.ranked_reserve_replacement_result.v4"
+    )
+    transition = cast(dict[str, object], result["authenticated_post_purchase_replay"])
+    assert transition["prior_result"] == fixture["prior_result"]
+    assert transition["prior_result_sha256"] == replay.prior_result_sha256
+    assert transition["replacement_purchase_authority_sha256"] == (
+        replay.replacement_purchase_authority_sha256
+    )
+    assert transition["baseline_purchase_journal_state_sha256"] == baseline_state
+    assert transition["current_purchase_journal_state_sha256"] == current_state
+    assert transition["baseline_operation_record_sha256s"] == list(
+        replay.baseline_operation_record_sha256s
+    )
+    assert transition["successor_operation_record_sha256s"] == list(
+        replay.successor_operation_record_sha256s
+    )
+    with CaseDevPurchaseJournal(
+        fixture["ledger_path"],
+        policy=fixture["policy"],
+        read_only=True,
+        controlled_private_root=fixture["initial_private_root"],
+        initialization_receipt_path=fixture["receipt_path"],
+    ) as journal:
+        snapshot = journal.authenticated_snapshot()
+        assert (
+            authenticate_post_purchase_replay_against_snapshot(
+                transition,
+                policy=fixture["policy"],
+                snapshot=snapshot,
+            )
+            == transition
+        )
 
 
 def test_post_purchase_ranked_replay_requires_complete_approved_complement(

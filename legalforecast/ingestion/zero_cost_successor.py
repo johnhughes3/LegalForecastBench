@@ -23,9 +23,11 @@ from legalforecast.ingestion.docket_decision_text_source import (
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
     CURRENT_REPLAY_RESULT_SCHEMA_VERSION,
+    POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION,
     ranked_reserve_canonical_sha256,
     ranked_reserve_result_bytes,
     validate_authenticated_legacy_replay,
+    validate_authenticated_post_purchase_replay,
 )
 
 JsonRecord = dict[str, Any]
@@ -82,6 +84,9 @@ _RESULT_FIELDS = frozenset(
     }
 )
 _CURRENT_RESULT_FIELDS = _RESULT_FIELDS | {"authenticated_legacy_replay"}
+_POST_PURCHASE_RESULT_FIELDS = _CURRENT_RESULT_FIELDS | {
+    "authenticated_post_purchase_replay"
+}
 
 
 class ZeroCostSuccessorError(ValueError):
@@ -424,13 +429,16 @@ def _verify_ranked_result(
 ) -> Mapping[str, object]:
     schema_version = ranked_result.get("schema_version")
     expected_fields = (
-        _CURRENT_RESULT_FIELDS
+        _POST_PURCHASE_RESULT_FIELDS
+        if schema_version == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
+        else _CURRENT_RESULT_FIELDS
         if schema_version == CURRENT_REPLAY_RESULT_SCHEMA_VERSION
         else _RESULT_FIELDS
     )
     if frozenset(ranked_result) != expected_fields or schema_version not in {
         RESULT_SCHEMA_VERSION,
         CURRENT_REPLAY_RESULT_SCHEMA_VERSION,
+        POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION,
     }:
         raise ZeroCostSuccessorError("unsupported ranked successor result")
     try:
@@ -505,7 +513,10 @@ def _verify_ranked_result(
         or disposition.get("partition_exhaustive") is not True
     ):
         raise ZeroCostSuccessorError("terminal disposition commitment mismatch")
-    if schema_version == CURRENT_REPLAY_RESULT_SCHEMA_VERSION:
+    if schema_version in {
+        CURRENT_REPLAY_RESULT_SCHEMA_VERSION,
+        POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION,
+    }:
         try:
             replay = validate_authenticated_legacy_replay(
                 ranked_result.get("authenticated_legacy_replay")
@@ -532,6 +543,41 @@ def _verify_ranked_result(
         ):
             raise ZeroCostSuccessorError(
                 "authenticated legacy replay differs from current output commitments"
+            )
+    if schema_version == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION:
+        try:
+            post_purchase = validate_authenticated_post_purchase_replay(
+                ranked_result.get("authenticated_post_purchase_replay")
+            )
+        except ValueError as exc:
+            raise ZeroCostSuccessorError(str(exc)) from exc
+        prior_result = post_purchase["prior_result"]
+        if (
+            post_purchase.get("current_purchase_journal_state_sha256")
+            != ranked_result.get("purchase_journal_state_sha256")
+            or post_purchase.get("current_committed_spend_usd")
+            != ranked_result.get("committed_spend_usd")
+            or prior_result.get("authenticated_legacy_replay")
+            != ranked_result.get("authenticated_legacy_replay")
+            or any(
+                prior_result.get(field) != ranked_result.get(field)
+                for field in (
+                    "projection_sha256",
+                    "cycle_id",
+                    "purchase_policy_sha256",
+                    "hard_cap_usd",
+                    "active_selection_sha256",
+                    "replacement_selection_sha256",
+                    "successor_exclusions_sha256",
+                    "replacement_budget_plan_sha256",
+                    "replacement_event_record_sha256s",
+                    "tranche_event_record_sha256s",
+                )
+            )
+        ):
+            raise ZeroCostSuccessorError(
+                "authenticated post-purchase replay differs from current output "
+                "commitments"
             )
     return disposition
 

@@ -597,6 +597,7 @@ from legalforecast.ingestion.purchased_document_recovery import (
     recover_purchased_documents,
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION,
     RankedReserveReplacementError,
     VerifiedRankedReservePostPurchaseReplay,
     bind_ranked_reserve_outputs,
@@ -5697,6 +5698,12 @@ def _add_project_zero_cost_successor_arguments(
     parser.add_argument("--replacement-selection", type=Path, required=True)
     parser.add_argument("--successor-exclusions", type=Path, required=True)
     parser.add_argument("--replacement-budget-plan", type=Path, required=True)
+    parser.add_argument("--prior-ranked-result", type=Path)
+    parser.add_argument("--prior-replacement-selection", type=Path)
+    parser.add_argument("--prior-replacement-budget-plan", type=Path)
+    parser.add_argument("--replacement-purchase-authority", type=Path)
+    parser.add_argument("--replacement-controlled-private-root", type=Path)
+    parser.add_argument("--cohort-policy", type=Path)
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--disclosure-clearance-run-card", type=Path, required=True)
     parser.add_argument(
@@ -24017,6 +24024,8 @@ def _authenticate_ranked_reserve_precursor(
     purchase_run_card_path: Path,
     screening_snapshot_manifest_path: Path,
     ranked_result: Mapping[str, object],
+    verified_post_purchase_replay: VerifiedRankedReservePostPurchaseReplay
+    | None = None,
 ) -> Mapping[str, object]:
     """Substantively replay the producer authority behind the ranked result."""
 
@@ -24077,6 +24086,14 @@ def _authenticate_ranked_reserve_precursor(
                 descriptor.authority, purchase_journal=journal
             )
 
+        if (
+            ranked_result.get("schema_version")
+            == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
+        ) != (verified_post_purchase_replay is not None):
+            raise ZeroCostSuccessorError(
+                "post-purchase v4 replay requires its complete verified authority "
+                "bundle"
+            )
         plan = plan_ranked_reserve_replacements(
             projection=projection,
             selected_bytes=selection_payload,
@@ -24092,8 +24109,10 @@ def _authenticate_ranked_reserve_precursor(
             authenticated_legacy_replay=(
                 cast(Mapping[str, object], ranked_result["authenticated_legacy_replay"])
                 if "authenticated_legacy_replay" in ranked_result
+                and verified_post_purchase_replay is None
                 else None
             ),
+            verified_post_purchase_replay=verified_post_purchase_replay,
         )
         authenticated_result = bind_ranked_reserve_outputs(
             plan,
@@ -24130,6 +24149,27 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
     purchase_result_path = cast(Path, args.purchase_result)
     purchase_run_card_path = cast(Path, args.purchase_run_card)
     snapshot_manifest_path = cast(Path, args.screening_snapshot_manifest)
+    post_purchase_paths = {
+        "prior_ranked_result": cast(
+            Path | None, getattr(args, "prior_ranked_result", None)
+        ),
+        "prior_replacement_selection": cast(
+            Path | None, getattr(args, "prior_replacement_selection", None)
+        ),
+        "prior_replacement_budget_plan": cast(
+            Path | None, getattr(args, "prior_replacement_budget_plan", None)
+        ),
+        "replacement_purchase_authority": cast(
+            Path | None, getattr(args, "replacement_purchase_authority", None)
+        ),
+        "replacement_controlled_private_root": cast(
+            Path | None, getattr(args, "replacement_controlled_private_root", None)
+        ),
+        "cohort_policy": cast(Path | None, getattr(args, "cohort_policy", None)),
+    }
+    supplied_post_purchase_paths = {
+        name: path for name, path in post_purchase_paths.items() if path is not None
+    }
     output_root = cast(Path, args.output_root)
     output_paths = {
         "selection": output_root / "target-cohort-selection.jsonl",
@@ -24161,8 +24201,19 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
         purchase_result_path,
         purchase_run_card_path,
         snapshot_manifest_path,
+        *supplied_post_purchase_paths.values(),
     )
     try:
+        if supplied_post_purchase_paths and len(supplied_post_purchase_paths) != len(
+            post_purchase_paths
+        ):
+            missing = sorted(
+                set(post_purchase_paths) - set(supplied_post_purchase_paths)
+            )
+            raise ZeroCostSuccessorError(
+                "post-purchase v4 replay requires the complete authority bundle; "
+                "missing " + ", ".join(missing)
+            )
         resolved_output = output_root.resolve(strict=False)
         resolved_target = target_root.resolve(strict=False)
         if (
@@ -24236,6 +24287,77 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
         replacement_bytes = read_unique_regular_file(replacement_path)
         exclusions_bytes = read_unique_regular_file(exclusions_path)
         budget_bytes = read_unique_regular_file(budget_path)
+        is_post_purchase_v4 = (
+            ranked_result.get("schema_version")
+            == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
+        )
+        if is_post_purchase_v4 != bool(supplied_post_purchase_paths):
+            raise ZeroCostSuccessorError(
+                "post-purchase v4 replay requires exactly its complete authority bundle"
+            )
+        verified_post_purchase_replay: (
+            VerifiedRankedReservePostPurchaseReplay | None
+        ) = None
+        post_purchase_source_snapshots: dict[Path, bytes] = {}
+        verify_post_purchase_bundle: (
+            Callable[[], VerifiedRankedReservePostPurchaseReplay] | None
+        ) = None
+        if supplied_post_purchase_paths:
+            post_purchase_source_snapshots = {
+                path: read_unique_regular_file(path)
+                for name, path in supplied_post_purchase_paths.items()
+                if name != "replacement_controlled_private_root"
+            }
+            prior_result_path = cast(Path, post_purchase_paths["prior_ranked_result"])
+            prior_selection_path = cast(
+                Path, post_purchase_paths["prior_replacement_selection"]
+            )
+            prior_budget_path = cast(
+                Path, post_purchase_paths["prior_replacement_budget_plan"]
+            )
+            authority_path = cast(
+                Path, post_purchase_paths["replacement_purchase_authority"]
+            )
+            cohort_policy_path = cast(Path, post_purchase_paths["cohort_policy"])
+            prior_result_bytes = post_purchase_source_snapshots[prior_result_path]
+
+            def replay_post_purchase_bundle() -> (
+                VerifiedRankedReservePostPurchaseReplay
+            ):
+                return verify_ranked_reserve_post_purchase_replay(
+                    prior_result=_projection_json_object(
+                        prior_result_bytes, source=prior_result_path
+                    ),
+                    prior_result_bytes=prior_result_bytes,
+                    authority_artifact=_projection_json_object(
+                        post_purchase_source_snapshots[authority_path],
+                        source=authority_path,
+                    ),
+                    controlled_private_root=cast(
+                        Path,
+                        post_purchase_paths["replacement_controlled_private_root"],
+                    ),
+                    initial_purchase_policy_artifact=_projection_json_object(
+                        read_unique_regular_file(purchase_policy_path),
+                        source=purchase_policy_path,
+                    ),
+                    initial_controlled_private_root=controlled_private_root,
+                    cohort_policy_artifact=_projection_json_object(
+                        post_purchase_source_snapshots[cohort_policy_path],
+                        source=cohort_policy_path,
+                    ),
+                    budget_plan_bytes=post_purchase_source_snapshots[prior_budget_path],
+                    selection_bytes=post_purchase_source_snapshots[
+                        prior_selection_path
+                    ],
+                    purchase_ledger_path=purchase_ledger_path,
+                    purchase_ledger_initialization_receipt_path=(
+                        purchase_ledger_receipt_path
+                    ),
+                )
+
+            verify_post_purchase_bundle = replay_post_purchase_bundle
+            verified_post_purchase_replay = verify_post_purchase_bundle()
         authenticated_ranked_result = _authenticate_ranked_reserve_precursor(
             projection=projection,
             selection_payload=original_selection_bytes,
@@ -24254,6 +24376,7 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
             purchase_run_card_path=purchase_run_card_path,
             screening_snapshot_manifest_path=snapshot_manifest_path,
             ranked_result=ranked_result,
+            verified_post_purchase_replay=verified_post_purchase_replay,
         )
         clearance_bytes = read_unique_regular_file(clearance_path)
         clearance_card_bytes = read_unique_regular_file(clearance_card_path)
@@ -24293,6 +24416,7 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
             relevance_path: relevance_bytes,
             manifest_path: manifest_bytes,
             restriction_path: restriction_bytes,
+            **post_purchase_source_snapshots,
         }
         successor = project_zero_cost_successor(
             target_projection=projection,
@@ -24355,6 +24479,11 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
                 purchase_run_card_path=purchase_run_card_path,
                 screening_snapshot_manifest_path=snapshot_manifest_path,
                 ranked_result=ranked_result,
+                verified_post_purchase_replay=(
+                    verify_post_purchase_bundle()
+                    if verify_post_purchase_bundle is not None
+                    else None
+                ),
             )
             != authenticated_ranked_result
         ):
@@ -24383,6 +24512,7 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
             purchase_result_path,
             purchase_run_card_path,
             snapshot_manifest_path,
+            *supplied_post_purchase_paths.values(),
         )
         state_record = {
             **successor.state,
@@ -37627,7 +37757,7 @@ def _verify_zero_cost_successor_projection(
         or run_card.get("evaluation_authorized") is not False
         or run_card.get("freeze_authorized") is not False
         or run_card.get("dispatch_authorized") is not False
-        or len(typed_inputs) != 15
+        or len(typed_inputs) not in {15, 21}
     ):
         raise CommandError("invalid completed zero-cost successor run card")
     input_paths = tuple(Path(str(path)) for path in typed_inputs)
@@ -37678,6 +37808,20 @@ def _verify_zero_cost_successor_projection(
         purchase_result=input_paths[12],
         purchase_run_card=input_paths[13],
         screening_snapshot_manifest=input_paths[14],
+        prior_ranked_result=input_paths[15] if len(input_paths) == 21 else None,
+        prior_replacement_selection=(
+            input_paths[16] if len(input_paths) == 21 else None
+        ),
+        prior_replacement_budget_plan=(
+            input_paths[17] if len(input_paths) == 21 else None
+        ),
+        replacement_purchase_authority=(
+            input_paths[18] if len(input_paths) == 21 else None
+        ),
+        replacement_controlled_private_root=(
+            input_paths[19] if len(input_paths) == 21 else None
+        ),
+        cohort_policy=input_paths[20] if len(input_paths) == 21 else None,
         output_root=target_root,
         resume=True,
     )

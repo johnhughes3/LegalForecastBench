@@ -1604,6 +1604,7 @@ def verify_ranked_reserve_post_purchase_replay(
         replacement_purchase_authority_sha256=_text(
             authority_artifact.get("authority_sha256"), "authority SHA-256"
         ),
+        baseline_operation_record_sha256s=baseline_hashes,
         successor_operation_record_sha256s=successor_hashes,
     )
 

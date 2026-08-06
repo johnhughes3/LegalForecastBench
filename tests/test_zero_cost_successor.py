@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -290,6 +291,40 @@ def _upgrade_fixture_to_current_replay(fixture: Fixture) -> None:
     fixture.refresh()
 
 
+def _upgrade_fixture_to_post_purchase_replay(fixture: Fixture) -> None:
+    _upgrade_fixture_to_current_replay(fixture)
+    prior_result = json.loads(ranked_reserve_result_bytes(fixture.ranked_result))
+    baseline_state = str(prior_result["purchase_journal_state_sha256"])
+    baseline_committed = str(prior_result["committed_spend_usd"])
+    current_state = "sha256:" + "a" * 64
+    current_committed = f"{Decimal(baseline_committed) + Decimal('1.00'):.2f}"
+    fixture.ranked_result["schema_version"] = (
+        "legalforecast.ranked_reserve_replacement_result.v4"
+    )
+    fixture.ranked_result["purchase_journal_state_sha256"] = current_state
+    fixture.ranked_result["committed_spend_usd"] = current_committed
+    disposition = dict(fixture.ranked_result["terminal_disposition"])
+    disposition["purchase_journal_state_sha256"] = current_state
+    fixture.ranked_result["terminal_disposition"] = disposition
+    fixture.ranked_result["terminal_disposition_sha256"] = (
+        ranked_reserve_canonical_sha256(disposition)
+    )
+    fixture.ranked_result["authenticated_post_purchase_replay"] = {
+        "schema_version": "legalforecast.ranked_reserve_post_purchase_replay.v1",
+        "prior_result": prior_result,
+        "prior_result_sha256": _sha(ranked_reserve_result_bytes(prior_result)),
+        "replacement_purchase_authority_sha256": "b" * 64,
+        "baseline_purchase_journal_state_sha256": baseline_state,
+        "baseline_committed_spend_usd": baseline_committed,
+        "baseline_operation_record_sha256s": ["c" * 64],
+        "current_purchase_journal_state_sha256": current_state,
+        "current_committed_spend_usd": current_committed,
+        "successor_operation_record_sha256s": ["d" * 64],
+    }
+    fixture.kwargs["authenticated_ranked_result"] = fixture.ranked_result
+    fixture.refresh()
+
+
 def test_current_v3_result_accepts_closed_legacy_replay_proof() -> None:
     fixture = _fixture()
     _upgrade_fixture_to_current_replay(fixture)
@@ -297,6 +332,54 @@ def test_current_v3_result_accepts_closed_legacy_replay_proof() -> None:
     successor = project_zero_cost_successor(**fixture.kwargs)
 
     assert successor.state["selected_case_count"] == 100
+
+
+def test_post_purchase_v4_result_accepts_closed_transition_proof() -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_post_purchase_replay(fixture)
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
+
+    assert successor.state["selected_case_count"] == 100
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("prior_result_sha256", "sha256:" + "e" * 64, "prior ranked result"),
+        (
+            "baseline_purchase_journal_state_sha256",
+            "sha256:" + "e" * 64,
+            "prior ranked result",
+        ),
+        (
+            "current_purchase_journal_state_sha256",
+            "sha256:" + "e" * 64,
+            "current output commitments",
+        ),
+        ("current_committed_spend_usd", "999.00", "current output commitments"),
+        (
+            "successor_operation_record_sha256s",
+            ["c" * 64],
+            "operation partition",
+        ),
+    ],
+)
+def test_post_purchase_v4_result_rejects_transition_tampering(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_post_purchase_replay(fixture)
+    proof = fixture.ranked_result["authenticated_post_purchase_replay"]
+    assert isinstance(proof, dict)
+    proof[field] = value
+    fixture.kwargs["authenticated_ranked_result"] = fixture.ranked_result
+    fixture.refresh()
+
+    with pytest.raises(ZeroCostSuccessorError, match=message):
+        project_zero_cost_successor(**fixture.kwargs)
 
 
 def test_current_v3_result_rejects_drifted_legacy_output_commitment() -> None:
@@ -609,10 +692,15 @@ def test_rejects_model_visible_decision() -> None:
         project_zero_cost_successor(**fixture.kwargs)
 
 
+@pytest.mark.parametrize("post_purchase_v4", [False, True])
 def test_cli_publishes_standard_target_cohort_surfaces(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    post_purchase_v4: bool,
 ) -> None:
     fixture = _fixture()
+    if post_purchase_v4:
+        _upgrade_fixture_to_post_purchase_replay(fixture)
     target_root = tmp_path / "target"
     target_root.mkdir()
     summary_path = target_root / "target-cohort-projection.json"
@@ -655,10 +743,17 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     monkeypatch.setattr(
         cli, "_verify_authenticated_clearance_run_card", lambda **_kwargs: ()
     )
+    verified_token = object()
+    authentication_tokens: list[object | None] = []
+
+    def authenticate_precursor(**kwargs: object) -> dict[str, Any]:
+        token = kwargs.get("verified_post_purchase_replay")
+        authentication_tokens.append(token)
+        assert token is (verified_token if post_purchase_v4 else None)
+        return fixture.kwargs["authenticated_ranked_result"]
+
     monkeypatch.setattr(
-        cli,
-        "_authenticate_ranked_reserve_precursor",
-        lambda **_kwargs: fixture.kwargs["authenticated_ranked_result"],
+        cli, "_authenticate_ranked_reserve_precursor", authenticate_precursor
     )
     inputs = {
         "ranked-reserve-result.json": fixture.kwargs["ranked_result_bytes"],
@@ -707,47 +802,97 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     for path in precursor_paths.values():
         path.write_bytes(b"{}\n")
     output_root = tmp_path / "successor"
+    post_purchase_arguments: list[str] = []
+    authority_verifications: list[dict[str, object]] = []
+    if post_purchase_v4:
+        proof = fixture.ranked_result["authenticated_post_purchase_replay"]
+        assert isinstance(proof, dict)
+        prior_result_path = tmp_path / "prior-ranked-result.json"
+        prior_result_path.write_bytes(
+            ranked_reserve_result_bytes(proof["prior_result"])
+        )
+        prior_selection_path = tmp_path / "prior-replacement-selection.jsonl"
+        prior_selection_path.write_bytes(fixture.kwargs["replacement_selection_bytes"])
+        prior_budget_path = tmp_path / "prior-replacement-budget-plan.json"
+        prior_budget_path.write_bytes(fixture.kwargs["replacement_budget_plan_bytes"])
+        authority_path = tmp_path / "replacement-purchase-authority.json"
+        authority_path.write_bytes(b"{}\n")
+        replacement_private_root = tmp_path / "replacement-private"
+        replacement_private_root.mkdir()
+        cohort_policy_path = tmp_path / "cohort-policy.json"
+        cohort_policy_path.write_bytes(b"{}\n")
 
-    status = cli.main(
-        [
-            "acquisition",
-            "project-zero-cost-successor",
-            "--target-cohort-root",
-            str(target_root),
-            "--purchase-policy",
-            str(precursor_paths["purchase-policy.json"]),
-            "--controlled-private-root",
-            str(controlled_private_root),
-            "--purchase-ledger",
-            str(precursor_paths["purchase-ledger.sqlite3"]),
-            "--purchase-ledger-initialization-receipt",
-            str(precursor_paths["purchase-ledger-receipt.json"]),
-            "--purchase-result",
-            str(precursor_paths["purchase-result.json"]),
-            "--purchase-run-card",
-            str(precursor_paths["purchase-run-card.json"]),
-            "--screening-snapshot-manifest",
-            str(precursor_paths["screening-snapshot-manifest.json"]),
-            "--ranked-reserve-result",
-            str(paths["ranked-reserve-result.json"]),
-            "--active-selection",
-            str(paths["active-selection.jsonl"]),
-            "--replacement-selection",
-            str(paths["replacement-selection.jsonl"]),
-            "--successor-exclusions",
-            str(paths["successor-exclusions.jsonl"]),
-            "--replacement-budget-plan",
-            str(paths["replacement-budget.json"]),
-            "--disclosure-clearance",
-            str(paths["disclosure-clearance.jsonl"]),
-            "--disclosure-clearance-run-card",
-            str(clearance_card_path),
-            "--output-root",
-            str(output_root),
+        def verify_post_purchase(**kwargs: object) -> object:
+            authority_verifications.append(kwargs)
+            assert kwargs["prior_result_bytes"] == prior_result_path.read_bytes()
+            assert kwargs["selection_bytes"] == prior_selection_path.read_bytes()
+            assert kwargs["budget_plan_bytes"] == prior_budget_path.read_bytes()
+            assert kwargs["controlled_private_root"] == replacement_private_root
+            return verified_token
+
+        monkeypatch.setattr(
+            cli, "verify_ranked_reserve_post_purchase_replay", verify_post_purchase
+        )
+        post_purchase_arguments = [
+            "--prior-ranked-result",
+            str(prior_result_path),
+            "--prior-replacement-selection",
+            str(prior_selection_path),
+            "--prior-replacement-budget-plan",
+            str(prior_budget_path),
+            "--replacement-purchase-authority",
+            str(authority_path),
+            "--replacement-controlled-private-root",
+            str(replacement_private_root),
+            "--cohort-policy",
+            str(cohort_policy_path),
         ]
-    )
+
+    command = [
+        "acquisition",
+        "project-zero-cost-successor",
+        "--target-cohort-root",
+        str(target_root),
+        "--purchase-policy",
+        str(precursor_paths["purchase-policy.json"]),
+        "--controlled-private-root",
+        str(controlled_private_root),
+        "--purchase-ledger",
+        str(precursor_paths["purchase-ledger.sqlite3"]),
+        "--purchase-ledger-initialization-receipt",
+        str(precursor_paths["purchase-ledger-receipt.json"]),
+        "--purchase-result",
+        str(precursor_paths["purchase-result.json"]),
+        "--purchase-run-card",
+        str(precursor_paths["purchase-run-card.json"]),
+        "--screening-snapshot-manifest",
+        str(precursor_paths["screening-snapshot-manifest.json"]),
+        "--ranked-reserve-result",
+        str(paths["ranked-reserve-result.json"]),
+        "--active-selection",
+        str(paths["active-selection.jsonl"]),
+        "--replacement-selection",
+        str(paths["replacement-selection.jsonl"]),
+        "--successor-exclusions",
+        str(paths["successor-exclusions.jsonl"]),
+        "--replacement-budget-plan",
+        str(paths["replacement-budget.json"]),
+        "--disclosure-clearance",
+        str(paths["disclosure-clearance.jsonl"]),
+        "--disclosure-clearance-run-card",
+        str(clearance_card_path),
+        "--output-root",
+        str(output_root),
+        *post_purchase_arguments,
+    ]
+    status = cli.main(command)
 
     assert status == 0
+    assert len(authority_verifications) == (2 if post_purchase_v4 else 0)
+    assert authentication_tokens == [
+        verified_token if post_purchase_v4 else None,
+        verified_token if post_purchase_v4 else None,
+    ]
     expected = {
         "target-cohort-selection.jsonl",
         "target-cohort-projection.json",
@@ -783,6 +928,14 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     )
     assert len(verified["selection_records"]) == 100
     assert verified["summary"]["schema_version"] == CONFIG_SCHEMA_VERSION
+    assert len(authority_verifications) == (4 if post_purchase_v4 else 0)
+    assert (
+        authentication_tokens
+        == [
+            verified_token if post_purchase_v4 else None,
+        ]
+        * 4
+    )
 
     missing_path = output_root / "case-relevance.jsonl"
     missing_payload = missing_path.read_bytes()
@@ -828,6 +981,55 @@ def test_cli_publishes_standard_target_cohort_surfaces(
             snapshot_manifest_path=tmp_path / "unused-snapshot.json",
             expected_target_count=100,
         )
+
+
+def test_zero_cost_cli_rejects_incomplete_v4_authority_bundle_before_output(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "successor"
+    command = [
+        "acquisition",
+        "project-zero-cost-successor",
+        "--target-cohort-root",
+        str(tmp_path / "target"),
+        "--purchase-policy",
+        str(tmp_path / "purchase-policy.json"),
+        "--controlled-private-root",
+        str(tmp_path / "private"),
+        "--purchase-ledger",
+        str(tmp_path / "purchase-ledger.sqlite3"),
+        "--purchase-ledger-initialization-receipt",
+        str(tmp_path / "purchase-ledger-receipt.json"),
+        "--purchase-result",
+        str(tmp_path / "purchase-result.json"),
+        "--purchase-run-card",
+        str(tmp_path / "purchase-run-card.json"),
+        "--screening-snapshot-manifest",
+        str(tmp_path / "screening-snapshot-manifest.json"),
+        "--ranked-reserve-result",
+        str(tmp_path / "ranked-result.json"),
+        "--active-selection",
+        str(tmp_path / "active.jsonl"),
+        "--replacement-selection",
+        str(tmp_path / "replacement.jsonl"),
+        "--successor-exclusions",
+        str(tmp_path / "exclusions.jsonl"),
+        "--replacement-budget-plan",
+        str(tmp_path / "budget.json"),
+        "--disclosure-clearance",
+        str(tmp_path / "clearance.jsonl"),
+        "--disclosure-clearance-run-card",
+        str(tmp_path / "clearance-card.json"),
+        "--prior-ranked-result",
+        str(tmp_path / "prior-result.json"),
+        "--output-root",
+        str(output_root),
+    ]
+
+    assert cli.main(command) == 2
+    assert "complete authority bundle" in capsys.readouterr().err
+    assert not output_root.exists()
 
 
 def _base_selection(candidate_id: str) -> dict[str, Any]:
