@@ -7,7 +7,6 @@ from contextlib import closing
 from decimal import Decimal
 from pathlib import Path
 
-import legalforecast.ingestion.recap_fetch_quarantine_recovery as recovery_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
@@ -33,6 +32,7 @@ from legalforecast.ingestion.missing_core_budget import (
 from legalforecast.ingestion.recap_fetch_broker import recap_fetch_client_code
 from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
     RecapFetchQuarantineRecoveryError,
+    _is_bound_public_recovery,
     recover_recap_fetch_quarantine_documents,
     validate_terminal_unavailable_records,
     write_recap_fetch_quarantine_manifest,
@@ -452,7 +452,7 @@ def test_recovery_repairs_authenticated_unknown_public_legacy_url_before_bytes(
         correction = recovery["courtlistener_url_commitment_correction"]
         assert correction["legacy_download_url_sha256"] == legacy_digest
         assert correction["corrected_download_url_sha256"] == corrected_digest
-        assert not recovery_module._is_bound_public_recovery(
+        assert not _is_bound_public_recovery(
             recovery,
             operation=corrected_operation,
             candidate_id="case-1",
