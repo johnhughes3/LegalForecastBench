@@ -664,6 +664,14 @@ from legalforecast.ingestion.replacement_purchase_approval import (
     verify_replacement_purchase_approval,
     verify_replacement_purchase_authority,
 )
+from legalforecast.ingestion.replacement_recovery_source import (
+    SOURCE_RUN_CARD_SCHEMA,
+    ReplacementRecoverySourceError,
+    build_recovery_source_descriptor,
+    derive_clearance_source_coordinates,
+    derive_recovery_source_coordinates,
+    derive_resolved_source_coordinates,
+)
 from legalforecast.ingestion.resolved_post_recovery import (
     ResolvedPostRecoveryError,
     _build_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
@@ -1842,6 +1850,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_build_replacement_exclusions_arguments(
         acquisition_build_replacement_exclusions
+    )
+    acquisition_build_replacement_recovery_source = acquisition_subparsers.add_parser(
+        "build-replacement-recovery-source",
+        help=(
+            "Derive one authenticated initial or successor recovery-source "
+            "descriptor without provider activity."
+        ),
+    )
+    _add_build_replacement_recovery_source_arguments(
+        acquisition_build_replacement_recovery_source
     )
     acquisition_build_replacement_recovery_index = acquisition_subparsers.add_parser(
         "build-replacement-recovery-index",
@@ -5739,6 +5757,59 @@ def _add_consolidate_replacement_recovery_arguments(
         "--resume", action=argparse.BooleanOptionalAction, default=False
     )
     parser.set_defaults(handler=_cmd_consolidate_replacement_recovery)
+
+
+def _add_build_replacement_recovery_source_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument(
+        "--ordinal",
+        type=int,
+        required=True,
+        help="Zero for the initial recovery; positive for an ordered successor.",
+    )
+    parser.add_argument(
+        "--recovery-root",
+        type=Path,
+        required=True,
+        help="Completed recover-recap-fetch-quarantine output root.",
+    )
+    parser.add_argument(
+        "--purchased-clearance-run-card",
+        type=Path,
+        required=True,
+        help="Completed clearance producer card; the clearance path is derived.",
+    )
+    parser.add_argument(
+        "--resolved-post-recovery-run-card",
+        type=Path,
+        help="Completed resolver card; required for unknown-origin selected material.",
+    )
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument(
+        "--initial-controlled-private-root",
+        type=Path,
+        required=True,
+        help="Private approval root for replaying the initial v2 policy.",
+    )
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt", type=Path, required=True
+    )
+    parser.add_argument(
+        "--replacement-controlled-private-root",
+        type=Path,
+        help="Required only for a replacement_successor recovery card.",
+    )
+    parser.add_argument("--descriptor-output", type=Path)
+    parser.add_argument("--run-card-output", type=Path)
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument(
+        "--resume", action=argparse.BooleanOptionalAction, default=False
+    )
+    parser.set_defaults(handler=_cmd_build_replacement_recovery_source)
 
 
 def _add_build_replacement_recovery_index_arguments(
@@ -24949,6 +25020,419 @@ _SUCCESSOR_RECOVERY_SOURCE_FIELDS = {
     "replacement_controlled_private_root",
     "replacement_budget_plan",
 }
+
+
+def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
+    """Publish one descriptor only after replaying every upstream authority."""
+
+    output_root = cast(Path, args.output_root).absolute()
+    ordinal = cast(int, args.ordinal)
+    recovery_root = cast(Path, args.recovery_root).absolute()
+    recovery_card_path = recovery_root / "run-cards/recover-recap-fetch-quarantine.json"
+    clearance_card_path = cast(Path, args.purchased_clearance_run_card).absolute()
+    resolved_card_path = cast(Path | None, args.resolved_post_recovery_run_card)
+    if resolved_card_path is not None:
+        resolved_card_path = resolved_card_path.absolute()
+    purchase_policy_path = cast(Path, args.purchase_policy).absolute()
+    cohort_policy_path = cast(Path, args.cohort_policy).absolute()
+    ledger_path = cast(Path, args.purchase_ledger).resolve()
+    initial_private_root = cast(Path, args.initial_controlled_private_root).absolute()
+    receipt_path = cast(Path, args.purchase_ledger_initialization_receipt).absolute()
+    replacement_private_root = cast(
+        Path | None, args.replacement_controlled_private_root
+    )
+    if replacement_private_root is not None:
+        replacement_private_root = replacement_private_root.absolute()
+    verified_bytes: dict[str, bytes] = {}
+
+    def capture(path: Path, *, label: str) -> bytes:
+        payload = _read_singly_linked_regular_input(path, label=label)
+        _merge_verified_artifact_bytes(
+            verified_bytes,
+            {os.path.abspath(path): payload},
+            label="replacement recovery source",
+        )
+        return payload
+
+    try:
+        recovery_card_bytes = capture(
+            recovery_card_path, label="replacement recovery run card"
+        )
+        recovery_card = _projection_json_object(
+            recovery_card_bytes, source=recovery_card_path
+        )
+        coordinates = derive_recovery_source_coordinates(recovery_card)
+        supplied_lineage = {
+            "purchase policy": purchase_policy_path,
+            "cohort policy": cohort_policy_path,
+            "purchase ledger": ledger_path,
+        }
+        committed_lineage = {
+            "purchase policy": coordinates.purchase_policy_path,
+            "cohort policy": coordinates.cohort_policy_path,
+            "purchase ledger": coordinates.purchase_ledger_path,
+        }
+        for label, supplied in supplied_lineage.items():
+            if supplied.resolve() != committed_lineage[label].resolve():
+                raise ReplacementRecoverySourceError(
+                    f"recovery source {label} path rebound"
+                )
+
+        selection_bytes = capture(
+            coordinates.selection_path, label="replacement recovery selection"
+        )
+        selection_records = _projection_jsonl_records(
+            selection_bytes, source=coordinates.selection_path
+        )
+        selected_keys = _replacement_consolidation_selection_keys(selection_records)
+        budget_bytes = capture(
+            coordinates.budget_plan_path,
+            label="replacement recovery budget plan",
+        )
+        attempt_policy_bytes = capture(
+            coordinates.attempt_policy_path,
+            label="replacement recovery attempt policy",
+        )
+        policy_bytes = capture(
+            purchase_policy_path, label="replacement recovery purchase policy"
+        )
+        cohort_bytes = capture(
+            cohort_policy_path, label="replacement recovery cohort policy"
+        )
+        capture(
+            receipt_path,
+            label="replacement recovery purchase ledger initialization receipt",
+        )
+        policy_artifact = _projection_json_object(
+            policy_bytes, source=purchase_policy_path
+        )
+        cohort_artifact = _projection_json_object(
+            cohort_bytes, source=cohort_policy_path
+        )
+        budget_artifact = _projection_json_object(
+            budget_bytes, source=coordinates.budget_plan_path
+        )
+        attempt_policy_artifact = _projection_json_object(
+            attempt_policy_bytes, source=coordinates.attempt_policy_path
+        )
+        policy = verify_case_dev_purchase_policy(policy_artifact)
+        require_approved_case_dev_purchase_policy(
+            policy, controlled_private_root=initial_private_root
+        )
+        verify_case_dev_purchase_policy_cohort_binding(policy, cohort_artifact)
+        if ledger_path != policy.canonical_ledger_path:
+            raise ReplacementRecoverySourceError(
+                "recovery source ledger differs from purchase policy"
+            )
+        purchase_snapshot = read_case_dev_purchase_snapshot(
+            ledger_path,
+            policy=policy,
+            controlled_private_root=initial_private_root,
+            initialization_receipt_path=receipt_path,
+        )
+        recovery = _verify_materializer_recovery(
+            recovery_root=recovery_root,
+            selection_path=coordinates.selection_path,
+            selected_document_keys=selected_keys,
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            ledger_path=ledger_path,
+            purchase_operations=purchase_snapshot.operations,
+            purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
+            purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        )
+        raw_recovery_bytes = recovery.get("verified_artifact_bytes")
+        if not isinstance(raw_recovery_bytes, Mapping):
+            raise ReplacementRecoverySourceError(
+                "recovery verification lacks authenticated artifact bytes"
+            )
+        _merge_verified_artifact_bytes(
+            verified_bytes,
+            cast(Mapping[str, bytes], raw_recovery_bytes),
+            label="replacement recovery source",
+        )
+
+        clearance_card_bytes = capture(
+            clearance_card_path, label="replacement recovery clearance run card"
+        )
+        clearance_card = _projection_json_object(
+            clearance_card_bytes, source=clearance_card_path
+        )
+        clearance_coordinates = derive_clearance_source_coordinates(clearance_card)
+        clearance = _verify_materializer_clearance_lineage(
+            manifest_path=cast(Path, recovery["manifest_path"]),
+            clearance_path=clearance_coordinates.clearance_path,
+            run_card_path=clearance_card_path,
+        )
+        _verify_materializer_recovery_clearance_binding(
+            recovery=recovery, clearance_lineage=clearance
+        )
+        raw_clearance_bytes = clearance.get("verified_artifact_bytes")
+        if not isinstance(raw_clearance_bytes, Mapping):
+            raise ReplacementRecoverySourceError(
+                "clearance verification lacks authenticated artifact bytes"
+            )
+        _merge_verified_artifact_bytes(
+            verified_bytes,
+            cast(Mapping[str, bytes], raw_clearance_bytes),
+            label="replacement recovery source",
+        )
+        clearance_bytes = capture(
+            clearance_coordinates.clearance_path,
+            label="replacement recovery disclosure clearance",
+        )
+        if _bytes_sha256(clearance_bytes) != clearance_coordinates.clearance_sha256:
+            raise ReplacementRecoverySourceError(
+                "disclosure clearance commitment changed"
+            )
+
+        replacement_authority_artifact: JsonRecord | None = None
+        if coordinates.kind == "successor":
+            if (
+                coordinates.replacement_authority_path is None
+                or replacement_private_root is None
+            ):
+                raise ReplacementRecoverySourceError(
+                    "successor source requires replacement controlled private root"
+                )
+            authority_bytes = capture(
+                coordinates.replacement_authority_path,
+                label="replacement recovery purchase authority",
+            )
+            replacement_authority_artifact = _projection_json_object(
+                authority_bytes,
+                source=coordinates.replacement_authority_path,
+            )
+            verify_replacement_purchase_authority(
+                authority_artifact=replacement_authority_artifact,
+                controlled_private_root=replacement_private_root,
+                initial_purchase_policy_artifact=policy_artifact,
+                initial_controlled_private_root=initial_private_root,
+                cohort_policy_artifact=cohort_artifact,
+                budget_plan_bytes=budget_bytes,
+                selection_bytes=selection_bytes,
+                purchase_ledger_path=ledger_path,
+                purchase_ledger_initialization_receipt_path=receipt_path,
+            )
+        else:
+            verify_approved_purchase_input_bytes(
+                policy,
+                controlled_private_root=initial_private_root,
+                budget_plan_bytes=budget_bytes,
+                selection_bytes=selection_bytes,
+            )
+        verify_recap_fetch_attempt_policy(
+            attempt_policy_artifact,
+            purchase_policy_artifact=policy_artifact,
+            cohort_policy_artifact=cohort_artifact,
+            budget_plan=_missing_core_budget_plan(budget_artifact),
+            budget_plan_artifact=budget_artifact,
+            selection_records=selection_records,
+            budget_plan_bytes=budget_bytes,
+            selection_bytes=selection_bytes,
+            controlled_private_root=initial_private_root,
+            replacement_purchase_authority_artifact=(replacement_authority_artifact),
+            replacement_controlled_private_root=replacement_private_root,
+            purchase_ledger_initialization_receipt_path=receipt_path,
+        )
+
+        purchased_manifest = cast(
+            Sequence[Mapping[str, Any]], recovery["manifest_records"]
+        )
+        needs_resolved = _selection_requires_resolved_post_recovery(
+            selection_records
+        ) or any(
+            record.get("recovery_origin") == "unknown_status_attempt"
+            for record in purchased_manifest
+        )
+        resolved_path: Path | None = None
+        if resolved_card_path is None:
+            if needs_resolved:
+                raise ReplacementRecoverySourceError(
+                    "unknown-origin recovery requires a resolved post-recovery run card"
+                )
+        else:
+            resolved_card_bytes = capture(
+                resolved_card_path,
+                label="replacement recovery resolved-document run card",
+            )
+            resolved_card = _projection_json_object(
+                resolved_card_bytes, source=resolved_card_path
+            )
+            expected_resolved_inputs = (
+                coordinates.selection_path,
+                purchase_policy_path,
+                cohort_policy_path,
+                coordinates.budget_plan_path,
+                ledger_path,
+                coordinates.attempt_policy_path,
+                *(
+                    (coordinates.replacement_authority_path,)
+                    if coordinates.replacement_authority_path is not None
+                    else ()
+                ),
+                cast(Path, recovery["manifest_path"]),
+                clearance_coordinates.clearance_path,
+                clearance_card_path,
+            )
+            resolved_coordinates = derive_resolved_source_coordinates(
+                resolved_card,
+                expected_input_paths=expected_resolved_inputs,
+                expected_ledger_path=ledger_path,
+                expected_purchase_state_sha256=(
+                    purchase_snapshot.purchase_state_sha256
+                ),
+            )
+            for path, expected_sha256 in zip(
+                resolved_coordinates.input_paths,
+                resolved_coordinates.input_sha256,
+                strict=True,
+            ):
+                if (
+                    _bytes_sha256(
+                        capture(path, label="replacement recovery resolver input")
+                    )
+                    != expected_sha256
+                ):
+                    raise ReplacementRecoverySourceError(
+                        "resolved source input commitment changed"
+                    )
+            resolved_path = resolved_coordinates.resolved_path
+            resolved_bytes = capture(
+                resolved_path,
+                label="replacement recovery resolved documents",
+            )
+            if _bytes_sha256(resolved_bytes) != resolved_coordinates.resolved_sha256:
+                raise ReplacementRecoverySourceError(
+                    "resolved post-recovery commitment changed"
+                )
+            resolved_records = _projection_jsonl_records(
+                resolved_bytes, source=resolved_path
+            )
+            require_resolved_post_recovery_operation_bindings(
+                purchase_operation_records=purchase_snapshot.operations,
+                resolved_records=resolved_records,
+            )
+
+        descriptor = build_recovery_source_descriptor(
+            coordinates=coordinates,
+            ordinal=ordinal,
+            recovery_root=recovery_root,
+            purchased_clearance_path=clearance_coordinates.clearance_path,
+            purchased_clearance_run_card_path=clearance_card_path,
+            resolved_post_recovery_documents_path=resolved_path,
+            replacement_controlled_private_root=replacement_private_root,
+        )
+        descriptor_path = (
+            cast(Path, args.descriptor_output).absolute()
+            if args.descriptor_output is not None
+            else output_root
+            / (
+                "0000-initial-v2.json"
+                if coordinates.kind == "initial_v2"
+                else f"{ordinal:04d}-successor.json"
+            )
+        )
+        run_card_path = (
+            cast(Path, args.run_card_output).absolute()
+            if args.run_card_output is not None
+            else output_root
+            / "run-cards"
+            / f"build-replacement-recovery-source-{ordinal:04d}.json"
+        )
+        descriptor_bytes = _projection_json_bytes(descriptor)
+        source_snapshots = {
+            Path(path): payload for path, payload in verified_bytes.items()
+        }
+        input_paths = tuple(sorted(source_snapshots, key=str))
+        _validate_disclosure_review_paths(
+            input_paths=input_paths,
+            output_paths=(descriptor_path, run_card_path),
+        )
+        final_purchase_snapshot = read_case_dev_purchase_snapshot(
+            ledger_path,
+            policy=policy,
+            controlled_private_root=initial_private_root,
+            initialization_receipt_path=receipt_path,
+        )
+        if (
+            final_purchase_snapshot.purchase_state_sha256
+            != purchase_snapshot.purchase_state_sha256
+            or final_purchase_snapshot.committed_amount_usd
+            != purchase_snapshot.committed_amount_usd
+            or final_purchase_snapshot.operations != purchase_snapshot.operations
+        ):
+            raise ReplacementRecoverySourceError(
+                "purchase ledger changed during recovery source production"
+            )
+        card: JsonRecord = {
+            "schema_version": SOURCE_RUN_CARD_SCHEMA,
+            "stage": "build-replacement-recovery-source",
+            "status": "completed",
+            "dry_run": not cast(bool, args.execute),
+            "execute": cast(bool, args.execute),
+            "kind": coordinates.kind,
+            "ordinal": ordinal,
+            "record_count": 1,
+            "input_paths": [str(path) for path in input_paths],
+            "output_paths": [str(descriptor_path)],
+            "source_commitments": {
+                str(path.resolve()): _bytes_sha256(source_snapshots[path])
+                for path in input_paths
+            },
+            "output_commitments": {
+                str(descriptor_path.resolve()): _bytes_sha256(descriptor_bytes)
+            },
+            "purchase_state_sha256": purchase_snapshot.purchase_state_sha256,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+        }
+        if not cast(bool, args.execute):
+            print(json.dumps(card, sort_keys=True))
+            return 0
+        _ensure_projection_artifact(
+            descriptor_path,
+            descriptor_bytes,
+            resume=cast(bool, args.resume),
+            stage="build-replacement-recovery-source",
+        )
+        _ensure_projection_artifact(
+            run_card_path,
+            _projection_json_bytes(card),
+            resume=cast(bool, args.resume),
+            stage="build-replacement-recovery-source",
+        )
+        _require_snapshot_unchanged(
+            source_snapshots,
+            label="replacement recovery source input",
+        )
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        ReplacementPurchaseApprovalError,
+        ReplacementRecoverySourceError,
+        ResolvedPostRecoveryError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "descriptor": str(descriptor_path),
+                "kind": coordinates.kind,
+                "ordinal": ordinal,
+                "run_card": str(run_card_path),
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
 
 
 def _validated_replacement_recovery_sources(
