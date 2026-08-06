@@ -43,6 +43,7 @@ def _fixture(
     monkeypatch: pytest.MonkeyPatch,
     *,
     successor: bool,
+    recovery_origin: str | None = None,
 ) -> tuple[argparse.Namespace, dict[str, Path], list[dict[str, Any]]]:
     candidate_id = "successor-case" if successor else "initial-case"
     document_id = "successor-doc" if successor else "initial-doc"
@@ -150,9 +151,15 @@ def _fixture(
             "source_commitments": recovery_sources,
         },
     )
+    manifest_record: dict[str, object] = {
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+    }
+    if recovery_origin is not None:
+        manifest_record["recovery_origin"] = recovery_origin
     manifest = _write_jsonl(
         recovery_root / "purchased-document-downloads-quarantine.jsonl",
-        [{"candidate_id": candidate_id, "source_document_id": document_id}],
+        [manifest_record],
     )
     terminal_unavailable = _write_jsonl(
         recovery_root / "terminal-unavailable-operations.jsonl", []
@@ -178,6 +185,10 @@ def _fixture(
             "status": "completed",
             "dry_run": False,
             "execute": True,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "human_review_requested": False,
+            "human_review_executed": False,
             "paid_activity_requested": False,
             "paid_activity_executed": False,
             "output_paths": [str(clearance.resolve()), str(quarantine.resolve())],
@@ -237,9 +248,7 @@ def _fixture(
         return {
             "recovery_stage": "recover-recap-fetch-quarantine",
             "manifest_path": manifest,
-            "manifest_records": [
-                {"candidate_id": candidate_id, "source_document_id": document_id}
-            ],
+            "manifest_records": [manifest_record],
             "run_card_path": recovery_card,
             "verified_artifact_bytes": {
                 str(recovery_card.resolve()): recovery_card.read_bytes(),
@@ -510,6 +519,59 @@ def test_producer_rejects_clearance_extra_commitment(
     with pytest.raises(
         cli.CommandError,
         match="clearance output commitments have extra or missing fields",
+    ):
+        cli._cmd_build_replacement_recovery_source(args)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schema_version", "legalforecast.acquisition_run_card.v1"),
+        ("stage", "other-stage"),
+        ("provider_activity_requested", True),
+        ("provider_activity_executed", True),
+        ("human_review_requested", True),
+        ("human_review_executed", True),
+    ],
+)
+def test_producer_rejects_clearance_card_outside_provider_free_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["clearance_card"].read_bytes())
+    card[field] = value
+    _write_json(paths["clearance_card"], card)
+
+    with pytest.raises(
+        cli.CommandError,
+        match="completed provider-free clearance run card",
+    ):
+        cli._cmd_build_replacement_recovery_source(args)
+
+
+def test_producer_requires_resolved_card_for_unknown_status_recovery_origin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, _, _ = _fixture(
+        tmp_path,
+        monkeypatch,
+        successor=False,
+        recovery_origin="unknown_status_attempt",
+    )
+    monkeypatch.setattr(
+        cli,
+        "_selection_requires_resolved_post_recovery",
+        lambda _records: False,
+    )
+    args.resolved_post_recovery_run_card = None
+
+    with pytest.raises(
+        cli.CommandError,
+        match="unknown-origin recovery requires a resolved post-recovery run card",
     ):
         cli._cmd_build_replacement_recovery_source(args)
 

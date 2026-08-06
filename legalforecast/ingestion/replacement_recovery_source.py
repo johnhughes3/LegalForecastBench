@@ -10,8 +10,10 @@ from typing import cast
 
 SOURCE_RUN_CARD_SCHEMA = "legalforecast.replacement_recovery_source_run_card.v1"
 RECOVERY_RUN_CARD_SCHEMA = "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
+CLEARANCE_RUN_CARD_SCHEMA = "legalforecast.provenance_quarantine_clearance_run_card.v1"
 RESOLVED_RUN_CARD_SCHEMA = "legalforecast.acquisition_run_card.v1"
 RECOVERY_STAGE = "recover-recap-fetch-quarantine"
+CLEARANCE_STAGE = "finalize-provenance-quarantine"
 INITIAL_KIND = "initial_v2"
 SUCCESSOR_KIND = "successor"
 RESOLVED_STAGE = "resolve-post-recovery-documents"
@@ -208,14 +210,20 @@ def derive_clearance_source_coordinates(
     """Derive and close the clearance output selected by its producer card."""
 
     if (
-        card.get("status") != "completed"
+        card.get("schema_version") != CLEARANCE_RUN_CARD_SCHEMA
+        or card.get("stage") != CLEARANCE_STAGE
+        or card.get("status") != "completed"
         or card.get("dry_run") is not False
         or card.get("execute") is not True
+        or card.get("provider_activity_requested") is not False
+        or card.get("provider_activity_executed") is not False
+        or card.get("human_review_requested") is not False
+        or card.get("human_review_executed") is not False
         or card.get("paid_activity_requested") is not False
         or card.get("paid_activity_executed") is not False
     ):
         raise ReplacementRecoverySourceError(
-            "clearance source requires a completed provider-free run card"
+            "clearance source requires a completed provider-free clearance run card"
         )
     commitments = _string_mapping(
         card.get("output_commitments"), label="clearance output commitments"

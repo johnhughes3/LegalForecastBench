@@ -25236,13 +25236,20 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             purchase_ledger_initialization_receipt_path=receipt_path,
         )
 
-        needs_resolved = _selection_requires_resolved_post_recovery(selection_records)
+        purchased_manifest = cast(
+            Sequence[Mapping[str, Any]], recovery["manifest_records"]
+        )
+        needs_resolved = _selection_requires_resolved_post_recovery(
+            selection_records
+        ) or any(
+            record.get("recovery_origin") == "unknown_status_attempt"
+            for record in purchased_manifest
+        )
         resolved_path: Path | None = None
         if resolved_card_path is None:
             if needs_resolved:
                 raise ReplacementRecoverySourceError(
-                    "unknown-origin selection requires a resolved post-recovery "
-                    "run card"
+                    "unknown-origin recovery requires a resolved post-recovery run card"
                 )
         else:
             resolved_card_bytes = capture(
