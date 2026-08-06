@@ -8,13 +8,13 @@ import sqlite3
 from dataclasses import replace
 from pathlib import Path
 
-import legalforecast.ingestion.corpus_completion_summary as completion_summary_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchasePolicy,
     CaseDevPurchaseSnapshot,
     canonical_purchase_state_sha256,
     initialize_case_dev_purchase_journal,
+    read_case_dev_purchase_snapshot,
     summarize_case_dev_purchase_snapshot,
     verify_case_dev_purchase_policy,
 )
@@ -421,7 +421,7 @@ def test_build_reauthenticates_purchase_ledger_before_return(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
-    original = completion_summary_module.read_case_dev_purchase_snapshot
+    original = read_case_dev_purchase_snapshot
     calls = 0
 
     def mutate_after_first_snapshot(
@@ -454,7 +454,7 @@ def test_build_reauthenticates_purchase_ledger_before_return(
         return snapshot
 
     monkeypatch.setattr(
-        completion_summary_module,
+        "legalforecast.ingestion.corpus_completion_summary."
         "read_case_dev_purchase_snapshot",
         mutate_after_first_snapshot,
     )
