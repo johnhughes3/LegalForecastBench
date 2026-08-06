@@ -708,6 +708,7 @@ def test_external_completed_disclosure_review_replays_authority(
     plan_path = tmp_path / "plan.json"
     worksheet_path = tmp_path / "worksheet.json"
     document_root = tmp_path / "documents"
+    auto_document_path = document_root / "case-a" / "auto.pdf"
     document_path = document_root / "case-a" / "document.pdf"
     authority_path = tmp_path / "authority.json"
     private_path = tmp_path / "private.json"
@@ -715,9 +716,22 @@ def test_external_completed_disclosure_review_replays_authority(
     spend_path = tmp_path / "spend.sqlite3"
     plan_run_card_path = tmp_path / "plan-run-card.json"
     run_card_path = tmp_path / "run-card.json"
+    auto_document = {
+        "candidate_id": "case-a",
+        "source_document_id": "auto-1",
+        "local_path": "case-a/auto.pdf",
+    }
+    document = {
+        "candidate_id": "case-a",
+        "source_document_id": "document-1",
+        "local_path": "case-a/document.pdf",
+    }
     document_path.parent.mkdir(parents=True)
-    plan_path.write_bytes(canonical_json_bytes({}))
-    worksheet_path.write_bytes(canonical_json_bytes({}))
+    plan_path.write_bytes(
+        canonical_json_bytes({"documents": [auto_document, document]})
+    )
+    worksheet_path.write_bytes(canonical_json_bytes({"documents": [document]}))
+    auto_document_path.write_bytes(b"auto-clear document")
     document_path.write_bytes(b"reviewed document")
     journal_path.write_bytes(b"journal")
     spend_path.write_bytes(b"spend")
@@ -762,20 +776,10 @@ def test_external_completed_disclosure_review_replays_authority(
         ),
         index=0,
     )
-    document = {
-        "candidate_id": "case-a",
-        "source_document_id": "document-1",
-        "local_path": "case-a/document.pdf",
+    document_tree = {
+        "case-a/auto.pdf": cli._bytes_sha256(b"auto-clear document"),
+        "case-a/document.pdf": cli._bytes_sha256(b"reviewed document"),
     }
-    document_tree = [
-        {
-            "candidate_id": "case-a",
-            "source_document_id": "document-1",
-            "relative_path": "case-a/document.pdf",
-            "sha256": hashlib.sha256(b"reviewed document").hexdigest(),
-            "byte_count": len(b"reviewed document"),
-        }
-    ]
     plan_run_card = {
         "schema_version": "legalforecast.acquisition_run_card.v1",
         "stage": "plan-disclosure-provenance",
@@ -789,7 +793,7 @@ def test_external_completed_disclosure_review_replays_authority(
             "document_root": {
                 "path": str(document_root.resolve()),
                 "tree_sha256": cli._canonical_json_sha256(document_tree),
-                "document_count": 1,
+                "document_count": len(document_tree),
             }
         },
         "output_commitments": {
@@ -816,13 +820,23 @@ def test_external_completed_disclosure_review_replays_authority(
             "document_root": {
                 "path": str(document_root.resolve()),
                 "tree_sha256": cli._canonical_json_sha256(document_tree),
-                "document_count": 1,
+                "document_count": len(document_tree),
             },
         },
         "record_count": 1,
         "model_review_authority": authority,
     }
     capability = object()
+    mutate_during_replay = False
+
+    def replay(**kwargs: object) -> object:
+        assert kwargs["document_bytes_by_key"] == {
+            ("case-a", "document-1"): b"reviewed document"
+        }
+        if mutate_during_replay:
+            auto_document_path.write_bytes(b"mutated during replay")
+        return capability
+
     monkeypatch.setattr(
         cli,
         "validate_exception_review_worksheet_v3",
@@ -831,7 +845,7 @@ def test_external_completed_disclosure_review_replays_authority(
     monkeypatch.setattr(
         cli,
         "replay_authenticated_disclosure_model_review",
-        lambda **_kwargs: capability,
+        replay,
     )
     monkeypatch.setattr(
         cli,
@@ -845,6 +859,29 @@ def test_external_completed_disclosure_review_replays_authority(
     )
 
     cli._verify_external_completed_cycle_stage(stage, card)
+    changed_trees = (
+        {"case-a/document.pdf": document_tree["case-a/document.pdf"]},
+        {**document_tree, "case-a/extra.pdf": cli._bytes_sha256(b"extra")},
+        {**document_tree, "case-a/auto.pdf": cli._bytes_sha256(b"tampered")},
+    )
+    for changed_tree in changed_trees:
+        with pytest.raises(ValueError, match="document commitment changed"):
+            cli._verify_model_review_plan_run_card(
+                run_card_bytes=plan_run_card_path.read_bytes(),
+                run_card_path=plan_run_card_path,
+                plan_path=plan_path,
+                plan_bytes=plan_path.read_bytes(),
+                worksheet_path=worksheet_path,
+                worksheet_bytes=worksheet_path.read_bytes(),
+                document_root=document_root,
+                document_tree=changed_tree,
+            )
+
+    mutate_during_replay = True
+    with pytest.raises(CycleOrchestratorError, match="semantic replay failed"):
+        cli._verify_external_completed_cycle_stage(stage, card)
+    mutate_during_replay = False
+    auto_document_path.write_bytes(b"auto-clear document")
 
     authority_path.write_bytes(canonical_json_bytes({"decision_count": 2}))
     with pytest.raises(CycleOrchestratorError, match="semantic replay failed"):

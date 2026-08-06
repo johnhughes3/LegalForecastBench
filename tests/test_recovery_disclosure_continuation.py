@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import cast
@@ -259,8 +260,25 @@ def test_model_review_requires_completed_plan_before_provider_call(
     plan_run_card_path.parent.mkdir(parents=True)
     document_root.mkdir()
     frozen_root.mkdir()
-    plan_bytes = canonical_json_bytes({})
-    worksheet_bytes = canonical_json_bytes({})
+    auto_payload = b"auto-clear document"
+    exception_payload = b"exception document"
+    auto_document = {
+        "candidate_id": "case-a",
+        "source_document_id": "auto",
+        "local_path": "case-a/auto.pdf",
+    }
+    exception_document = {
+        "candidate_id": "case-a",
+        "source_document_id": "exception",
+        "local_path": "case-a/exception.pdf",
+    }
+    (document_root / "case-a").mkdir()
+    (document_root / auto_document["local_path"]).write_bytes(auto_payload)
+    (document_root / exception_document["local_path"]).write_bytes(exception_payload)
+    plan_bytes = canonical_json_bytes(
+        {"documents": [auto_document, exception_document]}
+    )
+    worksheet_bytes = canonical_json_bytes({"documents": [exception_document]})
     plan_path.write_bytes(plan_bytes)
     worksheet_path.write_bytes(worksheet_bytes)
     plan_run_card = {
@@ -275,8 +293,15 @@ def test_model_review_requires_completed_plan_before_provider_call(
         "source_commitments": {
             "document_root": {
                 "path": str(document_root.resolve()),
-                "tree_sha256": cli_module._canonical_json_sha256([]),  # pyright: ignore[reportPrivateUsage]
-                "document_count": 0,
+                "tree_sha256": cli_module._canonical_json_sha256(  # pyright: ignore[reportPrivateUsage]
+                    {
+                        "case-a/auto.pdf": "sha256:"
+                        + hashlib.sha256(auto_payload).hexdigest(),
+                        "case-a/exception.pdf": "sha256:"
+                        + hashlib.sha256(exception_payload).hexdigest(),
+                    }
+                ),
+                "document_count": 2,
             }
         },
         "output_commitments": {
@@ -303,8 +328,11 @@ def test_model_review_requires_completed_plan_before_provider_call(
     provider_calls = 0
     capability = object()
 
-    def authenticate(**_kwargs: object) -> object:
+    def authenticate(**kwargs: object) -> object:
         nonlocal provider_calls
+        assert kwargs["document_bytes_by_key"] == {
+            ("case-a", "exception"): exception_payload
+        }
         provider_calls += 1
         return capability
 
@@ -312,8 +340,21 @@ def test_model_review_requires_completed_plan_before_provider_call(
         assert value is capability
         return ()
 
+    def validate_fixture_worksheet(
+        *_args: object, **_kwargs: object
+    ) -> tuple[dict[str, str]]:
+        return (exception_document,)
+
+    def public_record_for_capability(value: object) -> dict[str, int]:
+        return {"decision_count": 1} if value is capability else {}
+
+    def provider_call_executed(value: object) -> bool:
+        return value is capability
+
     monkeypatch.setattr(
-        cli_module, "validate_exception_review_worksheet_v3", lambda *_a, **_k: ()
+        cli_module,
+        "validate_exception_review_worksheet_v3",
+        validate_fixture_worksheet,
     )
     monkeypatch.setattr(
         cli_module, "authenticate_disclosure_model_review", authenticate
@@ -321,7 +362,7 @@ def test_model_review_requires_completed_plan_before_provider_call(
     monkeypatch.setattr(
         cli_module,
         "public_disclosure_model_review_record",
-        lambda value: {"decision_count": 0} if value is capability else {},
+        public_record_for_capability,
     )
     monkeypatch.setattr(
         cli_module,
@@ -331,7 +372,7 @@ def test_model_review_requires_completed_plan_before_provider_call(
     monkeypatch.setattr(
         cli_module,
         "disclosure_model_review_provider_call_executed",
-        lambda value: value is capability,
+        provider_call_executed,
     )
     command = [
         "acquisition",

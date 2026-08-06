@@ -18102,28 +18102,28 @@ def _verify_external_completed_cycle_stage(
                 routing_plan_bytes=plan_bytes,
                 worksheet_bytes=worksheet_bytes,
             )
-            document_map: dict[tuple[str, str], bytes] = {}
-            document_tree: list[dict[str, object]] = []
-            for document in documents:
-                key = (
+            raw_plan_documents = plan.get("documents")
+            if not isinstance(raw_plan_documents, list) or not all(
+                isinstance(document, Mapping)
+                for document in cast(list[object], raw_plan_documents)
+            ):
+                raise CommandError("external v3 routing plan documents are malformed")
+            document_snapshot = _capture_provenance_document_snapshot(
+                cast(list[Mapping[str, Any]], raw_plan_documents),
+                document_root=document_root,
+            )
+            document_map = _model_review_document_map(worksheet, document_snapshot)
+            if set(document_map) != {
+                (
                     cast(str, document["candidate_id"]),
                     cast(str, document["source_document_id"]),
                 )
-                relative = cast(str, document["local_path"])
-                data = _read_singly_linked_regular_input(
-                    safe_disclosure_document_path(document_root, relative),
-                    label="external disclosure document",
+                for document in documents
+            }:
+                raise CommandError(
+                    "external disclosure worksheet byte coverage changed"
                 )
-                document_map[key] = data
-                document_tree.append(
-                    {
-                        "candidate_id": key[0],
-                        "source_document_id": key[1],
-                        "relative_path": relative,
-                        "sha256": hashlib.sha256(data).hexdigest(),
-                        "byte_count": len(data),
-                    }
-                )
+            document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
             _verify_model_review_plan_run_card(
                 run_card_bytes=plan_run_card_bytes,
                 run_card_path=plan_run_card_path,
@@ -18166,6 +18166,9 @@ def _verify_external_completed_cycle_stage(
                     stage, "--provider-spend-authority"
                 ),
                 source_root=_cycle_stage_path(stage, "--frozen-authority-root"),
+            )
+            _require_provenance_document_snapshot_unchanged(
+                document_snapshot, document_root=document_root
             )
             replayed_authority = public_disclosure_model_review_record(capability)
             replayed_private = private_disclosure_model_review_records(capability)
@@ -43605,26 +43608,28 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
             routing_plan_bytes=plan_bytes,
             worksheet_bytes=worksheet_bytes,
         )
-        document_map: dict[tuple[str, str], bytes] = {}
-        tree: list[dict[str, object]] = []
-        for document in documents:
-            key = (
+        raw_plan_documents = plan.get("documents")
+        if not isinstance(raw_plan_documents, list) or not all(
+            isinstance(document, Mapping)
+            for document in cast(list[object], raw_plan_documents)
+        ):
+            raise ProvenanceClearanceError("v3 routing plan documents are malformed")
+        document_snapshot = _capture_provenance_document_snapshot(
+            cast(list[Mapping[str, Any]], raw_plan_documents),
+            document_root=document_root,
+        )
+        document_map = _model_review_document_map(worksheet, document_snapshot)
+        if set(document_map) != {
+            (
                 cast(str, document["candidate_id"]),
                 cast(str, document["source_document_id"]),
             )
-            relative = cast(str, document["local_path"])
-            path = safe_disclosure_document_path(document_root, relative)
-            data = _read_singly_linked_regular_input(path, label="disclosure document")
-            document_map[key] = data
-            tree.append(
-                {
-                    "candidate_id": key[0],
-                    "source_document_id": key[1],
-                    "relative_path": relative,
-                    "sha256": hashlib.sha256(data).hexdigest(),
-                    "byte_count": len(data),
-                }
+            for document in documents
+        }:
+            raise ProvenanceClearanceError(
+                "model-review worksheet byte coverage changed after validation"
             )
+        document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
         _verify_model_review_plan_run_card(
             run_card_bytes=plan_run_card_bytes,
             run_card_path=plan_run_card_path,
@@ -43633,7 +43638,10 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
             worksheet_path=worksheet_path,
             worksheet_bytes=worksheet_bytes,
             document_root=document_root,
-            document_tree=tree,
+            document_tree=document_tree,
+        )
+        _require_provenance_document_snapshot_unchanged(
+            document_snapshot, document_root=document_root
         )
     except (OSError, ProvenanceClearanceError, ReviewBundleError) as exc:
         raise CommandError(str(exc)) from exc
@@ -43652,6 +43660,9 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
         )
         authority = public_disclosure_model_review_record(capability)
         private_records = private_disclosure_model_review_records(capability)
+        _require_provenance_document_snapshot_unchanged(
+            document_snapshot, document_root=document_root
+        )
     except (
         DisclosureModelReviewAuthorityError,
         OSError,
@@ -43689,8 +43700,8 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
             },
             "document_root": {
                 "path": str(document_root),
-                "tree_sha256": _canonical_json_sha256(tree),
-                "document_count": len(tree),
+                "tree_sha256": _canonical_json_sha256(document_tree),
+                "document_count": len(document_tree),
             },
         },
         "state_paths": {
@@ -43749,7 +43760,7 @@ def _verify_model_review_plan_run_card(
     worksheet_path: Path,
     worksheet_bytes: bytes,
     document_root: Path,
-    document_tree: Sequence[Mapping[str, object]],
+    document_tree: Mapping[str, str],
 ) -> None:
     """Bind paid model review to the exact completed disclosure plan."""
 
