@@ -10,6 +10,7 @@ from legalforecast.ingestion import (
     ExtractedTextArtifact,
     PacketExclusionNote,
     SourceDocumentProvenance,
+    case_packet_from_record,
     sha256_text,
 )
 
@@ -105,6 +106,55 @@ def test_packet_schema_keeps_final_decision_out_of_model_documents() -> None:
     assert record["model_document_ids"] == ["doc-1"]
     assert record["excluded_document_ids"] == ["doc-99"]
     assert record["exclusion_notes"][0]["reason"] == "post_decision_outcome_material"
+
+
+def test_case_packet_from_record_reconstructs_nested_packet() -> None:
+    complaint = _document(
+        source_document_id="doc-1",
+        role=DocumentRole.COMPLAINT,
+    )
+    artifact = ExtractedTextArtifact(
+        source_document_id="doc-1",
+        extracted_at=_retrieved_at(),
+        extraction_method="pdf_text",
+        text_sha256=sha256_text("complaint text"),
+        page_count=4,
+        quality_flags=("ocr_not_needed",),
+        notes="Clean extraction.",
+    )
+    packet = CasePacketSchema(
+        candidate_id="cand-1",
+        case_id="case-1",
+        court="S.D.N.Y.",
+        docket_number="1:26-cv-00001",
+        generated_at=_retrieved_at(),
+        documents=(complaint,),
+        extracted_texts=(artifact,),
+        exclusion_notes=(
+            PacketExclusionNote(
+                source_document_id=None,
+                reason="missing_reply",
+                notes="No reply appeared on the docket.",
+            ),
+        ),
+    )
+
+    assert case_packet_from_record(packet.to_record()) == packet
+
+
+def test_case_packet_from_record_rejects_malformed_nested_collections() -> None:
+    record = CasePacketSchema(
+        candidate_id="cand-1",
+        case_id="case-1",
+        court="S.D.N.Y.",
+        docket_number="1:26-cv-00001",
+        generated_at=_retrieved_at(),
+        documents=(_document(),),
+    ).to_record()
+    record["documents"] = "doc-34"
+
+    with pytest.raises(ValueError, match="documents must be a list"):
+        case_packet_from_record(record)
 
 
 def test_extracted_text_artifact_tracks_source_hash_and_quality_flags() -> None:
