@@ -42,6 +42,66 @@ def test_path_validation_accepts_new_outputs_without_walking_snapshot(
     )
 
 
+@pytest.mark.parametrize("error_type", (OSError, RuntimeError))
+def test_path_validation_translates_snapshot_resolution_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    outputs = (tmp_path / "plan.jsonl", tmp_path / "summary.json")
+    original_resolve = Path.resolve
+
+    def resolve(path: Path, *, strict: bool = False) -> Path:
+        if path == snapshot:
+            raise error_type("platform-specific resolution failure")
+        return original_resolve(path, strict=strict)
+
+    monkeypatch.setattr(Path, "resolve", resolve)
+
+    with pytest.raises(OpinionDocketGapPlanningError) as exc_info:
+        validate_opinion_docket_gap_paths(
+            snapshot_path=snapshot,
+            writable_paths=outputs,
+        )
+
+    assert str(exc_info.value) == (
+        f"cannot resolve immutable screening snapshot path: {snapshot}"
+    )
+
+
+@pytest.mark.parametrize("error_type", (OSError, RuntimeError))
+@pytest.mark.parametrize("failing_index", range(4))
+def test_path_validation_translates_each_output_resolution_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+    failing_index: int,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    outputs = tuple(tmp_path / f"output-{index}.json" for index in range(4))
+    failing_output = outputs[failing_index]
+    original_resolve = Path.resolve
+
+    def resolve(path: Path, *, strict: bool = False) -> Path:
+        if path == failing_output:
+            raise error_type("platform-specific resolution failure")
+        return original_resolve(path, strict=strict)
+
+    monkeypatch.setattr(Path, "resolve", resolve)
+
+    with pytest.raises(OpinionDocketGapPlanningError) as exc_info:
+        validate_opinion_docket_gap_paths(
+            snapshot_path=snapshot,
+            writable_paths=outputs,
+        )
+
+    assert str(exc_info.value) == (
+        f"cannot resolve plan-opinion-docket-gaps output path: {failing_output}"
+    )
+
+
 def test_path_validation_rejects_snapshot_writes_and_duplicate_outputs(
     tmp_path: Path,
 ) -> None:
