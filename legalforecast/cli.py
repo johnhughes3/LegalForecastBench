@@ -344,6 +344,9 @@ from legalforecast.ingestion.disclosure_clearance import (
     validate_review_receipt,
     verify_parse_request_bytes,
 )
+from legalforecast.ingestion.disclosure_model_review import (
+    model_review_eligible_documents,
+)
 from legalforecast.ingestion.disclosure_model_review_authority import (
     DisclosureModelReviewAuthorityError,
     authenticate_disclosure_model_review,
@@ -7740,6 +7743,23 @@ def _add_acquisition_quarantine_provenance_exceptions_arguments(
     parser.add_argument("--frozen-authority-root", type=Path)
     parser.add_argument("--provider-journal", type=Path)
     parser.add_argument("--provider-spend-authority", type=Path)
+    parser.add_argument(
+        "--plan-run-card",
+        type=Path,
+        help=(
+            "Completed plan-disclosure-provenance run card. It is accepted only "
+            "with --require-no-model-review-eligible-exceptions."
+        ),
+    )
+    parser.add_argument(
+        "--require-no-model-review-eligible-exceptions",
+        action="store_true",
+        help=(
+            "Finalize without provider review only when the authenticated v3 plan "
+            "run card proves that the exact exception set contains no documents "
+            "eligible for model review."
+        ),
+    )
     _add_recovered_public_clearance_verification_arguments(parser)
     parser.set_defaults(handler=_cmd_acquisition_quarantine_provenance_exceptions)
 
@@ -9481,6 +9501,7 @@ def _disclosure_failure_context(
             ),
         )
     if command == "finalize-provenance-quarantine":
+        plan_run_card = cast(Path | None, getattr(args, "plan_run_card", None))
         return (
             "finalize-provenance-quarantine",
             tuple(
@@ -9495,7 +9516,8 @@ def _disclosure_failure_context(
                     "exception_worksheet",
                     "cohort_policy",
                 )
-            ),
+            )
+            + ((plan_run_card,) if plan_run_card is not None else ()),
             (
                 _acquisition_path(
                     args,
@@ -42834,6 +42856,159 @@ def _cmd_acquisition_model_disclosure_review(args: argparse.Namespace) -> int:
     return 0
 
 
+def _model_review_eligible_plan_documents(
+    plan: Mapping[str, object],
+) -> tuple[Mapping[str, object], ...]:
+    raw_documents = plan.get("documents")
+    if not isinstance(raw_documents, list) or not all(
+        isinstance(document, Mapping) for document in cast(list[object], raw_documents)
+    ):
+        raise ProvenanceClearanceError("v3 routing plan documents are malformed")
+    documents = tuple(
+        cast(Mapping[str, object], document)
+        for document in cast(list[object], raw_documents)
+    )
+    return model_review_eligible_documents(
+        tuple(
+            document
+            for document in documents
+            if document.get("route") == "exception_review"
+            and document.get("route_reasons") == ["automated_marker_present"]
+        )
+    )
+
+
+def _verify_no_model_review_plan_run_card(
+    *,
+    run_card_bytes: bytes,
+    run_card_path: Path,
+    plan_path: Path,
+    plan_bytes: bytes,
+    worksheet_path: Path,
+    worksheet_bytes: bytes,
+    plan: Mapping[str, Any],
+    worksheet: Mapping[str, object],
+    source_paths: Mapping[str, Path],
+    source_bytes: Mapping[str, bytes],
+    document_root: Path,
+    document_tree: Mapping[str, str],
+    recovered_public_authority: Mapping[str, object] | None,
+) -> None:
+    """Bind provider-free empty-review finalization to the exact completed plan."""
+
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    expected_fields = {
+        "schema_version",
+        "stage",
+        "status",
+        "dry_run",
+        "execute",
+        "resume",
+        "record_count",
+        "input_paths",
+        "output_paths",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "generated_at",
+        "auto_clear_count",
+        "exception_review_count",
+        "source_commitments",
+        "output_commitments",
+        "private_inspection_map_written",
+        "private_inspection_map_excluded_from_commitments",
+        "routing_plan_schema_version",
+        "exception_worksheet_schema_version",
+    }
+    if (
+        set(run_card) != expected_fields
+        or run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "plan-disclosure-provenance"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+        or run_card.get("routing_plan_schema_version") != plan.get("schema_version")
+        or run_card.get("exception_worksheet_schema_version")
+        != worksheet.get("schema_version")
+        or run_card.get("record_count") != plan.get("document_count")
+        or run_card.get("auto_clear_count") != plan.get("auto_clear_count")
+        or run_card.get("exception_review_count") != plan.get("exception_review_count")
+        or run_card.get("private_inspection_map_written") is not True
+        or run_card.get("private_inspection_map_excluded_from_commitments") is not True
+        or run_card.get("output_paths") != [str(plan_path), str(worksheet_path)]
+    ):
+        raise ProvenanceClearanceError(
+            "no-model-review finalization requires the exact completed v3 plan run card"
+        )
+    raw_sources = run_card.get("source_commitments")
+    raw_outputs = run_card.get("output_commitments")
+    if not isinstance(raw_sources, Mapping) or not isinstance(raw_outputs, Mapping):
+        raise ProvenanceClearanceError(
+            "no-model-review plan run card lacks exact commitments"
+        )
+    sources = cast(Mapping[str, object], raw_sources)
+    outputs = cast(Mapping[str, object], raw_outputs)
+    expected_source_names = {
+        "review_requests",
+        "download_manifest",
+        "case_relevance",
+        "restriction_evidence",
+        "document_root",
+    }
+    if recovered_public_authority is not None:
+        expected_source_names.add("recovered_public_authority")
+    if set(sources) != expected_source_names or set(outputs) != {
+        "routing_plan",
+        "exception_worksheet",
+    }:
+        raise ProvenanceClearanceError(
+            "no-model-review plan run card commitments differ"
+        )
+    for name in (
+        "review_requests",
+        "download_manifest",
+        "case_relevance",
+        "restriction_evidence",
+    ):
+        _validate_named_path_commitment(
+            sources,
+            name=name,
+            expected_path=source_paths[name],
+            expected_sha256=_bytes_sha256(source_bytes[name]),
+        )
+    document_commitment = sources.get("document_root")
+    if not isinstance(document_commitment, Mapping) or dict(
+        cast(Mapping[str, object], document_commitment)
+    ) != {
+        "path": str(document_root.resolve()),
+        "tree_sha256": _canonical_json_sha256(document_tree),
+        "document_count": len(document_tree),
+    }:
+        raise ProvenanceClearanceError(
+            "no-model-review plan run card document commitment changed"
+        )
+    if sources.get("recovered_public_authority") != recovered_public_authority:
+        if recovered_public_authority is not None or (
+            "recovered_public_authority" in sources
+        ):
+            raise ProvenanceClearanceError(
+                "no-model-review plan run card recovery authority changed"
+            )
+    _validate_named_path_commitment(
+        outputs,
+        name="routing_plan",
+        expected_path=plan_path,
+        expected_sha256=_bytes_sha256(plan_bytes),
+    )
+    _validate_named_path_commitment(
+        outputs,
+        name="exception_worksheet",
+        expected_path=worksheet_path,
+        expected_sha256=_bytes_sha256(worksheet_bytes),
+    )
+
+
 def _cmd_acquisition_quarantine_provenance_exceptions(
     args: argparse.Namespace,
 ) -> int:
@@ -42848,6 +43023,10 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
     plan_path = cast(Path, args.routing_plan)
     worksheet_path = cast(Path, args.exception_worksheet)
     cohort_policy_path = cast(Path, args.cohort_policy)
+    plan_run_card_path = cast(Path | None, args.plan_run_card)
+    require_no_model_review = cast(
+        bool, args.require_no_model_review_eligible_exceptions
+    )
     clearance_path = _acquisition_path(
         args, "clearance_output", output_root / "disclosure-clearance.jsonl"
     )
@@ -42879,6 +43058,15 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
     model_values = tuple(
         cast(Path | None, getattr(args, name)) for name in model_argument_names
     )
+    if require_no_model_review != (plan_run_card_path is not None):
+        raise CommandError(
+            "--plan-run-card and "
+            "--require-no-model-review-eligible-exceptions must be supplied together"
+        )
+    if require_no_model_review and any(value is not None for value in model_values):
+        raise CommandError(
+            "no-model-review finalization cannot accept model-review arguments"
+        )
     if any(value is not None for value in model_values) and not all(
         value is not None for value in model_values
     ):
@@ -42886,6 +43074,8 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             "model-review finalization requires the complete authority argument set"
         )
     model_mode = all(value is not None for value in model_values)
+    if plan_run_card_path is not None:
+        source_paths["plan_run_card"] = plan_run_card_path
     if model_mode:
         for name, value in zip(model_argument_names[:3], model_values[:3], strict=True):
             source_paths[name] = cast(Path, value)
@@ -42971,6 +43161,31 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             )
         )
         routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        no_model_review_eligible_count: int | None = None
+        if require_no_model_review:
+            eligible = _model_review_eligible_plan_documents(recomputed_plan)
+            no_model_review_eligible_count = len(eligible)
+            if eligible:
+                raise ProvenanceClearanceError(
+                    "provider-free no-review finalization found "
+                    "model-review-eligible exceptions"
+                )
+            document_tree = _provenance_document_tree_from_snapshot(document_snapshot)
+            _verify_no_model_review_plan_run_card(
+                run_card_bytes=source_bytes["plan_run_card"],
+                run_card_path=cast(Path, plan_run_card_path),
+                plan_path=plan_path,
+                plan_bytes=plan_bytes,
+                worksheet_path=worksheet_path,
+                worksheet_bytes=worksheet_bytes,
+                plan=recomputed_plan,
+                worksheet=worksheet,
+                source_paths=source_paths,
+                source_bytes=source_bytes,
+                document_root=document_root,
+                document_tree=document_tree,
+                recovered_public_authority=recovered_public_authority,
+            )
         if model_mode:
             model_run_card_path = cast(Path, args.model_review_run_card)
             model_run_card = _projection_json_object(
@@ -43092,7 +43307,11 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             "kind": (
                 "v3_auto_clear_authenticated_model_else_quarantine"
                 if model_mode
-                else "v3_auto_clear_else_quarantine"
+                else (
+                    "v3_auto_clear_no_model_eligible_else_quarantine"
+                    if require_no_model_review
+                    else "v3_auto_clear_else_quarantine"
+                )
             ),
             "routing_plan_schema_version": recomputed_plan["schema_version"],
             "exception_worksheet_schema_version": worksheet["schema_version"],
@@ -43104,6 +43323,16 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             "exception_quarantine_count": len(quarantined),
             "human_or_model_override_permitted": model_mode,
         },
+        **(
+            {
+                "model_review_eligible_exception_count": (
+                    no_model_review_eligible_count
+                ),
+                "no_model_review_eligible_exceptions_required": True,
+            }
+            if require_no_model_review
+            else {}
+        ),
         **(
             {
                 "model_review_state": {
@@ -45259,11 +45488,17 @@ def _verify_provider_free_provenance_quarantine_run_card(
         run_card.get("schema_version")
         == "legalforecast.provenance_model_clearance_run_card.v1"
     )
+    no_model_review_mode = (
+        run_card.get("no_model_review_eligible_exceptions_required") is True
+    )
     if recovered_authority is not None:
         expected_fields.add("recovered_public_authority")
     if model_schema:
         expected_fields.add("model_review_state")
         expected_fields.add("resume")
+    if no_model_review_mode:
+        expected_fields.add("model_review_eligible_exception_count")
+        expected_fields.add("no_model_review_eligible_exceptions_required")
     if (
         set(run_card) != expected_fields
         or run_card.get("schema_version")
@@ -45282,6 +45517,11 @@ def _verify_provider_free_provenance_quarantine_run_card(
         or run_card.get("paid_activity_requested") is not False
         or run_card.get("paid_activity_executed") is not False
         or (model_schema and run_card.get("resume") is not True)
+        or (no_model_review_mode and model_schema)
+        or (
+            no_model_review_mode
+            and run_card.get("model_review_eligible_exception_count") != 0
+        )
     ):
         raise CommandError("invalid provenance clearance run card")
     raw_sources = run_card.get("source_commitments")
@@ -45299,21 +45539,25 @@ def _verify_provider_free_provenance_quarantine_run_card(
     outputs = cast(Mapping[str, object], raw_outputs)
     disposition_policy = cast(Mapping[str, object], raw_policy)
     source_names = (
-        "review_requests",
-        "download_manifest",
-        "case_relevance",
-        "restriction_evidence",
-        "routing_plan",
-        "exception_worksheet",
-        "cohort_policy",
-    ) + (
         (
-            "model_review_authority",
-            "model_review_private_records",
-            "model_review_run_card",
+            "review_requests",
+            "download_manifest",
+            "case_relevance",
+            "restriction_evidence",
+            "routing_plan",
+            "exception_worksheet",
+            "cohort_policy",
         )
-        if model_schema
-        else ()
+        + (
+            (
+                "model_review_authority",
+                "model_review_private_records",
+                "model_review_run_card",
+            )
+            if model_schema
+            else ()
+        )
+        + (("plan_run_card",) if no_model_review_mode else ())
     )
     paths = {name: _materializer_committed_path(sources, name) for name in source_names}
     if set(sources) != {*source_names, "document_root"}:
@@ -45696,6 +45940,28 @@ def _verify_provider_free_provenance_quarantine_run_card(
             )
         )
         routing_plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+        if no_model_review_mode:
+            eligible = _model_review_eligible_plan_documents(plan)
+            if eligible:
+                raise ProvenanceClearanceError(
+                    "provider-free no-review finalization found "
+                    "model-review-eligible exceptions"
+                )
+            _verify_no_model_review_plan_run_card(
+                run_card_bytes=source_bytes["plan_run_card"],
+                run_card_path=paths["plan_run_card"],
+                plan_path=paths["routing_plan"],
+                plan_bytes=plan_bytes,
+                worksheet_path=paths["exception_worksheet"],
+                worksheet_bytes=worksheet_bytes,
+                plan=plan,
+                worksheet=worksheet,
+                source_paths=paths,
+                source_bytes=source_bytes,
+                document_root=document_root,
+                document_tree=tree,
+                recovered_public_authority=recovered_authority,
+            )
         if model_schema:
             raw_model_state = run_card.get("model_review_state")
             if not isinstance(raw_model_state, Mapping):
@@ -45761,7 +46027,11 @@ def _verify_provider_free_provenance_quarantine_run_card(
             "kind": (
                 "v3_auto_clear_authenticated_model_else_quarantine"
                 if model_schema
-                else "v3_auto_clear_else_quarantine"
+                else (
+                    "v3_auto_clear_no_model_eligible_else_quarantine"
+                    if no_model_review_mode
+                    else "v3_auto_clear_else_quarantine"
+                )
             ),
             "routing_plan_schema_version": plan["schema_version"],
             "exception_worksheet_schema_version": worksheet["schema_version"],

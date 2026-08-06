@@ -284,6 +284,24 @@ def _provider_free_command(
     ]
 
 
+def _no_model_review_command(
+    paths: Mapping[str, Path],
+    *,
+    cohort_policy: Path,
+    clearance_root: Path,
+) -> list[str]:
+    return [
+        *_provider_free_command(
+            paths,
+            cohort_policy=cohort_policy,
+            clearance_root=clearance_root,
+        ),
+        "--plan-run-card",
+        str(paths["output"] / "run-cards/plan-disclosure-provenance.json"),
+        "--require-no-model-review-eligible-exceptions",
+    ]
+
+
 def test_provider_free_failure_metadata_uses_finalizer_stage(tmp_path: Path) -> None:
     paths = _inputs(tmp_path)
     command = _provider_free_command(
@@ -1023,6 +1041,146 @@ def test_provider_free_v3_finalizer_quarantines_exceptions_and_replays(
             expected_restriction_path=paths["restrictions"],
         )
     run_card_path.write_bytes(snapshots[run_card_path][0])
+
+
+def test_no_model_review_finalizer_rejects_model_eligible_exception(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    clearance_root = tmp_path / "no-model-clearance"
+
+    assert (
+        main(
+            _no_model_review_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+            )
+        )
+        == 2
+    )
+
+    assert "model-review-eligible exceptions" in capsys.readouterr().err
+    assert not (clearance_root / "disclosure-clearance.jsonl").exists()
+    assert not (clearance_root / "disclosure-quarantine.jsonl").exists()
+
+
+def test_no_model_review_finalizer_quarantines_positive_restriction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _inputs(tmp_path)
+    for name in ("requests", "manifest", "restrictions"):
+        rows = [json.loads(line) for line in paths[name].read_text().splitlines()]
+        _jsonl(
+            paths[name],
+            [row for row in rows if row["source_document_id"] in {"auto", "sealed"}],
+        )
+    relevance = json.loads(paths["relevance"].read_text())
+    relevance["documents"] = [
+        row
+        for row in relevance["documents"]
+        if row["source_document_id"] in {"auto", "sealed"}
+    ]
+    _jsonl(paths["relevance"], [relevance])
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    monkeypatch.setattr(
+        cli_module,
+        "replay_authenticated_disclosure_model_review",
+        lambda **_kwargs: pytest.fail("empty eligible set must not use model replay"),
+    )
+    clearance_root = tmp_path / "no-model-clearance"
+
+    assert (
+        main(
+            _no_model_review_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=clearance_root,
+            )
+        )
+        == 0
+    )
+
+    rows = [
+        json.loads(line)
+        for line in (clearance_root / "disclosure-clearance.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    by_id = {row["source_document_id"]: row for row in rows}
+    assert by_id["auto"]["status"] == "cleared"
+    assert by_id["sealed"]["status"] == "quarantined"
+    assert by_id["sealed"]["clearance_basis"] == ("provider_free_exception_quarantine")
+    run_card = json.loads(
+        (
+            clearance_root / "run-cards" / "finalize-provenance-quarantine.json"
+        ).read_text()
+    )
+    assert run_card["provider_activity_requested"] is False
+    assert run_card["provider_activity_executed"] is False
+    assert run_card["model_review_eligible_exception_count"] == 0
+    assert run_card["no_model_review_eligible_exceptions_required"] is True
+    assert "plan_run_card" in run_card["source_commitments"]
+    cli_module._verify_authenticated_clearance_run_card(  # pyright: ignore[reportPrivateUsage]
+        clearance_path=clearance_root / "disclosure-clearance.jsonl",
+        clearance_run_card_path=(
+            clearance_root / "run-cards/finalize-provenance-quarantine.json"
+        ),
+        expected_download_manifest_path=paths["manifest"],
+        expected_restriction_path=paths["restrictions"],
+    )
+
+
+def test_no_model_review_finalizer_rejects_plan_run_card_commitment_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    paths = _inputs(tmp_path)
+    for name in ("requests", "manifest", "restrictions"):
+        rows = [json.loads(line) for line in paths[name].read_text().splitlines()]
+        _jsonl(
+            paths[name],
+            [row for row in rows if row["source_document_id"] == "auto"],
+        )
+    relevance = json.loads(paths["relevance"].read_text())
+    relevance["documents"] = [
+        row for row in relevance["documents"] if row["source_document_id"] == "auto"
+    ]
+    _jsonl(paths["relevance"], [relevance])
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    plan_run_card_path = paths["output"] / "run-cards/plan-disclosure-provenance.json"
+    plan_run_card = json.loads(plan_run_card_path.read_text())
+    plan_run_card["output_commitments"]["routing_plan"]["sha256"] = "sha256:" + "0" * 64
+    plan_run_card_path.write_bytes(cli_module.canonical_json_bytes(plan_run_card))
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+
+    assert (
+        main(
+            _no_model_review_command(
+                paths,
+                cohort_policy=cohort_policy,
+                clearance_root=tmp_path / "no-model-clearance",
+            )
+        )
+        == 2
+    )
+    assert "routing_plan commitment mismatch" in capsys.readouterr().err
 
 
 def test_provider_free_v3_finalizer_replays_v1_scanner_plan(
