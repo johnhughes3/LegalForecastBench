@@ -277,6 +277,7 @@ def _provider_free_command(
         str(paths["output"] / "disclosure-exception-worksheet.json"),
         "--cohort-policy",
         str(cohort_policy),
+        "--quarantine-all-exceptions-without-review",
         "--output-root",
         str(clearance_root),
         "--execute",
@@ -290,16 +291,40 @@ def _no_model_review_command(
     cohort_policy: Path,
     clearance_root: Path,
 ) -> list[str]:
+    provider_free = _provider_free_command(
+        paths,
+        cohort_policy=cohort_policy,
+        clearance_root=clearance_root,
+    )
+    provider_free.remove("--quarantine-all-exceptions-without-review")
     return [
-        *_provider_free_command(
-            paths,
-            cohort_policy=cohort_policy,
-            clearance_root=clearance_root,
-        ),
+        *provider_free,
         "--plan-run-card",
         str(paths["output"] / "run-cards/plan-disclosure-provenance.json"),
         "--require-no-model-review-eligible-exceptions",
     ]
+
+
+def test_finalizer_rejects_implicit_provider_free_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    paths = _inputs(tmp_path)
+    _install_document_scanner(monkeypatch)
+    assert main(_plan_command(paths, schema_version="v3")) == 0
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
+    command = _provider_free_command(
+        paths,
+        cohort_policy=cohort_policy,
+        clearance_root=tmp_path / "implicit-provider-free",
+    )
+    command.remove("--quarantine-all-exceptions-without-review")
+
+    assert main(command) == 2
+    assert "finalization requires complete model authority" in capsys.readouterr().err
 
 
 def test_provider_free_failure_metadata_uses_finalizer_stage(tmp_path: Path) -> None:
@@ -1143,10 +1168,20 @@ def test_no_model_review_finalizer_quarantines_positive_restriction(
     )
 
 
-def test_no_model_review_finalizer_rejects_plan_run_card_commitment_drift(
+@pytest.mark.parametrize(
+    ("drift", "expected_error"),
+    [
+        ("output_commitment", "routing_plan commitment mismatch"),
+        ("input_paths", "exact completed v3 plan run card"),
+        ("noncanonical", "exact producer serialization"),
+    ],
+)
+def test_no_model_review_finalizer_rejects_plan_run_card_drift(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    drift: str,
+    expected_error: str,
 ) -> None:
     paths = _inputs(tmp_path)
     for name in ("requests", "manifest", "restrictions"):
@@ -1164,8 +1199,37 @@ def test_no_model_review_finalizer_rejects_plan_run_card_commitment_drift(
     assert main(_plan_command(paths, schema_version="v3")) == 0
     plan_run_card_path = paths["output"] / "run-cards/plan-disclosure-provenance.json"
     plan_run_card = json.loads(plan_run_card_path.read_text())
-    plan_run_card["output_commitments"]["routing_plan"]["sha256"] = "sha256:" + "0" * 64
-    plan_run_card_path.write_bytes(cli_module.canonical_json_bytes(plan_run_card))
+    if drift == "output_commitment":
+        plan_run_card["output_commitments"]["routing_plan"]["sha256"] = (
+            "sha256:" + "0" * 64
+        )
+        plan_run_card_path.write_text(
+            json.dumps(
+                plan_run_card,
+                indent=2,
+                sort_keys=True,
+                allow_nan=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    elif drift == "input_paths":
+        plan_run_card["input_paths"] = [*plan_run_card["input_paths"], "/extra"]
+        plan_run_card_path.write_text(
+            json.dumps(
+                plan_run_card,
+                indent=2,
+                sort_keys=True,
+                allow_nan=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    else:
+        plan_run_card_path.write_text(
+            json.dumps(plan_run_card, indent=4, sort_keys=True, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
     cohort_policy = tmp_path / "cohort-policy.json"
     cohort_policy.write_text("{}\n", encoding="utf-8")
     monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
@@ -1180,7 +1244,7 @@ def test_no_model_review_finalizer_rejects_plan_run_card_commitment_drift(
         )
         == 2
     )
-    assert "routing_plan commitment mismatch" in capsys.readouterr().err
+    assert expected_error in capsys.readouterr().err
 
 
 def test_provider_free_v3_finalizer_replays_v1_scanner_plan(

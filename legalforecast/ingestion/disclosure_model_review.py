@@ -747,8 +747,8 @@ def _text_list(value: object) -> list[str]:
     ):
         raise DisclosureModelReviewError("expected a list of non-empty strings")
     result = cast(list[str], values)
-    if result != sorted(set(result)):
-        raise DisclosureModelReviewError("string list must be sorted and unique")
+    if len(result) != len(set(result)):
+        raise DisclosureModelReviewError("string list values must be unique")
     return result
 
 

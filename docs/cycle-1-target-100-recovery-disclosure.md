@@ -18,7 +18,9 @@ Both templates are partial cycle continuations and begin with `init-cycle`. Rend
 
 ## Fail-closed routing
 
-The provider-free branch is not a general operator override. The finalizer replays the completed plan run card, its source and output commitments, the current document tree, and any recovered-public authority. It rejects the branch if even one exact exception is eligible for model review.
+The plan-proven provider-free branch is not a general operator override. The finalizer replays the completed plan run card, its source and output commitments, the current document tree, and any recovered-public authority. It rejects the branch if even one exact exception is eligible for model review.
+
+The older quarantine-all workflow remains available only through the explicit `--quarantine-all-exceptions-without-review` compatibility flag. It quarantines every exception and is not the supported target-100 continuation. Omitting model authority, the empty-set proof, and that explicit compatibility flag fails closed.
 
 Positive restriction evidence, incomplete scan coverage, missing affirmative CourtListener provenance, and other model-ineligible exceptions remain quarantined. They are never cleared merely because the model-review set is empty. A case that cannot satisfy the corpus gates must be excluded or replaced; an unresolved legal ambiguity is filed for John rather than self-adjudicated.
 

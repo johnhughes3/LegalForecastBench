@@ -7760,6 +7760,15 @@ def _add_acquisition_quarantine_provenance_exceptions_arguments(
             "eligible for model review."
         ),
     )
+    parser.add_argument(
+        "--quarantine-all-exceptions-without-review",
+        action="store_true",
+        help=(
+            "Explicit legacy-safe mode that quarantines every v3 exception. It "
+            "cannot be combined with model authority or the authenticated "
+            "empty-eligible-set continuation."
+        ),
+    )
     _add_recovered_public_clearance_verification_arguments(parser)
     parser.set_defaults(handler=_cmd_acquisition_quarantine_provenance_exceptions)
 
@@ -42873,7 +42882,6 @@ def _model_review_eligible_plan_documents(
             document
             for document in documents
             if document.get("route") == "exception_review"
-            and document.get("route_reasons") == ["automated_marker_present"]
         )
     )
 
@@ -42893,10 +42901,18 @@ def _verify_no_model_review_plan_run_card(
     document_root: Path,
     document_tree: Mapping[str, str],
     recovered_public_authority: Mapping[str, object] | None,
+    recovery_input_paths: Sequence[Path],
 ) -> None:
     """Bind provider-free empty-review finalization to the exact completed plan."""
 
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    expected_run_card_bytes = (
+        json.dumps(dict(run_card), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    if run_card_bytes != expected_run_card_bytes:
+        raise ProvenanceClearanceError(
+            "no-model-review plan run card does not use exact producer serialization"
+        )
     expected_fields = {
         "schema_version",
         "stage",
@@ -42919,6 +42935,27 @@ def _verify_no_model_review_plan_run_card(
         "routing_plan_schema_version",
         "exception_worksheet_schema_version",
     }
+    generated_at = run_card.get("generated_at")
+    try:
+        generated_at_is_canonical = (
+            isinstance(generated_at, str)
+            and _iso_datetime(_parse_datetime(generated_at)) == generated_at
+        )
+    except ValueError:
+        generated_at_is_canonical = False
+    expected_input_paths = (
+        [
+            str(source_paths[name])
+            for name in (
+                "review_requests",
+                "download_manifest",
+                "case_relevance",
+                "restriction_evidence",
+            )
+        ]
+        + [str(path) for path in recovery_input_paths]
+        + [str(document_root)]
+    )
     if (
         set(run_card) != expected_fields
         or run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
@@ -42936,6 +42973,9 @@ def _verify_no_model_review_plan_run_card(
         or run_card.get("exception_review_count") != plan.get("exception_review_count")
         or run_card.get("private_inspection_map_written") is not True
         or run_card.get("private_inspection_map_excluded_from_commitments") is not True
+        or type(run_card.get("resume")) is not bool
+        or not generated_at_is_canonical
+        or run_card.get("input_paths") != expected_input_paths
         or run_card.get("output_paths") != [str(plan_path), str(worksheet_path)]
     ):
         raise ProvenanceClearanceError(
@@ -43027,6 +43067,9 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
     require_no_model_review = cast(
         bool, args.require_no_model_review_eligible_exceptions
     )
+    quarantine_all_without_review = cast(
+        bool, args.quarantine_all_exceptions_without_review
+    )
     clearance_path = _acquisition_path(
         args, "clearance_output", output_root / "disclosure-clearance.jsonl"
     )
@@ -43067,6 +43110,13 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
         raise CommandError(
             "no-model-review finalization cannot accept model-review arguments"
         )
+    if quarantine_all_without_review and (
+        require_no_model_review or any(value is not None for value in model_values)
+    ):
+        raise CommandError(
+            "quarantine-all mode cannot be combined with model review or the "
+            "authenticated empty-eligible-set continuation"
+        )
     if any(value is not None for value in model_values) and not all(
         value is not None for value in model_values
     ):
@@ -43074,6 +43124,15 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             "model-review finalization requires the complete authority argument set"
         )
     model_mode = all(value is not None for value in model_values)
+    if (
+        not model_mode
+        and not require_no_model_review
+        and not quarantine_all_without_review
+    ):
+        raise CommandError(
+            "finalization requires complete model authority, authenticated "
+            "empty-eligible-set proof, or --quarantine-all-exceptions-without-review"
+        )
     if plan_run_card_path is not None:
         source_paths["plan_run_card"] = plan_run_card_path
     if model_mode:
@@ -43185,6 +43244,7 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
                 document_root=document_root,
                 document_tree=document_tree,
                 recovered_public_authority=recovered_public_authority,
+                recovery_input_paths=recovery_input_paths,
             )
         if model_mode:
             model_run_card_path = cast(Path, args.model_review_run_card)
@@ -43331,6 +43391,11 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
                 "no_model_review_eligible_exceptions_required": True,
             }
             if require_no_model_review
+            else {}
+        ),
+        **(
+            {"quarantine_all_exceptions_without_review": True}
+            if quarantine_all_without_review
             else {}
         ),
         **(
@@ -45491,6 +45556,9 @@ def _verify_provider_free_provenance_quarantine_run_card(
     no_model_review_mode = (
         run_card.get("no_model_review_eligible_exceptions_required") is True
     )
+    explicit_quarantine_all_mode = (
+        run_card.get("quarantine_all_exceptions_without_review") is True
+    )
     if recovered_authority is not None:
         expected_fields.add("recovered_public_authority")
     if model_schema:
@@ -45499,6 +45567,8 @@ def _verify_provider_free_provenance_quarantine_run_card(
     if no_model_review_mode:
         expected_fields.add("model_review_eligible_exception_count")
         expected_fields.add("no_model_review_eligible_exceptions_required")
+    if explicit_quarantine_all_mode:
+        expected_fields.add("quarantine_all_exceptions_without_review")
     if (
         set(run_card) != expected_fields
         or run_card.get("schema_version")
@@ -45518,6 +45588,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
         or run_card.get("paid_activity_executed") is not False
         or (model_schema and run_card.get("resume") is not True)
         or (no_model_review_mode and model_schema)
+        or (explicit_quarantine_all_mode and (model_schema or no_model_review_mode))
         or (
             no_model_review_mode
             and run_card.get("model_review_eligible_exception_count") != 0
@@ -45961,6 +46032,7 @@ def _verify_provider_free_provenance_quarantine_run_card(
                 document_root=document_root,
                 document_tree=tree,
                 recovered_public_authority=recovered_authority,
+                recovery_input_paths=recovery_input_paths,
             )
         if model_schema:
             raw_model_state = run_card.get("model_review_state")
