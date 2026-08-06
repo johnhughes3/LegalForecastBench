@@ -17985,6 +17985,21 @@ def _cycle_stage_optional_path(stage: CycleStage, flag: str) -> Path | None:
     return Path(values[0]) if values else None
 
 
+def _cycle_stage_path_in_root(
+    stage: CycleStage,
+    flag: str,
+    *,
+    default_root_flag: str,
+    default_name: str,
+) -> Path:
+    values = _cycle_stage_flag_values(stage, flag)
+    if len(values) > 1:
+        raise CycleOrchestratorError(f"stage {stage.stage_id} repeats {flag}")
+    if values:
+        return Path(values[0])
+    return _cycle_stage_path(stage, default_root_flag) / default_name
+
+
 def _verify_external_completed_cycle_stage(
     stage: CycleStage,
     run_card: Mapping[str, object],
@@ -18078,8 +18093,18 @@ def _verify_external_completed_cycle_stage(
             worksheet_path = _cycle_stage_path(stage, "--exception-worksheet")
             plan_run_card_path = _cycle_stage_path(stage, "--plan-run-card")
             document_root = _cycle_stage_path(stage, "--document-root")
-            authority_path = _cycle_stage_path(stage, "--authority-output")
-            private_path = _cycle_stage_path(stage, "--private-records-output")
+            authority_path = _cycle_stage_path_in_root(
+                stage,
+                "--authority-output",
+                default_root_flag="--output-root",
+                default_name="disclosure-model-review-authority.json",
+            )
+            private_path = _cycle_stage_path_in_root(
+                stage,
+                "--private-records-output",
+                default_root_flag="--controlled-private-store-root",
+                default_name="disclosure-model-review-private-records.json",
+            )
             plan_bytes = _read_singly_linked_regular_input(
                 plan_path, label="external disclosure routing plan"
             )

@@ -727,8 +727,14 @@ def _validate_disclosure_review_stage_layout(stage: CycleStage) -> None:
         "--controlled-private-store-root": private_root,
         "--provider-journal": required_path("--provider-journal"),
         "--provider-spend-authority": required_path("--provider-spend-authority"),
-        "--authority-output": required_path("--authority-output"),
-        "--private-records-output": required_path("--private-records-output"),
+        "--authority-output": optional_output(
+            "--authority-output",
+            output_root / "disclosure-model-review-authority.json",
+        ),
+        "--private-records-output": optional_output(
+            "--private-records-output",
+            private_root / "disclosure-model-review-private-records.json",
+        ),
         "--run-card-output": stage.run_card,
         "--log-output": optional_output(
             "--log-output",
@@ -1272,7 +1278,7 @@ def _verify_external_model_completion(
 def _verify_external_disclosure_review_completion(
     stage: CycleStage,
     run_card: Mapping[str, object],
-) -> None:
+) -> tuple[dict[str, object], dict[str, object]]:
     """Authenticate the disclosure review card before semantic replay."""
 
     expected_fields = {
@@ -1300,6 +1306,7 @@ def _verify_external_disclosure_review_completion(
             f"stage {stage.stage_id} external disclosure review is incomplete"
         )
     authority_record = cast(Mapping[str, object], authority)
+    authority_decision_count = authority_record.get("decision_count")
     if (
         set(run_card) != expected_fields
         or run_card.get("schema_version")
@@ -1320,15 +1327,27 @@ def _verify_external_disclosure_review_completion(
         or authority_record.get("schema_version")
         != "legalforecast.disclosure_model_review_authority.v2"
         or authority_record.get("stage") != "disclosure-exception-review-v3"
-        or authority_record.get("decision_count") != record_count
+        or not isinstance(authority_decision_count, int)
+        or isinstance(authority_decision_count, bool)
+        or authority_decision_count != record_count
     ):
         raise CycleOrchestratorError(
             f"stage {stage.stage_id} external disclosure review is incomplete"
         )
 
+    output_root = _required_stage_path_flag(stage, "--output-root")
+    private_root = _required_stage_path_flag(stage, "--controlled-private-store-root")
     expected_outputs = {
-        "public_authority": _required_stage_path_flag(stage, "--authority-output"),
-        "private_records": _required_stage_path_flag(stage, "--private-records-output"),
+        "public_authority": _optional_stage_path_flag(
+            stage,
+            "--authority-output",
+            output_root / "disclosure-model-review-authority.json",
+        ),
+        "private_records": _optional_stage_path_flag(
+            stage,
+            "--private-records-output",
+            private_root / "disclosure-model-review-private-records.json",
+        ),
     }
     raw_outputs = run_card.get("output_commitments")
     if not isinstance(raw_outputs, Mapping):
@@ -1340,12 +1359,20 @@ def _verify_external_disclosure_review_completion(
         raise CycleOrchestratorError(
             f"stage {stage.stage_id} external output commitments differ"
         )
-    for name, path in expected_outputs.items():
-        _verify_external_file_commitment(
-            outputs.get(name),
-            expected_path=path,
-            label=f"{stage.stage_id} output {name}",
+    public_authority_path, public_authority_payload = (
+        _read_verified_external_file_commitment(
+            outputs.get("public_authority"),
+            expected_path=expected_outputs["public_authority"],
+            label=f"{stage.stage_id} output public_authority",
         )
+    )
+    private_records_path, private_records_payload = (
+        _read_verified_external_file_commitment(
+            outputs.get("private_records"),
+            expected_path=expected_outputs["private_records"],
+            label=f"{stage.stage_id} output private_records",
+        )
+    )
 
     expected_sources = {
         "routing_plan": _required_stage_path_flag(stage, "--routing-plan"),
@@ -1422,6 +1449,10 @@ def _verify_external_disclosure_review_completion(
         *expected_state.values(),
     ):
         _require_safe_external_input(path, stage=stage)
+    return (
+        _file_output_commitment(public_authority_path, public_authority_payload),
+        _file_output_commitment(private_records_path, private_records_payload),
+    )
 
 
 def _external_model_expected_outputs(
@@ -1458,6 +1489,24 @@ def _required_stage_path_flag(stage: CycleStage, flag: str) -> Path:
             f"stage {stage.stage_id} must provide exactly one {flag} for adoption"
         )
     path = Path(values[0])
+    if not path.is_absolute():
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} {flag} must be absolute for adoption"
+        )
+    return path
+
+
+def _optional_stage_path_flag(
+    stage: CycleStage,
+    flag: str,
+    default: Path,
+) -> Path:
+    values = _flag_values(stage.arguments, flag)
+    if len(values) > 1:
+        raise CycleOrchestratorError(
+            f"stage {stage.stage_id} must not repeat {flag} for adoption"
+        )
+    path = Path(values[0]) if values else default
     if not path.is_absolute():
         raise CycleOrchestratorError(
             f"stage {stage.stage_id} {flag} must be absolute for adoption"
@@ -1512,6 +1561,20 @@ def _verify_external_file_commitment(
     expected_path: Path | None,
     label: str,
 ) -> Path:
+    path, _payload = _read_verified_external_file_commitment(
+        value,
+        expected_path=expected_path,
+        label=label,
+    )
+    return path
+
+
+def _read_verified_external_file_commitment(
+    value: object,
+    *,
+    expected_path: Path | None,
+    label: str,
+) -> tuple[Path, bytes]:
     if not isinstance(value, Mapping):
         raise CycleOrchestratorError(f"{label} commitment is missing")
     commitment = cast(Mapping[str, object], value)
@@ -1534,7 +1597,7 @@ def _verify_external_file_commitment(
     observed = hashlib.sha256(payload).hexdigest()
     if raw_sha256.removeprefix("sha256:") != observed:
         raise CycleOrchestratorError(f"{label} commitment changed")
-    return path
+    return path, payload
 
 
 def _verify_external_model_lineage_fields(
@@ -2058,13 +2121,10 @@ def _output_commitments(
     run_card: Mapping[str, object],
 ) -> list[dict[str, object]]:
     if stage.command == "review-disclosure-exceptions":
-        _verify_external_disclosure_review_completion(stage, run_card)
-        return [
-            _output_commitment(_required_stage_path_flag(stage, "--authority-output")),
-            _output_commitment(
-                _required_stage_path_flag(stage, "--private-records-output")
-            ),
-        ]
+        authenticated_outputs = _verify_external_disclosure_review_completion(
+            stage, run_card
+        )
+        return list(authenticated_outputs)
 
     raw_paths = run_card.get("output_paths")
     if not isinstance(raw_paths, list):
@@ -2114,12 +2174,7 @@ def _output_commitment(path: Path) -> dict[str, object]:
             raise CycleOrchestratorError(
                 f"stage output is not a safe regular file: {absolute}"
             ) from exc
-        return {
-            "path": str(absolute),
-            "kind": "file",
-            "sha256": hashlib.sha256(payload).hexdigest(),
-            "byte_count": len(payload),
-        }
+        return _file_output_commitment(absolute, payload)
     if absolute.is_dir():
         tree = _directory_tree_commitment(absolute)
         return {
@@ -2130,6 +2185,15 @@ def _output_commitment(path: Path) -> dict[str, object]:
             "file_count": sum(record["kind"] == "file" for record in tree),
         }
     raise CycleOrchestratorError(f"stage output is unavailable: {absolute}")
+
+
+def _file_output_commitment(path: Path, payload: bytes) -> dict[str, object]:
+    return {
+        "path": str(path),
+        "kind": "file",
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "byte_count": len(payload),
+    }
 
 
 def _directory_tree_commitment(root: Path) -> list[dict[str, object]]:
