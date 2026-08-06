@@ -518,3 +518,45 @@ def test_producer_dry_run_emits_card_without_writing(
     assert card["provider_activity_requested"] is False
     assert card["paid_activity_requested"] is False
     assert not args.output_root.exists()
+
+
+def test_cli_routes_recovery_source_producer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args, _, _ = _fixture(tmp_path, monkeypatch, successor=False)
+
+    assert (
+        cli.main(
+            [
+                "acquisition",
+                "build-replacement-recovery-source",
+                "--output-root",
+                str(args.output_root),
+                "--ordinal",
+                str(args.ordinal),
+                "--recovery-root",
+                str(args.recovery_root),
+                "--purchased-clearance-run-card",
+                str(args.purchased_clearance_run_card),
+                "--resolved-post-recovery-run-card",
+                str(args.resolved_post_recovery_run_card),
+                "--purchase-policy",
+                str(args.purchase_policy),
+                "--cohort-policy",
+                str(args.cohort_policy),
+                "--purchase-ledger",
+                str(args.purchase_ledger),
+                "--initial-controlled-private-root",
+                str(args.initial_controlled_private_root),
+                "--purchase-ledger-initialization-receipt",
+                str(args.purchase_ledger_initialization_receipt),
+            ]
+        )
+        == 0
+    )
+
+    card = json.loads(capsys.readouterr().out)
+    assert card["stage"] == "build-replacement-recovery-source"
+    assert card["kind"] == "initial_v2"
