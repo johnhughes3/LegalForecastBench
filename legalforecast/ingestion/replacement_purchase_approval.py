@@ -42,10 +42,16 @@ from legalforecast.ingestion.ranked_reserve_replacement import (
     AUTHENTICATED_RESULT_SCHEMA_VERSION as _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA,
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    CURRENT_REPLAY_RESULT_SCHEMA_VERSION as _CURRENT_RANKED_RESERVE_RESULT_SCHEMA,
+)
+from legalforecast.ingestion.ranked_reserve_replacement import (
     REPLACEMENT_EVENT_SCHEMA_VERSION as _RANKED_RESERVE_EVENT_SCHEMA,
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
     RESULT_SCHEMA_VERSION as _RANKED_RESERVE_RESULT_SCHEMA,
+)
+from legalforecast.ingestion.ranked_reserve_replacement import (
+    validate_authenticated_legacy_replay,
 )
 
 REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA = (
@@ -1852,16 +1858,25 @@ def _verify_ranked_result_identity(result: Mapping[str, object]) -> None:
         "dispatch_authorized",
     }
     schema_version = result.get("schema_version")
-    if schema_version == _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA:
+    if schema_version in {
+        _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA,
+        _CURRENT_RANKED_RESERVE_RESULT_SCHEMA,
+    }:
         expected |= {"terminal_disposition", "terminal_disposition_sha256"}
+    if schema_version == _CURRENT_RANKED_RESERVE_RESULT_SCHEMA:
+        expected.add("authenticated_legacy_replay")
     if set(result) != expected or schema_version not in {
         _RANKED_RESERVE_RESULT_SCHEMA,
         _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA,
+        _CURRENT_RANKED_RESERVE_RESULT_SCHEMA,
     }:
         raise ReplacementPurchaseApprovalError(
             "ranked replacement result has unsupported or incomplete fields"
         )
-    if schema_version == _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA:
+    if schema_version in {
+        _AUTHENTICATED_RANKED_RESERVE_RESULT_SCHEMA,
+        _CURRENT_RANKED_RESERVE_RESULT_SCHEMA,
+    }:
         try:
             disposition = validate_terminal_purchase_disposition_record(
                 result.get("terminal_disposition")
@@ -1881,9 +1896,9 @@ def _verify_ranked_result_identity(result: Mapping[str, object]) -> None:
             raise ReplacementPurchaseApprovalError(
                 "ranked replacement terminal disposition commitment mismatch"
             )
-        if disposition.get("residual_terminal_exclusions_sha256") != result.get(
-            "terminal_exclusions_sha256"
-        ):
+        if str(disposition.get("residual_terminal_exclusions_sha256")).removeprefix(
+            "sha256:"
+        ) != str(result.get("terminal_exclusions_sha256")).removeprefix("sha256:"):
             raise ReplacementPurchaseApprovalError(
                 "ranked replacement residual exclusion commitment mismatch"
             )
@@ -1892,6 +1907,33 @@ def _verify_ranked_result_identity(result: Mapping[str, object]) -> None:
         ):
             raise ReplacementPurchaseApprovalError(
                 "ranked replacement terminal disposition targets another journal state"
+            )
+    if schema_version == _CURRENT_RANKED_RESERVE_RESULT_SCHEMA:
+        try:
+            replay = validate_authenticated_legacy_replay(
+                result.get("authenticated_legacy_replay")
+            )
+        except ValueError as exc:
+            raise ReplacementPurchaseApprovalError(str(exc)) from exc
+        companion_fields = {
+            "precursor_active_selection_sha256": "active_selection_sha256",
+            "precursor_replacement_selection_sha256": ("replacement_selection_sha256"),
+            "precursor_successor_exclusions_sha256": "successor_exclusions_sha256",
+            "precursor_replacement_budget_plan_sha256": (
+                "replacement_budget_plan_sha256"
+            ),
+        }
+        authenticated_events = replay.get("authenticated_event_record_sha256s")
+        if (
+            any(
+                replay.get(proof_field) != result.get(result_field)
+                for proof_field, result_field in companion_fields.items()
+            )
+            or authenticated_events != result.get("replacement_event_record_sha256s")
+            or authenticated_events != result.get("tranche_event_record_sha256s")
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "ranked replacement legacy replay differs from current commitments"
             )
     for field in (
         "provider_activity_requested",

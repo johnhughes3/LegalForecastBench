@@ -1264,6 +1264,57 @@ def _verified_terminal_operation(
     }
 
 
+def reconstruct_historical_terminal_retrieval_records(
+    authority: VerifiedTerminalPurchaseFailureAuthority,
+    *,
+    purchase_journal: CaseDevPurchaseJournal,
+    historical_purchase_journal_state_sha256: str,
+) -> dict[str, JsonRecord]:
+    """Rebuild legacy record identities after unrelated journal advancement.
+
+    The current authority is substantively replayed first.  The caller may then
+    use the returned records only as a preimage witness for already-durable
+    record hashes: the sole substituted field is the historical aggregate
+    journal-state commitment.  Purchase results, run cards, terminal outcomes,
+    and candidate-specific ledger-operation commitments remain current-verified.
+    """
+
+    verified_terminal_retrieval_records(authority, purchase_journal=purchase_journal)
+    if (
+        re.fullmatch(r"sha256:[0-9a-f]{64}", historical_purchase_journal_state_sha256)
+        is None
+    ):
+        raise TerminalPurchaseFailureError(
+            "historical purchase journal state commitment is invalid"
+        )
+    historical_evidence: list[JsonRecord] = []
+    for evidence in authority.evidence_records:
+        rebuilt = dict(evidence)
+        rebuilt["purchase_journal_state_sha256"] = (
+            historical_purchase_journal_state_sha256
+        )
+        historical_evidence.append(rebuilt)
+    evidence_sha256 = _bytes_sha256(_canonical_jsonl(historical_evidence))
+    records = {
+        cast(str, evidence["candidate_id"]): {
+            "schema_version": TERMINAL_EXCLUSION_SCHEMA_VERSION,
+            "candidate_id": cast(str, evidence["candidate_id"]),
+            "reason": "terminal_courtlistener_recap_fetch_provider_error",
+            "source_stage": "purchase-missing-recap-fetch",
+            "source_artifact_sha256": evidence_sha256,
+            "source_record_sha256": _canonical_sha256(evidence),
+            "terminal": True,
+            "retryable": False,
+        }
+        for evidence in historical_evidence
+    }
+    if len(records) != len(historical_evidence):
+        raise TerminalPurchaseFailureError(
+            "historical terminal purchase evidence repeats a candidate"
+        )
+    return records
+
+
 def _operation_counts(operation: Mapping[str, Any]) -> bool:
     return (
         operation.get("status") == "failed"

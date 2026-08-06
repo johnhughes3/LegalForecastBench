@@ -61,6 +61,10 @@ This adapter performs only local safe reads; it performs no file write, network 
 The CLI invokes the verifier only after the result and run card are durably published, rechecks every captured source before publishing outputs, and passes the opaque disposition authority into the planner.
 It rechecks and substantively replays that authority immediately before the planner's first journal mutation and again before output publication.
 Authenticated runs emit `legalforecast.ranked_reserve_replacement_result.v2`, which commits the complete closed disposition record and its purchase-result, purchase-run-card, screening-snapshot, retained-source, and residual-exclusion hashes.
+
+When a fresh replay follows an unrelated, authenticated purchase-material recovery, the command accepts `--legacy-ranked-result` as a singly linked canonical v2 witness and emits `legalforecast.ranked_reserve_replacement_result.v3`. The v3 top level commits the current journal state and current terminal disposition. Its closed `authenticated_legacy_replay` object proves that substituting only the historical aggregate journal-state commitment reconstructs the complete legacy terminal-evidence artifact and every durable replacement-event source hash. The proof embeds the canonical v2 `precursor_result` and binds its digest, so every downstream replay can reauthenticate the predecessor rather than trusting self-asserted hashes. Legacy replay cannot append replacement events. The active selection, replacement selection, successor exclusions, and replacement budget plan must be independently rendered byte-identically to their v2 commitments; prior output bytes are never copied.
+
+The proof schema `legalforecast.ranked_reserve_legacy_event_replay.v1` is closed to exactly these fields: `schema_version`, `precursor_result`, `precursor_result_sha256`, `precursor_active_selection_sha256`, `precursor_replacement_selection_sha256`, `precursor_successor_exclusions_sha256`, `precursor_replacement_budget_plan_sha256`, `historical_purchase_journal_state_sha256`, `historical_terminal_evidence_sha256`, `current_terminal_evidence_sha256`, `authenticated_event_record_sha256s`, and `historical_state_substitution_only`.
 The legacy `--terminal-exclusions` mode remains available only for authenticated non-retrieval downstream exclusions and is mutually exclusive with purchase-result disposition mode.
 
 ## Provider-free planning command for authenticated retrieval failures
@@ -88,6 +92,14 @@ uv run legalforecast acquisition plan-ranked-reserve-replacements \
   --successor-exclusions-output "$continuation_root/01-plan/successor-exclusions.jsonl" \
   --replacement-budget-plan-output "$continuation_root/01-plan/replacement-budget-plan.json"
 ```
+
+For the recovery-only replay that follows an unrelated journal-state advance, run the same authenticated command with the canonical predecessor added before the outputs:
+
+```zsh
+  --legacy-ranked-result "$legacy_plan_root/replacement-result.json"
+```
+
+Do not use that option for an initial v2 plan.
 
 The planner authenticates the target projection through the existing full semantic replay, not by reading the projection summary alone.
 It then binds the exact selected, reserve, original-exclusion, and full source-pool bytes; verifies counts, canonical ID and reserve commitments, reserve ranks and costs, and resolved-pool reconciliation; authenticates the exact residual terminal digest from the exhaustive disposition authority; and appends replay-safe hash-chained decisions to the existing purchase journal only after all validation and cap checks pass.

@@ -19,6 +19,8 @@ from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
 from legalforecast.ingestion.docket_decision_text_source import (
     DocketDecisionTextSourceError,
     VerifiedTerminalPurchaseDispositionAuthority,
+    reconstruct_historical_terminal_disposition,
+    validate_terminal_purchase_disposition_record,
     verified_residual_terminal_records,
     verified_terminal_purchase_disposition_record,
 )
@@ -40,6 +42,12 @@ REPLACEMENT_EVENT_SCHEMA_VERSION = "legalforecast.ranked_reserve_replacement_eve
 RESULT_SCHEMA_VERSION = "legalforecast.ranked_reserve_replacement_result.v1"
 AUTHENTICATED_RESULT_SCHEMA_VERSION = (
     "legalforecast.ranked_reserve_replacement_result.v2"
+)
+CURRENT_REPLAY_RESULT_SCHEMA_VERSION = (
+    "legalforecast.ranked_reserve_replacement_result.v3"
+)
+LEGACY_REPLAY_PROOF_SCHEMA_VERSION = (
+    "legalforecast.ranked_reserve_legacy_event_replay.v1"
 )
 _PROJECTION_SCHEMA_VERSION = "legalforecast.target_cohort_projection.v1"
 _RESERVE_SCHEMA_VERSION = "legalforecast.target_cohort_ranked_reserve.v1"
@@ -65,6 +73,53 @@ _TERMINAL_FIELDS = frozenset(
         "source_record_sha256",
         "terminal",
         "retryable",
+    }
+)
+_V2_RESULT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "projection_sha256",
+        "cycle_id",
+        "purchase_policy_sha256",
+        "purchase_journal_state_sha256",
+        "hard_cap_usd",
+        "terminal_exclusions_sha256",
+        "terminal_disposition",
+        "terminal_disposition_sha256",
+        "active_selection_sha256",
+        "replacement_selection_sha256",
+        "successor_exclusions_sha256",
+        "replacement_budget_plan_sha256",
+        "active_case_count",
+        "replacement_case_count",
+        "committed_spend_usd",
+        "reserved_replacement_spend_usd",
+        "remaining_headroom_usd",
+        "successor_approval_required",
+        "replacement_event_record_sha256s",
+        "tranche_event_record_sha256s",
+        "provider_activity_requested",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "evaluation_authorized",
+        "freeze_authorized",
+        "dispatch_authorized",
+    }
+)
+_LEGACY_REPLAY_PROOF_FIELDS = frozenset(
+    {
+        "schema_version",
+        "precursor_result",
+        "precursor_result_sha256",
+        "precursor_active_selection_sha256",
+        "precursor_replacement_selection_sha256",
+        "precursor_successor_exclusions_sha256",
+        "precursor_replacement_budget_plan_sha256",
+        "historical_purchase_journal_state_sha256",
+        "historical_terminal_evidence_sha256",
+        "current_terminal_evidence_sha256",
+        "authenticated_event_record_sha256s",
+        "historical_state_substitution_only",
     }
 )
 
@@ -94,6 +149,7 @@ class RankedReserveReplacementPlan:
     successor_approval_required: bool
     replacement_event_record_sha256s: tuple[str, ...]
     tranche_event_record_sha256s: tuple[str, ...]
+    legacy_replay_proof: JsonRecord | None = None
 
     @property
     def active_candidate_ids(self) -> tuple[str, ...]:
@@ -140,6 +196,9 @@ def plan_ranked_reserve_replacements(
     ) = None,
     precommit_revalidator: Callable[[], None] | None = None,
     allow_new_replacement_events: bool = True,
+    legacy_ranked_result: Mapping[str, object] | None = None,
+    legacy_ranked_result_sha256: str | None = None,
+    authenticated_legacy_replay: Mapping[str, object] | None = None,
 ) -> RankedReserveReplacementPlan:
     """Plan deterministic reserve promotions from explicit terminal evidence.
 
@@ -332,6 +391,7 @@ def plan_ranked_reserve_replacements(
             "authenticated terminal disposition requires a precommit revalidator"
         )
     terminal_disposition: JsonRecord | None = None
+    legacy_replay_proof: JsonRecord | None = None
     try:
         verified_retrieval_records = (
             verified_residual_terminal_records(
@@ -353,6 +413,119 @@ def plan_ranked_reserve_replacements(
             )
     except (DocketDecisionTextSourceError, TerminalPurchaseFailureError) as exc:
         raise RankedReserveReplacementError(str(exc)) from exc
+    if (legacy_ranked_result is None) != (legacy_ranked_result_sha256 is None):
+        raise RankedReserveReplacementError(
+            "legacy ranked result and digest must be supplied together"
+        )
+    if legacy_ranked_result is not None and authenticated_legacy_replay is not None:
+        raise RankedReserveReplacementError(
+            "legacy ranked result and authenticated replay are mutually exclusive"
+        )
+    if legacy_ranked_result is not None or authenticated_legacy_replay is not None:
+        if terminal_purchase_disposition_authority is None or not prior_events:
+            raise RankedReserveReplacementError(
+                "legacy ranked replay requires authenticated disposition and "
+                "durable events"
+            )
+        if allow_new_replacement_events:
+            raise RankedReserveReplacementError(
+                "legacy ranked replay cannot append replacement events"
+            )
+        legacy: JsonRecord | None = None
+        if legacy_ranked_result is not None:
+            assert legacy_ranked_result_sha256 is not None
+            legacy = _validate_legacy_ranked_result(
+                legacy_ranked_result,
+                expected_sha256=legacy_ranked_result_sha256,
+                projection_sha256=projection_sha256,
+                cycle_id=policy.cycle_id,
+                purchase_policy_sha256="sha256:" + policy.policy_sha256,
+                prior_events=prior_events,
+            )
+            historical_state = cast(str, legacy["purchase_journal_state_sha256"])
+        else:
+            legacy_replay_proof = validate_authenticated_legacy_replay(
+                authenticated_legacy_replay
+            )
+            legacy = _validate_legacy_ranked_result(
+                cast(Mapping[str, object], legacy_replay_proof["precursor_result"]),
+                expected_sha256=cast(
+                    str, legacy_replay_proof["precursor_result_sha256"]
+                ),
+                projection_sha256=projection_sha256,
+                cycle_id=policy.cycle_id,
+                purchase_policy_sha256="sha256:" + policy.policy_sha256,
+                prior_events=prior_events,
+            )
+            historical_state = cast(
+                str,
+                legacy_replay_proof["historical_purchase_journal_state_sha256"],
+            )
+        try:
+            (
+                historical_records,
+                historical_disposition,
+                historical_terminal_evidence_sha256,
+                current_terminal_evidence_sha256,
+            ) = reconstruct_historical_terminal_disposition(
+                terminal_purchase_disposition_authority,
+                purchase_journal=purchase_journal,
+                historical_purchase_journal_state_sha256=historical_state,
+            )
+        except (DocketDecisionTextSourceError, TerminalPurchaseFailureError) as exc:
+            raise RankedReserveReplacementError(str(exc)) from exc
+        if historical_disposition != legacy.get("terminal_disposition"):
+            raise RankedReserveReplacementError(
+                "legacy ranked result differs from reconstructed terminal disposition"
+            )
+        try:
+            terminal_records = [
+                historical_records[_candidate_id(record, "terminal exclusion")]
+                for record in terminal_records
+            ]
+        except KeyError as exc:
+            raise RankedReserveReplacementError(
+                "legacy terminal reconstruction lacks a current residual candidate"
+            ) from exc
+        verified_retrieval_records = historical_records
+        if legacy_ranked_result is not None:
+            assert legacy_ranked_result_sha256 is not None
+            legacy_replay_proof = {
+                "schema_version": LEGACY_REPLAY_PROOF_SCHEMA_VERSION,
+                "precursor_result": legacy,
+                "precursor_result_sha256": legacy_ranked_result_sha256,
+                "precursor_active_selection_sha256": legacy["active_selection_sha256"],
+                "precursor_replacement_selection_sha256": legacy[
+                    "replacement_selection_sha256"
+                ],
+                "precursor_successor_exclusions_sha256": legacy[
+                    "successor_exclusions_sha256"
+                ],
+                "precursor_replacement_budget_plan_sha256": legacy[
+                    "replacement_budget_plan_sha256"
+                ],
+                "historical_purchase_journal_state_sha256": historical_state,
+                "historical_terminal_evidence_sha256": (
+                    historical_terminal_evidence_sha256
+                ),
+                "current_terminal_evidence_sha256": current_terminal_evidence_sha256,
+                "authenticated_event_record_sha256s": [
+                    event["record_sha256"] for event in prior_events
+                ],
+                "historical_state_substitution_only": True,
+            }
+        elif (
+            legacy_replay_proof is None
+            or legacy_replay_proof.get("historical_terminal_evidence_sha256")
+            != historical_terminal_evidence_sha256
+            or legacy_replay_proof.get("current_terminal_evidence_sha256")
+            != current_terminal_evidence_sha256
+            or legacy_replay_proof.get("authenticated_event_record_sha256s")
+            != [event["record_sha256"] for event in prior_events]
+        ):
+            raise RankedReserveReplacementError(
+                "authenticated legacy replay differs from fresh reconstruction"
+            )
     terminal_by_id = _verify_terminal_records(
         terminal_records,
         {
@@ -590,7 +763,91 @@ def plan_ranked_reserve_replacements(
         ),
         replacement_event_record_sha256s=tuple(event_hashes),
         tranche_event_record_sha256s=tranche_event_hashes,
+        legacy_replay_proof=legacy_replay_proof,
     )
+
+
+def _validate_legacy_ranked_result(
+    value: Mapping[str, object],
+    *,
+    expected_sha256: str,
+    projection_sha256: str,
+    cycle_id: str,
+    purchase_policy_sha256: str,
+    prior_events: Sequence[Mapping[str, Any]],
+) -> JsonRecord:
+    legacy = dict(value)
+    if (
+        set(legacy) != set(_V2_RESULT_FIELDS)
+        or legacy.get("schema_version") != AUTHENTICATED_RESULT_SCHEMA_VERSION
+    ):
+        raise RankedReserveReplacementError(
+            "legacy ranked result has an unsupported schema"
+        )
+    digest = _digest(expected_sha256, "legacy ranked result digest")
+    if _bytes_sha256(ranked_reserve_result_bytes(legacy)) != digest:
+        raise RankedReserveReplacementError(
+            "legacy ranked result differs from its canonical digest"
+        )
+    if (
+        legacy.get("projection_sha256") != projection_sha256
+        or legacy.get("cycle_id") != cycle_id
+        or legacy.get("purchase_policy_sha256") != purchase_policy_sha256
+    ):
+        raise RankedReserveReplacementError(
+            "legacy ranked result targets another projection, cycle, or policy"
+        )
+    for field in (
+        "purchase_journal_state_sha256",
+        "terminal_exclusions_sha256",
+        "terminal_disposition_sha256",
+        "active_selection_sha256",
+        "replacement_selection_sha256",
+        "successor_exclusions_sha256",
+        "replacement_budget_plan_sha256",
+    ):
+        _digest(legacy.get(field), f"legacy ranked result {field}")
+    for field in (
+        "provider_activity_requested",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "evaluation_authorized",
+        "freeze_authorized",
+        "dispatch_authorized",
+    ):
+        if legacy.get(field) is not False:
+            raise RankedReserveReplacementError(
+                "legacy ranked result grants prohibited activity"
+            )
+    try:
+        disposition = validate_terminal_purchase_disposition_record(
+            legacy.get("terminal_disposition")
+        )
+    except DocketDecisionTextSourceError as exc:
+        raise RankedReserveReplacementError(str(exc)) from exc
+    if (
+        legacy.get("terminal_disposition_sha256") != _canonical_sha256(disposition)
+        or disposition.get("purchase_journal_state_sha256")
+        != legacy.get("purchase_journal_state_sha256")
+        or "sha256:"
+        + cast(str, disposition["residual_terminal_exclusions_sha256"]).removeprefix(
+            "sha256:"
+        )
+        != legacy.get("terminal_exclusions_sha256")
+    ):
+        raise RankedReserveReplacementError(
+            "legacy ranked result terminal disposition commitment mismatch"
+        )
+    event_hashes = [event.get("record_sha256") for event in prior_events]
+    if (
+        legacy.get("replacement_event_record_sha256s") != event_hashes
+        or legacy.get("tranche_event_record_sha256s") != event_hashes
+        or len(event_hashes) != len(set(cast(list[str], event_hashes)))
+    ):
+        raise RankedReserveReplacementError(
+            "legacy ranked result differs from the exhaustive durable event sequence"
+        )
+    return legacy
 
 
 def bind_ranked_reserve_outputs(
@@ -631,11 +888,66 @@ def bind_ranked_reserve_outputs(
         raise RankedReserveReplacementError(
             "replacement budget-plan output differs from the planned record"
         )
+    if plan.legacy_replay_proof is not None:
+        proof = validate_authenticated_legacy_replay(plan.legacy_replay_proof)
+        precursor = cast(JsonRecord, proof["precursor_result"])
+        try:
+            historical_disposition = validate_terminal_purchase_disposition_record(
+                precursor.get("terminal_disposition")
+            )
+        except DocketDecisionTextSourceError as exc:
+            raise RankedReserveReplacementError(str(exc)) from exc
+        residual_sha256 = cast(
+            str, historical_disposition["residual_terminal_exclusions_sha256"]
+        ).removeprefix("sha256:")
+        expected_precursor: JsonRecord = {
+            "schema_version": AUTHENTICATED_RESULT_SCHEMA_VERSION,
+            "projection_sha256": plan.projection_sha256,
+            "cycle_id": plan.cycle_id,
+            "purchase_policy_sha256": plan.purchase_policy_sha256,
+            "purchase_journal_state_sha256": proof[
+                "historical_purchase_journal_state_sha256"
+            ],
+            "hard_cap_usd": _money(plan.hard_cap),
+            "terminal_exclusions_sha256": "sha256:" + residual_sha256,
+            "terminal_disposition": historical_disposition,
+            "terminal_disposition_sha256": _canonical_sha256(historical_disposition),
+            "active_selection_sha256": _bytes_sha256(active_selection_bytes),
+            "replacement_selection_sha256": _bytes_sha256(replacement_selection_bytes),
+            "successor_exclusions_sha256": _bytes_sha256(successor_exclusions_bytes),
+            "replacement_budget_plan_sha256": _bytes_sha256(
+                replacement_budget_plan_bytes
+            ),
+            "active_case_count": len(plan.active_selection),
+            "replacement_case_count": len(plan.replacement_selection),
+            "committed_spend_usd": plan.committed_spend_usd,
+            "reserved_replacement_spend_usd": (plan.reserved_replacement_spend_usd),
+            "remaining_headroom_usd": plan.remaining_headroom_usd,
+            "successor_approval_required": plan.successor_approval_required,
+            "replacement_event_record_sha256s": list(
+                plan.replacement_event_record_sha256s
+            ),
+            "tranche_event_record_sha256s": list(plan.tranche_event_record_sha256s),
+            "provider_activity_requested": False,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "evaluation_authorized": False,
+            "freeze_authorized": False,
+            "dispatch_authorized": False,
+        }
+        if precursor != expected_precursor:
+            raise RankedReserveReplacementError(
+                "legacy ranked result differs from the reconstructed v2 producer result"
+            )
     result: JsonRecord = {
         "schema_version": (
-            AUTHENTICATED_RESULT_SCHEMA_VERSION
-            if plan.terminal_disposition is not None
-            else RESULT_SCHEMA_VERSION
+            CURRENT_REPLAY_RESULT_SCHEMA_VERSION
+            if plan.legacy_replay_proof is not None
+            else (
+                AUTHENTICATED_RESULT_SCHEMA_VERSION
+                if plan.terminal_disposition is not None
+                else RESULT_SCHEMA_VERSION
+            )
         ),
         "projection_sha256": plan.projection_sha256,
         "cycle_id": plan.cycle_id,
@@ -667,6 +979,8 @@ def bind_ranked_reserve_outputs(
         result["terminal_disposition_sha256"] = _canonical_sha256(
             plan.terminal_disposition
         )
+    if plan.legacy_replay_proof is not None:
+        result["authenticated_legacy_replay"] = dict(plan.legacy_replay_proof)
     return result
 
 
@@ -688,6 +1002,63 @@ def ranked_reserve_result_bytes(result: Mapping[str, object]) -> bytes:
         raise RankedReserveReplacementError(
             "ranked-reserve result is not canonical JSON"
         ) from exc
+
+
+def validate_authenticated_legacy_replay(value: object) -> JsonRecord:
+    """Validate the closed v3 proof of a current replay over legacy events."""
+
+    proof = dict(_mapping(value, "authenticated legacy replay"))
+    if (
+        set(proof) != set(_LEGACY_REPLAY_PROOF_FIELDS)
+        or proof.get("schema_version") != LEGACY_REPLAY_PROOF_SCHEMA_VERSION
+        or proof.get("historical_state_substitution_only") is not True
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated legacy replay has an unsupported schema"
+        )
+    for field in _LEGACY_REPLAY_PROOF_FIELDS - {
+        "schema_version",
+        "precursor_result",
+        "authenticated_event_record_sha256s",
+        "historical_state_substitution_only",
+    }:
+        _digest(proof.get(field), f"authenticated legacy replay {field}")
+    raw_events = proof.get("authenticated_event_record_sha256s")
+    if not isinstance(raw_events, list) or not raw_events:
+        raise RankedReserveReplacementError(
+            "authenticated legacy replay lacks durable event hashes"
+        )
+    event_hashes = cast(list[object], raw_events)
+    for event_hash in event_hashes:
+        _digest(event_hash, "authenticated legacy replay event hash")
+    if len(event_hashes) != len(set(cast(list[str], event_hashes))):
+        raise RankedReserveReplacementError(
+            "authenticated legacy replay event hashes are duplicated"
+        )
+    precursor = dict(_mapping(proof.get("precursor_result"), "legacy precursor"))
+    if (
+        set(precursor) != set(_V2_RESULT_FIELDS)
+        or precursor.get("schema_version") != AUTHENTICATED_RESULT_SCHEMA_VERSION
+        or _bytes_sha256(ranked_reserve_result_bytes(precursor))
+        != proof.get("precursor_result_sha256")
+        or precursor.get("purchase_journal_state_sha256")
+        != proof.get("historical_purchase_journal_state_sha256")
+        or precursor.get("active_selection_sha256")
+        != proof.get("precursor_active_selection_sha256")
+        or precursor.get("replacement_selection_sha256")
+        != proof.get("precursor_replacement_selection_sha256")
+        or precursor.get("successor_exclusions_sha256")
+        != proof.get("precursor_successor_exclusions_sha256")
+        or precursor.get("replacement_budget_plan_sha256")
+        != proof.get("precursor_replacement_budget_plan_sha256")
+        or precursor.get("replacement_event_record_sha256s") != event_hashes
+        or precursor.get("tranche_event_record_sha256s") != event_hashes
+    ):
+        raise RankedReserveReplacementError(
+            "authenticated legacy replay differs from its canonical precursor"
+        )
+    proof["precursor_result"] = precursor
+    return proof
 
 
 def _replacement_events(

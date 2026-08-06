@@ -5631,6 +5631,16 @@ def _add_plan_ranked_reserve_replacements_arguments(
             "docket decision retention."
         ),
     )
+    parser.add_argument(
+        "--legacy-ranked-result",
+        type=Path,
+        help=(
+            "Canonical v2 ranked-reserve result whose historical journal-state "
+            "witness is authenticated against the durable replacement events. "
+            "Required only when replaying those events after unrelated journal "
+            "recovery advancement."
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--active-selection-output", type=Path, required=True)
     parser.add_argument("--replacement-selection-output", type=Path, required=True)
@@ -23445,6 +23455,7 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
     purchase_result_path = cast(Path | None, args.purchase_result)
     purchase_run_card_path = cast(Path | None, args.purchase_run_card)
     snapshot_manifest_path = cast(Path | None, args.screening_snapshot_manifest)
+    legacy_ranked_result_path = cast(Path | None, args.legacy_ranked_result)
     policy_path = cast(Path, args.purchase_policy)
     output = cast(Path, args.output)
     active_output = cast(Path, args.active_selection_output)
@@ -23478,6 +23489,10 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
             raise RankedReserveReplacementError(
                 "select exactly one terminal-evidence mode"
             )
+        if legacy_ranked_result_path is not None and not authenticated_terminal_mode:
+            raise RankedReserveReplacementError(
+                "legacy ranked replay requires authenticated purchase disposition"
+            )
         writable_paths = (
             output,
             active_output,
@@ -23503,6 +23518,7 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                     purchase_result_path,
                     purchase_run_card_path,
                     snapshot_manifest_path,
+                    legacy_ranked_result_path,
                 )
                 if path is not None
             ),
@@ -23569,6 +23585,24 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
         source_pool_bytes = authenticated_bytes(source_paths[0])
         terminal_bytes = b""
         terminal_digest = ""
+        legacy_ranked_result: Mapping[str, object] | None = None
+        legacy_ranked_result_sha256: str | None = None
+        legacy_ranked_result_bytes: bytes | None = None
+        if legacy_ranked_result_path is not None:
+            legacy_ranked_result_bytes = read_unique_regular_file(
+                legacy_ranked_result_path
+            )
+            legacy_ranked_result = _projection_json_object(
+                legacy_ranked_result_bytes,
+                source=legacy_ranked_result_path,
+            )
+            if ranked_reserve_result_bytes(legacy_ranked_result) != (
+                legacy_ranked_result_bytes
+            ):
+                raise RankedReserveReplacementError(
+                    "legacy ranked result is not canonical JSON"
+                )
+            legacy_ranked_result_sha256 = _bytes_sha256(legacy_ranked_result_bytes)
         if legacy_terminal_mode:
             assert terminal_path is not None
             assert terminal_digest_path is not None
@@ -23622,6 +23656,12 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                     ),
                     snapshot_manifest_path: read_unique_regular_file(
                         snapshot_manifest_path
+                    ),
+                    **(
+                        {legacy_ranked_result_path: legacy_ranked_result_bytes}
+                        if legacy_ranked_result_path is not None
+                        and legacy_ranked_result_bytes is not None
+                        else {}
                     ),
                 }
                 selected_records = _projection_jsonl_records(
@@ -23684,6 +23724,9 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                 purchase_journal=journal,
                 terminal_purchase_disposition_authority=disposition_authority,
                 precommit_revalidator=precommit_revalidator,
+                legacy_ranked_result=legacy_ranked_result,
+                legacy_ranked_result_sha256=legacy_ranked_result_sha256,
+                allow_new_replacement_events=legacy_ranked_result is None,
             )
         if docket_descriptor is not None:
             _require_snapshot_unchanged(
@@ -23831,6 +23874,11 @@ def _authenticate_ranked_reserve_precursor(
             terminal_purchase_disposition_authority=descriptor.authority,
             precommit_revalidator=revalidate_disposition,
             allow_new_replacement_events=False,
+            authenticated_legacy_replay=(
+                cast(Mapping[str, object], ranked_result["authenticated_legacy_replay"])
+                if "authenticated_legacy_replay" in ranked_result
+                else None
+            ),
         )
         authenticated_result = bind_ranked_reserve_outputs(
             plan,

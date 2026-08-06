@@ -27,6 +27,7 @@ from legalforecast.ingestion.discovery_scheduler import (
     TermTerminalStatus,
 )
 from legalforecast.ingestion.docket_decision_text_source import (
+    DocketDecisionTextSourceError,
     VerifiedTerminalPurchaseDispositionAuthority,
 )
 from legalforecast.ingestion.missing_core_budget import (
@@ -37,10 +38,12 @@ from legalforecast.ingestion.ranked_reserve_replacement import (
     RankedReserveReplacementError,
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
+    ranked_reserve_result_bytes,
 )
 from legalforecast.ingestion.terminal_purchase_failure import (
     TerminalPurchaseFailureError,
     VerifiedTerminalPurchaseFailureAuthority,
+    reconstruct_historical_terminal_retrieval_records,
     terminal_retrieval_exclusions_bytes,
     verify_terminal_purchase_failure_authority,
 )
@@ -324,6 +327,56 @@ def test_zero_request_completed_resume_authenticates_quarantined_material(
     ]
 
 
+def test_historical_terminal_identity_survives_unrelated_material_recovery(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path, hard_cap_usd="12.20")
+    result_path = tmp_path / "courtlistener-recap-fetch-purchases.json"
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        result, run_card = _terminal_and_quarantined_resume_artifacts(
+            journal, result_path=result_path
+        )
+        _write_purchase_artifacts(result_path, result=result, run_card=run_card)
+        historical_state = "sha256:" + journal.purchase_state_sha256()
+        historical = verify_terminal_purchase_failure_authority(
+            purchase_result_path=result_path,
+            purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+        historical_records = {
+            str(record["candidate_id"]): record
+            for record in historical.terminal_exclusions
+        }
+
+        journal.record_quarantined_material_bytes(
+            "doc-051", content_sha256="f" * 64, byte_count=123
+        )
+        assert "sha256:" + journal.purchase_state_sha256() != historical_state
+        current = verify_terminal_purchase_failure_authority(
+            purchase_result_path=result_path,
+            purchase_run_card_path=result_path.with_name("purchase-run-card.json"),
+            purchase_journal=journal,
+        )
+        reconstructed = reconstruct_historical_terminal_retrieval_records(
+            current,
+            purchase_journal=journal,
+            historical_purchase_journal_state_sha256=historical_state,
+        )
+        arbitrary = reconstruct_historical_terminal_retrieval_records(
+            current,
+            purchase_journal=journal,
+            historical_purchase_journal_state_sha256="sha256:" + "0" * 64,
+        )
+
+    assert reconstructed == historical_records
+    assert arbitrary != historical_records
+    assert current.terminal_exclusions != historical.terminal_exclusions
+
+
 def test_terminal_authority_accepts_closed_zero_cost_case_plan(
     tmp_path: Path,
 ) -> None:
@@ -555,6 +608,313 @@ def test_verified_mixed_disposition_emits_cap_bounded_99_case_precursor(
     assert replayed.replacement_selection == plan.replacement_selection
     assert replayed.replacement_plan.to_record() == plan.replacement_plan.to_record()
     assert replayed.tranche_event_record_sha256s == plan.tranche_event_record_sha256s
+
+
+def test_v3_replay_binds_current_state_and_preserves_legacy_cohort_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        tmp_path,
+        hard_cap_usd="27.45",
+        reserve_document_counts=(3, 4, 4, 4, 4),
+    )
+    historical_records = {
+        candidate_id: {
+            **_terminal_record(candidate_id),
+            "reason": "terminal_courtlistener_recap_fetch_provider_error",
+            "source_stage": "purchase-missing-recap-fetch",
+        }
+        for candidate_id in ("case-050", "case-051", "case-052")
+    }
+    historical_bytes = _jsonl(tuple(historical_records.values()))
+    current_records = {
+        candidate_id: {
+            **record,
+            "source_artifact_sha256": "sha256:" + "8" * 64,
+            "source_record_sha256": "sha256:" + str(index) * 64,
+        }
+        for index, (candidate_id, record) in enumerate(
+            historical_records.items(), start=1
+        )
+    }
+    current_bytes = _jsonl(tuple(current_records.values()))
+    disposition = object.__new__(VerifiedTerminalPurchaseDispositionAuthority)
+    residual_records = historical_records
+    disposition_record: dict[str, object]
+
+    def verified_residual(
+        _authority: VerifiedTerminalPurchaseDispositionAuthority,
+        *,
+        purchase_journal: CaseDevPurchaseJournal,
+    ) -> dict[str, dict[str, object]]:
+        del purchase_journal
+        return residual_records
+
+    def verified_disposition(
+        _authority: VerifiedTerminalPurchaseDispositionAuthority,
+        *,
+        purchase_journal: CaseDevPurchaseJournal,
+    ) -> dict[str, object]:
+        del purchase_journal
+        return disposition_record
+
+    monkeypatch.setattr(
+        ranked_reserve_module, "verified_residual_terminal_records", verified_residual
+    )
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "verified_terminal_purchase_disposition_record",
+        verified_disposition,
+    )
+
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+        allow_create=True,
+    ) as journal:
+        unrelated_plan = MissingCoreBudgetPlan(
+            case_plans=(_case_purchase_plan("unrelated", "doc-unrelated", journal),),
+            cost_per_document=journal.policy.per_document_reservation_usd,
+            max_projected_budget=journal.policy.per_document_reservation_usd,
+            max_missing_core_documents_per_case=1,
+            dry_run=False,
+            target_case_count=1,
+        )
+        journal.plan(unrelated_plan)
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-unrelated": {
+                    "case_id": "unrelated",
+                    "selection_document_sha256": "a" * 64,
+                }
+            },
+            attempt_policy_sha256="b" * 64,
+        )
+        assert journal.submit("doc-unrelated")
+        journal.queue(
+            "doc-unrelated",
+            response={
+                "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+                "reservation_usd": "3.05",
+                "queue_id": "900",
+                "reservation_id": "reservation-900",
+            },
+        )
+        journal.mark_material_available_for_quarantine(
+            "doc-unrelated",
+            provider_detail_sha256="c" * 64,
+            queue_response_sha256="d" * 64,
+            download_url_sha256="e" * 64,
+        )
+        historical_state = "sha256:" + journal.purchase_state_sha256()
+        disposition_record = _disposition_record(
+            residual_sha256=_sha(historical_bytes),
+            purchase_journal_state_sha256=historical_state,
+        )
+        first = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=historical_bytes,
+            expected_terminal_exclusions_sha256=_sha(historical_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+        )
+        active_bytes = _jsonl(first.active_selection)
+        replacement_bytes = _jsonl(first.replacement_selection)
+        exclusion_bytes = _jsonl(first.successor_exclusions)
+        budget_bytes = _canonical_json(first.replacement_plan.to_record())
+        legacy_result = bind_ranked_reserve_outputs(
+            first,
+            active_selection_bytes=active_bytes,
+            replacement_selection_bytes=replacement_bytes,
+            successor_exclusions_bytes=exclusion_bytes,
+            replacement_budget_plan_bytes=budget_bytes,
+        )
+        legacy_result_bytes = ranked_reserve_result_bytes(legacy_result)
+
+        # This models an unrelated post-plan recovery transition: it advances
+        # the aggregate journal identity without changing the terminal universe.
+        journal.record_quarantined_material_bytes(
+            "doc-unrelated", content_sha256="f" * 64, byte_count=123
+        )
+        current_state = "sha256:" + journal.purchase_state_sha256()
+        assert current_state != historical_state
+        residual_records = current_records
+        disposition_record = _disposition_record(
+            residual_sha256=_sha(current_bytes).removeprefix("sha256:"),
+            purchase_journal_state_sha256=current_state,
+        )
+
+        def reconstruct_historical(
+            _authority: VerifiedTerminalPurchaseDispositionAuthority,
+            *,
+            purchase_journal: CaseDevPurchaseJournal,
+            historical_purchase_journal_state_sha256: str,
+        ) -> tuple[dict[str, dict[str, object]], dict[str, object], str, str]:
+            del purchase_journal
+            assert historical_purchase_journal_state_sha256 == historical_state
+            return (
+                historical_records,
+                cast(dict[str, object], legacy_result["terminal_disposition"]),
+                next(iter(historical_records.values()))["source_artifact_sha256"],
+                next(iter(current_records.values()))["source_artifact_sha256"],
+            )
+
+        monkeypatch.setattr(
+            ranked_reserve_module,
+            "reconstruct_historical_terminal_disposition",
+            reconstruct_historical,
+        )
+        event_count_before_replay = len(journal.replacement_events())
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="legacy ranked replay cannot append replacement events",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=current_bytes,
+                expected_terminal_exclusions_sha256=_sha(current_bytes),
+                purchase_journal=journal,
+                terminal_purchase_disposition_authority=disposition,
+                precommit_revalidator=lambda: None,
+                legacy_ranked_result=legacy_result,
+                legacy_ranked_result_sha256=_sha(legacy_result_bytes),
+            )
+        assert len(journal.replacement_events()) == event_count_before_replay
+        replay = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=current_bytes,
+            expected_terminal_exclusions_sha256=_sha(current_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+            legacy_ranked_result=legacy_result,
+            legacy_ranked_result_sha256=_sha(legacy_result_bytes),
+            allow_new_replacement_events=False,
+        )
+        replay_result = bind_ranked_reserve_outputs(
+            replay,
+            active_selection_bytes=active_bytes,
+            replacement_selection_bytes=replacement_bytes,
+            successor_exclusions_bytes=exclusion_bytes,
+            replacement_budget_plan_bytes=budget_bytes,
+        )
+        proof = cast(dict[str, object], replay_result["authenticated_legacy_replay"])
+        downstream = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=current_bytes,
+            expected_terminal_exclusions_sha256=_sha(current_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+            authenticated_legacy_replay=proof,
+            allow_new_replacement_events=False,
+        )
+        downstream_result = bind_ranked_reserve_outputs(
+            downstream,
+            active_selection_bytes=active_bytes,
+            replacement_selection_bytes=replacement_bytes,
+            successor_exclusions_bytes=exclusion_bytes,
+            replacement_budget_plan_bytes=budget_bytes,
+        )
+
+        tampered = json.loads(json.dumps(proof))
+        tampered["precursor_result_sha256"] = "sha256:" + "9" * 64
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="differs from its canonical precursor",
+        ):
+            plan_ranked_reserve_replacements(
+                projection=fixture["projection"],
+                selected_bytes=fixture["selected_bytes"],
+                reserve_bytes=fixture["reserve_bytes"],
+                source_pool_bytes=fixture["source_pool_bytes"],
+                original_exclusions_bytes=fixture["exclusions_bytes"],
+                terminal_exclusions_bytes=current_bytes,
+                expected_terminal_exclusions_sha256=_sha(current_bytes),
+                purchase_journal=journal,
+                terminal_purchase_disposition_authority=disposition,
+                precommit_revalidator=lambda: None,
+                authenticated_legacy_replay=tampered,
+                allow_new_replacement_events=False,
+            )
+
+        impossible = json.loads(json.dumps(proof))
+        impossible_precursor = cast(dict[str, object], impossible["precursor_result"])
+        impossible_precursor["committed_spend_usd"] = "0.00"
+        impossible["precursor_result_sha256"] = _sha(
+            ranked_reserve_result_bytes(impossible_precursor)
+        )
+        impossible_plan = plan_ranked_reserve_replacements(
+            projection=fixture["projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["exclusions_bytes"],
+            terminal_exclusions_bytes=current_bytes,
+            expected_terminal_exclusions_sha256=_sha(current_bytes),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=disposition,
+            precommit_revalidator=lambda: None,
+            authenticated_legacy_replay=impossible,
+            allow_new_replacement_events=False,
+        )
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="differs from the reconstructed v2 producer result",
+        ):
+            bind_ranked_reserve_outputs(
+                impossible_plan,
+                active_selection_bytes=active_bytes,
+                replacement_selection_bytes=replacement_bytes,
+                successor_exclusions_bytes=exclusion_bytes,
+                replacement_budget_plan_bytes=budget_bytes,
+            )
+
+        def reject_embedded_disposition(_value: object) -> dict[str, object]:
+            raise DocketDecisionTextSourceError("malformed embedded disposition")
+
+        monkeypatch.setattr(
+            ranked_reserve_module,
+            "validate_terminal_purchase_disposition_record",
+            reject_embedded_disposition,
+        )
+        with pytest.raises(
+            RankedReserveReplacementError,
+            match="malformed embedded disposition",
+        ):
+            bind_ranked_reserve_outputs(
+                replay,
+                active_selection_bytes=active_bytes,
+                replacement_selection_bytes=replacement_bytes,
+                successor_exclusions_bytes=exclusion_bytes,
+                replacement_budget_plan_bytes=budget_bytes,
+            )
+
+    assert replay_result["schema_version"].endswith(".v3")
+    assert replay_result["purchase_journal_state_sha256"] == current_state
+    assert replay_result["terminal_exclusions_sha256"] == _sha(current_bytes)
+    proof = cast(dict[str, object], replay_result["authenticated_legacy_replay"])
+    assert proof["historical_purchase_journal_state_sha256"] == historical_state
+    assert proof["historical_state_substitution_only"] is True
+    assert downstream_result == replay_result
 
 
 @pytest.mark.parametrize(
@@ -2061,6 +2421,9 @@ def test_cli_derives_mixed_partition_without_nested_purchase_journal_lock(
     freshness_checks = 0
     reject_stale = True
     mutate_during_planning = False
+    expected_prior_event_count = 0
+    expected_legacy_bytes: bytes | None = None
+    legacy_path_to_mutate: Path | None = None
 
     def require_fresh_before_mutation(
         snapshots: Mapping[Path, bytes], *, label: str
@@ -2083,9 +2446,15 @@ def test_cli_derives_mixed_partition_without_nested_purchase_journal_lock(
     def assert_freshness_precedes_planner(**kwargs: object) -> object:
         assert freshness_checks == 2
         journal = cast(CaseDevPurchaseJournal, kwargs["purchase_journal"])
-        assert journal.replacement_events() == ()
+        assert len(journal.replacement_events()) == expected_prior_event_count
+        if expected_legacy_bytes is not None:
+            assert kwargs["legacy_ranked_result"] == json.loads(expected_legacy_bytes)
+            assert kwargs["legacy_ranked_result_sha256"] == _sha(expected_legacy_bytes)
+            assert kwargs["allow_new_replacement_events"] is False
         if mutate_during_planning:
             purchase_result.write_text('{"tampered":true}\n')
+        if legacy_path_to_mutate is not None:
+            legacy_path_to_mutate.write_text('{"tampered":true}\n')
         return original_planner(**kwargs)  # type: ignore[arg-type]
 
     monkeypatch.setattr(
@@ -2242,6 +2611,65 @@ def test_cli_derives_mixed_partition_without_nested_purchase_journal_lock(
         for line in outputs["replacement"].read_text().splitlines()
     ] == ["case-100", "case-101"]
 
+    legacy_path = tmp_path / "legacy-result.json"
+    expected_legacy_bytes = outputs["result"].read_bytes()
+    legacy_path.write_bytes(expected_legacy_bytes)
+    legacy_payload = cast(dict[str, object], json.loads(expected_legacy_bytes))
+    historical_disposition = cast(
+        dict[str, object], legacy_payload["terminal_disposition"]
+    )
+    historical_artifact = cast(
+        str, next(iter(terminal_records.values()))["source_artifact_sha256"]
+    )
+
+    def reconstruct_cli_history(
+        authority: object,
+        *,
+        purchase_journal: CaseDevPurchaseJournal,
+        historical_purchase_journal_state_sha256: str,
+    ) -> tuple[dict[str, dict[str, object]], dict[str, object], str, str]:
+        del authority, purchase_journal
+        assert (
+            historical_purchase_journal_state_sha256
+            == legacy_payload["purchase_journal_state_sha256"]
+        )
+        return (
+            terminal_records,
+            historical_disposition,
+            historical_artifact,
+            historical_artifact,
+        )
+
+    monkeypatch.setattr(
+        ranked_reserve_module,
+        "reconstruct_historical_terminal_disposition",
+        reconstruct_cli_history,
+    )
+    replay_outputs = {
+        name: tmp_path / "replay" / path.name for name, path in outputs.items()
+    }
+    path_replacements = {
+        str(outputs[name]): str(replay_outputs[name]) for name in outputs
+    }
+    replay_command = [path_replacements.get(argument, argument) for argument in command]
+    replay_command.extend(["--legacy-ranked-result", str(legacy_path)])
+    freshness_checks = 0
+    expected_prior_event_count = 2
+    legacy_path_to_mutate = legacy_path
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+    ) as observer:
+        event_count_before_replay = len(observer.replacement_events())
+
+    assert cli.main(replay_command) == 2
+    assert not any(path.exists() for path in replay_outputs.values())
+    with CaseDevPurchaseJournal(
+        fixture["policy"].canonical_ledger_path,
+        policy=fixture["policy"],
+    ) as observer:
+        assert len(observer.replacement_events()) == event_count_before_replay
+
 
 def test_authenticated_ranked_reserve_replay_loads_captured_snapshot_manifest(
     tmp_path: Path,
@@ -2366,6 +2794,47 @@ def test_cli_requires_one_complete_terminal_evidence_mode(tmp_path: Path) -> Non
     )
 
     assert status == 2
+
+
+def test_cli_rejects_legacy_result_with_unauthenticated_terminal_mode(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    status = cli.main(
+        [
+            "acquisition",
+            "plan-ranked-reserve-replacements",
+            "--target-cohort-root",
+            str(tmp_path / "target"),
+            "--purchase-policy",
+            str(tmp_path / "policy.json"),
+            "--controlled-private-root",
+            str(tmp_path / "private"),
+            "--purchase-ledger",
+            str(tmp_path / "ledger.sqlite3"),
+            "--purchase-ledger-initialization-receipt",
+            str(tmp_path / "receipt.json"),
+            "--terminal-exclusions",
+            str(tmp_path / "terminal.jsonl"),
+            "--terminal-exclusions-sha256-file",
+            str(tmp_path / "terminal.sha256"),
+            "--legacy-ranked-result",
+            str(tmp_path / "legacy-result.json"),
+            "--output",
+            str(tmp_path / "output.json"),
+            "--active-selection-output",
+            str(tmp_path / "active.jsonl"),
+            "--replacement-selection-output",
+            str(tmp_path / "replacement.jsonl"),
+            "--successor-exclusions-output",
+            str(tmp_path / "exclusions.jsonl"),
+            "--replacement-budget-plan-output",
+            str(tmp_path / "budget.json"),
+        ]
+    )
+
+    assert status == 2
+    assert "requires authenticated purchase disposition" in capsys.readouterr().err
 
 
 def test_v4_continuation_template_renders_canonical_plan_contract(
