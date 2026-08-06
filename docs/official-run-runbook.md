@@ -2242,9 +2242,86 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --execute --resume
 ```
 
-The canonical descriptor handoff after that resolver is `RECOVERY_SOURCE_ROOT`, which must be distinct from the immutable `RECOVERY_ROOT` used by the initial recovery cycle. Reserve `$RECOVERY_SOURCE_ROOT/0000-initial-v2.json` for the initial recovery-source descriptor and `$RECOVERY_SOURCE_ROOT/run-cards/build-replacement-recovery-source-0000.json` for its producer run card. Do not hand-author either artifact or point `INITIAL_RECOVERY_SOURCE` at the raw recovery root; the dedicated descriptor producer owns this post-resolve handoff and authenticates the v2 recovery card, purchased-clearance card, resolver card, policies, ledger, private approval root, and ledger-initialization receipt.
+The canonical exact-100 descriptor path must use one of the v3 continuations in [the recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md), not the legacy manual clearance card above. Always render the authenticated-model template first and execute it provider-free through the immutable plan. Continue with its model stage when the plan contains model-review-eligible exceptions. If the plan proves that set is empty, render the no-review template to a distinct config and state root while reusing the exact same disclosure artifact, private, purchase, recovery, repository, and target-cohort roots; execute that continuation provider-free and never invoke `--allow-model-provider`.
 
-Only after that resolver succeeds may `materialize-cohort-documents` use `$quarantine_recovery_root` as `--purchased-recovery-root`, the purchased clearance/card above, and `$resolved_post_recovery`. The materializer replays the generated review queue and recovery document-tree commitments, verifies the authenticated clearance and canonical operation bindings, and fails closed if any quarantine artifact was hand-edited or omitted.
+```bash
+initial_disclosure_root="$preparation_root/purchased-recovery-disclosure"
+initial_disclosure_private_root="/absolute/path/to/controlled-private-disclosure-root"
+initial_disclosure_cycle_root="$preparation_root/purchased-recovery-disclosure-cycle"
+initial_disclosure_config="$initial_disclosure_cycle_root/acquisition-cycle.json"
+initial_disclosure_state_root="$initial_disclosure_cycle_root/orchestrator"
+initial_disclosure_template="$repo_root/manifests/cycle-1-target-100.initial-recovery-disclosure.template.json"
+
+mkdir -p "$initial_disclosure_cycle_root"
+
+uv run legalforecast acquisition render-cycle-config \
+  --template "$initial_disclosure_template" \
+  --variable "DISCLOSURE_ARTIFACT_ROOT=$initial_disclosure_root" \
+  --variable "DISCLOSURE_PRIVATE_ROOT=$initial_disclosure_private_root" \
+  --variable "PURCHASE_PRIVATE_ROOT=$purchase_private_root" \
+  --variable "PURCHASE_ROOT=$purchase_authority_root" \
+  --variable "RECOVERY_ROOT=$quarantine_recovery_root" \
+  --variable "REPO_ROOT=$repo_root" \
+  --variable "TARGET_COHORT_ROOT=$initial_approved_root" \
+  --output "$initial_disclosure_config"
+
+uv run legalforecast acquisition run-cycle \
+  --config "$initial_disclosure_config" \
+  --state-root "$initial_disclosure_state_root" \
+  --json
+
+uv run legalforecast acquisition run-cycle \
+  --config "$initial_disclosure_config" \
+  --state-root "$initial_disclosure_state_root" \
+  --execute --json
+
+# Inspect the completed 01-plan artifacts now. If the authenticated plan proves
+# the model-review-eligible set is empty, render the no-review template to a
+# distinct config/state root with the same seven variable assignments above:
+#
+#   initial_disclosure_no_review_cycle_root="$preparation_root/purchased-recovery-disclosure-no-review-cycle"
+#   initial_disclosure_no_review_config="$initial_disclosure_no_review_cycle_root/acquisition-cycle.json"
+#   initial_disclosure_no_review_state_root="$initial_disclosure_no_review_cycle_root/orchestrator"
+#   initial_disclosure_no_review_template="$repo_root/manifests/cycle-1-target-100.initial-recovery-disclosure-no-review.template.json"
+#
+# Execute that config provider-free and skip both commands below. Its replay of
+# 00-cycle and 01-plan must match the existing artifacts exactly.
+
+# Authenticated model-review branch only.
+uv run legalforecast acquisition run-cycle \
+  --config "$initial_disclosure_config" \
+  --state-root "$initial_disclosure_state_root" \
+  --execute --allow-network --allow-model-provider --json
+
+# Complete the provider-free finalizer and resolver after model review.
+uv run legalforecast acquisition run-cycle \
+  --config "$initial_disclosure_config" \
+  --state-root "$initial_disclosure_state_root" \
+  --execute --json
+```
+
+The canonical descriptor handoff after that continuation is `RECOVERY_SOURCE_ROOT`, which must be distinct from the immutable `RECOVERY_ROOT` used by the initial recovery cycle. The dedicated producer writes `$RECOVERY_SOURCE_ROOT/0000-initial-v2.json` and `$RECOVERY_SOURCE_ROOT/run-cards/build-replacement-recovery-source-0000.json`; do not hand-author either artifact or point `INITIAL_RECOVERY_SOURCE` at the raw recovery root:
+
+```bash
+RECOVERY_SOURCE_ROOT="$preparation_root/recovery-sources"
+
+uv run legalforecast acquisition build-replacement-recovery-source \
+  --output-root "$RECOVERY_SOURCE_ROOT" \
+  --ordinal 0 \
+  --recovery-root "$quarantine_recovery_root" \
+  --purchased-clearance-run-card "$initial_disclosure_root/03-clearance/run-cards/finalize-provenance-quarantine.json" \
+  --resolved-post-recovery-run-card "$initial_disclosure_root/04-resolved/run-cards/resolve-post-recovery-documents.json" \
+  --purchase-policy "$purchase_authority_root/purchase-policy-v2.json" \
+  --cohort-policy "$repo_root/docs/cohort-policy-cycle-1-target-100-2026-07-25.json" \
+  --purchase-ledger "$purchase_authority_root/cycle-1-target100-recap-fetch-purchase-ledger.sqlite3" \
+  --initial-controlled-private-root "$purchase_private_root" \
+  --purchase-ledger-initialization-receipt "$purchase_authority_root/purchase-ledger-initialization.json" \
+  --execute --resume
+```
+
+The producer authenticates the v2 recovery card, v3 purchased-clearance card, resolver card, policies, ledger, private approval root, and ledger-initialization receipt before publishing the descriptor.
+
+Only after the v3 continuation's resolver succeeds may `materialize-cohort-documents` use `$quarantine_recovery_root` as `--purchased-recovery-root`, `$initial_disclosure_root/03-clearance/disclosure-clearance.jsonl`, its finalizer card, and `$initial_disclosure_root/04-resolved/resolved-post-recovery-documents.jsonl`. The materializer replays the generated review queue and recovery document-tree commitments, verifies the authenticated clearance and canonical operation bindings, and fails closed if any quarantine artifact was hand-edited or omitted.
 
 If purchased-document clearance quarantines any selected candidate, do not continue with the initial `$launch_root`.
 Run the authenticated replacement loop in [the clearance-replacement schema](schemas/clearance-replacement-v1.md) until `plan-clearance-replacements` reports no additional replacement plan, then execute the checked-in `cycle-1-target-100.replacement-reprojection.template.json`.

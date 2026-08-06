@@ -1363,6 +1363,31 @@ def test_exact100_initial_recovery_uses_bounded_partial_cycle_template() -> None
         "$RECOVERY_SOURCE_ROOT/run-cards/build-replacement-recovery-source-0000.json"
     ) in runbook
     assert "RECOVERY_SOURCE_ROOT`, which must be distinct" in runbook
+    assert "build-replacement-recovery-source" in runbook
+    assert (
+        '--variable "DISCLOSURE_PRIVATE_ROOT=$initial_disclosure_private_root"'
+        in runbook
+    )
+    assert (
+        'initial_disclosure_private_root="/absolute/path/to/'
+        'controlled-private-disclosure-root"'
+    ) in runbook
+    assert "Always render the authenticated-model template first" in runbook
+    assert "distinct config and state root" in runbook
+    assert "initial_disclosure_no_review_state_root" in runbook
+    assert "same seven variable assignments above" in runbook
+    assert "--execute --allow-network --allow-model-provider --json" in runbook
+    assert '--recovery-root "$quarantine_recovery_root"' in runbook
+    assert (
+        "--purchased-clearance-run-card "
+        '"$initial_disclosure_root/03-clearance/run-cards/'
+        'finalize-provenance-quarantine.json"'
+    ) in runbook
+    assert (
+        "--resolved-post-recovery-run-card "
+        '"$initial_disclosure_root/04-resolved/run-cards/'
+        'resolve-post-recovery-documents.json"'
+    ) in runbook
 
 
 def _tree_hashes(root: Path) -> dict[str, str]:
