@@ -27,14 +27,22 @@ from legalforecast.ingestion.case_dev_purchase import (
 from legalforecast.ingestion.cohort_policy import generate_cohort_policy
 from legalforecast.ingestion.disclosure_clearance import (
     SCHEMA_VERSION,
+    DisclosurePdfScan,
     ReviewAuthority,
+    require_clearance_policy,
 )
+from legalforecast.ingestion.disclosure_model_review import DECISION_SCHEMA_VERSION
 from legalforecast.ingestion.disclosure_review_authority import (
     DisclosureReviewAuthorityIdentity,
 )
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
+)
+from legalforecast.ingestion.provenance_clearance import (
+    build_authenticated_model_provenance_clearance_records_v3,
+    build_provenance_clearance_plan_v3,
+    canonical_json_bytes,
 )
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     BOUNDED_FETCH_ATTEMPT_AUTHORITY,
@@ -44,6 +52,10 @@ from legalforecast.ingestion.recap_fetch_attempt_policy import (
 from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
     RecapFetchQuarantineRecoveryError,
     project_purchased_case_relevance,
+)
+from legalforecast.ingestion.replacement_recovery_source import (
+    build_recovery_source_descriptor,
+    derive_recovery_source_coordinates,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
     AuthenticatedClearanceLineage,
@@ -789,6 +801,214 @@ def test_recovered_public_capability_builds_and_requires_resolved_v2() -> None:
             **_external_kwargs(kwargs),
             verified_recovery_capability=capability,
         )
+
+
+def test_url_free_recovered_marker_model_clearance_reaches_source_descriptor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Close recovery, AI clearance, resolution, and descriptor semantics."""
+
+    inputs = _inputs()
+    data = b"medical record cited only as a public allegation"
+    content_sha256 = hashlib.sha256(data).hexdigest()
+    operation = inputs["purchase_operation_records"][0]
+    material = cast(dict[str, object], operation["material_evidence"])
+    material["content_sha256"] = content_sha256
+    material["byte_count"] = len(data)
+    download = inputs["download_records"][0]
+    download.update(
+        {
+            "local_path": "case-1/123.pdf",
+            "sha256": content_sha256,
+            "byte_count": len(data),
+            "free_or_purchased": "purchased",
+            "source_provider": "courtlistener_recap_fetch",
+            "source_url": None,
+            "fresh_recap_detail_sha256": material["provider_detail_sha256"],
+        }
+    )
+    restrictions = inputs["restriction_records"]
+    requests = [
+        {
+            "schema_version": "legalforecast.disclosure_review_request.v1",
+            "candidate_id": "case-1",
+            "source_document_id": "123",
+            "sha256": content_sha256,
+            "byte_count": len(data),
+            "free_or_purchased": "purchased",
+            "restriction_status": "public",
+            "restriction_evidence": restrictions[0]["restriction_evidence"],
+            "required_human_decision": "cleared_or_quarantined",
+        }
+    ]
+    relevance = [
+        {
+            "candidate_id": "case-1",
+            "documents": [
+                {
+                    "source_document_id": "123",
+                    "source_url_or_reference": "recap-document:123",
+                    "model_visible": False,
+                    "contains_target_outcome": True,
+                }
+            ],
+        }
+    ]
+    document_root = tmp_path / "documents"
+    document_path = document_root / "case-1/123.pdf"
+    document_path.parent.mkdir(parents=True)
+    document_path.write_bytes(data)
+    lineage = {
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "recovery_run_card_sha256": "3" * 64,
+        "recovery_manifest_sha256": "4" * 64,
+        "recovery_restriction_evidence_sha256": "5" * 64,
+        "purchase_state_sha256": "6" * 64,
+        "purchase_operation_sha256": _hash(operation),
+        "purchase_operation_key": operation["operation_key"],
+        "fresh_recap_detail_sha256": material["provider_detail_sha256"],
+    }
+    recovery_capability = (
+        provenance_module._issue_recovered_public_clearance_capability(  # pyright: ignore[reportPrivateUsage]
+            [lineage]
+        )
+    )
+    scan = DisclosurePdfScan(
+        parsed_page_count=1,
+        text_scanned_page_numbers=(1,),
+        ocr_scanned_page_numbers=(),
+        unscanned_page_numbers=(),
+        coverage_status="complete",
+        diagnostics=(),
+        automated_markers=("medical",),
+    )
+    plan = build_provenance_clearance_plan_v3(
+        requests,
+        [download],
+        restrictions,
+        relevance,
+        document_root=document_root,
+        review_requests_bytes=_jsonl_bytes(requests),
+        download_manifest_bytes=_jsonl_bytes([download]),
+        restriction_evidence_bytes=_jsonl_bytes(restrictions),
+        case_relevance_bytes=_jsonl_bytes(relevance),
+        document_scanner=lambda _: scan,
+        verified_recovery_capability=recovery_capability,
+    )
+    [planned] = cast(list[dict[str, object]], plan["documents"])
+    assert planned["route"] == "exception_review"
+    assert planned["source_url"] is None
+    assert planned["recovered_public_lineage"] == lineage
+    routing_sha256 = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+    monkeypatch.setattr(
+        "legalforecast.ingestion.disclosure_model_review_authority.public_disclosure_model_review_record",
+        lambda _capability: {
+            "routing_plan_sha256": routing_sha256,
+            "reviewer_registry_key": "google:gemini-3.5-flash",
+            "decision_count": 1,
+            "decisions": [
+                {
+                    "schema_version": DECISION_SCHEMA_VERSION,
+                    "candidate_id": "case-1",
+                    "source_document_id": "123",
+                    "document_sha256": content_sha256,
+                    "prompt_sha256": "8" * 64,
+                    "batch_prompt_sha256": "9" * 64,
+                    "response_sha256": "a" * 64,
+                    "batch_response_sha256": "b" * 64,
+                    "reviewer_registry_entry_sha256": "c" * 64,
+                    "status": "cleared",
+                }
+            ],
+        },
+    )
+    [clearance_record] = build_authenticated_model_provenance_clearance_records_v3(
+        plan,
+        model_review_capability=object(),
+        routing_plan_sha256=routing_sha256,
+    )
+    clearance = clearance_record.to_record()
+    require_clearance_policy(
+        clearance, key=("case-1", "123"), label="resolved document"
+    )
+    assert clearance["clearance_basis"] == "authenticated_model_exception_review"
+    assert clearance["recovered_public_lineage"] == lineage
+
+    clearance_bytes = _jsonl_bytes([clearance])
+    inputs.update(
+        {
+            "download_manifest_artifact_bytes": _jsonl_bytes([download]),
+            "clearance_records": [clearance],
+            "clearance_artifact_bytes": clearance_bytes,
+            "restriction_artifact_bytes": _jsonl_bytes(restrictions),
+        }
+    )
+    resolved = build_recovered(
+        **inputs,
+        verified_recovery_capability=recovery_capability,
+    )
+    require_recovered(
+        selection_records=inputs["selection_records"],
+        download_records=[download],
+        clearance_records=[clearance],
+        resolved_records=resolved,
+        **_external_kwargs(inputs),
+        verified_recovery_capability=recovery_capability,
+    )
+    assert resolved[0]["recovered_public_lineage"] == lineage
+
+    recovery_card = {
+        "schema_version": "legalforecast.recap_fetch_quarantine_recovery_run_card.v2",
+        "stage": "recover-recap-fetch-quarantine",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "authority_mode": "initial_projection",
+        "input_paths": [
+            str(tmp_path / name)
+            for name in (
+                "selection.jsonl",
+                "case-relevance.jsonl",
+                "projection-card.json",
+                "purchase-policy.json",
+                "cohort-policy.json",
+                "budget.json",
+                "purchase-ledger.sqlite3",
+                "attempt-policy.json",
+            )
+        ],
+        "source_commitments": {
+            name: {"path": str(tmp_path / name), "sha256": "sha256:" + "d" * 64}
+            for name in (
+                "selection",
+                "case_relevance",
+                "target_projection_run_card",
+                "purchase_policy",
+                "cohort_policy",
+                "budget_plan",
+                "attempt_policy",
+            )
+        },
+    }
+    coordinates = derive_recovery_source_coordinates(recovery_card)
+    descriptor = build_recovery_source_descriptor(
+        coordinates=coordinates,
+        ordinal=0,
+        recovery_root=tmp_path / "recovery",
+        purchased_clearance_path=tmp_path / "clearance.jsonl",
+        purchased_clearance_run_card_path=tmp_path / "clearance-card.json",
+        resolved_post_recovery_documents_path=tmp_path / "resolved.jsonl",
+        replacement_controlled_private_root=None,
+    )
+    assert descriptor["kind"] == "initial_v2"
+    assert descriptor["ordinal"] == 0
+    assert descriptor["resolved_post_recovery_documents"] == str(
+        (tmp_path / "resolved.jsonl").absolute()
+    )
 
 
 def test_duplicate_or_cross_candidate_lineage_fails_closed() -> None:
