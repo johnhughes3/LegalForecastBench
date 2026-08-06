@@ -578,7 +578,9 @@ def plan_ranked_reserve_replacements(
                 )
             prior_result = verified_post_purchase_replay.prior_result
             if (
-                prior_result.get("projection_sha256") != projection_sha256
+                _bytes_sha256(ranked_reserve_result_bytes(prior_result))
+                != verified_post_purchase_replay.prior_result_sha256
+                or prior_result.get("projection_sha256") != projection_sha256
                 or prior_result.get("cycle_id") != policy.cycle_id
                 or prior_result.get("purchase_policy_sha256")
                 != "sha256:" + policy.policy_sha256

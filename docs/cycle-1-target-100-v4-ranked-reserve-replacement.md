@@ -116,10 +116,10 @@ For the post-purchase replay that follows commitment of the approved successor t
   --cohort-policy "$cohort_policy"
 ```
 
-All six options are required together and only with the authenticated purchase-result disposition mode. This verification is provider-free and read-only: it does not purchase, recover, dispatch, or deploy anything.
+All six options are required together and only with the authenticated purchase-result disposition mode. This post-purchase replay is provider-free and does not purchase, recover, dispatch, deploy, append replacement events, or otherwise mutate the journal.
 
 The planner authenticates the target projection through the existing full semantic replay, not by reading the projection summary alone.
-It then binds the exact selected, reserve, original-exclusion, and full source-pool bytes; verifies counts, canonical ID and reserve commitments, reserve ranks and costs, and resolved-pool reconciliation; authenticates the exact residual terminal digest from the exhaustive disposition authority; and appends replay-safe hash-chained decisions to the existing purchase journal only after all validation and cap checks pass.
+It then binds the exact selected, reserve, original-exclusion, and full source-pool bytes; verifies counts, canonical ID and reserve commitments, reserve ranks and costs, and resolved-pool reconciliation; and authenticates the exact residual terminal digest from the exhaustive disposition authority. Initial planning appends replay-safe hash-chained decisions to the existing purchase journal only after all validation and cap checks pass; post-purchase replay requires those events to exist already and appends nothing.
 If output publication is interrupted after those journal appends, rerunning the same authenticated command reconstructs the same rank-1/rank-2 tranche and immutable bytes from the durable events rather than emitting an empty successor tranche.
 
 For the current Cycle ledger, the frozen completion envelope is `$545.95` and only `$21.35` remains under the unchanged `$567.30` cap.

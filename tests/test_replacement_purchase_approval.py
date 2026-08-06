@@ -31,6 +31,7 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.ranked_reserve_replacement import (
+    RankedReserveReplacementError,
     authenticate_post_purchase_replay_against_snapshot,
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
@@ -1115,6 +1116,7 @@ def test_post_purchase_ranked_replay_proves_exact_authority_transition(
     replay = cast(Any, _verify_post_purchase_ranked_replay(fixture))
 
     assert replay.is_replay_minted()
+    assert replay.prior_result_sha256 == _sha256_uri(fixture["prior_bytes"])
     assert replay.baseline_snapshot.purchase_state_sha256 == str(
         fixture["request"].purchase_journal_state_sha256
     ).removeprefix("sha256:")
@@ -1304,6 +1306,34 @@ def test_verified_post_purchase_transition_plans_and_binds_current_v4(
                 snapshot=snapshot,
             )
             == transition
+        )
+
+    replay.prior_result["cycle_id"] = "mutated-after-verification"
+    with (
+        CaseDevPurchaseJournal(
+            fixture["ledger_path"],
+            policy=fixture["policy"],
+            controlled_private_root=fixture["initial_private_root"],
+            initialization_receipt_path=fixture["receipt_path"],
+        ) as journal,
+        pytest.raises(
+            RankedReserveReplacementError,
+            match="verified post-purchase precursor targets another ranked replay",
+        ),
+    ):
+        plan_ranked_reserve_replacements(
+            projection=fixture["ranked_projection"],
+            selected_bytes=fixture["selected_bytes"],
+            reserve_bytes=fixture["reserve_bytes"],
+            source_pool_bytes=fixture["source_pool_bytes"],
+            original_exclusions_bytes=fixture["original_exclusions_bytes"],
+            terminal_exclusions_bytes=fixture["terminal_bytes"],
+            expected_terminal_exclusions_sha256=_sha256_uri(fixture["terminal_bytes"]),
+            purchase_journal=journal,
+            terminal_purchase_disposition_authority=cast(Any, object()),
+            precommit_revalidator=lambda: None,
+            allow_new_replacement_events=False,
+            verified_post_purchase_replay=replay,
         )
 
 
