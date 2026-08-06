@@ -4,6 +4,7 @@ import fcntl
 import hashlib
 import json
 import sqlite3
+from collections.abc import Mapping
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,9 +19,11 @@ from legalforecast.ingestion.cycle_orchestrator import (
     COMMAND_BOUNDARIES,
     BoundaryPermissions,
     CycleOrchestratorError,
+    CycleStage,
     _completion_card_view,  # pyright: ignore[reportPrivateUsage]
     _cycle_lock,  # pyright: ignore[reportPrivateUsage]
     _parse_stage,  # pyright: ignore[reportPrivateUsage]
+    _verify_external_disclosure_review_completion,  # pyright: ignore[reportPrivateUsage]
     run_acquisition_cycle,
 )
 from legalforecast.ingestion.disclosure_review_bundle import canonical_json_bytes
@@ -1204,6 +1207,15 @@ def test_run_cycle_adopts_completed_disclosure_review_without_provider_replay(
             run_card=review_card,
         )
     )
+    for flag, output in zip(
+        ("--authority-output", "--private-records-output"),
+        review_outputs,
+        strict=True,
+    ):
+        flag_index = review_arguments.index(flag)
+        review_arguments[flag_index + 1] = str(
+            output.parent / ".." / output.parent.name / output.name
+        )
     clearance = tmp_path / "downstream" / "clearance.jsonl"
     clearance_card = tmp_path / "downstream" / "clearance-run-card.json"
     resolved = tmp_path / "downstream" / "resolved.jsonl"
@@ -1385,11 +1397,97 @@ def test_run_cycle_adopts_completed_disclosure_review_without_provider_replay(
     assert (state_root / "receipts" / "0003-resolve-documents.json").is_file()
 
 
+def test_disclosure_receipt_reuses_authenticated_output_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    init_card = tmp_path / "init" / "run-card.json"
+    review_card = tmp_path / "review" / "run-card.json"
+    review_arguments, review_outputs, _provider_state, _fixture = (
+        _adoptable_disclosure_review_completion(tmp_path, run_card=review_card)
+    )
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="initialize",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(init_card),
+                    "--execute",
+                ],
+                run_card=init_card,
+            ),
+            _stage(
+                stage_id="review-disclosure",
+                command="review-disclosure-exceptions",
+                boundary="model_provider",
+                arguments=review_arguments,
+                run_card=review_card,
+            ),
+        ],
+    )
+    state_root = tmp_path / "state"
+    _receipt_initial_stage(
+        config=config,
+        state_root=state_root,
+        init_run_card=init_card,
+    )
+    original_payload = review_outputs[0].read_bytes()
+    original_verifier = _verify_external_disclosure_review_completion
+    call_count = 0
+
+    def mutate_after_final_verification(
+        stage: CycleStage,
+        run_card: Mapping[str, object],
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        nonlocal call_count
+        call_count += 1
+        verified = original_verifier(stage, run_card)
+        if call_count == 2:
+            review_outputs[0].write_bytes(b"changed after authentication\n")
+        return verified
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.cycle_orchestrator._verify_external_disclosure_review_completion",
+        mutate_after_final_verification,
+    )
+    result = run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=False,
+        adopt_next_completed=True,
+        external_stage_verifier=cli._verify_external_completed_cycle_stage,
+        permissions=BoundaryPermissions(),
+        executor=lambda _command, _arguments: (_ for _ in ()).throw(
+            AssertionError("adoption must not execute the provider stage")
+        ),
+    )
+    assert call_count == 2
+    assert result["status"] == "completed"
+    receipt = json.loads(
+        (state_root / "receipts" / "0001-review-disclosure.json").read_bytes()
+    )
+    [authority_commitment, _private_commitment] = receipt["output_commitments"]
+    assert (
+        authority_commitment["sha256"] == hashlib.sha256(original_payload).hexdigest()
+    )
+    assert authority_commitment["byte_count"] == len(original_payload)
+    assert (
+        authority_commitment["sha256"]
+        != hashlib.sha256(review_outputs[0].read_bytes()).hexdigest()
+    )
+
+
 @pytest.mark.parametrize(
     "missing_flag",
     ["--authority-output", "--private-records-output"],
 )
-def test_run_cycle_requires_explicit_disclosure_receipt_outputs_before_execution(
+def test_run_cycle_adopts_default_disclosure_receipt_outputs(
     tmp_path: Path,
     missing_flag: str,
 ) -> None:
@@ -1425,21 +1523,26 @@ def test_run_cycle_requires_explicit_disclosure_receipt_outputs_before_execution
             ),
         ],
     )
-    calls: list[str] = []
-
-    with pytest.raises(
-        CycleOrchestratorError,
-        match=rf"must provide exactly one {missing_flag}",
-    ):
-        run_acquisition_cycle(
-            config_path=config,
-            state_root=tmp_path / "state",
-            execute=True,
-            permissions=BoundaryPermissions(model_provider=True),
-            executor=lambda command, _arguments: calls.append(command) or 0,
-        )
-    assert calls == []
-    assert not (tmp_path / "state").exists()
+    state_root = tmp_path / "state"
+    _receipt_initial_stage(
+        config=config,
+        state_root=state_root,
+        init_run_card=init_card,
+    )
+    result = run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=False,
+        adopt_next_completed=True,
+        external_stage_verifier=cli._verify_external_completed_cycle_stage,
+        permissions=BoundaryPermissions(),
+        executor=lambda _command, _arguments: (_ for _ in ()).throw(
+            AssertionError("adoption must not execute the provider stage")
+        ),
+    )
+    assert result["status"] == "completed"
+    assert result["stop_reason"] is None
+    assert (state_root / "receipts" / "0001-review-disclosure.json").is_file()
 
 
 @pytest.mark.parametrize(
@@ -1458,6 +1561,7 @@ def test_run_cycle_requires_explicit_disclosure_receipt_outputs_before_execution
         ("missing_top_level", "external disclosure review is incomplete"),
         ("extra_top_level", "external disclosure review is incomplete"),
         ("authority_count", "external disclosure review is incomplete"),
+        ("authority_count_type", "external disclosure review is incomplete"),
         ("document_digest", "external document commitment differs"),
         ("document_count", "external document commitment differs"),
         ("provider_call_type", "external disclosure review is incomplete"),
@@ -1537,6 +1641,8 @@ def test_run_cycle_disclosure_adoption_rejects_inexact_commitments(
         card["unexpected"] = False
     elif failure_kind == "authority_count":
         cast(dict[str, object], card["model_review_authority"])["decision_count"] = 2
+    elif failure_kind == "authority_count_type":
+        cast(dict[str, object], card["model_review_authority"])["decision_count"] = True
     elif failure_kind == "document_digest":
         sources["document_root"]["tree_sha256"] = "sha256:not-a-digest"
     elif failure_kind == "document_count":
