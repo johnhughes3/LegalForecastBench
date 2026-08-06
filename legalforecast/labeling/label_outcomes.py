@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 from legalforecast.unitization.schemas import PredictionUnit
 
@@ -431,6 +433,49 @@ class OutcomeLabel:
         }
 
 
+def outcome_label_from_record(record: Mapping[str, Any]) -> OutcomeLabel:
+    """Decode one strict JSON-like record into a locked outcome label."""
+
+    fully_dismissed = record.get("fully_dismissed")
+    if fully_dismissed is not None and not isinstance(fully_dismissed, bool):
+        raise ValueError("fully_dismissed must be a boolean or null")
+    return OutcomeLabel(
+        unit_id=_required_str(record, "unit_id"),
+        unit_resolution=UnitResolution(_required_str(record, "unit_resolution")),
+        fully_dismissed=fully_dismissed,
+        amendment_class=AmendmentClass(_required_str(record, "amendment_class")),
+        ambiguous=_required_bool(record, "ambiguous"),
+        label_confidence=_required_float(record, "label_confidence"),
+        supporting_citations=tuple(
+            _outcome_citation_from_record(citation)
+            for citation in _required_record_sequence(record, "supporting_citations")
+        ),
+        first_written_disposition_id=_required_str(
+            record,
+            "first_written_disposition_id",
+        ),
+        first_written_disposition_date=_required_str(
+            record,
+            "first_written_disposition_date",
+        ),
+        first_written_disposition_locked=_optional_bool(
+            record,
+            "first_written_disposition_locked",
+            default=True,
+        ),
+        notes=_optional_str(record, "notes"),
+    )
+
+
+def _outcome_citation_from_record(record: Mapping[str, Any]) -> OutcomeCitation:
+    return OutcomeCitation(
+        document_id=_required_str(record, "document_id"),
+        page=_optional_int(record, "page"),
+        paragraph=_optional_int(record, "paragraph"),
+        excerpt=_optional_str(record, "excerpt"),
+    )
+
+
 def label_stage_b_outcomes(labeling_input: StageBLabelingInput) -> StageBLabelingResult:
     """Label every scoreable frozen unit from the first written disposition."""
 
@@ -619,3 +664,83 @@ def _legacy_unit_resolution(
 def _positive_int(value: int | None, field_name: str) -> None:
     if value is not None and value <= 0:
         raise ValueError(f"{field_name} must be positive")
+
+
+def _mapping(value: object, field_name: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field_name} must be an object")
+    return dict(cast(Mapping[str, Any], value))
+
+
+def _required_record_sequence(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[dict[str, Any], ...]:
+    value = _required(record, field_name)
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise ValueError(f"{field_name} must be a list")
+    return tuple(
+        _mapping(item, f"{field_name} item") for item in cast(Sequence[object], value)
+    )
+
+
+def _required(record: Mapping[str, Any], field_name: str) -> Any:
+    if field_name not in record:
+        raise ValueError(f"{field_name} is required")
+    return record[field_name]
+
+
+def _required_str(record: Mapping[str, Any], field_name: str) -> str:
+    value = _required(record, field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _required_bool(record: Mapping[str, Any], field_name: str) -> bool:
+    value = _required(record, field_name)
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _optional_bool(
+    record: Mapping[str, Any],
+    field_name: str,
+    *,
+    default: bool,
+) -> bool:
+    value = record.get(field_name)
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _optional_int(record: Mapping[str, Any], field_name: str) -> int | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an integer")
+    return value
+
+
+def _required_float(record: Mapping[str, Any], field_name: str) -> float:
+    value = _required(record, field_name)
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a number")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field_name} must be finite")
+    return number

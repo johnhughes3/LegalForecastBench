@@ -800,9 +800,7 @@ from legalforecast.labeling.cycle_label_audit import (
     plan_cycle_label_audit,
 )
 from legalforecast.labeling.label_outcomes import (
-    AmendmentClass,
     AmendmentSignal,
-    OutcomeCitation,
     OutcomeLabel,
     StageBDecisionText,
     StageBLabelingInput,
@@ -810,6 +808,7 @@ from legalforecast.labeling.label_outcomes import (
     StageBUnitFinding,
     UnitResolution,
     label_stage_b_outcomes,
+    outcome_label_from_record,
 )
 from legalforecast.labeling.llm_pipeline import (
     DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
@@ -10149,7 +10148,7 @@ def _cmd_score(args: argparse.Namespace) -> int:
 
     summaries = score_run_records(
         run_records,
-        tuple(_outcome_label(record) for record in label_records),
+        tuple(outcome_label_from_record(record) for record in label_records),
         base_rate=cast(float | None, args.base_rate),
     )
     _write_json(
@@ -60057,47 +60056,6 @@ def _source_citation(record: Mapping[str, Any]) -> SourceCitation:
     return SourceCitation(
         document_id=_required_str(record, "document_id"),
         docket_entry_number=_optional_int(record, "docket_entry_number"),
-        page=_optional_int(record, "page"),
-        paragraph=_optional_int(record, "paragraph"),
-        excerpt=_optional_str(record, "excerpt"),
-    )
-
-
-def _outcome_label(record: Mapping[str, Any]) -> OutcomeLabel:
-    fully_dismissed = record.get("fully_dismissed")
-    if fully_dismissed is not None and not isinstance(fully_dismissed, bool):
-        raise ValueError("fully_dismissed must be a boolean or null")
-    return OutcomeLabel(
-        unit_id=_required_str(record, "unit_id"),
-        unit_resolution=UnitResolution(_required_str(record, "unit_resolution")),
-        fully_dismissed=fully_dismissed,
-        amendment_class=AmendmentClass(_required_str(record, "amendment_class")),
-        ambiguous=_required_bool(record, "ambiguous"),
-        label_confidence=_required_float(record, "label_confidence"),
-        supporting_citations=tuple(
-            _outcome_citation(citation)
-            for citation in _required_record_sequence(record, "supporting_citations")
-        ),
-        first_written_disposition_id=_required_str(
-            record,
-            "first_written_disposition_id",
-        ),
-        first_written_disposition_date=_required_str(
-            record,
-            "first_written_disposition_date",
-        ),
-        first_written_disposition_locked=_optional_bool(
-            record,
-            "first_written_disposition_locked",
-            default=True,
-        ),
-        notes=_optional_str(record, "notes"),
-    )
-
-
-def _outcome_citation(record: Mapping[str, Any]) -> OutcomeCitation:
-    return OutcomeCitation(
-        document_id=_required_str(record, "document_id"),
         page=_optional_int(record, "page"),
         paragraph=_optional_int(record, "paragraph"),
         excerpt=_optional_str(record, "excerpt"),
