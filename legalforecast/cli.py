@@ -55,7 +55,6 @@ from legalforecast.evals.model_registry import (
     require_official_registry_entries,
 )
 from legalforecast.evals.output_parser import (
-    ParserIssueCode,
     ParserStatus,
     parse_model_output,
 )
@@ -82,12 +81,8 @@ from legalforecast.evals.provider_spend_dynamodb import (
     DynamoDbProviderSpendAuthority,
 )
 from legalforecast.evals.scorers import (
-    CalibrationBin,
-    DominanceSensitivityReport,
-    RobustnessDimension,
     ScoreSummary,
     ScoringCase,
-    UnitScore,
     score_cases,
 )
 from legalforecast.extraction.pdf_text import extract_pdf_text_with_ocr_fallback
@@ -885,6 +880,7 @@ from legalforecast.reporting.pilot_readiness import (
     build_pilot_readiness_report,
     render_pilot_readiness_markdown,
 )
+from legalforecast.reporting.score_summary_codec import score_summary_from_record
 from legalforecast.selection.candidate_discovery import (
     discover_mtd_candidates,
     mtd_discovery_search_terms,
@@ -10139,7 +10135,7 @@ def _cmd_report(args: argparse.Namespace) -> int:
             accounting_count=len(accounting_records),
         )
 
-    summaries = tuple(_score_summary(record) for record in summary_records)
+    summaries = tuple(score_summary_from_record(record) for record in summary_records)
     accounting_rows = (
         summarize_accounting_leaderboard(accounting_records)
         if accounting_records
@@ -58546,111 +58542,6 @@ def _write_report_artifacts(
     _write_text(html_path, report.to_html())
 
 
-def _score_summary(record: Mapping[str, Any]) -> ScoreSummary:
-    return ScoreSummary(
-        model_id=_required_str(record, "model_id"),
-        case_count=_required_int(record, "case_count"),
-        unit_count=_required_int(record, "unit_count"),
-        micro_brier=_required_float(record, "micro_brier"),
-        macro_brier=_required_float(record, "macro_brier"),
-        brier_skill_score=_required_float(record, "brier_skill_score"),
-        log_loss=_required_float(record, "log_loss"),
-        ece=_required_float(record, "ece"),
-        capped_case_micro_brier=_required_float(record, "capped_case_micro_brier"),
-        related_family_capped_micro_brier=_required_float(
-            record,
-            "related_family_capped_micro_brier",
-        ),
-        mdl_family_capped_micro_brier=_required_float(
-            record,
-            "mdl_family_capped_micro_brier",
-        ),
-        case_unit_cap=_required_int(record, "case_unit_cap"),
-        family_unit_cap=_required_int(record, "family_unit_cap"),
-        dominance_threshold=_required_float(record, "dominance_threshold"),
-        dominance_sensitivity_reports=tuple(
-            _dominance_sensitivity_report(item)
-            for item in _required_record_sequence(
-                record,
-                "dominance_sensitivity_reports",
-            )
-        ),
-        invalid_output_rate=_required_float(record, "invalid_output_rate"),
-        refusal_rate=_required_float(record, "refusal_rate"),
-        defaulted_prediction_rate=_required_float(
-            record,
-            "defaulted_prediction_rate",
-        ),
-        base_rate=_required_float(record, "base_rate"),
-        base_rate_brier=_required_float(record, "base_rate_brier"),
-        ece_bins=tuple(
-            _calibration_bin(item)
-            for item in _required_record_sequence(record, "ece_bins")
-        ),
-        unit_scores=tuple(
-            _unit_score(item)
-            for item in _required_record_sequence(record, "unit_scores")
-        ),
-    )
-
-
-def _dominance_sensitivity_report(
-    record: Mapping[str, Any],
-) -> DominanceSensitivityReport:
-    return DominanceSensitivityReport(
-        dimension=RobustnessDimension(_required_str(record, "dimension")),
-        bucket=_required_str(record, "bucket"),
-        unit_count=_required_int(record, "unit_count"),
-        unit_share=_required_float(record, "unit_share"),
-        bucket_brier=_required_float(record, "bucket_brier"),
-        excluded_micro_brier=_optional_number(record, "excluded_micro_brier"),
-        capped_micro_brier=_required_float(record, "capped_micro_brier"),
-        unit_cap=_required_int(record, "unit_cap"),
-        recommended_action=_required_str(record, "recommended_action"),
-    )
-
-
-def _calibration_bin(record: Mapping[str, Any]) -> CalibrationBin:
-    return CalibrationBin(
-        bin_index=_required_int(record, "bin_index"),
-        lower=_required_float(record, "lower"),
-        upper=_required_float(record, "upper"),
-        unit_count=_required_int(record, "unit_count"),
-        mean_probability=_optional_number(record, "mean_probability"),
-        observed_rate=_optional_number(record, "observed_rate"),
-        absolute_calibration_error=_optional_number(
-            record,
-            "absolute_calibration_error",
-        ),
-    )
-
-
-def _unit_score(record: Mapping[str, Any]) -> UnitScore:
-    invalid_reason = _optional_str(record, "invalid_reason")
-    return UnitScore(
-        case_id=_required_str(record, "case_id"),
-        candidate_id=_optional_str(record, "candidate_id"),
-        related_family_id=_optional_str(record, "related_family_id"),
-        mdl_family_id=_optional_str(record, "mdl_family_id"),
-        model_id=_required_str(record, "model_id"),
-        unit_id=_required_str(record, "unit_id"),
-        probability_fully_dismissed=_required_float(
-            record,
-            "probability_fully_dismissed",
-        ),
-        outcome=_required_int(record, "outcome"),
-        brier=_required_float(record, "brier"),
-        log_loss=_required_float(record, "log_loss"),
-        parser_status=ParserStatus(_required_str(record, "parser_status")),
-        raw_output_sha256=_required_str(record, "raw_output_sha256"),
-        defaulted_prediction=_required_bool(record, "defaulted_prediction"),
-        invalid_reason=(
-            ParserIssueCode(invalid_reason) if invalid_reason is not None else None
-        ),
-        label_confidence=_optional_number(record, "label_confidence"),
-    )
-
-
 def _report_inference(
     summaries: Sequence[ScoreSummary],
     *,
@@ -60377,15 +60268,6 @@ def _optional_float(
     value = record.get(field_name)
     if value is None:
         return default
-    if not isinstance(value, int | float) or isinstance(value, bool):
-        raise ValueError(f"{field_name} must be a number")
-    return _finite_float(float(value), field_name)
-
-
-def _optional_number(record: Mapping[str, Any], field_name: str) -> float | None:
-    value = record.get(field_name)
-    if value is None:
-        return None
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ValueError(f"{field_name} must be a number")
     return _finite_float(float(value), field_name)
