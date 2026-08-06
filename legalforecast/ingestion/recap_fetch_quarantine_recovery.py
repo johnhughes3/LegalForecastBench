@@ -25,8 +25,10 @@ from legalforecast.ingestion.case_dev_purchase import (
     PurchaseMaterialState,
     validate_unknown_public_recovery_evidence,
 )
-from legalforecast.ingestion.courtlistener_recap_fetch import (
+from legalforecast.ingestion.courtlistener_provider_identity import (
     COURTLISTENER_RECAP_FETCH_PROVIDER,
+)
+from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchConfig,
     CourtListenerRecapFetchError,
     RecapFetchTransport,

@@ -201,6 +201,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 
 | Module | Responsibility |
 | --- | --- |
+| [`courtlistener_provider_identity.py`](../legalforecast/ingestion/courtlistener_provider_identity.py) | Stable shared identity for CourtListener RECAP Fetch provenance. |
 | [`courtlistener_recap_fetch.py`](../legalforecast/ingestion/courtlistener_recap_fetch.py) | Guarded individual-document RECAP Fetch purchases. |
 | [`missing_core_budget.py`](../legalforecast/ingestion/missing_core_budget.py) | Cost guardrails for missing core documents. |
 | [`purchase_approval.py`](../legalforecast/ingestion/purchase_approval.py) | Human approval for an exact purchase plan. |

@@ -13,6 +13,9 @@ from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     model_registry_entry_sha256,
 )
+from legalforecast.ingestion.courtlistener_provider_identity import (
+    COURTLISTENER_RECAP_FETCH_PROVIDER,
+)
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosurePdfPage,
     disclosure_markers_for_text,
@@ -766,7 +769,7 @@ def _affirmative_recovered_courtlistener_provenance(
     }
     if (
         set(lineage) != expected_fields
-        or document.get("source_provider") != "courtlistener_recap_fetch"
+        or document.get("source_provider") != COURTLISTENER_RECAP_FETCH_PROVIDER
         or document.get("free_or_purchased") != "purchased"
         or document.get("source_url") is not None
         or lineage.get("candidate_id") != document.get("candidate_id")

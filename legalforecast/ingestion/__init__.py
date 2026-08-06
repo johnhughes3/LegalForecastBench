@@ -121,8 +121,10 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerUnavailableError,
     RecordedCourtListenerResponse,
 )
-from legalforecast.ingestion.courtlistener_recap_fetch import (
+from legalforecast.ingestion.courtlistener_provider_identity import (
     COURTLISTENER_RECAP_FETCH_PROVIDER,
+)
+from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchClient,
     CourtListenerRecapFetchConfig,
     CourtListenerRecapFetchError,
