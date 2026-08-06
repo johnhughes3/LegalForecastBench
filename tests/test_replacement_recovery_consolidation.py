@@ -734,6 +734,54 @@ def test_pre_recovery_consolidation_rejects_rebound_active_document(
         cli._prepare_replacement_recovery_consolidation(args)
 
 
+def test_consolidation_indexes_clearance_once_per_tranche(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+    )
+    fixture_recovery = cli._verify_materializer_recovery
+    fixture_record_index = cli._materializer_record_index
+    first_tranche = True
+    clearance_index_calls = 0
+
+    def repeat_first_manifest_record(**kwargs: object) -> dict[str, object]:
+        nonlocal first_tranche
+        result = dict(fixture_recovery(**kwargs))
+        if first_tranche:
+            records = list(result["manifest_records"])  # type: ignore[arg-type]
+            result["manifest_records"] = [*records, *records]
+            first_tranche = False
+        return result
+
+    def count_clearance_indexes(
+        records: list[dict[str, object]], *, label: str
+    ) -> dict[tuple[str, str], dict[str, object]]:
+        nonlocal clearance_index_calls
+        if label == "replacement tranche clearance":
+            clearance_index_calls += 1
+        return fixture_record_index(records, label=label)  # type: ignore[return-value]
+
+    monkeypatch.setattr(
+        cli, "_verify_materializer_recovery", repeat_first_manifest_record
+    )
+    monkeypatch.setattr(cli, "_materializer_record_index", count_clearance_indexes)
+
+    with pytest.raises(
+        ValueError, match="duplicate or conflicting replacement recovery manifest"
+    ):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+    assert clearance_index_calls == 1
+
+
 def test_multi_tranche_consolidation_materializes_promoted_purchased_documents(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
