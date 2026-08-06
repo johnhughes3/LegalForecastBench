@@ -3250,6 +3250,7 @@ class CaseDevPurchaseJournal:
             )
         evidence: dict[str, Any] = {
             "candidate_id": str(row["candidate_id"]),
+            "source_document_id": str(row["source_document_id"]),
             "status": str(row["status"]),
             "operation_key": (
                 None if row["operation_key"] is None else str(row["operation_key"])
@@ -6015,9 +6016,9 @@ def validate_unknown_public_recovery_evidence(
         raise CaseDevPurchaseLedgerError(
             "unknown public recovery purchase policy is invalid"
         )
-    if operation.get("candidate_id") != candidate_id or (
-        "source_document_id" in operation
-        and operation.get("source_document_id") != document_id
+    if (
+        operation.get("candidate_id") != candidate_id
+        or operation.get("source_document_id") != document_id
     ):
         raise CaseDevPurchaseLedgerError(
             "unknown public recovery operation identity conflicts"
