@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from collections.abc import Callable, Mapping
 from decimal import Decimal
 from pathlib import Path
@@ -525,10 +526,7 @@ def test_initial_descriptor_carries_complete_post_purchase_replay_paths(
         post_purchase_replay=replay_paths,
     )
 
-    assert descriptor["post_purchase_replay"] == {
-        field: str(Path(raw_path).absolute())
-        for field, raw_path in replay_paths.items()
-    }
+    assert descriptor["post_purchase_replay"] == replay_paths
 
     legacy_descriptor = source_module.build_recovery_source_descriptor(
         coordinates=_descriptor_coordinates(tmp_path, successor=False),
@@ -544,7 +542,7 @@ def test_initial_descriptor_carries_complete_post_purchase_replay_paths(
 
 @pytest.mark.parametrize(
     "mutation",
-    ["missing", "extra", "empty_path", "non_string_path"],
+    ["missing", "extra", "empty_path", "non_string_path", "relative_path"],
 )
 def test_initial_descriptor_rejects_incomplete_or_invalid_post_purchase_replay(
     tmp_path: Path,
@@ -564,12 +562,17 @@ def test_initial_descriptor_rejects_incomplete_or_invalid_post_purchase_replay(
         replay_paths["unexpected"] = "unexpected.json"
     elif mutation == "empty_path":
         replay_paths["cohort_policy"] = ""
+    elif mutation == "relative_path":
+        replay_paths["cohort_policy"] = "relative/cohort-policy.json"
     else:
         replay_paths["cohort_policy"] = tmp_path / "cohort-policy.json"
 
     with pytest.raises(
         source_module.ReplacementRecoverySourceError,
-        match=r"post_purchase_replay.*(?:extra or missing|path is invalid)",
+        match=(
+            r"post_purchase_replay.*"
+            r"(?:extra or missing|path is invalid|must be absolute)"
+        ),
     ):
         source_module.build_recovery_source_descriptor(
             coordinates=_descriptor_coordinates(tmp_path, successor=False),
@@ -2060,6 +2063,67 @@ def test_resolved_transition_capability_is_live_bound_reusable_and_source_bound(
         == authority
     )
     source_path.write_bytes(b'{"name":"changed"}\n')
+    with pytest.raises(
+        approval_module.ReplacementPurchaseApprovalError,
+        match="resolved transition source changed",
+    ):
+        approval_module._consume_resolved_transition_capability(capability)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_resolved_transition_capability_rechecks_exact_source_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    policy, current, _card, _records = _resolved_material_transition_fixture()
+    prior = CaseDevPurchaseSnapshot(
+        operations=(),
+        committed_amount_usd=current.committed_amount_usd,
+        purchase_state_sha256="1" * 64,
+    )
+    ledger = tmp_path / "ledger.sqlite3"
+    ledger.write_bytes(b"ledger")
+    receipt = _write_json(tmp_path / "receipt.json", {"receipt": True})
+    card_path, source_path = _raw_transition_card(
+        tmp_path,
+        name="exact-bytes",
+        before_state=prior.purchase_state_sha256,
+        after_state=current.purchase_state_sha256,
+        ledger=ledger,
+    )
+    monkeypatch.setattr(
+        approval_module,
+        "read_case_dev_purchase_snapshot",
+        lambda *_args, **_kwargs: current,
+    )
+    monkeypatch.setattr(
+        approval_module,
+        "reconstruct_pre_resolution_purchase_snapshot",
+        lambda **_kwargs: prior,
+    )
+    capability = approval_module._issue_resolved_transition_capability(  # pyright: ignore[reportPrivateUsage]
+        purchase_ledger_path=ledger,
+        policy=policy,
+        controlled_private_root=tmp_path / "private",
+        initialization_receipt_path=receipt,
+        run_card_paths=(card_path,),
+    )
+    original_stat = os.stat
+    original_identity = original_stat(source_path, follow_symlinks=False)
+    original_payload = source_path.read_bytes()
+    mutated_payload = original_payload.replace(b"exact-bytes", b"exact-bytez")
+    assert len(mutated_payload) == len(original_payload)
+    source_path.write_bytes(mutated_payload)
+
+    def stable_source_stat(
+        path: os.PathLike[str] | str,
+        *,
+        follow_symlinks: bool = True,
+    ) -> os.stat_result:
+        if Path(path) == source_path:
+            return original_identity
+        return original_stat(path, follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(approval_module.os, "stat", stable_source_stat)
     with pytest.raises(
         approval_module.ReplacementPurchaseApprovalError,
         match="resolved transition source changed",

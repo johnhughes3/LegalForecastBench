@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-import legalforecast.ingestion.provenance_clearance as provenance_clearance
 import pytest
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION,
@@ -418,7 +417,10 @@ def test_document_scan_cache_is_content_addressed_and_operation_scoped(
         calls.append(data)
         return result
 
-    monkeypatch.setattr(provenance_clearance, "scan_disclosure_document", scanner)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.provenance_clearance.scan_disclosure_document",
+        scanner,
+    )
     with cache_disclosure_document_scans():
         assert document_scanner_for_plan(plan)(b"same-pdf") is result
         assert document_scanner_for_plan(plan)(b"same-pdf") is result

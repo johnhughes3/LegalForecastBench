@@ -544,6 +544,13 @@ def test_model_reviewed_marker_document_accepts_exact_direct_public_provenance(
                 "courtlistener_rest_recap_document_is_sealed_true",
             ],
         ),
+        (
+            "restriction_evidence",
+            [
+                "courtlistener_rest_docket_entry_exact_match",
+                ["courtlistener_rest_docket_exact_match"],
+            ],
+        ),
     ):
         changed = {**clearance, field: value}
         with pytest.raises(DisclosureClearanceError, match="restriction is not public"):

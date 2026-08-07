@@ -37,7 +37,10 @@ from legalforecast.ingestion.clearance_replacement import (
     verify_replacement_frontier,
 )
 from legalforecast.ingestion.cohort_policy import CohortPolicyError
-from legalforecast.ingestion.disclosure_review_bundle import read_unique_regular_file
+from legalforecast.ingestion.disclosure_review_bundle import (
+    ReviewBundleError,
+    read_unique_regular_file,
+)
 from legalforecast.ingestion.docket_decision_text_source import (
     DocketDecisionTextSourceError,
     validate_terminal_purchase_disposition_record,
@@ -385,6 +388,17 @@ def _resolved_transition_capability_boundary() -> tuple[
             )
         for path, identity in authority.source_identities:
             if source_identity(path) != identity:
+                raise ReplacementPurchaseApprovalError(
+                    f"resolved transition source changed: {path}"
+                )
+        for path, expected_payload in authority.source_snapshots:
+            try:
+                current_payload = read_unique_regular_file(path)
+            except ReviewBundleError as exc:
+                raise ReplacementPurchaseApprovalError(
+                    f"resolved transition source changed: {path}"
+                ) from exc
+            if current_payload != expected_payload:
                 raise ReplacementPurchaseApprovalError(
                     f"resolved transition source changed: {path}"
                 )

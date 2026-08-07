@@ -540,6 +540,9 @@ def _require_clearance_restriction(
         if (
             row.get("restriction_status") == "unknown"
             and isinstance(evidence_value, (list, tuple))
+            and all(
+                isinstance(item, str) for item in cast(Sequence[object], evidence_value)
+            )
             and frozenset(cast(Sequence[str], evidence_value))
             == _PROVENANCE_REST_PUBLIC_EVIDENCE
         ):

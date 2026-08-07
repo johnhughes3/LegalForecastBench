@@ -511,7 +511,12 @@ def normalize_post_purchase_replay_descriptor(
             raise ReplacementRecoverySourceError(
                 f"post_purchase_replay {field} path is invalid"
             )
-        normalized[field] = str(Path(raw_path).absolute())
+        replay_path = Path(raw_path)
+        if not replay_path.is_absolute():
+            raise ReplacementRecoverySourceError(
+                f"post_purchase_replay paths must be absolute: {field}"
+            )
+        normalized[field] = str(replay_path)
     return normalized
 
 
