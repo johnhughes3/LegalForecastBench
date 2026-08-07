@@ -2202,6 +2202,7 @@ def test_torn_wal_tail_is_trimmed_without_losing_committed_pages(
         capture_output=True,
         text=True,
         check=False,
+        timeout=60,
     )
     assert writer.returncode == 0, writer.stderr
     wal_path = Path(f"{database}-wal")

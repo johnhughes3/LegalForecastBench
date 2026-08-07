@@ -44,7 +44,7 @@ For focused runs while iterating, plain serial `uv run pytest tests/<file> -q` i
 
 ## Cycle 1 Change Control
 
-The remainder of Cycle 1 operates under [docs/cycle-1-change-control.md](docs/cycle-1-change-control.md): frozen authenticated byte contracts, one active gate-changing integration lane, focused-before-full test ordering, and an explicit correctness/security emergency path. Read it before changing validators, codecs, schemas, or preflight gates.
+The remainder of Cycle 1 operates under [docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md): frozen authenticated byte contracts, one active gate-changing integration lane, focused-before-full test ordering, and an explicit correctness/security emergency path. Read it before changing validators, codecs, schemas, or preflight gates.
 
 ## Non-Interactive Shell Commands
 
