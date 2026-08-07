@@ -171,6 +171,7 @@ class SuccessorCounterTotals:
     free_required_document_count: int
     missing_required_document_count: int
     selected_document_count: int
+    manifest_document_count: int
     free_manifest_document_count: int
 
 
@@ -851,10 +852,6 @@ def normalize_successor_selection_counters(
                 "download manifest row has an unsupported free_or_purchased value: "
                 f"{key[0]}/{key[1]}"
             )
-        if phase != "free":
-            raise ZeroCostSuccessorError(
-                f"successor counter manifest document is not free: {key}"
-            )
 
     normalized: list[JsonRecord] = []
     selected_keys: set[tuple[str, str]] = set()
@@ -879,8 +876,12 @@ def normalize_successor_selection_counters(
                 )
             selected_keys.add(key)
             role = _required_text(document, "document_role")
-            is_free = key in manifest
-            if not is_free and (
+            manifest_record = manifest.get(key)
+            is_free = (
+                manifest_record is not None
+                and manifest_record.get("free_or_purchased") == "free"
+            )
+            if manifest_record is None and (
                 document.get("requires_paid_recovery") is not True
                 or document.get("availability_status") != "unavailable"
             ):
@@ -937,7 +938,11 @@ def normalize_successor_selection_counters(
             free_required_document_count=total_free_required,
             missing_required_document_count=total_missing_required,
             selected_document_count=len(selected_keys),
-            free_manifest_document_count=len(manifest),
+            manifest_document_count=len(manifest),
+            free_manifest_document_count=sum(
+                record.get("free_or_purchased") == "free"
+                for record in manifest.values()
+            ),
         ),
     )
 

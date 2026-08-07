@@ -311,6 +311,7 @@ def test_reproduces_exact_100_counter_recovery_shift() -> None:
     assert totals.free_required_document_count == 142
     assert totals.missing_required_document_count == 180
     assert totals.selected_document_count == 323
+    assert totals.manifest_document_count == 143
     assert totals.free_manifest_document_count == 143
     assert sum(row["free_required_document_count"] for row in normalized) == 142
     assert sum(row["missing_required_document_count"] for row in normalized) == 180
@@ -365,6 +366,7 @@ def test_successor_counters_exclude_free_optional_notice() -> None:
     assert totals.free_required_document_count == 1
     assert totals.missing_required_document_count == 0
     assert totals.selected_document_count == 2
+    assert totals.manifest_document_count == 2
     assert totals.free_manifest_document_count == 2
 
 
@@ -1042,6 +1044,31 @@ def test_rejects_unsupported_manifest_phase_on_inherited_case() -> None:
 
     with pytest.raises(ZeroCostSuccessorError, match="unsupported free_or_purchased"):
         project_zero_cost_successor(**fixture.kwargs)
+
+
+def test_counts_inherited_purchased_document_as_non_free_required() -> None:
+    fixture = _fixture()
+    source_document_id = next(
+        str(row["source_document_id"])
+        for row in fixture.manifest
+        if row["candidate_id"] == "case-010"
+    )
+    for row in [*fixture.manifest, *fixture.clearance]:
+        if (
+            row["candidate_id"] == "case-010"
+            and row["source_document_id"] == source_document_id
+        ):
+            row["free_or_purchased"] = "purchased"
+    fixture.refresh()
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
+
+    selected = next(
+        row for row in successor.selection if row["candidate_id"] == "case-010"
+    )
+    assert selected["required_document_count"] == 2
+    assert selected["free_required_document_count"] == 1
+    assert selected["missing_required_document_count"] == 1
 
 
 def test_rejects_document_omitted_from_active_selection() -> None:
