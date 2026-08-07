@@ -421,9 +421,7 @@ def derive_resolved_source_coordinates(
             path
             for path in inputs
             if path.resolve() not in expected_resolved_paths
-            and not (
-                legacy_empty_terminal and path.resolve() == terminal_resolved_path
-            )
+            and not (legacy_empty_terminal and path.resolve() == terminal_resolved_path)
         ),
     )
     raw_outputs = card.get("output_paths")

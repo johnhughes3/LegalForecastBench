@@ -908,9 +908,9 @@ def test_resolved_coordinates_authenticate_present_legacy_empty_terminal_input(
         expected_ledger_path=cast(Path, args.purchase_ledger),
         expected_purchase_state_sha256="state-1",
         expected_terminal_unavailable_path=paths["terminal_unavailable"],
-        expected_terminal_unavailable_sha256=_commitment(
-            paths["terminal_unavailable"]
-        )["sha256"],
+        expected_terminal_unavailable_sha256=_commitment(paths["terminal_unavailable"])[
+            "sha256"
+        ],
         expected_terminal_unavailable_count=0,
         expected_terminal_disposition_paths=None,
     )
