@@ -51509,8 +51509,10 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
 def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
     _preflight_materialization_purchase_runtime(args)
     dry_run = _acquisition_dry_run(args)
-    reuse_run_card_path = cast(Path | None, args.reuse_live_mistral_run_card)
-    reuse_markdown_root = cast(Path | None, args.reuse_markdown_root)
+    reuse_run_card_path = cast(
+        Path | None, getattr(args, "reuse_live_mistral_run_card", None)
+    )
+    reuse_markdown_root = cast(Path | None, getattr(args, "reuse_markdown_root", None))
     if (reuse_run_card_path is None) != (reuse_markdown_root is None):
         raise CommandError(
             "--reuse-live-mistral-run-card and --reuse-markdown-root must be "
@@ -51521,7 +51523,7 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
             raise CommandError("live-Mistral parse reuse requires --execute")
         if not cast(bool, args.resume):
             raise CommandError("live-Mistral parse reuse requires --resume")
-        if cast(Path | None, args.fixture_markdown_dir) is not None:
+        if cast(Path | None, getattr(args, "fixture_markdown_dir", None)) is not None:
             raise CommandError("live-Mistral parse reuse cannot use fixture Markdown")
     if not dry_run and cast(Path | None, args.materialization_run_card) is None:
         raise CommandError(
