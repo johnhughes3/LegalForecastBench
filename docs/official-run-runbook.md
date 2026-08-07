@@ -1326,6 +1326,11 @@ The coordinator also stops after the provider-free `generate-recap-fetch-broker-
 In particular, `--allow-paid` also requires `--allow-network` and still cannot run without the existing approved purchase policy, initialized ledger, bounded attempt policy, broker policy, broker identity, and remaining budget.
 Every successful stage receives an immutable receipt bound to the exact config and completion run-card bytes, so rerunning the same command reauthenticates and skips it rather than reconstructing shell history.
 
+After the first receipt exists, register the config/state pair in the machine-local [cycle lineage index](schemas/cycle-lineage-index-v1.md).
+Set `LEGALFORECAST_CYCLE_LINEAGE_INDEX` to the same absolute local-state file in every worktree, then use `uv run legalforecast acquisition locate-cycle-lineage --cycle-id <cycle-id> --json` as the provider-free handoff/status command.
+It reauthenticates the authoritative records on every read, exposes completed and pending human decisions, and rejects ambiguous or superseded heads; the index itself grants no operational or publication authority and can be rebuilt with `register-cycle-lineage`.
+For an existing reviewed direct continuation that has no coordinator receipt, use `register-cycle-stage-head` against its completed card and the prior registered root identity; lookup then rehashes every declared output and preserves any registered human-decision cards along that explicit chain.
+
 ### Credential Prerequisites
 
 The search and docket-HTML stages require Firecrawl, the optional-equivalent enrichment stage requires Case.dev, and the later CourtListener REST paid-gap bridge requires the CourtListener token:

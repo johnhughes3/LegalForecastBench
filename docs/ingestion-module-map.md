@@ -34,6 +34,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`cycle_acquisition_assembler.py`](../legalforecast/ingestion/cycle_acquisition_assembler.py) | Content-addressed immutable batch assembly. |
 | [`cycle_acquisition_store.py`](../legalforecast/ingestion/cycle_acquisition_store.py) | Resumable state for one acquisition cycle. |
 | [`cycle_manifest_template.py`](../legalforecast/ingestion/cycle_manifest_template.py) | Canonical configs from path-parameterized templates. |
+| [`cycle_lineage_index.py`](../legalforecast/ingestion/cycle_lineage_index.py) | Rebuildable cross-worktree discovery of verified cycle heads and human decisions. |
 | [`cycle_orchestrator.py`](../legalforecast/ingestion/cycle_orchestrator.py) | Receipt-backed acquisition-stage orchestration. |
 | [`cycle_path_metadata.py`](../legalforecast/ingestion/cycle_path_metadata.py) | Private machine-local path metadata for a frozen cycle. |
 | [`downstream_rehearsal.py`](../legalforecast/ingestion/downstream_rehearsal.py) | Provider-free downstream model-response fixtures. |
