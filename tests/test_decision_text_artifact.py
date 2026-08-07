@@ -14,6 +14,7 @@ from legalforecast.ingestion.decision_text_artifact import (
     DecisionTextArtifactError,
     _require_deferred_docket_public_proof,
     build_decision_text_records,
+    verify_decision_text_artifact,
 )
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.protocol.policy_artifacts import generate_labeling_policy
@@ -550,6 +551,48 @@ def test_build_decision_texts_accepts_unknown_selection_with_affirmative_public_
     inputs = _write_inputs(tmp_path, mutation="selection_unknown_affirmative")
 
     assert main(_command(inputs, tmp_path / "output")) == 0
+
+
+def test_verify_decision_texts_accepts_unknown_affirmative_public_proof(
+    tmp_path: Path,
+) -> None:
+    inputs = _write_inputs(tmp_path, mutation="selection_unknown_affirmative")
+    output = tmp_path / "output"
+    assert main(_command(inputs, output)) == 0
+
+    finalized_units_path = tmp_path / "finalized-prediction-units.jsonl"
+    finalized_units = [
+        {
+            "schema_version": "legalforecast.finalized_prediction_units.v1",
+            "status": "candidate_excluded",
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "raw_prediction_units_sha256": "1" * 64,
+            "unitization_review_queue_sha256": "2" * 64,
+            "prediction_units": [],
+            "exclusion": {
+                "reason": "test exclusion",
+                "adjudication_id": "test-adjudication",
+                "adjudication_sha256": "3" * 64,
+            },
+        }
+    ]
+    _write_jsonl(finalized_units_path, finalized_units)
+
+    verified = verify_decision_text_artifact(
+        decision_texts_path=output / "decision-texts.jsonl",
+        manifest_path=output / "decision-texts-manifest.json",
+        run_card_path=output / "run-cards/build-decision-texts.json",
+        selections=_read_jsonl(inputs["selection"]),
+        selection_path=inputs["selection"],
+        parser_records=_read_jsonl(inputs["parser_manifest"]),
+        parser_manifest_path=inputs["parser_manifest"],
+        finalized_unit_records=finalized_units,
+        finalized_units_path=finalized_units_path,
+        markdown_root=inputs["markdown_root"],
+    )
+
+    assert verified.records[0]["clearance"]["restriction_status"] == "unknown"
 
 
 def test_build_decision_texts_accepts_unknown_selection_with_recovered_public_proof(

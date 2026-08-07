@@ -775,10 +775,6 @@ def _validate_verified_record(
         raise DecisionTextArtifactError(
             f"decision text lacks authenticated clearance: {candidate_id}"
         )
-    if _required_str(clearance, "restriction_status").lower() not in _PUBLIC_STATUSES:
-        raise DecisionTextArtifactError(
-            f"decision text is sealed/private/restricted: {candidate_id}"
-        )
     key = (candidate_id, document_id)
     docket_source = docket_sources.get(key)
     if docket_source is not None:
@@ -825,6 +821,14 @@ def _validate_verified_record(
     _validate_decision_text_clearance(
         clearance, key=(candidate_id, document_id), label="decision text"
     )
+    restriction_status = _required_str(clearance, "restriction_status").lower()
+    if restriction_status not in _PUBLIC_STATUSES and not (
+        restriction_status == "unknown"
+        and clearance.get("clearance_basis") == "affirmative_public_provenance"
+    ):
+        raise DecisionTextArtifactError(
+            f"decision text is sealed/private/restricted: {candidate_id}"
+        )
     try:
         parser = parser_index[key]
     except KeyError as exc:
