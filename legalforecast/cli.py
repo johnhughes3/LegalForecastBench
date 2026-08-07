@@ -41981,7 +41981,13 @@ def _recovered_public_routing_lineage_matches(
     *,
     routing_schema_version: str,
 ) -> bool:
-    """Compare frozen lineage while preserving its closed legacy shape."""
+    """Compare frozen lineage while preserving its closed legacy shape.
+
+    Direct-queue authority was added to both v2 and v3 routing rows without a
+    schema-version bump.  It is safe to tolerate only that missing additive
+    field because ``authenticated_records`` rebuilds the authority from the
+    independently verified purchase journal; every frozen field remains exact.
+    """
 
     routing = _materializer_record_index(
         routing_records, label="recovered-public routing lineage"
@@ -41995,7 +42001,10 @@ def _recovered_public_routing_lineage_matches(
         expected = authenticated[key]
         if (
             routing_schema_version
-            == "legalforecast.disclosure_provenance_routing_plan.v2"
+            in {
+                "legalforecast.disclosure_provenance_routing_plan.v2",
+                "legalforecast.disclosure_provenance_routing_plan.v3",
+            }
             and "direct_queue_delivery_authority" not in frozen
         ):
             expected = {

@@ -409,11 +409,15 @@ def test_legacy_routing_lineage_matches_authenticated_additive_authority() -> No
         [authenticated],
         routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v3",
     )
-
-    assert not cli._recovered_public_routing_lineage_matches(  # pyright: ignore[reportPrivateUsage]
+    assert cli._recovered_public_routing_lineage_matches(  # pyright: ignore[reportPrivateUsage]
         [base],
         [authenticated],
         routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v3",
+    )
+    assert not cli._recovered_public_routing_lineage_matches(  # pyright: ignore[reportPrivateUsage]
+        [base],
+        [authenticated],
+        routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v4",
     )
 
 
