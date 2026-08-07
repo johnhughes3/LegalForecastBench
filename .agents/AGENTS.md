@@ -32,6 +32,20 @@ bd update <id> --claim  # Claim work atomically
 bd close <id>         # Complete work
 ```
 
+## Testing
+
+The supported full-suite command, locally and in CI, runs four pytest-xdist workers grouped by module:
+
+```bash
+uv run pytest -q -n 4 --dist=loadscope
+```
+
+For focused runs while iterating, plain serial `uv run pytest tests/<file> -q` is fine. Keep new tests parallel-safe: per-test `tmp_path` for all files and SQLite databases, `monkeypatch` for environment and cwd, ephemeral ports (`bind` to port 0), and no cross-test shared state. Do not call `os.fork()` in tests — xdist workers are multi-threaded; use a subprocess.
+
+## Cycle 1 Change Control
+
+The remainder of Cycle 1 operates under [docs/cycle-1-change-control.md](docs/cycle-1-change-control.md): frozen authenticated byte contracts, one active gate-changing integration lane, focused-before-full test ordering, and an explicit correctness/security emergency path. Read it before changing validators, codecs, schemas, or preflight gates.
+
 ## Non-Interactive Shell Commands
 
 **ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
