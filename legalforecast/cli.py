@@ -42064,6 +42064,10 @@ def _recovered_public_routing_plan_matches(
         projected_documents.append(projected_document)
     projected_plan = dict(replayed_plan)
     projected_plan["documents"] = projected_documents
+    if "document_set_sha256" in projected_plan:
+        projected_plan["document_set_sha256"] = hashlib.sha256(
+            canonical_json_bytes(projected_documents)
+        ).hexdigest()
     return frozen_plan == projected_plan
 
 
