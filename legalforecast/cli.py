@@ -24563,8 +24563,10 @@ def _authenticate_ranked_reserve_precursor(
             successor_exclusions_bytes=successor_exclusions_payload,
             replacement_budget_plan_bytes=replacement_budget_plan_payload,
         )
-    if _authenticated_precursor is not None:
-        _replay_materialized_docket_decision_authority(descriptor)
+        if _authenticated_precursor is not None:
+            _replay_materialized_docket_decision_authority_in_open_journal(
+                descriptor, purchase_journal=journal
+            )
     expected_result = (
         verified_legacy_ranked_replay.bridge_result
         if verified_legacy_ranked_replay is not None

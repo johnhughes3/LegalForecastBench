@@ -75,11 +75,13 @@ def test_ranked_precursor_revalidation_reuses_authority_and_fails_closed(
     policy_reads = 0
     authority_initializations = 0
     journal_options: list[dict[str, object]] = []
+    journals: list[object] = []
     final_replays = 0
 
     class _Journal:
         def __init__(self, _path: Path, **_kwargs: object) -> None:
             journal_options.append(dict(_kwargs))
+            journals.append(self)
 
         def __enter__(self) -> _Journal:
             return self
@@ -102,11 +104,14 @@ def test_ranked_precursor_revalidation_reuses_authority_and_fails_closed(
         authority_initializations += 1
         return descriptor
 
-    def final_replay(
+    def final_replay_in_open_journal(
         supplied: cli._MaterializerDocketDecisionAuthority,
+        *,
+        purchase_journal: object,
     ) -> tuple[object, tuple[Mapping[str, Any], ...]]:
         nonlocal final_replays
         final_replays += 1
+        assert purchase_journal is journals[-1]
         cli._require_snapshot_unchanged(
             supplied.source_snapshots, label="ranked precursor test source"
         )
@@ -146,7 +151,14 @@ def test_ranked_precursor_revalidation_reuses_authority_and_fails_closed(
         lambda *_args, **_kwargs: ranked_result,
     )
     monkeypatch.setattr(
-        cli, "_replay_materialized_docket_decision_authority", final_replay
+        cli,
+        "_replay_materialized_docket_decision_authority_in_open_journal",
+        final_replay_in_open_journal,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_replay_materialized_docket_decision_authority",
+        lambda _descriptor: pytest.fail("revalidation reopened the purchase journal"),
     )
 
     kwargs = {
