@@ -491,6 +491,32 @@ def test_successor_counters_reject_unproven_unacquired_partition() -> None:
         )
 
 
+def test_successor_counters_reject_free_document_marked_unavailable() -> None:
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "documents": [
+                {
+                    "source_document_id": "complaint",
+                    "document_role": "complaint",
+                    "availability_status": "unavailable",
+                    "requires_paid_recovery": True,
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="free successor counter document is marked unavailable",
+    ):
+        normalize_successor_selection_counters(
+            selection,
+            [_manifest("case-1", "complaint")],
+            validate_stored=False,
+        )
+
+
 def test_successor_counters_reject_unknown_document_role() -> None:
     selection = [
         {

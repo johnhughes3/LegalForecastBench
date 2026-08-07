@@ -881,13 +881,21 @@ def normalize_successor_selection_counters(
                 manifest_record is not None
                 and manifest_record.get("free_or_purchased") == "free"
             )
-            if manifest_record is None and (
-                document.get("requires_paid_recovery") is not True
-                or document.get("availability_status") != "unavailable"
+            if manifest_record is None:
+                if (
+                    document.get("requires_paid_recovery") is not True
+                    or document.get("availability_status") != "unavailable"
+                ):
+                    raise ZeroCostSuccessorError(
+                        "unacquired successor counter document is not an authenticated "
+                        f"paid-recovery gap: {key}"
+                    )
+            elif is_free and (
+                document.get("requires_paid_recovery") is True
+                or document.get("availability_status") == "unavailable"
             ):
                 raise ZeroCostSuccessorError(
-                    "unacquired successor counter document is not an authenticated "
-                    f"paid-recovery gap: {key}"
+                    f"free successor counter document is marked unavailable: {key}"
                 )
             if role in _OPTIONAL_COUNTER_ROLES:
                 continue
