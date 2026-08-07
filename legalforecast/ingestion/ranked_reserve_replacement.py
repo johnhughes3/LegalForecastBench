@@ -170,6 +170,7 @@ class VerifiedRankedReservePostPurchaseReplay:
     precursor_remaining_headroom: Decimal
     baseline_snapshot: CaseDevPurchaseSnapshot
     current_snapshot: CaseDevPurchaseSnapshot
+    live_snapshot: CaseDevPurchaseSnapshot
     replacement_purchase_authority_sha256: str
     baseline_operation_record_sha256s: tuple[str, ...]
     successor_operation_record_sha256s: tuple[str, ...]
@@ -200,6 +201,7 @@ def _mint_verified_ranked_reserve_post_purchase_replay(  # pyright: ignore[repor
     replacement_purchase_authority_sha256: str,
     baseline_operation_record_sha256s: Sequence[str],
     successor_operation_record_sha256s: Sequence[str],
+    live_snapshot: CaseDevPurchaseSnapshot | None = None,
 ) -> VerifiedRankedReservePostPurchaseReplay:
     """Mint the opaque planner capability after full authority verification."""
 
@@ -213,6 +215,7 @@ def _mint_verified_ranked_reserve_post_purchase_replay(  # pyright: ignore[repor
         "precursor_remaining_headroom": precursor_remaining_headroom,
         "baseline_snapshot": baseline_snapshot,
         "current_snapshot": current_snapshot,
+        "live_snapshot": live_snapshot or current_snapshot,
         "replacement_purchase_authority_sha256": (
             replacement_purchase_authority_sha256
         ),
@@ -223,6 +226,71 @@ def _mint_verified_ranked_reserve_post_purchase_replay(  # pyright: ignore[repor
     for name, value in values.items():
         object.__setattr__(replay, name, value)
     return replay
+
+
+_VERIFIED_LEGACY_REPLAY_TOKEN = object()
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class VerifiedLegacyRankedReserveReplay:
+    """Opaque proof that one frozen v2 result is the verified v3 precursor."""
+
+    precursor_result: JsonRecord
+    bridge_result: JsonRecord
+    authenticated_legacy_replay: JsonRecord
+    baseline_snapshot: CaseDevPurchaseSnapshot
+    live_snapshot: CaseDevPurchaseSnapshot
+    _token: object
+
+    def __init__(self, **_values: object) -> None:
+        raise TypeError(
+            "VerifiedLegacyRankedReserveReplay is created only by ranked replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._token is _VERIFIED_LEGACY_REPLAY_TOKEN
+
+
+def verify_legacy_ranked_reserve_bridge(
+    *,
+    precursor_result: Mapping[str, object],
+    precursor_result_bytes: bytes,
+    post_purchase_replay: VerifiedRankedReservePostPurchaseReplay,
+) -> VerifiedLegacyRankedReserveReplay:
+    """Bind exact canonical v2 bytes to an authority-verified v3 bridge."""
+
+    if (
+        type(post_purchase_replay) is not VerifiedRankedReservePostPurchaseReplay
+        or not post_purchase_replay.is_replay_minted()
+    ):
+        raise RankedReserveReplacementError(
+            "legacy ranked replay requires verified post-purchase authority"
+        )
+    replay = validate_authenticated_legacy_replay(
+        post_purchase_replay.authenticated_legacy_replay
+    )
+    canonical_precursor = cast(JsonRecord, replay["precursor_result"])
+    if (
+        ranked_reserve_result_bytes(precursor_result) != precursor_result_bytes
+        or _bytes_sha256(precursor_result_bytes) != replay["precursor_result_sha256"]
+        or dict(precursor_result) != canonical_precursor
+        or post_purchase_replay.prior_result.get("authenticated_legacy_replay")
+        != replay
+    ):
+        raise RankedReserveReplacementError(
+            "legacy ranked precursor differs from the verified v3 bridge"
+        )
+    verified = object.__new__(VerifiedLegacyRankedReserveReplay)
+    for name, value in {
+        "precursor_result": dict(precursor_result),
+        "bridge_result": dict(post_purchase_replay.prior_result),
+        "authenticated_legacy_replay": replay,
+        "baseline_snapshot": post_purchase_replay.baseline_snapshot,
+        "live_snapshot": post_purchase_replay.live_snapshot,
+        "_token": _VERIFIED_LEGACY_REPLAY_TOKEN,
+    }.items():
+        object.__setattr__(verified, name, value)
+    return verified
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +371,7 @@ def plan_ranked_reserve_replacements(
     verified_post_purchase_replay: (
         VerifiedRankedReservePostPurchaseReplay | None
     ) = None,
+    verified_legacy_ranked_replay: VerifiedLegacyRankedReserveReplay | None = None,
 ) -> RankedReserveReplacementPlan:
     """Plan deterministic reserve promotions from explicit terminal evidence.
 
@@ -421,7 +490,29 @@ def plan_ranked_reserve_replacements(
             raise RankedReserveReplacementError(
                 f"frozen reserve cost conflicts with purchase policy: {candidate_id}"
             )
-    current_purchase_snapshot = purchase_journal.authenticated_snapshot()
+    live_purchase_snapshot = purchase_journal.authenticated_snapshot()
+    current_purchase_snapshot = live_purchase_snapshot
+    if verified_legacy_ranked_replay is not None:
+        if (
+            type(verified_legacy_ranked_replay) is not VerifiedLegacyRankedReserveReplay
+            or not verified_legacy_ranked_replay.is_replay_minted()
+            or live_purchase_snapshot != verified_legacy_ranked_replay.live_snapshot
+        ):
+            raise RankedReserveReplacementError(
+                "legacy ranked replay lacks live-bound verified authority"
+            )
+        current_purchase_snapshot = verified_legacy_ranked_replay.baseline_snapshot
+    elif verified_post_purchase_replay is not None:
+        if (
+            type(verified_post_purchase_replay)
+            is not VerifiedRankedReservePostPurchaseReplay
+            or not verified_post_purchase_replay.is_replay_minted()
+            or live_purchase_snapshot != verified_post_purchase_replay.live_snapshot
+        ):
+            raise RankedReserveReplacementError(
+                "post-purchase replay lacks live-bound verified authority"
+            )
+        current_purchase_snapshot = verified_post_purchase_replay.current_snapshot
     committed = _money_decimal(
         current_purchase_snapshot.committed_amount_usd,
         "committed purchase spend",
@@ -532,6 +623,7 @@ def plan_ranked_reserve_replacements(
             legacy_ranked_result,
             authenticated_legacy_replay,
             verified_post_purchase_replay,
+            verified_legacy_ranked_replay,
         )
     )
     if replay_modes > 1:
@@ -560,6 +652,25 @@ def plan_ranked_reserve_replacements(
                 prior_events=prior_events,
             )
             historical_state = cast(str, legacy["purchase_journal_state_sha256"])
+            legacy_precursor_budget = (committed, reserved, available_before_new)
+        elif verified_legacy_ranked_replay is not None:
+            legacy_replay_proof = validate_authenticated_legacy_replay(
+                verified_legacy_ranked_replay.authenticated_legacy_replay
+            )
+            legacy = _validate_legacy_ranked_result(
+                cast(Mapping[str, object], legacy_replay_proof["precursor_result"]),
+                expected_sha256=cast(
+                    str, legacy_replay_proof["precursor_result_sha256"]
+                ),
+                projection_sha256=projection_sha256,
+                cycle_id=policy.cycle_id,
+                purchase_policy_sha256="sha256:" + policy.policy_sha256,
+                prior_events=prior_events,
+            )
+            historical_state = cast(
+                str,
+                legacy_replay_proof["historical_purchase_journal_state_sha256"],
+            )
             legacy_precursor_budget = (committed, reserved, available_before_new)
         elif verified_post_purchase_replay is not None:
             if (
@@ -653,7 +764,12 @@ def plan_ranked_reserve_replacements(
         expected_proof_current_terminal_evidence_sha256 = (
             current_terminal_evidence_sha256
         )
-        if verified_post_purchase_replay is not None:
+        bridge_result: Mapping[str, object] | None = None
+        if verified_legacy_ranked_replay is not None:
+            bridge_result = verified_legacy_ranked_replay.bridge_result
+        elif verified_post_purchase_replay is not None:
+            bridge_result = verified_post_purchase_replay.prior_result
+        if bridge_result is not None:
             try:
                 (
                     _baseline_records,
@@ -665,9 +781,7 @@ def plan_ranked_reserve_replacements(
                     purchase_journal=purchase_journal,
                     historical_purchase_journal_state_sha256=cast(
                         str,
-                        verified_post_purchase_replay.prior_result[
-                            "purchase_journal_state_sha256"
-                        ],
+                        bridge_result["purchase_journal_state_sha256"],
                     ),
                 )
             except (
@@ -675,12 +789,20 @@ def plan_ranked_reserve_replacements(
                 TerminalPurchaseFailureError,
             ) as exc:
                 raise RankedReserveReplacementError(str(exc)) from exc
-            if baseline_disposition != verified_post_purchase_replay.prior_result.get(
-                "terminal_disposition"
-            ):
+            if baseline_disposition != bridge_result.get("terminal_disposition"):
                 raise RankedReserveReplacementError(
                     "post-purchase authority baseline differs from the prior "
                     "terminal disposition"
+                )
+            if verified_legacy_ranked_replay is not None:
+                # The opaque bridge authenticates the later v3 producer state,
+                # while ``legacy`` above authenticates its frozen v2 precursor.
+                # Publish the freshly reconstructed v3 terminal commitments so
+                # the replay reproduces the exact authority-bound bridge.
+                terminal_disposition = dict(baseline_disposition)
+                terminal_digest = _digest(
+                    cast(str, bridge_result["terminal_exclusions_sha256"]),
+                    "verified bridge terminal exclusions SHA-256",
                 )
             expected_proof_current_terminal_evidence_sha256 = (
                 baseline_terminal_evidence_sha256

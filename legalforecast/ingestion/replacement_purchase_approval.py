@@ -109,6 +109,7 @@ class _ResolvedTransitionAuthority:
     current_snapshot: CaseDevPurchaseSnapshot
     prior_snapshot: CaseDevPurchaseSnapshot
     source_snapshots: tuple[tuple[Path, bytes], ...]
+    source_identities: tuple[tuple[Path, tuple[int, ...]], ...]
     card_after_states: tuple[tuple[Path, str], ...]
 
 
@@ -269,20 +270,42 @@ def _read_resolved_transition(
 
 def _resolved_transition_capability_boundary() -> tuple[
     Callable[..., object],
+    Callable[..., Callable[[], object]],
     Callable[..., _ResolvedTransitionAuthority],
 ]:
     """Keep resolver-derived snapshot authority closure-local."""
 
     authorities: dict[object, _ResolvedTransitionAuthority] = {}
 
-    def issue(
+    def source_identity(path: Path) -> tuple[int, ...]:
+        try:
+            metadata = os.stat(path, follow_symlinks=False)
+        except OSError as exc:
+            raise ReplacementPurchaseApprovalError(
+                f"resolved transition source changed: {path}"
+            ) from exc
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise ReplacementPurchaseApprovalError(
+                f"resolved transition source changed: {path}"
+            )
+        return (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_mode,
+            metadata.st_nlink,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+        )
+
+    def issue_factory(
         *,
         purchase_ledger_path: Path,
         policy: CaseDevPurchasePolicy,
         controlled_private_root: Path,
         initialization_receipt_path: Path,
         run_card_paths: Sequence[Path],
-    ) -> object:
+    ) -> Callable[[], object]:
         if not run_card_paths:
             raise ReplacementPurchaseApprovalError(
                 "resolved transition requires at least one resolver run card"
@@ -325,13 +348,23 @@ def _resolved_transition_capability_boundary() -> tuple[
             source_snapshots=tuple(
                 sorted(snapshots.items(), key=lambda item: str(item[0]))
             ),
+            source_identities=tuple(
+                (path, source_identity(path)) for path in sorted(snapshots, key=str)
+            ),
             card_after_states=tuple(
                 sorted(card_after_states.items(), key=lambda item: str(item[0]))
             ),
         )
-        capability = object()
-        authorities[capability] = authority
-        return capability
+
+        def issue_verified_identity() -> object:
+            capability = object()
+            authorities[capability] = authority
+            return capability
+
+        return issue_verified_identity
+
+    def issue(**kwargs: Any) -> object:
+        return issue_factory(**kwargs)()
 
     def consume(capability: object | None) -> _ResolvedTransitionAuthority:
         try:
@@ -350,18 +383,19 @@ def _resolved_transition_capability_boundary() -> tuple[
             raise ReplacementPurchaseApprovalError(
                 "resolved transition differs from the live purchase journal"
             )
-        for path, payload in authority.source_snapshots:
-            if read_unique_regular_file(path) != payload:
+        for path, identity in authority.source_identities:
+            if source_identity(path) != identity:
                 raise ReplacementPurchaseApprovalError(
                     f"resolved transition source changed: {path}"
                 )
         return authority
 
-    return issue, consume
+    return issue, issue_factory, consume
 
 
 (
     _issue_resolved_transition_capability,
+    _issue_resolved_transition_capability_factory,
     _consume_resolved_transition_capability,
 ) = _resolved_transition_capability_boundary()
 del _resolved_transition_capability_boundary
@@ -1769,8 +1803,25 @@ def verify_ranked_reserve_post_purchase_replay(
     selection_bytes: bytes,
     purchase_ledger_path: Path,
     purchase_ledger_initialization_receipt_path: Path,
+    _verified_resolved_authority_capability: object | None = None,
+    _verified_resolved_snapshot_capability: object | None = None,
 ) -> VerifiedRankedReservePostPurchaseReplay:
     """Prove the exact authority-approved transition after tranche purchase."""
+
+    if (_verified_resolved_authority_capability is None) != (
+        _verified_resolved_snapshot_capability is None
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "post-purchase replay requires complete resolved-transition authority"
+        )
+    if (
+        _verified_resolved_authority_capability is not None
+        and _verified_resolved_authority_capability
+        is _verified_resolved_snapshot_capability
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "post-purchase replay requires distinct resolved-transition authorities"
+        )
 
     request = verify_replacement_purchase_authority(
         authority_artifact=authority_artifact,
@@ -1783,6 +1834,9 @@ def verify_ranked_reserve_post_purchase_replay(
         purchase_ledger_path=purchase_ledger_path,
         purchase_ledger_initialization_receipt_path=(
             purchase_ledger_initialization_receipt_path
+        ),
+        _verified_resolved_transition_capability=(
+            _verified_resolved_authority_capability
         ),
     )
     _verify_ranked_result_identity(prior_result)
@@ -1843,7 +1897,14 @@ def verify_ranked_reserve_post_purchase_replay(
             ),
         ) as journal:
             journal.require_reconciled()
-            current_snapshot = journal.authenticated_snapshot()
+            live_snapshot = journal.authenticated_snapshot()
+            current_snapshot = (
+                _consume_live_resolved_transition_prior_snapshot(
+                    _verified_resolved_snapshot_capability
+                )
+                if _verified_resolved_snapshot_capability is not None
+                else live_snapshot
+            )
     except (CaseDevPurchaseLedgerError, OSError, ValueError) as exc:
         raise ReplacementPurchaseApprovalError(str(exc)) from exc
 
@@ -1954,6 +2015,7 @@ def verify_ranked_reserve_post_purchase_replay(
         ),
         baseline_snapshot=baseline_snapshot,
         current_snapshot=current_snapshot,
+        live_snapshot=live_snapshot,
         replacement_purchase_authority_sha256=_text(
             authority_artifact.get("authority_sha256"), "authority SHA-256"
         ),

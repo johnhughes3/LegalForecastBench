@@ -1326,4 +1326,7 @@ def test_purchase_approval_verifier_delegates_zero_cost_successor(
         "target_root": target_root,
         "free_clearance_path": target_root / "disclosure-clearance.jsonl",
         "expected_target_count": 100,
+        "_verified_legacy_ranked_replay": None,
+        "_verified_clearance_source_roots": None,
+        "_verified_clearance_relocations": None,
     }

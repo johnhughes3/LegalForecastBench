@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -49,6 +49,23 @@ def _commitment(path: Path) -> dict[str, str]:
 
 def _source_commitments(paths: list[Path]) -> dict[str, dict[str, str]]:
     return {f"input_{index:02d}": _commitment(path) for index, path in enumerate(paths)}
+
+
+def _descriptor_coordinates(
+    tmp_path: Path, *, successor: bool
+) -> source_module.RecoverySourceCoordinates:
+    return source_module.RecoverySourceCoordinates(
+        kind="successor" if successor else "initial_v2",
+        selection_path=tmp_path / "selection.jsonl",
+        purchase_policy_path=tmp_path / "purchase-policy.json",
+        cohort_policy_path=tmp_path / "cohort-policy.json",
+        budget_plan_path=tmp_path / "budget.json",
+        purchase_ledger_path=tmp_path / "purchase-ledger.sqlite3",
+        attempt_policy_path=tmp_path / "attempt-policy.json",
+        replacement_authority_path=(
+            tmp_path / "replacement-authority.json" if successor else None
+        ),
+    )
 
 
 def _fixture(
@@ -483,6 +500,115 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
 
     args.resume = True
     assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+
+def test_initial_descriptor_carries_complete_post_purchase_replay_paths(
+    tmp_path: Path,
+) -> None:
+    replay_paths = {
+        "prior_ranked_result": str(tmp_path / "prior-ranked-result.json"),
+        "prior_replacement_selection": str(tmp_path / "prior-selection.jsonl"),
+        "prior_replacement_budget_plan": str(tmp_path / "prior-budget.json"),
+        "replacement_purchase_authority": str(tmp_path / "replacement-authority.json"),
+        "replacement_controlled_private_root": str(tmp_path / "private-root"),
+        "cohort_policy": str(tmp_path / "cohort-policy.json"),
+    }
+
+    descriptor = source_module.build_recovery_source_descriptor(
+        coordinates=_descriptor_coordinates(tmp_path, successor=False),
+        ordinal=0,
+        recovery_root=tmp_path / "recovery",
+        purchased_clearance_path=tmp_path / "clearance.jsonl",
+        purchased_clearance_run_card_path=tmp_path / "clearance-card.json",
+        resolved_post_recovery_documents_path=tmp_path / "resolved.jsonl",
+        replacement_controlled_private_root=None,
+        post_purchase_replay=replay_paths,
+    )
+
+    assert descriptor["post_purchase_replay"] == {
+        field: str(Path(raw_path).absolute())
+        for field, raw_path in replay_paths.items()
+    }
+
+    legacy_descriptor = source_module.build_recovery_source_descriptor(
+        coordinates=_descriptor_coordinates(tmp_path, successor=False),
+        ordinal=0,
+        recovery_root=tmp_path / "recovery",
+        purchased_clearance_path=tmp_path / "clearance.jsonl",
+        purchased_clearance_run_card_path=tmp_path / "clearance-card.json",
+        resolved_post_recovery_documents_path=tmp_path / "resolved.jsonl",
+        replacement_controlled_private_root=None,
+    )
+    assert "post_purchase_replay" not in legacy_descriptor
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["missing", "extra", "empty_path", "non_string_path"],
+)
+def test_initial_descriptor_rejects_incomplete_or_invalid_post_purchase_replay(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    replay_paths: dict[str, object] = {
+        "prior_ranked_result": str(tmp_path / "prior-ranked-result.json"),
+        "prior_replacement_selection": str(tmp_path / "prior-selection.jsonl"),
+        "prior_replacement_budget_plan": str(tmp_path / "prior-budget.json"),
+        "replacement_purchase_authority": str(tmp_path / "replacement-authority.json"),
+        "replacement_controlled_private_root": str(tmp_path / "private-root"),
+        "cohort_policy": str(tmp_path / "cohort-policy.json"),
+    }
+    if mutation == "missing":
+        del replay_paths["cohort_policy"]
+    elif mutation == "extra":
+        replay_paths["unexpected"] = "unexpected.json"
+    elif mutation == "empty_path":
+        replay_paths["cohort_policy"] = ""
+    else:
+        replay_paths["cohort_policy"] = tmp_path / "cohort-policy.json"
+
+    with pytest.raises(
+        source_module.ReplacementRecoverySourceError,
+        match=r"post_purchase_replay.*(?:extra or missing|path is invalid)",
+    ):
+        source_module.build_recovery_source_descriptor(
+            coordinates=_descriptor_coordinates(tmp_path, successor=False),
+            ordinal=0,
+            recovery_root=tmp_path / "recovery",
+            purchased_clearance_path=tmp_path / "clearance.jsonl",
+            purchased_clearance_run_card_path=tmp_path / "clearance-card.json",
+            resolved_post_recovery_documents_path=tmp_path / "resolved.jsonl",
+            replacement_controlled_private_root=None,
+            post_purchase_replay=replay_paths,
+        )
+
+
+def test_successor_descriptor_rejects_initial_post_purchase_replay_bundle(
+    tmp_path: Path,
+) -> None:
+    replay_paths = {
+        "prior_ranked_result": str(tmp_path / "prior-ranked-result.json"),
+        "prior_replacement_selection": str(tmp_path / "prior-selection.jsonl"),
+        "prior_replacement_budget_plan": str(tmp_path / "prior-budget.json"),
+        "replacement_purchase_authority": str(tmp_path / "replacement-authority.json"),
+        "replacement_controlled_private_root": str(tmp_path / "private-root"),
+        "cohort_policy": str(tmp_path / "cohort-policy.json"),
+    }
+
+    with pytest.raises(
+        source_module.ReplacementRecoverySourceError,
+        match="successor source cannot carry post_purchase_replay",
+    ):
+        source_module.build_recovery_source_descriptor(
+            coordinates=_descriptor_coordinates(tmp_path, successor=True),
+            ordinal=1,
+            recovery_root=tmp_path / "recovery",
+            purchased_clearance_path=tmp_path / "clearance.jsonl",
+            purchased_clearance_run_card_path=tmp_path / "clearance-card.json",
+            resolved_post_recovery_documents_path=tmp_path / "resolved.jsonl",
+            replacement_controlled_private_root=tmp_path / "successor-private",
+            post_purchase_replay=replay_paths,
+        )
 
 
 def test_producer_authenticates_mutated_ledger_by_semantic_state(
@@ -1284,7 +1410,7 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
         assert kwargs["attempt_transition_capability"] is not None
         assert (
             kwargs["authority_transition_capability"]
-            is kwargs["attempt_transition_capability"]
+            is not kwargs["attempt_transition_capability"]
         )
         verified_calls.append({"history": kwargs})
         return (
@@ -1331,15 +1457,25 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
     transition_marker = _write_json(
         tmp_path / "authenticated-transition-source.json", {"transition": True}
     )
-    transition_capability = object()
+    issued_capabilities: list[object] = []
+
+    def issue_transition_capability_factory(
+        **kwargs: object,
+    ) -> Callable[[], object]:
+        if kwargs["run_card_paths"] != (paths["resolved_card"].absolute(),):
+            pytest.fail("initial successor history must bind the resolver card")
+
+        def issue() -> object:
+            capability = object()
+            issued_capabilities.append(capability)
+            return capability
+
+        return issue
+
     monkeypatch.setattr(
         cli,
-        "_issue_resolved_transition_capability",
-        lambda **kwargs: (
-            transition_capability
-            if kwargs["run_card_paths"] == (paths["resolved_card"].absolute(),)
-            else pytest.fail("initial successor history must bind the resolver card")
-        ),
+        "_issue_resolved_transition_capability_factory",
+        issue_transition_capability_factory,
     )
     monkeypatch.setattr(
         cli,
@@ -1350,7 +1486,7 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
                 {transition_marker: transition_marker.read_bytes()},
                 {paths["resolved_card"].absolute(): "current-state-2"},
             )
-            if capability is transition_capability
+            if capability is issued_capabilities[0]
             else pytest.fail("unexpected transition capability")
         ),
     )
@@ -1379,18 +1515,17 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
     clearance_call = next(
         call["clearance"] for call in verified_calls if "clearance" in call
     )
-    assert history_call["authority_transition_capability"] is transition_capability
-    assert history_call["attempt_transition_capability"] is transition_capability
-    assert clearance_call["authority_transition_capability"] is transition_capability
-    assert clearance_call["attempt_transition_capability"] is transition_capability
-    assert (
-        clearance_call["recovery_authority_transition_capability"]
-        is transition_capability
+    consumed_capabilities = (
+        history_call["authority_transition_capability"],
+        history_call["attempt_transition_capability"],
+        clearance_call["authority_transition_capability"],
+        clearance_call["attempt_transition_capability"],
+        clearance_call["recovery_authority_transition_capability"],
+        clearance_call["recovery_attempt_transition_capability"],
     )
-    assert (
-        clearance_call["recovery_attempt_transition_capability"]
-        is transition_capability
-    )
+    assert len(issued_capabilities) == 7
+    assert len({id(capability) for capability in issued_capabilities}) == 7
+    assert set(consumed_capabilities) == set(issued_capabilities[1:])
     assert (
         clearance_call["resolved_transition_prior_snapshot"].purchase_state_sha256
         == "state-before-resolution"
@@ -1439,18 +1574,29 @@ def test_successor_producer_binds_transition_prior_to_direct_verifiers(
         purchase_state_sha256="state-1",
     )
 
-    transition_capability = object()
+    issued_capabilities: list[object] = []
+
+    def issue_transition_capability_factory(
+        **_kwargs: object,
+    ) -> Callable[[], object]:
+        def issue() -> object:
+            capability = object()
+            issued_capabilities.append(capability)
+            return capability
+
+        return issue
+
     monkeypatch.setattr(
         cli,
-        "_issue_resolved_transition_capability",
-        lambda **_kwargs: transition_capability,
+        "_issue_resolved_transition_capability_factory",
+        issue_transition_capability_factory,
     )
     monkeypatch.setattr(
         cli,
         "_consume_live_resolved_transition_evidence",
         lambda capability: (
             (prior, {}, {paths["resolved_card"].absolute(): "state-1"})
-            if capability is transition_capability
+            if capability is issued_capabilities[0]
             else pytest.fail("unexpected transition capability")
         ),
     )
@@ -1466,28 +1612,36 @@ def test_successor_producer_binds_transition_prior_to_direct_verifiers(
     authority_call = next(
         call["authority"] for call in verified_calls if "authority" in call
     )
-    assert (
-        authority_call["_verified_resolved_transition_capability"]
-        is transition_capability
+    assert len(issued_capabilities) == 5
+    assert len({id(capability) for capability in issued_capabilities}) == 5
+    assert authority_call["_verified_resolved_transition_capability"] in (
+        issued_capabilities
     )
     assert "_expected_resolved_transition_prior_snapshot" not in authority_call
     assert len(attempt_calls) == 1
     assert (
         attempt_calls[0]["_verified_resolved_transition_capability"]
-        is transition_capability
+        in issued_capabilities
     )
     assert "_expected_resolved_transition_prior_snapshot" not in attempt_calls[0]
     clearance_call = next(
         call["clearance"] for call in verified_calls if "clearance" in call
     )
-    assert clearance_call["authority_transition_capability"] is transition_capability
+    assert clearance_call["authority_transition_capability"] in issued_capabilities
     assert clearance_call["attempt_transition_capability"] is None
     assert clearance_call["resolved_transition_prior_snapshot"] is None
     assert (
         clearance_call["recovery_authority_transition_capability"]
-        is transition_capability
+        in issued_capabilities
     )
     assert clearance_call["recovery_attempt_transition_capability"] is None
+    consumed_capabilities = {
+        authority_call["_verified_resolved_transition_capability"],
+        attempt_calls[0]["_verified_resolved_transition_capability"],
+        clearance_call["authority_transition_capability"],
+        clearance_call["recovery_authority_transition_capability"],
+    }
+    assert consumed_capabilities == set(issued_capabilities[1:])
 
 
 def _successor_history_helper_fixture(
@@ -1883,13 +2037,16 @@ def test_resolved_transition_capability_is_live_bound_reusable_and_source_bound(
         "reconstruct_pre_resolution_purchase_snapshot",
         lambda **_kwargs: prior,
     )
-    capability = approval_module._issue_resolved_transition_capability(  # pyright: ignore[reportPrivateUsage]
+    capability_factory = approval_module._issue_resolved_transition_capability_factory(  # pyright: ignore[reportPrivateUsage]
         purchase_ledger_path=ledger,
         policy=policy,
         controlled_private_root=tmp_path / "private",
         initialization_receipt_path=receipt,
         run_card_paths=(card_path,),
     )
+    capability = capability_factory()
+    second_capability = capability_factory()
+    assert capability is not second_capability
 
     authority = approval_module._consume_resolved_transition_capability(capability)  # pyright: ignore[reportPrivateUsage]
     assert authority.ledger_path == ledger.resolve()
@@ -1897,6 +2054,10 @@ def test_resolved_transition_capability_is_live_bound_reusable_and_source_bound(
     assert authority.prior_snapshot == prior
     assert (  # pyright: ignore[reportPrivateUsage]
         approval_module._consume_resolved_transition_capability(capability) == authority
+    )
+    assert (  # pyright: ignore[reportPrivateUsage]
+        approval_module._consume_resolved_transition_capability(second_capability)
+        == authority
     )
     source_path.write_bytes(b'{"name":"changed"}\n')
     with pytest.raises(

@@ -535,6 +535,15 @@ def _require_clearance_restriction(
         basis == "authenticated_model_exception_review"
         and isinstance(row.get("recovered_public_lineage"), Mapping)
     )
+    if basis == "authenticated_model_exception_review" and not recovered_model_review:
+        evidence_value = row.get("restriction_evidence")
+        if (
+            row.get("restriction_status") == "unknown"
+            and isinstance(evidence_value, (list, tuple))
+            and frozenset(cast(Sequence[str], evidence_value))
+            == _PROVENANCE_REST_PUBLIC_EVIDENCE
+        ):
+            return
     if basis == "provider_free_recovered_public" or recovered_model_review:
         evidence_value = row.get("restriction_evidence")
         accepted = {
