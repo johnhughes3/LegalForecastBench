@@ -2445,19 +2445,30 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_without_provid
     assert (output_root / "markdown" / "cand-1" / "complaint.md").read_text(
         encoding="utf-8"
     ) == markdown
+    assert (
+        json.loads(
+            (
+                output_root / "markdown" / "cand-1" / "complaint.metadata.json"
+            ).read_text()
+        )
+        == conversion
+    )
     assert _read_jsonl(output_root / "mistral-markdown-conversions.jsonl") == [
         conversion
     ]
     run_card = json.loads(
         (output_root / "run-cards" / "parse-documents.json").read_text()
     )
+    assert all(
+        set(commitment) == {"path", "sha256"}
+        for commitment in run_card["source_commitments"].values()
+    )
     assert (
-        run_card["source_commitments"]["reused_live_mistral"]["reused_record_count"]
-        == 1
+        run_card["parser_execution"]["reused_live_mistral"]["reused_record_count"] == 1
     )
 
 
-@pytest.mark.parametrize("failure", ["tamper", "config", "symlink", "partial"])
+@pytest.mark.parametrize("failure", ["tamper", "config", "symlink", "partial", "path"])
 def test_live_mistral_reuse_helper_fails_closed(tmp_path: Path, failure: str) -> None:
     root = tmp_path / "prior"
     artifact = root / "cand" / "doc.md"
@@ -2580,10 +2591,19 @@ def test_live_mistral_reuse_helper_fails_closed(tmp_path: Path, failure: str) ->
     elif failure == "symlink":
         artifact.unlink()
         artifact.symlink_to(tmp_path / "elsewhere")
-    else:
+    elif failure == "partial":
         destination = request.markdown_output_path
         destination.parent.mkdir(parents=True)
         destination.write_text("partial", encoding="utf-8")
+    else:
+        request = cli.MistralMarkdownConversionRequest(
+            "cand",
+            "doc",
+            tmp_path / "new.pdf",
+            tmp_path / "out" / "markdown" / "cand" / "other.md",
+            digest,
+            6,
+        )
     with pytest.raises(cli.CommandError):
         cli._reuse_live_mistral_parse_outputs(
             prior_run_card_path=card_path,

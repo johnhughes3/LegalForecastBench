@@ -51891,7 +51891,6 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
             }
             for index, path in enumerate(purchase_lineage_paths)
         },
-        **({"reused_live_mistral": reuse_source} if reuse_source is not None else {}),
     }
     output_commitments = (
         {}
@@ -51932,7 +51931,14 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
                 ),
                 "parser_root": str(effective_parser_root.expanduser().resolve()),
                 "fixture_markdown": fixture_markdown_dir is not None,
-                **({"reused_authenticated_output": True} if reuse_source else {}),
+                **(
+                    {
+                        "reused_authenticated_output": True,
+                        "reused_live_mistral": reuse_source,
+                    }
+                    if reuse_source is not None
+                    else {}
+                ),
             },
             "purchase_state_sha256": purchase_state_sha256,
         },
@@ -62873,6 +62879,11 @@ def _reuse_live_mistral_parse_outputs(
         markdown_path, metadata_path = _reuse_artifact_paths(
             record, root=prior_markdown_root
         )
+        _require_reuse_record_matches_current_output(
+            record,
+            destination_markdown=current_request.markdown_output_path,
+            output_root=output_root,
+        )
         markdown_bytes = _read_singly_linked_regular_input(
             markdown_path, label="prior reused Markdown"
         )
@@ -63064,6 +63075,32 @@ def _reuse_artifact_paths(
     except ValueError as exc:
         raise CommandError(str(exc)) from exc
     return markdown_path, metadata_path
+
+
+def _require_reuse_record_matches_current_output(
+    record: Mapping[str, object], *, destination_markdown: Path, output_root: Path
+) -> None:
+    """Require the historical relative artifact name to fit this output layout."""
+
+    try:
+        destination_markdown.resolve().relative_to(output_root.resolve())
+    except ValueError as exc:
+        raise CommandError(
+            "reused Markdown output escapes the current output root"
+        ) from exc
+    artifact_root = destination_markdown.parent.parent
+    try:
+        expected_markdown_path = destination_markdown.resolve().relative_to(
+            artifact_root.resolve()
+        )
+    except ValueError as exc:
+        raise CommandError(
+            "current Markdown output has an invalid artifact root"
+        ) from exc
+    if _required_str(record, "markdown_path") != expected_markdown_path.as_posix():
+        raise CommandError(
+            "prior conversion Markdown path differs from the current output layout"
+        )
 
 
 def _require_reusable_live_mistral_record(
