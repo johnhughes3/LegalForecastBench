@@ -4,6 +4,8 @@ import hashlib
 import json
 import os
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -2157,28 +2159,51 @@ def test_complete_snapshot_rejects_unpageable_term_but_accepts_bounded_term(
                 assert manifest["saturated"] is False
 
 
-@pytest.mark.skipif(not hasattr(os, "fork"), reason="requires POSIX process semantics")
+# The abandoning writer runs in a fresh subprocess rather than via os.fork():
+# pytest-xdist workers are multi-threaded, and forking a multi-threaded
+# process is deprecated on Python 3.12+ and may deadlock the child. The child
+# still dies via os._exit so the WAL is left hot, never checkpointed by close.
+_TORN_WAL_WRITER = """
+import json
+import os
+import sys
+from pathlib import Path
+
+from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+
+store = CycleAcquisitionStore(Path(sys.argv[1]))
+store.ensure_cycle(json.loads(sys.argv[2]))
+store.ensure_batch("batch-001", {"page_size": 50})
+store.ensure_terms("batch-001", ["alpha"])
+store.commit_search_page(
+    "batch-001",
+    "alpha",
+    None,
+    [
+        {
+            "provider_hit_id": "a-1",
+            "candidate_id": "candidate-1",
+            "payload": {"id": "a-1", "candidate": "candidate-1"},
+        }
+    ],
+    next_cursor=None,
+    terminal_status="exhausted",
+)
+os._exit(0)
+"""
+
+
 def test_torn_wal_tail_is_trimmed_without_losing_committed_pages(
     tmp_path: Path,
 ) -> None:
     database = tmp_path / "cycle.sqlite3"
-    pid = os.fork()
-    if pid == 0:
-        store = CycleAcquisitionStore(database)
-        store.ensure_cycle(POLICY)
-        store.ensure_batch("batch-001", {"page_size": 50})
-        store.ensure_terms("batch-001", ["alpha"])
-        store.commit_search_page(
-            "batch-001",
-            "alpha",
-            None,
-            [_hit("a-1", "candidate-1")],
-            next_cursor=None,
-            terminal_status="exhausted",
-        )
-        os._exit(0)
-    _, status = os.waitpid(pid, 0)
-    assert status == 0
+    writer = subprocess.run(
+        [sys.executable, "-c", _TORN_WAL_WRITER, str(database), json.dumps(POLICY)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert writer.returncode == 0, writer.stderr
     wal_path = Path(f"{database}-wal")
     assert wal_path.exists()
     with wal_path.open("ab") as handle:
