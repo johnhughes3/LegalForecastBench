@@ -39,6 +39,9 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      - name: Contract ratchet
+        run: uv run python -m legalforecast.contracts.ratchet
+
       - name: Type-check
         run: uv run pyright
 
