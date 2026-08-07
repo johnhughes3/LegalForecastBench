@@ -16,6 +16,9 @@ from typing import Any, cast
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
+    CaseDevPurchasePolicy,
+    CaseDevPurchaseSnapshot,
+    canonical_purchase_state_sha256,
     validate_unknown_public_recovery_evidence,
 )
 from legalforecast.ingestion.disclosure_clearance import (
@@ -89,6 +92,11 @@ _DIRECT_QUEUE_RESOLVED_FIELDS = frozenset(
         "recovered_public_lineage",
         "record_sha256",
     }
+)
+_LEGACY_DIRECT_QUEUE_RESOLVED_FIELDS = (
+    _DIRECT_QUEUE_RESOLVED_FIELDS
+    - {"direct_queue_delivery_authority"}
+    | {"queue_response_sha256"}
 )
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
 FRESH_PUBLIC_RESTRICTION_SCHEMA_VERSION = (
@@ -1238,9 +1246,11 @@ def _require_resolved_post_recovery_documents_core(
         if recovered_lineages is not None:
             if record.get(
                 "clearance_basis"
-            ) != "provider_free_recovered_public" or record.get(
-                "recovered_public_lineage"
-            ) != recovered_lineages.get(key):
+            ) != "provider_free_recovered_public" or not (
+                _recovered_lineage_matches_record(
+                    record, recovered_lineages.get(key)
+                )
+            ):
                 raise ResolvedPostRecoveryError(
                     f"resolved recovered-public lineage changed: {key}"
                 )
@@ -1406,7 +1416,9 @@ def _require_resolved_post_recovery_parse_requests_core(
             "schema_version"
         ) == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4 and (
             recovered_lineages is None
-            or record.get("recovered_public_lineage") != recovered_lineages.get(key)
+            or not _recovered_lineage_matches_record(
+                record, recovered_lineages.get(key)
+            )
         ):
             raise ResolvedPostRecoveryError(
                 "V4 resolved records require verifier-issued recovery authority"
@@ -1466,6 +1478,35 @@ def _require_resolved_recovered_public_operation_bindings(  # pyright: ignore[re
     )
 
 
+def _is_legacy_direct_queue_record(record: Mapping[str, object]) -> bool:
+    return (
+        record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+        and record.get("delivery_authority")
+        == "authenticated_direct_courtlistener_queue_recovery"
+        and set(record) == set(_LEGACY_DIRECT_QUEUE_RESOLVED_FIELDS)
+    )
+
+
+def _recovered_lineage_matches_record(
+    record: Mapping[str, object],
+    authenticated_lineage: Mapping[str, object] | None,
+) -> bool:
+    if authenticated_lineage is None:
+        return False
+    expected: Mapping[str, object] = authenticated_lineage
+    if _is_legacy_direct_queue_record(record):
+        if not isinstance(
+            authenticated_lineage.get("direct_queue_delivery_authority"), Mapping
+        ):
+            return False
+        expected = {
+            name: value
+            for name, value in authenticated_lineage.items()
+            if name != "direct_queue_delivery_authority"
+        }
+    return record.get("recovered_public_lineage") == expected
+
+
 def _require_resolved_post_recovery_operation_bindings_core(
     *,
     purchase_operation_records: Sequence[Mapping[str, Any]],
@@ -1489,11 +1530,15 @@ def _require_resolved_post_recovery_operation_bindings_core(
     for key, record in resolved.items():
         operation = operations[key]
         _validate_resolved_record(record, key=key)
-        if record.get(
-            "schema_version"
-        ) == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4 and (
-            recovered_lineages is None
-            or record.get("recovered_public_lineage") != recovered_lineages.get(key)
+        legacy_direct = _is_legacy_direct_queue_record(record)
+        if (
+            record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+            and (
+                recovered_lineages is None
+                or not _recovered_lineage_matches_record(
+                    record, recovered_lineages.get(key)
+                )
+            )
         ):
             raise ResolvedPostRecoveryError(
                 "V4 resolved records require verifier-issued recovery authority"
@@ -1520,15 +1565,31 @@ def _require_resolved_post_recovery_operation_bindings_core(
             "download_url_sha256": material.get("download_url_sha256"),
             "content_sha256": material.get("content_sha256"),
             "byte_count": material.get("byte_count"),
-            **_delivery_authority_fields(
-                preclear,
-                key=key,
-                expected_purchase_policy_sha256=expected_purchase_policy_sha256,
-                verified_recovered_lineage=(
-                    cast(Mapping[str, object], record.get("recovered_public_lineage"))
-                    if isinstance(record.get("recovered_public_lineage"), Mapping)
-                    else None
-                ),
+            **(
+                _legacy_direct_queue_delivery_authority_fields(
+                    preclear,
+                    key=key,
+                    expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+                    verified_recovered_lineage=(
+                        None
+                        if recovered_lineages is None
+                        else recovered_lineages.get(key)
+                    ),
+                )
+                if legacy_direct
+                else _delivery_authority_fields(
+                    preclear,
+                    key=key,
+                    expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+                    verified_recovered_lineage=(
+                        cast(
+                            Mapping[str, object],
+                            record.get("recovered_public_lineage"),
+                        )
+                        if isinstance(record.get("recovered_public_lineage"), Mapping)
+                        else None
+                    ),
+                )
             ),
         }
         if any(record.get(name) != value for name, value in expected.items()):
@@ -1898,6 +1959,35 @@ def _verified_direct_queue_delivery_authority(
             f"direct queue delivery authority changed after verification: {key}"
         )
     return authority
+
+
+def _legacy_direct_queue_delivery_authority_fields(
+    operation: Mapping[str, Any],
+    *,
+    key: tuple[str, str],
+    expected_purchase_policy_sha256: str,
+    verified_recovered_lineage: Mapping[str, object] | None,
+) -> dict[str, object]:
+    """Revalidate and reproduce only the frozen pre-#512 v4 projection."""
+
+    authority = _verified_direct_queue_delivery_authority(
+        operation,
+        key=key,
+        expected_purchase_policy_sha256=expected_purchase_policy_sha256,
+        verified_recovered_lineage=verified_recovered_lineage,
+    )
+    if authority is None:
+        raise ResolvedPostRecoveryError(
+            f"legacy direct queue delivery lacks verified authority: {key}"
+        )
+    material = _mapping(operation.get("material_evidence"), "material evidence")
+    return {
+        "delivery_authority": "authenticated_direct_courtlistener_queue_recovery",
+        "purchase_policy_sha256": expected_purchase_policy_sha256,
+        "queue_response_sha256": _required_sha(
+            material.get("queue_response_sha256"), "queue response"
+        ),
+    }
 
 
 def _delivery_authority_fields(
@@ -2316,6 +2406,23 @@ def _validate_resolved_record(
         digest_fields.append("public_material_recovery_sha256")
     elif (
         schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
+        and delivery_authority
+        == "authenticated_direct_courtlistener_queue_recovery"
+    ):
+        # PR #512 strengthened direct-queue authority without changing the v4
+        # schema label. Preserve validation of already-frozen pre-#512 rows,
+        # but only in their exact historical closed shape.
+        if (
+            set(record) != set(_LEGACY_DIRECT_QUEUE_RESOLVED_FIELDS)
+            or direct_fields.intersection(record)
+            or public_fields.intersection(record)
+        ):
+            raise ResolvedPostRecoveryError(
+                f"resolved direct queue delivery authority is invalid: {key}"
+            )
+        digest_fields.append("queue_response_sha256")
+    elif (
+        schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
         and delivery_authority == "authenticated_direct_courtlistener_queue"
     ):
         if (
@@ -2383,6 +2490,66 @@ def _index(
             raise ResolvedPostRecoveryError(f"duplicate {label}: {key}")
         output[key] = record
     return output
+
+
+def reconstruct_pre_resolution_purchase_snapshot(
+    *,
+    current_snapshot: CaseDevPurchaseSnapshot,
+    resolved_records: Sequence[Mapping[str, Any]],
+    policy: CaseDevPurchasePolicy,
+    expected_purchase_state_before_sha256: str,
+) -> CaseDevPurchaseSnapshot:
+    """Reverse only resolver-authorized clearance fields and prove prior state."""
+
+    resolved = _index(resolved_records, "resolved post-recovery document")
+    operations = _index(current_snapshot.operations, "purchase operation")
+    if set(resolved) - set(operations):
+        raise ResolvedPostRecoveryError(
+            "canonical purchase journal lacks resolved operation coverage"
+        )
+    reconstructed: list[Mapping[str, Any]] = []
+    for operation in current_snapshot.operations:
+        key = _key(operation)
+        record = resolved.get(key)
+        if record is None:
+            reconstructed.append(operation)
+            continue
+        _validate_resolved_record(record, key=key)
+        material = _mapping(operation.get("material_evidence"), "material evidence")
+        if (
+            operation.get("material_state") != "cleared_public"
+            or operation.get("resolved_document_sha256") != record.get("record_sha256")
+            or material.get("clearance_record_sha256")
+            != record.get("clearance_record_sha256")
+        ):
+            raise ResolvedPostRecoveryError(
+                f"canonical purchase journal clearance binding changed: {key}"
+            )
+        preclear = dict(operation)
+        preclear["material_state"] = "recovered_pending_clearance"
+        preclear_material = dict(material)
+        preclear_material.pop("clearance_record_sha256", None)
+        preclear["material_evidence"] = preclear_material
+        preclear["resolved_document_sha256"] = None
+        if record.get("purchase_operation_sha256") != _sha256(preclear):
+            raise ResolvedPostRecoveryError(
+                f"resolved purchase operation commitment changed: {key}"
+            )
+        reconstructed.append(preclear)
+    state_sha256 = canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd=current_snapshot.committed_amount_usd,
+        operations=reconstructed,
+    )
+    if state_sha256 != expected_purchase_state_before_sha256:
+        raise ResolvedPostRecoveryError(
+            "resolved purchase transition does not reproduce its prior state"
+        )
+    return CaseDevPurchaseSnapshot(
+        operations=tuple(reconstructed),
+        committed_amount_usd=current_snapshot.committed_amount_usd,
+        purchase_state_sha256=state_sha256,
+    )
 
 
 def _group_index(

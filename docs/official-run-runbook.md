@@ -2253,6 +2253,7 @@ initial_disclosure_state_root="$initial_disclosure_cycle_root/orchestrator"
 initial_disclosure_template="$repo_root/manifests/cycle-1-target-100.initial-recovery-disclosure.template.json"
 successor_history_recovery_root="/absolute/path/to/completed-successor-recovery"
 successor_history_private_root="/absolute/path/to/successor-purchase-private-root"
+successor_history_resolver_run_card="/absolute/path/to/completed-successor-resolver-run-card.json"
 terminal_disposition_selection="/absolute/path/to/final-disposition-selection.jsonl"
 terminal_disposition_snapshot_manifest="/absolute/path/to/screening-snapshot/manifest.json"
 terminal_purchase_result="/absolute/path/to/completed-purchase-result.json"
@@ -2369,6 +2370,9 @@ uv run legalforecast acquisition build-replacement-recovery-source \
   --recovery-root "$quarantine_recovery_root" \
   --purchased-clearance-run-card "$initial_disclosure_root/03-clearance/run-cards/finalize-provenance-quarantine.json" \
   --resolved-post-recovery-run-card "$initial_disclosure_root/04-resolved/run-cards/resolve-post-recovery-documents.json" \
+  --successor-history-recovery-root "$successor_history_recovery_root" \
+  --successor-history-controlled-private-root "$successor_history_private_root" \
+  --additional-resolved-post-recovery-run-card "$successor_history_resolver_run_card" \
   --terminal-disposition-selection "$terminal_disposition_selection" \
   --terminal-disposition-snapshot-manifest "$terminal_disposition_snapshot_manifest" \
   --terminal-purchase-result "$terminal_purchase_result" \

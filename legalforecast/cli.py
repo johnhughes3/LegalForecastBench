@@ -671,6 +671,9 @@ from legalforecast.ingestion.recap_partial_checkpoint import (
 )
 from legalforecast.ingestion.replacement_purchase_approval import (
     ReplacementPurchaseApprovalError,
+    _consume_live_resolved_transition_evidence,  # pyright: ignore[reportPrivateUsage]
+    _consume_live_resolved_transition_prior_snapshot,  # pyright: ignore[reportPrivateUsage]
+    _issue_resolved_transition_capability,  # pyright: ignore[reportPrivateUsage]
     build_replacement_purchase_approval_request,
     generate_replacement_purchase_authority,
     record_replacement_purchase_approval,
@@ -5881,6 +5884,14 @@ def _add_build_replacement_recovery_source_arguments(
         help=(
             "Private approval root for --successor-history-recovery-root; both "
             "history arguments are allowed only for ordinal 0."
+        ),
+    )
+    parser.add_argument(
+        "--additional-resolved-post-recovery-run-card",
+        type=Path,
+        help=(
+            "One disjoint completed resolver card needed to reconstruct the live "
+            "ledger state for this source's authority and recovery replay."
         ),
     )
     parser.add_argument("--descriptor-output", type=Path)
@@ -25557,6 +25568,8 @@ def _authenticated_pre_successor_purchase_snapshot(
     expected_selection_path: Path | None = None,
     expected_budget_plan_path: Path | None = None,
     expected_authority_path: Path | None = None,
+    authority_transition_capability: object | None = None,
+    attempt_transition_capability: object | None = None,
 ) -> tuple[CaseDevPurchaseSnapshot, Mapping[str, bytes]]:
     """Authenticate one later successor and recover its exact ledger prefix."""
 
@@ -25640,6 +25653,7 @@ def _authenticated_pre_successor_purchase_snapshot(
         purchase_ledger_path=ledger_path,
         purchase_ledger_initialization_receipt_path=initialization_receipt_path,
         allowed_additional_operation_pairs=allowed_additional_operation_pairs,
+        _verified_resolved_transition_capability=(authority_transition_capability),
     )
     verify_recap_fetch_attempt_policy(
         attempt_policy_artifact,
@@ -25655,6 +25669,7 @@ def _authenticated_pre_successor_purchase_snapshot(
         replacement_controlled_private_root=successor_controlled_private_root,
         purchase_ledger_initialization_receipt_path=initialization_receipt_path,
         allowed_additional_operation_pairs=allowed_additional_operation_pairs,
+        _verified_resolved_transition_capability=attempt_transition_capability,
     )
     recovery = _verify_materializer_recovery(
         recovery_root=successor_recovery_root,
@@ -25807,6 +25822,12 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
     )
     if successor_history_private_root is not None:
         successor_history_private_root = successor_history_private_root.absolute()
+    additional_resolved_card_path = cast(
+        Path | None,
+        getattr(args, "additional_resolved_post_recovery_run_card", None),
+    )
+    if additional_resolved_card_path is not None:
+        additional_resolved_card_path = additional_resolved_card_path.absolute()
     verified_bytes: dict[str, bytes] = {}
 
     def capture(path: Path, *, label: str) -> bytes:
@@ -25904,13 +25925,57 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             raise ReplacementRecoverySourceError(
                 "successor history recovery and private roots must be supplied together"
             )
+        if (
+            additional_resolved_card_path is not None
+            and coordinates.kind == "initial_v2"
+            and not all(path is not None for path in history_args)
+        ):
+            raise ReplacementRecoverySourceError(
+                "initial-source additional resolver requires successor history"
+            )
         if any(path is not None for path in history_args) and (
             coordinates.kind != "initial_v2" or ordinal != 0
         ):
             raise ReplacementRecoverySourceError(
                 "successor history is allowed only for the ordinal 0 initial recovery"
             )
-        verification_snapshot = purchase_snapshot
+        transition_card_paths: tuple[Path | None, ...] = ()
+        if additional_resolved_card_path is not None:
+            transition_card_paths = (
+                (resolved_card_path, additional_resolved_card_path)
+                if coordinates.kind == "initial_v2"
+                else (additional_resolved_card_path, resolved_card_path)
+            )
+        elif successor_history_recovery_root is not None:
+            transition_card_paths = (resolved_card_path,)
+        authenticated_transition_paths = tuple(
+            path for path in transition_card_paths if path is not None
+        )
+        transition_capability: object | None = None
+        transition_card_after_states: dict[Path, str] = {}
+        pre_resolution_snapshot = purchase_snapshot
+        if authenticated_transition_paths:
+            transition_capability = _issue_resolved_transition_capability(
+                purchase_ledger_path=ledger_path,
+                policy=policy,
+                controlled_private_root=initial_private_root,
+                initialization_receipt_path=receipt_path,
+                run_card_paths=authenticated_transition_paths,
+            )
+            (
+                pre_resolution_snapshot,
+                transition_source_bytes,
+                transition_card_after_states,
+            ) = _consume_live_resolved_transition_evidence(transition_capability)
+            _merge_verified_artifact_bytes(
+                verified_bytes,
+                {
+                    os.path.abspath(path): payload
+                    for path, payload in transition_source_bytes.items()
+                },
+                label="resolved transition replay source",
+            )
+        verification_snapshot = pre_resolution_snapshot
         if (
             successor_history_recovery_root is not None
             and successor_history_private_root is not None
@@ -25919,7 +25984,7 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 _authenticated_pre_successor_purchase_snapshot(
                     successor_recovery_root=successor_history_recovery_root,
                     successor_controlled_private_root=successor_history_private_root,
-                    current_snapshot=purchase_snapshot,
+                    current_snapshot=pre_resolution_snapshot,
                     policy=policy,
                     policy_artifact=policy_artifact,
                     cohort_artifact=cohort_artifact,
@@ -25929,6 +25994,8 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                     initial_controlled_private_root=initial_private_root,
                     initialization_receipt_path=receipt_path,
                     capture=capture,
+                    authority_transition_capability=transition_capability,
+                    attempt_transition_capability=transition_capability,
                 )
             )
             _merge_verified_artifact_bytes(
@@ -25986,6 +26053,15 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=clearance_coordinates.clearance_path,
             run_card_path=clearance_card_path,
+            authority_transition_capability=transition_capability,
+            attempt_transition_capability=transition_capability,
+            resolved_transition_prior_snapshot=(
+                pre_resolution_snapshot
+                if successor_history_recovery_root is not None
+                else None
+            ),
+            recovery_authority_transition_capability=transition_capability,
+            recovery_attempt_transition_capability=transition_capability,
         )
         _verify_materializer_recovery_clearance_binding(
             recovery=recovery, clearance_lineage=clearance
@@ -26036,6 +26112,7 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 selection_bytes=selection_bytes,
                 purchase_ledger_path=ledger_path,
                 purchase_ledger_initialization_receipt_path=receipt_path,
+                _verified_resolved_transition_capability=transition_capability,
             )
         else:
             verify_approved_purchase_input_bytes(
@@ -26057,6 +26134,11 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             replacement_purchase_authority_artifact=(replacement_authority_artifact),
             replacement_controlled_private_root=replacement_private_root,
             purchase_ledger_initialization_receipt_path=receipt_path,
+            _verified_resolved_transition_capability=(
+                transition_capability
+                if coordinates.kind == "successor"
+                else None
+            ),
         )
 
         purchased_manifest = cast(
@@ -26183,7 +26265,10 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 expected_input_paths=expected_resolved_inputs,
                 expected_ledger_path=ledger_path,
                 expected_purchase_state_sha256=(
-                    verification_snapshot.purchase_state_sha256
+                    transition_card_after_states.get(
+                        resolved_card_path.absolute(),
+                        purchase_snapshot.purchase_state_sha256,
+                    )
                 ),
                 expected_terminal_unavailable_path=terminal_unavailable_path,
                 expected_terminal_unavailable_sha256=_bytes_sha256(
@@ -26252,13 +26337,13 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 )
                 _require_resolved_operation_bindings_dispatch(
                     clearance_kwargs=clearance_kwargs,
-                    purchase_operation_records=verification_snapshot.operations,
+                    purchase_operation_records=purchase_snapshot.operations,
                     resolved_records=resolved_records,
                     expected_purchase_policy_sha256=policy.policy_sha256,
                 )
             else:
                 require_resolved_post_recovery_operation_bindings(
-                    purchase_operation_records=verification_snapshot.operations,
+                    purchase_operation_records=purchase_snapshot.operations,
                     resolved_records=resolved_records,
                     expected_purchase_policy_sha256=policy.policy_sha256,
                 )
@@ -39847,6 +39932,11 @@ def _verify_materializer_clearance_lineage(
     run_card_path: Path,
     captured_artifact_bytes: Mapping[str, bytes] | None = None,
     allow_legacy_implicit_quarantine: bool = False,
+    authority_transition_capability: object | None = None,
+    attempt_transition_capability: object | None = None,
+    resolved_transition_prior_snapshot: CaseDevPurchaseSnapshot | None = None,
+    recovery_authority_transition_capability: object | None = None,
+    recovery_attempt_transition_capability: object | None = None,
 ) -> dict[str, object]:
     _require_materializer_artifact(clearance_path, label="purchased clearance")
     validated_run_card_bytes = _require_materializer_artifact(
@@ -40005,6 +40095,15 @@ def _verify_materializer_clearance_lineage(
                 expected_restriction_path=restriction_path,
                 captured_artifact_bytes=verified_snapshot,
                 allow_legacy_implicit_quarantine=allow_legacy_implicit_quarantine,
+                authority_transition_capability=authority_transition_capability,
+                attempt_transition_capability=attempt_transition_capability,
+                resolved_transition_prior_snapshot=(resolved_transition_prior_snapshot),
+                recovery_authority_transition_capability=(
+                    recovery_authority_transition_capability
+                ),
+                recovery_attempt_transition_capability=(
+                    recovery_attempt_transition_capability
+                ),
             )
         )
         clearance_records = _projection_jsonl_records(
@@ -41868,6 +41967,39 @@ def _materializer_record_index(
             raise CommandError(f"duplicate {label} identity: {key[0]}/{key[1]}")
         indexed[key] = record
     return indexed
+
+
+def _recovered_public_routing_lineage_matches(
+    routing_records: Sequence[Mapping[str, Any]],
+    authenticated_records: Sequence[Mapping[str, Any]],
+    *,
+    routing_schema_version: str,
+) -> bool:
+    """Compare frozen lineage while preserving its closed legacy shape."""
+
+    routing = _materializer_record_index(
+        routing_records, label="recovered-public routing lineage"
+    )
+    authenticated = _materializer_record_index(
+        authenticated_records, label="authenticated recovered-public lineage"
+    )
+    if set(routing) != set(authenticated):
+        return False
+    for key, frozen in routing.items():
+        expected = authenticated[key]
+        if (
+            routing_schema_version
+            == "legalforecast.disclosure_provenance_routing_plan.v2"
+            and "direct_queue_delivery_authority" not in frozen
+        ):
+            expected = {
+                field: value
+                for field, value in expected.items()
+                if field != "direct_queue_delivery_authority"
+            }
+        if frozen != expected:
+            return False
+    return True
 
 
 def _materializer_record_key(record: Mapping[str, Any]) -> tuple[str, str]:
@@ -44205,6 +44337,9 @@ def _authenticate_recovered_public_raw_evidence(
     controlled_private_root: Path | None,
     successor_history_recovery_root: Path | None = None,
     successor_history_controlled_private_root: Path | None = None,
+    authority_transition_capability: object | None = None,
+    attempt_transition_capability: object | None = None,
+    resolved_transition_prior_snapshot: CaseDevPurchaseSnapshot | None = None,
 ) -> Mapping[str, object]:
     """Authenticate recovery bytes, policies, and live ledger state together."""
 
@@ -44264,6 +44399,26 @@ def _authenticate_recovered_public_raw_evidence(
             "successor history recovery and controlled-private roots must be "
             "supplied together"
         )
+    transition_inputs = (
+        authority_transition_capability,
+        attempt_transition_capability,
+        resolved_transition_prior_snapshot,
+    )
+    has_successor_history = all(path is not None for path in history_roots)
+    transition_shape_valid = all(value is None for value in transition_inputs) or (
+        authority_transition_capability is not None
+        and (
+            resolved_transition_prior_snapshot is not None
+            and attempt_transition_capability is not None
+            if has_successor_history
+            else (
+                resolved_transition_prior_snapshot is None
+                and attempt_transition_capability is None
+            )
+        )
+    )
+    if not transition_shape_valid:
+        raise CommandError("resolved transition replay capability shape differs")
     verification_snapshot = purchase_snapshot
     history: dict[str, object] | None = None
     if (
@@ -44282,7 +44437,9 @@ def _authenticate_recovered_public_raw_evidence(
                     successor_controlled_private_root=(
                         successor_history_controlled_private_root
                     ),
-                    current_snapshot=purchase_snapshot,
+                    current_snapshot=(
+                        resolved_transition_prior_snapshot or purchase_snapshot
+                    ),
                     policy=purchase_policy,
                     policy_artifact=purchase_policy_artifact,
                     cohort_artifact=cohort_policy_artifact,
@@ -44292,6 +44449,8 @@ def _authenticate_recovered_public_raw_evidence(
                     initial_controlled_private_root=controlled_private_root,
                     initialization_receipt_path=initialization_receipt_path,
                     capture=capture,
+                    authority_transition_capability=(authority_transition_capability),
+                    attempt_transition_capability=attempt_transition_capability,
                 )
             )
         except (
@@ -44323,6 +44482,13 @@ def _authenticate_recovered_public_raw_evidence(
                 )
             ),
         }
+    elif authority_transition_capability is not None:
+        try:
+            verification_snapshot = _consume_live_resolved_transition_prior_snapshot(
+                authority_transition_capability
+            )
+        except (OSError, ReplacementPurchaseApprovalError, ValueError) as exc:
+            raise CommandError(str(exc)) from exc
     recovery = _verify_materializer_quarantine_recovery(
         recovery_root=recovery_root,
         run_card_path=run_card_path,
@@ -48055,6 +48221,11 @@ def _verify_authenticated_clearance_run_card_with_capability(
     expected_restriction_path: Path | None = None,
     captured_artifact_bytes: Mapping[str, bytes] | None = None,
     allow_legacy_implicit_quarantine: bool = False,
+    authority_transition_capability: object | None = None,
+    attempt_transition_capability: object | None = None,
+    resolved_transition_prior_snapshot: CaseDevPurchaseSnapshot | None = None,
+    recovery_authority_transition_capability: object | None = None,
+    recovery_attempt_transition_capability: object | None = None,
 ) -> tuple[tuple[Path, ...], object | None]:
     """Independently replay signed clearance and return its immutable inputs."""
 
@@ -48092,6 +48263,15 @@ def _verify_authenticated_clearance_run_card_with_capability(
             expected_restriction_path=expected_restriction_path,
             captured_artifact_bytes=verified_snapshot,
             allow_legacy_implicit_quarantine=allow_legacy_implicit_quarantine,
+            authority_transition_capability=authority_transition_capability,
+            attempt_transition_capability=attempt_transition_capability,
+            resolved_transition_prior_snapshot=resolved_transition_prior_snapshot,
+            recovery_authority_transition_capability=(
+                recovery_authority_transition_capability
+            ),
+            recovery_attempt_transition_capability=(
+                recovery_attempt_transition_capability
+            ),
         )
     authority = run_card.get("clearance_authority")
     authority_kind = (
@@ -48372,6 +48552,11 @@ def _verify_provider_free_provenance_quarantine_run_card(
     expected_restriction_path: Path | None,
     captured_artifact_bytes: Mapping[str, bytes] | None = None,
     allow_legacy_implicit_quarantine: bool = False,
+    authority_transition_capability: object | None = None,
+    attempt_transition_capability: object | None = None,
+    resolved_transition_prior_snapshot: CaseDevPurchaseSnapshot | None = None,
+    recovery_authority_transition_capability: object | None = None,
+    recovery_attempt_transition_capability: object | None = None,
 ) -> tuple[tuple[Path, ...], object | None]:
     """Replay a v3 plan whose exception rows are all quarantined."""
 
@@ -48387,6 +48572,36 @@ def _verify_provider_free_provenance_quarantine_run_card(
         if isinstance(raw_successor_history, Mapping)
         else None
     )
+    transition_pairs = (
+        authority_transition_capability,
+        attempt_transition_capability,
+        recovery_authority_transition_capability,
+        recovery_attempt_transition_capability,
+    )
+    transition_inputs_present = resolved_transition_prior_snapshot is not None or any(
+        value is not None for value in transition_pairs
+    )
+    if transition_inputs_present and recovered_authority is None:
+        raise CommandError(
+            "resolved transition clearance replay requires recovered-public authority"
+        )
+    if successor_history is not None:
+        transition_shape_valid = not transition_inputs_present or (
+            resolved_transition_prior_snapshot is not None
+            and all(value is not None for value in transition_pairs)
+        )
+    else:
+        transition_shape_valid = not transition_inputs_present or (
+            resolved_transition_prior_snapshot is None
+            and authority_transition_capability is not None
+            and recovery_authority_transition_capability is not None
+            and attempt_transition_capability is None
+            and recovery_attempt_transition_capability is None
+        )
+    if not transition_shape_valid:
+        raise CommandError(
+            "resolved transition clearance replay capability shape differs"
+        )
     successor_history_source_names: tuple[str, ...] = ()
     if successor_history is not None:
         raw_names = successor_history.get("source_names")
@@ -48741,7 +48956,9 @@ def _verify_provider_free_provenance_quarantine_run_card(
                     _authenticated_pre_successor_purchase_snapshot(
                         successor_recovery_root=history_recovery_root,
                         successor_controlled_private_root=history_private_root,
-                        current_snapshot=purchase_snapshot,
+                        current_snapshot=(
+                            resolved_transition_prior_snapshot or purchase_snapshot
+                        ),
                         policy=purchase_policy,
                         policy_artifact=_projection_json_object(
                             purchase_policy_bytes, source=purchase_policy_path
@@ -48761,6 +48978,10 @@ def _verify_provider_free_provenance_quarantine_run_card(
                         ),
                         initialization_receipt_path=initialization_receipt_path,
                         capture=capture_successor_history,
+                        authority_transition_capability=(
+                            authority_transition_capability
+                        ),
+                        attempt_transition_capability=(attempt_transition_capability),
                     )
                 )
             except (
@@ -48796,6 +49017,15 @@ def _verify_provider_free_provenance_quarantine_run_card(
                 raise CommandError(
                     "authenticated successor history purchase state changed"
                 )
+        elif authority_transition_capability is not None:
+            try:
+                verification_snapshot = (
+                    _consume_live_resolved_transition_prior_snapshot(
+                        authority_transition_capability
+                    )
+                )
+            except (OSError, ReplacementPurchaseApprovalError, ValueError) as exc:
+                raise CommandError(str(exc)) from exc
         recovery = _verify_materializer_quarantine_recovery(
             recovery_root=recovery_run_card_path.parents[1],
             run_card_path=recovery_run_card_path,
@@ -49003,11 +49233,10 @@ def _verify_provider_free_provenance_quarantine_run_card(
                 raise ProvenanceClearanceError(
                     "recovered-public authority evidence changed"
                 )
-            if _materializer_record_index(
-                lineage_rows, label="recovered-public routing lineage"
-            ) != _materializer_record_index(
+            if not _recovered_public_routing_lineage_matches(
+                lineage_rows,
                 expected_lineage_rows,
-                label="authenticated recovered-public lineage",
+                routing_schema_version=_required_str(frozen_plan, "schema_version"),
             ):
                 raise ProvenanceClearanceError(
                     "recovered-public routing lineage changed"
@@ -49040,6 +49269,11 @@ def _verify_provider_free_provenance_quarantine_run_card(
                     if successor_history is not None
                     else None
                 ),
+                authority_transition_capability=(
+                    recovery_authority_transition_capability
+                ),
+                attempt_transition_capability=(recovery_attempt_transition_capability),
+                resolved_transition_prior_snapshot=(resolved_transition_prior_snapshot),
                 expected_manifest_path=paths["download_manifest"],
                 expected_restriction_path=paths["restriction_evidence"],
                 expected_case_relevance_path=paths["case_relevance"],

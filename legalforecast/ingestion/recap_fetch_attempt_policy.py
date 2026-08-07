@@ -113,6 +113,7 @@ def _build_recap_fetch_attempt_policy(
     replacement_controlled_private_root: Path | None,
     purchase_ledger_initialization_receipt_path: Path | None,
     allowed_additional_operation_pairs: set[tuple[str, str]] | None,
+    _verified_resolved_transition_capability: object | None = None,
 ) -> dict[str, object]:
     """Build minting or replay evidence under an explicit private mode."""
 
@@ -133,6 +134,13 @@ def _build_recap_fetch_attempt_policy(
             replacement_controlled_private_root is not None
         )
         replacement_mode = replacement_authority_supplied
+        transition_capability_supplied = (
+            _verified_resolved_transition_capability is not None
+        )
+        if transition_capability_supplied and not replacement_mode:
+            raise ValueError(
+                "resolved transition capability requires complete replacement authority"
+            )
         if replacement_authority_supplied != replacement_private_root_supplied or (
             replacement_mode and purchase_ledger_initialization_receipt_path is None
         ):
@@ -191,6 +199,9 @@ def _build_recap_fetch_attempt_policy(
                     Path, purchase_ledger_initialization_receipt_path
                 ),
                 allowed_additional_operation_pairs=(allowed_additional_operation_pairs),
+                _verified_resolved_transition_capability=(
+                    _verified_resolved_transition_capability
+                ),
             )
         if purchase_policy.has_verified_approval:
             _require_structured_inputs_match_authenticated_bytes(
@@ -296,6 +307,7 @@ def verify_recap_fetch_attempt_policy(
     replacement_controlled_private_root: Path | None = None,
     purchase_ledger_initialization_receipt_path: Path | None = None,
     allowed_additional_operation_pairs: set[tuple[str, str]] | None = None,
+    _verified_resolved_transition_capability: object | None = None,
 ) -> dict[str, dict[str, str]]:
     """Replay existing attempt authority without minting after initialization."""
 
@@ -317,6 +329,9 @@ def verify_recap_fetch_attempt_policy(
             purchase_ledger_initialization_receipt_path
         ),
         allowed_additional_operation_pairs=allowed_additional_operation_pairs,
+        _verified_resolved_transition_capability=(
+            _verified_resolved_transition_capability
+        ),
     )
     if dict(artifact) != expected:
         raise RecapFetchAttemptPolicyError(

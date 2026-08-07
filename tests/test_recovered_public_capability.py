@@ -16,6 +16,63 @@ from tests.recovered_public_capability_helpers import (
 )
 
 
+def test_raw_recovery_authentication_receives_distinct_transition_pair(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    authority_capability = object()
+    attempt_capability = object()
+    prior_snapshot = object()
+    expected_paths = {
+        "manifest_path": tmp_path / "manifest.jsonl",
+        "restriction_path": tmp_path / "restrictions.jsonl",
+        "case_relevance_path": tmp_path / "relevance.jsonl",
+        "review_requests_path": tmp_path / "reviews.jsonl",
+        "document_root": tmp_path / "documents",
+    }
+    observed: dict[str, object] = {}
+
+    def authenticate(**kwargs: object) -> dict[str, object]:
+        observed.update(kwargs)
+        return {
+            **expected_paths,
+            "terminal_unavailable_path": None,
+            "verified_artifact_bytes": {},
+        }
+
+    monkeypatch.setattr(
+        cli, "_authenticate_recovered_public_raw_evidence", authenticate
+    )
+    monkeypatch.setattr(
+        cli, "_derive_recovered_public_lineage_rows", lambda *_a, **_k: ()
+    )
+
+    provenance_module._authenticate_recovered_public_lineage_from_raw_evidence(  # pyright: ignore[reportPrivateUsage]
+        recovery_root=tmp_path / "recovery",
+        run_card_path=tmp_path / "run-card.json",
+        selection_path=tmp_path / "selection.jsonl",
+        purchase_policy_path=tmp_path / "policy.json",
+        cohort_policy_path=tmp_path / "cohort.json",
+        ledger_path=tmp_path / "ledger.sqlite3",
+        initialization_receipt_path=tmp_path / "receipt.json",
+        controlled_private_root=tmp_path / "private",
+        successor_history_recovery_root=tmp_path / "successor-recovery",
+        successor_history_controlled_private_root=tmp_path / "successor-private",
+        authority_transition_capability=authority_capability,
+        attempt_transition_capability=attempt_capability,
+        resolved_transition_prior_snapshot=prior_snapshot,
+        expected_manifest_path=expected_paths["manifest_path"],
+        expected_restriction_path=expected_paths["restriction_path"],
+        expected_case_relevance_path=expected_paths["case_relevance_path"],
+        expected_review_requests_path=expected_paths["review_requests_path"],
+        expected_document_root=expected_paths["document_root"],
+    )
+
+    assert observed["authority_transition_capability"] is authority_capability
+    assert observed["attempt_transition_capability"] is attempt_capability
+    assert observed["resolved_transition_prior_snapshot"] is prior_snapshot
+
+
 def test_caller_supplied_lineage_cannot_mint_recovered_public_authority() -> None:
     lineage = {
         "candidate_id": "case-a",
@@ -329,3 +386,60 @@ def test_terminal_disposition_capability_must_equal_recovery_partition(
                 }
             ],
         )
+
+
+def test_legacy_routing_lineage_matches_authenticated_additive_authority() -> None:
+    base = {
+        "candidate_id": "case-a",
+        "source_document_id": "123",
+        "purchase_operation_sha256": "1" * 64,
+    }
+    authenticated = {
+        **base,
+        "direct_queue_delivery_authority": {"queue_id": "77"},
+    }
+
+    assert cli._recovered_public_routing_lineage_matches(  # pyright: ignore[reportPrivateUsage]
+        [base],
+        [authenticated],
+        routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v2",
+    )
+    assert cli._recovered_public_routing_lineage_matches(  # pyright: ignore[reportPrivateUsage]
+        [authenticated],
+        [authenticated],
+        routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v3",
+    )
+
+    assert not cli._recovered_public_routing_lineage_matches(  # pyright: ignore[reportPrivateUsage]
+        [base],
+        [authenticated],
+        routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v3",
+    )
+
+
+def test_routing_lineage_still_rejects_claimed_or_base_field_drift() -> None:
+    base = {
+        "candidate_id": "case-a",
+        "source_document_id": "123",
+        "purchase_operation_sha256": "1" * 64,
+    }
+    authenticated = {
+        **base,
+        "direct_queue_delivery_authority": {"queue_id": "77"},
+    }
+
+    assert not cli._recovered_public_routing_lineage_matches(  # pyright: ignore[reportPrivateUsage]
+        [{**base, "purchase_operation_sha256": "2" * 64}],
+        [authenticated],
+        routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v2",
+    )
+    assert not cli._recovered_public_routing_lineage_matches(  # pyright: ignore[reportPrivateUsage]
+        [
+            {
+                **base,
+                "direct_queue_delivery_authority": {"queue_id": "78"},
+            }
+        ],
+        [authenticated],
+        routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v2",
+    )
