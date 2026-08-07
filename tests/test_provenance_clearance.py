@@ -20,6 +20,7 @@ from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
     build_provenance_clearance_plan,
     build_provenance_clearance_records,
+    cache_disclosure_document_scans,
     canonical_json_bytes,
     document_scanner_for_plan,
     exception_review_worksheet,
@@ -402,6 +403,33 @@ def test_immutable_plan_selects_its_versioned_scanner(tmp_path: Path) -> None:
         document_scanner_for_plan(mixed)
     with pytest.raises(ProvenanceClearanceError, match="mixed PDF scanner versions"):
         exception_review_worksheet(mixed)
+
+
+def test_document_scan_cache_is_content_addressed_and_operation_scoped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(tmp_path)
+    result = _complete_scan()
+    calls: list[bytes] = []
+
+    def scanner(data: bytes) -> DisclosurePdfScan:
+        calls.append(data)
+        return result
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.provenance_clearance.scan_disclosure_document",
+        scanner,
+    )
+    with cache_disclosure_document_scans():
+        assert document_scanner_for_plan(plan)(b"same-pdf") is result
+        assert document_scanner_for_plan(plan)(b"same-pdf") is result
+        assert document_scanner_for_plan(plan)(b"different-pdf") is result
+    assert calls == [b"same-pdf", b"different-pdf"]
+
+    with cache_disclosure_document_scans():
+        assert document_scanner_for_plan(plan)(b"same-pdf") is result
+    assert calls == [b"same-pdf", b"different-pdf", b"same-pdf"]
 
 
 def test_empty_plan_uses_current_scanner_and_builds_empty_worksheet(

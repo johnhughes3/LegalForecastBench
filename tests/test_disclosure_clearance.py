@@ -501,6 +501,64 @@ def test_ranked_replacement_uses_next_cheapest_under_same_cap() -> None:
     assert selected.write_off_cost_usd == "3.05"
 
 
+def test_model_reviewed_marker_document_accepts_exact_direct_public_provenance(
+    tmp_path: Path,
+) -> None:
+    content = _text_pdf(b"public marker-only filing")
+    document = _document(tmp_path, content)
+    clearance = {
+        "schema_version": "legalforecast.disclosure_clearance.v1",
+        **document,
+        "status": "cleared",
+        "automated_markers": ["minor"],
+        "restriction_status": "unknown",
+        "restriction_evidence": [
+            "courtlistener_rest_docket_entry_exact_match",
+            "courtlistener_rest_docket_exact_match",
+            "courtlistener_rest_public_download_url_allowlisted",
+            "courtlistener_rest_recap_document_exact_match",
+            "courtlistener_rest_recap_document_is_available_true",
+            "courtlistener_rest_recap_document_is_sealed_unknown",
+        ],
+        "reviewer_id": "google:gemini-3.5-flash",
+        "controlled_store_provenance": "private-store://disclosure/model-review",
+        "reviewed_at": None,
+        "clearance_basis": "authenticated_model_exception_review",
+        "routing_plan_sha256": "a" * 64,
+    }
+
+    require_cleared_documents(
+        [document], document_root=tmp_path, clearance_records=[clearance]
+    )
+
+    for field, value in (
+        ("restriction_status", "private"),
+        (
+            "restriction_evidence",
+            [
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_public_download_url_allowlisted",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_true",
+                "courtlistener_rest_recap_document_is_sealed_true",
+            ],
+        ),
+        (
+            "restriction_evidence",
+            [
+                "courtlistener_rest_docket_entry_exact_match",
+                ["courtlistener_rest_docket_exact_match"],
+            ],
+        ),
+    ):
+        changed = {**clearance, field: value}
+        with pytest.raises(DisclosureClearanceError, match="restriction is not public"):
+            require_cleared_documents(
+                [document], document_root=tmp_path, clearance_records=[changed]
+            )
+
+
 def test_mixed_provenance_clearance_reaches_every_downstream_gate(
     tmp_path: Path,
 ) -> None:

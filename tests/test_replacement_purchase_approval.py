@@ -36,6 +36,7 @@ from legalforecast.ingestion.ranked_reserve_replacement import (
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
     ranked_reserve_result_bytes,
+    verify_legacy_ranked_reserve_bridge,
 )
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     UNKNOWN_STATUS_EVIDENCE,
@@ -1130,6 +1131,69 @@ def test_post_purchase_ranked_replay_proves_exact_authority_transition(
         )
         == fixture["precursor_bytes"]
     )
+
+
+def test_verified_post_purchase_replay_binds_exact_legacy_precursor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _post_purchase_ranked_replay_fixture(tmp_path, monkeypatch=monkeypatch)
+    replay = cast(Any, _verify_post_purchase_ranked_replay(fixture))
+    precursor = cast(
+        Mapping[str, object], replay.authenticated_legacy_replay["precursor_result"]
+    )
+
+    verified = verify_legacy_ranked_reserve_bridge(
+        precursor_result=precursor,
+        precursor_result_bytes=fixture["precursor_bytes"],
+        post_purchase_replay=replay,
+    )
+
+    assert verified.is_replay_minted()
+    assert verified.precursor_result == precursor
+    assert verified.bridge_result == fixture["prior_result"]
+    assert verified.baseline_snapshot == replay.baseline_snapshot
+    assert verified.live_snapshot == replay.live_snapshot
+
+    tampered = dict(precursor)
+    tampered["cycle_id"] = "another-cycle"
+    with pytest.raises(
+        RankedReserveReplacementError,
+        match="legacy ranked precursor differs from the verified v3 bridge",
+    ):
+        verify_legacy_ranked_reserve_bridge(
+            precursor_result=tampered,
+            precursor_result_bytes=ranked_reserve_result_bytes(tampered),
+            post_purchase_replay=replay,
+        )
+
+
+def test_post_purchase_ranked_replay_rejects_reused_transition_capability(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _post_purchase_ranked_replay_fixture(tmp_path, monkeypatch=monkeypatch)
+    reused_capability = object()
+
+    with pytest.raises(
+        ReplacementPurchaseApprovalError,
+        match="requires distinct resolved-transition authorities",
+    ):
+        verify_ranked_reserve_post_purchase_replay(
+            prior_result=fixture["prior_result"],
+            prior_result_bytes=fixture["prior_bytes"],
+            authority_artifact=fixture["authority"],
+            controlled_private_root=fixture["successor_root"],
+            initial_purchase_policy_artifact=fixture["policy_artifact"],
+            initial_controlled_private_root=fixture["initial_private_root"],
+            cohort_policy_artifact=fixture["cohort_artifact"],
+            budget_plan_bytes=fixture["budget_path"].read_bytes(),
+            selection_bytes=fixture["selection_path"].read_bytes(),
+            purchase_ledger_path=fixture["ledger_path"],
+            purchase_ledger_initialization_receipt_path=fixture["receipt_path"],
+            _verified_resolved_authority_capability=reused_capability,
+            _verified_resolved_snapshot_capability=reused_capability,
+        )
 
 
 def test_post_purchase_ranked_replay_rejects_prefixed_authority_digest(

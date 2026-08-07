@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -56,6 +58,24 @@ _REST_PUBLIC_EVIDENCE = frozenset(
 _POSITIVE_RESTRICTION_EVIDENCE = re.compile(
     r"(?:^|_)(?:sealed|private|restricted|under_seal)(?:_true|$)"
 )
+_DOCUMENT_SCAN_CACHE: ContextVar[
+    dict[tuple[str, int, str], DisclosurePdfScan] | None
+] = ContextVar("legalforecast_disclosure_document_scan_cache", default=None)
+
+
+@contextmanager
+def cache_disclosure_document_scans() -> Generator[None]:
+    """Cache immutable PDF scans within one top-level verification operation."""
+
+    token: Token[dict[tuple[str, int, str], DisclosurePdfScan] | None] = (
+        _DOCUMENT_SCAN_CACHE.set({})
+    )
+    try:
+        yield
+    finally:
+        _DOCUMENT_SCAN_CACHE.reset(token)
+
+
 _RECOVERED_PUBLIC_EVIDENCE = frozenset(
     {
         "courtlistener_recap_fetch_fresh_detail_exact_match",
@@ -696,7 +716,9 @@ def document_scanner_for_plan(
             "routing plan requires documents for scanner selection"
         )
     if not raw_documents:
-        return scan_disclosure_document
+        scanner = scan_disclosure_document
+        scanner_version = PDF_SCAN_SCHEMA_VERSION
+        return _cached_document_scanner(scanner, scanner_version)
     versions: set[tuple[object, object]] = set()
     for raw_document in cast(list[object], raw_documents):
         if not isinstance(raw_document, Mapping):
@@ -712,12 +734,35 @@ def document_scanner_for_plan(
         typed_scan = cast(Mapping[str, object], scan)
         versions.add((typed_scan.get("schema_version"), typed_scan.get("method")))
     if versions == {(PDF_SCAN_SCHEMA_VERSION_V1, "pypdf_page_text_v1")}:
-        return scan_disclosure_document_v1
-    if versions == {(PDF_SCAN_SCHEMA_VERSION, "pypdf_page_text_v2")}:
-        return scan_disclosure_document
-    raise ProvenanceClearanceError(
-        "routing plan has unsupported or mixed PDF scanner versions"
-    )
+        scanner = scan_disclosure_document_v1
+        scanner_version = PDF_SCAN_SCHEMA_VERSION_V1
+    elif versions == {(PDF_SCAN_SCHEMA_VERSION, "pypdf_page_text_v2")}:
+        scanner = scan_disclosure_document
+        scanner_version = PDF_SCAN_SCHEMA_VERSION
+    else:
+        raise ProvenanceClearanceError(
+            "routing plan has unsupported or mixed PDF scanner versions"
+        )
+    return _cached_document_scanner(scanner, scanner_version)
+
+
+def _cached_document_scanner(
+    scanner: Callable[[bytes], DisclosurePdfScan],
+    scanner_version: str,
+) -> Callable[[bytes], DisclosurePdfScan]:
+    cache = _DOCUMENT_SCAN_CACHE.get()
+    if cache is None:
+        return scanner
+
+    def cached(data: bytes) -> DisclosurePdfScan:
+        key = (scanner_version, len(data), hashlib.sha256(data).hexdigest())
+        result = cache.get(key)
+        if result is None:
+            result = scanner(data)
+            cache[key] = result
+        return result
+
+    return cached
 
 
 def exception_review_worksheet(plan: Mapping[str, object]) -> dict[str, object]:

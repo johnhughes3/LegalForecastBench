@@ -27,6 +27,16 @@ RESOLVED_STAGE = "resolve-post-recovery-documents"
 _TERMINAL_DISPOSITION_SOURCE_NAMES = frozenset(
     {"selection", "snapshot_manifest", "purchase_result", "purchase_run_card"}
 )
+_POST_PURCHASE_REPLAY_FIELDS = frozenset(
+    {
+        "prior_ranked_result",
+        "prior_replacement_selection",
+        "prior_replacement_budget_plan",
+        "replacement_purchase_authority",
+        "replacement_controlled_private_root",
+        "cohort_policy",
+    }
+)
 
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 _EMPTY_SHA256 = (
@@ -485,6 +495,31 @@ def validate_source_ordinal(*, kind: str, ordinal: int) -> None:
         )
 
 
+def normalize_post_purchase_replay_descriptor(
+    value: Mapping[str, object],
+) -> dict[str, str]:
+    """Validate the closed initial-v2 post-purchase replay path bundle."""
+
+    if frozenset(value) != _POST_PURCHASE_REPLAY_FIELDS:
+        raise ReplacementRecoverySourceError(
+            "post_purchase_replay has extra or missing fields"
+        )
+    normalized: dict[str, str] = {}
+    for field in sorted(_POST_PURCHASE_REPLAY_FIELDS):
+        raw_path = value[field]
+        if not isinstance(raw_path, str) or not raw_path:
+            raise ReplacementRecoverySourceError(
+                f"post_purchase_replay {field} path is invalid"
+            )
+        replay_path = Path(raw_path)
+        if not replay_path.is_absolute():
+            raise ReplacementRecoverySourceError(
+                f"post_purchase_replay paths must be absolute: {field}"
+            )
+        normalized[field] = str(replay_path)
+    return normalized
+
+
 def build_recovery_source_descriptor(
     *,
     coordinates: RecoverySourceCoordinates,
@@ -494,6 +529,7 @@ def build_recovery_source_descriptor(
     purchased_clearance_run_card_path: Path,
     resolved_post_recovery_documents_path: Path | None,
     replacement_controlled_private_root: Path | None,
+    post_purchase_replay: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Build the exact descriptor schema after callers authenticate every path."""
 
@@ -521,7 +557,18 @@ def build_recovery_source_descriptor(
             raise ReplacementRecoverySourceError(
                 "initial_v2 source cannot carry successor authority"
             )
+        if post_purchase_replay is not None:
+            return {
+                **common,
+                "post_purchase_replay": normalize_post_purchase_replay_descriptor(
+                    post_purchase_replay
+                ),
+            }
         return common
+    if post_purchase_replay is not None:
+        raise ReplacementRecoverySourceError(
+            "successor source cannot carry post_purchase_replay"
+        )
     if (
         coordinates.replacement_authority_path is None
         or replacement_controlled_private_root is None

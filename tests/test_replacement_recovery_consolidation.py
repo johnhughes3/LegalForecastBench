@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -83,6 +84,10 @@ def _prepare_fixture(
             "selection_path": selection,
             "selection_records": selection_rows,
             "purchased_manifest": purchased_rows,
+            "verified_artifact_bytes": {
+                str(selection.resolve()): selection.read_bytes(),
+                str(purchased_manifest.resolve()): purchased_manifest.read_bytes(),
+            },
         },
     )
     policy_path = _write_json(tmp_path / "policy.json", {"fixture": "policy"})
@@ -244,7 +249,10 @@ def _prepare_fixture(
         tmp_path / "tranche-index-card.json",
         {"fixture": "replacement-recovery-index-card"},
     )
-    policy = SimpleNamespace(canonical_ledger_path=ledger)
+    policy = SimpleNamespace(
+        canonical_ledger_path=ledger,
+        policy_sha256="f" * 64,
+    )
     monkeypatch.setattr(cli, "verify_case_dev_purchase_policy", lambda _value: policy)
     monkeypatch.setattr(
         cli, "require_approved_case_dev_purchase_policy", lambda *_args, **_kwargs: None
@@ -396,6 +404,15 @@ def test_pre_recovery_empty_manifest_uses_paid_gaps_minus_terminal_omissions(
         (row["candidate_id"], row["source_document_id"])
         for row in verified["manifest_records"]
     } == all_paid - omitted
+    capability = verified["consolidated_resolved_capability"]
+    assert cli._consume_consolidated_resolved_capability(capability)
+    with pytest.raises(cli.CommandError, match="verifier-issued authority"):
+        cli._consume_consolidated_resolved_capability(object())
+    with pytest.raises(cli.CommandError, match="verifier-issued authority"):
+        cli._consume_consolidated_resolved_capability(copy.copy(capability))
+    object.__setattr__(capability, "purchase_policy_sha256", "0" * 64)
+    with pytest.raises(cli.CommandError, match="verifier-issued authority"):
+        cli._consume_consolidated_resolved_capability(capability)
 
 
 def test_empty_purchased_manifest_without_paid_gaps_fails_closed() -> None:
@@ -677,6 +694,12 @@ def test_pre_recovery_consolidation_filters_historical_unselected_recovery(
             "selection_path": args.selection,
             "selection_records": final_rows,
             "purchased_manifest": [],
+            "verified_artifact_bytes": {
+                str(args.selection.resolve()): args.selection.read_bytes(),
+                str(args.target_purchased_manifest.resolve()): (
+                    args.target_purchased_manifest.read_bytes()
+                ),
+            },
         },
     )
 
@@ -921,6 +944,139 @@ def test_consolidation_replays_each_recovery_at_its_authenticated_history(
     }
 
 
+def test_consolidation_threads_authenticated_resolved_transition_replay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_pairs = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=all_pairs)
+    index = json.loads(args.tranche_index.read_bytes())
+    sources = index["sources"]
+    resolved_paths: list[Path] = []
+    for ordinal, source in enumerate(sources):
+        resolved_path = (
+            tmp_path / f"resolver-{ordinal}" / "resolved-post-recovery-documents.jsonl"
+        )
+        _write_jsonl(resolved_path, [])
+        source["resolved_post_recovery_documents"] = str(resolved_path)
+        resolved_paths.append(resolved_path)
+    history_clearance_card = Path(sources[0]["purchased_clearance_run_card"])
+    _write_json(
+        history_clearance_card,
+        {"authenticated_successor_history": {"fixture": True}},
+    )
+    _write_json(args.tranche_index, index)
+
+    initial_snapshot = cli.read_case_dev_purchase_snapshot(None)
+    observed_run_cards: list[Path] = []
+    issued_capabilities: list[object] = []
+
+    def issue_transition_factory(**kwargs: object) -> Callable[[], object]:
+        observed_run_cards.extend(kwargs["run_card_paths"])  # type: ignore[arg-type]
+
+        def issue() -> object:
+            capability = object()
+            issued_capabilities.append(capability)
+            return capability
+
+        return issue
+
+    monkeypatch.setattr(
+        cli,
+        "_issue_resolved_transition_capability_factory",
+        issue_transition_factory,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_consume_live_resolved_transition_evidence",
+        lambda capability: (
+            (initial_snapshot, {}, {}) if capability in issued_capabilities else None
+        ),
+    )
+    original_history = cli._authenticated_pre_successor_purchase_snapshot
+    observed_capabilities: list[tuple[object | None, object | None]] = []
+
+    def authenticate_history(**kwargs: object) -> object:
+        observed_capabilities.append(
+            (
+                kwargs.get("authority_transition_capability"),
+                kwargs.get("attempt_transition_capability"),
+            )
+        )
+        return original_history(**kwargs)
+
+    monkeypatch.setattr(
+        cli, "_authenticated_pre_successor_purchase_snapshot", authenticate_history
+    )
+    fixture_clearance = cli._verify_materializer_clearance_lineage
+    observed_clearance_capabilities: list[tuple[object | None, ...]] = []
+
+    def authenticate_clearance(**kwargs: object) -> object:
+        observed_clearance_capabilities.append(
+            (
+                kwargs.get("authority_transition_capability"),
+                kwargs.get("attempt_transition_capability"),
+                kwargs.get("recovery_authority_transition_capability"),
+                kwargs.get("recovery_attempt_transition_capability"),
+            )
+        )
+        expected_prior = (
+            initial_snapshot
+            if Path(kwargs["run_card_path"]) == history_clearance_card
+            else None
+        )
+        assert kwargs.get("resolved_transition_prior_snapshot") == expected_prior
+        return fixture_clearance(**kwargs)
+
+    monkeypatch.setattr(
+        cli, "_verify_materializer_clearance_lineage", authenticate_clearance
+    )
+
+    cli._prepare_replacement_recovery_consolidation(args)
+
+    expected_run_cards = [
+        path.parent / "run-cards" / "resolve-post-recovery-documents.json"
+        for path in resolved_paths
+    ]
+    assert observed_run_cards == expected_run_cards
+    assert len(issued_capabilities) == 15
+    assert len({id(capability) for capability in issued_capabilities}) == 15
+    assert len(observed_capabilities) == 2
+    assert all(authority is not attempt for authority, attempt in observed_capabilities)
+    assert {
+        id(capability) for pair in observed_capabilities for capability in pair
+    } <= {id(capability) for capability in issued_capabilities}
+    assert len(observed_clearance_capabilities) == 3
+    assert (
+        len({id(capability) for capability in observed_clearance_capabilities[0]}) == 4
+    )
+    assert all(
+        capabilities[0] is not capabilities[2]
+        and capabilities[1] is None
+        and capabilities[3] is None
+        for capabilities in observed_clearance_capabilities[1:]
+    )
+
+
+def test_consolidation_treats_post_purchase_replay_as_nested_descriptor() -> None:
+    direct_path = Path("selection.jsonl")
+    paths = cli._replacement_recovery_tranche_paths(
+        {
+            "kind": "initial",
+            "ordinal": 0,
+            "selection": str(direct_path),
+            "post_purchase_replay": {
+                "prior_ranked_result": "/frozen/prior-ranked-result.json"
+            },
+        }
+    )
+
+    assert paths == {"selection": direct_path.absolute()}
+
+
 def test_consolidation_rejects_ledger_drift_before_completed_publication(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1116,6 +1272,12 @@ def test_initial_only_consolidation_is_supported(
             "selection_path": args.selection,
             "selection_records": selection_rows,
             "purchased_manifest": purchased_rows,
+            "verified_artifact_bytes": {
+                str(args.selection.resolve()): args.selection.read_bytes(),
+                str(args.target_purchased_manifest.resolve()): (
+                    args.target_purchased_manifest.read_bytes()
+                ),
+            },
         },
     )
 
@@ -1146,6 +1308,60 @@ def test_recovery_index_requires_one_initial_source_first() -> None:
             {
                 "schema_version": "legalforecast.replacement_recovery_tranche_index.v1",
                 "sources": [successor],
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        (lambda replay: {**replay, "extra": "/extra"}, "extra or missing"),
+        (
+            lambda replay: {
+                key: value for key, value in replay.items() if key != "cohort_policy"
+            },
+            "extra or missing",
+        ),
+        (
+            lambda replay: {**replay, "cohort_policy": "relative.json"},
+            "paths must be absolute",
+        ),
+        (
+            lambda replay: {**replay, "cohort_policy": 7},
+            "path is invalid",
+        ),
+    ),
+)
+def test_recovery_index_rejects_noncanonical_post_purchase_replay_bundle(
+    mutation: Callable[[dict[str, object]], dict[str, object]],
+    message: str,
+) -> None:
+    replay = {
+        "prior_ranked_result": "/prior-result.json",
+        "prior_replacement_selection": "/selection.jsonl",
+        "prior_replacement_budget_plan": "/budget.json",
+        "replacement_purchase_authority": "/authority.json",
+        "replacement_controlled_private_root": "/private",
+        "cohort_policy": "/cohort-policy.json",
+    }
+    initial = {
+        "kind": "initial_v2",
+        "ordinal": 0,
+        "recovery_root": "/initial",
+        "selection": "/selection",
+        "purchased_clearance": "/clearance",
+        "purchased_clearance_run_card": "/card",
+        "resolved_post_recovery_documents": None,
+        "post_purchase_replay": mutation(replay),
+    }
+
+    with pytest.raises(ValueError, match=message):
+        cli._validated_replacement_recovery_sources(
+            {
+                "schema_version": (
+                    "legalforecast.replacement_recovery_tranche_index.v2"
+                ),
+                "sources": [initial],
             }
         )
 
