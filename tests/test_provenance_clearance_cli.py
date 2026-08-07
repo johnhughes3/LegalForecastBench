@@ -941,7 +941,7 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         == 2
     )
     assert (
-        "recovered-public authority changed before disclosure-plan publication"
+        "successor history changed before disclosure-plan publication"
         in capsys.readouterr().err
     )
     assert not (drift_paths["output"] / "disclosure-provenance-plan.json").exists()

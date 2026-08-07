@@ -8018,7 +8018,8 @@ def _add_successor_history_arguments(parser: argparse.ArgumentParser) -> None:
         help=(
             "Later replacement recovery whose authenticated purchase suffix is "
             "removed before replaying an earlier recovered-public authority. "
-            "Requires the paired controlled-private root."
+            "Requires the paired controlled-private root and the complete "
+            "recovered-public verification argument set."
         ),
     )
     parser.add_argument(
@@ -8026,7 +8027,8 @@ def _add_successor_history_arguments(parser: argparse.ArgumentParser) -> None:
         type=Path,
         help=(
             "Controlled-private authority root for --successor-history-recovery-"
-            "root. The two history arguments must be supplied together."
+            "root. The two history arguments and the complete recovered-public "
+            "verification argument set must be supplied together."
         ),
     )
 
@@ -44903,14 +44905,19 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
                 != _consume_recovered_public_source_snapshots(replayed_capability)
             )
         if (
+            {name: path.resolve() for name, path in replayed_history_paths.items()}
+            != {name: path.resolve() for name, path in history_source_paths.items()}
+            or replayed_history_bytes != history_source_bytes
+            or replayed_history_record != history_run_card_record
+        ):
+            raise CommandError(
+                "successor history changed before disclosure-plan publication"
+            )
+        if (
             capability_changed
             or replayed_authority != recovered_public_authority
             or tuple(path.resolve() for path in replayed_recovery_paths)
             != tuple(path.resolve() for path in recovery_input_paths)
-            or {name: path.resolve() for name, path in replayed_history_paths.items()}
-            != {name: path.resolve() for name, path in history_source_paths.items()}
-            or replayed_history_bytes != history_source_bytes
-            or replayed_history_record != history_run_card_record
         ):
             raise CommandError(
                 "recovered-public authority changed before disclosure-plan publication"
