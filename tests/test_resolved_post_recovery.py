@@ -52,6 +52,7 @@ from legalforecast.ingestion.recap_fetch_attempt_policy import (
     RECAP_FETCH_ATTEMPT_POLICY_VERSION,
     generate_recap_fetch_attempt_policy,
 )
+from legalforecast.ingestion.recap_fetch_broker import recap_fetch_client_code
 from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
     RecapFetchQuarantineRecoveryError,
     project_purchased_case_relevance,
@@ -1606,6 +1607,135 @@ def test_cli_rejects_direct_queue_broker_history_without_side_effects(
     assert not (output_root / "run-cards/resolve-post-recovery-documents.json").exists()
 
 
+def test_resolve_post_recovery_cli_collect_all_exits_nonzero_without_writes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    inputs = _collect_all_inputs()
+    inputs["attempt_policy_artifact"]["policy"]["allowed_documents"][0][
+        "selection_document_sha256"
+    ] = "0" * 64
+    inputs["attempt_policy_artifact"]["policy_sha256"] = _hash(
+        inputs["attempt_policy_artifact"]["policy"]
+    )
+    for record in inputs["purchase_operation_records"]:
+        record["attempt_policy_sha256"] = inputs["attempt_policy_artifact"][
+            "policy_sha256"
+        ]
+    for record in inputs["download_records"]:
+        record["attempt_policy_sha256"] = inputs["attempt_policy_artifact"][
+            "policy_sha256"
+        ]
+
+    class ObservedJournal:
+        clear_calls = 0
+        operations: ClassVar[list[dict[str, Any]]] = deepcopy(
+            inputs["purchase_operation_records"]
+        )
+
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> ObservedJournal:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def purchase_state_sha256(self) -> str:
+            return "9" * 64
+
+        def operation_records(self) -> list[dict[str, Any]]:
+            return deepcopy(self.operations)
+
+        def clear_unknown_material(self, *_args: object, **_kwargs: object) -> None:
+            type(self).clear_calls += 1
+
+    paths = {
+        "selection": tmp_path / "selection.jsonl",
+        "purchase_policy": tmp_path / "purchase-policy.json",
+        "cohort_policy": tmp_path / "cohort-policy.json",
+        "budget_plan": tmp_path / "budget-plan.json",
+        "purchase_ledger": tmp_path / "purchases.sqlite3",
+        "attempt_policy": tmp_path / "attempt-policy.json",
+        "download_manifest": tmp_path / "downloads.jsonl",
+        "disclosure_clearance": tmp_path / "clearance.jsonl",
+        "clearance_run_card": tmp_path / "clearance-run-card.json",
+        "restriction_evidence": tmp_path / "restrictions.jsonl",
+    }
+    _write_records(paths["selection"], inputs["selection_records"])
+    _write_records(paths["download_manifest"], inputs["download_records"])
+    _write_records(paths["disclosure_clearance"], inputs["clearance_records"])
+    _write_object(paths["clearance_run_card"], inputs["clearance_run_card"])
+    _write_records(paths["restriction_evidence"], inputs["restriction_records"])
+    _write_object(paths["attempt_policy"], inputs["attempt_policy_artifact"])
+    for name in ("purchase_policy", "cohort_policy", "budget_plan"):
+        _write_object(paths[name], {})
+
+    clearance_kwargs = {
+        **_external_kwargs(inputs),
+        "_verified_clearance_source_snapshots": {},
+    }
+    monkeypatch.setattr(cli, "_preflight_current_purchase_snapshot", lambda _args: None)
+    monkeypatch.setattr(
+        cli, "_preflight_approved_purchase_input_bytes", lambda _args: None
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_case_dev_purchase_policy",
+        lambda _artifact: SimpleNamespace(
+            canonical_ledger_path=paths["purchase_ledger"].resolve(),
+            policy_sha256="1" * 64,
+        ),
+    )
+    monkeypatch.setattr(
+        cli, "require_approved_case_dev_purchase_policy", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        cli, "verify_approved_purchase_input_bytes", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_case_dev_purchase_policy_cohort_binding",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(cli, "_missing_core_budget_plan", lambda _artifact: object())
+    monkeypatch.setattr(
+        cli, "verify_recap_fetch_attempt_policy", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        cli,
+        "_authenticated_clearance_lineage_inputs",
+        lambda *_args, **_kwargs: (clearance_kwargs, ()),
+    )
+    monkeypatch.setattr(cli, "CaseDevPurchaseJournal", ObservedJournal)
+
+    output_root = tmp_path / "output"
+    command = [
+        "acquisition",
+        "resolve-post-recovery-documents",
+        *[
+            value
+            for name, path in paths.items()
+            for value in (f"--{name.replace('_', '-')}", str(path))
+        ],
+        "--output-root",
+        str(output_root),
+        "--execute",
+        "--collect-all",
+    ]
+
+    assert cli.main(command) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["issue_count"] >= 1
+    assert payload["issues"][0]["status"] in {"FAILED", "NOT_EVALUATED"}
+    assert ObservedJournal.clear_calls == 0
+    assert not (output_root / "resolved-post-recovery-documents.jsonl").exists()
+    assert not (output_root / "run-cards/resolve-post-recovery-documents.json").exists()
+
+
 def test_url_free_recovered_marker_model_clearance_reaches_source_descriptor(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2348,6 +2478,100 @@ def test_authenticated_source_drift_precedes_output_and_journal_mutation(
     assert not resolved_path.exists()
     assert cleared_document_ids == []
     assert not (tmp_path / "run-cards/resolve-post-recovery-documents.json").exists()
+
+
+def test_collect_all_build_validation_reports_independent_failures() -> None:
+    inputs = _collect_all_inputs()
+    inputs["clearance_run_card"]["review_authority"]["reviewer_id"] = "reviewer:other"
+    inputs["clearance_run_card_bytes"] = _object_bytes(inputs["clearance_run_card"])
+    inputs["attempt_policy_artifact"]["policy"]["allowed_documents"][0][
+        "selection_document_sha256"
+    ] = "0" * 64
+    inputs["attempt_policy_artifact"]["policy_sha256"] = _hash(
+        inputs["attempt_policy_artifact"]["policy"]
+    )
+    for record in inputs["purchase_operation_records"]:
+        record["attempt_policy_sha256"] = inputs["attempt_policy_artifact"][
+            "policy_sha256"
+        ]
+    for record in inputs["download_records"]:
+        record["attempt_policy_sha256"] = inputs["attempt_policy_artifact"][
+            "policy_sha256"
+        ]
+    inputs["download_records"][1]["byte_count"] = 101
+    inputs["clearance_records"][2]["status"] = "quarantined"
+    inputs["restriction_records"][3]["restriction_evidence"] = ["wrong"]
+
+    result = resolved_module.collect_resolved_post_recovery_build_issues(**inputs)
+
+    failed = [
+        (issue.artifact, issue.code)
+        for issue in result.issues
+        if issue.status == "FAILED"
+    ]
+    assert failed == [
+        ("case-1/101", "ATTEMPT_DOCUMENT_BINDING"),
+        ("case-2/102", "DOWNLOAD_VALIDATION"),
+        ("case-3/103", "CLEARANCE_VALIDATION"),
+        ("case-4/104", "RESTRICTION_VALIDATION"),
+        ("global", "CLEARANCE_LINEAGE_VALIDATION"),
+    ]
+    blocked = {
+        (issue.artifact, issue.code): issue.blocked_by
+        for issue in result.issues
+        if issue.status == "NOT_EVALUATED"
+    }
+    assert blocked[("case-1/101", "PURCHASE_OPERATION_VALIDATION")] == (
+        "ATTEMPT_DOCUMENT_BINDING",
+    )
+    assert blocked[("case-1/101", "DOWNLOAD_VALIDATION")] == (
+        "PURCHASE_OPERATION_VALIDATION",
+    )
+    assert blocked[("case-2/102", "CLEARANCE_VALIDATION")] == ("DOWNLOAD_VALIDATION",)
+
+
+def test_collect_all_build_validation_is_deterministic_across_input_order() -> None:
+    baseline = resolved_module.collect_resolved_post_recovery_build_issues(
+        **_collect_all_inputs()
+    )
+    inputs = _collect_all_inputs()
+    inputs["selection_records"] = list(reversed(inputs["selection_records"]))
+    inputs["purchase_operation_records"] = list(
+        reversed(inputs["purchase_operation_records"])
+    )
+    inputs["download_records"] = list(reversed(inputs["download_records"]))
+    reordered = resolved_module.collect_resolved_post_recovery_build_issues(**inputs)
+
+    assert reordered.to_record() == baseline.to_record()
+
+
+def test_collect_all_build_validation_redacts_sensitive_bytes() -> None:
+    inputs = _inputs()
+    secret_marker = "TOP_SECRET_REVIEW_RECEIPT_PAYLOAD"
+    inputs["review_receipt_bytes"] = f'{{"broken": "{secret_marker}"'.encode()
+
+    result = resolved_module.collect_resolved_post_recovery_build_issues(**inputs)
+    rendered = json.dumps(result.to_record(), sort_keys=True)
+
+    assert result.ok is False
+    assert secret_marker not in rendered
+    assert "review receipt is not valid JSON" in rendered
+
+
+def test_collect_all_validation_preserves_valid_build_bytes(tmp_path: Path) -> None:
+    inputs = _inputs()
+    expected = build_resolved_post_recovery_documents(**inputs)
+    expected_path = tmp_path / "expected.jsonl"
+    write_resolved_post_recovery_documents(expected_path, expected)
+
+    validation = resolved_module.collect_resolved_post_recovery_build_issues(**inputs)
+    actual = build_resolved_post_recovery_documents(**inputs)
+    actual_path = tmp_path / "actual.jsonl"
+    write_resolved_post_recovery_documents(actual_path, actual)
+
+    assert validation.ok is True
+    assert actual == expected
+    assert actual_path.read_bytes() == expected_path.read_bytes()
 
 
 def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(
@@ -3747,6 +3971,291 @@ def _inputs() -> dict[str, Any]:
         "cohort_policy_artifact_bytes": cohort_policy_bytes,
         "download_manifest_artifact_bytes": signed_lineage["download_manifest_bytes"],
         "restriction_records": restrictions,
+        "restriction_artifact_bytes": restriction_bytes,
+        "allow_test_service_identity": True,
+    }
+
+
+def _collect_all_inputs() -> dict[str, Any]:
+    selection_records: list[dict[str, object]] = []
+    allowed_documents: list[dict[str, object]] = []
+    purchase_operations: list[dict[str, object]] = []
+    download_records: list[dict[str, object]] = []
+    clearance_records: list[dict[str, object]] = []
+    review_rows: list[dict[str, object]] = []
+    restriction_records: list[dict[str, object]] = []
+
+    for index in range(1, 5):
+        candidate_id = f"case-{index}"
+        document_id = str(100 + index)
+        operation_key = f"00000000-0000-4000-8000-{index:012d}"
+        provider_detail_sha256 = f"{index}" * 64
+        queue_response_sha256 = f"{index + 1}" * 64
+        download_url_sha256 = f"{index + 2}" * 64
+        content_sha256 = f"{index + 3}" * 64
+        selection_document = {
+            "source_document_id": document_id,
+            "redaction_or_seal_status": "unknown",
+            "is_sealed": None,
+            "is_private": None,
+            "is_available": False,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+        }
+        selection_records.append(
+            {
+                "candidate_id": candidate_id,
+                "selected": True,
+                "exclusion_reasons": [],
+                "documents": [selection_document],
+            }
+        )
+        allowed_documents.append(
+            {
+                "case_id": candidate_id,
+                "recap_document": document_id,
+                "evidence_class": "unknown_status_quarantine",
+                "selection_document_sha256": _hash(selection_document),
+            }
+        )
+        receipt = {
+            "version": "courtlistener-recap-fetch-receipt-v1",
+            "state": "delivered_but_unreconciled",
+            "operation_key": operation_key,
+            "reservation_id": f"reservation-{index}",
+            "cycle_id": "cycle-1",
+            "case_id": candidate_id,
+            "recap_document": document_id,
+            "purchase_policy_sha256": "1" * 64,
+            "client_code": recap_fetch_client_code(operation_key),
+            "id": str(70 + index),
+            "reservation_usd": "3.05",
+            "held_usd": "3.05",
+            "authoritative_fee_usd": None,
+            "provider_response_body_sha256": f"{index + 4}" * 64,
+            "provider_response_sha256": f"{index + 5}" * 64,
+            "submitted_at": "2026-07-15T00:00:00.000Z",
+            "updated_at": "2026-07-15T00:01:00.000Z",
+            "delivered_at": "2026-07-15T00:01:00.000Z",
+            "reconciled_at": None,
+            "billing_evidence": None,
+        }
+        purchase_operations.append(
+            {
+                "candidate_id": candidate_id,
+                "source_document_id": document_id,
+                "status": "queued",
+                "operation_key": operation_key,
+                "material_authority": "unknown_status_attempt",
+                "material_state": "recovered_pending_clearance",
+                "attempt_policy_sha256": _hash(
+                    {
+                        "authority": BOUNDED_FETCH_ATTEMPT_AUTHORITY,
+                        "purchase_policy_sha256": "1" * 64,
+                        "allowed_documents": allowed_documents,
+                    }
+                ),
+                "attempt_document_sha256": _hash(selection_document),
+                "resolved_document_sha256": None,
+                "response": {
+                    "broker_receipts": [{"sha256": _hash(receipt), "receipt": receipt}]
+                },
+                "material_evidence": {
+                    "provider_detail_sha256": provider_detail_sha256,
+                    "queue_response_sha256": queue_response_sha256,
+                    "download_url_sha256": download_url_sha256,
+                    "content_sha256": content_sha256,
+                    "byte_count": 100,
+                },
+            }
+        )
+        download_records.append(
+            {
+                "candidate_id": candidate_id,
+                "source_document_id": document_id,
+                "recovery_origin": "unknown_status_attempt",
+                "attempt_policy_sha256": "",
+                "purchase_operation_key": operation_key,
+                "local_path": f"{candidate_id}/{document_id}.pdf",
+                "sha256": content_sha256,
+                "byte_count": 100,
+            }
+        )
+        clearance_records.append(
+            {
+                "schema_version": SCHEMA_VERSION,
+                "candidate_id": candidate_id,
+                "source_document_id": document_id,
+                "local_path": f"{candidate_id}/{document_id}.pdf",
+                "status": "cleared",
+                "automated_markers": [],
+                "restriction_status": "public",
+                "restriction_evidence": ["fresh_post_recovery_public_detail"],
+                "sha256": content_sha256,
+                "byte_count": 100,
+                "reviewer_id": "reviewer:john",
+                "controlled_store_provenance": "private-store://review/1",
+                "reviewed_at": "2026-07-15T00:00:00Z",
+                "free_or_purchased": "purchased",
+            }
+        )
+        review_rows.append(
+            {
+                "candidate_id": candidate_id,
+                "source_document_id": document_id,
+                "sha256": content_sha256,
+                "status": "cleared",
+                "reviewer_id": "reviewer:john",
+                "controlled_store_provenance": "private-store://review/1",
+                "reviewed_at": "2026-07-15T00:00:00Z",
+                "restriction_evidence": ["fresh_post_recovery_public_detail"],
+            }
+        )
+        restriction_records.append(
+            {
+                "schema_version": "legalforecast.post_recovery_restriction_evidence.v1",
+                "candidate_id": candidate_id,
+                "source_document_id": document_id,
+                "source_provider": "courtlistener_recap_fetch_fresh_detail",
+                "fresh_recap_detail_sha256": provider_detail_sha256,
+                "is_available": True,
+                "is_sealed": False,
+                "is_private": None,
+                "redaction_or_seal_status": "public",
+                "restriction_status": "public",
+                "restriction_evidence": [
+                    "courtlistener_recap_fetch_fresh_detail_exact_match",
+                    "courtlistener_recap_fetch_is_available_true",
+                    "courtlistener_recap_fetch_is_sealed_false",
+                    "courtlistener_recap_fetch_no_positive_private_marker",
+                ],
+            }
+        )
+
+    attempt_policy = {
+        "authority": BOUNDED_FETCH_ATTEMPT_AUTHORITY,
+        "purchase_policy_sha256": "1" * 64,
+        "allowed_documents": allowed_documents,
+    }
+    attempt_artifact = {
+        "schema_version": RECAP_FETCH_ATTEMPT_POLICY_VERSION,
+        "policy": attempt_policy,
+        "policy_sha256": _hash(attempt_policy),
+    }
+    for operation in purchase_operations:
+        operation["attempt_policy_sha256"] = attempt_artifact["policy_sha256"]
+    for download in download_records:
+        download["attempt_policy_sha256"] = attempt_artifact["policy_sha256"]
+
+    restriction_bytes = _jsonl_bytes(restriction_records)
+    signed_lineage = signed_service_review_lineage(
+        review_rows,
+        restriction_evidence_bytes=restriction_bytes,
+        authenticated_at="2026-07-15T00:00:00Z",
+    )
+    disclosure_authority = signed_lineage["disclosure_authority"]
+    cohort_policy_bytes = _object_bytes(
+        {
+            "schema_version": "test",
+            "policy_sha256": disclosure_authority.identity.cohort_policy_sha256,
+        }
+    )
+    clearance_bytes = _jsonl_bytes(clearance_records)
+    clearance_run_card = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "clear-disclosures",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "source_commitments": {
+            "cohort_policy": {
+                "sha256": hashlib.sha256(cohort_policy_bytes).hexdigest()
+            },
+            "download_manifest": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["download_manifest_bytes"]
+                ).hexdigest()
+            },
+            "review_requests": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["review_requests_bytes"]
+                ).hexdigest()
+            },
+            "review_worksheet": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["review_worksheet_bytes"]
+                ).hexdigest()
+            },
+            "reviews": {
+                "sha256": hashlib.sha256(signed_lineage["reviews_bytes"]).hexdigest()
+            },
+            "review_receipt": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["review_receipt_bytes"]
+                ).hexdigest()
+            },
+            "reviewer_policy": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["reviewer_policy_bytes"]
+                ).hexdigest()
+            },
+            "restriction_evidence": {
+                "sha256": hashlib.sha256(restriction_bytes).hexdigest()
+            },
+        },
+        "output_commitments": {
+            "disclosure_clearance": {
+                "sha256": hashlib.sha256(clearance_bytes).hexdigest()
+            }
+        },
+        "review_authority": {
+            "reviewer_id": "reviewer:john",
+            "controlled_store_uri": "private-store://review/1",
+            "authentication_method": "controlled_store_service_ssh_signature",
+            "authenticated_at": "2026-07-15T00:00:00Z",
+            "review_artifact_sha256": (
+                "sha256:" + hashlib.sha256(signed_lineage["reviews_bytes"]).hexdigest()
+            ),
+            "reviewer_policy_sha256": (
+                "sha256:" + signed_lineage["reviewer_policy_sha256"]
+            ),
+            "disclosure_authority_sha256": (
+                "sha256:" + disclosure_authority.authority_sha256
+            ),
+            "cycle_id": disclosure_authority.identity.cycle_id,
+            "cohort_policy_sha256": (
+                "sha256:" + disclosure_authority.identity.cohort_policy_sha256
+            ),
+            "eligibility_anchor": (
+                disclosure_authority.identity.eligibility_anchor.isoformat()
+            ),
+            "ssh_public_key_fingerprint": (
+                disclosure_authority.ssh_public_key_fingerprint
+            ),
+        },
+    }
+    return {
+        "selection_records": selection_records,
+        "purchase_operation_records": purchase_operations,
+        "download_records": download_records,
+        "clearance_records": clearance_records,
+        "attempt_policy_artifact": attempt_artifact,
+        "clearance_artifact_bytes": clearance_bytes,
+        "clearance_run_card": clearance_run_card,
+        "clearance_run_card_bytes": _object_bytes(clearance_run_card),
+        "reviews_artifact_bytes": signed_lineage["reviews_bytes"],
+        "review_receipt_artifact": signed_lineage["review_receipt"],
+        "review_receipt_bytes": signed_lineage["review_receipt_bytes"],
+        "review_requests_artifact_bytes": signed_lineage["review_requests_bytes"],
+        "review_worksheet_artifact": signed_lineage["review_worksheet"],
+        "review_worksheet_bytes": signed_lineage["review_worksheet_bytes"],
+        "reviewer_policy_bytes": signed_lineage["reviewer_policy_bytes"],
+        "disclosure_authority": disclosure_authority,
+        "cohort_policy_artifact_bytes": cohort_policy_bytes,
+        "download_manifest_artifact_bytes": signed_lineage["download_manifest_bytes"],
+        "restriction_records": restriction_records,
         "restriction_artifact_bytes": restriction_bytes,
         "allow_test_service_identity": True,
     }
