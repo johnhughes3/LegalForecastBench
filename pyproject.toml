@@ -39,6 +39,7 @@ dev = [
   "openai==2.52.0",
   "pyright>=1.1.409",
   "pytest>=8.4",
+  "pytest-xdist>=3.8",
   "reportlab>=5.0.0",
   "ruff>=0.15.12",
 ]

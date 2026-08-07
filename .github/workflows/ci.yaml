@@ -21,12 +21,12 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           enable-cache: true
 
@@ -50,7 +50,9 @@ jobs:
           scripts
 
       - name: Test
-        run: uv run pytest -q
+        # Supported parallel full-suite command (see AGENTS.md “Testing”);
+        # public ubuntu-latest runners expose 4 vCPUs, matching -n 4.
+        run: uv run pytest -q -n 4 --dist=loadscope
 
       - name: Rebuild and verify packet renders
         run: >-
