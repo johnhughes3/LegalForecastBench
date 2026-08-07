@@ -8431,6 +8431,23 @@ def _add_acquisition_parse_documents_arguments(
     parser.add_argument("--parser-root", type=Path)
     parser.add_argument("--timeout-seconds", type=int, default=600)
     parser.add_argument(
+        "--reuse-live-mistral-run-card",
+        type=Path,
+        help=(
+            "Completed pinned live-Mistral parse run card whose authenticated "
+            "outputs may be copied for byte-identical source documents. "
+            "Requires --execute and --resume."
+        ),
+    )
+    parser.add_argument(
+        "--reuse-markdown-root",
+        type=Path,
+        help=(
+            "Root containing the prior run's relative Markdown and metadata "
+            "artifacts. Requires --reuse-live-mistral-run-card."
+        ),
+    )
+    parser.add_argument(
         "--fixture-markdown-dir",
         type=Path,
         help="Directory with <source_document_id>.md files for fixture runs.",
@@ -51739,6 +51756,22 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
 def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
     _preflight_materialization_purchase_runtime(args)
     dry_run = _acquisition_dry_run(args)
+    reuse_run_card_path = cast(
+        Path | None, getattr(args, "reuse_live_mistral_run_card", None)
+    )
+    reuse_markdown_root = cast(Path | None, getattr(args, "reuse_markdown_root", None))
+    if (reuse_run_card_path is None) != (reuse_markdown_root is None):
+        raise CommandError(
+            "--reuse-live-mistral-run-card and --reuse-markdown-root must be "
+            "used together"
+        )
+    if reuse_run_card_path is not None:
+        if dry_run:
+            raise CommandError("live-Mistral parse reuse requires --execute")
+        if not cast(bool, args.resume):
+            raise CommandError("live-Mistral parse reuse requires --resume")
+        if cast(Path | None, getattr(args, "fixture_markdown_dir", None)) is not None:
+            raise CommandError("live-Mistral parse reuse cannot use fixture Markdown")
     if not dry_run and cast(Path | None, args.materialization_run_card) is None:
         raise CommandError(
             "executed parsing requires canonical materialized documents and "
@@ -51981,6 +52014,7 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
     fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
     parser_root = cast(Path | None, args.parser_root)
     _acquisition_output_root(args)
+    reuse_source: JsonRecord | None = None
     if dry_run:
         output_records: Sequence[Mapping[str, Any]] = (
             {
@@ -51991,7 +52025,16 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
             },
         )
     else:
-        if fixture_markdown_dir is None:
+        if reuse_run_card_path is not None:
+            if reuse_markdown_root is None:
+                raise AssertionError("reuse Markdown root was not validated")
+            output_records, reuse_source = _reuse_live_mistral_parse_outputs(
+                prior_run_card_path=reuse_run_card_path,
+                prior_markdown_root=reuse_markdown_root,
+                requests=requests,
+                output_root=output_root,
+            )
+        elif fixture_markdown_dir is None:
             records = convert_documents_to_markdown(
                 requests,
                 config=MistralParserConfig(
@@ -52003,22 +52046,33 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
                     timeout_seconds=cast(int, args.timeout_seconds),
                 ),
             )
+            output_records = tuple(
+                {
+                    **record.to_record(),
+                    "source_sha256": _required_str(request, "expected_sha256"),
+                    "source_byte_count": _required_int(request, "expected_byte_count"),
+                }
+                for record, request in zip(records, request_records, strict=True)
+            )
         else:
             records = _fixture_markdown_conversion_records(
                 requests,
                 fixture_markdown_dir=fixture_markdown_dir,
                 generated_at=datetime.now(UTC),
             )
-        output_records = tuple(
-            {
-                **record.to_record(),
-                "source_sha256": _required_str(request, "expected_sha256"),
-                "source_byte_count": _required_int(request, "expected_byte_count"),
-            }
-            for record, request in zip(records, request_records, strict=True)
-        )
+            output_records = tuple(
+                {
+                    **record.to_record(),
+                    "source_sha256": _required_str(request, "expected_sha256"),
+                    "source_byte_count": _required_int(request, "expected_byte_count"),
+                }
+                for record, request in zip(records, request_records, strict=True)
+            )
     manifest_bytes = _projection_jsonl_bytes(output_records)
-    _write_jsonl(manifest_path, output_records)
+    if reuse_source is not None:
+        _write_immutable_bytes(manifest_path, manifest_bytes, resume=True)
+    else:
+        _write_jsonl(manifest_path, output_records)
     _require_snapshot_unchanged(
         completion_input_snapshots, label="parse-documents input"
     )
@@ -52124,6 +52178,14 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
                 ),
                 "parser_root": str(effective_parser_root.expanduser().resolve()),
                 "fixture_markdown": fixture_markdown_dir is not None,
+                **(
+                    {
+                        "reused_authenticated_output": True,
+                        "reused_live_mistral": reuse_source,
+                    }
+                    if reuse_source is not None
+                    else {}
+                ),
             },
             "purchase_state_sha256": purchase_state_sha256,
         },
@@ -62986,6 +63048,431 @@ def _mistral_markdown_request(
         expected_byte_count=_required_int(record, "expected_byte_count"),
         captured_source_bytes=captured_source_bytes,
     )
+
+
+def _reuse_live_mistral_parse_outputs(
+    *,
+    prior_run_card_path: Path,
+    prior_markdown_root: Path,
+    requests: Sequence[MistralMarkdownConversionRequest],
+    output_root: Path,
+) -> tuple[tuple[JsonRecord, ...], JsonRecord]:
+    """Authenticate and copy a prior pinned live-Mistral parse exactly once.
+
+    This deliberately accepts relocated source *inputs* but no other historical
+    ambiguity.  In particular, conversion records remain byte-for-byte logical
+    copies of the prior records so their relative Markdown paths still resolve
+    beneath the caller's new output root.
+    """
+
+    _require_safe_reuse_root(prior_markdown_root, label="prior Markdown root")
+    run_card_bytes = _read_singly_linked_regular_input(
+        prior_run_card_path, label="prior live-Mistral parse run card"
+    )
+    run_card = _projection_json_object(run_card_bytes, source=prior_run_card_path)
+    _require_reusable_live_mistral_run_card(run_card)
+    source_commitments = cast(Mapping[str, object], run_card["source_commitments"])
+    output_commitments = cast(Mapping[str, object], run_card["output_commitments"])
+    prior_requests_path, prior_requests_bytes = _committed_reuse_file(
+        source_commitments, name="requests", label="prior parse requests"
+    )
+    prior_manifest_path, prior_manifest_bytes = _committed_reuse_file(
+        output_commitments, name="parser_manifest", label="prior parser manifest"
+    )
+    prior_requests = _projection_jsonl_records(
+        prior_requests_bytes, source=prior_requests_path
+    )
+    prior_records = _projection_jsonl_records(
+        prior_manifest_bytes, source=prior_manifest_path
+    )
+    if run_card.get("record_count") != len(prior_records) or not prior_records:
+        raise CommandError("prior live-Mistral parse card has an invalid record count")
+
+    prior_requests_by_key = _parse_reuse_request_index(
+        prior_requests, label="prior parse requests"
+    )
+    prior_records_by_key = _parse_reuse_record_index(
+        prior_records, label="prior parser manifest"
+    )
+    current_by_key = _parse_reuse_request_object_index(
+        requests, label="current parse requests"
+    )
+    if set(prior_requests_by_key) != set(prior_records_by_key):
+        raise CommandError(
+            "prior live-Mistral requests and conversion manifest do not match"
+        )
+    if set(prior_records_by_key) != set(current_by_key):
+        raise CommandError(
+            "prior live-Mistral outputs do not match current source commitments"
+        )
+
+    copied: list[JsonRecord] = []
+    for key, record in prior_records_by_key.items():
+        old_request = prior_requests_by_key[key]
+        current_request = current_by_key[key]
+        _require_reuse_record_matches_request(
+            record, old_request, label="prior live-Mistral conversion"
+        )
+        _require_reuse_record_matches_request(
+            record,
+            {
+                "candidate_id": current_request.candidate_id,
+                "source_document_id": current_request.source_document_id,
+                "expected_sha256": current_request.expected_sha256,
+                "expected_byte_count": current_request.expected_byte_count,
+            },
+            label="current live-Mistral conversion",
+        )
+        markdown_path, metadata_path = _reuse_artifact_paths(
+            record, root=prior_markdown_root
+        )
+        _require_reuse_record_matches_current_output(
+            record,
+            destination_markdown=current_request.markdown_output_path,
+            output_root=output_root,
+        )
+        markdown_bytes = _read_singly_linked_regular_input(
+            markdown_path, label="prior reused Markdown"
+        )
+        metadata_bytes = _read_singly_linked_regular_input(
+            metadata_path, label="prior reused Markdown metadata"
+        )
+        try:
+            markdown = markdown_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CommandError("prior reused Markdown is not UTF-8") from exc
+        metadata = _projection_json_object(metadata_bytes, source=metadata_path)
+        if metadata != record:
+            raise CommandError(
+                "prior reused Markdown metadata differs from its committed conversion"
+            )
+        _require_reusable_live_mistral_record(record, markdown=markdown)
+        _copy_reused_markdown_pair(
+            markdown_bytes=markdown_bytes,
+            metadata_bytes=metadata_bytes,
+            destination_markdown=current_request.markdown_output_path,
+            output_root=output_root,
+        )
+        copied.append(dict(record))
+    _require_snapshot_unchanged(
+        {
+            prior_run_card_path: run_card_bytes,
+            prior_requests_path: prior_requests_bytes,
+            prior_manifest_path: prior_manifest_bytes,
+        },
+        label="prior live-Mistral parse reuse input",
+    )
+    return tuple(copied), {
+        "prior_run_card": {
+            "path": str(prior_run_card_path.resolve()),
+            "sha256": _bytes_sha256(run_card_bytes),
+        },
+        "prior_requests": {
+            "path": str(prior_requests_path.resolve()),
+            "sha256": _bytes_sha256(prior_requests_bytes),
+        },
+        "prior_parser_manifest": {
+            "path": str(prior_manifest_path.resolve()),
+            "sha256": _bytes_sha256(prior_manifest_bytes),
+        },
+        "prior_markdown_root": str(prior_markdown_root.resolve()),
+        "reused_record_count": len(copied),
+    }
+
+
+def _require_safe_reuse_root(root: Path, *, label: str) -> None:
+    _reject_existing_parent_symlink(root, label=label)
+    try:
+        metadata = root.lstat()
+    except OSError as exc:
+        raise CommandError(f"{label} is missing or unsafe: {root}") from exc
+    if root.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
+        raise CommandError(f"{label} is missing or unsafe: {root}")
+
+
+def _require_reusable_live_mistral_run_card(run_card: Mapping[str, object]) -> None:
+    execution = run_card.get("parser_execution")
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "parse-documents"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or not isinstance(execution, Mapping)
+        or not isinstance(run_card.get("source_commitments"), Mapping)
+        or not isinstance(run_card.get("output_commitments"), Mapping)
+    ):
+        raise CommandError("prior card is not a completed pinned live-Mistral parse")
+    execution_record = cast(Mapping[str, object], execution)
+    if (
+        execution_record.get("mode") != "live_mistral"
+        or execution_record.get("engine") != "mistral"
+        or execution_record.get("parser_revision") != EXPECTED_PARSER_REVISION
+        or execution_record.get("fixture_markdown") is not False
+    ):
+        raise CommandError("prior card is not a completed pinned live-Mistral parse")
+
+
+def _committed_reuse_file(
+    commitments: Mapping[str, object], *, name: str, label: str
+) -> tuple[Path, bytes]:
+    commitment = commitments.get(name)
+    if not isinstance(commitment, Mapping):
+        raise CommandError(f"prior live-Mistral card lacks {name} commitment")
+    commitment_record = cast(Mapping[str, object], commitment)
+    raw_path = commitment_record.get("path")
+    expected_sha256 = commitment_record.get("sha256")
+    if not isinstance(raw_path, str) or not _valid_prefixed_sha256(expected_sha256):
+        raise CommandError(f"prior live-Mistral card has invalid {name} commitment")
+    path = Path(raw_path)
+    payload = _read_singly_linked_regular_input(path, label=label)
+    if _bytes_sha256(payload) != expected_sha256:
+        raise CommandError(f"prior live-Mistral {name} commitment mismatch")
+    return path, payload
+
+
+def _parse_reuse_key(
+    record: Mapping[str, object], *, label: str
+) -> tuple[str, str, str, int]:
+    digest = (
+        _required_str(record, "expected_sha256")
+        if "expected_sha256" in record
+        else _required_str(record, "source_sha256")
+    )
+    byte_count = (
+        _required_int(record, "expected_byte_count")
+        if "expected_byte_count" in record
+        else _required_int(record, "source_byte_count")
+    )
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise CommandError(f"{label} has invalid source SHA-256")
+    return (
+        _required_str(record, "candidate_id"),
+        _required_str(record, "source_document_id"),
+        digest,
+        byte_count,
+    )
+
+
+def _parse_reuse_request_index(
+    records: Sequence[Mapping[str, object]], *, label: str
+) -> dict[tuple[str, str, str, int], JsonRecord]:
+    indexed: dict[tuple[str, str, str, int], JsonRecord] = {}
+    for record in records:
+        key = _parse_reuse_key(record, label=label)
+        if key in indexed:
+            raise CommandError(f"{label} has duplicate source identity")
+        indexed[key] = dict(record)
+    return indexed
+
+
+def _parse_reuse_record_index(
+    records: Sequence[Mapping[str, object]], *, label: str
+) -> dict[tuple[str, str, str, int], JsonRecord]:
+    return _parse_reuse_request_index(records, label=label)
+
+
+def _parse_reuse_request_object_index(
+    requests: Sequence[MistralMarkdownConversionRequest], *, label: str
+) -> dict[tuple[str, str, str, int], MistralMarkdownConversionRequest]:
+    indexed: dict[tuple[str, str, str, int], MistralMarkdownConversionRequest] = {}
+    for request in requests:
+        if request.expected_sha256 is None or request.expected_byte_count is None:
+            raise CommandError(f"{label} lacks source commitments")
+        key = (
+            request.candidate_id,
+            request.source_document_id,
+            request.expected_sha256,
+            request.expected_byte_count,
+        )
+        if key in indexed:
+            raise CommandError(f"{label} has duplicate source identity")
+        indexed[key] = request
+    return indexed
+
+
+def _require_reuse_record_matches_request(
+    record: Mapping[str, object], request: Mapping[str, object], *, label: str
+) -> None:
+    if _parse_reuse_key(record, label=label) != _parse_reuse_key(request, label=label):
+        raise CommandError(f"{label} source commitment mismatch")
+
+
+def _reuse_artifact_paths(
+    record: Mapping[str, object], *, root: Path
+) -> tuple[Path, Path]:
+    markdown_name = _required_str(record, "markdown_path")
+    metadata_name = _required_str(record, "metadata_path")
+    markdown_relative = Path(markdown_name)
+    metadata_relative = Path(metadata_name)
+    if (
+        markdown_relative.is_absolute()
+        or metadata_relative.is_absolute()
+        or markdown_relative.suffix != ".md"
+        or metadata_relative != markdown_relative.with_suffix(".metadata.json")
+    ):
+        raise CommandError("prior conversion has invalid Markdown output suffixes")
+    try:
+        markdown_path = _resolve_under(
+            root, markdown_relative, field_name="prior markdown"
+        )
+        metadata_path = _resolve_under(
+            root, metadata_relative, field_name="prior metadata"
+        )
+    except ValueError as exc:
+        raise CommandError(str(exc)) from exc
+    return markdown_path, metadata_path
+
+
+def _require_reuse_record_matches_current_output(
+    record: Mapping[str, object], *, destination_markdown: Path, output_root: Path
+) -> None:
+    """Require the historical relative artifact name to fit this output layout."""
+
+    try:
+        destination_markdown.resolve().relative_to(output_root.resolve())
+    except ValueError as exc:
+        raise CommandError(
+            "reused Markdown output escapes the current output root"
+        ) from exc
+    artifact_root = destination_markdown.parent.parent
+    try:
+        expected_markdown_path = destination_markdown.resolve().relative_to(
+            artifact_root.resolve()
+        )
+    except ValueError as exc:
+        raise CommandError(
+            "current Markdown output has an invalid artifact root"
+        ) from exc
+    if _required_str(record, "markdown_path") != expected_markdown_path.as_posix():
+        raise CommandError(
+            "prior conversion Markdown path differs from the current output layout"
+        )
+
+
+def _require_reusable_live_mistral_record(
+    record: Mapping[str, object], *, markdown: str
+) -> None:
+    if record.get("status") != MistralMarkdownConversionStatus.SUCCEEDED.value:
+        raise CommandError("prior conversion did not succeed")
+    config = record.get("parser_config")
+    extracted = record.get("extracted_text")
+    if not isinstance(config, Mapping) or not isinstance(extracted, Mapping):
+        raise CommandError("prior conversion lacks live-Mistral parser provenance")
+    config_record = cast(Mapping[str, object], config)
+    extracted_record = cast(Mapping[str, object], extracted)
+    command = config_record.get("command")
+    if not isinstance(command, list):
+        raise CommandError("prior conversion has an unclean Mistral parser config")
+    command_objects = cast(list[object], command)
+    if not all(isinstance(value, str) for value in command_objects):
+        raise CommandError("prior conversion has an unclean Mistral parser config")
+    command_values = cast(list[str], command_objects)
+    if (
+        config_record.get("engine") != "mistral"
+        or config_record.get("parser_revision") != EXPECTED_PARSER_REVISION
+        or config_record.get("expected_parser_revision") != EXPECTED_PARSER_REVISION
+        or config_record.get("debug") is not False
+        or not isinstance(config_record.get("timeout_seconds"), int)
+        or isinstance(config_record.get("timeout_seconds"), bool)
+        or not isinstance(config_record.get("parser_root"), str)
+        or command_values[:3] != ["uv", "run", "parser-pdf"]
+        or len(command_values) != 7
+        or command_values[3] != "--file"
+        or not command_values[4]
+        or command_values[5:] != ["--mistral", "--no-ocr"]
+    ):
+        raise CommandError("prior conversion has an unclean Mistral parser config")
+    quality_flags = record.get("quality_flags")
+    extracted_flags = extracted_record.get("quality_flags")
+    if not isinstance(quality_flags, list):
+        raise CommandError("prior conversion Markdown text provenance mismatch")
+    quality_flag_objects = cast(list[object], quality_flags)
+    if not all(isinstance(flag, str) for flag in quality_flag_objects):
+        raise CommandError("prior conversion Markdown text provenance mismatch")
+    quality_flag_values = cast(list[str], quality_flag_objects)
+    if (
+        extracted_flags != quality_flag_values
+        or extracted_record.get("source_document_id")
+        != record.get("source_document_id")
+        or extracted_record.get("extraction_method") != "mistral_parser_markdown"
+        or extracted_record.get("text_sha256") != sha256_text(markdown)
+    ):
+        raise CommandError("prior conversion Markdown text provenance mismatch")
+
+
+def _copy_reused_markdown_pair(
+    *,
+    markdown_bytes: bytes,
+    metadata_bytes: bytes,
+    destination_markdown: Path,
+    output_root: Path,
+) -> None:
+    try:
+        destination_markdown.resolve().relative_to(output_root.resolve())
+    except ValueError as exc:
+        raise CommandError(
+            "reused Markdown output escapes the current output root"
+        ) from exc
+    destination_metadata = destination_markdown.with_suffix(".metadata.json")
+    _reject_existing_parent_symlink(
+        destination_markdown, label="reused Markdown output"
+    )
+    _reject_existing_parent_symlink(
+        destination_metadata, label="reused Markdown metadata"
+    )
+    destination_markdown.parent.mkdir(parents=True, exist_ok=True)
+    parent_before = _reused_markdown_parent_identity(destination_markdown.parent)
+    markdown_exists = destination_markdown.exists() or destination_markdown.is_symlink()
+    metadata_exists = destination_metadata.exists() or destination_metadata.is_symlink()
+    if markdown_exists != metadata_exists:
+        raise CommandError("reused Markdown output has a partial existing pair")
+    if markdown_exists:
+        if (
+            _read_singly_linked_regular_input(
+                destination_markdown, label="existing reused Markdown output"
+            )
+            != markdown_bytes
+            or _read_singly_linked_regular_input(
+                destination_metadata, label="existing reused Markdown metadata"
+            )
+            != metadata_bytes
+        ):
+            raise CommandError(
+                "existing reused Markdown pair differs from prior output"
+            )
+        if (
+            _reused_markdown_parent_identity(destination_markdown.parent)
+            != parent_before
+        ):
+            raise CommandError("reused Markdown output parent changed during reuse")
+        return
+    _write_immutable_bytes(destination_markdown, markdown_bytes, resume=True)
+    _write_immutable_bytes(destination_metadata, metadata_bytes, resume=True)
+    if (
+        _read_singly_linked_regular_input(
+            destination_markdown, label="reused Markdown output"
+        )
+        != markdown_bytes
+        or _read_singly_linked_regular_input(
+            destination_metadata, label="reused Markdown metadata"
+        )
+        != metadata_bytes
+    ):
+        raise CommandError("reused Markdown output changed during reuse")
+    if _reused_markdown_parent_identity(destination_markdown.parent) != parent_before:
+        raise CommandError("reused Markdown output parent changed during reuse")
+
+
+def _reused_markdown_parent_identity(path: Path) -> tuple[int, int]:
+    _reject_existing_parent_symlink(path, label="reused Markdown output")
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        raise CommandError(f"reused Markdown output parent is unsafe: {path}") from exc
+    if path.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
+        raise CommandError(f"reused Markdown output parent is unsafe: {path}")
+    return metadata.st_dev, metadata.st_ino
 
 
 def _planned_parse_document_request(
