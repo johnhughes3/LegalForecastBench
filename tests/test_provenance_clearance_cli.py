@@ -5,8 +5,9 @@ import json
 import os
 from argparse import Namespace
 from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import legalforecast.cli as cli_module
 import pytest
@@ -524,7 +525,9 @@ def test_provenance_planner_v3_emits_reviewer_neutral_artifacts_and_resumes(
 
 
 def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     paths = _inputs(tmp_path)
     operation_key = "00000000-0000-4000-8000-000000000000"
@@ -586,7 +589,27 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         "candidate_id": "case-a",
         "source_document_id": recovered_document_id,
         "operation_key": operation_key,
-        "material_evidence": {"provider_detail_sha256": fresh_sha},
+        "status": "queued",
+        "actual_usd": None,
+        "reconciliation": None,
+        "error": None,
+        "reservation_usd": "3.05",
+        "response": {
+            "source_provider": "courtlistener.recap-fetch+pacer",
+            "reservation_usd": "3.05",
+            "queue_id": "77",
+            "reservation_id": f"direct:{operation_key}",
+        },
+        "material_evidence": {
+            "provider_detail_sha256": fresh_sha,
+            "queue_response_sha256": "8" * 64,
+        },
+    }
+    successor_operation = {
+        "candidate_id": "case-successor",
+        "source_document_id": "successor-document",
+        "operation_key": "11111111-1111-4111-8111-111111111111",
+        "status": "completed",
     }
     recovery_root = tmp_path / "recovery"
     recovery_run_card_path = (
@@ -635,6 +658,7 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         "manifest_records": [manifest[recovered_index]],
         "historical_purchase_operations": (operation,),
         "historical_purchase_state_sha256": purchase_state_sha256,
+        "purchase_policy_sha256": "1" * 64,
         "terminal_unavailable_path": None,
         "verified_artifact_bytes": {
             os.path.abspath(
@@ -679,9 +703,9 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         cli_module,
         "read_case_dev_purchase_snapshot",
         lambda *_a, **_k: Namespace(
-            committed_amount_usd="0.00",
-            purchase_state_sha256=purchase_state_sha256,
-            operations=(operation,),
+            committed_amount_usd="3.05",
+            purchase_state_sha256="9" * 64,
+            operations=(operation, successor_operation),
         ),
     )
 
@@ -697,9 +721,14 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         payload = capture(
             successor_history_card, label="successor history recovery run card"
         )
-        return kwargs["current_snapshot"], {
-            os.path.abspath(successor_history_card): payload
-        }
+        current_operations = cast(Any, kwargs["current_snapshot"]).operations
+        assert len(current_operations) == 2
+        assert current_operations[1] == successor_operation
+        return Namespace(
+            committed_amount_usd="0.00",
+            purchase_state_sha256=purchase_state_sha256,
+            operations=(current_operations[0],),
+        ), {os.path.abspath(successor_history_card): payload}
 
     monkeypatch.setattr(
         cli_module,
@@ -722,13 +751,47 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         "--recovery-cohort-policy",
         str(cohort_policy),
     ]
+    successor_history_arguments = [
+        "--successor-history-recovery-root",
+        str(successor_history_root),
+        "--successor-history-controlled-private-root",
+        str(successor_history_private_root),
+    ]
     _install_document_scanner(monkeypatch)
+
+    partial_plan_paths = {
+        **paths,
+        "output": tmp_path / "partial-history-plan",
+        "private": tmp_path.parent / f"{tmp_path.name}-partial-history-plan-private",
+    }
+    assert (
+        main(
+            [
+                *_plan_command(partial_plan_paths, schema_version="v3"),
+                *verification_arguments,
+                "--successor-history-recovery-root",
+                str(successor_history_root),
+            ]
+        )
+        == 2
+    )
+    assert (
+        "successor history recovery and controlled-private roots must be supplied "
+        "together" in capsys.readouterr().err
+    )
+    assert not (
+        partial_plan_paths["output"] / "disclosure-provenance-plan.json"
+    ).exists()
+    assert not (
+        partial_plan_paths["output"] / "disclosure-exception-worksheet.json"
+    ).exists()
 
     assert (
         main(
             [
                 *_plan_command(paths, schema_version="v3"),
                 *verification_arguments,
+                *successor_history_arguments,
             ]
         )
         == 0
@@ -762,10 +825,136 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         ).hexdigest(),
         "purchase_operation_key": operation_key,
         "fresh_recap_detail_sha256": fresh_sha,
+        **cli_module._direct_queue_delivery_lineage(  # pyright: ignore[reportPrivateUsage]
+            operation,
+            purchase_policy_sha256="1" * 64,
+            recovery_run_card_sha256=hashlib.sha256(
+                recovery_run_card_path.read_bytes()
+            ).hexdigest(),
+            recovery_manifest_sha256=hashlib.sha256(
+                paths["manifest"].read_bytes()
+            ).hexdigest(),
+            recovery_restriction_sha256=hashlib.sha256(
+                paths["restrictions"].read_bytes()
+            ).hexdigest(),
+            purchase_state_sha256=purchase_state_sha256,
+        ),
     }
     assert marker_plan["route"] == "exception_review"
     assert marker_plan["route_reasons"] == ["automated_marker_present"]
     assert marker_plan["recovered_public_lineage"] == lineage
+    expected_direct_queue_authority = {
+        "schema_version": (
+            "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+        ),
+        "source_provider": "courtlistener.recap-fetch+pacer",
+        "purchase_status": "queued",
+        "operation_key": operation_key,
+        "queue_id": "77",
+        "reservation_id": f"direct:{operation_key}",
+        "reservation_usd": "3.05",
+        "queue_response_sha256": "8" * 64,
+        "purchase_policy_sha256": "1" * 64,
+        "purchase_operation_sha256": hashlib.sha256(
+            json.dumps(
+                operation,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode()
+        ).hexdigest(),
+        "purchase_response_sha256": hashlib.sha256(
+            json.dumps(
+                operation["response"],
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode()
+        ).hexdigest(),
+        "recovery_run_card_sha256": hashlib.sha256(
+            recovery_run_card_path.read_bytes()
+        ).hexdigest(),
+        "recovery_manifest_sha256": hashlib.sha256(
+            paths["manifest"].read_bytes()
+        ).hexdigest(),
+        "recovery_restriction_evidence_sha256": hashlib.sha256(
+            paths["restrictions"].read_bytes()
+        ).hexdigest(),
+        "purchase_state_sha256": purchase_state_sha256,
+    }
+    assert (
+        marker_plan["recovered_public_lineage"]["direct_queue_delivery_authority"]
+        == expected_direct_queue_authority
+    )
+    plan_run_card_path = paths["output"] / "run-cards/plan-disclosure-provenance.json"
+    plan_run_card = json.loads(plan_run_card_path.read_bytes())
+    plan_history = plan_run_card["authenticated_successor_history"]
+    assert plan_history == {
+        "recovery_root": str(successor_history_root.resolve()),
+        "initial_controlled_private_root": str(paths["private"].resolve()),
+        "controlled_private_root": str(successor_history_private_root.resolve()),
+        "replayed_purchase_state_sha256": purchase_state_sha256,
+        "source_names": ["successor_history_source_0000"],
+    }
+    assert plan_run_card["source_commitments"]["successor_history_source_0000"] == {
+        "path": str(successor_history_card.resolve()),
+        "sha256": "sha256:"
+        + hashlib.sha256(successor_history_card.read_bytes()).hexdigest(),
+    }
+    base_input_count = 4
+    assert plan_run_card["input_paths"][base_input_count] == str(
+        successor_history_card.resolve()
+    )
+
+    drift_paths = {
+        **paths,
+        "output": tmp_path / "history-drift-plan",
+        "private": tmp_path.parent / f"{tmp_path.name}-history-drift-plan-private",
+    }
+    original_verifier = cli_module._verified_recovered_public_clearance_capability
+    verifier_calls = 0
+    original_history_bytes = successor_history_card.read_bytes()
+
+    def drift_history_after_first_verification(
+        *args: object, **kwargs: object
+    ) -> object:
+        nonlocal verifier_calls
+        result = original_verifier(*args, **kwargs)  # type: ignore[arg-type]
+        verifier_calls += 1
+        if verifier_calls == 1:
+            successor_history_card.write_bytes(b"changed after verification\n")
+        return result
+
+    monkeypatch.setattr(
+        cli_module,
+        "_verified_recovered_public_clearance_capability",
+        drift_history_after_first_verification,
+    )
+    assert (
+        main(
+            [
+                *_plan_command(drift_paths, schema_version="v3"),
+                *verification_arguments,
+                *successor_history_arguments,
+            ]
+        )
+        == 2
+    )
+    assert (
+        "successor history changed before disclosure-plan publication"
+        in capsys.readouterr().err
+    )
+    assert not (drift_paths["output"] / "disclosure-provenance-plan.json").exists()
+    assert not (drift_paths["output"] / "disclosure-exception-worksheet.json").exists()
+    assert not (
+        drift_paths["private"] / "private-document-inspection-map.jsonl"
+    ).exists()
+    successor_history_card.write_bytes(original_history_bytes)
+    monkeypatch.setattr(
+        cli_module,
+        "_verified_recovered_public_clearance_capability",
+        original_verifier,
+    )
 
     monkeypatch.setattr(cli_module, "verify_cohort_policy", lambda _: "1" * 64)
     monkeypatch.setattr(
@@ -781,13 +970,66 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
             )
         )
     )
+    original_plan_run_card = plan_run_card_path.read_bytes()
+    tampered_plan_cards: list[tuple[str, dict[str, object], str]] = []
+    missing_history = deepcopy(plan_run_card)
+    missing_history.pop("authenticated_successor_history")
+    tampered_plan_cards.append(
+        (
+            "missing-history",
+            missing_history,
+            "requires the exact completed v3 plan run card",
+        )
+    )
+    rebound_history = deepcopy(plan_run_card)
+    cast(
+        dict[str, object],
+        cast(dict[str, object], rebound_history["source_commitments"])[
+            "successor_history_source_0000"
+        ],
+    )["path"] = str(paths["manifest"].resolve())
+    tampered_plan_cards.append(
+        (
+            "rebound-history",
+            rebound_history,
+            "successor_history_source_0000 commitment mismatch",
+        )
+    )
+    for label, tampered_plan_card, expected_error in tampered_plan_cards:
+        plan_run_card_path.write_bytes(
+            (
+                json.dumps(
+                    tampered_plan_card,
+                    indent=2,
+                    sort_keys=True,
+                    allow_nan=False,
+                )
+                + "\n"
+            ).encode()
+        )
+        rejected_root = tmp_path / f"rejected-plan-{label}"
+        assert (
+            main(
+                [
+                    *_public_marker_command(
+                        paths,
+                        cohort_policy=cohort_policy,
+                        public_marker_policy=public_marker_policy,
+                        clearance_root=rejected_root,
+                        resume=True,
+                    ),
+                    *verification_arguments,
+                    *successor_history_arguments,
+                ]
+            )
+            == 2
+        )
+        assert expected_error in capsys.readouterr().err
+        assert not (rejected_root / "disclosure-clearance.jsonl").exists()
+        assert not (rejected_root / "disclosure-quarantine.jsonl").exists()
+    plan_run_card_path.write_bytes(original_plan_run_card)
+
     clearance_root = tmp_path / "provider-free-clearance"
-    successor_history_arguments = [
-        "--successor-history-recovery-root",
-        str(successor_history_root),
-        "--successor-history-controlled-private-root",
-        str(successor_history_private_root),
-    ]
     partial_history_root = tmp_path / "partial-history-clearance"
     assert (
         main(
@@ -847,6 +1089,10 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         f"courtlistener-rest://recap-documents/{recovered_document_id}"
     )
     assert marker["recovered_public_lineage"] == lineage
+    assert (
+        marker["recovered_public_lineage"]["direct_queue_delivery_authority"]
+        == expected_direct_queue_authority
+    )
     clearance_path = clearance_root / "disclosure-clearance.jsonl"
     clearance_run_card_path = (
         clearance_root / "run-cards/finalize-provenance-quarantine.json"
@@ -1076,7 +1322,7 @@ def test_recovered_public_marker_policy_flows_through_planner_and_finalizer(
         lambda *_a, **_k: Namespace(
             committed_amount_usd="0.00",
             purchase_state_sha256=purchase_state_sha256,
-            operations=(changed_operation,),
+            operations=(changed_operation, successor_operation),
         ),
     )
     with pytest.raises(cli_module.CommandError, match="purchase state"):
