@@ -485,6 +485,25 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
     assert cli._cmd_build_replacement_recovery_source(args) == 0
 
 
+def test_producer_authenticates_mutated_ledger_by_semantic_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, _, _ = _fixture(tmp_path, monkeypatch, successor=True)
+    ledger = cast(Path, args.purchase_ledger)
+    ledger.write_bytes(b"post-resolution ledger bytes")
+
+    assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+    card_path = (
+        cast(Path, args.output_root)
+        / "run-cards"
+        / "build-replacement-recovery-source-0001.json"
+    )
+    source_paths = set(json.loads(card_path.read_bytes())["source_commitments"])
+    assert str(ledger.resolve()) not in source_paths
+
+
 @pytest.mark.parametrize(
     "schema_version",
     [

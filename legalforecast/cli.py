@@ -26288,6 +26288,12 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 resolved_coordinates.input_sha256,
                 strict=True,
             ):
+                # The resolver mutates the ledger itself. Its semantic state is
+                # authenticated above by the transition capability and the
+                # resolver's before/after hashes, so stale SQLite bytes from the
+                # frozen input commitment must not be treated as immutable input.
+                if path.resolve() == ledger_path:
+                    continue
                 if (
                     _bytes_sha256(
                         capture(path, label="replacement recovery resolver input")
