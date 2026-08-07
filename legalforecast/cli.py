@@ -42017,6 +42017,56 @@ def _recovered_public_routing_lineage_matches(
     return True
 
 
+def _recovered_public_routing_plan_matches(
+    frozen_plan: Mapping[str, Any],
+    replayed_plan: Mapping[str, Any],
+) -> bool:
+    """Compare a routing plan across the v2/v3 additive-authority change."""
+
+    if frozen_plan == replayed_plan:
+        return True
+    if frozen_plan.get("schema_version") not in {
+        "legalforecast.disclosure_provenance_routing_plan.v2",
+        "legalforecast.disclosure_provenance_routing_plan.v3",
+    }:
+        return False
+    frozen_documents = frozen_plan.get("documents")
+    replayed_documents = replayed_plan.get("documents")
+    if not isinstance(frozen_documents, list) or not isinstance(
+        replayed_documents, list
+    ):
+        return False
+    frozen_document_rows = cast(list[object], frozen_documents)
+    replayed_document_rows = cast(list[object], replayed_documents)
+    if len(frozen_document_rows) != len(replayed_document_rows):
+        return False
+    projected_documents: list[object] = []
+    for frozen_document, replayed_document in zip(
+        frozen_document_rows, replayed_document_rows, strict=True
+    ):
+        if not isinstance(frozen_document, Mapping) or not isinstance(
+            replayed_document, Mapping
+        ):
+            return False
+        frozen_document_row = cast(Mapping[str, Any], frozen_document)
+        replayed_document_row = cast(Mapping[str, Any], replayed_document)
+        frozen_lineage = frozen_document_row.get("recovered_public_lineage")
+        replayed_lineage = replayed_document_row.get("recovered_public_lineage")
+        projected_document = dict(replayed_document_row)
+        if (
+            isinstance(frozen_lineage, Mapping)
+            and isinstance(replayed_lineage, Mapping)
+            and "direct_queue_delivery_authority" not in frozen_lineage
+        ):
+            projected_lineage = dict(cast(Mapping[str, Any], replayed_lineage))
+            projected_lineage.pop("direct_queue_delivery_authority", None)
+            projected_document["recovered_public_lineage"] = projected_lineage
+        projected_documents.append(projected_document)
+    projected_plan = dict(replayed_plan)
+    projected_plan["documents"] = projected_documents
+    return frozen_plan == projected_plan
+
+
 def _materializer_record_key(record: Mapping[str, Any]) -> tuple[str, str]:
     return (
         _required_str(record, "candidate_id"),
@@ -49331,8 +49381,10 @@ def _verify_provider_free_provenance_quarantine_run_card(
             verified_recovery_capability=recovery_capability,
         )
         plan_bytes = canonical_json_bytes(plan)
-        if plan_bytes != source_bytes["routing_plan"]:
+        if not _recovered_public_routing_plan_matches(frozen_plan, plan):
             raise ProvenanceClearanceError("v3 routing plan replay mismatch")
+        plan = frozen_plan
+        plan_bytes = source_bytes["routing_plan"]
         worksheet = exception_review_worksheet_v3(plan)
         worksheet_bytes = canonical_json_bytes(worksheet)
         if worksheet_bytes != source_bytes["exception_worksheet"]:

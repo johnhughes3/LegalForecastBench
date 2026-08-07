@@ -447,3 +447,61 @@ def test_routing_lineage_still_rejects_claimed_or_base_field_drift() -> None:
         [authenticated],
         routing_schema_version="legalforecast.disclosure_provenance_routing_plan.v2",
     )
+
+
+def test_legacy_routing_plan_allows_only_omitted_additive_authority() -> None:
+    lineage = {
+        "candidate_id": "case-a",
+        "source_document_id": "123",
+        "purchase_operation_sha256": "1" * 64,
+    }
+    authority = {"queue_id": "77"}
+    frozen = {
+        "schema_version": "legalforecast.disclosure_provenance_routing_plan.v3",
+        "documents": [
+            {
+                "candidate_id": "case-a",
+                "source_document_id": "123",
+                "route": "auto_clear",
+                "recovered_public_lineage": lineage,
+            }
+        ],
+    }
+    replayed = {
+        **frozen,
+        "documents": [
+            {
+                **cast(list[dict[str, object]], frozen["documents"])[0],
+                "recovered_public_lineage": {
+                    **lineage,
+                    "direct_queue_delivery_authority": authority,
+                },
+            }
+        ],
+    }
+
+    assert cli._recovered_public_routing_plan_matches(  # pyright: ignore[reportPrivateUsage]
+        frozen, replayed
+    )
+    assert not cli._recovered_public_routing_plan_matches(  # pyright: ignore[reportPrivateUsage]
+        frozen,
+        {
+            **replayed,
+            "documents": [
+                {
+                    **cast(list[dict[str, object]], replayed["documents"])[0],
+                    "route": "john_review",
+                }
+            ],
+        },
+    )
+    assert not cli._recovered_public_routing_plan_matches(  # pyright: ignore[reportPrivateUsage]
+        {
+            **frozen,
+            "schema_version": "legalforecast.disclosure_provenance_routing_plan.v4",
+        },
+        {
+            **replayed,
+            "schema_version": "legalforecast.disclosure_provenance_routing_plan.v4",
+        },
+    )
