@@ -301,6 +301,13 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
+from legalforecast.ingestion.cycle_lineage_index import (
+    INDEX_ENVIRONMENT_VARIABLE,
+    CycleLineageIndexError,
+    locate_cycle_lineage,
+    register_cycle_lineage,
+    register_cycle_stage_head,
+)
 from legalforecast.ingestion.cycle_manifest_template import (
     CycleManifestTemplateError,
     render_cycle_config,
@@ -1525,6 +1532,43 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_cycle_path_metadata_arguments(acquisition_cycle_path_metadata)
+    acquisition_register_cycle_lineage = acquisition_subparsers.add_parser(
+        "register-cycle-lineage",
+        help="Verify and register a rebuildable local acquisition-cycle lineage.",
+        description=(
+            "Re-authenticate an acquisition cycle's immutable receipts and add its "
+            "local config/state location to an advisory discovery index. The index "
+            "does not grant purchase, evaluation, freeze, dispatch, or publication "
+            "authority and can be rebuilt from the authoritative cycle records."
+        ),
+    )
+    _add_acquisition_register_cycle_lineage_arguments(
+        acquisition_register_cycle_lineage
+    )
+    acquisition_register_cycle_stage_head = acquisition_subparsers.add_parser(
+        "register-cycle-stage-head",
+        help="Verify and register a directly executed acquisition stage head.",
+        description=(
+            "Content-authenticate a completed standalone acquisition run card and "
+            "its outputs, then add it to the same rebuildable advisory lineage "
+            "index used for coordinator roots. This supports reviewed direct "
+            "continuations without promoting a failed card or granting authority."
+        ),
+    )
+    _add_acquisition_register_cycle_stage_head_arguments(
+        acquisition_register_cycle_stage_head
+    )
+    acquisition_locate_cycle_lineage = acquisition_subparsers.add_parser(
+        "locate-cycle-lineage",
+        help="Locate and re-authenticate the unique current acquisition lineage.",
+        description=(
+            "Read an advisory local index, reject stale or ambiguous heads, then "
+            "re-authenticate the selected cycle receipts and artifacts before "
+            "reporting VERIFIED. No provider, purchase, evaluation, freeze, "
+            "dispatch, or publication action is performed."
+        ),
+    )
+    _add_acquisition_locate_cycle_lineage_arguments(acquisition_locate_cycle_lineage)
     acquisition_run_cycle = acquisition_subparsers.add_parser(
         "run-cycle",
         help=(
@@ -2908,6 +2952,88 @@ def _add_acquisition_cycle_path_metadata_arguments(
         help="Canonical private cycle-path-metadata.json output path.",
     )
     parser.set_defaults(handler=_cmd_acquisition_cycle_path_metadata)
+
+
+def _add_cycle_lineage_index_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--index",
+        type=Path,
+        help=(
+            "Absolute advisory index path. Defaults to the "
+            f"{INDEX_ENVIRONMENT_VARIABLE} environment variable so a fresh "
+            "worktree can locate the same machine-local lineage state."
+        ),
+    )
+
+
+def _add_acquisition_register_cycle_lineage_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_cycle_lineage_index_argument(parser)
+    parser.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="Absolute canonical acquisition-cycle config to authenticate.",
+    )
+    parser.add_argument(
+        "--state-root",
+        type=Path,
+        required=True,
+        help="Absolute receipt-backed acquisition coordinator state root.",
+    )
+    parser.add_argument(
+        "--code-commit",
+        required=True,
+        help="Lowercase 40-character commit of the code performing verification.",
+    )
+    parser.add_argument(
+        "--supersedes-config-sha256",
+        help="Registered predecessor config SHA-256 superseded by this lineage.",
+    )
+    parser.add_argument("--json", action="store_true", help="Emit stable JSON output.")
+    parser.set_defaults(handler=_cmd_acquisition_register_cycle_lineage)
+
+
+def _add_acquisition_locate_cycle_lineage_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_cycle_lineage_index_argument(parser)
+    parser.add_argument(
+        "--cycle-id",
+        help="Cycle to locate. Required only when the index contains multiple cycles.",
+    )
+    parser.add_argument("--json", action="store_true", help="Emit stable JSON output.")
+    parser.set_defaults(handler=_cmd_acquisition_locate_cycle_lineage)
+
+
+def _add_acquisition_register_cycle_stage_head_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_cycle_lineage_index_argument(parser)
+    parser.add_argument("--cycle-id", required=True, help="Cycle identifier.")
+    parser.add_argument(
+        "--command",
+        required=True,
+        help="Reviewed acquisition command that produced the completion card.",
+    )
+    parser.add_argument(
+        "--run-card",
+        type=Path,
+        required=True,
+        help="Absolute completed acquisition run-card path.",
+    )
+    parser.add_argument(
+        "--code-commit",
+        required=True,
+        help="Lowercase 40-character commit of the code performing verification.",
+    )
+    parser.add_argument(
+        "--supersedes-root-identity-sha256",
+        help="Registered predecessor root identity superseded by this stage head.",
+    )
+    parser.add_argument("--json", action="store_true", help="Emit stable JSON output.")
+    parser.set_defaults(handler=_cmd_acquisition_register_cycle_stage_head)
 
 
 def _add_acquisition_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -18014,6 +18140,96 @@ def _cmd_acquisition_cycle_path_metadata(args: argparse.Namespace) -> int:
     except CyclePathMetadataError as exc:
         raise CommandError(str(exc)) from exc
     print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cycle_lineage_index_path(args: argparse.Namespace) -> Path:
+    configured = cast(Path | None, args.index)
+    if configured is not None:
+        return configured
+    environment_value = os.environ.get(INDEX_ENVIRONMENT_VARIABLE)
+    if not environment_value:
+        raise CommandError(
+            "cycle lineage index is not configured; pass --index or set "
+            f"{INDEX_ENVIRONMENT_VARIABLE}"
+        )
+    return Path(environment_value)
+
+
+def _cmd_acquisition_register_cycle_lineage(args: argparse.Namespace) -> int:
+    """Verify and add one candidate to the rebuildable advisory index."""
+
+    try:
+        result = register_cycle_lineage(
+            index_path=_cycle_lineage_index_path(args),
+            config_path=cast(Path, args.config),
+            state_root=cast(Path, args.state_root),
+            code_commit=cast(str, args.code_commit),
+            supersedes_config_sha256=cast(str | None, args.supersedes_config_sha256),
+        )
+    except CycleLineageIndexError as exc:
+        raise CommandError(str(exc)) from exc
+    if cast(bool, args.json) or not sys.stdout.isatty():
+        print(json.dumps(result, sort_keys=True))
+    else:
+        print(
+            f"registered {result['cycle_id']} config {result['config_sha256']} "
+            f"({result['completed_stage_count']}/{result['stage_count']} stages)"
+        )
+    return 0
+
+
+def _cmd_acquisition_locate_cycle_lineage(args: argparse.Namespace) -> int:
+    """Locate and authenticate the unique current lineage."""
+
+    try:
+        result = locate_cycle_lineage(
+            index_path=_cycle_lineage_index_path(args),
+            cycle_id=cast(str | None, args.cycle_id),
+        )
+    except CycleLineageIndexError as exc:
+        raise CommandError(str(exc)) from exc
+    if cast(bool, args.json) or not sys.stdout.isatty():
+        print(json.dumps(result, sort_keys=True))
+    else:
+        print(
+            f"{result['cycle_id']}: {result['verification']} "
+            f"stage={result['stage']} status={result['stage_status']}"
+        )
+        decisions = cast(list[object], result["human_decisions"])
+        for raw_decision in decisions:
+            if isinstance(raw_decision, Mapping):
+                decision = cast(Mapping[str, object], raw_decision)
+                print(
+                    f"human decision {decision['stage']}: {decision['status']} "
+                    f"({decision['verification']})"
+                )
+    return 0
+
+
+def _cmd_acquisition_register_cycle_stage_head(args: argparse.Namespace) -> int:
+    """Verify and add one directly executed completion to the advisory index."""
+
+    try:
+        result = register_cycle_stage_head(
+            index_path=_cycle_lineage_index_path(args),
+            cycle_id=cast(str, args.cycle_id),
+            command=cast(str, args.command),
+            run_card_path=cast(Path, args.run_card),
+            code_commit=cast(str, args.code_commit),
+            supersedes_root_identity_sha256=cast(
+                str | None, args.supersedes_root_identity_sha256
+            ),
+        )
+    except CycleLineageIndexError as exc:
+        raise CommandError(str(exc)) from exc
+    if cast(bool, args.json) or not sys.stdout.isatty():
+        print(json.dumps(result, sort_keys=True))
+    else:
+        print(
+            f"registered {result['cycle_id']} stage {result['stage']} "
+            f"root {result['root_identity_sha256']}"
+        )
     return 0
 
 

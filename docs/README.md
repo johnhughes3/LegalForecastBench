@@ -63,6 +63,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 - [acquisition-cycle-config-v1.md](schemas/acquisition-cycle-config-v1.md): the immutable operator plan consumed by `acquisition run-cycle`.
 - [acquisition-cycle-template-v1.md](schemas/acquisition-cycle-template-v1.md): how `acquisition render-cycle-config` turns a path-parameterized template into that immutable config.
+- [cycle-lineage-index-v1.md](schemas/cycle-lineage-index-v1.md): rebuildable, machine-local discovery of the uniquely current receipt-backed cycle lineage and human-decision state.
 
 **Discovery and screening**
 
