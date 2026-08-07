@@ -63212,14 +63212,17 @@ def _copy_reused_markdown_pair(
         )
         != metadata_bytes
     ):
-        raise CommandError("reused Markdown output changed during publication")
+        raise CommandError("reused Markdown output changed during reuse")
     if _reused_markdown_parent_identity(destination_markdown.parent) != parent_before:
-        raise CommandError("reused Markdown output parent changed during publication")
+        raise CommandError("reused Markdown output parent changed during reuse")
 
 
 def _reused_markdown_parent_identity(path: Path) -> tuple[int, int]:
     _reject_existing_parent_symlink(path, label="reused Markdown output")
-    metadata = path.lstat()
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        raise CommandError(f"reused Markdown output parent is unsafe: {path}") from exc
     if path.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
         raise CommandError(f"reused Markdown output parent is unsafe: {path}")
     return metadata.st_dev, metadata.st_ino
