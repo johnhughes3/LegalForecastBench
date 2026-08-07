@@ -35,7 +35,8 @@ When the canonical ledger has advanced through a later authenticated successor, 
 
 If resolver publication changed material state after either recovery, supply the disjoint resolver card as `--additional-resolved-post-recovery-run-card`.
 
-For an initial source, the producer reverses its own resolver and then the later successor resolver before replaying successor history; for a successor source, it reverses the later initial resolver and then its own resolver.
+Cards are consumed in reverse state-transition order.
+For an initial source, the primary `--resolved-post-recovery-run-card` must end at the live state and the additional card must end at the primary card's before-state; for a successor source, the additional card must end at the live state and the primary card must end at the additional card's before-state.
 
 Each reversal is limited to the resolver-bound `material_state`, `clearance_record_sha256`, and `resolved_document_sha256` fields, and the reconstructed state must reproduce both committed state digests exactly.
 

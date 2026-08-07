@@ -26054,14 +26054,22 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             clearance_path=clearance_coordinates.clearance_path,
             run_card_path=clearance_card_path,
             authority_transition_capability=transition_capability,
-            attempt_transition_capability=transition_capability,
+            attempt_transition_capability=(
+                transition_capability
+                if successor_history_recovery_root is not None
+                else None
+            ),
             resolved_transition_prior_snapshot=(
                 pre_resolution_snapshot
                 if successor_history_recovery_root is not None
                 else None
             ),
             recovery_authority_transition_capability=transition_capability,
-            recovery_attempt_transition_capability=transition_capability,
+            recovery_attempt_transition_capability=(
+                transition_capability
+                if successor_history_recovery_root is not None
+                else None
+            ),
         )
         _verify_materializer_recovery_clearance_binding(
             recovery=recovery, clearance_lineage=clearance

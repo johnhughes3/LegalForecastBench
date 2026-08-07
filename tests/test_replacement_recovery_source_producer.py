@@ -1369,16 +1369,13 @@ def test_successor_producer_binds_transition_prior_to_direct_verifiers(
         call["clearance"] for call in verified_calls if "clearance" in call
     )
     assert clearance_call["authority_transition_capability"] is transition_capability
-    assert clearance_call["attempt_transition_capability"] is transition_capability
+    assert clearance_call["attempt_transition_capability"] is None
     assert clearance_call["resolved_transition_prior_snapshot"] is None
     assert (
         clearance_call["recovery_authority_transition_capability"]
         is transition_capability
     )
-    assert (
-        clearance_call["recovery_attempt_transition_capability"]
-        is transition_capability
-    )
+    assert clearance_call["recovery_attempt_transition_capability"] is None
 
 
 def _successor_history_helper_fixture(

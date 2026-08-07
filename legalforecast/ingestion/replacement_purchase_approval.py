@@ -289,10 +289,11 @@ def _resolved_transition_capability_boundary() -> tuple[
             )
         ledger_path = purchase_ledger_path.resolve()
         receipt_path = initialization_receipt_path.resolve()
+        private_root = controlled_private_root.absolute()
         current = read_case_dev_purchase_snapshot(
             ledger_path,
             policy=policy,
-            controlled_private_root=controlled_private_root,
+            controlled_private_root=private_root,
             initialization_receipt_path=receipt_path,
         )
         prior = current
@@ -318,7 +319,7 @@ def _resolved_transition_capability_boundary() -> tuple[
             ledger_path=ledger_path,
             initialization_receipt_path=receipt_path,
             policy=policy,
-            controlled_private_root=controlled_private_root.resolve(),
+            controlled_private_root=private_root,
             current_snapshot=current,
             prior_snapshot=prior,
             source_snapshots=tuple(
