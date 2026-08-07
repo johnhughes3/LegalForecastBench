@@ -464,6 +464,11 @@ def test_downstream_docket_descriptor_rejects_unverified_shapes() -> None:
         ("malformed_sealed", "malformed is_sealed flag"),
         ("selection_malformed_status", "invalid public status"),
         ("selection_unknown_mismatched_evidence", "does not match materialization"),
+        (
+            "selection_unknown_selection_evidence_mismatch",
+            "does not match materialization",
+        ),
+        ("unknown_clearance_restricted_token", "sealed/private/restricted"),
         ("selection_unknown_uncanonical", "lacks canonical public proof"),
         ("malformed_private_restriction", "malformed is_private flag"),
         (
@@ -1033,6 +1038,7 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
     elif mutation in {
         "selection_unknown_affirmative",
         "selection_unknown_mismatched_evidence",
+        "selection_unknown_selection_evidence_mismatch",
         "selection_unknown_uncanonical",
     }:
         evidence = [
@@ -1070,6 +1076,8 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         )
         if mutation == "selection_unknown_mismatched_evidence":
             restriction_rows[0]["restriction_evidence"] = ["different-proof"]
+        elif mutation == "selection_unknown_selection_evidence_mismatch":
+            decision_document["restriction_evidence"] = ["different-proof"]
         elif mutation == "selection_unknown_uncanonical":
             clearance_rows[0].pop("clearance_basis")
             clearance_rows[0].pop("routing_plan_sha256")
@@ -1078,6 +1086,23 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
                 "private-store://cycle-1/reviews"
             )
             clearance_rows[0]["reviewed_at"] = "2026-07-15T12:00:00Z"
+    elif mutation == "unknown_clearance_restricted_token":
+        decision_document["redaction_or_seal_status"] = "unknown"
+        clearance_rows[0]["restriction_status"] = "unknown"
+        clearance_rows[0]["redaction_or_seal_status"] = "restricted"
+        clearance_rows[0].update(
+            {
+                "restriction_evidence": ["courtlistener_public_docket"],
+                "reviewer_id": None,
+                "controlled_store_provenance": (
+                    "https://storage.courtlistener.com/recap/example/decision.pdf"
+                ),
+                "reviewed_at": None,
+                "clearance_basis": "affirmative_public_provenance",
+                "routing_plan_sha256": "8" * 64,
+            }
+        )
+        restriction_rows[0]["restriction_status"] = "unknown"
     elif mutation in {
         "model_exception_review",
         "model_review_missing_reviewer",

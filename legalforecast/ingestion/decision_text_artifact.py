@@ -27,6 +27,7 @@ SCHEMA_VERSION = "legalforecast.decision_text.v1"
 MANIFEST_SCHEMA_VERSION = "legalforecast.decision_text_manifest.v1"
 CYCLE_1_ELIGIBILITY_ANCHOR = date(2026, 6, 30)
 _PUBLIC_STATUSES = frozenset({"public", "redacted"})
+_RESTRICTED_STATUSES = frozenset({"sealed", "private", "restricted", "under_seal"})
 _OUTCOME_ROLES = frozenset({"decision", "order"})
 
 JsonRecord = dict[str, Any]
@@ -1305,7 +1306,12 @@ def _document_public_statuses(
         if value is not None:
             if not isinstance(value, str) or not value.strip():
                 raise DecisionTextArtifactError(f"invalid public status: {key}")
-            statuses.append(value.strip().lower())
+            status = value.strip().lower()
+            if status in _RESTRICTED_STATUSES:
+                raise DecisionTextArtifactError(
+                    f"decision document is sealed/private/restricted: {key}"
+                )
+            statuses.append(status)
     for field in ("is_sealed", "is_private"):
         value = record.get(field)
         if value is not None and type(value) is not bool:
@@ -1415,6 +1421,16 @@ def _require_materialized_public_proof(
         clearance_status == "unknown"
         and clearance.get("clearance_basis") == "affirmative_public_provenance"
     ):
+        selection_evidence = _required_nonempty_strings(
+            selection_document, "restriction_evidence"
+        )
+        if len(selection_evidence) != len(frozenset(selection_evidence)) or frozenset(
+            selection_evidence
+        ) != frozenset(clearance_evidence):
+            raise DecisionTextArtifactError(
+                "selection unknown restriction proof does not match materialization: "
+                f"{key}"
+            )
         return
     raise DecisionTextArtifactError(
         f"selection unknown restriction lacks canonical public proof: {key}"
