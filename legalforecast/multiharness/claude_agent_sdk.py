@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import platform
 import sys
 import uuid
 from collections.abc import Mapping, Sequence
@@ -29,6 +30,23 @@ CLAUDE_AGENT_SDK_ADAPTER_ID = "claude-agent-sdk-baseline"
 CLAUDE_AGENT_SDK_ADAPTER_VERSION = "1.0.0"
 CLAUDE_AGENT_SDK_VERSION = "0.2.128"
 CLAUDE_BUNDLED_CLI_VERSION = "2.1.220"
+CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM: Mapping[str, str] = {
+    "darwin-arm64": (
+        "sha256:8addc857f3fe64d5a0368af9ee50321b50afb4a6918ba3ef018ab84f5dbbe081"
+    ),
+    "darwin-x86_64": (
+        "sha256:dca7be0aa7d3d924836d440e0c6d8e3d47ef3c8e61fa5809b54b9017170ce2f3"
+    ),
+    "linux-aarch64": (
+        "sha256:159e4a51d796f3bf14677577100f7efb845611b1ceaf0c30cbd8d4650d942185"
+    ),
+    "linux-x86_64": (
+        "sha256:674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863"
+    ),
+    "win32-x86_64": (
+        "sha256:af5bf1f1b2aadffc768eccd787084c6fdf9ba81624cbe96c1c6d9ac1a1550231"
+    ),
+}
 CLAUDE_PROVIDER_ENV_VAR = "ANTHROPIC_API_KEY"
 CLAUDE_MAX_TURNS = 8
 CLAUDE_MAX_BUDGET_USD = 0.5
@@ -47,6 +65,28 @@ _SUBSCRIPTION_CREDENTIAL_ENV_VARS = (
 
 class ClaudeAgentSDKAdapterError(RuntimeError):
     """A request or SDK response violated the baseline contract."""
+
+
+def claude_bundled_runtime_pin(
+    *,
+    sys_platform: str | None = None,
+    machine: str | None = None,
+) -> tuple[str, str]:
+    """Return the executable name and digest for the locked platform wheel."""
+
+    observed_platform = sys.platform if sys_platform is None else sys_platform
+    observed_machine = platform.machine() if machine is None else machine
+    normalized_machine = observed_machine.strip().lower()
+    if normalized_machine in {"amd64", "x86_64"}:
+        normalized_machine = "x86_64"
+    elif normalized_machine in {"arm64", "aarch64"}:
+        normalized_machine = "arm64" if observed_platform == "darwin" else "aarch64"
+    platform_key = f"{observed_platform}-{normalized_machine}"
+    expected_sha256 = CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM.get(platform_key)
+    if expected_sha256 is None:
+        raise ClaudeAgentSDKAdapterError("Claude Agent SDK platform is not pinned")
+    executable_name = "claude.exe" if observed_platform == "win32" else "claude"
+    return executable_name, expected_sha256
 
 
 class ToolTransport(Protocol):
@@ -395,11 +435,9 @@ def _validate_execution(execution: ClaudeSDKExecution) -> None:
         )
     if execution.bundled_cli_version != CLAUDE_BUNDLED_CLI_VERSION:
         raise ClaudeAgentSDKAdapterError("bundled Claude Code version does not match")
-    if (
-        not execution.bundled_cli_sha256.startswith("sha256:")
-        or len(execution.bundled_cli_sha256) != len("sha256:") + 64
-    ):
-        raise ClaudeAgentSDKAdapterError("bundled Claude Code digest is invalid")
+    _, expected_sha256 = claude_bundled_runtime_pin()
+    if execution.bundled_cli_sha256 != expected_sha256:
+        raise ClaudeAgentSDKAdapterError("bundled Claude Code digest does not match")
     if not execution.served_model.strip():
         raise ClaudeAgentSDKAdapterError("served model identity is missing")
     for value, name in (
