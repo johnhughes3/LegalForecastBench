@@ -26288,6 +26288,12 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 resolved_coordinates.input_sha256,
                 strict=True,
             ):
+                # The resolver mutates the ledger itself. Its semantic state is
+                # authenticated above by the transition capability and the
+                # resolver's before/after hashes, so stale SQLite bytes from the
+                # frozen input commitment must not be treated as immutable input.
+                if path.resolve() == ledger_path:
+                    continue
                 if (
                     _bytes_sha256(
                         capture(path, label="replacement recovery resolver input")
@@ -38754,6 +38760,12 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
         run_card_path, label="target projection run card"
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    if run_card.get("schema_version") == ZERO_COST_SUCCESSOR_STATE_SCHEMA:
+        return _verify_zero_cost_successor_projection(
+            target_root=target_root,
+            free_clearance_path=target_root / "disclosure-clearance.jsonl",
+            expected_target_count=_required_int(run_card, "selected_case_count"),
+        )
     raw_inputs = run_card.get("input_paths")
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
         raise CommandError("target projection run card lacks exact inputs")

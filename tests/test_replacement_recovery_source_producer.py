@@ -485,6 +485,25 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
     assert cli._cmd_build_replacement_recovery_source(args) == 0
 
 
+def test_producer_authenticates_mutated_ledger_by_semantic_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, _, _ = _fixture(tmp_path, monkeypatch, successor=True)
+    ledger = cast(Path, args.purchase_ledger)
+    ledger.write_bytes(b"post-resolution ledger bytes")
+
+    assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+    card_path = (
+        cast(Path, args.output_root)
+        / "run-cards"
+        / "build-replacement-recovery-source-0001.json"
+    )
+    source_paths = set(json.loads(card_path.read_bytes())["source_commitments"])
+    assert str(ledger.resolve()) not in source_paths
+
+
 @pytest.mark.parametrize(
     "schema_version",
     [
@@ -830,6 +849,99 @@ def test_producer_rejects_terminal_unavailable_input_omission(
         match="resolved source omits authenticated recovery inputs",
     ):
         cli._cmd_build_replacement_recovery_source(args)
+
+
+def test_resolved_coordinates_accept_legacy_omitted_empty_terminal_partition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["resolved_card"].read_bytes())
+    expected_inputs = [Path(value) for value in card["input_paths"]]
+    terminal_path = paths["terminal_unavailable"].resolve()
+    terminal_index = next(
+        index
+        for index, path in enumerate(expected_inputs)
+        if path.resolve() == terminal_path
+    )
+    cast(list[str], card["input_paths"]).pop(terminal_index)
+    commitments = cast(dict[str, object], card["source_commitments"])
+    card["source_commitments"] = {
+        f"input_{new_index:02d}": commitments[f"input_{old_index:02d}"]
+        for new_index, old_index in enumerate(
+            index for index in range(len(commitments)) if index != terminal_index
+        )
+    }
+    card.pop("terminal_unavailable_partition")
+
+    coordinates = source_module.derive_resolved_source_coordinates(
+        card,
+        expected_input_paths=expected_inputs,
+        expected_ledger_path=cast(Path, args.purchase_ledger),
+        expected_purchase_state_sha256="state-1",
+        expected_terminal_unavailable_path=paths["terminal_unavailable"],
+        expected_terminal_unavailable_sha256=_commitment(paths["terminal_unavailable"])[
+            "sha256"
+        ],
+        expected_terminal_unavailable_count=0,
+        expected_terminal_disposition_paths=None,
+    )
+
+    assert terminal_path not in {path.resolve() for path in coordinates.input_paths}
+    assert coordinates.terminal_unavailable_path.resolve() == terminal_path
+    assert coordinates.terminal_unavailable_count == 0
+
+
+def test_resolved_coordinates_authenticate_present_legacy_empty_terminal_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["resolved_card"].read_bytes())
+    expected_inputs = [Path(value) for value in card["input_paths"]]
+    terminal_path = paths["terminal_unavailable"].resolve()
+    card.pop("terminal_unavailable_partition")
+
+    coordinates = source_module.derive_resolved_source_coordinates(
+        card,
+        expected_input_paths=expected_inputs,
+        expected_ledger_path=cast(Path, args.purchase_ledger),
+        expected_purchase_state_sha256="state-1",
+        expected_terminal_unavailable_path=paths["terminal_unavailable"],
+        expected_terminal_unavailable_sha256=_commitment(paths["terminal_unavailable"])[
+            "sha256"
+        ],
+        expected_terminal_unavailable_count=0,
+        expected_terminal_disposition_paths=None,
+    )
+
+    assert terminal_path not in {path.resolve() for path in coordinates.input_paths}
+
+    terminal_index = next(
+        index
+        for index, path in enumerate(expected_inputs)
+        if path.resolve() == terminal_path
+    )
+    commitments = cast(dict[str, object], card["source_commitments"])
+    commitment = cast(dict[str, object], commitments[f"input_{terminal_index:02d}"])
+    commitment["sha256"] = f"sha256:{'a' * 64}"
+
+    with pytest.raises(
+        source_module.ReplacementRecoverySourceError,
+        match="resolved legacy empty terminal input changed",
+    ):
+        source_module.derive_resolved_source_coordinates(
+            card,
+            expected_input_paths=expected_inputs,
+            expected_ledger_path=cast(Path, args.purchase_ledger),
+            expected_purchase_state_sha256="state-1",
+            expected_terminal_unavailable_path=paths["terminal_unavailable"],
+            expected_terminal_unavailable_sha256=_commitment(
+                paths["terminal_unavailable"]
+            )["sha256"],
+            expected_terminal_unavailable_count=0,
+            expected_terminal_disposition_paths=None,
+        )
 
 
 def test_resolved_coordinates_align_commitments_to_expected_input_order(
