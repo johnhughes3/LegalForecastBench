@@ -21,6 +21,85 @@ from legalforecast.labeling.provider_journal import (
 from legalforecast.selection import TrainingCutoffStatus
 
 
+def test_successor_selection_card_requires_exact_replay_capability(
+    tmp_path: Path,
+) -> None:
+    """Only the materializer's immutable replay proof admits a successor card."""
+
+    selection_path = tmp_path / "target-cohort-selection.jsonl"
+    selection_bytes = b'{"candidate_id":"cand-1"}\n'
+    selection_path.write_bytes(selection_bytes)
+    card_path = tmp_path / "run-cards" / "project-target-cohort.json"
+    card_path.parent.mkdir()
+    card = {
+        "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+        "stage": "project-zero-cost-successor",
+        "record_count": 1,
+    }
+    card_bytes = (json.dumps(card, sort_keys=True) + "\n").encode("utf-8")
+    card_path.write_bytes(card_bytes)
+
+    with pytest.raises(TypeError, match="minted only by materialization replay"):
+        cli._VerifiedSuccessorSelectionCard()
+    with pytest.raises(cli.CommandError, match="requires completed materialization"):
+        cli._validate_selection_run_card_commitment(
+            card,
+            selection_path=selection_path,
+            selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
+            selection_record_count=1,
+            selection_run_card_bytes=card_bytes,
+        )
+
+    capability = object.__new__(cli._VerifiedSuccessorSelectionCard)
+    object.__setattr__(capability, "selection_path", selection_path)
+    object.__setattr__(capability, "selection_bytes", selection_bytes)
+    object.__setattr__(capability, "selection_record_count", 1)
+    object.__setattr__(capability, "run_card_path", card_path)
+    object.__setattr__(capability, "run_card_bytes", card_bytes)
+    object.__setattr__(
+        capability, "_token", cli._VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN
+    )
+    cli._validate_selection_run_card_commitment(
+        card,
+        selection_path=selection_path,
+        selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
+        selection_record_count=1,
+        selection_run_card_bytes=card_bytes,
+        verified_successor_selection_card=capability,
+    )
+
+    tampered_bytes = card_bytes.replace(b"successor", b"tampered")
+    with pytest.raises(cli.CommandError, match="differs from materialization replay"):
+        cli._validate_selection_run_card_commitment(
+            card,
+            selection_path=selection_path,
+            selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
+            selection_record_count=1,
+            selection_run_card_bytes=tampered_bytes,
+            verified_successor_selection_card=capability,
+        )
+    with pytest.raises(cli.CommandError, match="differs from materialization replay"):
+        cli._validate_selection_run_card_commitment(
+            card,
+            selection_path=selection_path,
+            selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
+            selection_record_count=0,
+            selection_run_card_bytes=card_bytes,
+            verified_successor_selection_card=capability,
+        )
+    rebound_path = tmp_path / "rebound-selection.jsonl"
+    rebound_path.write_bytes(selection_bytes)
+    with pytest.raises(cli.CommandError, match="differs from materialization replay"):
+        cli._validate_selection_run_card_commitment(
+            card,
+            selection_path=rebound_path,
+            selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
+            selection_record_count=1,
+            selection_run_card_bytes=card_bytes,
+            verified_successor_selection_card=capability,
+        )
+
+
 def test_downstream_stage_a_sources_require_exact_authenticated_paths(
     tmp_path: Path,
 ) -> None:

@@ -212,6 +212,19 @@ def project_zero_cost_successor(
     if not set(original) | set(reserves) <= set(pool):
         raise ZeroCostSuccessorError("frozen selection is absent from the source pool")
 
+    is_post_purchase_v4 = (
+        ranked_result.get("schema_version")
+        == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
+    )
+    verified_post_purchase_transition: (
+        VerifiedRankedReservePostPurchaseReplay | None
+    ) = (
+        authenticated_ranked_result.transition
+        if type(authenticated_ranked_result) is VerifiedPostPurchaseRankedResult
+        and authenticated_ranked_result.is_replay_minted()
+        else None
+    )
+
     disposition = _verify_ranked_result(
         target_projection=target_projection,
         ranked_result=ranked_result,
@@ -220,10 +233,7 @@ def project_zero_cost_successor(
         replacement_selection_bytes=replacement_selection_bytes,
         successor_exclusions_bytes=successor_exclusions_bytes,
         replacement_budget_plan_bytes=replacement_budget_plan_bytes,
-    )
-    is_post_purchase_v4 = (
-        ranked_result.get("schema_version")
-        == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
+        verified_post_purchase_transition=verified_post_purchase_transition,
     )
     if is_post_purchase_v4:
         if (
@@ -253,6 +263,7 @@ def project_zero_cost_successor(
             raise ZeroCostSuccessorError(
                 "ranked result differs from authenticated ranked-reserve replay"
             )
+
     residual_ids = {
         _required_text(pair, "candidate_id")
         for pair in _mapping_sequence(
@@ -529,6 +540,9 @@ def _verify_ranked_result(
     replacement_selection_bytes: bytes,
     successor_exclusions_bytes: bytes,
     replacement_budget_plan_bytes: bytes,
+    verified_post_purchase_transition: (
+        VerifiedRankedReservePostPurchaseReplay | None
+    ) = None,
 ) -> Mapping[str, object]:
     schema_version = ranked_result.get("schema_version")
     expected_fields = (
@@ -599,6 +613,15 @@ def _verify_ranked_result(
         )
     except DocketDecisionTextSourceError as exc:
         raise ZeroCostSuccessorError(str(exc)) from exc
+    expected_disposition_state = ranked_result.get("purchase_journal_state_sha256")
+    if (
+        schema_version == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
+        and verified_post_purchase_transition is not None
+    ):
+        expected_disposition_state = (
+            "sha256:"
+            + verified_post_purchase_transition.live_snapshot.purchase_state_sha256
+        )
     if (
         ranked_result.get("terminal_disposition_sha256")
         != ranked_reserve_canonical_sha256(disposition)
@@ -611,7 +634,7 @@ def _verify_ranked_result(
             "ranked successor terminal exclusions",
         )
         or disposition.get("purchase_journal_state_sha256")
-        != ranked_result.get("purchase_journal_state_sha256")
+        != expected_disposition_state
         or disposition.get("partition_disjoint") is not True
         or disposition.get("partition_exhaustive") is not True
     ):

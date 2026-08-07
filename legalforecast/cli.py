@@ -618,6 +618,7 @@ from legalforecast.ingestion.ranked_reserve_replacement import (
     bind_ranked_reserve_outputs,
     plan_ranked_reserve_replacements,
     ranked_reserve_result_bytes,
+    require_verified_post_purchase_replay,
     verify_legacy_ranked_reserve_bridge,
 )
 from legalforecast.ingestion.readiness_provenance import (
@@ -5818,6 +5819,17 @@ def _add_plan_ranked_reserve_replacements_arguments(
     parser.add_argument("--replacement-purchase-authority", type=Path)
     parser.add_argument("--replacement-controlled-private-root", type=Path)
     parser.add_argument("--cohort-policy", type=Path)
+    parser.add_argument(
+        "--resolved-post-recovery-run-card",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Completed resolver card needed to reconstruct the authority baseline; "
+            "repeat in newest-to-oldest transition order. Allowed only with the "
+            "complete post-purchase replay bundle."
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--active-selection-output", type=Path, required=True)
     parser.add_argument("--replacement-selection-output", type=Path, required=True)
@@ -5851,6 +5863,17 @@ def _add_project_zero_cost_successor_arguments(
     parser.add_argument("--replacement-purchase-authority", type=Path)
     parser.add_argument("--replacement-controlled-private-root", type=Path)
     parser.add_argument("--cohort-policy", type=Path)
+    parser.add_argument(
+        "--resolved-post-recovery-run-card",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Completed resolver card needed to reconstruct the authority baseline; "
+            "repeat in newest-to-oldest transition order. Allowed only with the "
+            "complete post-purchase replay bundle."
+        ),
+    )
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--disclosure-clearance-run-card", type=Path, required=True)
     parser.add_argument(
@@ -14494,7 +14517,34 @@ def _validate_selection_run_card_commitment(
     selection_path: Path,
     selection_sha256: str,
     selection_record_count: int,
+    selection_run_card_bytes: bytes | None = None,
+    verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None,
 ) -> None:
+    """Validate an ordinary selection card or a materializer-replayed successor.
+
+    The generic acquisition run-card schema remains deliberately narrow.  A
+    zero-cost successor is accepted here only when the materialization verifier
+    has already replayed its complete predecessor chain and minted a capability
+    for these exact card and selection bytes.
+    """
+    if run_card.get("schema_version") == ZERO_COST_SUCCESSOR_STATE_SCHEMA:
+        if (
+            selection_run_card_bytes is None
+            or verified_successor_selection_card is None
+            or not verified_successor_selection_card.is_replay_minted()
+        ):
+            raise CommandError(
+                "zero-cost successor selection requires completed materialization "
+                "lineage replay"
+            )
+        verified_successor_selection_card.require_exact_match(
+            run_card=run_card,
+            run_card_bytes=selection_run_card_bytes,
+            selection_path=selection_path,
+            selection_sha256=selection_sha256,
+            selection_record_count=selection_record_count,
+        )
+        return
     if (
         run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or run_card.get("stage")
@@ -23870,6 +23920,9 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
         ),
         "cohort_policy": cast(Path | None, args.cohort_policy),
     }
+    resolved_transition_card_paths = tuple(
+        cast(list[Path], getattr(args, "resolved_post_recovery_run_card", []))
+    )
     policy_path = cast(Path, args.purchase_policy)
     output = cast(Path, args.output)
     active_output = cast(Path, args.active_selection_output)
@@ -23925,6 +23978,11 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                 "post-purchase ranked replay requires authenticated purchase "
                 "disposition"
             )
+        if resolved_transition_card_paths and not supplied_post_purchase_paths:
+            raise RankedReserveReplacementError(
+                "resolved transition cards require the complete post-purchase "
+                "authority bundle"
+            )
         if legacy_ranked_result_path is not None and supplied_post_purchase_paths:
             raise RankedReserveReplacementError(
                 "legacy v2 and post-purchase v3 replay modes are mutually exclusive"
@@ -23970,6 +24028,7 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                         if supplied_post_purchase_paths
                         else ()
                     ),
+                    *resolved_transition_card_paths,
                 )
                 if path is not None
             ),
@@ -24109,6 +24168,19 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                 Path, post_purchase_paths["replacement_purchase_authority"]
             )
             cohort_policy_path = cast(Path, post_purchase_paths["cohort_policy"])
+            resolved_transition_capability_factory = (
+                _issue_resolved_transition_capability_factory(
+                    purchase_ledger_path=cast(Path, args.purchase_ledger),
+                    policy=purchase_policy,
+                    controlled_private_root=cast(Path, args.controlled_private_root),
+                    initialization_receipt_path=cast(
+                        Path, args.purchase_ledger_initialization_receipt
+                    ),
+                    run_card_paths=resolved_transition_card_paths,
+                )
+                if resolved_transition_card_paths
+                else None
+            )
             verified_post_purchase_replay = verify_ranked_reserve_post_purchase_replay(
                 prior_result=prior_ranked_result,
                 prior_result_bytes=prior_ranked_result_bytes,
@@ -24133,6 +24205,16 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                 purchase_ledger_path=cast(Path, args.purchase_ledger),
                 purchase_ledger_initialization_receipt_path=cast(
                     Path, args.purchase_ledger_initialization_receipt
+                ),
+                _verified_resolved_authority_capability=(
+                    resolved_transition_capability_factory()
+                    if resolved_transition_capability_factory is not None
+                    else None
+                ),
+                _verified_resolved_snapshot_capability=(
+                    resolved_transition_capability_factory()
+                    if resolved_transition_capability_factory is not None
+                    else None
                 ),
             )
         docket_descriptor: _MaterializerDocketDecisionAuthority | None = None
@@ -24272,10 +24354,7 @@ def _cmd_plan_ranked_reserve_replacements(args: argparse.Namespace) -> int:
                     Path, args.purchase_ledger_initialization_receipt
                 ),
             )
-            if (
-                final_purchase_snapshot
-                != verified_post_purchase_replay.current_snapshot
-            ):
+            if final_purchase_snapshot != verified_post_purchase_replay.live_snapshot:
                 raise RankedReserveReplacementError(
                     "purchase journal changed during post-purchase ranked replay"
                 )
@@ -24531,6 +24610,9 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
     supplied_post_purchase_paths = {
         name: path for name, path in post_purchase_paths.items() if path is not None
     }
+    resolved_transition_card_paths = tuple(
+        cast(list[Path], getattr(args, "resolved_post_recovery_run_card", []))
+    )
     output_root = cast(Path, args.output_root)
     output_paths = {
         "selection": output_root / "target-cohort-selection.jsonl",
@@ -24563,6 +24645,7 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
         purchase_run_card_path,
         snapshot_manifest_path,
         *supplied_post_purchase_paths.values(),
+        *resolved_transition_card_paths,
     )
     try:
         if supplied_post_purchase_paths and len(supplied_post_purchase_paths) != len(
@@ -24574,6 +24657,11 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
             raise ZeroCostSuccessorError(
                 "post-purchase v4 replay requires the complete authority bundle; "
                 "missing " + ", ".join(missing)
+            )
+        if resolved_transition_card_paths and not supplied_post_purchase_paths:
+            raise ZeroCostSuccessorError(
+                "resolved transition cards require the complete post-purchase "
+                "authority bundle"
             )
         resolved_output = output_root.resolve(strict=False)
         resolved_target = target_root.resolve(strict=False)
@@ -24681,6 +24769,27 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
             )
             cohort_policy_path = cast(Path, post_purchase_paths["cohort_policy"])
             prior_result_bytes = post_purchase_source_snapshots[prior_result_path]
+            initial_policy_artifact = _projection_json_object(
+                read_unique_regular_file(purchase_policy_path),
+                source=purchase_policy_path,
+            )
+            resolved_transition_capability_factory = None
+            if resolved_transition_card_paths:
+                initial_policy = verify_case_dev_purchase_policy(
+                    initial_policy_artifact
+                )
+                require_approved_case_dev_purchase_policy(
+                    initial_policy, controlled_private_root=controlled_private_root
+                )
+                resolved_transition_capability_factory = (
+                    _issue_resolved_transition_capability_factory(
+                        purchase_ledger_path=purchase_ledger_path,
+                        policy=initial_policy,
+                        controlled_private_root=controlled_private_root,
+                        initialization_receipt_path=purchase_ledger_receipt_path,
+                        run_card_paths=resolved_transition_card_paths,
+                    )
+                )
 
             def replay_post_purchase_bundle() -> (
                 VerifiedRankedReservePostPurchaseReplay
@@ -24698,10 +24807,7 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
                         Path,
                         post_purchase_paths["replacement_controlled_private_root"],
                     ),
-                    initial_purchase_policy_artifact=_projection_json_object(
-                        read_unique_regular_file(purchase_policy_path),
-                        source=purchase_policy_path,
-                    ),
+                    initial_purchase_policy_artifact=initial_policy_artifact,
                     initial_controlled_private_root=controlled_private_root,
                     cohort_policy_artifact=_projection_json_object(
                         post_purchase_source_snapshots[cohort_policy_path],
@@ -24714,6 +24820,16 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
                     purchase_ledger_path=purchase_ledger_path,
                     purchase_ledger_initialization_receipt_path=(
                         purchase_ledger_receipt_path
+                    ),
+                    _verified_resolved_authority_capability=(
+                        resolved_transition_capability_factory()
+                        if resolved_transition_capability_factory is not None
+                        else None
+                    ),
+                    _verified_resolved_snapshot_capability=(
+                        resolved_transition_capability_factory()
+                        if resolved_transition_capability_factory is not None
+                        else None
                     ),
                 )
 
@@ -24893,6 +25009,7 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
             purchase_run_card_path,
             snapshot_manifest_path,
             *supplied_post_purchase_paths.values(),
+            *resolved_transition_card_paths,
         )
         state_record = {
             **successor.state,
@@ -27556,6 +27673,36 @@ def _require_replacement_consolidation_purchase_snapshot_unchanged(
         )
 
 
+def _verify_consolidation_target_ranked_precursor(
+    *,
+    precursor_result: Mapping[str, object],
+    precursor_result_bytes: bytes,
+    post_purchase_replay: VerifiedRankedReservePostPurchaseReplay,
+) -> VerifiedLegacyRankedReserveReplay | None:
+    """Authenticate the ranked precursor named by a successor target card."""
+
+    schema_version = precursor_result.get("schema_version")
+    if schema_version == "legalforecast.ranked_reserve_replacement_result.v2":
+        return verify_legacy_ranked_reserve_bridge(
+            precursor_result=precursor_result,
+            precursor_result_bytes=precursor_result_bytes,
+            post_purchase_replay=post_purchase_replay,
+        )
+    if schema_version == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION:
+        if ranked_reserve_result_bytes(precursor_result) != precursor_result_bytes:
+            raise ValueError("zero-cost successor ranked precursor is not canonical")
+        try:
+            require_verified_post_purchase_replay(
+                precursor_result, post_purchase_replay
+            )
+        except ValueError as exc:
+            raise ValueError(
+                "zero-cost successor v4 precursor differs from authenticated replay"
+            ) from exc
+        return None
+    raise ValueError("zero-cost successor ranked precursor schema is unsupported")
+
+
 def _prepare_replacement_recovery_consolidation(
     args: argparse.Namespace,
 ) -> _ReplacementRecoveryConsolidation:
@@ -27978,7 +28125,7 @@ def _prepare_replacement_recovery_consolidation(
         precursor_result_bytes = capture_successor_history(
             precursor_result_path, label="zero-cost successor ranked precursor"
         )
-        verified_legacy_ranked_replay = verify_legacy_ranked_reserve_bridge(
+        verified_legacy_ranked_replay = _verify_consolidation_target_ranked_precursor(
             precursor_result=_projection_json_object(
                 precursor_result_bytes, source=precursor_result_path
             ),
@@ -37761,6 +37908,109 @@ def _preflight_approved_purchase_input_bytes(args: argparse.Namespace) -> None:
         raise CommandError(str(exc)) from exc
 
 
+_VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN = object()
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class _VerifiedSuccessorSelectionCard:
+    """Opaque proof that materialization replayed one successor selection."""
+
+    selection_path: Path
+    selection_bytes: bytes
+    selection_record_count: int
+    run_card_path: Path
+    run_card_bytes: bytes
+    _token: object
+
+    def __init__(self, **_values: object) -> None:
+        raise TypeError(
+            "_VerifiedSuccessorSelectionCard is minted only by materialization replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._token is _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN
+
+    def require_exact_match(
+        self,
+        *,
+        run_card: Mapping[str, Any],
+        run_card_bytes: bytes,
+        selection_path: Path,
+        selection_sha256: str,
+        selection_record_count: int,
+    ) -> None:
+        if not self.is_replay_minted():
+            raise CommandError("zero-cost successor selection capability is invalid")
+        if (
+            selection_path.resolve() != self.selection_path.resolve()
+            or run_card_bytes != self.run_card_bytes
+            or _bytes_sha256(self.selection_bytes) != selection_sha256
+            or selection_record_count != self.selection_record_count
+        ):
+            raise CommandError(
+                "zero-cost successor selection differs from materialization replay"
+            )
+        expected_card = _projection_json_object(
+            self.run_card_bytes, source=self.run_card_path
+        )
+        if run_card != expected_card:
+            raise CommandError(
+                "zero-cost successor selection card differs from materialization replay"
+            )
+
+
+def _verified_successor_selection_card_from_projection(
+    projection: Mapping[str, object],
+) -> _VerifiedSuccessorSelectionCard | None:
+    """Extract an exact successor proof already minted by semantic replay."""
+
+    run_card = projection.get("run_card")
+    if not isinstance(run_card, Mapping):
+        # Test-only and legacy non-successor projection adapters do not expose a
+        # run-card object.  They cannot authorize a successor because the
+        # generic downstream validator still requires this capability only for
+        # the successor schema.
+        return None
+    run_card_record = cast(Mapping[str, object], run_card)
+    if run_card_record.get("schema_version") != ZERO_COST_SUCCESSOR_STATE_SCHEMA:
+        return None
+    verified = projection.get("verified_successor_selection_card")
+    if (
+        type(verified) is not _VerifiedSuccessorSelectionCard
+        or not verified.is_replay_minted()
+    ):
+        raise CommandError("successor materializer projection lacks replay capability")
+    artifact_bytes = projection.get("verified_artifact_bytes")
+    selection_path = projection.get("selection_path")
+    run_card_path = projection.get("run_card_path")
+    if (
+        not isinstance(artifact_bytes, Mapping)
+        or not isinstance(selection_path, Path)
+        or not isinstance(run_card_path, Path)
+        or selection_path.resolve() != verified.selection_path.resolve()
+        or run_card_path.resolve() != verified.run_card_path.resolve()
+    ):
+        raise CommandError(
+            "successor materializer projection replay capability differs"
+        )
+    artifact_snapshot = cast(Mapping[str, object], artifact_bytes)
+    if (
+        artifact_snapshot.get(os.path.abspath(selection_path))
+        != verified.selection_bytes
+        or artifact_snapshot.get(os.path.abspath(run_card_path))
+        != verified.run_card_bytes
+    ):
+        raise CommandError(
+            "successor materializer projection replay capability differs"
+        )
+    if (
+        _projection_json_object(verified.run_card_bytes, source=run_card_path)
+        != run_card_record
+    ):
+        raise CommandError("successor materializer projection card bytes differ")
+    return verified
+
+
 @dataclass(frozen=True, slots=True)
 class _MaterializationPublication:
     input_paths: tuple[Path, ...]
@@ -37784,6 +38034,7 @@ class _MaterializationPublication:
     authority_mode: str | None = None
     authority_recheck: Callable[[], None] | None = None
     docket_decision_partition: Mapping[str, object] | None = None
+    verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -38902,6 +39153,9 @@ def _prepare_free_only_cohort_documents(
         },
         authority_mode="free_only",
         authority_recheck=recheck_authority,
+        verified_successor_selection_card=(
+            _verified_successor_selection_card_from_projection(projection)
+        ),
     )
 
 
@@ -39174,7 +39428,7 @@ def _verify_zero_cost_successor_projection(
         or run_card.get("evaluation_authorized") is not False
         or run_card.get("freeze_authorized") is not False
         or run_card.get("dispatch_authorized") is not False
-        or len(typed_inputs) not in {15, 21}
+        or (len(typed_inputs) not in {15, 21} and len(typed_inputs) < 22)
     ):
         raise CommandError("invalid completed zero-cost successor run card")
     input_paths = tuple(Path(str(path)) for path in typed_inputs)
@@ -39247,20 +39501,23 @@ def _verify_zero_cost_successor_projection(
         purchase_result=input_paths[12],
         purchase_run_card=input_paths[13],
         screening_snapshot_manifest=input_paths[14],
-        prior_ranked_result=input_paths[15] if len(input_paths) == 21 else None,
+        prior_ranked_result=input_paths[15] if len(input_paths) >= 21 else None,
         prior_replacement_selection=(
-            input_paths[16] if len(input_paths) == 21 else None
+            input_paths[16] if len(input_paths) >= 21 else None
         ),
         prior_replacement_budget_plan=(
-            input_paths[17] if len(input_paths) == 21 else None
+            input_paths[17] if len(input_paths) >= 21 else None
         ),
         replacement_purchase_authority=(
-            input_paths[18] if len(input_paths) == 21 else None
+            input_paths[18] if len(input_paths) >= 21 else None
         ),
         replacement_controlled_private_root=(
-            input_paths[19] if len(input_paths) == 21 else None
+            input_paths[19] if len(input_paths) >= 21 else None
         ),
-        cohort_policy=input_paths[20] if len(input_paths) == 21 else None,
+        cohort_policy=input_paths[20] if len(input_paths) >= 21 else None,
+        resolved_post_recovery_run_card=(
+            list(input_paths[21:]) if len(input_paths) > 21 else []
+        ),
         output_root=target_root,
         resume=True,
         _verified_legacy_ranked_replay=_verified_legacy_ranked_replay,
@@ -39379,6 +39636,31 @@ def _verify_zero_cost_successor_projection(
     _require_snapshot_unchanged(
         relocation_sources, label="zero-cost successor relocated clearance source"
     )
+    verified_successor_selection_card = object.__new__(_VerifiedSuccessorSelectionCard)
+    object.__setattr__(
+        verified_successor_selection_card, "selection_path", selection_path
+    )
+    object.__setattr__(
+        verified_successor_selection_card,
+        "selection_bytes",
+        snapshots[selection_path],
+    )
+    object.__setattr__(
+        verified_successor_selection_card,
+        "selection_record_count",
+        len(selection_records),
+    )
+    object.__setattr__(
+        verified_successor_selection_card, "run_card_path", run_card_path
+    )
+    object.__setattr__(
+        verified_successor_selection_card, "run_card_bytes", run_card_bytes
+    )
+    object.__setattr__(
+        verified_successor_selection_card,
+        "_token",
+        _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN,
+    )
     return {
         "run_card": run_card,
         "run_card_bytes": run_card_bytes,
@@ -39387,6 +39669,7 @@ def _verify_zero_cost_successor_projection(
         "run_card_path": run_card_path,
         "selection_path": selection_path,
         "selection_records": selection_records,
+        "verified_successor_selection_card": verified_successor_selection_card,
         "free_manifest_path": free_manifest_path,
         "free_manifest": free_manifest,
         "purchased_manifest": purchased_manifest,
@@ -42165,6 +42448,7 @@ class _VerifiedMaterializedDownstreamLineage:
     consolidated_recovery_capability: object | None = None
     fresh_ledger_namespace: Path | None = None
     docket_decision_authority: _MaterializerDocketDecisionAuthority | None = None
+    verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None
 
     def __len__(self) -> int:
         return len(self.paths)
@@ -42458,6 +42742,9 @@ def _verify_materialized_downstream_lineage(
             resolved_records=(),
             document_tree=document_tree_snapshot,
             fresh_ledger_namespace=ledger_path.resolve(),
+            verified_successor_selection_card=(
+                publication.verified_successor_selection_card
+            ),
         )
     if authority_mode is not None:
         raise CommandError("unsupported materialization authority mode")
@@ -43058,6 +43345,9 @@ def _verify_materialized_downstream_lineage(
             "_verified_consolidated_recovery_capability"
         ),
         docket_decision_authority=docket_decision_descriptor,
+        verified_successor_selection_card=(
+            _verified_successor_selection_card_from_projection(projection)
+        ),
     )
 
 
@@ -54294,6 +54584,12 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         selection_path=source_paths["selection"],
         selection_sha256=source_sha256["selection"],
         selection_record_count=len(selection_records),
+        selection_run_card_bytes=source_bytes["selection_run_card"],
+        verified_successor_selection_card=(
+            None
+            if verified_materialization is None
+            else verified_materialization.verified_successor_selection_card
+        ),
     )
     parser_run_card = _projection_json_object(
         source_bytes["parser_run_card"],
@@ -54657,6 +54953,10 @@ def _verify_stage_a_unitization_lineage(
         selection_path=selection_path,
         selection_sha256=_bytes_sha256(selection_bytes),
         selection_record_count=len(selection_records),
+        selection_run_card_bytes=selection_card_bytes,
+        verified_successor_selection_card=(
+            verified_materialization.verified_successor_selection_card
+        ),
     )
     materialization_paths = verified_materialization.paths
     markdown_tree, markdown_bytes = _stage_a_markdown_tree_snapshot(
