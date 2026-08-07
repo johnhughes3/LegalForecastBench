@@ -22,6 +22,7 @@ from legalforecast.ingestion.zero_cost_successor import (
     STATE_SCHEMA_VERSION,
     ZeroCostSuccessorError,
     _mint_verified_post_purchase_ranked_result,
+    normalize_successor_selection_counters,
     project_zero_cost_successor,
 )
 
@@ -207,6 +208,334 @@ def test_projects_exact_100_from_first_fully_cleared_frozen_candidate() -> None:
         successor.config["source_commitments"]["screening_snapshot_manifest"]
         == "sha256:" + "d" * 64
     )
+
+
+def test_normalizes_inherited_selection_counters_from_free_manifest() -> None:
+    fixture = _fixture()
+    for row in fixture.active:
+        row.update(
+            {
+                "required_document_count": 2,
+                "free_required_document_count": 0,
+                "missing_required_document_count": 2,
+            }
+        )
+    fixture.refresh()
+    fixture.kwargs["authenticated_ranked_result"] = json.loads(
+        fixture.kwargs["ranked_result_bytes"]
+    )
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
+
+    assert {
+        (
+            row["required_document_count"],
+            row["free_required_document_count"],
+            row["missing_required_document_count"],
+        )
+        for row in successor.selection[:-1]
+    } == {(2, 2, 0)}
+    assert successor.selection[-1]["required_document_count"] == 3
+    assert successor.selection[-1]["free_required_document_count"] == 3
+    assert successor.selection[-1]["missing_required_document_count"] == 0
+
+
+def test_reproduces_exact_100_counter_recovery_shift() -> None:
+    selection: list[dict[str, Any]] = []
+    required_documents: list[tuple[str, dict[str, Any]]] = []
+    for case_index in range(100):
+        candidate_id = f"case-{case_index:03d}"
+        roles = ["complaint", "motion_to_dismiss_memorandum", "decision"]
+        if case_index < 22:
+            roles.append("opposition")
+        documents: list[dict[str, Any]] = []
+        for role_index, role in enumerate(roles):
+            document = {
+                "source_document_id": f"{candidate_id}-{role_index}",
+                "document_role": role,
+            }
+            documents.append(document)
+            required_documents.append((candidate_id, document))
+        selection.append({"candidate_id": candidate_id, "documents": documents})
+    notice = {
+        "source_document_id": "case-000-notice",
+        "document_role": "motion_to_dismiss_notice",
+    }
+    selection[0]["documents"].append(notice)
+
+    free_required = required_documents[:142]
+    free_keys = {
+        (candidate_id, str(document["source_document_id"]))
+        for candidate_id, document in free_required
+    }
+    manifest = [
+        _manifest(candidate_id, str(document["source_document_id"]))
+        for candidate_id, document in free_required
+    ]
+    manifest.append(_manifest("case-000", "case-000-notice"))
+    for row in selection:
+        candidate_id = str(row["candidate_id"])
+        required_count = 0
+        free_count = 0
+        for document in row["documents"]:
+            if document["document_role"] == "motion_to_dismiss_notice":
+                continue
+            required_count += 1
+            key = (candidate_id, str(document["source_document_id"]))
+            if key in free_keys:
+                free_count += 1
+            else:
+                document["availability_status"] = "unavailable"
+                document["requires_paid_recovery"] = True
+        row["required_document_count"] = required_count
+        row["free_required_document_count"] = free_count
+        row["missing_required_document_count"] = required_count - free_count
+    for case_index in range(10):
+        stale_shift = 3 if case_index < 5 else 2
+        row = selection[case_index]
+        row["free_required_document_count"] -= stale_shift
+        row["missing_required_document_count"] += stale_shift
+
+    assert sum(row["required_document_count"] for row in selection) == 322
+    assert sum(row["free_required_document_count"] for row in selection) == 117
+    assert sum(row["missing_required_document_count"] for row in selection) == 205
+    assert len(manifest) == 143
+
+    normalized, totals = normalize_successor_selection_counters(
+        selection,
+        manifest,
+        validate_stored=False,
+    )
+
+    assert totals.required_document_count == 322
+    assert totals.free_required_document_count == 142
+    assert totals.missing_required_document_count == 180
+    assert totals.selected_document_count == 323
+    assert totals.manifest_document_count == 143
+    assert totals.free_manifest_document_count == 143
+    assert sum(row["free_required_document_count"] for row in normalized) == 142
+    assert sum(row["missing_required_document_count"] for row in normalized) == 180
+    assert (
+        sum(
+            document["document_role"] == "decision"
+            and document.get("availability_status") == "unavailable"
+            for row in selection[-4:]
+            for document in row["documents"]
+        )
+        == 4
+    )
+    with pytest.raises(ZeroCostSuccessorError, match="document counters differ"):
+        normalize_successor_selection_counters(
+            selection,
+            manifest,
+            validate_stored=True,
+        )
+
+
+def test_successor_counters_exclude_free_optional_notice() -> None:
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "documents": [
+                {
+                    "source_document_id": "complaint",
+                    "document_role": "complaint",
+                },
+                {
+                    "source_document_id": "notice",
+                    "document_role": "motion_to_dismiss_notice",
+                },
+            ],
+        }
+    ]
+    manifest = [
+        _manifest("case-1", "complaint"),
+        _manifest("case-1", "notice"),
+    ]
+
+    normalized, totals = normalize_successor_selection_counters(
+        selection,
+        manifest,
+        validate_stored=False,
+    )
+
+    assert normalized[0]["required_document_count"] == 1
+    assert normalized[0]["free_required_document_count"] == 1
+    assert normalized[0]["missing_required_document_count"] == 0
+    assert totals.required_document_count == 1
+    assert totals.free_required_document_count == 1
+    assert totals.missing_required_document_count == 0
+    assert totals.selected_document_count == 2
+    assert totals.manifest_document_count == 2
+    assert totals.free_manifest_document_count == 2
+
+
+def test_successor_counters_treat_unavailable_docket_decisions_as_required() -> None:
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "documents": [
+                {
+                    "source_document_id": f"decision-{index}",
+                    "document_role": "decision",
+                    "availability_status": "unavailable",
+                    "requires_paid_recovery": True,
+                }
+                for index in range(4)
+            ],
+        }
+    ]
+
+    normalized, totals = normalize_successor_selection_counters(
+        selection,
+        (),
+        validate_stored=False,
+    )
+
+    assert normalized[0]["required_document_count"] == 4
+    assert normalized[0]["free_required_document_count"] == 0
+    assert normalized[0]["missing_required_document_count"] == 4
+    assert totals.required_document_count == 4
+    assert totals.missing_required_document_count == 4
+
+
+def test_successor_counter_verification_rejects_stored_drift() -> None:
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "required_document_count": 1,
+            "free_required_document_count": 0,
+            "missing_required_document_count": 1,
+            "documents": [
+                {
+                    "source_document_id": "complaint",
+                    "document_role": "complaint",
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="successor selection document counters differ: case-1",
+    ):
+        normalize_successor_selection_counters(
+            selection,
+            [_manifest("case-1", "complaint")],
+            validate_stored=True,
+        )
+
+
+def test_successor_counters_reject_duplicate_selected_document() -> None:
+    document = {
+        "source_document_id": "complaint",
+        "document_role": "complaint",
+    }
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "documents": [document, dict(document)],
+        }
+    ]
+
+    with pytest.raises(ZeroCostSuccessorError, match="repeats successor counter"):
+        normalize_successor_selection_counters(
+            selection,
+            [_manifest("case-1", "complaint")],
+            validate_stored=False,
+        )
+
+
+def test_successor_counters_reject_manifest_key_outside_selection() -> None:
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "documents": [
+                {
+                    "source_document_id": "complaint",
+                    "document_role": "complaint",
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(ZeroCostSuccessorError, match="absent from selection"):
+        normalize_successor_selection_counters(
+            selection,
+            [
+                _manifest("case-1", "complaint"),
+                _manifest("case-2", "other"),
+            ],
+            validate_stored=False,
+        )
+
+
+def test_successor_counters_reject_unproven_unacquired_partition() -> None:
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "documents": [
+                {
+                    "source_document_id": "decision",
+                    "document_role": "decision",
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(ZeroCostSuccessorError, match="authenticated paid-recovery gap"):
+        normalize_successor_selection_counters(
+            selection,
+            (),
+            validate_stored=False,
+        )
+
+
+def test_successor_counters_reject_free_document_marked_unavailable() -> None:
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "documents": [
+                {
+                    "source_document_id": "complaint",
+                    "document_role": "complaint",
+                    "availability_status": "unavailable",
+                    "requires_paid_recovery": True,
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="free successor counter document is marked unavailable",
+    ):
+        normalize_successor_selection_counters(
+            selection,
+            [_manifest("case-1", "complaint")],
+            validate_stored=False,
+        )
+
+
+def test_successor_counters_reject_unknown_document_role() -> None:
+    selection = [
+        {
+            "candidate_id": "case-1",
+            "documents": [
+                {
+                    "source_document_id": "other",
+                    "document_role": "other",
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(ZeroCostSuccessorError, match=r"unsupported.*role"):
+        normalize_successor_selection_counters(
+            selection,
+            [_manifest("case-1", "other")],
+            validate_stored=False,
+        )
 
 
 def test_accepts_parent_scoped_case_relevance_documents() -> None:
@@ -743,6 +1072,31 @@ def test_rejects_unsupported_manifest_phase_on_inherited_case() -> None:
         project_zero_cost_successor(**fixture.kwargs)
 
 
+def test_counts_inherited_purchased_document_as_non_free_required() -> None:
+    fixture = _fixture()
+    source_document_id = next(
+        str(row["source_document_id"])
+        for row in fixture.manifest
+        if row["candidate_id"] == "case-010"
+    )
+    for row in [*fixture.manifest, *fixture.clearance]:
+        if (
+            row["candidate_id"] == "case-010"
+            and row["source_document_id"] == source_document_id
+        ):
+            row["free_or_purchased"] = "purchased"
+    fixture.refresh()
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
+
+    selected = next(
+        row for row in successor.selection if row["candidate_id"] == "case-010"
+    )
+    assert selected["required_document_count"] == 2
+    assert selected["free_required_document_count"] == 1
+    assert selected["missing_required_document_count"] == 1
+
+
 def test_rejects_document_omitted_from_active_selection() -> None:
     fixture = _fixture()
     fixture.active[0]["documents"].pop()
@@ -1033,6 +1387,27 @@ def test_cli_publishes_standard_target_cohort_surfaces(
         ]
         * 4
     )
+
+    selection_payload = selection.read_bytes()
+    tampered_selection = [
+        json.loads(line) for line in selection_payload.decode().splitlines()
+    ]
+    tampered_selection[0]["free_required_document_count"] -= 1
+    tampered_selection[0]["missing_required_document_count"] += 1
+    selection.write_bytes(_jsonl(tampered_selection))
+    with monkeypatch.context() as verifier_patch:
+        verifier_patch.setattr(
+            cli,
+            "_cmd_project_zero_cost_successor",
+            lambda _args: pytest.fail("producer replay preceded counter validation"),
+        )
+        with pytest.raises(cli.CommandError, match="document counters differ"):
+            cli._verify_zero_cost_successor_projection(
+                target_root=output_root,
+                free_clearance_path=output_root / "disclosure-clearance.jsonl",
+                expected_target_count=100,
+            )
+    selection.write_bytes(selection_payload)
 
     missing_path = output_root / "case-relevance.jsonl"
     missing_payload = missing_path.read_bytes()

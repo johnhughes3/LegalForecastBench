@@ -829,6 +829,7 @@ from legalforecast.ingestion.zero_cost_successor import (
     VerifiedPostPurchaseRankedResult,
     ZeroCostSuccessorError,
     _mint_verified_post_purchase_ranked_result,  # pyright: ignore[reportPrivateUsage]
+    normalize_successor_selection_counters,
     project_zero_cost_successor,
 )
 from legalforecast.labeling import (
@@ -38975,6 +38976,28 @@ def _verify_zero_cost_successor_projection(
         != (target_root / "disclosure-clearance.jsonl").resolve()
     ):
         raise CommandError("zero-cost successor output paths differ")
+    pre_replay_selection_path = target_root / "target-cohort-selection.jsonl"
+    pre_replay_manifest_path = target_root / "document-downloads-merged.jsonl"
+    try:
+        normalize_successor_selection_counters(
+            _projection_jsonl_records(
+                _read_singly_linked_regular_input(
+                    pre_replay_selection_path,
+                    label="zero-cost successor selection",
+                ),
+                source=pre_replay_selection_path,
+            ),
+            _projection_jsonl_records(
+                _read_singly_linked_regular_input(
+                    pre_replay_manifest_path,
+                    label="zero-cost successor manifest",
+                ),
+                source=pre_replay_manifest_path,
+            ),
+            validate_stored=True,
+        )
+    except ZeroCostSuccessorError as exc:
+        raise CommandError(str(exc)) from exc
     replay_args = argparse.Namespace(
         target_cohort_root=input_paths[0],
         ranked_reserve_result=input_paths[1],
@@ -39103,6 +39126,14 @@ def _verify_zero_cost_successor_projection(
         [*free_manifest, *purchased_manifest], key=_materializer_record_key
     ) != sorted(merged_manifest, key=_materializer_record_key):
         raise CommandError("zero-cost successor manifest partition differs")
+    try:
+        normalize_successor_selection_counters(
+            selection_records,
+            merged_manifest,
+            validate_stored=True,
+        )
+    except ZeroCostSuccessorError as exc:
+        raise CommandError(str(exc)) from exc
     clearance_path = target_root / "disclosure-clearance.jsonl"
     restriction_path = target_root / "restriction-evidence.jsonl"
     _require_snapshot_unchanged(

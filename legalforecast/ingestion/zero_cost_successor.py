@@ -21,6 +21,7 @@ from legalforecast.ingestion.docket_decision_text_source import (
     DocketDecisionTextSourceError,
     validate_terminal_purchase_disposition_record,
 )
+from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.ranked_reserve_replacement import (
     CURRENT_REPLAY_RESULT_SCHEMA_VERSION,
     POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION,
@@ -44,6 +45,21 @@ _TARGET_COUNT = 100
 _PRECURSOR_COUNT = 99
 _ORIGINAL_RETAINED_COUNT = 97
 _RESERVE_PROMOTION_COUNT = 2
+_REQUIRED_COUNTER_ROLES = frozenset(
+    {
+        DocumentRole.COMPLAINT.value,
+        DocumentRole.AMENDED_COMPLAINT.value,
+        DocumentRole.MTD_MEMORANDUM.value,
+        DocumentRole.OPPOSITION.value,
+        DocumentRole.REPLY.value,
+        DocumentRole.DECISION.value,
+    }
+)
+_OPTIONAL_COUNTER_ROLES = frozenset(
+    {
+        DocumentRole.MTD_NOTICE.value,
+    }
+)
 _DIGEST_FIELDS = (
     "projection_sha256",
     "purchase_policy_sha256",
@@ -145,6 +161,18 @@ class ZeroCostSuccessor:
     core_filter_results: tuple[JsonRecord, ...]
     config: JsonRecord
     state: JsonRecord
+
+
+@dataclass(frozen=True, slots=True)
+class SuccessorCounterTotals:
+    """Role-aware required-document totals for one successor selection."""
+
+    required_document_count: int
+    free_required_document_count: int
+    missing_required_document_count: int
+    selected_document_count: int
+    manifest_document_count: int
+    free_manifest_document_count: int
 
 
 def project_zero_cost_successor(
@@ -327,6 +355,11 @@ def project_zero_cost_successor(
         download_manifest=selected_manifest,
         disclosure_clearance=selected_clearance,
         restriction_evidence=selected_restrictions,
+    )
+    selection, _counter_totals = normalize_successor_selection_counters(
+        selection,
+        selected_manifest,
+        validate_stored=False,
     )
     try:
         selected_filter_results = tuple(
@@ -801,6 +834,125 @@ def _require_union_document_coverage(
                 raise ZeroCostSuccessorError(
                     f"unacquired successor document is not a paid-recovery gap: {key}"
                 )
+
+
+def normalize_successor_selection_counters(
+    selection: Sequence[Mapping[str, Any]],
+    download_manifest: Sequence[Mapping[str, Any]],
+    *,
+    validate_stored: bool,
+) -> tuple[tuple[JsonRecord, ...], SuccessorCounterTotals]:
+    """Derive or verify role-aware free/missing counters from authenticated rows."""
+
+    manifest = _document_index(download_manifest, "successor counter manifest")
+    for key, record in manifest.items():
+        phase = record.get("free_or_purchased")
+        if phase not in {"free", "purchased"}:
+            raise ZeroCostSuccessorError(
+                "download manifest row has an unsupported free_or_purchased value: "
+                f"{key[0]}/{key[1]}"
+            )
+
+    normalized: list[JsonRecord] = []
+    selected_keys: set[tuple[str, str]] = set()
+    total_required = 0
+    total_free_required = 0
+    total_missing_required = 0
+    for record in selection:
+        candidate_id = _required_text(record, "candidate_id")
+        required_count = 0
+        free_required_count = 0
+        missing_required_count = 0
+        for document in _documents(record, f"selection {candidate_id}"):
+            _require_parent_scoped_document_candidate(
+                document,
+                candidate_id=candidate_id,
+                label="selection counter",
+            )
+            key = (candidate_id, _required_text(document, "source_document_id"))
+            if key in selected_keys:
+                raise ZeroCostSuccessorError(
+                    f"selection repeats successor counter document: {key}"
+                )
+            selected_keys.add(key)
+            role = _required_text(document, "document_role")
+            manifest_record = manifest.get(key)
+            is_free = (
+                manifest_record is not None
+                and manifest_record.get("free_or_purchased") == "free"
+            )
+            if manifest_record is None:
+                if (
+                    document.get("requires_paid_recovery") is not True
+                    or document.get("availability_status") != "unavailable"
+                ):
+                    raise ZeroCostSuccessorError(
+                        "unacquired successor counter document is not an authenticated "
+                        f"paid-recovery gap: {key}"
+                    )
+            elif is_free and (
+                document.get("requires_paid_recovery") is True
+                or document.get("availability_status") == "unavailable"
+            ):
+                raise ZeroCostSuccessorError(
+                    f"free successor counter document is marked unavailable: {key}"
+                )
+            if role in _OPTIONAL_COUNTER_ROLES:
+                continue
+            if role not in _REQUIRED_COUNTER_ROLES:
+                raise ZeroCostSuccessorError(
+                    f"unsupported successor counter document role: {role}"
+                )
+            required_count += 1
+            if is_free:
+                free_required_count += 1
+            else:
+                missing_required_count += 1
+        if required_count != free_required_count + missing_required_count:
+            raise ZeroCostSuccessorError(
+                "successor document counters do not partition required rows: "
+                f"{candidate_id}"
+            )
+        derived = {
+            "required_document_count": required_count,
+            "free_required_document_count": free_required_count,
+            "missing_required_document_count": missing_required_count,
+        }
+        if validate_stored and any(
+            record.get(field) != value for field, value in derived.items()
+        ):
+            raise ZeroCostSuccessorError(
+                f"successor selection document counters differ: {candidate_id}"
+            )
+        normalized.append({**record, **derived})
+        total_required += required_count
+        total_free_required += free_required_count
+        total_missing_required += missing_required_count
+
+    extra_manifest_keys = set(manifest) - selected_keys
+    if extra_manifest_keys:
+        first = min(extra_manifest_keys)
+        raise ZeroCostSuccessorError(
+            f"successor counter manifest document is absent from selection: {first}"
+        )
+    if total_required != total_free_required + total_missing_required:
+        raise ZeroCostSuccessorError(
+            "successor aggregate document counters do not partition required rows"
+        )
+    return (
+        tuple(normalized),
+        SuccessorCounterTotals(
+            required_document_count=total_required,
+            free_required_document_count=total_free_required,
+            missing_required_document_count=total_missing_required,
+            selected_document_count=len(selected_keys),
+            manifest_document_count=len(manifest),
+            free_manifest_document_count=sum(
+                record.get("free_or_purchased") == "free"
+                for record in manifest.values()
+            ),
+        ),
+    )
 
 
 def _require_parent_scoped_document_candidate(
