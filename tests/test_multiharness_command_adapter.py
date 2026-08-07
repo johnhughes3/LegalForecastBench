@@ -335,7 +335,10 @@ def test_command_adapter_run_with_tools_enforces_deadline(tmp_path: Path) -> Non
     script = _write_tool_adapter_script(tmp_path, mode="sleep")
     adapter = CommandAdapter(
         manifest=_manifest(command=(sys.executable, str(script))),
-        timeout_seconds=0.05,
+        # This timeout also covers the preliminary capabilities subprocess.
+        # Leave enough scheduler headroom for loaded CI workers while keeping
+        # the 60-second sleeping run deterministically beyond the deadline.
+        timeout_seconds=1.0,
         termination_grace_seconds=0.1,
     )
     workspace = tmp_path / "workspace"
