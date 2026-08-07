@@ -27,6 +27,7 @@ SCHEMA_VERSION = "legalforecast.decision_text.v1"
 MANIFEST_SCHEMA_VERSION = "legalforecast.decision_text_manifest.v1"
 CYCLE_1_ELIGIBILITY_ANCHOR = date(2026, 6, 30)
 _PUBLIC_STATUSES = frozenset({"public", "redacted"})
+_RESTRICTED_STATUSES = frozenset({"sealed", "private", "restricted", "under_seal"})
 _OUTCOME_ROLES = frozenset({"decision", "order"})
 
 JsonRecord = dict[str, Any]
@@ -383,6 +384,12 @@ def _build_decision_text_records(
         key = (candidate_id, source_document_id)
         docket_source = docket_sources.get(key)
         if docket_source is not None:
+            _require_deferred_docket_public_proof(
+                selection=selection,
+                selection_document=decision_document,
+                docket_source=docket_source,
+                key=key,
+            )
             entered_date = _decision_date(selection, candidate_id=candidate_id)
             if _required_str(docket_source, "case_id") != _required_str(
                 selection, "case_id"
@@ -769,10 +776,6 @@ def _validate_verified_record(
         raise DecisionTextArtifactError(
             f"decision text lacks authenticated clearance: {candidate_id}"
         )
-    if _required_str(clearance, "restriction_status").lower() not in _PUBLIC_STATUSES:
-        raise DecisionTextArtifactError(
-            f"decision text is sealed/private/restricted: {candidate_id}"
-        )
     key = (candidate_id, document_id)
     docket_source = docket_sources.get(key)
     if docket_source is not None:
@@ -819,6 +822,14 @@ def _validate_verified_record(
     _validate_decision_text_clearance(
         clearance, key=(candidate_id, document_id), label="decision text"
     )
+    restriction_status = _required_str(clearance, "restriction_status").lower()
+    if restriction_status not in _PUBLIC_STATUSES and not (
+        restriction_status == "unknown"
+        and clearance.get("clearance_basis") == "affirmative_public_provenance"
+    ):
+        raise DecisionTextArtifactError(
+            f"decision text is sealed/private/restricted: {candidate_id}"
+        )
     try:
         parser = parser_index[key]
     except KeyError as exc:
@@ -1125,10 +1136,9 @@ def _first_disposition_document(
                 "first disposition document must not be model-visible: "
                 f"{candidate_id}/{_required_str(document, 'source_document_id')}"
             )
-        _require_public_document(
+        _require_selection_public_or_deferred(
             document,
             key=(candidate_id, _required_str(document, "source_document_id")),
-            require_explicit_status=False,
         )
         qualifying.append(document)
     if not qualifying:
@@ -1156,9 +1166,12 @@ def _validate_document_binding(
         raise DecisionTextArtifactError(f"unsupported clearance schema: {key}")
     if clearance.get("status") != "cleared":
         raise DecisionTextArtifactError(f"decision document lacks clearance: {key}")
-    _require_public_document(selection_document, key=key, require_explicit_status=False)
-    _require_public_document(clearance, key=key)
-    _require_public_document(restriction, key=key)
+    _require_materialized_public_proof(
+        selection_document=selection_document,
+        clearance=clearance,
+        restriction=restriction,
+        key=key,
+    )
     try:
         require_clearance_policy(clearance, key=key, label="decision document")
     except DisclosureClearanceError as exc:
@@ -1284,19 +1297,21 @@ def _decision_date(selection: Mapping[str, Any], *, candidate_id: str) -> str:
     return parsed.isoformat()
 
 
-def _require_public_document(
-    record: Mapping[str, Any],
-    *,
-    key: DocumentKey,
-    require_explicit_status: bool = True,
-) -> None:
+def _document_public_statuses(
+    record: Mapping[str, Any], *, key: DocumentKey
+) -> tuple[str, ...]:
     statuses: list[str] = []
     for field in ("restriction_status", "redaction_or_seal_status", "seal_status"):
         value = record.get(field)
         if value is not None:
             if not isinstance(value, str) or not value.strip():
                 raise DecisionTextArtifactError(f"invalid public status: {key}")
-            statuses.append(value.strip().lower())
+            status = value.strip().lower()
+            if status in _RESTRICTED_STATUSES:
+                raise DecisionTextArtifactError(
+                    f"decision document is sealed/private/restricted: {key}"
+                )
+            statuses.append(status)
     for field in ("is_sealed", "is_private"):
         value = record.get(field)
         if value is not None and type(value) is not bool:
@@ -1307,11 +1322,150 @@ def _require_public_document(
             raise DecisionTextArtifactError(
                 f"decision document is sealed/private/restricted: {key}"
             )
+    return tuple(statuses)
+
+
+def _require_public_document(
+    record: Mapping[str, Any],
+    *,
+    key: DocumentKey,
+    require_explicit_status: bool = True,
+) -> None:
+    statuses = _document_public_statuses(record, key=key)
     if (require_explicit_status and not statuses) or any(
         status not in _PUBLIC_STATUSES for status in statuses
     ):
         raise DecisionTextArtifactError(
             f"decision document is sealed/private/restricted: {key}"
+        )
+
+
+def _require_selection_public_or_deferred(
+    record: Mapping[str, Any], *, key: DocumentKey
+) -> None:
+    """Reject explicit selection restrictions while preserving proof-bound unknowns.
+
+    ``unknown`` is not public by itself.  It is retained here only long enough
+    for the caller to bind it to authenticated materialized or docket evidence.
+    """
+
+    statuses = _document_public_statuses(record, key=key)
+    if any(status not in _PUBLIC_STATUSES | {"unknown"} for status in statuses):
+        raise DecisionTextArtifactError(
+            f"decision document is sealed/private/restricted: {key}"
+        )
+
+
+def _selection_requires_deferred_public_proof(
+    selection_document: Mapping[str, Any], *, key: DocumentKey
+) -> bool:
+    return "unknown" in _document_public_statuses(selection_document, key=key)
+
+
+def _require_materialized_public_proof(
+    *,
+    selection_document: Mapping[str, Any],
+    clearance: Mapping[str, Any],
+    restriction: Mapping[str, Any],
+    key: DocumentKey,
+) -> None:
+    """Bind a deferred selection status to exact authenticated materialization.
+
+    A public selection keeps the legacy public checks.  A selection with an
+    explicit ``unknown`` restriction is admitted only where the matching
+    materialized clearance and restriction records establish public proof.
+    Unknown materialized status is limited to the closed
+    affirmative-public-provenance policy; public status may use the separately
+    verified recovered-public policy.
+    """
+
+    if not _selection_requires_deferred_public_proof(selection_document, key=key):
+        _require_public_document(
+            selection_document, key=key, require_explicit_status=False
+        )
+        _require_public_document(clearance, key=key)
+        _require_public_document(restriction, key=key)
+        return
+
+    clearance_status = _required_str(clearance, "restriction_status").lower()
+    restriction_status = _required_str(restriction, "restriction_status").lower()
+    clearance_evidence = _required_nonempty_strings(clearance, "restriction_evidence")
+    restriction_evidence = _required_nonempty_strings(
+        restriction, "restriction_evidence"
+    )
+    evidence_sets = {
+        frozenset(clearance_evidence),
+        frozenset(restriction_evidence),
+    }
+    if (
+        clearance_status != restriction_status
+        or len(evidence_sets) != 1
+        or any(
+            len(evidence) != len(frozenset(evidence))
+            for evidence in (
+                clearance_evidence,
+                restriction_evidence,
+            )
+        )
+    ):
+        raise DecisionTextArtifactError(
+            f"selection unknown restriction proof does not match materialization: {key}"
+        )
+    _document_public_statuses(clearance, key=key)
+    _document_public_statuses(restriction, key=key)
+    if clearance_status in _PUBLIC_STATUSES:
+        _require_public_document(clearance, key=key)
+        _require_public_document(restriction, key=key)
+        return
+    if (
+        clearance_status == "unknown"
+        and clearance.get("clearance_basis") == "affirmative_public_provenance"
+    ):
+        selection_evidence = _required_nonempty_strings(
+            selection_document, "restriction_evidence"
+        )
+        if len(selection_evidence) != len(frozenset(selection_evidence)) or frozenset(
+            selection_evidence
+        ) != frozenset(clearance_evidence):
+            raise DecisionTextArtifactError(
+                "selection unknown restriction proof does not match materialization: "
+                f"{key}"
+            )
+        return
+    raise DecisionTextArtifactError(
+        f"selection unknown restriction lacks canonical public proof: {key}"
+    )
+
+
+def _require_deferred_docket_public_proof(
+    *,
+    selection: Mapping[str, Any],
+    selection_document: Mapping[str, Any],
+    docket_source: Mapping[str, Any],
+    key: DocumentKey,
+) -> None:
+    """Require an opaque docket source to be bound to this exact selection."""
+
+    if not _selection_requires_deferred_public_proof(selection_document, key=key):
+        return
+    selection_sha256 = _normalize_sha256(
+        _payload_sha256(
+            canonical_json_value_bytes(
+                selection,
+                error_type=DecisionTextArtifactError,
+                error_message="selection is not canonical JSON",
+            )
+        )
+    )
+    if _required_sha256(docket_source, "selection_record_sha256") != selection_sha256:
+        raise DecisionTextArtifactError(
+            f"docket decision source does not bind the selected restriction: {key}"
+        )
+    if _required_nonempty_strings(
+        docket_source, "restriction_evidence"
+    ) != _required_nonempty_strings(selection_document, "restriction_evidence"):
+        raise DecisionTextArtifactError(
+            f"docket decision source restriction evidence mismatch: {key}"
         )
 
 
