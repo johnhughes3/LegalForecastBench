@@ -13,6 +13,7 @@ from legalforecast.multiharness.claude_agent_sdk import (
     CLAUDE_AGENT_SDK_ADAPTER_ID,
     CLAUDE_AGENT_SDK_ADAPTER_VERSION,
     CLAUDE_AGENT_SDK_VERSION,
+    CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM,
     CLAUDE_BUNDLED_CLI_VERSION,
     CLAUDE_MAX_BUDGET_USD,
     CLAUDE_MAX_TURNS,
@@ -20,6 +21,7 @@ from legalforecast.multiharness.claude_agent_sdk import (
     ClaudeSDKExecution,
     ClaudeSDKRunConfig,
     build_capabilities,
+    claude_bundled_runtime_pin,
     run_claude_agent_sdk,
     run_offline_protocol_fixture,
     validate_process_auth_environment,
@@ -27,6 +29,7 @@ from legalforecast.multiharness.claude_agent_sdk import (
 from legalforecast.multiharness.claude_agent_sdk_cli import (
     PinnedClaudeSDKExecutor,
     _failure_stage,  # pyright: ignore[reportPrivateUsage]
+    _runtime_identity,  # pyright: ignore[reportPrivateUsage]
     build_claude_agent_options,
 )
 from legalforecast.multiharness.claude_agent_sdk_cli import (
@@ -109,6 +112,9 @@ def test_sdk_is_an_exact_optional_runtime_pin() -> None:
     ]
     assert CLAUDE_AGENT_SDK_VERSION == "0.2.128"
     assert CLAUDE_BUNDLED_CLI_VERSION == "2.1.220"
+    assert CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM["linux-x86_64"] == (
+        "sha256:674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863"
+    )
 
 
 def test_offline_protocol_fixture_is_credential_free_and_explicit(
@@ -181,7 +187,7 @@ def test_live_run_maps_isolated_config_and_records_safe_provenance(
     assert summary["served_model"] == "claude-served-snapshot"
     assert summary["sdk_version"] == CLAUDE_AGENT_SDK_VERSION
     assert summary["bundled_cli_version"] == CLAUDE_BUNDLED_CLI_VERSION
-    assert summary["bundled_cli_sha256"] == "sha256:" + "4" * 64
+    assert summary["bundled_cli_sha256"] == claude_bundled_runtime_pin()[1]
     assert "provider_request_count" not in summary
     assert summary["tool_call_count"] == 1
     assert summary["input_tokens"] == 12
@@ -270,6 +276,7 @@ def test_provider_exception_is_normalized_without_secret_or_account_details(
         ("tool_call_count", 2),
         ("sdk_version", "0.2.127"),
         ("bundled_cli_version", "2.1.219"),
+        ("bundled_cli_sha256", "sha256:" + "4" * 64),
         ("served_model", ""),
         ("usage", {}),
         (
@@ -382,6 +389,65 @@ def test_sdk_options_disable_native_state_and_subscription_paths(
     }
 
 
+def test_runtime_identity_rejects_unpinned_bundled_cli_before_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package_root = tmp_path / "claude_agent_sdk"
+    executable_name, _ = claude_bundled_runtime_pin()
+    bundled_cli = package_root / "_bundled" / executable_name
+    bundled_cli.parent.mkdir(parents=True)
+    bundled_cli.write_bytes(b"unexpected bundled runtime")
+    sdk = SimpleNamespace(__file__=str(package_root / "__init__.py"))
+    monkeypatch.setattr(
+        "legalforecast.multiharness.claude_agent_sdk_cli.importlib.metadata.version",
+        lambda _name: CLAUDE_AGENT_SDK_VERSION,
+    )
+    monkeypatch.setattr(
+        "legalforecast.multiharness.claude_agent_sdk_cli.importlib.import_module",
+        lambda _name: SimpleNamespace(__cli_version__=CLAUDE_BUNDLED_CLI_VERSION),
+    )
+
+    with pytest.raises(
+        ClaudeAgentSDKAdapterError,
+        match="bundled Claude Code digest does not match",
+    ):
+        _runtime_identity(sdk)
+
+
+@pytest.mark.parametrize(
+    ("sys_platform", "machine", "executable_name", "platform_key"),
+    (
+        ("darwin", "arm64", "claude", "darwin-arm64"),
+        ("darwin", "x86_64", "claude", "darwin-x86_64"),
+        ("linux", "aarch64", "claude", "linux-aarch64"),
+        ("linux", "AMD64", "claude", "linux-x86_64"),
+        ("win32", "AMD64", "claude.exe", "win32-x86_64"),
+    ),
+)
+def test_runtime_pin_covers_every_locked_platform_wheel(
+    sys_platform: str,
+    machine: str,
+    executable_name: str,
+    platform_key: str,
+) -> None:
+    assert claude_bundled_runtime_pin(
+        sys_platform=sys_platform,
+        machine=machine,
+    ) == (
+        executable_name,
+        CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM[platform_key],
+    )
+
+
+def test_runtime_pin_rejects_unlocked_platform() -> None:
+    with pytest.raises(
+        ClaudeAgentSDKAdapterError,
+        match="Claude Agent SDK platform is not pinned",
+    ):
+        claude_bundled_runtime_pin(sys_platform="freebsd", machine="x86_64")
+
+
 def test_pinned_executor_drives_fake_sdk_mcp_tool_and_terminal_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -402,7 +468,7 @@ def test_pinned_executor_drives_fake_sdk_mcp_tool_and_terminal_result(
             "sdk_version": CLAUDE_AGENT_SDK_VERSION,
             "bundled_cli_version": CLAUDE_BUNDLED_CLI_VERSION,
             "bundled_cli_path": tmp_path / "bundled" / "claude",
-            "bundled_cli_sha256": "sha256:" + "4" * 64,
+            "bundled_cli_sha256": claude_bundled_runtime_pin()[1],
         },
     )
     tools = _ToolTransport()
@@ -451,7 +517,7 @@ def test_pinned_executor_counts_malformed_mcp_attempts(
             "sdk_version": CLAUDE_AGENT_SDK_VERSION,
             "bundled_cli_version": CLAUDE_BUNDLED_CLI_VERSION,
             "bundled_cli_path": tmp_path / "bundled" / "claude",
-            "bundled_cli_sha256": "sha256:" + "4" * 64,
+            "bundled_cli_sha256": claude_bundled_runtime_pin()[1],
         },
     )
 
@@ -486,7 +552,7 @@ def test_pinned_executor_rejects_malformed_only_mcp_attempt(
             "sdk_version": CLAUDE_AGENT_SDK_VERSION,
             "bundled_cli_version": CLAUDE_BUNDLED_CLI_VERSION,
             "bundled_cli_path": tmp_path / "bundled" / "claude",
-            "bundled_cli_sha256": "sha256:" + "4" * 64,
+            "bundled_cli_sha256": claude_bundled_runtime_pin()[1],
         },
     )
 
@@ -559,7 +625,7 @@ def test_pinned_executor_fails_closed_on_invalid_sdk_message_sequences(
             "sdk_version": CLAUDE_AGENT_SDK_VERSION,
             "bundled_cli_version": CLAUDE_BUNDLED_CLI_VERSION,
             "bundled_cli_path": tmp_path / "bundled" / "claude",
-            "bundled_cli_sha256": "sha256:" + "4" * 64,
+            "bundled_cli_sha256": claude_bundled_runtime_pin()[1],
         },
     )
 
@@ -756,7 +822,7 @@ def _execution() -> ClaudeSDKExecution:
         served_model="claude-served-snapshot",
         sdk_version=CLAUDE_AGENT_SDK_VERSION,
         bundled_cli_version=CLAUDE_BUNDLED_CLI_VERSION,
-        bundled_cli_sha256="sha256:" + "4" * 64,
+        bundled_cli_sha256=claude_bundled_runtime_pin()[1],
         tool_call_count=1,
         num_turns=2,
         duration_ms=1200,

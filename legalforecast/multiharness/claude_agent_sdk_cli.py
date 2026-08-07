@@ -27,6 +27,7 @@ from legalforecast.multiharness.claude_agent_sdk import (
     ClaudeSDKRunConfig,
     ToolTransport,
     build_capabilities,
+    claude_bundled_runtime_pin,
     current_process_environment,
     run_async,
     run_claude_agent_sdk,
@@ -458,19 +459,25 @@ def _runtime_identity(sdk: Any) -> dict[str, Any]:
         ) from None
     if observed_cli_version != CLAUDE_BUNDLED_CLI_VERSION:
         raise ClaudeAgentSDKAdapterError("bundled Claude Code version does not match")
+    executable_name, expected_sha256 = claude_bundled_runtime_pin()
     package_path = Path(cast(str, sdk.__file__)).resolve().parent
-    bundled_cli_path = package_path / "_bundled" / "claude"
+    bundled_cli_path = package_path / "_bundled" / executable_name
     try:
-        payload = bundled_cli_path.read_bytes()
+        with bundled_cli_path.open("rb") as stream:
+            bundled_cli_sha256 = (
+                f"sha256:{hashlib.file_digest(stream, 'sha256').hexdigest()}"
+            )
     except OSError:
         raise ClaudeAgentSDKAdapterError(
             "bundled Claude Code executable is unavailable"
         ) from None
+    if bundled_cli_sha256 != expected_sha256:
+        raise ClaudeAgentSDKAdapterError("bundled Claude Code digest does not match")
     return {
         "sdk_version": observed_sdk,
         "bundled_cli_version": observed_cli_version,
         "bundled_cli_path": bundled_cli_path,
-        "bundled_cli_sha256": f"sha256:{hashlib.sha256(payload).hexdigest()}",
+        "bundled_cli_sha256": bundled_cli_sha256,
     }
 
 
