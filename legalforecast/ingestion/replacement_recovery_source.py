@@ -404,10 +404,27 @@ def derive_resolved_source_coordinates(
                 "resolved duplicate input commitments differ"
             )
         source_digests_by_path[resolved_input] = digest
+    terminal_resolved_path = expected_terminal_unavailable_path.resolve()
+    if (
+        legacy_empty_terminal
+        and terminal_resolved_path in source_digests_by_path
+        and source_digests_by_path[terminal_resolved_path]
+        != expected_terminal_unavailable_sha256
+    ):
+        raise ReplacementRecoverySourceError(
+            "resolved legacy empty terminal input changed"
+        )
     expected_resolved_paths = {path.resolve() for path in expected_inputs}
     ordered_inputs = (
         *expected_inputs,
-        *(path for path in inputs if path.resolve() not in expected_resolved_paths),
+        *(
+            path
+            for path in inputs
+            if path.resolve() not in expected_resolved_paths
+            and not (
+                legacy_empty_terminal and path.resolve() == terminal_resolved_path
+            )
+        ),
     )
     raw_outputs = card.get("output_paths")
     outputs = _path_sequence(raw_outputs, label="resolved output_paths")
