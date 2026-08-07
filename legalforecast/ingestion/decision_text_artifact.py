@@ -513,7 +513,40 @@ def _build_decision_text_records(
 def _decision_text_clearance(clearance: Mapping[str, Any]) -> dict[str, object]:
     """Project clearance while preserving the legacy human bytes exactly."""
 
-    if clearance.get("clearance_basis") != "provider_free_recovered_public":
+    basis = clearance.get("clearance_basis")
+    if basis in {
+        "affirmative_public_provenance",
+        "authenticated_model_exception_review",
+    }:
+        reviewer_id: str | None = None
+        if basis == "authenticated_model_exception_review":
+            reviewer_id = _required_str(clearance, "reviewer_id")
+        if clearance.get("reviewed_at") is not None:
+            raise DecisionTextArtifactError(
+                f"{basis} clearance unexpectedly has a human review timestamp"
+            )
+        projected: dict[str, object] = {
+            "status": "cleared",
+            "restriction_status": _required_str(clearance, "restriction_status"),
+            "restriction_evidence": list(
+                _required_nonempty_strings(clearance, "restriction_evidence")
+            ),
+            "reviewer_id": reviewer_id,
+            "controlled_store_provenance": _required_str(
+                clearance, "controlled_store_provenance"
+            ),
+            "reviewed_at": None,
+            "free_or_purchased": _required_str(clearance, "free_or_purchased"),
+            "clearance_basis": basis,
+            "routing_plan_sha256": _required_sha256(clearance, "routing_plan_sha256"),
+        }
+        recovered_lineage = clearance.get("recovered_public_lineage")
+        if recovered_lineage is not None:
+            projected["recovered_public_lineage"] = dict(
+                _mapping(recovered_lineage, "recovered_public_lineage")
+            )
+        return projected
+    if basis != "provider_free_recovered_public":
         return {
             "status": "cleared",
             "restriction_status": _required_str(clearance, "restriction_status"),
@@ -551,7 +584,11 @@ def _validate_decision_text_clearance(
     key: DocumentKey,
     label: str,
 ) -> None:
-    if clearance.get("clearance_basis") == "provider_free_recovered_public":
+    if clearance.get("clearance_basis") in {
+        "provider_free_recovered_public",
+        "affirmative_public_provenance",
+        "authenticated_model_exception_review",
+    }:
         try:
             require_clearance_policy(clearance, key=key, label=label)
         except DisclosureClearanceError as exc:

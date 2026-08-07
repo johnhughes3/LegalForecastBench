@@ -434,6 +434,30 @@ def test_downstream_docket_descriptor_rejects_unverified_shapes() -> None:
         ("sealed", "sealed/private/restricted"),
         ("malformed_sealed", "malformed is_sealed flag"),
         ("malformed_private_restriction", "malformed is_private flag"),
+        (
+            "affirmative_public_with_reviewer",
+            "automatic clearance unexpectedly has a reviewer",
+        ),
+        (
+            "affirmative_public_wrong_provenance",
+            "automatic clearance provenance is not an allowlisted public",
+        ),
+        (
+            "affirmative_public_wrong_phase",
+            "automatic clearance provenance is not an allowlisted public",
+        ),
+        (
+            "model_review_missing_reviewer",
+            "model-reviewed clearance lacks model authority provenance",
+        ),
+        (
+            "model_review_human_timestamp",
+            "model-reviewed clearance has a human review timestamp",
+        ),
+        (
+            "model_review_wrong_provenance",
+            "model-reviewed clearance lacks model authority provenance",
+        ),
         ("uncleared", "decision document lacks clearance"),
         ("missing_disposition", "first written disposition document missing"),
         ("ambiguous", "ambiguous first written disposition"),
@@ -503,6 +527,42 @@ def test_build_decision_texts_accepts_closed_recovered_public_clearance(
     assert clearance["recovered_public_lineage"]["purchase_operation_sha256"] == (
         "7" * 64
     )
+
+
+def test_build_decision_texts_accepts_affirmative_public_provenance(
+    tmp_path: Path,
+) -> None:
+    inputs = _write_inputs(tmp_path, mutation="affirmative_public")
+    output = tmp_path / "output"
+
+    assert main(_command(inputs, output)) == 0
+    clearance = _read_jsonl(output / "decision-texts.jsonl")[0]["clearance"]
+    assert clearance == {
+        "status": "cleared",
+        "restriction_status": "public",
+        "restriction_evidence": ["courtlistener_public_download_record_checked"],
+        "reviewer_id": None,
+        "controlled_store_provenance": (
+            "https://storage.courtlistener.com/recap/example/decision.pdf"
+        ),
+        "reviewed_at": None,
+        "free_or_purchased": "free",
+        "clearance_basis": "affirmative_public_provenance",
+        "routing_plan_sha256": "8" * 64,
+    }
+
+
+def test_build_decision_texts_accepts_authenticated_model_exception_review(
+    tmp_path: Path,
+) -> None:
+    inputs = _write_inputs(tmp_path, mutation="model_exception_review")
+    output = tmp_path / "output"
+
+    assert main(_command(inputs, output)) == 0
+    clearance = _read_jsonl(output / "decision-texts.jsonl")[0]["clearance"]
+    assert clearance["clearance_basis"] == "authenticated_model_exception_review"
+    assert clearance["reviewer_id"] == "google:gemini-3.5-flash"
+    assert clearance["reviewed_at"] is None
 
 
 def test_build_decision_texts_rejects_selection_modified_after_committed_projection(
@@ -834,6 +894,76 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
             }
         )
         restriction_rows[0]["restriction_evidence"] = evidence
+    elif mutation in {
+        "affirmative_public",
+        "affirmative_public_with_reviewer",
+        "affirmative_public_wrong_provenance",
+        "affirmative_public_wrong_phase",
+    }:
+        clearance_rows[0].update(
+            {
+                "restriction_evidence": [
+                    "courtlistener_public_download_record_checked"
+                ],
+                "reviewer_id": (
+                    "reviewer:unexpected"
+                    if mutation == "affirmative_public_with_reviewer"
+                    else None
+                ),
+                "controlled_store_provenance": (
+                    "https://example.invalid/decision.pdf"
+                    if mutation == "affirmative_public_wrong_provenance"
+                    else "https://storage.courtlistener.com/recap/example/decision.pdf"
+                ),
+                "reviewed_at": None,
+                "free_or_purchased": (
+                    "purchased"
+                    if mutation == "affirmative_public_wrong_phase"
+                    else "free"
+                ),
+                "clearance_basis": "affirmative_public_provenance",
+                "routing_plan_sha256": "8" * 64,
+            }
+        )
+        if mutation == "affirmative_public_wrong_phase":
+            manifest_rows[0]["free_or_purchased"] = "purchased"
+        restriction_rows[0]["restriction_evidence"] = [
+            "courtlistener_public_download_record_checked"
+        ]
+    elif mutation in {
+        "model_exception_review",
+        "model_review_missing_reviewer",
+        "model_review_human_timestamp",
+        "model_review_wrong_provenance",
+    }:
+        clearance_rows[0].update(
+            {
+                "restriction_evidence": [
+                    "courtlistener_public_download_record_checked"
+                ],
+                "reviewer_id": (
+                    None
+                    if mutation == "model_review_missing_reviewer"
+                    else "google:gemini-3.5-flash"
+                ),
+                "controlled_store_provenance": (
+                    "private-store://wrong/model-review"
+                    if mutation == "model_review_wrong_provenance"
+                    else "private-store://disclosure/model-review"
+                ),
+                "reviewed_at": (
+                    "2026-07-15T12:00:00Z"
+                    if mutation == "model_review_human_timestamp"
+                    else None
+                ),
+                "free_or_purchased": "free",
+                "clearance_basis": "authenticated_model_exception_review",
+                "routing_plan_sha256": "8" * 64,
+            }
+        )
+        restriction_rows[0]["restriction_evidence"] = [
+            "courtlistener_public_download_record_checked"
+        ]
     elif mutation == "uncleared":
         clearance_rows[0]["status"] = "quarantined"
     elif mutation == "missing_disposition":
