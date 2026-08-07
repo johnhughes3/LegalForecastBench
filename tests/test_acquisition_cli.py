@@ -2293,6 +2293,306 @@ def test_parse_and_build_packet_acquisition_fixture_flow(
     )
 
 
+def test_parse_documents_reuses_authenticated_live_mistral_output_without_provider(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Relocated exact-content inputs may copy, but never invoke the parser."""
+
+    output_root = tmp_path / "successor"
+    previous_root = tmp_path / "previous-markdown"
+    previous_markdown = previous_root / "cand-1" / "complaint.md"
+    previous_markdown.parent.mkdir(parents=True)
+    markdown = "# Complaint\n\nExact historical Markdown.\n"
+    previous_markdown.write_text(markdown, encoding="utf-8")
+    source = tmp_path / "relocated" / "complaint.pdf"
+    source.parent.mkdir()
+    source.write_bytes(b"%PDF exact content")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    previous_request = tmp_path / "previous-requests.jsonl"
+    current_request = tmp_path / "current-requests.jsonl"
+    request_record = {
+        "candidate_id": "cand-1",
+        "source_document_id": "complaint",
+        "expected_sha256": digest,
+        "expected_byte_count": source.stat().st_size,
+    }
+    _write_jsonl(
+        previous_request,
+        [{**request_record, "input_path": str(tmp_path / "old" / "complaint.pdf")}],
+    )
+    _write_jsonl(current_request, [{**request_record, "input_path": str(source)}])
+    conversion = {
+        "candidate_id": "cand-1",
+        "source_document_id": "complaint",
+        "status": "succeeded",
+        "input_path": str(tmp_path / "old" / "complaint.pdf"),
+        "markdown_path": "cand-1/complaint.md",
+        "metadata_path": "cand-1/complaint.metadata.json",
+        "parser_config": {
+            "engine": "mistral",
+            "parser_root": str(tmp_path / "parser"),
+            "parser_version": "1.0.0",
+            "parser_revision": cli.EXPECTED_PARSER_REVISION,
+            "expected_parser_revision": cli.EXPECTED_PARSER_REVISION,
+            "timeout_seconds": 600,
+            "debug": False,
+            "command": [
+                "uv",
+                "run",
+                "parser-pdf",
+                "--file",
+                str(tmp_path / "old" / "complaint.pdf"),
+                "--mistral",
+                "--no-ocr",
+            ],
+        },
+        "quality_flags": [],
+        "extracted_text": {
+            "source_document_id": "complaint",
+            "extracted_at": _GENERATED_AT,
+            "extraction_method": "mistral_parser_markdown",
+            "text_sha256": hashlib.sha256(markdown.encode()).hexdigest(),
+            "quality_flags": [],
+        },
+        "source_sha256": digest,
+        "source_byte_count": source.stat().st_size,
+        "stdout": "",
+        "stderr": "",
+        "error_message": None,
+    }
+    _write_json(previous_markdown.with_suffix(".metadata.json"), conversion)
+    previous_manifest = tmp_path / "previous-conversions.jsonl"
+    _write_jsonl(previous_manifest, [conversion])
+    previous_card = tmp_path / "previous-parse.json"
+    _write_json(
+        previous_card,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "parse-documents",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "record_count": 1,
+            "source_commitments": {
+                "requests": {
+                    "path": str(previous_request.resolve()),
+                    "sha256": cli._bytes_sha256(previous_request.read_bytes()),
+                }
+            },
+            "output_commitments": {
+                "parser_manifest": {
+                    "path": str(previous_manifest.resolve()),
+                    "sha256": cli._bytes_sha256(previous_manifest.read_bytes()),
+                }
+            },
+            "parser_execution": {
+                "mode": "live_mistral",
+                "engine": "mistral",
+                "parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "parser_root": str(tmp_path / "parser"),
+                "fixture_markdown": False,
+            },
+        },
+    )
+    clearance = tmp_path / "clearance.jsonl"
+    _write_jsonl(
+        clearance,
+        [
+            {
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "candidate_id": "cand-1",
+                "source_document_id": "complaint",
+                "sha256": digest,
+                "byte_count": source.stat().st_size,
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": ["fixture"],
+                "reviewer_id": "fixture-reviewer",
+                "controlled_store_provenance": "private-store://fixture/reviews",
+                "reviewed_at": _GENERATED_AT,
+            }
+        ],
+    )
+    _, materialization_card = _materialized_cli_unit_fixture(monkeypatch, tmp_path)
+
+    def provider_must_not_run(*args: object, **kwargs: object) -> object:
+        raise AssertionError("live Mistral provider conversion must not run")
+
+    monkeypatch.setattr(cli, "convert_documents_to_markdown", provider_must_not_run)
+    assert (
+        main(
+            [
+                "acquisition",
+                "parse-documents",
+                "--requests",
+                str(current_request),
+                "--disclosure-clearance",
+                str(clearance),
+                "--materialization-run-card",
+                str(materialization_card),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--resume",
+                "--reuse-live-mistral-run-card",
+                str(previous_card),
+                "--reuse-markdown-root",
+                str(previous_root),
+            ]
+        )
+        == 0
+    )
+    assert (output_root / "markdown" / "cand-1" / "complaint.md").read_text(
+        encoding="utf-8"
+    ) == markdown
+    assert _read_jsonl(output_root / "mistral-markdown-conversions.jsonl") == [
+        conversion
+    ]
+    run_card = json.loads(
+        (output_root / "run-cards" / "parse-documents.json").read_text()
+    )
+    assert (
+        run_card["source_commitments"]["reused_live_mistral"]["reused_record_count"]
+        == 1
+    )
+
+
+@pytest.mark.parametrize("failure", ["tamper", "config", "symlink", "partial"])
+def test_live_mistral_reuse_helper_fails_closed(tmp_path: Path, failure: str) -> None:
+    root = tmp_path / "prior"
+    artifact = root / "cand" / "doc.md"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("historical", encoding="utf-8")
+    digest = hashlib.sha256(b"source").hexdigest()
+    record = {
+        "candidate_id": "cand",
+        "source_document_id": "doc",
+        "status": "succeeded",
+        "input_path": "/old/doc.pdf",
+        "markdown_path": "cand/doc.md",
+        "metadata_path": "cand/doc.metadata.json",
+        "parser_config": {
+            "engine": "mistral",
+            "parser_root": "/parser",
+            "parser_revision": cli.EXPECTED_PARSER_REVISION,
+            "expected_parser_revision": cli.EXPECTED_PARSER_REVISION,
+            "timeout_seconds": 60,
+            "debug": False,
+            "command": [
+                "uv",
+                "run",
+                "parser-pdf",
+                "--file",
+                "/old/doc.pdf",
+                "--mistral",
+                "--no-ocr",
+            ],
+        },
+        "quality_flags": [],
+        "extracted_text": {
+            "source_document_id": "doc",
+            "extraction_method": "mistral_parser_markdown",
+            "text_sha256": hashlib.sha256(b"historical").hexdigest(),
+            "quality_flags": [],
+        },
+        "source_sha256": digest,
+        "source_byte_count": 6,
+        "stdout": "",
+        "stderr": "",
+        "error_message": None,
+    }
+    artifact.with_suffix(".metadata.json").write_text(
+        json.dumps(record), encoding="utf-8"
+    )
+    requests_path = tmp_path / "requests.jsonl"
+    manifest_path = tmp_path / "manifest.jsonl"
+    _write_jsonl(
+        requests_path,
+        [
+            {
+                "candidate_id": "cand",
+                "source_document_id": "doc",
+                "input_path": "/old/doc.pdf",
+                "expected_sha256": digest,
+                "expected_byte_count": 6,
+            }
+        ],
+    )
+    _write_jsonl(manifest_path, [record])
+    card_path = tmp_path / "card.json"
+    _write_json(
+        card_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "parse-documents",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "record_count": 1,
+            "source_commitments": {
+                "requests": {
+                    "path": str(requests_path),
+                    "sha256": cli._bytes_sha256(requests_path.read_bytes()),
+                }
+            },
+            "output_commitments": {
+                "parser_manifest": {
+                    "path": str(manifest_path),
+                    "sha256": cli._bytes_sha256(manifest_path.read_bytes()),
+                }
+            },
+            "parser_execution": {
+                "mode": "live_mistral",
+                "engine": "mistral",
+                "parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "fixture_markdown": False,
+            },
+        },
+    )
+    request = cli.MistralMarkdownConversionRequest(
+        "cand",
+        "doc",
+        tmp_path / "new.pdf",
+        tmp_path / "out" / "markdown" / "cand" / "doc.md",
+        digest,
+        6,
+    )
+    if failure == "tamper":
+        artifact.write_text("tampered", encoding="utf-8")
+    elif failure == "config":
+        record["parser_config"]["debug"] = True
+        artifact.with_suffix(".metadata.json").write_text(
+            json.dumps(record), encoding="utf-8"
+        )
+        _write_jsonl(manifest_path, [record])
+        _write_json(
+            card_path,
+            {
+                **json.loads(card_path.read_text()),
+                "output_commitments": {
+                    "parser_manifest": {
+                        "path": str(manifest_path),
+                        "sha256": cli._bytes_sha256(manifest_path.read_bytes()),
+                    }
+                },
+            },
+        )
+    elif failure == "symlink":
+        artifact.unlink()
+        artifact.symlink_to(tmp_path / "elsewhere")
+    else:
+        destination = request.markdown_output_path
+        destination.parent.mkdir(parents=True)
+        destination.write_text("partial", encoding="utf-8")
+    with pytest.raises(cli.CommandError):
+        cli._reuse_live_mistral_parse_outputs(
+            prior_run_card_path=card_path,
+            prior_markdown_root=root,
+            requests=(request,),
+            output_root=tmp_path / "out",
+        )
+
+
 @pytest.mark.parametrize("producer_mutation", [None, "raw", "markdown"])
 def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     tmp_path: Path,
