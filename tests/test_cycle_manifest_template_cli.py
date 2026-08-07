@@ -197,6 +197,13 @@ def test_render_cycle_config_rejects_disclosure_artifacts_under_frozen_root(
         "RECOVERY_ROOT": tmp_path / "recovery",
         "REPO_ROOT": frozen_root,
         "TARGET_COHORT_ROOT": tmp_path / "target-cohort",
+        "TERMINAL_DISPOSITION_SELECTION": tmp_path / "terminal" / "selection.jsonl",
+        "TERMINAL_DISPOSITION_SNAPSHOT_MANIFEST": tmp_path
+        / "terminal"
+        / "snapshot"
+        / "manifest.json",
+        "TERMINAL_PURCHASE_RESULT": tmp_path / "terminal" / "purchase-result.json",
+        "TERMINAL_PURCHASE_RUN_CARD": tmp_path / "terminal" / "purchase-run-card.json",
     }
     output = tmp_path / "cycle.json"
 

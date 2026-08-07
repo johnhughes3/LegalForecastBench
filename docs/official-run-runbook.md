@@ -2253,6 +2253,10 @@ initial_disclosure_state_root="$initial_disclosure_cycle_root/orchestrator"
 initial_disclosure_template="$repo_root/manifests/cycle-1-target-100.initial-recovery-disclosure.template.json"
 successor_history_recovery_root="/absolute/path/to/completed-successor-recovery"
 successor_history_private_root="/absolute/path/to/successor-purchase-private-root"
+terminal_disposition_selection="/absolute/path/to/final-disposition-selection.jsonl"
+terminal_disposition_snapshot_manifest="/absolute/path/to/screening-snapshot/manifest.json"
+terminal_purchase_result="/absolute/path/to/completed-purchase-result.json"
+terminal_purchase_run_card="/absolute/path/to/completed-purchase-run-card.json"
 
 mkdir -p "$initial_disclosure_cycle_root"
 
@@ -2265,6 +2269,10 @@ uv run legalforecast acquisition render-cycle-config \
   --variable "RECOVERY_ROOT=$quarantine_recovery_root" \
   --variable "REPO_ROOT=$repo_root" \
   --variable "TARGET_COHORT_ROOT=$initial_approved_root" \
+  --variable "TERMINAL_DISPOSITION_SELECTION=$terminal_disposition_selection" \
+  --variable "TERMINAL_DISPOSITION_SNAPSHOT_MANIFEST=$terminal_disposition_snapshot_manifest" \
+  --variable "TERMINAL_PURCHASE_RESULT=$terminal_purchase_result" \
+  --variable "TERMINAL_PURCHASE_RUN_CARD=$terminal_purchase_run_card" \
   --output "$initial_disclosure_config"
 
 uv run legalforecast acquisition run-cycle \
@@ -2323,12 +2331,19 @@ uv run legalforecast acquisition resolve-post-recovery-documents \
   --disclosure-clearance "$initial_disclosure_root/03-clearance/disclosure-clearance.jsonl" \
   --clearance-run-card "$initial_disclosure_root/03-clearance/run-cards/finalize-provenance-quarantine.json" \
   --restriction-evidence "$quarantine_recovery_root/post-recovery-restriction-evidence.jsonl" \
+  --terminal-disposition-selection "$terminal_disposition_selection" \
+  --terminal-disposition-snapshot-manifest "$terminal_disposition_snapshot_manifest" \
+  --terminal-purchase-result "$terminal_purchase_result" \
+  --terminal-purchase-run-card "$terminal_purchase_run_card" \
   --resolved-output "$initial_disclosure_root/04-resolved/resolved-post-recovery-documents.jsonl" \
   --run-card-output "$initial_disclosure_root/04-resolved/run-cards/resolve-post-recovery-documents.json" \
   --execute --resume
 ```
 
 Do not run the model commands for the policy-bound provider-free route above.
+The four terminal-disposition arguments are all-or-none and are mandatory when the recovery run card commits any terminal-unavailable operation.
+They independently replay the exhaustive terminal-purchase disposition against the current journal and must match every recovery terminal document key exactly; the resolver's original `--selection` remains the recovery selection and is never replaced by `--terminal-disposition-selection`.
+The resolver run card commits all five terminal evidence inputs, including the recovery terminal ledger, by path and bytes.
 The separately authenticated model continuation remains available only if the owner deliberately selects that alternative route:
 
 ```bash
@@ -2354,6 +2369,10 @@ uv run legalforecast acquisition build-replacement-recovery-source \
   --recovery-root "$quarantine_recovery_root" \
   --purchased-clearance-run-card "$initial_disclosure_root/03-clearance/run-cards/finalize-provenance-quarantine.json" \
   --resolved-post-recovery-run-card "$initial_disclosure_root/04-resolved/run-cards/resolve-post-recovery-documents.json" \
+  --terminal-disposition-selection "$terminal_disposition_selection" \
+  --terminal-disposition-snapshot-manifest "$terminal_disposition_snapshot_manifest" \
+  --terminal-purchase-result "$terminal_purchase_result" \
+  --terminal-purchase-run-card "$terminal_purchase_run_card" \
   --purchase-policy "$purchase_authority_root/purchase-policy-v2.json" \
   --cohort-policy "$repo_root/docs/cohort-policy-cycle-1-target-100-2026-07-25.json" \
   --purchase-ledger "$purchase_authority_root/cycle-1-target100-recap-fetch-purchase-ledger.sqlite3" \
@@ -2363,6 +2382,7 @@ uv run legalforecast acquisition build-replacement-recovery-source \
 ```
 
 The producer authenticates the v2 recovery card, v3 purchased-clearance card, resolver card, policies, ledger, private approval root, and ledger-initialization receipt before publishing the descriptor.
+For a nonempty terminal ledger it also rereads and independently replays the complete four-file terminal-disposition bundle; it does not trust the resolver card's metadata as authority.
 
 Only after the v3 continuation's resolver succeeds may `materialize-cohort-documents` use `$quarantine_recovery_root` as `--purchased-recovery-root`, `$initial_disclosure_root/03-clearance/disclosure-clearance.jsonl`, its finalizer card, and `$initial_disclosure_root/04-resolved/resolved-post-recovery-documents.jsonl`. The materializer replays the generated review queue and recovery document-tree commitments, verifies the authenticated clearance and canonical operation bindings, and fails closed if any quarantine artifact was hand-edited or omitted.
 

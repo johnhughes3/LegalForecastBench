@@ -377,6 +377,7 @@ from legalforecast.ingestion.discovery_scheduler import (
     materialize_independent_term_sets,
 )
 from legalforecast.ingestion.docket_decision_text_source import (
+    DocketDecisionTextSourceError,
     VerifiedTerminalPurchaseDispositionAuthority,
     residual_terminal_exclusions_bytes,
     verified_docket_decision_document_keys,
@@ -558,6 +559,8 @@ from legalforecast.ingestion.provenance_clearance import (
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
     _consume_recovered_public_clearance_capability,  # pyright: ignore[reportPrivateUsage]
+    _consume_recovered_public_source_snapshots,  # pyright: ignore[reportPrivateUsage]
+    _consume_recovered_public_terminal_partition,  # pyright: ignore[reportPrivateUsage]
     _issue_recovered_public_clearance_capability,  # pyright: ignore[reportPrivateUsage]
     build_authenticated_model_provenance_clearance_records_v3,
     build_exception_inspection_map,
@@ -689,6 +692,7 @@ from legalforecast.ingestion.resolved_post_recovery import (
     ResolvedPostRecoveryError,
     _build_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
     _build_resolved_recovered_public,  # pyright: ignore[reportPrivateUsage]
+    _issue_terminal_disposition_capability,  # pyright: ignore[reportPrivateUsage]
     _issue_verified_lineage_capability,  # pyright: ignore[reportPrivateUsage]
     _require_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
     _require_resolved_recovered_public,  # pyright: ignore[reportPrivateUsage]
@@ -5842,6 +5846,10 @@ def _add_build_replacement_recovery_source_arguments(
         type=Path,
         help="Completed resolver card; required for unknown-origin selected material.",
     )
+    parser.add_argument("--terminal-disposition-selection", type=Path)
+    parser.add_argument("--terminal-disposition-snapshot-manifest", type=Path)
+    parser.add_argument("--terminal-purchase-result", type=Path)
+    parser.add_argument("--terminal-purchase-run-card", type=Path)
     parser.add_argument("--purchase-policy", type=Path, required=True)
     parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument("--purchase-ledger", type=Path, required=True)
@@ -8169,6 +8177,17 @@ def _add_acquisition_resolve_post_recovery_arguments(
         help="Legacy signed-clearance receipt; omitted for provenance-first clearance.",
     )
     parser.add_argument("--restriction-evidence", type=Path, required=True)
+    parser.add_argument(
+        "--terminal-disposition-selection",
+        type=Path,
+        help=(
+            "Final selection used only to replay the exhaustive terminal purchase "
+            "disposition; supply with all other terminal-disposition inputs."
+        ),
+    )
+    parser.add_argument("--terminal-disposition-snapshot-manifest", type=Path)
+    parser.add_argument("--terminal-purchase-result", type=Path)
+    parser.add_argument("--terminal-purchase-run-card", type=Path)
     parser.add_argument("--resolved-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_resolve_post_recovery)
 
@@ -25733,6 +25752,34 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
     resolved_card_path = cast(Path | None, args.resolved_post_recovery_run_card)
     if resolved_card_path is not None:
         resolved_card_path = resolved_card_path.absolute()
+    terminal_disposition_inputs = cast(
+        tuple[Path | None, Path | None, Path | None, Path | None],
+        (
+            getattr(args, "terminal_disposition_selection", None),
+            getattr(args, "terminal_disposition_snapshot_manifest", None),
+            getattr(args, "terminal_purchase_result", None),
+            getattr(args, "terminal_purchase_run_card", None),
+        ),
+    )
+    if any(path is not None for path in terminal_disposition_inputs) and not all(
+        path is not None for path in terminal_disposition_inputs
+    ):
+        raise CommandError(
+            "terminal disposition selection, snapshot, purchase result, and "
+            "purchase run card must be supplied together"
+        )
+    if all(terminal_disposition_inputs):
+        complete_terminal_inputs = cast(
+            tuple[Path, Path, Path, Path], terminal_disposition_inputs
+        )
+        terminal_disposition_paths: tuple[Path, Path, Path, Path] | tuple[()] = (
+            complete_terminal_inputs[0].absolute(),
+            complete_terminal_inputs[1].absolute(),
+            complete_terminal_inputs[2].absolute(),
+            complete_terminal_inputs[3].absolute(),
+        )
+    else:
+        terminal_disposition_paths = ()
     purchase_policy_path = cast(Path, args.purchase_policy).absolute()
     cohort_policy_path = cast(Path, args.cohort_policy).absolute()
     ledger_path = cast(Path, args.purchase_ledger).resolve()
@@ -25904,6 +25951,23 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             cast(Mapping[str, bytes], raw_recovery_bytes),
             label="replacement recovery source",
         )
+        terminal_unavailable_path = recovery.get("terminal_unavailable_path")
+        if not isinstance(terminal_unavailable_path, Path):
+            raise ReplacementRecoverySourceError(
+                "recovery verification lacks terminal unavailable path"
+            )
+        try:
+            terminal_unavailable_bytes = cast(Mapping[str, bytes], raw_recovery_bytes)[
+                os.path.abspath(terminal_unavailable_path)
+            ]
+        except KeyError as exc:
+            raise ReplacementRecoverySourceError(
+                "recovery verification lacks terminal unavailable bytes"
+            ) from exc
+        terminal_unavailable_records = _projection_jsonl_records(
+            terminal_unavailable_bytes,
+            source=terminal_unavailable_path,
+        )
 
         clearance_card_bytes = capture(
             clearance_card_path, label="replacement recovery clearance run card"
@@ -25999,6 +26063,84 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             for record in purchased_manifest
         )
         resolved_path: Path | None = None
+        terminal_disposition_capability: object | None = None
+        if bool(terminal_unavailable_records) != bool(terminal_disposition_paths):
+            raise ReplacementRecoverySourceError(
+                "terminal disposition inputs must exactly match a nonempty "
+                "terminal-unavailable recovery partition"
+            )
+        terminal_disposition_source_map = (
+            {
+                "selection": terminal_disposition_paths[0],
+                "snapshot_manifest": terminal_disposition_paths[1],
+                "purchase_result": terminal_disposition_paths[2],
+                "purchase_run_card": terminal_disposition_paths[3],
+            }
+            if terminal_disposition_paths
+            else None
+        )
+        if terminal_disposition_source_map is not None:
+            recovery_capability = clearance.get("authenticated_recovery_capability")
+            if (
+                clearance.get("lineage_kind") != "provider_free_recovered_public"
+                or recovery_capability is None
+            ):
+                raise ReplacementRecoverySourceError(
+                    "terminal disposition requires recovered-public clearance authority"
+                )
+            for name, path in terminal_disposition_source_map.items():
+                capture(path, label=f"terminal disposition {name}")
+            disposition_selection_bytes = verified_bytes[
+                os.path.abspath(terminal_disposition_source_map["selection"])
+            ]
+            disposition_selection_records = _projection_jsonl_records(
+                disposition_selection_bytes,
+                source=terminal_disposition_source_map["selection"],
+            )
+            selected_document_count = len(
+                _replacement_consolidation_selection_keys(disposition_selection_records)
+            )
+            with CaseDevPurchaseJournal(
+                ledger_path,
+                policy=policy,
+                read_only=True,
+                controlled_private_root=initial_private_root,
+                initialization_receipt_path=receipt_path,
+            ) as disposition_journal:
+                disposition = _verify_materializer_docket_decision_authority(
+                    selection_payload=disposition_selection_bytes,
+                    selection_path=terminal_disposition_source_map["selection"],
+                    snapshot_manifest_path=terminal_disposition_source_map[
+                        "snapshot_manifest"
+                    ],
+                    purchase_result_path=terminal_disposition_source_map[
+                        "purchase_result"
+                    ],
+                    purchase_run_card_path=terminal_disposition_source_map[
+                        "purchase_run_card"
+                    ],
+                    purchase_journal=disposition_journal,
+                    purchase_policy=policy,
+                    ledger_path=ledger_path,
+                    controlled_private_root=initial_private_root,
+                    initialization_receipt_path=receipt_path,
+                    selected_document_count=selected_document_count,
+                )
+                _merge_verified_artifact_bytes(
+                    verified_bytes,
+                    {
+                        os.path.abspath(path): payload
+                        for path, payload in disposition.source_snapshots.items()
+                    },
+                    label="terminal disposition source replay",
+                )
+                terminal_disposition_capability = (
+                    _issue_terminal_disposition_capability(
+                        authority=disposition.authority,
+                        purchase_journal=disposition_journal,
+                        verified_recovery_capability=recovery_capability,
+                    )
+                )
         if resolved_card_path is None:
             if needs_resolved:
                 raise ReplacementRecoverySourceError(
@@ -26025,8 +26167,10 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                     else ()
                 ),
                 cast(Path, recovery["manifest_path"]),
+                terminal_unavailable_path,
                 clearance_coordinates.clearance_path,
                 clearance_card_path,
+                *terminal_disposition_paths,
             )
             resolved_coordinates = derive_resolved_source_coordinates(
                 resolved_card,
@@ -26035,6 +26179,12 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                 expected_purchase_state_sha256=(
                     verification_snapshot.purchase_state_sha256
                 ),
+                expected_terminal_unavailable_path=terminal_unavailable_path,
+                expected_terminal_unavailable_sha256=_bytes_sha256(
+                    terminal_unavailable_bytes
+                ),
+                expected_terminal_unavailable_count=len(terminal_unavailable_records),
+                expected_terminal_disposition_paths=(terminal_disposition_source_map),
             )
             for path, expected_sha256 in zip(
                 resolved_coordinates.input_paths,
@@ -26062,7 +26212,17 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             resolved_records = _projection_jsonl_records(
                 resolved_bytes, source=resolved_path
             )
-            if any(
+            recovered_public_lineage = (
+                clearance.get("lineage_kind") == "provider_free_recovered_public"
+            )
+            if (
+                terminal_disposition_capability is not None
+                and not recovered_public_lineage
+            ):
+                raise ReplacementRecoverySourceError(
+                    "terminal disposition requires recovered-public clearance authority"
+                )
+            if recovered_public_lineage or any(
                 record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
                 for record in resolved_records
             ):
@@ -26071,6 +26231,10 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
                     run_card_path=clearance_card_path,
                     lineage=clearance,
                 )
+                if terminal_disposition_capability is not None:
+                    clearance_kwargs["_verified_terminal_disposition_capability"] = (
+                        terminal_disposition_capability
+                    )
                 _require_resolved_post_recovery_dispatch(
                     selection_records=selection_records,
                     download_records=purchased_manifest,
@@ -36577,6 +36741,7 @@ def _docket_decision_partition_record(
 def _verify_materializer_docket_decision_authority(
     *,
     selection_payload: bytes,
+    selection_path: Path | None = None,
     snapshot_manifest_path: Path,
     purchase_result_path: Path,
     purchase_run_card_path: Path,
@@ -36613,9 +36778,8 @@ def _verify_materializer_docket_decision_authority(
     authority = sources.terminal_purchase_disposition_authority(
         purchase_journal=purchase_journal
     )
-    purchase_run_card_bytes = _read_singly_linked_regular_input(
-        purchase_run_card_path,
-        label="materializer terminal purchase run card",
+    purchase_run_card_bytes = (  # pyright: ignore[reportPrivateUsage]
+        terminal_authority._purchase_run_card_bytes  # pyright: ignore[reportPrivateUsage]
     )
     purchase_run_card = _projection_json_object(
         purchase_run_card_bytes,
@@ -36629,8 +36793,23 @@ def _verify_materializer_docket_decision_authority(
     ):
         raise CommandError("terminal purchase run card lacks its budget-plan input")
     purchase_inputs = cast(Sequence[object], raw_purchase_inputs)
-    budget_plan_path = Path(str(purchase_inputs[0])).absolute()
+    budget_plan_path = Path(  # pyright: ignore[reportPrivateUsage]
+        terminal_authority._purchase_budget_plan_path  # pyright: ignore[reportPrivateUsage]
+    ).absolute()
+    if Path(str(purchase_inputs[0])).absolute() != budget_plan_path:
+        raise CommandError("terminal purchase run card budget-plan path rebound")
     source_snapshots = {
+        Path(terminal_authority._purchase_result_path): (  # pyright: ignore[reportPrivateUsage]
+            terminal_authority._purchase_result_bytes  # pyright: ignore[reportPrivateUsage]
+        ),
+        Path(terminal_authority._purchase_run_card_path): (  # pyright: ignore[reportPrivateUsage]
+            terminal_authority._purchase_run_card_bytes  # pyright: ignore[reportPrivateUsage]
+        ),
+        Path(terminal_authority._purchase_budget_plan_path): (  # pyright: ignore[reportPrivateUsage]
+            terminal_authority._purchase_budget_plan_bytes  # pyright: ignore[reportPrivateUsage]
+        ),
+        snapshot_manifest_path: manifest_bytes,
+        **({selection_path: selection_payload} if selection_path is not None else {}),
         **{
             snapshot_manifest_path.parent / name: payload
             for name, payload in screening_snapshot.payloads.items()
@@ -36640,10 +36819,6 @@ def _verify_materializer_docket_decision_authority(
             for raw in screening_snapshot.raw_artifacts
             if raw.content_authenticated and raw.content is not None
         },
-        budget_plan_path: _read_singly_linked_regular_input(
-            budget_plan_path,
-            label="materializer terminal purchase budget plan",
-        ),
     }
     return _MaterializerDocketDecisionAuthority(
         authority=authority,
@@ -40084,15 +40259,29 @@ def _materializer_clearance_lineage_kwargs(
         worksheet_path = cast(Path, lineage["worksheet_path"])
         cohort_policy_path = cast(Path, lineage["cohort_policy_path"])
         manifest_path = cast(Path, lineage["manifest_path"])
-        verified_bytes = cast(Mapping[str, bytes], lineage["verified_artifact_bytes"])
+        authenticated_verified_bytes = dict(
+            cast(Mapping[str, bytes], lineage["verified_artifact_bytes"])
+        )
+        recovery_capability = lineage["authenticated_recovery_capability"]
+        for path, payload in _consume_recovered_public_source_snapshots(
+            recovery_capability
+        ).items():
+            key = os.path.abspath(path)
+            existing = authenticated_verified_bytes.get(key)
+            if existing is not None and existing != payload:
+                raise CommandError(
+                    "recovered-public clearance and recovery snapshots conflict"
+                )
+            authenticated_verified_bytes[key] = payload
 
         def snapshot_bytes(path: Path) -> bytes:
+            key = os.path.abspath(path)
             try:
-                return verified_bytes[os.path.abspath(path)]
+                return authenticated_verified_bytes[key]
             except KeyError:
-                return _read_singly_linked_regular_input(
-                    path, label="verified recovered-public downstream input"
-                )
+                raise CommandError(
+                    f"verified recovered-public snapshot lacks downstream input: {path}"
+                ) from None
 
         return {
             "clearance_artifact_bytes": snapshot_bytes(clearance_path),
@@ -40119,6 +40308,7 @@ def _materializer_clearance_lineage_kwargs(
             "_verified_recovery_capability": lineage[
                 "authenticated_recovery_capability"
             ],
+            "_verified_clearance_source_snapshots": authenticated_verified_bytes,
         }
     if lineage.get("lineage_kind") == "provenance_first_with_john_exceptions":
         requests_path = cast(Path, lineage["requests_path"])
@@ -40211,12 +40401,15 @@ def _build_resolved_post_recovery_dispatch(
     values = dict(kwargs)
     verified = values.pop("_verified_provenance_capability", None)
     recovered = values.pop("_verified_recovery_capability", None)
+    terminal_disposition = values.pop("_verified_terminal_disposition_capability", None)
+    values.pop("_verified_clearance_source_snapshots", None)
     if recovered is not None:
         if verified is not None:
             raise CommandError("conflicting resolved clearance capabilities")
         return _build_resolved_recovered_public(
             **values,
             verified_recovery_capability=recovered,
+            verified_terminal_disposition_capability=terminal_disposition,
         )
     if verified is None:
         return build_resolved_post_recovery_documents(**values)
@@ -40232,12 +40425,15 @@ def _require_resolved_post_recovery_dispatch(**kwargs: Any) -> None:
     values = dict(kwargs)
     verified = values.pop("_verified_provenance_capability", None)
     recovered = values.pop("_verified_recovery_capability", None)
+    terminal_disposition = values.pop("_verified_terminal_disposition_capability", None)
+    values.pop("_verified_clearance_source_snapshots", None)
     if recovered is not None:
         if verified is not None:
             raise CommandError("conflicting resolved clearance capabilities")
         _require_resolved_recovered_public(
             **values,
             verified_recovery_capability=recovered,
+            verified_terminal_disposition_capability=terminal_disposition,
         )
         return
     if verified is None:
@@ -40259,6 +40455,9 @@ def _require_resolved_operation_bindings_dispatch(
     """Replay direct-queue bindings only through recovered-public authority."""
 
     recovered = clearance_kwargs.get("_verified_recovery_capability")
+    terminal_disposition = clearance_kwargs.get(
+        "_verified_terminal_disposition_capability"
+    )
     requires_recovered_authority = any(
         record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
         for record in resolved_records
@@ -40279,6 +40478,7 @@ def _require_resolved_operation_bindings_dispatch(
         resolved_records=resolved_records,
         expected_purchase_policy_sha256=expected_purchase_policy_sha256,
         verified_recovery_capability=recovered,
+        verified_terminal_disposition_capability=terminal_disposition,
     )
 
 
@@ -40292,6 +40492,9 @@ def _require_resolved_parse_requests_dispatch(
     """Replay direct-queue parse bindings only through verifier authority."""
 
     recovered = clearance_kwargs.get("_verified_recovery_capability")
+    terminal_disposition = clearance_kwargs.get(
+        "_verified_terminal_disposition_capability"
+    )
     requires_recovered_authority = any(
         record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
         for record in resolved_records
@@ -40311,6 +40514,7 @@ def _require_resolved_parse_requests_dispatch(
     _require_resolved_recovered_public_parse_requests(
         **arguments,
         verified_recovery_capability=recovered,
+        verified_terminal_disposition_capability=terminal_disposition,
     )
 
 
@@ -49032,6 +49236,60 @@ def _require_current_purchase_lineage(
     return (policy_path, resolved_ledger), state_sha256
 
 
+def _publish_resolved_post_recovery_documents(
+    *,
+    resolved_path: Path,
+    resolved_records: Sequence[Mapping[str, Any]],
+    purchase_journal: CaseDevPurchaseJournal,
+    authenticated_source_snapshots: Mapping[Path, bytes],
+) -> None:
+    """Publish only while every verifier-owned source stays immutable."""
+
+    if authenticated_source_snapshots:
+        _require_snapshot_unchanged(
+            authenticated_source_snapshots,
+            label="resolved post-recovery authenticated source",
+        )
+    write_resolved_post_recovery_documents(resolved_path, resolved_records)
+    for record in resolved_records:
+        purchase_journal.clear_unknown_material(
+            _required_str(record, "source_document_id"),
+            resolved_record=record,
+        )
+
+
+def _merge_authenticated_source_snapshots(
+    *sources: Mapping[Path, bytes],
+) -> dict[Path, bytes]:
+    """Merge verifier snapshots by resolved path without allowing rebinding."""
+
+    merged: dict[Path, bytes] = {}
+    for source in sources:
+        for path, payload in source.items():
+            resolved_path = path.resolve()
+            existing = merged.get(resolved_path)
+            if existing is not None and existing != payload:
+                raise ResolvedPostRecoveryError(
+                    "authenticated source snapshot collision"
+                )
+            merged[resolved_path] = payload
+    return merged
+
+
+def _require_terminal_disposition_bundle(
+    *,
+    terminal_record_count: int,
+    terminal_disposition_paths: tuple[Path, Path, Path, Path] | tuple[()],
+) -> None:
+    """Require disposition evidence exactly when recovery has terminal rows."""
+
+    if bool(terminal_record_count) != bool(terminal_disposition_paths):
+        raise CommandError(
+            "terminal-disposition inputs must exactly match a nonempty "
+            "terminal-unavailable recovery partition"
+        )
+
+
 def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
     if not _acquisition_dry_run(args):
         _preflight_current_purchase_snapshot(args)
@@ -49055,6 +49313,26 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
     )
     download_path = cast(Path, args.download_manifest)
     clearance_path = cast(Path, args.disclosure_clearance)
+    terminal_disposition_inputs = cast(
+        tuple[Path | None, Path | None, Path | None, Path | None],
+        (
+            getattr(args, "terminal_disposition_selection", None),
+            getattr(args, "terminal_disposition_snapshot_manifest", None),
+            getattr(args, "terminal_purchase_result", None),
+            getattr(args, "terminal_purchase_run_card", None),
+        ),
+    )
+    if any(path is not None for path in terminal_disposition_inputs) and not all(
+        path is not None for path in terminal_disposition_inputs
+    ):
+        raise CommandError(
+            "terminal disposition selection, snapshot, purchase result, and "
+            "purchase run card must be supplied together"
+        )
+    terminal_disposition_paths = cast(
+        tuple[Path, Path, Path, Path] | tuple[()],
+        terminal_disposition_inputs if all(terminal_disposition_inputs) else (),
+    )
     resolved_path = _acquisition_path(
         args,
         "resolved_output",
@@ -49080,6 +49358,36 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
     )
     clearance_kwargs, clearance_paths = _authenticated_clearance_lineage_inputs(
         args, clearance_path=clearance_path
+    )
+    raw_clearance_snapshots = clearance_kwargs.get(
+        "_verified_clearance_source_snapshots", {}
+    )
+    if not isinstance(raw_clearance_snapshots, Mapping) or any(
+        not isinstance(path, str) or not isinstance(payload, bytes)
+        for path, payload in cast(
+            Mapping[object, object], raw_clearance_snapshots
+        ).items()
+    ):
+        raise CommandError("clearance verification returned invalid source snapshots")
+    clearance_source_snapshots = {
+        Path(cast(str, path)).resolve(): cast(bytes, payload)
+        for path, payload in cast(
+            Mapping[object, object], raw_clearance_snapshots
+        ).items()
+    }
+    recovery_capability = clearance_kwargs.get("_verified_recovery_capability")
+    terminal_partition = (
+        _consume_recovered_public_terminal_partition(recovery_capability)
+        if recovery_capability is not None
+        else None
+    )
+    terminal_disposition_snapshots: Mapping[Path, bytes] = {}
+    terminal_partition_count = (
+        terminal_partition.record_count if terminal_partition is not None else 0
+    )
+    _require_terminal_disposition_bundle(
+        terminal_record_count=terminal_partition_count,
+        terminal_disposition_paths=terminal_disposition_paths,
     )
     try:
         policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
@@ -49135,6 +49443,49 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         ) as journal:
+            if terminal_disposition_paths:
+                (
+                    disposition_selection_path,
+                    disposition_snapshot_path,
+                    terminal_purchase_result_path,
+                    terminal_purchase_run_card_path,
+                ) = terminal_disposition_paths
+                disposition_selection_bytes = read_unique_regular_file(
+                    disposition_selection_path
+                )
+                disposition_selection_records = _projection_jsonl_records(
+                    disposition_selection_bytes,
+                    source=disposition_selection_path,
+                )
+                selected_document_count = len(
+                    _replacement_consolidation_selection_keys(
+                        disposition_selection_records
+                    )
+                )
+                disposition = _verify_materializer_docket_decision_authority(
+                    selection_payload=disposition_selection_bytes,
+                    selection_path=disposition_selection_path,
+                    snapshot_manifest_path=disposition_snapshot_path,
+                    purchase_result_path=terminal_purchase_result_path,
+                    purchase_run_card_path=terminal_purchase_run_card_path,
+                    purchase_journal=journal,
+                    purchase_policy=policy,
+                    ledger_path=ledger_path,
+                    controlled_private_root=controlled_private_root,
+                    initialization_receipt_path=initialization_receipt,
+                    selected_document_count=selected_document_count,
+                )
+                terminal_disposition_snapshots = {
+                    path.resolve(): payload
+                    for path, payload in disposition.source_snapshots.items()
+                }
+                clearance_kwargs["_verified_terminal_disposition_capability"] = (
+                    _issue_terminal_disposition_capability(
+                        authority=disposition.authority,
+                        purchase_journal=journal,
+                        verified_recovery_capability=recovery_capability,
+                    )
+                )
             before_state_sha256 = journal.purchase_state_sha256()
             operations = journal.operation_records()
             if resolved_path.exists():
@@ -49161,13 +49512,17 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
                     attempt_policy_artifact=attempt_policy_artifact,
                     **clearance_kwargs,
                 )
+            authenticated_source_snapshots = _merge_authenticated_source_snapshots(
+                clearance_source_snapshots,
+                terminal_disposition_snapshots,
+            )
             if not dry_run:
-                write_resolved_post_recovery_documents(resolved_path, resolved_records)
-                for record in resolved_records:
-                    journal.clear_unknown_material(
-                        _required_str(record, "source_document_id"),
-                        resolved_record=record,
-                    )
+                _publish_resolved_post_recovery_documents(
+                    resolved_path=resolved_path,
+                    resolved_records=resolved_records,
+                    purchase_journal=journal,
+                    authenticated_source_snapshots=authenticated_source_snapshots,
+                )
                 _require_resolved_operation_bindings_dispatch(
                     clearance_kwargs=clearance_kwargs,
                     purchase_operation_records=journal.operation_records(),
@@ -49180,12 +49535,13 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
         CaseDevPurchasePolicyError,
         RecapFetchAttemptPolicyError,
         ResolvedPostRecoveryError,
+        DocketDecisionTextSourceError,
         OSError,
         UnicodeError,
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
-    input_paths = (
+    base_input_paths = (
         selection_path,
         purchase_policy_path,
         cohort_policy_path,
@@ -49196,7 +49552,32 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
         download_path,
         clearance_path,
         *clearance_paths,
+        *((terminal_partition.path,) if terminal_partition is not None else ()),
+        *terminal_disposition_paths,
     )
+    authenticated_snapshot_by_path = {
+        path.resolve(): payload
+        for path, payload in authenticated_source_snapshots.items()
+    }
+    base_input_resolved = {path.resolve() for path in base_input_paths}
+    input_paths = (
+        *base_input_paths,
+        *tuple(
+            sorted(
+                (
+                    path
+                    for path in authenticated_snapshot_by_path
+                    if path.resolve() not in base_input_resolved
+                ),
+                key=str,
+            )
+        ),
+    )
+    if authenticated_snapshot_by_path:
+        _require_snapshot_unchanged(
+            authenticated_snapshot_by_path,
+            label="resolved post-recovery completion source",
+        )
     _write_acquisition_completion(
         args,
         stage="resolve-post-recovery-documents",
@@ -49210,7 +49591,11 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
             "source_commitments": {
                 f"input_{index:02d}": {
                     "path": str(path.resolve()),
-                    "sha256": _path_sha256(path),
+                    "sha256": (
+                        _bytes_sha256(authenticated_snapshot_by_path[path.resolve()])
+                        if path.resolve() in authenticated_snapshot_by_path
+                        else _path_sha256(path)
+                    ),
                 }
                 for index, path in enumerate(input_paths)
             },
@@ -49227,6 +49612,33 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
             ),
             "purchase_state_before_sha256": before_state_sha256,
             "purchase_state_after_sha256": after_state_sha256,
+            **(
+                {
+                    "terminal_unavailable_partition": {
+                        "path": str(terminal_partition.path.resolve()),
+                        "sha256": "sha256:" + terminal_partition.sha256,
+                        "record_count": terminal_partition.record_count,
+                    }
+                }
+                if terminal_partition is not None
+                else {}
+            ),
+            **(
+                {
+                    "terminal_disposition_sources": {
+                        "selection": str(terminal_disposition_paths[0].resolve()),
+                        "snapshot_manifest": str(
+                            terminal_disposition_paths[1].resolve()
+                        ),
+                        "purchase_result": str(terminal_disposition_paths[2].resolve()),
+                        "purchase_run_card": str(
+                            terminal_disposition_paths[3].resolve()
+                        ),
+                    }
+                }
+                if terminal_disposition_paths
+                else {}
+            ),
         },
     )
     return 0

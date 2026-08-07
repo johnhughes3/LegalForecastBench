@@ -12,6 +12,7 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import recap_fetch_attempt_policy as attempt_module
 from legalforecast.ingestion import replacement_purchase_approval as approval_module
+from legalforecast.ingestion import replacement_recovery_source as source_module
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseSnapshot,
     canonical_purchase_operation_sha256,
@@ -221,6 +222,7 @@ def _fixture(
         attempt,
         *([authority] if successor else []),
         manifest,
+        terminal_unavailable,
         clearance,
         clearance_card,
     ]
@@ -243,6 +245,10 @@ def _fixture(
             },
             "purchase_state_before_sha256": "state-0",
             "purchase_state_after_sha256": "state-1",
+            "terminal_unavailable_partition": {
+                **_commitment(terminal_unavailable),
+                "record_count": 0,
+            },
         },
     )
     verified_calls: list[dict[str, Any]] = []
@@ -259,6 +265,7 @@ def _fixture(
             "recovery_stage": "recover-recap-fetch-quarantine",
             "manifest_path": manifest,
             "manifest_records": [manifest_record],
+            "terminal_unavailable_path": terminal_unavailable,
             "run_card_path": recovery_card,
             "verified_artifact_bytes": {
                 str(recovery_card.resolve()): recovery_card.read_bytes(),
@@ -458,6 +465,178 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
 
 
 @pytest.mark.parametrize(
+    "schema_version",
+    [
+        "legalforecast.resolved_post_recovery_public_document.v2",
+        "legalforecast.resolved_post_recovery_public_document.v3",
+    ],
+)
+def test_provider_free_terminal_capability_routes_legacy_schema_to_recovered_dispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    schema_version: str,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    resolved_records = [
+        {
+            "schema_version": schema_version,
+            "candidate_id": "initial-case",
+            "source_document_id": "initial-doc",
+        }
+    ]
+    _write_jsonl(paths["resolved"], resolved_records)
+
+    terminal_records = [
+        {
+            "schema_version": "legalforecast.recap_fetch_terminal_unavailable.v1",
+            "candidate_id": "terminal-case",
+            "source_document_id": "terminal-doc",
+        }
+    ]
+    _write_jsonl(paths["terminal_unavailable"], terminal_records)
+    terminal_selection = _write_jsonl(
+        tmp_path / "terminal-selection.jsonl",
+        [
+            {
+                "candidate_id": "terminal-case",
+                "documents": [{"source_document_id": "terminal-doc"}],
+            }
+        ],
+    )
+    terminal_snapshot = _write_json(tmp_path / "terminal-snapshot.json", {"ok": True})
+    terminal_result = _write_json(tmp_path / "terminal-result.json", {"ok": True})
+    terminal_card = _write_json(tmp_path / "terminal-card.json", {"ok": True})
+    disposition_paths = (
+        terminal_selection,
+        terminal_snapshot,
+        terminal_result,
+        terminal_card,
+    )
+    (
+        args.terminal_disposition_selection,
+        args.terminal_disposition_snapshot_manifest,
+        args.terminal_purchase_result,
+        args.terminal_purchase_run_card,
+    ) = disposition_paths
+
+    resolved_card = json.loads(paths["resolved_card"].read_bytes())
+    input_paths = [Path(value) for value in resolved_card["input_paths"]]
+    input_paths.extend(disposition_paths)
+    resolved_card["input_paths"] = [str(path.resolve()) for path in input_paths]
+    resolved_card["source_commitments"] = _source_commitments(input_paths)
+    resolved_card["output_commitments"]["resolved_post_recovery_documents"] = (
+        _commitment(paths["resolved"])
+    )
+    resolved_card["terminal_unavailable_partition"] = {
+        **_commitment(paths["terminal_unavailable"]),
+        "record_count": 1,
+    }
+    resolved_card["terminal_disposition_sources"] = {
+        "selection": str(terminal_selection.resolve()),
+        "snapshot_manifest": str(terminal_snapshot.resolve()),
+        "purchase_result": str(terminal_result.resolve()),
+        "purchase_run_card": str(terminal_card.resolve()),
+    }
+    _write_json(paths["resolved_card"], resolved_card)
+
+    recovery_capability = object()
+    terminal_capability = object()
+
+    def verify_clearance(**_kwargs: Any) -> dict[str, object]:
+        return {
+            "lineage_kind": "provider_free_recovered_public",
+            "authenticated_recovery_capability": recovery_capability,
+            "clearance_records": [
+                {
+                    "candidate_id": "initial-case",
+                    "source_document_id": "initial-doc",
+                    "status": "cleared",
+                }
+            ],
+            "verified_artifact_bytes": {
+                str(paths["clearance"].resolve()): paths["clearance"].read_bytes(),
+                str(paths["clearance_card"].resolve()): paths[
+                    "clearance_card"
+                ].read_bytes(),
+            },
+        }
+
+    class FakeJournal:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> FakeJournal:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    terminal_authority = object()
+    monkeypatch.setattr(cli, "_verify_materializer_clearance_lineage", verify_clearance)
+    monkeypatch.setattr(cli, "CaseDevPurchaseJournal", FakeJournal)
+    monkeypatch.setattr(
+        cli,
+        "_verify_materializer_docket_decision_authority",
+        lambda **_kwargs: SimpleNamespace(
+            authority=terminal_authority,
+            source_snapshots={path: path.read_bytes() for path in disposition_paths},
+        ),
+    )
+
+    def issue_terminal_capability(**kwargs: object) -> object:
+        assert kwargs["authority"] is terminal_authority
+        assert kwargs["verified_recovery_capability"] is recovery_capability
+        return terminal_capability
+
+    monkeypatch.setattr(
+        cli, "_issue_terminal_disposition_capability", issue_terminal_capability
+    )
+
+    def clearance_kwargs(**kwargs: object) -> dict[str, object]:
+        lineage = cast(dict[str, object], kwargs["lineage"])
+        assert lineage["authenticated_recovery_capability"] is recovery_capability
+        return {"_verified_recovery_capability": recovery_capability}
+
+    monkeypatch.setattr(cli, "_materializer_clearance_lineage_kwargs", clearance_kwargs)
+    dispatch_calls: list[dict[str, object]] = []
+    binding_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        cli,
+        "_require_resolved_post_recovery_dispatch",
+        lambda **kwargs: dispatch_calls.append(kwargs),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_require_resolved_operation_bindings_dispatch",
+        lambda **kwargs: binding_calls.append(kwargs),
+    )
+
+    def reject_legacy_verifier(**_kwargs: object) -> None:
+        pytest.fail("legacy operation-bindings verifier selected")
+
+    monkeypatch.setattr(
+        cli,
+        "require_resolved_post_recovery_operation_bindings",
+        reject_legacy_verifier,
+    )
+
+    assert cli._cmd_build_replacement_recovery_source(args) == 0
+    assert len(dispatch_calls) == 1
+    assert len(binding_calls) == 1
+    dispatch = dispatch_calls[0]
+    assert dispatch["_verified_recovery_capability"] is recovery_capability
+    assert dispatch["_verified_terminal_disposition_capability"] is terminal_capability
+    assert dispatch["resolved_records"] == resolved_records
+    binding_clearance = cast(dict[str, object], binding_calls[0]["clearance_kwargs"])
+    assert binding_clearance["_verified_recovery_capability"] is recovery_capability
+    assert (
+        binding_clearance["_verified_terminal_disposition_capability"]
+        is terminal_capability
+    )
+    assert binding_calls[0]["resolved_records"] == resolved_records
+
+
+@pytest.mark.parametrize(
     "provider_activity_field",
     ["provider_activity_requested", "provider_activity_executed"],
 )
@@ -581,6 +760,125 @@ def test_producer_rejects_resolved_run_card_rebinding_and_extra_commitment(
         match="resolved post-recovery output commitments differ",
     ):
         cli._cmd_build_replacement_recovery_source(args)
+
+
+@pytest.mark.parametrize("field", ["path", "sha256", "record_count"])
+def test_producer_rejects_terminal_unavailable_partition_rebinding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["resolved_card"].read_bytes())
+    partition = cast(dict[str, object], card["terminal_unavailable_partition"])
+    if field == "path":
+        partition[field] = str(paths["selection"].resolve())
+    elif field == "sha256":
+        partition[field] = "sha256:" + "0" * 64
+    else:
+        partition[field] = 1
+    _write_json(paths["resolved_card"], card)
+
+    with pytest.raises(
+        cli.CommandError,
+        match="resolved terminal-unavailable partition changed",
+    ):
+        cli._cmd_build_replacement_recovery_source(args)
+
+
+def test_producer_rejects_terminal_unavailable_input_omission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["resolved_card"].read_bytes())
+    terminal_path = str(paths["terminal_unavailable"].resolve())
+    index = cast(list[str], card["input_paths"]).index(terminal_path)
+    cast(list[str], card["input_paths"]).pop(index)
+    commitments = cast(dict[str, object], card["source_commitments"])
+    rebuilt: dict[str, object] = {}
+    for new_index, old_index in enumerate(
+        item for item in range(len(commitments)) if item != index
+    ):
+        rebuilt[f"input_{new_index:02d}"] = commitments[f"input_{old_index:02d}"]
+    card["source_commitments"] = rebuilt
+    _write_json(paths["resolved_card"], card)
+
+    with pytest.raises(
+        cli.CommandError,
+        match="resolved source omits authenticated recovery inputs",
+    ):
+        cli._cmd_build_replacement_recovery_source(args)
+
+
+def test_resolved_coordinates_align_commitments_to_expected_input_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["resolved_card"].read_bytes())
+    expected_inputs = [Path(value) for value in card["input_paths"]]
+    reordered_inputs = [expected_inputs[1], expected_inputs[0], *expected_inputs[2:]]
+    card["input_paths"] = [str(path.resolve()) for path in reordered_inputs]
+    card["source_commitments"] = _source_commitments(reordered_inputs)
+
+    coordinates = source_module.derive_resolved_source_coordinates(
+        card,
+        expected_input_paths=expected_inputs,
+        expected_ledger_path=cast(Path, args.purchase_ledger),
+        expected_purchase_state_sha256="state-1",
+        expected_terminal_unavailable_path=paths["terminal_unavailable"],
+        expected_terminal_unavailable_sha256=_commitment(paths["terminal_unavailable"])[
+            "sha256"
+        ],
+        expected_terminal_unavailable_count=0,
+        expected_terminal_disposition_paths=None,
+    )
+
+    assert coordinates.input_paths == tuple(expected_inputs)
+    assert coordinates.input_sha256 == tuple(
+        _commitment(path)["sha256"] for path in expected_inputs
+    )
+
+
+def test_resolved_coordinates_reject_partial_terminal_disposition_expectations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["resolved_card"].read_bytes())
+    disposition_paths = {
+        name: _write_json(tmp_path / f"{name}.json", {"name": name})
+        for name in (
+            "selection",
+            "snapshot_manifest",
+            "purchase_result",
+            "purchase_run_card",
+        )
+    }
+    card["terminal_unavailable_partition"]["record_count"] = 1
+    card["terminal_disposition_sources"] = {
+        name: str(path.resolve()) for name, path in disposition_paths.items()
+    }
+
+    with pytest.raises(
+        source_module.ReplacementRecoverySourceError,
+        match="resolved terminal disposition sources differ",
+    ):
+        source_module.derive_resolved_source_coordinates(
+            card,
+            expected_input_paths=[Path(value) for value in card["input_paths"]],
+            expected_ledger_path=cast(Path, args.purchase_ledger),
+            expected_purchase_state_sha256="state-1",
+            expected_terminal_unavailable_path=paths["terminal_unavailable"],
+            expected_terminal_unavailable_sha256=_commitment(
+                paths["terminal_unavailable"]
+            )["sha256"],
+            expected_terminal_unavailable_count=1,
+            expected_terminal_disposition_paths={
+                "selection": disposition_paths["selection"]
+            },
+        )
 
 
 def test_producer_rejects_clearance_extra_commitment(
@@ -749,14 +1047,21 @@ def test_producer_rejects_source_drift_before_descriptor_publication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    args, _, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    verify_clearance = cast(Any, cli._verify_materializer_clearance_lineage)
 
-    def reject_changed_source(*_args: object, **_kwargs: object) -> None:
-        raise cli.CommandError("replacement recovery source input changed")
+    def verify_then_rebind_source(*args: object, **kwargs: object) -> object:
+        verified = verify_clearance(*args, **kwargs)
+        paths["clearance_card"].write_bytes(b'{"rebound":true}\n')
+        return verified
 
-    monkeypatch.setattr(cli, "_require_snapshot_unchanged", reject_changed_source)
+    monkeypatch.setattr(
+        cli,
+        "_verify_materializer_clearance_lineage",
+        verify_then_rebind_source,
+    )
 
-    with pytest.raises(cli.CommandError, match="source input changed"):
+    with pytest.raises(cli.CommandError, match="snapshot collision"):
         cli._cmd_build_replacement_recovery_source(args)
     assert not (args.output_root / "0000-initial-v2.json").exists()
     assert not (
@@ -1242,3 +1547,31 @@ def test_cli_routes_recovery_source_producer(
     card = json.loads(capsys.readouterr().out)
     assert card["stage"] == "build-replacement-recovery-source"
     assert card["kind"] == "initial_v2"
+
+
+def test_source_producer_help_names_terminal_disposition_bundle(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["acquisition", "build-replacement-recovery-source", "--help"])
+
+    assert exc.value.code == 0
+    help_text = capsys.readouterr().out
+    for flag in (
+        "--terminal-disposition-selection",
+        "--terminal-disposition-snapshot-manifest",
+        "--terminal-purchase-result",
+        "--terminal-purchase-run-card",
+    ):
+        assert flag in help_text
+
+
+def test_source_producer_requires_complete_terminal_disposition_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    args.terminal_disposition_selection = paths["selection"]
+
+    with pytest.raises(cli.CommandError, match="must be supplied together"):
+        cli._cmd_build_replacement_recovery_source(args)

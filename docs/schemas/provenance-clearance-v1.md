@@ -66,6 +66,10 @@ Purchased or unknown-origin bytes use the same planner, exception recorder, and 
 A successful purchase is not affirmative public provenance and therefore does not itself auto-clear a document.
 The purchased clearance run card is replayed before post-recovery resolution and again before combined materialization.
 
+A verifier-authenticated terminal-unavailable recovery ledger does not by itself authorize an omission.
+Post-recovery resolution may subtract terminal document keys only through a separate opaque capability minted after replaying the exhaustive terminal-purchase disposition authority against the current journal and proving exact equality with the recovery terminal partition.
+The terminal disposition's final selection is separate from, and never replaces, the recovery selection bound by the original recovery run card.
+
 `resolve-post-recovery-documents` accepts `--reviews` and `--review-receipt` only for a legacy signed-review run card.
 For `provenance_first_with_john_exceptions`, it discovers the exception decisions, recorder run card, worksheet, plan, cohort policy, manifest, restrictions, and document tree from the clearance commitments and independently validates them.
 The v1 resolved schema retains the field names `reviews_artifact_sha256` and `review_receipt_sha256` for byte compatibility; under the provenance authority kind those fields commit the exception-decisions artifact and exception-recorder run card respectively.

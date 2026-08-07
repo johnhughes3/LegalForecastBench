@@ -50,6 +50,13 @@ def _assignments(tmp_path: Path) -> dict[str, Path]:
         "PURCHASE_PRIVATE_ROOT": tmp_path / "purchase-private",
         "DISCLOSURE_ARTIFACT_ROOT": tmp_path / "disclosure-artifacts",
         "DISCLOSURE_PRIVATE_ROOT": tmp_path / "disclosure-private",
+        "TERMINAL_DISPOSITION_SELECTION": tmp_path / "terminal" / "selection.jsonl",
+        "TERMINAL_DISPOSITION_SNAPSHOT_MANIFEST": tmp_path
+        / "terminal"
+        / "snapshot"
+        / "manifest.json",
+        "TERMINAL_PURCHASE_RESULT": tmp_path / "terminal" / "purchase-result.json",
+        "TERMINAL_PURCHASE_RUN_CARD": tmp_path / "terminal" / "purchase-run-card.json",
     }
 
 
@@ -177,6 +184,18 @@ def test_provider_free_render_connects_recovery_v2_to_disclosure_and_resolution(
         for stage in disclosure_config.stages
         if stage.command == "resolve-post-recovery-documents"
     )
+    terminal_bindings = {
+        "--terminal-disposition-selection": "TERMINAL_DISPOSITION_SELECTION",
+        "--terminal-disposition-snapshot-manifest": (
+            "TERMINAL_DISPOSITION_SNAPSHOT_MANIFEST"
+        ),
+        "--terminal-purchase-result": "TERMINAL_PURCHASE_RESULT",
+        "--terminal-purchase-run-card": "TERMINAL_PURCHASE_RUN_CARD",
+    }
+    for flag, assignment in terminal_bindings.items():
+        assert _flag_value(resolver.arguments, flag) == str(
+            disclosure_assignments[assignment]
+        )
     review = next(
         (
             stage
