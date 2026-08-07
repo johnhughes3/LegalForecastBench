@@ -26135,9 +26135,7 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             replacement_controlled_private_root=replacement_private_root,
             purchase_ledger_initialization_receipt_path=receipt_path,
             _verified_resolved_transition_capability=(
-                transition_capability
-                if coordinates.kind == "successor"
-                else None
+                transition_capability if coordinates.kind == "successor" else None
             ),
         )
 

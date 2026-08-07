@@ -230,8 +230,7 @@ def _read_resolved_transition(
         or not isinstance(cast(Sequence[object], raw_outputs)[1], str)
         or Path(cast(str, cast(Sequence[object], raw_outputs)[0])).absolute()
         != Path(raw_resolved_path).absolute()
-        or Path(cast(str, cast(Sequence[object], raw_outputs)[1])).absolute()
-        != ledger
+        or Path(cast(str, cast(Sequence[object], raw_outputs)[1])).absolute() != ledger
     ):
         raise ReplacementPurchaseApprovalError(
             "resolved material transition output projection is invalid"

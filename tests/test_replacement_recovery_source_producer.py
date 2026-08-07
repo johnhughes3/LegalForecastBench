@@ -1269,9 +1269,7 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
     )
     assert history_call["authority_transition_capability"] is transition_capability
     assert history_call["attempt_transition_capability"] is transition_capability
-    assert (
-        clearance_call["authority_transition_capability"] is transition_capability
-    )
+    assert clearance_call["authority_transition_capability"] is transition_capability
     assert clearance_call["attempt_transition_capability"] is transition_capability
     assert (
         clearance_call["recovery_authority_transition_capability"]
@@ -1370,9 +1368,7 @@ def test_successor_producer_binds_transition_prior_to_direct_verifiers(
     clearance_call = next(
         call["clearance"] for call in verified_calls if "clearance" in call
     )
-    assert (
-        clearance_call["authority_transition_capability"] is transition_capability
-    )
+    assert clearance_call["authority_transition_capability"] is transition_capability
     assert clearance_call["attempt_transition_capability"] is transition_capability
     assert clearance_call["resolved_transition_prior_snapshot"] is None
     assert (
@@ -1585,9 +1581,7 @@ def _resolved_material_transition_fixture() -> tuple[
         "resolved_document_sha256": None,
     }
     record: dict[str, object] = {
-        "schema_version": (
-            "legalforecast.resolved_post_recovery_public_document.v3"
-        ),
+        "schema_version": ("legalforecast.resolved_post_recovery_public_document.v3"),
         "candidate_id": "successor-case",
         "source_document_id": "101",
         "recovery_origin": "unknown_status_attempt",
@@ -1686,12 +1680,8 @@ def test_resolved_material_transition_reconstructs_exact_before_state() -> None:
 def test_transition_replay_accepts_exact_frozen_pre_hardening_v4_record() -> None:
     policy, current, card, records = _resolved_material_transition_fixture()
     record = records[0]
-    record["schema_version"] = (
-        "legalforecast.resolved_post_recovery_public_document.v4"
-    )
-    record["delivery_authority"] = (
-        "authenticated_direct_courtlistener_queue_recovery"
-    )
+    record["schema_version"] = "legalforecast.resolved_post_recovery_public_document.v4"
+    record["delivery_authority"] = "authenticated_direct_courtlistener_queue_recovery"
     record["queue_response_sha256"] = record.pop("public_material_recovery_sha256")
     record["record_sha256"] = cast(Any, resolved_module)._sha256(
         {name: value for name, value in record.items() if name != "record_sha256"}
@@ -1838,9 +1828,7 @@ def test_resolved_transition_raw_evidence_rejects_symlinks(
         linked_source.symlink_to(source_path)
         card = json.loads(card_path.read_bytes())
         card["input_paths"][0] = str(linked_source.absolute())
-        card["source_commitments"]["input_00"]["path"] = str(
-            linked_source.absolute()
-        )
+        card["source_commitments"]["input_00"]["path"] = str(linked_source.absolute())
         _write_json(card_path, card)
 
     with pytest.raises(ValueError, match="cannot be safely read"):

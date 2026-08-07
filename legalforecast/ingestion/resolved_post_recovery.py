@@ -93,11 +93,9 @@ _DIRECT_QUEUE_RESOLVED_FIELDS = frozenset(
         "record_sha256",
     }
 )
-_LEGACY_DIRECT_QUEUE_RESOLVED_FIELDS = (
-    _DIRECT_QUEUE_RESOLVED_FIELDS
-    - {"direct_queue_delivery_authority"}
-    | {"queue_response_sha256"}
-)
+_LEGACY_DIRECT_QUEUE_RESOLVED_FIELDS = _DIRECT_QUEUE_RESOLVED_FIELDS - {
+    "direct_queue_delivery_authority"
+} | {"queue_response_sha256"}
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
 FRESH_PUBLIC_RESTRICTION_SCHEMA_VERSION = (
     "legalforecast.post_recovery_restriction_evidence.v1"
@@ -1247,9 +1245,7 @@ def _require_resolved_post_recovery_documents_core(
             if record.get(
                 "clearance_basis"
             ) != "provider_free_recovered_public" or not (
-                _recovered_lineage_matches_record(
-                    record, recovered_lineages.get(key)
-                )
+                _recovered_lineage_matches_record(record, recovered_lineages.get(key))
             ):
                 raise ResolvedPostRecoveryError(
                     f"resolved recovered-public lineage changed: {key}"
@@ -1531,13 +1527,12 @@ def _require_resolved_post_recovery_operation_bindings_core(
         operation = operations[key]
         _validate_resolved_record(record, key=key)
         legacy_direct = _is_legacy_direct_queue_record(record)
-        if (
-            record.get("schema_version") == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
-            and (
-                recovered_lineages is None
-                or not _recovered_lineage_matches_record(
-                    record, recovered_lineages.get(key)
-                )
+        if record.get(
+            "schema_version"
+        ) == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4 and (
+            recovered_lineages is None
+            or not _recovered_lineage_matches_record(
+                record, recovered_lineages.get(key)
             )
         ):
             raise ResolvedPostRecoveryError(
@@ -2406,8 +2401,7 @@ def _validate_resolved_record(
         digest_fields.append("public_material_recovery_sha256")
     elif (
         schema_version == RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4
-        and delivery_authority
-        == "authenticated_direct_courtlistener_queue_recovery"
+        and delivery_authority == "authenticated_direct_courtlistener_queue_recovery"
     ):
         # PR #512 strengthened direct-queue authority without changing the v4
         # schema label. Preserve validation of already-frozen pre-#512 rows,

@@ -1019,9 +1019,7 @@ def test_recovered_public_capability_authorizes_exact_direct_queue_delivery(
         verified_recovery_capability=capability,
     )
     legacy = deepcopy(records[0])
-    legacy["delivery_authority"] = (
-        "authenticated_direct_courtlistener_queue_recovery"
-    )
+    legacy["delivery_authority"] = "authenticated_direct_courtlistener_queue_recovery"
     legacy["queue_response_sha256"] = operation["material_evidence"][
         "queue_response_sha256"
     ]
