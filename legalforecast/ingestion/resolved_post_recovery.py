@@ -211,6 +211,791 @@ class AuthenticatedClearanceLineage:
     authority: ReviewAuthority
 
 
+RECOVERY_CHAIN_VALIDATION_FAILED = "FAILED"
+RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED = "NOT_EVALUATED"
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryChainValidationIssue:
+    """One structured recovery-chain validation finding."""
+
+    code: str
+    status: str
+    layer: str
+    artifact: str
+    message: str
+    field: str | None = None
+    blocked_by: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        for name in ("code", "status", "layer", "artifact", "message"):
+            value = cast(object, getattr(self, name))
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"{name} must be a non-empty string")
+        if self.status not in {
+            RECOVERY_CHAIN_VALIDATION_FAILED,
+            RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+        }:
+            raise ValueError("status must be a supported recovery-chain state")
+        field = cast(object, self.field)
+        if field is not None and (not isinstance(field, str) or not field):
+            raise ValueError("field must be None or a non-empty string")
+        if any(not code for code in self.blocked_by):
+            raise ValueError("blocked_by must contain only non-empty strings")
+
+    def sort_key(self) -> tuple[str, str, str, str, str, str]:
+        return (
+            self.artifact,
+            self.layer,
+            self.code,
+            self.status,
+            self.field or "",
+            self.message,
+        )
+
+    def to_record(self) -> dict[str, object]:
+        record: dict[str, object] = {
+            "code": self.code,
+            "status": self.status,
+            "layer": self.layer,
+            "artifact": self.artifact,
+            "message": self.message,
+        }
+        if self.field is not None:
+            record["field"] = self.field
+        if self.blocked_by:
+            record["blocked_by"] = list(self.blocked_by)
+        return record
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryChainValidationResult:
+    """Deterministic collect-all result for resolved post-recovery validation."""
+
+    issues: tuple[RecoveryChainValidationIssue, ...]
+
+    @property
+    def ok(self) -> bool:
+        return not self.issues
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "ok": self.ok,
+            "issue_count": len(self.issues),
+            "issues": [issue.to_record() for issue in self.issues],
+        }
+
+    def require_ok(self) -> None:
+        if self.ok:
+            return
+        formatted: list[str] = []
+        for issue in self.issues:
+            blocked = (
+                f" blocked_by={','.join(issue.blocked_by)}" if issue.blocked_by else ""
+            )
+            field = f" field={issue.field}" if issue.field is not None else ""
+            formatted.append(
+                f"{issue.artifact} {issue.code} {issue.status}{field}{blocked}: "
+                f"{issue.message}"
+            )
+        raise ResolvedPostRecoveryError(
+            "resolved post-recovery validation failed: " + "; ".join(formatted)
+        )
+
+
+def _validation_artifact(key: tuple[str, str]) -> str:
+    return f"{key[0]}/{key[1]}"
+
+
+def _validation_issue(
+    *,
+    code: str,
+    status: str,
+    layer: str,
+    artifact: str,
+    message: str,
+    field: str | None = None,
+    blocked_by: Sequence[str] = (),
+) -> RecoveryChainValidationIssue:
+    return RecoveryChainValidationIssue(
+        code=code,
+        status=status,
+        layer=layer,
+        artifact=artifact,
+        message=message,
+        field=field,
+        blocked_by=tuple(dict.fromkeys(blocked_by)),
+    )
+
+
+def collect_resolved_post_recovery_build_issues(
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    purchase_operation_records: Sequence[Mapping[str, Any]],
+    download_records: Sequence[Mapping[str, Any]],
+    clearance_records: Sequence[Mapping[str, Any]],
+    attempt_policy_artifact: Mapping[str, object],
+    clearance_artifact_bytes: bytes,
+    clearance_run_card: Mapping[str, Any],
+    clearance_run_card_bytes: bytes,
+    reviews_artifact_bytes: bytes,
+    review_receipt_artifact: Mapping[str, object],
+    review_receipt_bytes: bytes,
+    review_requests_artifact_bytes: bytes,
+    review_worksheet_artifact: Mapping[str, object],
+    review_worksheet_bytes: bytes,
+    reviewer_policy_bytes: bytes,
+    disclosure_authority: DisclosureReviewAuthority | None,
+    cohort_policy_artifact_bytes: bytes,
+    download_manifest_artifact_bytes: bytes,
+    restriction_records: Sequence[Mapping[str, Any]],
+    restriction_artifact_bytes: bytes,
+    allow_test_service_identity: bool = False,
+    verified_lineage_capability: object | None = None,
+    verified_recovery_capability: object | None = None,
+    verified_terminal_disposition_capability: object | None = None,
+) -> RecoveryChainValidationResult:
+    """Collect independent build-time violations without mutating state."""
+
+    issues: list[RecoveryChainValidationIssue] = []
+    recovered_lineages: Mapping[tuple[str, str], Mapping[str, object]] | None = None
+    terminal_keys: frozenset[tuple[str, str]] = frozenset()
+
+    if (
+        verified_terminal_disposition_capability is not None
+        and verified_recovery_capability is None
+    ):
+        issues.append(
+            _validation_issue(
+                code="TERMINAL_DISPOSITION_CAPABILITY_VALIDATION",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="capability",
+                artifact="global",
+                message=(
+                    "terminal disposition authority requires recovered-public authority"
+                ),
+            )
+        )
+    if (
+        verified_recovery_capability is not None
+        and verified_lineage_capability is not None
+    ):
+        issues.append(
+            _validation_issue(
+                code="CLEARANCE_CAPABILITY_MODE",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="capability",
+                artifact="global",
+                message="conflicting authenticated clearance capabilities",
+            )
+        )
+    if verified_recovery_capability is not None:
+        try:
+            recovered_lineages = _consume_recovered_public_clearance_capability(
+                verified_recovery_capability
+            )
+        except ResolvedPostRecoveryError as exc:
+            issues.append(
+                _validation_issue(
+                    code="RECOVERED_PUBLIC_CAPABILITY_VALIDATION",
+                    status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                    layer="capability",
+                    artifact="global",
+                    message=str(exc),
+                )
+            )
+        if verified_terminal_disposition_capability is not None:
+            try:
+                terminal_keys = _consume_terminal_disposition_capability(
+                    verified_terminal_disposition_capability
+                )
+            except ResolvedPostRecoveryError as exc:
+                issues.append(
+                    _validation_issue(
+                        code="TERMINAL_DISPOSITION_CAPABILITY_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                        layer="capability",
+                        artifact="global",
+                        message=str(exc),
+                    )
+                )
+    elif verified_lineage_capability is not None:
+        try:
+            _bind_internal_verified_provenance_lineage(
+                _consume_verified_lineage_capability(verified_lineage_capability),
+                clearance_records=clearance_records,
+                clearance_artifact_bytes=clearance_artifact_bytes,
+                clearance_run_card=clearance_run_card,
+                clearance_run_card_bytes=clearance_run_card_bytes,
+                reviews_artifact_bytes=reviews_artifact_bytes,
+                review_receipt_bytes=review_receipt_bytes,
+                reviewer_policy_bytes=reviewer_policy_bytes,
+                cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+                restriction_records=restriction_records,
+                restriction_artifact_bytes=restriction_artifact_bytes,
+            )
+        except ResolvedPostRecoveryError as exc:
+            issues.append(
+                _validation_issue(
+                    code="CLEARANCE_LINEAGE_VALIDATION",
+                    status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                    layer="clearance_lineage",
+                    artifact="global",
+                    message=str(exc),
+                )
+            )
+    elif disclosure_authority is None:
+        issues.append(
+            _validation_issue(
+                code="CLEARANCE_LINEAGE_VALIDATION",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="clearance_lineage",
+                artifact="global",
+                message="legacy clearance authority is missing",
+            )
+        )
+    else:
+        try:
+            validate_authenticated_clearance_lineage(
+                clearance_records=clearance_records,
+                clearance_artifact_bytes=clearance_artifact_bytes,
+                clearance_run_card=clearance_run_card,
+                clearance_run_card_bytes=clearance_run_card_bytes,
+                reviews_artifact_bytes=reviews_artifact_bytes,
+                review_receipt_artifact=review_receipt_artifact,
+                review_receipt_bytes=review_receipt_bytes,
+                review_requests_artifact_bytes=review_requests_artifact_bytes,
+                review_worksheet_artifact=review_worksheet_artifact,
+                review_worksheet_bytes=review_worksheet_bytes,
+                reviewer_policy_bytes=reviewer_policy_bytes,
+                disclosure_authority=disclosure_authority,
+                cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+                download_manifest_artifact_bytes=download_manifest_artifact_bytes,
+                restriction_records=restriction_records,
+                restriction_artifact_bytes=restriction_artifact_bytes,
+                allow_test_service_identity=allow_test_service_identity,
+            )
+        except ResolvedPostRecoveryError as exc:
+            issues.append(
+                _validation_issue(
+                    code="CLEARANCE_LINEAGE_VALIDATION",
+                    status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                    layer="clearance_lineage",
+                    artifact="global",
+                    message=str(exc),
+                )
+            )
+
+    try:
+        policy_sha256, purchase_policy_sha256, attempt_documents = _attempt_documents(
+            attempt_policy_artifact
+        )
+    except ResolvedPostRecoveryError as exc:
+        attempt_documents = None
+        policy_sha256 = None
+        purchase_policy_sha256 = None
+        issues.append(
+            _validation_issue(
+                code="ATTEMPT_POLICY_VALIDATION",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="attempt_policy",
+                artifact="global",
+                message=str(exc),
+            )
+        )
+    try:
+        unknown_selection = _unknown_selection(selection_records)
+    except ResolvedPostRecoveryError as exc:
+        unknown_selection = None
+        issues.append(
+            _validation_issue(
+                code="UNKNOWN_SELECTION_VALIDATION",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="selection",
+                artifact="global",
+                message=str(exc),
+            )
+        )
+    if unknown_selection is None:
+        required: set[tuple[str, str]] | None = None
+    else:
+        if not terminal_keys <= set(unknown_selection):
+            issues.append(
+                _validation_issue(
+                    code="TERMINAL_SELECTION_PARTITION",
+                    status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                    layer="selection",
+                    artifact="global",
+                    message=(
+                        "terminal-unavailable partition is outside unknown "
+                        "selected documents"
+                    ),
+                )
+            )
+        required = set(unknown_selection) - terminal_keys
+        if attempt_documents is not None and set(attempt_documents) != set(
+            unknown_selection
+        ):
+            issues.append(
+                _validation_issue(
+                    code="ATTEMPT_POLICY_COVERAGE",
+                    status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                    layer="attempt_policy",
+                    artifact="global",
+                    message=(
+                        "attempt policy does not exactly cover unknown "
+                        "selected documents"
+                    ),
+                )
+            )
+        if recovered_lineages is not None and set(recovered_lineages) != required:
+            issues.append(
+                _validation_issue(
+                    code="RECOVERED_PUBLIC_CAPABILITY_COVERAGE",
+                    status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                    layer="capability",
+                    artifact="global",
+                    message=(
+                        "recovered-public capability does not exactly cover "
+                        "recovered documents"
+                    ),
+                )
+            )
+    try:
+        operations = _index(purchase_operation_records, "purchase operation")
+    except ResolvedPostRecoveryError as exc:
+        operations = None
+        issues.append(
+            _validation_issue(
+                code="PURCHASE_OPERATION_INDEX",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="purchase_operation",
+                artifact="global",
+                message=str(exc),
+            )
+        )
+    try:
+        downloads = _index(download_records, "download")
+    except ResolvedPostRecoveryError as exc:
+        downloads = None
+        issues.append(
+            _validation_issue(
+                code="DOWNLOAD_INDEX",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="download",
+                artifact="global",
+                message=str(exc),
+            )
+        )
+    try:
+        clearances = _index(clearance_records, "clearance")
+    except ResolvedPostRecoveryError as exc:
+        clearances = None
+        issues.append(
+            _validation_issue(
+                code="CLEARANCE_INDEX",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="clearance",
+                artifact="global",
+                message=str(exc),
+            )
+        )
+    try:
+        restrictions = _group_index(restriction_records, "restriction evidence")
+    except ResolvedPostRecoveryError as exc:
+        restrictions = None
+        issues.append(
+            _validation_issue(
+                code="RESTRICTION_INDEX",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="restriction",
+                artifact="global",
+                message=str(exc),
+            )
+        )
+    if required is not None:
+        if operations is not None:
+            missing = sorted(required - set(operations))
+            if missing:
+                issues.append(
+                    _validation_issue(
+                        code="PURCHASE_OPERATION_COVERAGE",
+                        status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                        layer="purchase_operation",
+                        artifact="global",
+                        message=(
+                            "purchase operation lacks unknown-origin coverage: "
+                            f"{missing}"
+                        ),
+                    )
+                )
+        if downloads is not None:
+            missing = sorted(required - set(downloads))
+            if missing:
+                issues.append(
+                    _validation_issue(
+                        code="DOWNLOAD_COVERAGE",
+                        status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                        layer="download",
+                        artifact="global",
+                        message=f"download lacks unknown-origin coverage: {missing}",
+                    )
+                )
+        if clearances is not None:
+            missing = sorted(required - set(clearances))
+            if missing:
+                issues.append(
+                    _validation_issue(
+                        code="CLEARANCE_COVERAGE",
+                        status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                        layer="clearance",
+                        artifact="global",
+                        message=f"clearance lacks unknown-origin coverage: {missing}",
+                    )
+                )
+    if (
+        required is not None
+        and operations is not None
+        and terminal_keys - set(operations)
+    ):
+        issues.append(
+            _validation_issue(
+                code="TERMINAL_SELECTION_COVERAGE",
+                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                layer="purchase_operation",
+                artifact="global",
+                message="purchase operation lacks terminal-unavailable coverage",
+            )
+        )
+
+    if required is not None:
+        known_selection = cast(
+            Mapping[tuple[str, str], Mapping[str, Any]], unknown_selection
+        )
+        for key in sorted(required):
+            artifact = _validation_artifact(key)
+            selection_document = known_selection[key]
+            selection_sha256 = _sha256(selection_document)
+            attempt_failed = False
+            if (
+                attempt_documents is None
+                or policy_sha256 is None
+                or purchase_policy_sha256 is None
+            ):
+                attempt_failed = True
+                issues.append(
+                    _validation_issue(
+                        code="ATTEMPT_DOCUMENT_BINDING",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="attempt_policy",
+                        artifact=artifact,
+                        message="attempt document could not be evaluated",
+                        blocked_by=("ATTEMPT_POLICY_VALIDATION",),
+                    )
+                )
+            else:
+                attempt = attempt_documents.get(key)
+                if attempt is None:
+                    attempt_failed = True
+                    issues.append(
+                        _validation_issue(
+                            code="ATTEMPT_DOCUMENT_BINDING",
+                            status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                            layer="attempt_policy",
+                            artifact=artifact,
+                            message="attempt policy lacks selected document",
+                        )
+                    )
+                elif attempt["selection_document_sha256"] != selection_sha256:
+                    attempt_failed = True
+                    issues.append(
+                        _validation_issue(
+                            code="ATTEMPT_DOCUMENT_BINDING",
+                            status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                            layer="attempt_policy",
+                            artifact=artifact,
+                            field="selection_document_sha256",
+                            message="attempt policy selection commitment changed",
+                        )
+                    )
+            operation_failed = True
+            if attempt_failed:
+                issues.append(
+                    _validation_issue(
+                        code="PURCHASE_OPERATION_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="purchase_operation",
+                        artifact=artifact,
+                        message=(
+                            "purchase operation prerequisites did not authenticate"
+                        ),
+                        blocked_by=("ATTEMPT_DOCUMENT_BINDING",),
+                    )
+                )
+            elif (
+                operations is None
+                or policy_sha256 is None
+                or purchase_policy_sha256 is None
+            ):
+                issues.append(
+                    _validation_issue(
+                        code="PURCHASE_OPERATION_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="purchase_operation",
+                        artifact=artifact,
+                        message="purchase operation index did not authenticate",
+                        blocked_by=("PURCHASE_OPERATION_INDEX",),
+                    )
+                )
+            else:
+                operation = operations.get(key)
+                if operation is None:
+                    issues.append(
+                        _validation_issue(
+                            code="PURCHASE_OPERATION_VALIDATION",
+                            status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                            layer="purchase_operation",
+                            artifact=artifact,
+                            message="purchase operation lacks selected document",
+                        )
+                    )
+                else:
+                    try:
+                        _validate_operation(
+                            operation,
+                            key=key,
+                            attempt_policy_sha256=policy_sha256,
+                            selection_document_sha256=selection_sha256,
+                            expected_purchase_policy_sha256=purchase_policy_sha256,
+                            verified_recovered_lineage=(
+                                None
+                                if recovered_lineages is None
+                                else recovered_lineages.get(key)
+                            ),
+                        )
+                        operation_failed = False
+                    except ResolvedPostRecoveryError as exc:
+                        issues.append(
+                            _validation_issue(
+                                code="PURCHASE_OPERATION_VALIDATION",
+                                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                                layer="purchase_operation",
+                                artifact=artifact,
+                                message=str(exc),
+                            )
+                        )
+            download_failed = True
+            if operation_failed:
+                issues.append(
+                    _validation_issue(
+                        code="DOWNLOAD_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="download",
+                        artifact=artifact,
+                        message="download prerequisites did not authenticate",
+                        blocked_by=("PURCHASE_OPERATION_VALIDATION",),
+                    )
+                )
+            elif downloads is None or policy_sha256 is None or operations is None:
+                issues.append(
+                    _validation_issue(
+                        code="DOWNLOAD_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="download",
+                        artifact=artifact,
+                        message="download index did not authenticate",
+                        blocked_by=("DOWNLOAD_INDEX",),
+                    )
+                )
+            else:
+                download = downloads.get(key)
+                operation = operations[key]
+                if download is None:
+                    issues.append(
+                        _validation_issue(
+                            code="DOWNLOAD_VALIDATION",
+                            status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                            layer="download",
+                            artifact=artifact,
+                            message="download lacks selected document",
+                        )
+                    )
+                else:
+                    try:
+                        _validate_download(
+                            download,
+                            key=key,
+                            operation=operation,
+                            attempt_policy_sha256=policy_sha256,
+                        )
+                        download_failed = False
+                    except ResolvedPostRecoveryError as exc:
+                        issues.append(
+                            _validation_issue(
+                                code="DOWNLOAD_VALIDATION",
+                                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                                layer="download",
+                                artifact=artifact,
+                                message=str(exc),
+                            )
+                        )
+            clearance_failed = True
+            if download_failed:
+                issues.append(
+                    _validation_issue(
+                        code="CLEARANCE_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="clearance",
+                        artifact=artifact,
+                        message="clearance prerequisites did not authenticate",
+                        blocked_by=("DOWNLOAD_VALIDATION",),
+                    )
+                )
+            elif clearances is None or downloads is None:
+                issues.append(
+                    _validation_issue(
+                        code="CLEARANCE_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="clearance",
+                        artifact=artifact,
+                        message="clearance index did not authenticate",
+                        blocked_by=("CLEARANCE_INDEX",),
+                    )
+                )
+            else:
+                clearance = clearances.get(key)
+                download = downloads[key]
+                if clearance is None:
+                    issues.append(
+                        _validation_issue(
+                            code="CLEARANCE_VALIDATION",
+                            status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                            layer="clearance",
+                            artifact=artifact,
+                            message="clearance lacks selected document",
+                        )
+                    )
+                else:
+                    try:
+                        _validate_clearance(clearance, key=key, download=download)
+                        clearance_failed = False
+                    except ResolvedPostRecoveryError as exc:
+                        issues.append(
+                            _validation_issue(
+                                code="CLEARANCE_VALIDATION",
+                                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                                layer="clearance",
+                                artifact=artifact,
+                                message=str(exc),
+                            )
+                        )
+            restriction_failed = True
+            if operation_failed:
+                issues.append(
+                    _validation_issue(
+                        code="RESTRICTION_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="restriction",
+                        artifact=artifact,
+                        message="restriction prerequisites did not authenticate",
+                        blocked_by=("PURCHASE_OPERATION_VALIDATION",),
+                    )
+                )
+            elif restrictions is None or operations is None:
+                issues.append(
+                    _validation_issue(
+                        code="RESTRICTION_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="restriction",
+                        artifact=artifact,
+                        message="restriction index did not authenticate",
+                        blocked_by=("RESTRICTION_INDEX",),
+                    )
+                )
+            else:
+                operation = operations[key]
+                try:
+                    _fresh_public_restriction_record(
+                        restrictions.get(key, ()),
+                        key=key,
+                        operation=operation,
+                    )
+                    restriction_failed = False
+                except ResolvedPostRecoveryError as exc:
+                    issues.append(
+                        _validation_issue(
+                            code="RESTRICTION_VALIDATION",
+                            status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                            layer="restriction",
+                            artifact=artifact,
+                            message=str(exc),
+                        )
+                    )
+            if clearance_failed or restriction_failed or operation_failed:
+                blocked_by: list[str] = []
+                if clearance_failed:
+                    blocked_by.append("CLEARANCE_VALIDATION")
+                if restriction_failed:
+                    blocked_by.append("RESTRICTION_VALIDATION")
+                if operation_failed:
+                    blocked_by.append("PURCHASE_OPERATION_VALIDATION")
+                issues.append(
+                    _validation_issue(
+                        code="RECOVERED_PUBLIC_LINEAGE_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="clearance",
+                        artifact=artifact,
+                        message=(
+                            "recovered-public lineage prerequisites did not "
+                            "authenticate"
+                        ),
+                        blocked_by=blocked_by,
+                    )
+                )
+            elif clearances is None or operations is None or restrictions is None:
+                issues.append(
+                    _validation_issue(
+                        code="RECOVERED_PUBLIC_LINEAGE_VALIDATION",
+                        status=RECOVERY_CHAIN_VALIDATION_NOT_EVALUATED,
+                        layer="clearance",
+                        artifact=artifact,
+                        message="recovered-public lineage inputs did not authenticate",
+                        blocked_by=(
+                            "CLEARANCE_INDEX",
+                            "PURCHASE_OPERATION_INDEX",
+                            "RESTRICTION_INDEX",
+                        ),
+                    )
+                )
+            else:
+                clearance = clearances[key]
+                operation = operations[key]
+                fresh_public = _fresh_public_restriction_record(
+                    restrictions[key],
+                    key=key,
+                    operation=operation,
+                )
+                try:
+                    _validate_recovered_public_clearance_lineage(
+                        clearance,
+                        operation=operation,
+                        fresh_public=fresh_public,
+                        key=key,
+                    )
+                except ResolvedPostRecoveryError as exc:
+                    issues.append(
+                        _validation_issue(
+                            code="RECOVERED_PUBLIC_LINEAGE_VALIDATION",
+                            status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                            layer="clearance",
+                            artifact=artifact,
+                            message=str(exc),
+                        )
+                    )
+    ordered = tuple(sorted(issues, key=RecoveryChainValidationIssue.sort_key))
+    return RecoveryChainValidationResult(issues=ordered)
+
+
 def _verified_lineage_capability_boundary() -> tuple[
     Callable[..., object],
     Callable[[object | None], AuthenticatedClearanceLineage],

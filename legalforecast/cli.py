@@ -703,7 +703,9 @@ from legalforecast.ingestion.replacement_recovery_source import (
     normalize_post_purchase_replay_descriptor,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
+    RECOVERY_CHAIN_VALIDATION_FAILED,
     RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4,
+    RecoveryChainValidationIssue,
     ResolvedPostRecoveryError,
     _build_resolved_post_recovery_documents_with_authenticated_lineage,  # pyright: ignore[reportPrivateUsage]
     _build_resolved_recovered_public,  # pyright: ignore[reportPrivateUsage]
@@ -714,6 +716,7 @@ from legalforecast.ingestion.resolved_post_recovery import (
     _require_resolved_recovered_public_operation_bindings,  # pyright: ignore[reportPrivateUsage]
     _require_resolved_recovered_public_parse_requests,  # pyright: ignore[reportPrivateUsage]
     build_resolved_post_recovery_documents,
+    collect_resolved_post_recovery_build_issues,
     require_resolved_post_recovery_documents,
     require_resolved_post_recovery_operation_bindings,
     require_resolved_post_recovery_parse_requests,
@@ -8367,6 +8370,14 @@ def _add_acquisition_resolve_post_recovery_arguments(
     parser.add_argument("--terminal-disposition-snapshot-manifest", type=Path)
     parser.add_argument("--terminal-purchase-result", type=Path)
     parser.add_argument("--terminal-purchase-run-card", type=Path)
+    parser.add_argument(
+        "--collect-all",
+        action="store_true",
+        help=(
+            "Validate the full recovery-chain slice and print structured issues "
+            "without writing outputs or mutating the purchase journal."
+        ),
+    )
     parser.add_argument("--resolved-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_resolve_post_recovery)
 
@@ -51637,6 +51648,73 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
                 )
             before_state_sha256 = journal.purchase_state_sha256()
             operations = journal.operation_records()
+            if cast(bool, getattr(args, "collect_all", False)):
+                collect_all_kwargs = dict(clearance_kwargs)
+                collect_all_kwargs.pop("_verified_clearance_source_snapshots", None)
+                validation = collect_resolved_post_recovery_build_issues(
+                    selection_records=selection_records,
+                    purchase_operation_records=operations,
+                    download_records=download_records,
+                    clearance_records=clearance_records,
+                    attempt_policy_artifact=attempt_policy_artifact,
+                    **collect_all_kwargs,
+                )
+                existing_issues = list(validation.issues)
+                mode = "build"
+                if resolved_path.exists():
+                    mode = "require"
+                    resolved_records = _read_records(resolved_path)
+                    try:
+                        _require_resolved_post_recovery_dispatch(
+                            selection_records=selection_records,
+                            download_records=download_records,
+                            clearance_records=clearance_records,
+                            resolved_records=resolved_records,
+                            **clearance_kwargs,
+                        )
+                    except ResolvedPostRecoveryError as exc:
+                        existing_issues.append(
+                            RecoveryChainValidationIssue(
+                                code="RESOLVED_OUTPUT_VALIDATION",
+                                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                                layer="resolved_output",
+                                artifact="global",
+                                message=str(exc),
+                            )
+                        )
+                    try:
+                        _require_resolved_operation_bindings_dispatch(
+                            clearance_kwargs=clearance_kwargs,
+                            purchase_operation_records=operations,
+                            resolved_records=resolved_records,
+                            expected_purchase_policy_sha256=policy.policy_sha256,
+                        )
+                    except ResolvedPostRecoveryError as exc:
+                        existing_issues.append(
+                            RecoveryChainValidationIssue(
+                                code="RESOLVED_OPERATION_BINDINGS",
+                                status=RECOVERY_CHAIN_VALIDATION_FAILED,
+                                layer="resolved_output",
+                                artifact="global",
+                                message=str(exc),
+                            )
+                        )
+                collect_all_result = {
+                    "ok": not existing_issues,
+                    "mode": mode,
+                    "issue_count": len(existing_issues),
+                    "issues": [
+                        issue.to_record()
+                        for issue in sorted(
+                            existing_issues, key=lambda issue: issue.sort_key()
+                        )
+                    ],
+                }
+                print(
+                    json.dumps(collect_all_result, indent=2, sort_keys=True),
+                    file=sys.stdout,
+                )
+                return 0 if collect_all_result["ok"] else 1
             if resolved_path.exists():
                 resolved_records = _read_records(resolved_path)
                 _require_resolved_post_recovery_dispatch(
