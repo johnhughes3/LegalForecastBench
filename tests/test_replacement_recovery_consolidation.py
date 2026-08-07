@@ -416,6 +416,92 @@ def test_pre_recovery_empty_manifest_uses_paid_gaps_minus_terminal_omissions(
         cli._consume_consolidated_resolved_capability(capability)
 
 
+def test_consolidated_verifier_reuses_authenticated_history_snapshots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=all_paid)
+    prepared = cli._prepare_replacement_recovery_consolidation(args)
+    assert cli._cmd_consolidate_replacement_recovery(args) == 0
+    index = json.loads(args.tranche_index.read_text(encoding="utf-8"))
+    budget_path = Path(index["sources"][1]["replacement_budget_plan"]).absolute()
+    original_read = cli._read_singly_linked_regular_input
+    budget_reads = 0
+
+    def count_budget_reads(path: Path, *, label: str) -> bytes:
+        nonlocal budget_reads
+        if path.absolute() == budget_path:
+            budget_reads += 1
+        return original_read(path, label=label)
+
+    monkeypatch.setattr(cli, "_read_singly_linked_regular_input", count_budget_reads)
+
+    verified = cli._verify_materializer_consolidated_recovery(
+        recovery_root=args.output_root,
+        run_card_path=(
+            args.output_root / "run-cards" / "consolidate-replacement-recovery.json"
+        ),
+        selection_path=args.selection,
+        selected_document_keys=all_paid,
+        purchase_policy_path=args.purchase_policy,
+        cohort_policy_path=args.cohort_policy,
+        ledger_path=args.purchase_ledger,
+    )
+
+    assert budget_reads == 2  # Initial authentication plus final TOCTOU recheck.
+    assert tuple(verified["manifest_records"]) == prepared.manifest_records
+    assert (args.output_root / "purchased-document-downloads.jsonl").read_bytes() == (
+        cli._projection_jsonl_bytes(prepared.manifest_records)
+    )
+
+
+def test_consolidated_verifier_rejects_post_snapshot_source_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=all_paid)
+    assert cli._cmd_consolidate_replacement_recovery(args) == 0
+    index = json.loads(args.tranche_index.read_text(encoding="utf-8"))
+    budget_path = Path(index["sources"][1]["replacement_budget_plan"]).absolute()
+    original_prepare = cli._prepare_replacement_recovery_consolidation
+
+    def mutate_after_replay(*args: object, **kwargs: object) -> object:
+        replay = original_prepare(*args, **kwargs)
+        budget_path.write_bytes(b'{"case_plans":[]}\n')
+        return replay
+
+    monkeypatch.setattr(
+        cli, "_prepare_replacement_recovery_consolidation", mutate_after_replay
+    )
+
+    with pytest.raises(
+        cli.CommandError,
+        match=(
+            "consolidated replacement recovery verification input changed during "
+            "execution"
+        ),
+    ):
+        cli._verify_materializer_consolidated_recovery(
+            recovery_root=args.output_root,
+            run_card_path=(
+                args.output_root / "run-cards" / "consolidate-replacement-recovery.json"
+            ),
+            selection_path=args.selection,
+            selected_document_keys=all_paid,
+            purchase_policy_path=args.purchase_policy,
+            cohort_policy_path=args.cohort_policy,
+            ledger_path=args.purchase_ledger,
+        )
+
+
 def test_empty_purchased_manifest_without_paid_gaps_fails_closed() -> None:
     with pytest.raises(
         ValueError,

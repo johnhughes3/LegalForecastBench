@@ -27716,6 +27716,8 @@ def _verify_consolidation_target_ranked_precursor(
 
 def _prepare_replacement_recovery_consolidation(
     args: argparse.Namespace,
+    *,
+    authenticated_source_snapshots: Mapping[Path, bytes] | None = None,
 ) -> _ReplacementRecoveryConsolidation:
     index_path = cast(Path, args.tranche_index).absolute()
     index_run_card_path = cast(Path, args.tranche_index_run_card).absolute()
@@ -27756,8 +27758,19 @@ def _prepare_replacement_recovery_consolidation(
         receipt_path,
         *terminal_paths,
     )
+    reusable_source_snapshots = {
+        path.absolute(): payload
+        for path, payload in (authenticated_source_snapshots or {}).items()
+    }
+
+    def capture_consolidation_input(path: Path, *, label: str) -> bytes:
+        payload = reusable_source_snapshots.get(path.absolute())
+        if payload is not None:
+            return payload
+        return _read_singly_linked_regular_input(path, label=label)
+
     snapshots = {
-        path: _read_singly_linked_regular_input(
+        path: capture_consolidation_input(
             path, label="replacement recovery consolidation input"
         )
         for path in direct_paths
@@ -27931,9 +27944,7 @@ def _prepare_replacement_recovery_consolidation(
         tranche_approved_pairs: set[tuple[str, str]] = set()
         budget_path = Path(_required_str(tranche, "replacement_budget_plan")).absolute()
         budget = _projection_json_object(
-            _read_singly_linked_regular_input(
-                budget_path, label="replacement budget plan"
-            ),
+            capture_consolidation_input(budget_path, label="replacement budget plan"),
             source=budget_path,
         )
         raw_case_plans = budget.get("case_plans")
@@ -27980,7 +27991,7 @@ def _prepare_replacement_recovery_consolidation(
         snapshots[absolute] = payload
 
     def capture_successor_history(path: Path, *, label: str) -> bytes:
-        payload = _read_singly_linked_regular_input(path, label=label)
+        payload = capture_consolidation_input(path, label=label)
         merge_consolidation_snapshot(path, payload, label=label)
         return payload
 
@@ -28367,7 +28378,7 @@ def _prepare_replacement_recovery_consolidation(
             )
         resolved_records = (
             _projection_jsonl_records(
-                _read_singly_linked_regular_input(
+                capture_consolidation_input(
                     resolved_path,
                     label="replacement resolved post-recovery documents",
                 ),
@@ -40555,7 +40566,10 @@ def _verify_materializer_consolidated_recovery(
                 if terminal_input_paths is not None
                 else None
             ),
-        )
+        ),
+        authenticated_source_snapshots={
+            Path(path): payload for path, payload in verified_bytes.items()
+        },
     )
     if (
         tuple(manifest_records) != replay.manifest_records
@@ -40586,6 +40600,10 @@ def _verify_materializer_consolidated_recovery(
         raise CommandError(
             "consolidated replacement recovery source commitments do not reproduce"
         )
+    _require_snapshot_unchanged(
+        {Path(path): payload for path, payload in verified_bytes.items()},
+        label="consolidated replacement recovery verification input",
+    )
     return {
         "recovery_stage": "consolidate-replacement-recovery",
         "manifest_path": manifest_path,
