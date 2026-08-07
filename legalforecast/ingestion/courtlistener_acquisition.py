@@ -442,8 +442,8 @@ def _discover_courtlistener_mtd_candidates_durable(
     )
     search_pages = progress_store.search_page_transcript(batch_id)
     candidate_hits = progress_store.candidate_discovery_hits(batch_id)
-    candidate_limit_reached = len(candidate_hits) >= max_candidates
     selected_hits = candidate_hits[:max_candidates]
+    candidate_limit_reached = len(selected_hits) < len(candidate_hits)
     screened_cases: list[Mapping[str, Any]] = []
     exclusions: list[ExclusionLedgerEntry] = []
 
