@@ -657,7 +657,9 @@ def _upgrade_fixture_to_post_purchase_replay(fixture: Fixture) -> None:
     fixture.refresh()
 
 
-def _verified_v4_transition(fixture: Fixture) -> object:
+def _verified_v4_transition(
+    fixture: Fixture, *, live_state_sha256: str | None = None
+) -> object:
     proof = fixture.ranked_result["authenticated_post_purchase_replay"]
     assert isinstance(proof, dict)
     prior_result = proof["prior_result"]
@@ -689,6 +691,15 @@ def _verified_v4_transition(fixture: Fixture) -> object:
                 proof["current_purchase_journal_state_sha256"]
             ).removeprefix("sha256:"),
         ),
+        live_snapshot=(
+            CaseDevPurchaseSnapshot(
+                operations=(),
+                committed_amount_usd=str(proof["current_committed_spend_usd"]),
+                purchase_state_sha256=live_state_sha256.removeprefix("sha256:"),
+            )
+            if live_state_sha256 is not None
+            else None
+        ),
         replacement_purchase_authority_sha256=str(
             proof["replacement_purchase_authority_sha256"]
         ),
@@ -708,6 +719,43 @@ def test_current_v3_result_accepts_closed_legacy_replay_proof() -> None:
     successor = project_zero_cost_successor(**fixture.kwargs)
 
     assert successor.state["selected_case_count"] == 100
+
+
+def test_post_purchase_v4_accepts_live_terminal_disposition_state() -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_post_purchase_replay(fixture)
+    live_state = "sha256:" + "e" * 64
+    disposition = dict(fixture.ranked_result["terminal_disposition"])
+    disposition["purchase_journal_state_sha256"] = live_state
+    fixture.ranked_result["terminal_disposition"] = disposition
+    fixture.ranked_result["terminal_disposition_sha256"] = (
+        ranked_reserve_canonical_sha256(disposition)
+    )
+    transition = _verified_v4_transition(fixture, live_state_sha256=live_state)
+    fixture.kwargs["authenticated_ranked_result"] = (
+        _mint_verified_post_purchase_ranked_result(fixture.ranked_result, transition)
+    )
+    fixture.refresh()
+
+    successor = project_zero_cost_successor(**fixture.kwargs)
+
+    assert successor.state["selected_case_count"] == 100
+
+
+def test_post_purchase_v4_rejects_non_live_terminal_disposition_state() -> None:
+    fixture = _fixture()
+    _upgrade_fixture_to_post_purchase_replay(fixture)
+    transition = _verified_v4_transition(
+        fixture, live_state_sha256="sha256:" + "e" * 64
+    )
+    fixture.kwargs["authenticated_ranked_result"] = (
+        _mint_verified_post_purchase_ranked_result(fixture.ranked_result, transition)
+    )
+
+    with pytest.raises(
+        ZeroCostSuccessorError, match="terminal disposition commitment mismatch"
+    ):
+        project_zero_cost_successor(**fixture.kwargs)
 
 
 def test_post_purchase_v4_result_rejects_self_authenticated_forged_mapping() -> None:
@@ -1254,6 +1302,7 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     output_root = tmp_path / "successor"
     post_purchase_arguments: list[str] = []
     authority_verifications: list[dict[str, object]] = []
+    resolver_factory_paths: list[tuple[Path, ...]] = []
     if post_purchase_v4:
         proof = fixture.ranked_result["authenticated_post_purchase_replay"]
         assert isinstance(proof, dict)
@@ -1272,6 +1321,46 @@ def test_cli_publishes_standard_target_cohort_surfaces(
         replacement_private_root.mkdir()
         cohort_policy_path = tmp_path / "cohort-policy.json"
         cohort_policy_path.write_bytes(b"{}\n")
+        resolver_card_paths = (
+            tmp_path / "newer-resolver-card.json",
+            tmp_path / "older-resolver-card.json",
+        )
+        for path in resolver_card_paths:
+            path.write_bytes(b"{}\n")
+        verified_policy = object()
+        monkeypatch.setattr(
+            cli, "verify_case_dev_purchase_policy", lambda _artifact: verified_policy
+        )
+
+        def require_verified_policy(
+            policy: object, *, controlled_private_root: Path
+        ) -> None:
+            assert policy is verified_policy
+            assert controlled_private_root == tmp_path / "private"
+
+        monkeypatch.setattr(
+            cli,
+            "require_approved_case_dev_purchase_policy",
+            require_verified_policy,
+        )
+
+        def issue_resolved_transition_factory(**kwargs: object) -> object:
+            assert (
+                kwargs["purchase_ledger_path"]
+                == precursor_paths["purchase-ledger.sqlite3"]
+            )
+            assert kwargs["controlled_private_root"] == controlled_private_root
+            assert kwargs["policy"] is verified_policy
+            paths = cast(tuple[Path, ...], kwargs["run_card_paths"])
+            resolver_factory_paths.append(paths)
+            assert paths == resolver_card_paths
+            return object
+
+        monkeypatch.setattr(
+            cli,
+            "_issue_resolved_transition_capability_factory",
+            issue_resolved_transition_factory,
+        )
 
         def verify_post_purchase(**kwargs: object) -> object:
             authority_verifications.append(kwargs)
@@ -1279,6 +1368,10 @@ def test_cli_publishes_standard_target_cohort_surfaces(
             assert kwargs["selection_bytes"] == prior_selection_path.read_bytes()
             assert kwargs["budget_plan_bytes"] == prior_budget_path.read_bytes()
             assert kwargs["controlled_private_root"] == replacement_private_root
+            assert (
+                kwargs["_verified_resolved_authority_capability"]
+                is not kwargs["_verified_resolved_snapshot_capability"]
+            )
             return verified_token
 
         monkeypatch.setattr(
@@ -1297,6 +1390,10 @@ def test_cli_publishes_standard_target_cohort_surfaces(
             str(replacement_private_root),
             "--cohort-policy",
             str(cohort_policy_path),
+            "--resolved-post-recovery-run-card",
+            str(resolver_card_paths[0]),
+            "--resolved-post-recovery-run-card",
+            str(resolver_card_paths[1]),
         ]
 
     command = [
@@ -1340,6 +1437,7 @@ def test_cli_publishes_standard_target_cohort_surfaces(
 
     assert status == 0
     assert len(authority_verifications) == (2 if post_purchase_v4 else 0)
+    assert len(resolver_factory_paths) == (1 if post_purchase_v4 else 0)
     assert authentication_tokens == [
         verified_token if post_purchase_v4 else None,
         verified_token if post_purchase_v4 else None,
@@ -1380,6 +1478,7 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     assert len(verified["selection_records"]) == 100
     assert verified["summary"]["schema_version"] == CONFIG_SCHEMA_VERSION
     assert len(authority_verifications) == (4 if post_purchase_v4 else 0)
+    assert len(resolver_factory_paths) == (2 if post_purchase_v4 else 0)
     assert (
         authentication_tokens
         == [

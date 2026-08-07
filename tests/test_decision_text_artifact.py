@@ -146,6 +146,59 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
     assert str(inputs["materialization_run_card"]) in run_card["input_paths"]
 
 
+def test_build_decision_texts_accepts_only_replayed_successor_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The decision-text consumer receives successor authority from materialization."""
+
+    inputs = _write_inputs(tmp_path)
+    selection_bytes = inputs["selection"].read_bytes()
+    selection_records = _read_jsonl(inputs["selection"])
+    successor_card = {
+        "schema_version": cli_module.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+        "stage": "project-zero-cost-successor",
+        "record_count": len(selection_records),
+    }
+    card_bytes = (json.dumps(successor_card, sort_keys=True) + "\n").encode("utf-8")
+    inputs["selection_run_card"].write_bytes(card_bytes)
+
+    # The regular materialization fixture has no verifier-owned successor proof.
+    assert main(_command(inputs, tmp_path / "rejected-output")) == 2
+
+    capability = object.__new__(cli_module._VerifiedSuccessorSelectionCard)
+    object.__setattr__(capability, "selection_path", inputs["selection"])
+    object.__setattr__(capability, "selection_bytes", selection_bytes)
+    object.__setattr__(capability, "selection_record_count", len(selection_records))
+    object.__setattr__(capability, "run_card_path", inputs["selection_run_card"])
+    object.__setattr__(capability, "run_card_bytes", card_bytes)
+    object.__setattr__(
+        capability, "_token", cli_module._VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN
+    )
+
+    def replayed_materialization(
+        **keywords: Any,
+    ) -> cli_module._VerifiedMaterializedDownstreamLineage:
+        run_card_path = Path(keywords["run_card_path"])
+        return cli_module._VerifiedMaterializedDownstreamLineage(
+            paths=(run_card_path,),
+            artifact_bytes={},
+            manifest_records=(),
+            clearance_records=(),
+            selection_records=(),
+            resolved_records=(),
+            document_tree={},
+            verified_successor_selection_card=capability,
+        )
+
+    monkeypatch.setattr(
+        cli_module,
+        "_verify_materialized_downstream_lineage",
+        replayed_materialization,
+    )
+    assert main(_command(inputs, tmp_path / "output")) == 0
+
+
 def test_authenticated_docket_decision_builds_without_pdf_or_parser(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

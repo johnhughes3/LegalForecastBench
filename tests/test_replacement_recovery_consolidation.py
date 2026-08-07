@@ -7,6 +7,7 @@ import json
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
@@ -1075,6 +1076,52 @@ def test_consolidation_treats_post_purchase_replay_as_nested_descriptor() -> Non
     )
 
     assert paths == {"selection": direct_path.absolute()}
+
+
+def test_consolidation_authenticates_v4_target_without_legacy_bridge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transition = cast(Any, object())
+    observed: list[tuple[object, object]] = []
+    monkeypatch.setattr(
+        cli, "ranked_reserve_result_bytes", lambda _result: b"canonical-v4"
+    )
+    monkeypatch.setattr(
+        cli,
+        "require_verified_post_purchase_replay",
+        lambda result, replay: observed.append((result, replay)),
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_legacy_ranked_reserve_bridge",
+        lambda **_kwargs: pytest.fail("v4 target used the legacy bridge"),
+    )
+    result = {"schema_version": cli.POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION}
+
+    verified = cli._verify_consolidation_target_ranked_precursor(
+        precursor_result=result,
+        precursor_result_bytes=b"canonical-v4",
+        post_purchase_replay=transition,
+    )
+
+    assert verified is None
+    assert observed == [(result, transition)]
+
+
+def test_consolidation_rejects_noncanonical_v4_target_before_replay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cli, "ranked_reserve_result_bytes", lambda _result: b"canonical-v4"
+    )
+    result = {"schema_version": cli.POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION}
+
+    with pytest.raises(ValueError, match="not canonical"):
+        cli._verify_consolidation_target_ranked_precursor(
+            precursor_result=result,
+            precursor_result_bytes=b"changed-v4",
+            post_purchase_replay=cast(Any, object()),
+        )
 
 
 def test_consolidation_rejects_ledger_drift_before_completed_publication(
