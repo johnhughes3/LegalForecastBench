@@ -173,7 +173,7 @@ def register_cycle_stage_head(
     if command not in COMMAND_BOUNDARIES:
         raise CycleLineageIndexError("stage command is not coordinator-reviewed")
     commit = _require_digest(code_commit, "code commit", pattern=_SHA40)
-    card_path = _verified_config_path(run_card_path)
+    card_path = _verified_config_path(run_card_path, label="stage-head run card")
     card, card_sha256, commitments = _authenticate_standalone_card(card_path, command)
     stage = _required_string(card, "stage")
     root_identity = hashlib.sha256(
@@ -524,27 +524,7 @@ def _standalone_lineage_status(
     config_entries: list[dict[str, object]],
     stage_heads: list[dict[str, object]],
 ) -> dict[str, object]:
-    command = _required_string(head, "command")
-    card, card_sha256, commitments = _authenticate_standalone_card(
-        _verified_config_path(Path(_required_string(head, "run_card_path"))),
-        command,
-    )
-    expected_identity = hashlib.sha256(
-        canonical_json_bytes(
-            {
-                "cycle_id": head["cycle_id"],
-                "command": command,
-                "stage": card["stage"],
-                "run_card_sha256": card_sha256,
-                "output_commitments": commitments,
-            }
-        )
-    ).hexdigest()
-    if (
-        card_sha256 != head["run_card_sha256"]
-        or expected_identity != head["root_identity_sha256"]
-    ):
-        raise CycleLineageIndexError("registered stage-head evidence changed")
+    _card, card_sha256, commitments = _authenticate_stage_head_entry(head)
 
     decisions: dict[str, dict[str, object]] = {}
     entries_by_root = {
@@ -557,13 +537,14 @@ def _standalone_lineage_status(
     while cursor is not None:
         if "command" in cursor:
             cursor_command = _required_string(cursor, "command")
+            cursor_card, cursor_card_sha256, _ = _authenticate_stage_head_entry(cursor)
             if COMMAND_BOUNDARIES[cursor_command] is AcquisitionBoundary.HUMAN:
-                cursor_stage = _required_string(cursor, "stage")
+                cursor_stage = _required_string(cursor_card, "stage")
                 decisions[cursor_stage] = {
                     "stage": cursor_stage,
                     "status": "recorded",
                     "verification": "VERIFIED",
-                    "card_sha256": _required_string(cursor, "run_card_sha256"),
+                    "card_sha256": cursor_card_sha256,
                 }
             predecessor = cursor.get("supersedes_root_identity_sha256")
         else:
@@ -633,6 +614,37 @@ def _standalone_lineage_status(
             "publication": False,
         },
     }
+
+
+def _authenticate_stage_head_entry(
+    head: Mapping[str, object],
+) -> tuple[Mapping[str, object], str, list[dict[str, object]]]:
+    command = _required_string(head, "command")
+    card, card_sha256, commitments = _authenticate_standalone_card(
+        _verified_config_path(
+            Path(_required_string(head, "run_card_path")),
+            label="stage-head run card",
+        ),
+        command,
+    )
+    expected_identity = hashlib.sha256(
+        canonical_json_bytes(
+            {
+                "cycle_id": head["cycle_id"],
+                "command": command,
+                "stage": card["stage"],
+                "run_card_sha256": card_sha256,
+                "output_commitments": commitments,
+            }
+        )
+    ).hexdigest()
+    if (
+        card_sha256 != head["run_card_sha256"]
+        or card["stage"] != head["stage"]
+        or expected_identity != head["root_identity_sha256"]
+    ):
+        raise CycleLineageIndexError("registered stage-head evidence changed")
+    return card, card_sha256, commitments
 
 
 def _verified_receipt_projection(
@@ -939,16 +951,14 @@ def _publish_index(
             temporary.unlink()
 
 
-def _verified_config_path(path: Path) -> Path:
-    normalized = _normalized_absolute(path, "cycle config")
+def _verified_config_path(path: Path, *, label: str = "cycle config") -> Path:
+    normalized = _normalized_absolute(path, label)
     try:
         resolved = normalized.resolve(strict=True)
     except OSError as exc:
-        raise CycleLineageIndexError("cycle config does not exist") from exc
+        raise CycleLineageIndexError(f"{label} does not exist") from exc
     if resolved != normalized or not resolved.is_file():
-        raise CycleLineageIndexError(
-            "cycle config must be a regular path without symlinks"
-        )
+        raise CycleLineageIndexError(f"{label} must be a regular path without symlinks")
     return resolved
 
 

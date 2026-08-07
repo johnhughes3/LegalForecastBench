@@ -331,6 +331,26 @@ def test_direct_stage_continuation_supersedes_decision_and_keeps_it_visible(
         }
     ]
 
+    decision_output.write_text("changed decision\n", encoding="utf-8")
+    with pytest.raises(
+        CycleLineageIndexError,
+        match="registered stage-head evidence changed",
+    ):
+        locate_cycle_lineage(index_path=index, cycle_id="cycle-1")
+
+
+def test_stage_head_path_errors_name_the_run_card(tmp_path: Path) -> None:
+    with pytest.raises(
+        CycleLineageIndexError, match="stage-head run card does not exist"
+    ):
+        register_cycle_stage_head(
+            index_path=tmp_path / "lineage-index.json",
+            cycle_id="cycle-1",
+            command="parse-documents",
+            run_card_path=tmp_path / "missing.json",
+            code_commit=COMMIT_A,
+        )
+
 
 def test_nested_replacement_approval_card_is_authenticated(tmp_path: Path) -> None:
     body: dict[str, object] = {
