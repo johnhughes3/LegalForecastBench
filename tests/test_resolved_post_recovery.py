@@ -21,6 +21,8 @@ import legalforecast.ingestion.resolved_post_recovery as resolved_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
+    CaseDevPurchaseSnapshot,
+    canonical_purchase_state_sha256,
     generate_case_dev_purchase_policy,
     read_case_dev_purchase_snapshot,
     verify_case_dev_purchase_policy,
@@ -1013,6 +1015,61 @@ def test_recovered_public_capability_authorizes_exact_direct_queue_delivery(
     resolved_module._require_resolved_recovered_public_operation_bindings(  # pyright: ignore[reportPrivateUsage]
         purchase_operation_records=[cleared_operation],
         resolved_records=records,
+        expected_purchase_policy_sha256="1" * 64,
+        verified_recovery_capability=capability,
+    )
+    legacy = deepcopy(records[0])
+    legacy["delivery_authority"] = "authenticated_direct_courtlistener_queue_recovery"
+    legacy["queue_response_sha256"] = operation["material_evidence"][
+        "queue_response_sha256"
+    ]
+    legacy.pop("direct_queue_delivery_authority")
+    legacy["recovered_public_lineage"].pop("direct_queue_delivery_authority")
+    legacy["record_sha256"] = _hash(
+        {name: value for name, value in legacy.items() if name != "record_sha256"}
+    )
+    require_recovered(
+        selection_records=inputs["selection_records"],
+        download_records=inputs["download_records"],
+        clearance_records=[clearance],
+        resolved_records=[legacy],
+        **_external_kwargs(inputs),
+        verified_recovery_capability=capability,
+    )
+    lineage_without_direct = deepcopy(lineage)
+    lineage_without_direct.pop("direct_queue_delivery_authority")
+    nondirect_capability = issue_recovered_public_capability(
+        monkeypatch, [lineage_without_direct]
+    )
+    with pytest.raises(ResolvedPostRecoveryError, match="lineage changed"):
+        require_recovered(
+            selection_records=inputs["selection_records"],
+            download_records=inputs["download_records"],
+            clearance_records=[clearance],
+            resolved_records=[legacy],
+            **_external_kwargs(inputs),
+            verified_recovery_capability=nondirect_capability,
+        )
+    parse_request = {
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "recovery_origin": "unknown_status_attempt",
+        "expected_sha256": legacy["content_sha256"],
+        "expected_byte_count": legacy["byte_count"],
+        "resolved_post_recovery_sha256": legacy["record_sha256"],
+    }
+    with pytest.raises(
+        ResolvedPostRecoveryError, match="verifier-issued recovery authority"
+    ):
+        resolved_module._require_resolved_recovered_public_parse_requests(  # pyright: ignore[reportPrivateUsage]
+            selection_records=inputs["selection_records"],
+            request_records=[parse_request],
+            resolved_records=[legacy],
+            verified_recovery_capability=nondirect_capability,
+        )
+    resolved_module._require_resolved_recovered_public_operation_bindings(  # pyright: ignore[reportPrivateUsage]
+        purchase_operation_records=[operation],
+        resolved_records=[legacy],
         expected_purchase_policy_sha256="1" * 64,
         verified_recovery_capability=capability,
     )
@@ -2023,6 +2080,93 @@ def test_resolved_artifact_then_journal_clearance_is_crash_replayable(
     )
     with pytest.raises(ResolvedPostRecoveryError, match="overwrite"):
         write_resolved_post_recovery_documents(artifact, [changed])
+
+
+def test_reconstruct_pre_resolution_snapshot_reverses_only_clearance_fields() -> None:
+    inputs = _inputs()
+    records = build_resolved_post_recovery_documents(**inputs)
+    preclear = deepcopy(inputs["purchase_operation_records"][0])
+    cleared = deepcopy(preclear)
+    cleared["material_state"] = "cleared_public"
+    cleared["resolved_document_sha256"] = records[0]["record_sha256"]
+    cleared["material_evidence"]["clearance_record_sha256"] = records[0][
+        "clearance_record_sha256"
+    ]
+    policy = SimpleNamespace(
+        cycle_id="cycle-1",
+        cohort_policy_sha256="2" * 64,
+        policy_sha256="1" * 64,
+    )
+    before_state = canonical_purchase_state_sha256(
+        cast(Any, policy), committed_amount_usd="3.05", operations=[preclear]
+    )
+    after_state = canonical_purchase_state_sha256(
+        cast(Any, policy), committed_amount_usd="3.05", operations=[cleared]
+    )
+
+    reconstructed = resolved_module.reconstruct_pre_resolution_purchase_snapshot(
+        current_snapshot=CaseDevPurchaseSnapshot(
+            operations=(cleared,),
+            committed_amount_usd="3.05",
+            purchase_state_sha256=after_state,
+        ),
+        resolved_records=records,
+        policy=cast(Any, policy),
+        expected_purchase_state_before_sha256=before_state,
+    )
+
+    assert reconstructed.operations == (preclear,)
+    assert reconstructed.committed_amount_usd == "3.05"
+    assert reconstructed.purchase_state_sha256 == before_state
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["billing", "resolved_digest", "clearance_digest", "before_state"],
+)
+def test_reconstruct_pre_resolution_snapshot_rejects_unauthorized_drift(
+    mutation: str,
+) -> None:
+    inputs = _inputs()
+    records = build_resolved_post_recovery_documents(**inputs)
+    preclear = deepcopy(inputs["purchase_operation_records"][0])
+    cleared = deepcopy(preclear)
+    cleared["material_state"] = "cleared_public"
+    cleared["resolved_document_sha256"] = records[0]["record_sha256"]
+    cleared["material_evidence"]["clearance_record_sha256"] = records[0][
+        "clearance_record_sha256"
+    ]
+    policy = SimpleNamespace(
+        cycle_id="cycle-1",
+        cohort_policy_sha256="2" * 64,
+        policy_sha256="1" * 64,
+    )
+    before_state = canonical_purchase_state_sha256(
+        cast(Any, policy), committed_amount_usd="3.05", operations=[preclear]
+    )
+    if mutation == "billing":
+        cleared["reservation_usd"] = "0.01"
+    elif mutation == "resolved_digest":
+        cleared["resolved_document_sha256"] = "0" * 64
+    elif mutation == "clearance_digest":
+        cleared["material_evidence"]["clearance_record_sha256"] = "0" * 64
+    else:
+        before_state = "0" * 64
+
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match=r"clearance binding|operation commitment|prior state",
+    ):
+        resolved_module.reconstruct_pre_resolution_purchase_snapshot(
+            current_snapshot=CaseDevPurchaseSnapshot(
+                operations=(cleared,),
+                committed_amount_usd="3.05",
+                purchase_state_sha256="current-state",
+            ),
+            resolved_records=records,
+            policy=cast(Any, policy),
+            expected_purchase_state_before_sha256=before_state,
+        )
 
 
 def test_parse_request_must_bind_exact_resolved_record() -> None:

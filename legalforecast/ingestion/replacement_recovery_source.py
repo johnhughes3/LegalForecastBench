@@ -293,7 +293,11 @@ def derive_resolved_source_coordinates(
         raise ReplacementRecoverySourceError(
             "resolved source requires a completed provider-free resolve run card"
         )
-    inputs = _path_sequence(card.get("input_paths"), label="resolved input_paths")
+    inputs = _path_sequence(
+        card.get("input_paths"),
+        label="resolved input_paths",
+        allow_duplicates=True,
+    )
     expected = {path.resolve() for path in expected_input_paths}
     if not expected <= {path.resolve() for path in inputs}:
         raise ReplacementRecoverySourceError(
@@ -371,7 +375,13 @@ def derive_resolved_source_coordinates(
             raise ReplacementRecoverySourceError(
                 "resolved source commitment path rebound"
             )
-        source_digests_by_path[input_path.resolve()] = digest
+        resolved_input = input_path.resolve()
+        previous_digest = source_digests_by_path.get(resolved_input)
+        if previous_digest is not None and previous_digest != digest:
+            raise ReplacementRecoverySourceError(
+                "resolved duplicate input commitments differ"
+            )
+        source_digests_by_path[resolved_input] = digest
     expected_resolved_paths = {path.resolve() for path in expected_input_paths}
     ordered_inputs = (
         *expected_input_paths,

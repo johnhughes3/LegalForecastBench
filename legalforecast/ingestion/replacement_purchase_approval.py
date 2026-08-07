@@ -8,7 +8,7 @@ import os
 import re
 import secrets
 import stat
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -24,6 +24,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseSnapshot,
     canonical_purchase_operation_sha256,
     canonical_purchase_state_sha256,
+    read_case_dev_purchase_snapshot,
     require_approved_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
@@ -59,6 +60,10 @@ from legalforecast.ingestion.ranked_reserve_replacement import (
     ranked_reserve_result_bytes,
     validate_authenticated_legacy_replay,
 )
+from legalforecast.ingestion.resolved_post_recovery import (
+    ResolvedPostRecoveryError,
+    reconstruct_pre_resolution_purchase_snapshot,
+)
 
 REPLACEMENT_APPROVAL_CHECKPOINT_SCHEMA = (
     "legalforecast.replacement_purchase_approval_checkpoint.v1"
@@ -93,6 +98,330 @@ _RANKED_RESERVE_BUDGET_FIELDS = frozenset(
         "target_case_count_met",
     }
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _ResolvedTransitionAuthority:
+    ledger_path: Path
+    initialization_receipt_path: Path
+    policy: CaseDevPurchasePolicy
+    controlled_private_root: Path
+    current_snapshot: CaseDevPurchaseSnapshot
+    prior_snapshot: CaseDevPurchaseSnapshot
+    source_snapshots: tuple[tuple[Path, bytes], ...]
+    card_after_states: tuple[tuple[Path, str], ...]
+
+
+def _read_resolved_transition(
+    *,
+    run_card_path: Path,
+    current_snapshot: CaseDevPurchaseSnapshot,
+    policy: CaseDevPurchasePolicy,
+    ledger_path: Path,
+) -> tuple[CaseDevPurchaseSnapshot, tuple[tuple[Path, bytes], ...]]:
+    """Authenticate raw resolver evidence and reverse its exact material transition."""
+
+    card_path = run_card_path.absolute()
+    card_bytes = read_unique_regular_file(card_path)
+    try:
+        raw_card = json.loads(card_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReplacementPurchaseApprovalError(
+            f"resolved transition run card is invalid: {card_path}"
+        ) from exc
+    card = _mapping(raw_card, "resolved transition run card")
+    before_state = card.get("purchase_state_before_sha256")
+    after_state = card.get("purchase_state_after_sha256")
+    output_commitments = _mapping(
+        card.get("output_commitments"),
+        "resolved post-recovery output commitments",
+    )
+    raw_inputs = card.get("input_paths")
+    source_commitments = _mapping(
+        card.get("source_commitments"), "resolved transition source commitments"
+    )
+    raw_outputs = card.get("output_paths")
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != "resolve-post-recovery-documents"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or not isinstance(raw_inputs, Sequence)
+        or isinstance(raw_inputs, (str, bytes))
+        or not isinstance(raw_outputs, Sequence)
+        or isinstance(raw_outputs, (str, bytes))
+        or len(cast(Sequence[object], raw_outputs)) != 2
+        or set(output_commitments)
+        != {"resolved_post_recovery_documents", "purchase_state_sha256"}
+        or not isinstance(before_state, str)
+        or _SHA256.fullmatch(before_state) is None
+        or not isinstance(after_state, str)
+        or _SHA256.fullmatch(after_state) is None
+        or after_state != current_snapshot.purchase_state_sha256
+        or output_commitments.get("purchase_state_sha256") != after_state
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "resolved material transition does not bind the current purchase state"
+        )
+    inputs: list[Path] = []
+    for raw_path in cast(Sequence[object], raw_inputs):
+        if not isinstance(raw_path, str) or not raw_path:
+            raise ReplacementPurchaseApprovalError(
+                "resolved transition input path is invalid"
+            )
+        inputs.append(Path(raw_path).absolute())
+    expected_source_names = {f"input_{index:02d}" for index in range(len(inputs))}
+    if set(source_commitments) != expected_source_names:
+        raise ReplacementPurchaseApprovalError(
+            "resolved transition source commitments differ"
+        )
+    snapshots: dict[Path, bytes] = {card_path: card_bytes}
+    ledger = ledger_path.resolve()
+    seen_commitments: dict[Path, str] = {}
+    for index, input_path in enumerate(inputs):
+        commitment = _mapping(
+            source_commitments[f"input_{index:02d}"],
+            f"resolved transition input_{index:02d}",
+        )
+        raw_path = commitment.get("path")
+        raw_digest = commitment.get("sha256")
+        if (
+            set(commitment) != {"path", "sha256"}
+            or not isinstance(raw_path, str)
+            or Path(raw_path).absolute() != input_path
+            or not isinstance(raw_digest, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", raw_digest) is None
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "resolved transition source commitment is invalid"
+            )
+        previous = seen_commitments.get(input_path)
+        if previous is not None and previous != raw_digest:
+            raise ReplacementPurchaseApprovalError(
+                "resolved transition duplicate input commitments differ"
+            )
+        seen_commitments[input_path] = raw_digest
+        # The ledger is the mutable output of each ordered resolver card. Its
+        # semantic before/after state hashes are authenticated below; older cards
+        # cannot be rebound to the later on-disk SQLite bytes.
+        if input_path == ledger:
+            continue
+        payload = read_unique_regular_file(input_path)
+        if "sha256:" + _sha256(payload) != raw_digest:
+            raise ReplacementPurchaseApprovalError(
+                f"resolved transition source changed: {input_path}"
+            )
+        snapshots[input_path] = payload
+    resolved_commitment = _mapping(
+        output_commitments.get("resolved_post_recovery_documents"),
+        "resolved post-recovery documents",
+    )
+    raw_resolved_path = resolved_commitment.get("path")
+    raw_resolved_sha256 = resolved_commitment.get("sha256")
+    if (
+        set(resolved_commitment) != {"path", "sha256"}
+        or not isinstance(raw_resolved_path, str)
+        or not isinstance(raw_resolved_sha256, str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", raw_resolved_sha256) is None
+        or not isinstance(cast(Sequence[object], raw_outputs)[0], str)
+        or not isinstance(cast(Sequence[object], raw_outputs)[1], str)
+        or Path(cast(str, cast(Sequence[object], raw_outputs)[0])).absolute()
+        != Path(raw_resolved_path).absolute()
+        or Path(cast(str, cast(Sequence[object], raw_outputs)[1])).absolute() != ledger
+    ):
+        raise ReplacementPurchaseApprovalError(
+            "resolved material transition output projection is invalid"
+        )
+    resolved_path = Path(raw_resolved_path).absolute()
+    resolved_bytes = read_unique_regular_file(resolved_path)
+    if "sha256:" + _sha256(resolved_bytes) != raw_resolved_sha256:
+        raise ReplacementPurchaseApprovalError(
+            "resolved post-recovery commitment changed"
+        )
+    snapshots[resolved_path] = resolved_bytes
+    resolved_records: list[Mapping[str, Any]] = []
+    for line_number, raw_line in enumerate(resolved_bytes.splitlines(), start=1):
+        if not raw_line.strip():
+            continue
+        try:
+            raw_record = json.loads(raw_line)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ReplacementPurchaseApprovalError(
+                f"resolved transition record {line_number} is invalid"
+            ) from exc
+        resolved_records.append(
+            _mapping(raw_record, f"resolved transition record {line_number}")
+        )
+    try:
+        prior = reconstruct_pre_resolution_purchase_snapshot(
+            current_snapshot=current_snapshot,
+            resolved_records=resolved_records,
+            policy=policy,
+            expected_purchase_state_before_sha256=before_state,
+        )
+    except ResolvedPostRecoveryError as exc:
+        raise ReplacementPurchaseApprovalError(str(exc)) from exc
+    return prior, tuple(sorted(snapshots.items(), key=lambda item: str(item[0])))
+
+
+def _resolved_transition_capability_boundary() -> tuple[
+    Callable[..., object],
+    Callable[..., _ResolvedTransitionAuthority],
+]:
+    """Keep resolver-derived snapshot authority closure-local."""
+
+    authorities: dict[object, _ResolvedTransitionAuthority] = {}
+
+    def issue(
+        *,
+        purchase_ledger_path: Path,
+        policy: CaseDevPurchasePolicy,
+        controlled_private_root: Path,
+        initialization_receipt_path: Path,
+        run_card_paths: Sequence[Path],
+    ) -> object:
+        if not run_card_paths:
+            raise ReplacementPurchaseApprovalError(
+                "resolved transition requires at least one resolver run card"
+            )
+        ledger_path = purchase_ledger_path.resolve()
+        receipt_path = initialization_receipt_path.resolve()
+        private_root = controlled_private_root.absolute()
+        current = read_case_dev_purchase_snapshot(
+            ledger_path,
+            policy=policy,
+            controlled_private_root=private_root,
+            initialization_receipt_path=receipt_path,
+        )
+        prior = current
+        snapshots: dict[Path, bytes] = {}
+        card_after_states: dict[Path, str] = {}
+        for run_card_path in run_card_paths:
+            card_path = run_card_path.absolute()
+            card_after_states[card_path] = prior.purchase_state_sha256
+            prior, transition_snapshots = _read_resolved_transition(
+                run_card_path=card_path,
+                current_snapshot=prior,
+                policy=policy,
+                ledger_path=ledger_path,
+            )
+            for path, payload in transition_snapshots:
+                previous = snapshots.get(path)
+                if previous is not None and previous != payload:
+                    raise ReplacementPurchaseApprovalError(
+                        f"resolved transition source changed across cards: {path}"
+                    )
+                snapshots[path] = payload
+        authority = _ResolvedTransitionAuthority(
+            ledger_path=ledger_path,
+            initialization_receipt_path=receipt_path,
+            policy=policy,
+            controlled_private_root=private_root,
+            current_snapshot=current,
+            prior_snapshot=prior,
+            source_snapshots=tuple(
+                sorted(snapshots.items(), key=lambda item: str(item[0]))
+            ),
+            card_after_states=tuple(
+                sorted(card_after_states.items(), key=lambda item: str(item[0]))
+            ),
+        )
+        capability = object()
+        authorities[capability] = authority
+        return capability
+
+    def consume(capability: object | None) -> _ResolvedTransitionAuthority:
+        try:
+            authority = authorities[capability]
+        except (KeyError, TypeError):
+            raise ReplacementPurchaseApprovalError(
+                "resolved transition requires verifier-issued authority"
+            ) from None
+        current = read_case_dev_purchase_snapshot(
+            authority.ledger_path,
+            policy=authority.policy,
+            controlled_private_root=authority.controlled_private_root,
+            initialization_receipt_path=authority.initialization_receipt_path,
+        )
+        if authority.current_snapshot != current:
+            raise ReplacementPurchaseApprovalError(
+                "resolved transition differs from the live purchase journal"
+            )
+        for path, payload in authority.source_snapshots:
+            if read_unique_regular_file(path) != payload:
+                raise ReplacementPurchaseApprovalError(
+                    f"resolved transition source changed: {path}"
+                )
+        return authority
+
+    return issue, consume
+
+
+(
+    _issue_resolved_transition_capability,
+    _consume_resolved_transition_capability,
+) = _resolved_transition_capability_boundary()
+del _resolved_transition_capability_boundary
+
+
+def _consume_live_resolved_transition_prior_snapshot(  # pyright: ignore[reportUnusedFunction]
+    capability: object | None,
+) -> CaseDevPurchaseSnapshot:
+    """Consume one transition capability and rebind it to the live journal."""
+
+    return _detached_resolved_transition_prior(
+        _consume_resolved_transition_capability(capability)
+    )
+
+
+def _detached_resolved_transition_prior(
+    authority: _ResolvedTransitionAuthority,
+) -> CaseDevPurchaseSnapshot:
+    def detach(value: object) -> object:
+        if isinstance(value, Mapping):
+            detached: dict[str, object] = {}
+            for key, item in cast(Mapping[object, object], value).items():
+                if not isinstance(key, str):
+                    raise ReplacementPurchaseApprovalError(
+                        "resolved transition prior contains a non-string key"
+                    )
+                detached[key] = detach(item)
+            return detached
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            return [detach(item) for item in cast(Sequence[object], value)]
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        raise ReplacementPurchaseApprovalError(
+            "resolved transition prior contains a non-JSON value"
+        )
+
+    detached_operations = tuple(
+        cast(Mapping[str, Any], detach(operation))
+        for operation in authority.prior_snapshot.operations
+    )
+    return CaseDevPurchaseSnapshot(
+        operations=detached_operations,
+        committed_amount_usd=authority.prior_snapshot.committed_amount_usd,
+        purchase_state_sha256=authority.prior_snapshot.purchase_state_sha256,
+    )
+
+
+def _consume_live_resolved_transition_evidence(  # pyright: ignore[reportUnusedFunction]
+    capability: object | None,
+) -> tuple[CaseDevPurchaseSnapshot, dict[Path, bytes], dict[Path, str]]:
+    """Return detached replay evidence after one complete live recheck."""
+
+    authority = _consume_resolved_transition_capability(capability)
+    return (
+        _detached_resolved_transition_prior(authority),
+        {path: bytes(payload) for path, payload in authority.source_snapshots},
+        dict(authority.card_after_states),
+    )
+
+
 _RANKED_RESERVE_CASE_PLAN_FIELDS = frozenset(
     {
         "candidate_id",
@@ -1184,6 +1513,7 @@ def verify_replacement_purchase_authority(
     purchase_ledger_path: Path,
     purchase_ledger_initialization_receipt_path: Path,
     allowed_additional_operation_pairs: set[tuple[str, str]] | None = None,
+    _verified_resolved_transition_capability: object | None = None,
 ) -> ReplacementPurchaseApprovalRequest:
     """Authorize only the exact successor tranche, including safe resume state."""
 
@@ -1313,6 +1643,29 @@ def verify_replacement_purchase_authority(
             }
     except (CaseDevPurchaseLedgerError, OSError, ValueError) as exc:
         raise ReplacementPurchaseApprovalError(str(exc)) from exc
+    authority_operations = operations
+    if _verified_resolved_transition_capability is not None:
+        transition = _consume_resolved_transition_capability(
+            _verified_resolved_transition_capability
+        )
+        if (
+            transition.ledger_path != ledger
+            or transition.initialization_receipt_path != initialization_receipt
+            or transition.policy.policy_sha256 != policy.policy_sha256
+            or transition.current_snapshot.operations != operations
+            or transition.current_snapshot.committed_amount_usd
+            != _money(current_committed)
+            or transition.current_snapshot.purchase_state_sha256
+            != canonical_purchase_state_sha256(
+                policy,
+                committed_amount_usd=_money(current_committed),
+                operations=operations,
+            )
+        ):
+            raise ReplacementPurchaseApprovalError(
+                "resolved transition differs from the live purchase journal"
+            )
+        authority_operations = transition.prior_snapshot.operations
     base_committed = _usd(request.committed_spend_usd, "approved committed spend")
     tranche_cost = _usd(
         request.tranche_projected_cost_usd, "approved tranche projected cost"
@@ -1334,7 +1687,7 @@ def verify_replacement_purchase_authority(
     approved_by_candidate = _approved_documents_by_candidate(request, budget_plan_bytes)
     current_operations = tuple(
         (canonical_purchase_operation_sha256(operation), operation)
-        for operation in operations
+        for operation in authority_operations
     )
     current_operation_hashes = tuple(digest for digest, _ in current_operations)
     baseline_hashes = request.baseline_operation_record_sha256s

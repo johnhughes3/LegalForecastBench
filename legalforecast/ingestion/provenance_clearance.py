@@ -124,6 +124,9 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
     controlled_private_root: Path | None,
     successor_history_recovery_root: Path | None,
     successor_history_controlled_private_root: Path | None,
+    authority_transition_capability: object | None = None,
+    attempt_transition_capability: object | None = None,
+    resolved_transition_prior_snapshot: object | None = None,
     expected_manifest_path: Path,
     expected_restriction_path: Path,
     expected_case_relevance_path: Path,
@@ -161,6 +164,9 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
             successor_history_controlled_private_root=(
                 successor_history_controlled_private_root
             ),
+            authority_transition_capability=authority_transition_capability,
+            attempt_transition_capability=attempt_transition_capability,
+            resolved_transition_prior_snapshot=resolved_transition_prior_snapshot,
         ),
     )
     expected_paths = {
@@ -284,6 +290,9 @@ def _recovered_public_capability_boundary() -> tuple[
         controlled_private_root: Path | None,
         successor_history_recovery_root: Path | None = None,
         successor_history_controlled_private_root: Path | None = None,
+        authority_transition_capability: object | None = None,
+        attempt_transition_capability: object | None = None,
+        resolved_transition_prior_snapshot: object | None = None,
         expected_manifest_path: Path,
         expected_restriction_path: Path,
         expected_case_relevance_path: Path,
@@ -303,6 +312,9 @@ def _recovered_public_capability_boundary() -> tuple[
             successor_history_controlled_private_root=(
                 successor_history_controlled_private_root
             ),
+            authority_transition_capability=authority_transition_capability,
+            attempt_transition_capability=attempt_transition_capability,
+            resolved_transition_prior_snapshot=resolved_transition_prior_snapshot,
             expected_manifest_path=expected_manifest_path,
             expected_restriction_path=expected_restriction_path,
             expected_case_relevance_path=expected_case_relevance_path,

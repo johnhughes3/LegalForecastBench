@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,6 +14,7 @@ import pytest
 from legalforecast.ingestion import recap_fetch_attempt_policy as attempt_module
 from legalforecast.ingestion import replacement_purchase_approval as approval_module
 from legalforecast.ingestion import replacement_recovery_source as source_module
+from legalforecast.ingestion import resolved_post_recovery as resolved_module
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseSnapshot,
     canonical_purchase_operation_sha256,
@@ -318,7 +320,9 @@ def _fixture(
         cli, "verify_approved_purchase_input_bytes", lambda *_args, **_kwargs: None
     )
     monkeypatch.setattr(
-        cli, "verify_recap_fetch_attempt_policy", lambda *_args, **_kwargs: None
+        cli,
+        "verify_recap_fetch_attempt_policy",
+        lambda *_args, **kwargs: verified_calls.append({"attempt": kwargs}),
     )
     monkeypatch.setattr(
         cli, "_missing_core_budget_plan", lambda _artifact: SimpleNamespace()
@@ -393,6 +397,23 @@ def test_producer_derives_closed_descriptor_from_authenticated_run_cards(
     args, paths, verified_calls = _fixture(tmp_path, monkeypatch, successor=successor)
 
     assert cli._cmd_build_replacement_recovery_source(args) == 0
+    attempt_call = next(call["attempt"] for call in verified_calls if "attempt" in call)
+    assert attempt_call["_verified_resolved_transition_capability"] is None
+    assert "_expected_resolved_transition_prior_snapshot" not in attempt_call
+    clearance_call = next(
+        call["clearance"] for call in verified_calls if "clearance" in call
+    )
+    assert clearance_call["authority_transition_capability"] is None
+    assert clearance_call["attempt_transition_capability"] is None
+    assert clearance_call["resolved_transition_prior_snapshot"] is None
+    assert clearance_call["recovery_authority_transition_capability"] is None
+    assert clearance_call["recovery_attempt_transition_capability"] is None
+    if successor:
+        authority_call = next(
+            call["authority"] for call in verified_calls if "authority" in call
+        )
+        assert authority_call["_verified_resolved_transition_capability"] is None
+        assert "_expected_resolved_transition_prior_snapshot" not in authority_call
     resolved_binding = next(
         call["resolved"] for call in verified_calls if "resolved" in call
     )
@@ -841,6 +862,67 @@ def test_resolved_coordinates_align_commitments_to_expected_input_order(
     )
 
 
+def test_resolved_coordinates_accept_identical_overlapping_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["resolved_card"].read_bytes())
+    duplicate = Path(cast(list[str], card["input_paths"])[0])
+    cast(list[str], card["input_paths"]).append(str(duplicate.resolve()))
+    commitments = cast(dict[str, object], card["source_commitments"])
+    commitments[f"input_{len(commitments):02d}"] = _commitment(duplicate)
+    expected_inputs = [Path(value) for value in card["input_paths"]]
+
+    coordinates = source_module.derive_resolved_source_coordinates(
+        card,
+        expected_input_paths=expected_inputs,
+        expected_ledger_path=cast(Path, args.purchase_ledger),
+        expected_purchase_state_sha256="state-1",
+        expected_terminal_unavailable_path=paths["terminal_unavailable"],
+        expected_terminal_unavailable_sha256=_commitment(paths["terminal_unavailable"])[
+            "sha256"
+        ],
+        expected_terminal_unavailable_count=0,
+        expected_terminal_disposition_paths=None,
+    )
+
+    assert coordinates.input_paths == tuple(expected_inputs)
+    assert coordinates.input_sha256[0] == coordinates.input_sha256[-1]
+
+
+def test_resolved_coordinates_reject_conflicting_duplicate_commitment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, _ = _fixture(tmp_path, monkeypatch, successor=False)
+    card = json.loads(paths["resolved_card"].read_bytes())
+    duplicate = cast(list[str], card["input_paths"])[0]
+    cast(list[str], card["input_paths"]).append(duplicate)
+    commitments = cast(dict[str, object], card["source_commitments"])
+    commitments[f"input_{len(commitments):02d}"] = {
+        "path": duplicate,
+        "sha256": "sha256:" + "f" * 64,
+    }
+
+    with pytest.raises(
+        source_module.ReplacementRecoverySourceError,
+        match="resolved duplicate input commitments differ",
+    ):
+        source_module.derive_resolved_source_coordinates(
+            card,
+            expected_input_paths=[Path(value) for value in card["input_paths"]],
+            expected_ledger_path=cast(Path, args.purchase_ledger),
+            expected_purchase_state_sha256="state-1",
+            expected_terminal_unavailable_path=paths["terminal_unavailable"],
+            expected_terminal_unavailable_sha256=_commitment(
+                paths["terminal_unavailable"]
+            )["sha256"],
+            expected_terminal_unavailable_count=0,
+            expected_terminal_disposition_paths=None,
+        )
+
+
 def test_resolved_coordinates_reject_partial_terminal_disposition_expectations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1073,7 +1155,7 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    args, _, verified_calls = _fixture(tmp_path, monkeypatch, successor=False)
+    args, paths, verified_calls = _fixture(tmp_path, monkeypatch, successor=False)
     history_root = tmp_path / "successor-history"
     history_private = tmp_path / "successor-private"
     history_private.mkdir()
@@ -1086,6 +1168,12 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
     ) -> tuple[CaseDevPurchaseSnapshot, dict[str, bytes]]:
         assert kwargs["successor_recovery_root"] == history_root.absolute()
         assert kwargs["successor_controlled_private_root"] == history_private.absolute()
+        assert kwargs["authority_transition_capability"] is not None
+        assert kwargs["attempt_transition_capability"] is not None
+        assert (
+            kwargs["authority_transition_capability"]
+            is kwargs["attempt_transition_capability"]
+        )
         verified_calls.append({"history": kwargs})
         return (
             CaseDevPurchaseSnapshot(
@@ -1103,6 +1191,56 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
 
     monkeypatch.setattr(
         cli, "_authenticated_pre_successor_purchase_snapshot", authenticate_history
+    )
+    top_level_attempt_calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        cli,
+        "verify_recap_fetch_attempt_policy",
+        lambda *_args, **kwargs: top_level_attempt_calls.append(kwargs),
+    )
+    resolved_card = json.loads(paths["resolved_card"].read_bytes())
+    resolved_card["purchase_state_after_sha256"] = "current-state-2"
+    resolved_card["output_commitments"]["purchase_state_sha256"] = "current-state-2"
+    _write_json(paths["resolved_card"], resolved_card)
+    prior_snapshot = CaseDevPurchaseSnapshot(
+        operations=(
+            {
+                "candidate_id": "initial-case",
+                "source_document_id": "initial-doc",
+            },
+            {
+                "candidate_id": "successor-case",
+                "source_document_id": "successor-doc",
+            },
+        ),
+        committed_amount_usd="6.10",
+        purchase_state_sha256="state-before-resolution",
+    )
+    transition_marker = _write_json(
+        tmp_path / "authenticated-transition-source.json", {"transition": True}
+    )
+    transition_capability = object()
+    monkeypatch.setattr(
+        cli,
+        "_issue_resolved_transition_capability",
+        lambda **kwargs: (
+            transition_capability
+            if kwargs["run_card_paths"] == (paths["resolved_card"].absolute(),)
+            else pytest.fail("initial successor history must bind the resolver card")
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_consume_live_resolved_transition_evidence",
+        lambda capability: (
+            (
+                prior_snapshot,
+                {transition_marker: transition_marker.read_bytes()},
+                {paths["resolved_card"].absolute(): "current-state-2"},
+            )
+            if capability is transition_capability
+            else pytest.fail("unexpected transition capability")
+        ),
     )
     monkeypatch.setattr(
         cli,
@@ -1125,6 +1263,33 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
 
     assert cli._cmd_build_replacement_recovery_source(args) == 0
     assert any("history" in call for call in verified_calls)
+    history_call = next(call["history"] for call in verified_calls if "history" in call)
+    clearance_call = next(
+        call["clearance"] for call in verified_calls if "clearance" in call
+    )
+    assert history_call["authority_transition_capability"] is transition_capability
+    assert history_call["attempt_transition_capability"] is transition_capability
+    assert clearance_call["authority_transition_capability"] is transition_capability
+    assert clearance_call["attempt_transition_capability"] is transition_capability
+    assert (
+        clearance_call["recovery_authority_transition_capability"]
+        is transition_capability
+    )
+    assert (
+        clearance_call["recovery_attempt_transition_capability"]
+        is transition_capability
+    )
+    assert (
+        clearance_call["resolved_transition_prior_snapshot"].purchase_state_sha256
+        == "state-before-resolution"
+    )
+    assert len(top_level_attempt_calls) == 1
+    assert (
+        top_level_attempt_calls[0]["_verified_resolved_transition_capability"] is None
+    )
+    assert (
+        "_expected_resolved_transition_prior_snapshot" not in top_level_attempt_calls[0]
+    )
     card = json.loads(
         (
             args.output_root / "run-cards/build-replacement-recovery-source-0000.json"
@@ -1134,11 +1299,83 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
         card["source_commitments"][str(history_marker.resolve())]
         == _commitment(history_marker)["sha256"]
     )
+    assert (
+        card["source_commitments"][str(transition_marker.resolve())]
+        == _commitment(transition_marker)["sha256"]
+    )
     assert card["purchase_state_sha256"] == "current-state-2"
     assert card["schema_version"] == (
         "legalforecast.replacement_recovery_source_run_card.v2"
     )
     assert card["replayed_purchase_state_sha256"] == "state-1"
+
+
+def test_successor_producer_binds_transition_prior_to_direct_verifiers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args, paths, verified_calls = _fixture(tmp_path, monkeypatch, successor=True)
+    args.additional_resolved_post_recovery_run_card = paths["resolved_card"]
+    prior = CaseDevPurchaseSnapshot(
+        operations=(
+            {
+                "candidate_id": "successor-case",
+                "source_document_id": "successor-doc",
+            },
+        ),
+        committed_amount_usd="3.05",
+        purchase_state_sha256="state-1",
+    )
+
+    transition_capability = object()
+    monkeypatch.setattr(
+        cli,
+        "_issue_resolved_transition_capability",
+        lambda **_kwargs: transition_capability,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_consume_live_resolved_transition_evidence",
+        lambda capability: (
+            (prior, {}, {paths["resolved_card"].absolute(): "state-1"})
+            if capability is transition_capability
+            else pytest.fail("unexpected transition capability")
+        ),
+    )
+    attempt_calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        cli,
+        "verify_recap_fetch_attempt_policy",
+        lambda *_args, **kwargs: attempt_calls.append(kwargs),
+    )
+
+    assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+    authority_call = next(
+        call["authority"] for call in verified_calls if "authority" in call
+    )
+    assert (
+        authority_call["_verified_resolved_transition_capability"]
+        is transition_capability
+    )
+    assert "_expected_resolved_transition_prior_snapshot" not in authority_call
+    assert len(attempt_calls) == 1
+    assert (
+        attempt_calls[0]["_verified_resolved_transition_capability"]
+        is transition_capability
+    )
+    assert "_expected_resolved_transition_prior_snapshot" not in attempt_calls[0]
+    clearance_call = next(
+        call["clearance"] for call in verified_calls if "clearance" in call
+    )
+    assert clearance_call["authority_transition_capability"] is transition_capability
+    assert clearance_call["attempt_transition_capability"] is None
+    assert clearance_call["resolved_transition_prior_snapshot"] is None
+    assert (
+        clearance_call["recovery_authority_transition_capability"]
+        is transition_capability
+    )
+    assert clearance_call["recovery_attempt_transition_capability"] is None
 
 
 def _successor_history_helper_fixture(
@@ -1289,13 +1526,585 @@ def test_authenticated_successor_history_reconstructs_exact_prefix(
     assert recovery_bytes
 
 
+def test_authenticated_successor_history_binds_transition_prior_to_both_verifiers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kwargs, _ = _successor_history_helper_fixture(tmp_path, monkeypatch)
+    observed: list[object | None] = []
+    original_authority = cli.verify_replacement_purchase_authority
+
+    def verify_authority(**call_kwargs: Any) -> object:
+        observed.append(call_kwargs.get("_verified_resolved_transition_capability"))
+        return original_authority(**call_kwargs)
+
+    def verify_attempt(*_args: object, **call_kwargs: Any) -> None:
+        observed.append(call_kwargs.get("_verified_resolved_transition_capability"))
+
+    monkeypatch.setattr(cli, "verify_replacement_purchase_authority", verify_authority)
+    monkeypatch.setattr(cli, "verify_recap_fetch_attempt_policy", verify_attempt)
+
+    capability = object()
+    cli._authenticated_pre_successor_purchase_snapshot(
+        **kwargs,
+        authority_transition_capability=capability,
+        attempt_transition_capability=capability,
+    )
+
+    assert observed == [capability, capability]
+
+
+def _resolved_material_transition_fixture() -> tuple[
+    SimpleNamespace,
+    CaseDevPurchaseSnapshot,
+    dict[str, object],
+    list[dict[str, object]],
+]:
+    policy = SimpleNamespace(
+        cycle_id="cycle-1",
+        cohort_policy_sha256="cohort-sha",
+        policy_sha256="policy-sha",
+    )
+    pre_resolution: dict[str, object] = {
+        "candidate_id": "successor-case",
+        "source_document_id": "101",
+        "operation_key": "123e4567-e89b-42d3-a456-426614174000",
+        "reservation_usd": "3.05",
+        "material_state": "recovered_pending_clearance",
+        "material_evidence": {
+            "content_sha256": "sha256:" + "1" * 64,
+            "byte_count": 123,
+        },
+        "resolved_document_sha256": None,
+    }
+    record: dict[str, object] = {
+        "schema_version": ("legalforecast.resolved_post_recovery_public_document.v3"),
+        "candidate_id": "successor-case",
+        "source_document_id": "101",
+        "recovery_origin": "unknown_status_attempt",
+        "operation_key": pre_resolution["operation_key"],
+        "delivery_authority": "authenticated_public_material_recovery",
+        "purchase_policy_sha256": "1" * 64,
+        "attempt_policy_sha256": "2" * 64,
+        "selection_document_sha256": "3" * 64,
+        "purchase_operation_sha256": canonical_purchase_operation_sha256(
+            pre_resolution
+        ),
+        "fresh_recap_detail_sha256": "4" * 64,
+        "download_url_sha256": "5" * 64,
+        "download_record_sha256": "6" * 64,
+        "content_sha256": "7" * 64,
+        "byte_count": 123,
+        "clearance_record_sha256": "8" * 64,
+        "clearance_run_card_sha256": "9" * 64,
+        "clearance_artifact_sha256": "a" * 64,
+        "cohort_policy_artifact_sha256": "b" * 64,
+        "restriction_evidence_artifact_sha256": "c" * 64,
+        "restriction_evidence_rows_sha256": "d" * 64,
+        "fresh_detail_public_evidence_sha256": "e" * 64,
+        "public_material_recovery_sha256": "f" * 64,
+        "restriction_status": "public",
+        "parser_eligible": True,
+        "packet_eligible": True,
+        "clearance_basis": "provider_free_recovered_public",
+        "recovered_public_lineage": {},
+    }
+    record["record_sha256"] = cast(Any, resolved_module)._sha256(record)
+    post_resolution = dict(pre_resolution)
+    post_resolution["material_state"] = "cleared_public"
+    post_resolution["material_evidence"] = {
+        **cast(dict[str, object], pre_resolution["material_evidence"]),
+        "clearance_record_sha256": record["clearance_record_sha256"],
+    }
+    post_resolution["resolved_document_sha256"] = record["record_sha256"]
+    before_state = canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd="3.05",
+        operations=(pre_resolution,),
+    )
+    after_state = canonical_purchase_state_sha256(
+        policy,
+        committed_amount_usd="3.05",
+        operations=(post_resolution,),
+    )
+    card: dict[str, object] = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "resolve-post-recovery-documents",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "purchase_state_before_sha256": before_state,
+        "purchase_state_after_sha256": after_state,
+        "output_commitments": {
+            "resolved_post_recovery_documents": {
+                "path": "/tmp/resolved.jsonl",
+                "sha256": "sha256:" + "4" * 64,
+            },
+            "purchase_state_sha256": after_state,
+        },
+    }
+    return (
+        policy,
+        CaseDevPurchaseSnapshot(
+            operations=(post_resolution,),
+            committed_amount_usd="3.05",
+            purchase_state_sha256=after_state,
+        ),
+        card,
+        [record],
+    )
+
+
+def test_resolved_material_transition_reconstructs_exact_before_state() -> None:
+    policy, current, card, records = _resolved_material_transition_fixture()
+    reconstructed = resolved_module.reconstruct_pre_resolution_purchase_snapshot(
+        current_snapshot=current,
+        policy=cast(Any, policy),
+        resolved_records=records,
+        expected_purchase_state_before_sha256=cast(
+            str, card["purchase_state_before_sha256"]
+        ),
+    )
+
+    assert reconstructed.purchase_state_sha256 == card["purchase_state_before_sha256"]
+    assert reconstructed.operations[0]["material_state"] == (
+        "recovered_pending_clearance"
+    )
+
+
+def test_transition_replay_accepts_exact_frozen_pre_hardening_v4_record() -> None:
+    policy, current, card, records = _resolved_material_transition_fixture()
+    record = records[0]
+    record["schema_version"] = "legalforecast.resolved_post_recovery_public_document.v4"
+    record["delivery_authority"] = "authenticated_direct_courtlistener_queue_recovery"
+    record["queue_response_sha256"] = record.pop("public_material_recovery_sha256")
+    record["record_sha256"] = cast(Any, resolved_module)._sha256(
+        {name: value for name, value in record.items() if name != "record_sha256"}
+    )
+    post = dict(current.operations[0])
+    post["resolved_document_sha256"] = record["record_sha256"]
+    current = CaseDevPurchaseSnapshot(
+        operations=(post,),
+        committed_amount_usd=current.committed_amount_usd,
+        purchase_state_sha256=canonical_purchase_state_sha256(
+            policy,
+            committed_amount_usd=current.committed_amount_usd,
+            operations=(post,),
+        ),
+    )
+
+    reconstructed = resolved_module.reconstruct_pre_resolution_purchase_snapshot(
+        current_snapshot=current,
+        policy=cast(Any, policy),
+        resolved_records=records,
+        expected_purchase_state_before_sha256=cast(
+            str, card["purchase_state_before_sha256"]
+        ),
+    )
+
+    assert reconstructed.purchase_state_sha256 == card["purchase_state_before_sha256"]
+
+
+def _raw_transition_card(
+    tmp_path: Path,
+    *,
+    name: str,
+    before_state: str,
+    after_state: str,
+    ledger: Path,
+) -> tuple[Path, Path]:
+    source = _write_json(tmp_path / f"{name}-source.json", {"name": name})
+    resolved = _write_jsonl(tmp_path / f"{name}-resolved.jsonl", [{"name": name}])
+    card = _write_json(
+        tmp_path / f"{name}-run-card.json",
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "resolve-post-recovery-documents",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "input_paths": [str(source.resolve()), str(ledger.resolve())],
+            "source_commitments": _source_commitments([source, ledger]),
+            "output_paths": [str(resolved.resolve()), str(ledger.resolve())],
+            "output_commitments": {
+                "resolved_post_recovery_documents": _commitment(resolved),
+                "purchase_state_sha256": after_state,
+            },
+            "purchase_state_before_sha256": before_state,
+            "purchase_state_after_sha256": after_state,
+        },
+    )
+    return card, source
+
+
+def test_resolved_transition_capability_is_live_bound_reusable_and_source_bound(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    policy, current, _card, _records = _resolved_material_transition_fixture()
+    prior = CaseDevPurchaseSnapshot(
+        operations=(),
+        committed_amount_usd=current.committed_amount_usd,
+        purchase_state_sha256="1" * 64,
+    )
+    ledger = tmp_path / "ledger.sqlite3"
+    ledger.write_bytes(b"ledger")
+    receipt = _write_json(tmp_path / "receipt.json", {"receipt": True})
+    card_path, source_path = _raw_transition_card(
+        tmp_path,
+        name="one",
+        before_state=prior.purchase_state_sha256,
+        after_state=current.purchase_state_sha256,
+        ledger=ledger,
+    )
+    monkeypatch.setattr(
+        approval_module,
+        "read_case_dev_purchase_snapshot",
+        lambda *_args, **_kwargs: current,
+    )
+    monkeypatch.setattr(
+        approval_module,
+        "reconstruct_pre_resolution_purchase_snapshot",
+        lambda **_kwargs: prior,
+    )
+    capability = approval_module._issue_resolved_transition_capability(  # pyright: ignore[reportPrivateUsage]
+        purchase_ledger_path=ledger,
+        policy=policy,
+        controlled_private_root=tmp_path / "private",
+        initialization_receipt_path=receipt,
+        run_card_paths=(card_path,),
+    )
+
+    authority = approval_module._consume_resolved_transition_capability(capability)  # pyright: ignore[reportPrivateUsage]
+    assert authority.ledger_path == ledger.resolve()
+    assert authority.current_snapshot == current
+    assert authority.prior_snapshot == prior
+    assert (  # pyright: ignore[reportPrivateUsage]
+        approval_module._consume_resolved_transition_capability(capability) == authority
+    )
+    source_path.write_bytes(b'{"name":"changed"}\n')
+    with pytest.raises(
+        approval_module.ReplacementPurchaseApprovalError,
+        match="resolved transition source changed",
+    ):
+        approval_module._consume_resolved_transition_capability(capability)  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.parametrize("symlink_kind", ["run_card", "committed_input"])
+def test_resolved_transition_raw_evidence_rejects_symlinks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    symlink_kind: str,
+) -> None:
+    policy, current, _card, _records = _resolved_material_transition_fixture()
+    ledger = tmp_path / "ledger.sqlite3"
+    ledger.write_bytes(b"ledger")
+    receipt = _write_json(tmp_path / "receipt.json", {"receipt": True})
+    card_path, source_path = _raw_transition_card(
+        tmp_path,
+        name="symlink",
+        before_state="1" * 64,
+        after_state=current.purchase_state_sha256,
+        ledger=ledger,
+    )
+    monkeypatch.setattr(
+        approval_module,
+        "read_case_dev_purchase_snapshot",
+        lambda *_args, **_kwargs: current,
+    )
+    if symlink_kind == "run_card":
+        linked_card = tmp_path / "linked-run-card.json"
+        linked_card.symlink_to(card_path)
+        card_path = linked_card
+    else:
+        linked_source = tmp_path / "linked-source.json"
+        linked_source.symlink_to(source_path)
+        card = json.loads(card_path.read_bytes())
+        card["input_paths"][0] = str(linked_source.absolute())
+        card["source_commitments"]["input_00"]["path"] = str(linked_source.absolute())
+        _write_json(card_path, card)
+
+    with pytest.raises(ValueError, match="cannot be safely read"):
+        approval_module._issue_resolved_transition_capability(  # pyright: ignore[reportPrivateUsage]
+            purchase_ledger_path=ledger,
+            policy=policy,
+            controlled_private_root=tmp_path / "private",
+            initialization_receipt_path=receipt,
+            run_card_paths=(card_path,),
+        )
+
+
+def test_live_transition_prior_consumer_owns_coordinates_and_rechecks_ledger(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    policy, current, _card, _records = _resolved_material_transition_fixture()
+    prior = CaseDevPurchaseSnapshot(
+        operations=(),
+        committed_amount_usd=current.committed_amount_usd,
+        purchase_state_sha256="1" * 64,
+    )
+    observed: list[dict[str, object]] = []
+    live_snapshot = current
+
+    def read_snapshot(*_args: object, **kwargs: object) -> CaseDevPurchaseSnapshot:
+        observed.append(kwargs)
+        return live_snapshot
+
+    monkeypatch.setattr(
+        approval_module,
+        "read_case_dev_purchase_snapshot",
+        read_snapshot,
+    )
+    private_root = tmp_path / "private"
+    ledger = tmp_path / "ledger.sqlite3"
+    ledger.write_bytes(b"ledger")
+    receipt = _write_json(tmp_path / "receipt.json", {"receipt": True})
+    card_path, _source_path = _raw_transition_card(
+        tmp_path,
+        name="live",
+        before_state=prior.purchase_state_sha256,
+        after_state=current.purchase_state_sha256,
+        ledger=ledger,
+    )
+    monkeypatch.setattr(
+        approval_module,
+        "reconstruct_pre_resolution_purchase_snapshot",
+        lambda **_kwargs: prior,
+    )
+    capability = approval_module._issue_resolved_transition_capability(  # pyright: ignore[reportPrivateUsage]
+        purchase_ledger_path=ledger,
+        policy=policy,
+        controlled_private_root=private_root,
+        initialization_receipt_path=receipt,
+        run_card_paths=(card_path,),
+    )
+
+    prior = approval_module._consume_live_resolved_transition_prior_snapshot(  # pyright: ignore[reportPrivateUsage]
+        capability
+    )
+    assert prior.purchase_state_sha256 == "1" * 64
+    assert observed[-1]["policy"] is policy
+    assert observed[-1]["controlled_private_root"] == private_root.resolve()
+    assert observed[-1]["initialization_receipt_path"] == receipt.resolve()
+
+    live_snapshot = CaseDevPurchaseSnapshot(
+        operations=current.operations,
+        committed_amount_usd=current.committed_amount_usd,
+        purchase_state_sha256="ledger-changed-after-issuance",
+    )
+    with pytest.raises(
+        approval_module.ReplacementPurchaseApprovalError,
+        match="differs from the live purchase journal",
+    ):
+        approval_module._consume_live_resolved_transition_prior_snapshot(capability)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_resolved_transition_capability_replays_two_ordered_transitions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    policy = SimpleNamespace(
+        cycle_id="cycle-1",
+        cohort_policy_sha256="cohort-sha",
+        policy_sha256="policy-sha",
+    )
+
+    def pending(document_id: str) -> dict[str, object]:
+        return {
+            "candidate_id": f"case-{document_id}",
+            "source_document_id": document_id,
+            "operation_key": f"operation-{document_id}",
+            "reservation_usd": "3.05",
+            "material_state": "recovered_pending_clearance",
+            "material_evidence": {"content_sha256": document_id * 64},
+            "resolved_document_sha256": None,
+        }
+
+    def resolved(
+        operation: Mapping[str, object], marker: str
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        record = {
+            "candidate_id": operation["candidate_id"],
+            "source_document_id": operation["source_document_id"],
+            "purchase_operation_sha256": canonical_purchase_operation_sha256(operation),
+            "record_sha256": marker * 64,
+            "clearance_record_sha256": marker.upper() * 64,
+        }
+        cleared = dict(operation)
+        cleared["material_state"] = "cleared_public"
+        cleared["material_evidence"] = {
+            **cast(Mapping[str, object], operation["material_evidence"]),
+            "clearance_record_sha256": record["clearance_record_sha256"],
+        }
+        cleared["resolved_document_sha256"] = record["record_sha256"]
+        return cleared, record
+
+    pending_a = pending("1")
+    pending_b = pending("2")
+    cleared_a, _record_a = resolved(pending_a, "a")
+    cleared_b, _record_b = resolved(pending_b, "b")
+    prior_operations = (pending_a, pending_b)
+    intermediate_operations = (pending_a, cleared_b)
+    current_operations = (cleared_a, cleared_b)
+
+    def state(operations: tuple[Mapping[str, object], ...]) -> str:
+        return canonical_purchase_state_sha256(
+            policy, committed_amount_usd="6.10", operations=operations
+        )
+
+    def card(before: str, after: str) -> dict[str, object]:
+        return {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "resolve-post-recovery-documents",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "purchase_state_before_sha256": before,
+            "purchase_state_after_sha256": after,
+            "output_commitments": {
+                "resolved_post_recovery_documents": {
+                    "path": "/tmp/resolved.jsonl",
+                    "sha256": "sha256:" + "4" * 64,
+                },
+                "purchase_state_sha256": after,
+            },
+        }
+
+    current = CaseDevPurchaseSnapshot(
+        operations=current_operations,
+        committed_amount_usd="6.10",
+        purchase_state_sha256=state(current_operations),
+    )
+    ledger = tmp_path / "ledger.sqlite3"
+    ledger.write_bytes(b"ledger")
+    receipt = _write_json(tmp_path / "receipt.json", {"receipt": True})
+    first_path, _ = _raw_transition_card(
+        tmp_path,
+        name="first",
+        before_state=state(intermediate_operations),
+        after_state=state(current_operations),
+        ledger=ledger,
+    )
+    second_path, _ = _raw_transition_card(
+        tmp_path,
+        name="second",
+        before_state=state(prior_operations),
+        after_state=state(intermediate_operations),
+        ledger=ledger,
+    )
+    monkeypatch.setattr(
+        approval_module,
+        "read_case_dev_purchase_snapshot",
+        lambda *_args, **_kwargs: current,
+    )
+    observed_states: list[str] = []
+
+    def reconstruct(**kwargs: Any) -> CaseDevPurchaseSnapshot:
+        snapshot = cast(CaseDevPurchaseSnapshot, kwargs["current_snapshot"])
+        observed_states.append(snapshot.purchase_state_sha256)
+        if snapshot.purchase_state_sha256 == state(current_operations):
+            return CaseDevPurchaseSnapshot(
+                operations=intermediate_operations,
+                committed_amount_usd="6.10",
+                purchase_state_sha256=state(intermediate_operations),
+            )
+        if snapshot.purchase_state_sha256 == state(intermediate_operations):
+            return CaseDevPurchaseSnapshot(
+                operations=prior_operations,
+                committed_amount_usd="6.10",
+                purchase_state_sha256=state(prior_operations),
+            )
+        pytest.fail("transition order changed")
+
+    monkeypatch.setattr(
+        approval_module, "reconstruct_pre_resolution_purchase_snapshot", reconstruct
+    )
+    capability = approval_module._issue_resolved_transition_capability(  # pyright: ignore[reportPrivateUsage]
+        purchase_ledger_path=ledger,
+        policy=policy,
+        controlled_private_root=tmp_path / "private",
+        initialization_receipt_path=receipt,
+        run_card_paths=(first_path, second_path),
+    )
+    authority = approval_module._consume_resolved_transition_capability(  # pyright: ignore[reportPrivateUsage]
+        capability
+    )
+    assert authority.prior_snapshot.operations == prior_operations
+    assert authority.prior_snapshot.purchase_state_sha256 == state(prior_operations)
+    assert observed_states == [
+        state(current_operations),
+        state(intermediate_operations),
+    ]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["billing", "identity", "unbound_material", "record_binding", "before_state"],
+)
+def test_authenticated_resolved_material_transition_rejects_nonexact_change(
+    mutation: str,
+) -> None:
+    policy, current, card, records = _resolved_material_transition_fixture()
+    operations = [dict(current.operations[0])]
+    if mutation == "billing":
+        operations[0]["reservation_usd"] = "0.01"
+    elif mutation == "identity":
+        operations[0]["operation_key"] = "operation-2"
+    elif mutation == "unbound_material":
+        operations[0]["material_evidence"] = {
+            **cast(dict[str, object], operations[0]["material_evidence"]),
+            "unexpected": True,
+        }
+    elif mutation == "record_binding":
+        records[0]["record_sha256"] = "5" * 64
+    else:
+        card["purchase_state_before_sha256"] = "0" * 64
+    mutated = CaseDevPurchaseSnapshot(
+        operations=tuple(operations),
+        committed_amount_usd=current.committed_amount_usd,
+        purchase_state_sha256=(
+            canonical_purchase_state_sha256(
+                policy,
+                committed_amount_usd=current.committed_amount_usd,
+                operations=operations,
+            )
+            if mutation in {"billing", "identity", "unbound_material"}
+            else current.purchase_state_sha256
+        ),
+    )
+    cast(dict[str, object], card["output_commitments"])["purchase_state_sha256"] = (
+        mutated.purchase_state_sha256
+    )
+    card["purchase_state_after_sha256"] = mutated.purchase_state_sha256
+
+    with pytest.raises(
+        resolved_module.ResolvedPostRecoveryError,
+        match=r"hash changed|clearance binding|operation commitment|prior state",
+    ):
+        resolved_module.reconstruct_pre_resolution_purchase_snapshot(
+            current_snapshot=mutated,
+            policy=cast(Any, policy),
+            resolved_records=records,
+            expected_purchase_state_before_sha256=cast(
+                str, card["purchase_state_before_sha256"]
+            ),
+        )
+
+
 def test_authenticated_successor_history_threads_trailing_pairs_to_attempt_replay(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     kwargs, _ = _successor_history_helper_fixture(tmp_path, monkeypatch)
     trailing = {("later-case", "999")}
-    observed: list[set[tuple[str, str]] | None] = []
+    observed: list[tuple[set[tuple[str, str]] | None, object | None]] = []
 
     def capture_attempt(*_args: object, **call_kwargs: object) -> None:
         observed.append(
@@ -1379,12 +2188,20 @@ def test_attempt_policy_nested_authority_replay_receives_trailing_pairs(
         "validate_recap_fetch_budget_plan_artifact",
         lambda *_args, **_kwargs: None,
     )
-    observed: list[set[tuple[str, str]] | None] = []
+    monkeypatch.setattr(
+        attempt_module,
+        "verify_approved_purchase_input_bytes",
+        lambda *_args, **_kwargs: None,
+    )
+    observed: list[tuple[object, object]] = []
     monkeypatch.setattr(
         approval_module,
         "verify_replacement_purchase_authority",
         lambda **kwargs: observed.append(
-            kwargs.get("allowed_additional_operation_pairs")
+            (
+                kwargs.get("allowed_additional_operation_pairs"),
+                kwargs.get("_verified_resolved_transition_capability"),
+            )
         ),
     )
     common = {
@@ -1407,14 +2224,31 @@ def test_attempt_policy_nested_authority_replay_receives_trailing_pairs(
     )
     observed.clear()
     trailing = {("later-case", "202")}
+    transition_capability = object()
+    nonreplacement = {
+        **common,
+        "replacement_purchase_authority_artifact": None,
+        "replacement_controlled_private_root": None,
+        "purchase_ledger_initialization_receipt_path": None,
+    }
+    with pytest.raises(
+        attempt_module.RecapFetchAttemptPolicyError,
+        match="requires complete replacement authority",
+    ):
+        attempt_module.verify_recap_fetch_attempt_policy(
+            expected,
+            **nonreplacement,
+            _verified_resolved_transition_capability=transition_capability,
+        )
 
     attempt_module.verify_recap_fetch_attempt_policy(
         expected,
         **common,
         allowed_additional_operation_pairs=trailing,
+        _verified_resolved_transition_capability=transition_capability,
     )
 
-    assert observed == [trailing]
+    assert observed == [(trailing, transition_capability)]
 
 
 @pytest.mark.parametrize(
@@ -1558,6 +2392,7 @@ def test_source_producer_help_names_terminal_disposition_bundle(
     assert exc.value.code == 0
     help_text = capsys.readouterr().out
     for flag in (
+        "--additional-resolved-post-recovery-run-card",
         "--terminal-disposition-selection",
         "--terminal-disposition-snapshot-manifest",
         "--terminal-purchase-result",

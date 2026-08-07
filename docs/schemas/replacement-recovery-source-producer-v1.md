@@ -33,9 +33,19 @@ A successor uses a positive `--ordinal` and adds `--replacement-controlled-priva
 
 When the canonical ledger has advanced through a later authenticated successor, the ordinal-zero producer also accepts the paired `--successor-history-recovery-root` and `--successor-history-controlled-private-root` arguments.
 
+If resolver publication changed material state after either recovery, supply the disjoint resolver card as `--additional-resolved-post-recovery-run-card`.
+
+Cards are consumed in reverse state-transition order.
+For an initial source, the primary `--resolved-post-recovery-run-card` must end at the live state and the additional card must end at the primary card's before-state; for a successor source, the additional card must end at the live state and the primary card must end at the additional card's before-state.
+
+Each reversal is limited to the resolver-bound `material_state`, `clearance_record_sha256`, and `resolved_document_sha256` fields, and the reconstructed state must reproduce both committed state digests exactly.
+
+The producer mints one opaque reusable transition capability from raw resolver cards, their resolved outputs, and every committed source input.
+Every consumer rechecks the live journal and all authenticated source bytes before using the detached pre-resolution snapshot, and the final source run card commits the complete transition evidence set.
+
 That mode replays the later authority, attempt policy, and recovery; requires the current journal to partition into the authority's exact ordered baseline hashes plus exactly its disjoint approved operation pairs; and verifies the historical initial recovery against the reconstructed baseline snapshot.
 
-The history arguments are rejected for positive ordinals or when supplied singly.
+The history arguments are rejected for positive ordinals or when supplied singly; the additional resolver card remains valid for a positive-ordinal successor whose live ledger also contains a later disjoint resolver transition.
 
 ## Descriptor schemas
 
