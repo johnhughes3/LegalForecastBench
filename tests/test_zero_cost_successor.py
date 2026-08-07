@@ -1292,3 +1292,38 @@ def _disposition() -> dict[str, Any]:
         "model_visible": False,
         "audit_only": True,
     }
+
+
+def test_purchase_approval_verifier_delegates_zero_cost_successor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target_root = tmp_path / "target"
+    run_card_path = target_root / "run-cards/project-target-cohort.json"
+    run_card_path.parent.mkdir(parents=True)
+    run_card_path.write_bytes(
+        canonical_json_bytes(
+            {
+                "schema_version": STATE_SCHEMA_VERSION,
+                "selected_case_count": 100,
+            }
+        )
+    )
+    verified = {"selection_records": [{"candidate_id": "case-a"}]}
+    observed: dict[str, object] = {}
+
+    def verify(**kwargs: object) -> dict[str, object]:
+        observed.update(kwargs)
+        return verified
+
+    monkeypatch.setattr(cli, "_verify_zero_cost_successor_projection", verify)
+
+    assert (
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(target_root)
+        is verified
+    )
+    assert observed == {
+        "target_root": target_root,
+        "free_clearance_path": target_root / "disclosure-clearance.jsonl",
+        "expected_target_count": 100,
+    }
