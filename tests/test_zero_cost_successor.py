@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -73,13 +74,12 @@ def test_ranked_precursor_revalidation_reuses_authority_and_fails_closed(
     )
     policy_reads = 0
     authority_initializations = 0
-    journal_entries = 0
+    journal_options: list[dict[str, object]] = []
     final_replays = 0
 
     class _Journal:
         def __init__(self, _path: Path, **_kwargs: object) -> None:
-            nonlocal journal_entries
-            journal_entries += 1
+            journal_options.append(dict(_kwargs))
 
         def __enter__(self) -> _Journal:
             return self
@@ -139,6 +139,7 @@ def test_ranked_precursor_revalidation_reuses_authority_and_fails_closed(
         "purchase_policy_sha256": "sha256:" + policy.policy_sha256,
         "terminal_disposition": terminal_disposition,
     }
+    expected_ranked_result = deepcopy(ranked_result)
     monkeypatch.setattr(
         cli,
         "bind_ranked_reserve_outputs",
@@ -173,10 +174,13 @@ def test_ranked_precursor_revalidation_reuses_authority_and_fails_closed(
         **kwargs, _authenticated_precursor=authenticated
     )
 
-    assert authenticated.result == revalidated.result == ranked_result
+    assert ranked_result == expected_ranked_result
+    assert authenticated.result == expected_ranked_result
+    assert revalidated.result == expected_ranked_result
     assert authority_initializations == 1
     assert policy_reads == 2
-    assert journal_entries == 2
+    assert [options["read_only"] for options in journal_options] == [True, True]
+    assert all(options["policy"] is policy for options in journal_options)
     assert final_replays == 1
 
     policy_path.write_bytes(b'{"changed":true}\n')
