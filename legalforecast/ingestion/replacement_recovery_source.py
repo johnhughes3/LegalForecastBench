@@ -29,6 +29,9 @@ _TERMINAL_DISPOSITION_SOURCE_NAMES = frozenset(
 )
 
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
+_EMPTY_SHA256 = (
+    "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+)
 
 
 class ReplacementRecoverySourceError(ValueError):
@@ -298,37 +301,56 @@ def derive_resolved_source_coordinates(
         label="resolved input_paths",
         allow_duplicates=True,
     )
-    expected = {path.resolve() for path in expected_input_paths}
+    legacy_empty_terminal = (
+        card.get("terminal_unavailable_partition") is None
+        and expected_terminal_unavailable_count == 0
+        and expected_terminal_unavailable_sha256 == _EMPTY_SHA256
+        and expected_terminal_disposition_paths is None
+    )
+    expected_inputs = tuple(
+        path
+        for path in expected_input_paths
+        if not (
+            legacy_empty_terminal
+            and path.resolve() == expected_terminal_unavailable_path.resolve()
+        )
+    )
+    expected = {path.resolve() for path in expected_inputs}
     if not expected <= {path.resolve() for path in inputs}:
         raise ReplacementRecoverySourceError(
             "resolved source omits authenticated recovery inputs"
         )
-    raw_terminal = _string_mapping(
-        card.get("terminal_unavailable_partition"),
-        label="resolved terminal-unavailable partition",
-    )
-    if set(raw_terminal) != {"path", "sha256", "record_count"}:
-        raise ReplacementRecoverySourceError(
-            "resolved terminal-unavailable partition fields differ"
+    if legacy_empty_terminal:
+        terminal_path = expected_terminal_unavailable_path
+        terminal_sha256 = expected_terminal_unavailable_sha256
+        terminal_count = 0
+    else:
+        raw_terminal = _string_mapping(
+            card.get("terminal_unavailable_partition"),
+            label="resolved terminal-unavailable partition",
         )
-    terminal_path, terminal_sha256 = _path_commitment(
-        {
-            "path": raw_terminal.get("path"),
-            "sha256": raw_terminal.get("sha256"),
-        },
-        label="resolved terminal-unavailable partition",
-    )
-    terminal_count = raw_terminal.get("record_count")
-    if (
-        terminal_path.resolve() != expected_terminal_unavailable_path.resolve()
-        or terminal_sha256 != expected_terminal_unavailable_sha256
-        or type(terminal_count) is not int
-        or terminal_count != expected_terminal_unavailable_count
-        or terminal_path.resolve() not in {path.resolve() for path in inputs}
-    ):
-        raise ReplacementRecoverySourceError(
-            "resolved terminal-unavailable partition changed"
+        if set(raw_terminal) != {"path", "sha256", "record_count"}:
+            raise ReplacementRecoverySourceError(
+                "resolved terminal-unavailable partition fields differ"
+            )
+        terminal_path, terminal_sha256 = _path_commitment(
+            {
+                "path": raw_terminal.get("path"),
+                "sha256": raw_terminal.get("sha256"),
+            },
+            label="resolved terminal-unavailable partition",
         )
+        terminal_count = raw_terminal.get("record_count")
+        if (
+            terminal_path.resolve() != expected_terminal_unavailable_path.resolve()
+            or terminal_sha256 != expected_terminal_unavailable_sha256
+            or type(terminal_count) is not int
+            or terminal_count != expected_terminal_unavailable_count
+            or terminal_path.resolve() not in {path.resolve() for path in inputs}
+        ):
+            raise ReplacementRecoverySourceError(
+                "resolved terminal-unavailable partition changed"
+            )
     raw_disposition_sources = card.get("terminal_disposition_sources")
     if expected_terminal_unavailable_count:
         disposition_sources = _string_mapping(
@@ -382,9 +404,9 @@ def derive_resolved_source_coordinates(
                 "resolved duplicate input commitments differ"
             )
         source_digests_by_path[resolved_input] = digest
-    expected_resolved_paths = {path.resolve() for path in expected_input_paths}
+    expected_resolved_paths = {path.resolve() for path in expected_inputs}
     ordered_inputs = (
-        *expected_input_paths,
+        *expected_inputs,
         *(path for path in inputs if path.resolve() not in expected_resolved_paths),
     )
     raw_outputs = card.get("output_paths")
