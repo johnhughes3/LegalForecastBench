@@ -177,6 +177,82 @@ def test_captured_source_bytes_feed_parser_and_leave_no_staging_residue(
     assert not (tmp_path / ".parser-source-snapshots").exists()
 
 
+def test_captured_source_cleanup_accepts_parser_image_sidecars(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+
+    class ImageRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            staged.with_suffix(".md").write_text(
+                "captured markdown\n\n![](pdf-images/source/img-0.jpeg)"
+            )
+            image_root = staged.parent / "pdf-images" / staged.stem
+            image_root.mkdir(parents=True)
+            (image_root / "img-0.jpeg").write_bytes(b"image")
+            return ParserProcessResult(return_code=0)
+
+    [record] = convert_documents_to_markdown(
+        (_captured_request(source, tmp_path / "markdown" / "source.md"),),
+        config=MistralParserConfig(parser_root=tmp_path / "parser"),
+        runner=ImageRunner(),
+    )
+
+    assert record.status is MistralMarkdownConversionStatus.SUCCEEDED
+    assert not (tmp_path / ".parser-source-snapshots").exists()
+
+
+@pytest.mark.parametrize("residue_kind", ["symlink", "hardlink", "directory"])
+def test_captured_source_cleanup_rejects_unsafe_parser_image_sidecars(
+    tmp_path: Path,
+    residue_kind: str,
+) -> None:
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside", encoding="utf-8")
+
+    class UnsafeImageRunner:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            staged = Path(command[command.index("--file") + 1])
+            staged.with_suffix(".md").write_text("captured markdown")
+            image_root = staged.parent / "pdf-images" / staged.stem
+            image_root.mkdir(parents=True)
+            residue = image_root / "img-0.jpeg"
+            if residue_kind == "symlink":
+                residue.symlink_to(outside)
+            elif residue_kind == "hardlink":
+                residue.hardlink_to(outside)
+            else:
+                residue.mkdir()
+            return ParserProcessResult(return_code=0)
+
+    with pytest.raises(ValueError, match="unsafe alias"):
+        convert_documents_to_markdown(
+            (_captured_request(source, tmp_path / "markdown" / "source.md"),),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=UnsafeImageRunner(),
+        )
+
+    assert outside.read_text(encoding="utf-8") == "outside"
+    assert not (tmp_path / "markdown" / "source.md").exists()
+    assert not (tmp_path / "markdown" / "source.metadata.json").exists()
+
+
 def test_captured_source_cleanup_rejects_unexpected_regular_sidecars(
     tmp_path: Path,
 ) -> None:

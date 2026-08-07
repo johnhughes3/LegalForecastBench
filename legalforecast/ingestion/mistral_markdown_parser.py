@@ -25,6 +25,7 @@ _PARSER_COMMAND = ("uv", "run", "parser-pdf")
 EXPECTED_PARSER_REVISION = "9402306972462a5bdd0da7f687c5e6b4cea373a0"
 _ENV_ONLY_API_KEYS_VARIABLE = "PARSER_API_KEYS_FROM_ENV_ONLY"
 _PARSER_LOCALE_ENV_NAMES = ("LANG", "LC_ALL")
+_PARSER_IMAGE_DIRECTORY = "pdf-images"
 
 
 class MistralMarkdownConversionStatus(StrEnum):
@@ -482,6 +483,13 @@ def _cleanup_parser_input_snapshot(stage_path: Path, directory_fd: int) -> None:
                 if cleanup_error is None:
                     cleanup_error = exc
         try:
+            _drain_parser_image_staging_entries(
+                directory_fd, expected_stem=stage_path.stem
+            )
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+        try:
             _drain_unique_regular_staging_entries(directory_fd)
         except Exception as exc:
             if cleanup_error is None:
@@ -508,6 +516,49 @@ def _cleanup_parser_input_snapshot(stage_path: Path, directory_fd: int) -> None:
                 pass
     if cleanup_error is not None:
         raise cleanup_error
+
+
+def _drain_parser_image_staging_entries(
+    directory_fd: int, *, expected_stem: str
+) -> None:
+    """Remove only the pinned parser's documented image-output directory."""
+
+    if not _entry_exists_at(directory_fd, _PARSER_IMAGE_DIRECTORY):
+        return
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        images_fd = os.open(_PARSER_IMAGE_DIRECTORY, flags, dir_fd=directory_fd)
+    except OSError as exc:
+        raise ValueError(
+            f"parser staging cleanup found an unsafe alias: {_PARSER_IMAGE_DIRECTORY}"
+        ) from exc
+    try:
+        image_roots = os.listdir(images_fd)
+        if image_roots != [expected_stem]:
+            raise ValueError(
+                "parser staging cleanup found an unsafe image directory: "
+                + ", ".join(sorted(image_roots))
+            )
+        try:
+            image_root_fd = os.open(expected_stem, flags, dir_fd=images_fd)
+        except OSError as exc:
+            raise ValueError(
+                f"parser staging cleanup found an unsafe alias: {expected_stem}"
+            ) from exc
+        try:
+            for name in sorted(os.listdir(image_root_fd)):
+                metadata = os.stat(name, dir_fd=image_root_fd, follow_symlinks=False)
+                if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                    raise ValueError(
+                        f"parser staging cleanup found an unsafe alias: {name}"
+                    )
+                os.unlink(name, dir_fd=image_root_fd)
+        finally:
+            os.close(image_root_fd)
+        os.rmdir(expected_stem, dir_fd=images_fd)
+    finally:
+        os.close(images_fd)
+    os.rmdir(_PARSER_IMAGE_DIRECTORY, dir_fd=directory_fd)
 
 
 def _drain_unique_regular_staging_entries(directory_fd: int) -> None:
