@@ -1,0 +1,3734 @@
+[
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes(projected_documents) )"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(identity)"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(plan_bytes)"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_stage_log.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.adjudication_routing_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.batch_002_snapshot_result.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_discovery_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_recap_batch_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_recap_progress.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cohort_document_materialization.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_discovery_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_rest_screen_inputs.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_snapshot_materialization_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_acquisition_identity.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_acquisition_policy.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_label_audit_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_clearance.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_provenance_routing_plan.v2"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_provenance_routing_plan.v3"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_provenance_stage_log.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_progress.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_progress_config.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_request.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_statement.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.downstream_rehearsal.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_docket_html_run.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_recap_discovery_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_screening_implementation.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_screening_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.fixture_acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.fixture_artifact_manifest.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.fixture_decision_text_manifest.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.fixture_rehearsal_corpus.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.fixture_stage_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.materialized_document_derivation.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.materializer_docket_decision_partition.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.pacer_gap_bridge_progress_config.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.pacer_gap_bridge_progress_config.v2"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.pacer_gap_checkpoint_rebase_receipt.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provenance_model_clearance_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provenance_public_marker_clearance_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provenance_quarantine_clearance_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provider_cycle_caps.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_replacement_result.v2"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_fetch_attempt_policy.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_partial_checkpoint_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_clearance_accumulation_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_recovery_consolidation_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_recovery_index_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_recovery_index_run_card.v2"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_recovery_tranche_index.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_recovery_tranche_index.v2"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_successor_exclusion_run_card.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_priority_subset_promotion_result.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_snapshot_union_inputs.v2"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_snapshot_union_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_union_policy_rebind_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.snapshot_replay_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.stage_a_unitization_lineage.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_100_attempt.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_100_config.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_100_preparation.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_attempt.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_candidate_frontier.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_config.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_preparation.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_projection.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_execution_log.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_execution_receipt.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_execution_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_retarget_document_reuse.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_retarget_live_seed.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.terminal_subset_promotion_summary.v1"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_json_sha256"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_disclosure_review_progress_tree_sha256"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_path_sha256"
+  },
+  {
+    "path": "legalforecast/cli.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_path"
+  },
+  {
+    "path": "legalforecast/contracts/commitments.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.codec.artifact-canonical-json.v1"
+  },
+  {
+    "path": "legalforecast/contracts/commitments.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.codec.artifact-json-value.v1"
+  },
+  {
+    "path": "legalforecast/contracts/commitments.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.codec.manifest-canonical-json.v1"
+  },
+  {
+    "path": "legalforecast/contracts/commitments.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.codec.run-card-indented-json.v1"
+  },
+  {
+    "path": "legalforecast/contracts/commitments.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.commitment.artifact-canonical-json.raw-sha256.v1"
+  },
+  {
+    "path": "legalforecast/contracts/commitments.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.commitment.artifact-canonical-json.sha256-prefixed.v1"
+  },
+  {
+    "path": "legalforecast/contracts/commitments.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.commitment.manifest-canonical-json.raw-sha256.v1"
+  },
+  {
+    "path": "legalforecast/contracts/commitments.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.commitment.run-card-indented-json.raw-sha256.v1"
+  },
+  {
+    "path": "legalforecast/evals/inspect_task.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_prefixed"
+  },
+  {
+    "path": "legalforecast/evals/model_registry.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "model_registry_entry_sha256"
+  },
+  {
+    "path": "legalforecast/evals/output_parser.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_prefixed"
+  },
+  {
+    "path": "legalforecast/evals/per_case_runner.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.per_case_metrics.v1"
+  },
+  {
+    "path": "legalforecast/evals/per_case_runner.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.per_case_runner_artifacts.v1"
+  },
+  {
+    "path": "legalforecast/evals/per_case_runner.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.per_case_runner_log.v1"
+  },
+  {
+    "path": "legalforecast/evals/per_case_runner.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.resume_recovery.v1"
+  },
+  {
+    "path": "legalforecast/evals/per_case_runner.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.shard_cell_completion.v1"
+  },
+  {
+    "path": "legalforecast/evals/provider_spend_control.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provider_spend_control.v2"
+  },
+  {
+    "path": "legalforecast/evals/provider_spend_dynamodb.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provider_spend_dynamodb.v2"
+  },
+  {
+    "path": "legalforecast/evals/response_verification.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.response_verification.v1"
+  },
+  {
+    "path": "legalforecast/extraction/ocr.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "text_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/budgeted_courtlistener_html_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.budgeted_courtlistener_html_audit.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/budgeted_courtlistener_html_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_docket_html_source_receipt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/budgeted_docket_acquisition.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_search_page_transcript.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/budgeted_docket_acquisition.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_firecrawl_recovery_partition.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/budgeted_docket_acquisition.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.selected_acquisition_slice.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/budgeted_docket_acquisition.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_record_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/canonical_json.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/canonical_json.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_json_value_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_provisional_frontier.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_provisional_frontier_selection_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_provisional_frontier.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_provisional_frontier_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_provisional_frontier.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_recap_progress.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_provisional_frontier.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_provisional_frontier.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_purchase_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_purchase_policy.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_url_commitment_correction.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.purchase_approval.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.purchase_ledger_initialization.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.unknown_public_material_recovery.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.unknown_public_material_recovery.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.unknown_public_url_commitment_correction.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_purchase_operation_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_purchase.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_purchase_state_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_ranked_opinion_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_ranked_rest_selection_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_ranked_rest_subset_selection_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_recap_batch_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_recap_source_docket.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.source_bound_bankruptcy_adversary_entry.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_json_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/case_dev_ranked_selection.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/case_mix_optimizer.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_model_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/clearance_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.clearance_replacement_event.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/clearance_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.clearance_replacement_exclusion.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/clearance_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.clearance_replacement_frontier.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/clearance_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.clearance_replacement_plan.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cohort_document_materializer.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cohort_document_materialization.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cohort_document_materializer.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_and_size"
+  },
+  {
+    "path": "legalforecast/ingestion/cohort_policy.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cohort_observation_manifest.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cohort_policy.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cohort_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_completion_summary.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_value_bytes( [dict(operation) for operation in operations], error_type=CorpusCompletionSummaryError, error_message=\"purchase operations are not canonical JSON\", ) )"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_completion_summary.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_value_bytes( value, error_type=CorpusCompletionSummaryError, error_message=\"completion summary is not canonical JSON\", ) )"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_completion_summary.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_completion_summary.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.corpus_completion_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_completion_summary.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.corpus_completion_summary_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_completion_summary.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_completion_summary.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_operations_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_readiness.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_label_audit_gate.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/corpus_readiness.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.unitization_review_queue.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_acquisition.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_discovery_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_acquisition.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_search_page_transcript.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_case_dev_bridge.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_case_dev_bridge.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_opinion_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_opinion_discovery.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_opinion_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_opinion_hit.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_recap_fetch.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_json"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_request_budget.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_request_budget.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_snapshot_materialization.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_snapshot_materialization.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.budgeted_courtlistener_html_audit.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_snapshot_materialization.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_discovery_snapshot_inputs.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_snapshot_materialization.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_discovery_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_snapshot_materialization.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_search_page_transcript.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_snapshot_materialization.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_docket_html_source_receipt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/courtlistener_unrestricted_recap_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_unrestricted_recap.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_acquisition_assembler.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_component_provenance.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_acquisition_assembler.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_acquisition_assembly.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_acquisition_store.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_discovery_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_acquisition_store.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_search_page_transcript.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_acquisition_store.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_acquisition_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_acquisition_store.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_recap_discovery_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_acquisition_store.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_text"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes( { \"config_sha256\": entry[\"config_sha256\"], \"receipts\": receipt_hashes, } ) )"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes( { \"cycle_id\": cycle_id, \"command\": command, \"stage\": stage, \"run_card_sha256\": card_sha256, \"output_commitments\": commitments, } ) )"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes( { \"cycle_id\": head[\"cycle_id\"], \"command\": command, \"stage\": card[\"stage\"], \"run_card_sha256\": card_sha256, \"output_commitments\": commitments, } ) )"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_value_bytes( card, error_type=CycleLineageIndexError, error_message=\"nested decision run card is not canonicalizable\", ) )"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_lineage_index.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_lineage_status.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.purchase_approval_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_lineage_index.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval_run_card.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_manifest_template.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(canonical_json_bytes(template))"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_manifest_template.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_cycle_render_receipt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_manifest_template.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_cycle_template.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes(list(stage.arguments)) )"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(canonical_json_bytes(tree))"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(receipt_payload)"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_cycle_config.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_cycle_stage_receipt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_cycle_status.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_authority.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provenance_quarantine_clearance_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.purchase_approval_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval_run_card.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_orchestrator.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.stage_a_unitization_lineage.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/cycle_path_metadata.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_path_metadata.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.decision_text.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.decision_text_manifest.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_clearance.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.finalized_prediction_units.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_payload_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_unitization_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_clearance.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_pdf_scan.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_pdf_scan.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_receipt.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_batch_prompt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_batch_response.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_decision.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_private_review.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_prompt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_response.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "prompt_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review_authority.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_authority.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review_authority.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_model_review_authority_private.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_model_review_authority.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_authority.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_authority.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_authority.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_reviewer_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_bundle.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes(relevant_restrictions) )"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_bundle.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(canonical_json_bytes(documents))"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_bundle.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_receipt.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_bundle.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_request.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_bundle.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_statement.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_bundle.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_worksheet.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_bundle.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_reviewer_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/disclosure_review_bundle.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/docket_decision_text_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.docket_decision_raw_html_evidence.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/docket_decision_text_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.docket_decision_rest_evidence.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/docket_decision_text_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.docket_decision_text_source.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/docket_decision_text_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.terminal_purchase_disposition.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/docket_decision_text_source.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/docket_decision_text_source.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/docket_decision_text_source.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/docket_live_fetch.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.docket_live_fetch_plan.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/downstream_rehearsal.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.deterministic_model_response_fixture.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/downstream_rehearsal.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.downstream_rehearsal.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/downstream_rehearsal.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/exact310_rest_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_direct_search_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact310_rest_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_cycle_rebind_result.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact310_rest_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_seed_result.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact310_rest_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.exact310_terminal_rest_rebind_contract.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact310_rest_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.exact310_terminal_rest_rebind_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact310_rest_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_api_discovery_batch.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_docket_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_firecrawl_recovery_partition.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_docket_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_firecrawl_seal.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_docket_recovery.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_screening_implementation.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_priority_deferred_omission.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_priority_deferred_omission_inventory.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_priority_subset_selection_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_terminal_subset_promotion.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_snapshot_union_inputs.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_union_policy_rebind_implementation.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_ordered_source_manifest_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "rest_priority_candidate_id_set_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "rest_priority_partition_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "source_manifest_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/firecrawl_source.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_payload_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/free_document_downloader.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "verified_checkpoint_projection_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/frozen_batch_firecrawl_observation.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.frozen_batch_firecrawl_observation_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/frozen_batch_firecrawl_observation.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/frozen_batch_firecrawl_observation.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_current_observation_source_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/funnel_report.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_funnel_report.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/funnel_report.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_recap_discovery_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/funnel_report.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_screening_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/funnel_report.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_partial_checkpoint_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/infisical_systemd_launcher.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.infisical_child_status.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/infisical_systemd_launcher.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.infisical_systemd_launch.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/infisical_systemd_launcher.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_command_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_backed_disposition.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_backed_disposition.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_backed_disposition.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_recap_resolution.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_backed_disposition.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.validated_public_opinion.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_backed_disposition.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_docket_gap_planner.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_docket_gap_plan.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_docket_gap_planner.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.validated_public_opinion.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_docket_gap_planner.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_firecrawl.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_recap_firecrawl_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_firecrawl.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_recap_firecrawl_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_resolver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_opinion_discovery.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_resolver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_opinion_hit.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_resolver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_recap_resolution.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_resolver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_recap_resolution_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_resolver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_recap_resolved_source.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_resolver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_recap_resolver_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/opinion_recap_resolver.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_text"
+  },
+  {
+    "path": "legalforecast/ingestion/pacer_gap_append_rebase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.pacer_gap_append_only_snapshot_proof.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/pacer_gap_append_rebase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_snapshot_union_inputs.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/pacer_gap_append_rebase.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_snapshot_union_inputs.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/packet_input_planner.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_value_bytes( source, error_type=PacketInputPlanningError, error_message=\"docket decision source is not canonical JSON\", ) )"
+  },
+  {
+    "path": "legalforecast/ingestion/packet_role_adjudication.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( _canonical_json_bytes([record.to_record() for record in adjudications.records]) )"
+  },
+  {
+    "path": "legalforecast/ingestion/packet_role_adjudication.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( _canonical_json_bytes([record.to_record() for record in ordered]) )"
+  },
+  {
+    "path": "legalforecast/ingestion/packet_role_adjudication.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(_canonical_json_bytes(dict(record)))"
+  },
+  {
+    "path": "legalforecast/ingestion/packet_role_adjudication.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.packet_role_adjudication.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/packet_role_adjudication.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/packet_role_adjudication.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "packet_role_adjudication_record_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "sha256_text"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes(documents) )"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes(exceptions) )"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_bytes(routing_plan) )"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(canonical_json_bytes(documents))"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(canonical_json_bytes(plan))"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_exception_worksheet.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_exception_worksheet.v3"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_provenance_routing_plan.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_provenance_routing_plan.v3"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_request.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_fetch_terminal_unavailable.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/provenance_clearance.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/public_marker_clearance_policy.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(_canonical_json_bytes(value))"
+  },
+  {
+    "path": "legalforecast/ingestion/public_marker_clearance_policy.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_public_marker_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/public_marker_clearance_policy.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/public_marker_clearance_policy.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_purchase_policy.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.purchase_approval.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.purchase_approval_checkpoint.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.purchase_approval_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/purchase_approval.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/purchase_approval.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/purchased_document_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.purchased_document_recovery_checkpoint.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/purchased_document_recovery.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_request_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_legacy_event_replay.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_post_purchase_replay.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_replacement_event.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_replacement_result.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_replacement_result.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_replacement_result.v3"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_replacement_result.v4"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_terminal_exclusion.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_projection.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_ranked_reserve.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/ranked_reserve_replacement.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "ranked_reserve_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/readiness_provenance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.stage_a_structural_flag.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.batch_001_reobservation_lead.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.batch_002_discover_funnel.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.batch_002_observe_tally.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.batch_002_seed_result.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_direct_search_cycle_rebind.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_direct_search_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_novel_direct_search_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_cycle_rebind_result.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_decision_signal_ranking.v3"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_deferred_frontier.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_priority_tranche.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_seed_result.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.novel_direct_search_seed_result.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.prior_screening_snapshot_priority_dedupe.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_candidate_id_set_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_record_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_batch_driver.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_lead_set_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_direct_search_cycle_rebind.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_direct_search_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_novel_direct_search_transfer.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.opinion_recap_resolved_source.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_api_discovery_batch.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.source_bound_bankruptcy_adversary_entry.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_record_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_attempt_policy.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_fetch_attempt_policy.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_attempt_policy.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_broker_policy.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "broker_policy_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_quarantine_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_review_request.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_quarantine_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.post_recovery_restriction_evidence.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_quarantine_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_fetch_quarantine_recovery.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_quarantine_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_fetch_terminal_unavailable.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_quarantine_recovery.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_mapping_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_quarantine_recovery.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_operation_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_fetch_quarantine_recovery.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_json"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256( canonical_json_value_bytes( disposition, error_type=ReplacementPurchaseApprovalError, error_message=\"terminal disposition is not canonical JSON\", ) )"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval_checkpoint.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval_checkpoint.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_purchase_approval_run_card.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_replacement_plan_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_purchase_approval.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_recovery_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_recovery_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provenance_public_marker_clearance_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_recovery_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provenance_quarantine_clearance_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_recovery_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_recovery_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_recovery_source_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/replacement_recovery_source.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replacement_recovery_source_run_card.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.post_recovery_restriction_evidence.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.resolved_post_recovery_public_document.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.resolved_post_recovery_public_document.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.resolved_post_recovery_public_document.v3"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.resolved_post_recovery_public_document.v4"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/resolved_post_recovery.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_observation_policy_rebind.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(_canonical_json_bytes(value))"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_observation_policy_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_observation_policy_rebind_contract.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_observation_policy_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_observation_policy_rebind_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_observation_policy_rebind.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_observation_policy_rebind.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_priority_subset_promotion.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_priority_subset_promotion_result.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_priority_subset_promotion.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.rest_terminal_subset_source.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_priority_subset_promotion.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/rest_priority_subset_promotion.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "legalforecast/ingestion/retained_cohort_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.retained_cohort_budget.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/retained_cohort_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.retained_cohort_extension.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/retained_cohort_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_projection.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/retained_cohort_extension.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/retained_cohort_extension.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_snapshot_union.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.courtlistener_rest_screen_inputs.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_snapshot_union.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_priority_tranche.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_snapshot_union.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.direct_search_priority_tranche_chain.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_snapshot_union.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_screening_implementation.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_snapshot_union.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_snapshot_union_inputs.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_union_policy_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_snapshot_union_inputs.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_union_policy_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_snapshot_union_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_union_policy_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_union_policy_rebind_proof.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_union_policy_rebind.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.screening_union_policy_rebind_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/screening_union_policy_rebind.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_quarantine.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.snapshot_orphan_quarantine.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_reconciliation.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_replay.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_screen_input_commitment.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_replay.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.firecrawl_screening_migration_receipt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_replay.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.replay_source_closure.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_replay.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.source_bound_snapshot_replay.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_replay.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_replay.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_source_closure_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/snapshot_replay.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_source_manifest_screen_card_pairs_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/target_cohort_projection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_clearance.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_cohort_projection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_projection.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_cohort_projection.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_ranked_reserve.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_cohort_projection.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/target_preparation_retarget.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_attempt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_preparation_retarget.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_config.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_preparation_retarget.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_retarget_import.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_preparation_retarget.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/target_preparation_retarget.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(canonical_json_bytes(value))"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.public_packet_download_plan.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_execution_log.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_execution_receipt.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_execution_summary.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_identity_transition.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_outcome.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_plan.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_refresh_batch.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_public_gap_terminal_commitments.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_records_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_semantic_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/target_public_gap_refresh.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_value_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_purchase_failure.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_purchase_failure.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_terminal_exclusion.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_purchase_failure.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.terminal_recap_fetch_failure_evidence.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_purchase_failure.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_purchase_failure.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_subset_promotion.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.case_dev_ranked_rest_subset_selection_run.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_subset_promotion.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.terminal_subset_promotion.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_subset_promotion.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.terminal_subset_source_record.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_subset_promotion.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/terminal_subset_promotion.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "legalforecast/ingestion/zero_cost_successor.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.ranked_reserve_replacement_result.v2"
+  },
+  {
+    "path": "legalforecast/ingestion/zero_cost_successor.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_projection.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/zero_cost_successor.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.zero_cost_successor_config.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/zero_cost_successor.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.zero_cost_successor_selection.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/zero_cost_successor.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.zero_cost_successor_state.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/zero_cost_successor.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/zero_cost_successor.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/labeling/cycle_label_audit.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_label_audit_gate.v1"
+  },
+  {
+    "path": "legalforecast/labeling/cycle_label_audit.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_label_audit_plan.v1"
+  },
+  {
+    "path": "legalforecast/labeling/cycle_label_audit.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.lawyer_review_queue.v1"
+  },
+  {
+    "path": "legalforecast/labeling/cycle_label_audit.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/labeling/label_outcomes.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "text_sha256"
+  },
+  {
+    "path": "legalforecast/labeling/llm_pipeline.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.lawyer_review_queue.v1"
+  },
+  {
+    "path": "legalforecast/labeling/llm_pipeline.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.stage_a_structural_flag.v1"
+  },
+  {
+    "path": "legalforecast/labeling/llm_pipeline.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.unitization_review_queue.v1"
+  },
+  {
+    "path": "legalforecast/labeling/official_paid_baton.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.official_paid_labeling_baton_receipt.v1"
+  },
+  {
+    "path": "legalforecast/labeling/official_paid_baton.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.official_paid_labeling_package.v1"
+  },
+  {
+    "path": "legalforecast/labeling/official_paid_baton.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "legalforecast/labeling/official_paid_job.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.official_paid_labeling_job.v1"
+  },
+  {
+    "path": "legalforecast/labeling/provider_cycle_caps_materializer.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(caps_bytes)"
+  },
+  {
+    "path": "legalforecast/labeling/provider_cycle_caps_materializer.py",
+    "reason": "legacy direct commitment hash pending named-profile migration",
+    "rule": "direct_commitment_hash",
+    "subject": "hashlib.sha256(run_card_bytes)"
+  },
+  {
+    "path": "legalforecast/labeling/provider_cycle_caps_materializer.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.official_labeling_authority_smoke.v1"
+  },
+  {
+    "path": "legalforecast/labeling/provider_cycle_caps_materializer.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provider_cycle_caps_successor_policy.v1"
+  },
+  {
+    "path": "legalforecast/labeling/provider_cycle_caps_materializer.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provider_cycle_caps_successor_receipt.v1"
+  },
+  {
+    "path": "legalforecast/labeling/provider_cycle_caps_materializer.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provider_cycle_caps_successor_run_card.v1"
+  },
+  {
+    "path": "legalforecast/labeling/provider_cycle_caps_materializer.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_json_bytes"
+  },
+  {
+    "path": "legalforecast/labeling/provider_journal.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provider_attempt_journal.v3"
+  },
+  {
+    "path": "legalforecast/labeling/provider_journal.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provider_cycle_caps.v1"
+  },
+  {
+    "path": "legalforecast/labeling/provider_journal.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "prompt_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/artifacts.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/artifacts.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_text"
+  },
+  {
+    "path": "legalforecast/multiharness/claude_agent_sdk.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.claude_agent_sdk.output.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/claude_agent_sdk.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.claude_agent_sdk.prompt.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/claude_agent_sdk.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.claude_agent_sdk.tool.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/claude_agent_sdk.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/claude_agent_sdk.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "adapter_bundle_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/claude_agent_sdk_cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.claude_adapter_failure.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.cli_plan.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.report.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/cli.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.selection_manifest.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/command_adapter.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.command_execution_log.v2"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_artifact_manifest.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_public_summary.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_run_summary.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_selection_manifest.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_shard.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_submission_manifest.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.hf_upload_plan.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/community.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256_from_record"
+  },
+  {
+    "path": "legalforecast/multiharness/conformance.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/conformance.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/container_runtime.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.container_receipt.v2"
+  },
+  {
+    "path": "legalforecast/multiharness/container_runtime.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/container_runtime.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/deliverables.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.deliverable_manifest.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/deliverables.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_canonical_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/deliverables.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/evaluation.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.evaluation_receipt.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/evaluation.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.evaluation_spec.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/evaluation.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/harvey_lab_adapter.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/harvey_lab_adapter.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/harvey_lab_adapter.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_text"
+  },
+  {
+    "path": "legalforecast/multiharness/lfb_native.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/material_separation.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.deliverable_tree_commitment.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/material_separation.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.material_separation.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/material_separation.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256_and_size"
+  },
+  {
+    "path": "legalforecast/multiharness/material_separation.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/materialization.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.task_materialization.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/materialization.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/openai_responses.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/openai_responses.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "adapter_bundle_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/reporting.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_report.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/runner.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/runner.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/sandbox.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.live_container_plan.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/scoring.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.harvey-lab-all-pass-normalizer.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/scoring.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.harvey_lab_verdicts.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/scoring.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.metric_definition.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/scoring.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.score_artifact.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/selection.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/solver_inputs.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.solver_input_execution_manifest.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/solver_inputs.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.solver_input_index.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/solver_inputs.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.solver_input_payload.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/solver_inputs.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.solver_input.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/solver_inputs.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_bytes_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.adapter_capabilities.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.adapter_manifest.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_aggregate.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_submission.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.conformance_report.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.run_compatibility.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.run_manifest.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.run_request.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.run_result.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.sandbox_policy.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.task.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.task_index.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.tool_request.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/spec.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.tool_response.v1"
+  },
+  {
+    "path": "legalforecast/multiharness/task_loaders.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/multiharness/task_loaders.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/protocol/freeze.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "sha256_file"
+  },
+  {
+    "path": "legalforecast/protocol/manifest.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "hash_payload"
+  },
+  {
+    "path": "legalforecast/protocol/policy_artifacts.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.execution_policy.v1"
+  },
+  {
+    "path": "legalforecast/protocol/policy_artifacts.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.execution_policy_runtime_binding.v1"
+  },
+  {
+    "path": "legalforecast/protocol/policy_artifacts.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.labeling_policy.v1"
+  },
+  {
+    "path": "legalforecast/protocol/policy_artifacts.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "legalforecast/publication/community_aggregate.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_aggregate_bundle.v1"
+  },
+  {
+    "path": "legalforecast/publication/community_aggregate.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_combined_selection_sha256"
+  },
+  {
+    "path": "legalforecast/publication/community_aggregate.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/publication/cycle_closure.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.cycle_mutation_closure.v1"
+  },
+  {
+    "path": "legalforecast/publication/dispatch_provenance.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.dispatch_provenance.v1"
+  },
+  {
+    "path": "legalforecast/publication/official_aggregate.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.per_case_metrics.v1"
+  },
+  {
+    "path": "legalforecast/publication/official_aggregate.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_prefixed"
+  },
+  {
+    "path": "legalforecast/publication/reconstruction.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "legalforecast/publication/release_bundle.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.release_bundle.v1"
+  },
+  {
+    "path": "legalforecast/publication/run_cards.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.run_card.v1"
+  },
+  {
+    "path": "legalforecast/publication/run_input_manifest.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "legalforecast/publication/shard_fan_in.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.accepted_attempt_map.v1"
+  },
+  {
+    "path": "legalforecast/publication/shard_fan_in.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.shard_fan_in_report.v1"
+  },
+  {
+    "path": "legalforecast/publication/shard_fan_in_publish.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.canonical_publication_claim.v1"
+  },
+  {
+    "path": "legalforecast/publication/shard_fan_in_publish.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.canonical_publication_complete.v1"
+  },
+  {
+    "path": "legalforecast/publication/shard_fan_in_publish.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_record_sha256"
+  },
+  {
+    "path": "legalforecast/publication/shard_receipt.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.shard_cell_completion.v1"
+  },
+  {
+    "path": "legalforecast/publication/shard_receipt.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.shard_receipt.v2"
+  },
+  {
+    "path": "legalforecast/publication/shard_receipt.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "legalforecast/publication/static_sites.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.community_results_site.v1"
+  },
+  {
+    "path": "legalforecast/publication/static_sites.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.community_aggregate_bundle.v1"
+  },
+  {
+    "path": "legalforecast/publication/static_sites.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.official_results_site.v1"
+  },
+  {
+    "path": "legalforecast/publication/static_sites.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_file_sha256"
+  },
+  {
+    "path": "legalforecast/unitization/review.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.finalized_prediction_units.v1"
+  },
+  {
+    "path": "legalforecast/unitization/review.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.unitization_adjudication.v1"
+  },
+  {
+    "path": "legalforecast/unitization/review.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_records_sha256"
+  },
+  {
+    "path": "legalforecast/unitization/review.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "canonical_sha256"
+  },
+  {
+    "path": "scripts/analyze_packet_completeness.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.packet_completeness_comparison.v1"
+  },
+  {
+    "path": "scripts/probe_claude_code_native_containment.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.claude_code_native_containment_probe.v2"
+  },
+  {
+    "path": "scripts/probe_claude_code_native_containment.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.claude_outer_boundary_attestation.v2"
+  },
+  {
+    "path": "scripts/probe_claude_code_native_containment.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "scripts/probe_codex_cli_interface.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.codex_cli_interface_characterization.v1"
+  },
+  {
+    "path": "scripts/probe_codex_cli_interface.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "scripts/probe_codex_cli_interface.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_text"
+  },
+  {
+    "path": "scripts/probe_codex_native_containment.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.codex_native_containment_probe.v1"
+  },
+  {
+    "path": "scripts/probe_codex_native_containment.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256"
+  },
+  {
+    "path": "scripts/release_check.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.multiharness.adapter_manifest.v1"
+  },
+  {
+    "path": "scripts/release_check.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.release.package_hashes.v1"
+  },
+  {
+    "path": "scripts/release_check.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
+    "subject": "_sha256_file"
+  },
+  {
+    "path": "scripts/smoke_infisical_systemd_exit_status.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.infisical_systemd_smoke.v1"
+  }
+]
