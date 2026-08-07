@@ -26,7 +26,10 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Acquisition systemd launcher](acquisition-systemd-launcher.md): fail-closed Infisical child-status propagation, downstream receipt requirements, and the provider-free transient-unit smoke.
 - [Cycle 1 Target-100 direct prerequisites](cycle-1-target-100-direct-prerequisites.md): the authority and protected-workflow steps that cannot be represented as ordinary coordinator stages.
 - [Cycle 1 v4 ranked-reserve materialization](cycle-1-target-100-v4-ranked-reserve-materialization.md): materializing already-approved v4 ranked-reserve authority without rerunning selection or contacting a provider.
+- [Cycle 1 v4 ranked-reserve continuation](cycle-1-target-100-v4-ranked-reserve-replacement.md): replacing a candidate only on terminal nonretryable exclusion evidence, consuming the reserve in frozen order under the unchanged cap.
+- [Cycle 1 target-100 recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md): keeping recovered CourtListener material quarantined until public provenance is authenticated and every PDF is scanned.
 - [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md): value-by-value record of why each committed cohort-policy value is authorized or mechanically derived.
+- [Cycle 1 change control](cycle-1-change-control.md): the change-control rules adopted for the remainder of Cycle 1, through the final gate.
 
 ## Community Multi-Harness (non-official)
 
@@ -90,6 +93,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [case-dev-purchase-policy-v2.md](schemas/case-dev-purchase-policy-v2.md): the sole public derived authority for a new official document-purchase session.
 - [case-dev-purchase-policy-v1.md](schemas/case-dev-purchase-policy-v1.md): superseded by v2; retained for fixture and read-only compatibility and cannot mint purchase authority.
 - [clearance-replacement-v1.md](schemas/clearance-replacement-v1.md): the frozen canonical order used when a purchased document fails disclosure clearance.
+- [resolved-post-recovery-v4.md](schemas/resolved-post-recovery-v4.md): a recovered public document purchased directly through CourtListener RECAP Fetch, with no broker receipt history.
 - [recap-fetch-quarantine-recovery-v1.md](schemas/recap-fetch-quarantine-recovery-v1.md): the noncharging exact partition of recoverable purchase material and canonical terminal-unavailable operations.
 - [replacement-recovery-source-producer-v1.md](schemas/replacement-recovery-source-producer-v1.md): deterministic provider-free derivation of authenticated initial and successor recovery-source descriptors.
 
