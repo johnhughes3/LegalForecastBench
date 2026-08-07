@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import legalforecast.cli as cli
@@ -33,6 +35,165 @@ def _sha(payload: bytes) -> str:
 
 def _jsonl(rows: list[dict[str, Any]]) -> bytes:
     return b"".join(canonical_json_bytes(row) for row in rows)
+
+
+def test_ranked_precursor_revalidation_reuses_authority_and_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    policy_path = tmp_path / "purchase-policy.json"
+    policy_path.write_bytes(b"{}\n")
+    ledger_path = tmp_path / "purchase-ledger.sqlite3"
+    receipt_path = tmp_path / "purchase-ledger-receipt.json"
+    purchase_result_path = tmp_path / "purchase-result.json"
+    purchase_card_path = tmp_path / "purchase-run-card.json"
+    snapshot_manifest_path = tmp_path / "screening-snapshot-manifest.json"
+    raw_source_path = tmp_path / "screening-raw.html"
+    for path in (
+        ledger_path,
+        receipt_path,
+        purchase_result_path,
+        purchase_card_path,
+        snapshot_manifest_path,
+    ):
+        path.write_bytes(b"{}\n")
+    raw_source_path.write_bytes(b"authenticated raw source")
+    private_root = tmp_path / "private"
+    private_root.mkdir()
+    policy = SimpleNamespace(policy_sha256="a" * 64)
+    terminal_disposition = {"status": "terminal"}
+    descriptor = cli._MaterializerDocketDecisionAuthority(
+        authority=cast(Any, object()),
+        partition={"selected_document_count": 1},
+        purchase_policy=cast(Any, policy),
+        ledger_path=ledger_path.resolve(),
+        controlled_private_root=private_root,
+        initialization_receipt_path=receipt_path,
+        purchase_budget_plan_path=tmp_path / "budget.json",
+        source_snapshots={raw_source_path: raw_source_path.read_bytes()},
+    )
+    policy_reads = 0
+    authority_initializations = 0
+    journal_entries = 0
+    final_replays = 0
+
+    class _Journal:
+        def __init__(self, _path: Path, **_kwargs: object) -> None:
+            nonlocal journal_entries
+            journal_entries += 1
+
+        def __enter__(self) -> _Journal:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    original_read = cli.read_unique_regular_file
+
+    def read_policy(path: Path) -> bytes:
+        nonlocal policy_reads
+        if path == policy_path:
+            policy_reads += 1
+        return original_read(path)
+
+    def initialize_authority(
+        **_kwargs: object,
+    ) -> cli._MaterializerDocketDecisionAuthority:
+        nonlocal authority_initializations
+        authority_initializations += 1
+        return descriptor
+
+    def final_replay(
+        supplied: cli._MaterializerDocketDecisionAuthority,
+    ) -> tuple[object, tuple[Mapping[str, Any], ...]]:
+        nonlocal final_replays
+        final_replays += 1
+        cli._require_snapshot_unchanged(
+            supplied.source_snapshots, label="ranked precursor test source"
+        )
+        return supplied.authority, ()
+
+    monkeypatch.setattr(cli, "read_unique_regular_file", read_policy)
+    monkeypatch.setattr(cli, "verify_case_dev_purchase_policy", lambda _raw: policy)
+    monkeypatch.setattr(
+        cli, "require_approved_case_dev_purchase_policy", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(cli, "CaseDevPurchaseJournal", _Journal)
+    monkeypatch.setattr(
+        cli, "_verify_materializer_docket_decision_authority", initialize_authority
+    )
+    monkeypatch.setattr(
+        cli,
+        "verified_terminal_purchase_disposition_record",
+        lambda *_args, **_kwargs: terminal_disposition,
+    )
+    monkeypatch.setattr(
+        cli,
+        "residual_terminal_exclusions_bytes",
+        lambda *_args, **_kwargs: b"[]\n",
+    )
+    monkeypatch.setattr(
+        cli, "plan_ranked_reserve_replacements", lambda **_kwargs: object()
+    )
+
+    ranked_result: dict[str, object] = {
+        "purchase_policy_sha256": "sha256:" + policy.policy_sha256,
+        "terminal_disposition": terminal_disposition,
+    }
+    monkeypatch.setattr(
+        cli,
+        "bind_ranked_reserve_outputs",
+        lambda *_args, **_kwargs: ranked_result,
+    )
+    monkeypatch.setattr(
+        cli, "_replay_materialized_docket_decision_authority", final_replay
+    )
+
+    kwargs = {
+        "projection": {},
+        "selection_payload": b'{"candidate_id":"case-1","documents":[]}\n',
+        "reserve_payload": b"",
+        "source_pool_payload": b"",
+        "original_exclusions_payload": b"",
+        "active_selection_payload": b"",
+        "replacement_selection_payload": b"",
+        "successor_exclusions_payload": b"",
+        "replacement_budget_plan_payload": b"",
+        "purchase_policy_path": policy_path,
+        "controlled_private_root": private_root,
+        "purchase_ledger_path": ledger_path,
+        "purchase_ledger_initialization_receipt_path": receipt_path,
+        "purchase_result_path": purchase_result_path,
+        "purchase_run_card_path": purchase_card_path,
+        "screening_snapshot_manifest_path": snapshot_manifest_path,
+        "ranked_result": ranked_result,
+    }
+
+    authenticated = cli._authenticate_ranked_reserve_precursor(**kwargs)
+    revalidated = cli._authenticate_ranked_reserve_precursor(
+        **kwargs, _authenticated_precursor=authenticated
+    )
+
+    assert authenticated.result == revalidated.result == ranked_result
+    assert authority_initializations == 1
+    assert policy_reads == 2
+    assert journal_entries == 2
+    assert final_replays == 1
+
+    policy_path.write_bytes(b'{"changed":true}\n')
+    with pytest.raises(
+        ZeroCostSuccessorError,
+        match="purchase policy changed before publication",
+    ):
+        cli._authenticate_ranked_reserve_precursor(
+            **kwargs, _authenticated_precursor=authenticated
+        )
+
+    policy_path.write_bytes(b"{}\n")
+    raw_source_path.write_bytes(b"mutated source")
+    with pytest.raises(cli.CommandError, match="ranked precursor test source changed"):
+        cli._authenticate_ranked_reserve_precursor(
+            **kwargs, _authenticated_precursor=authenticated
+        )
 
 
 @dataclass
@@ -1235,20 +1396,30 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     )
     verified_token: object = object()
     authentication_tokens: list[object | None] = []
+    authentication_contexts: list[object | None] = []
+    initial_precursor: SimpleNamespace | None = None
 
-    def authenticate_precursor(**kwargs: object) -> dict[str, Any]:
+    def authenticate_precursor(**kwargs: object) -> SimpleNamespace:
+        nonlocal initial_precursor
         token = kwargs.get("verified_post_purchase_replay")
         authentication_tokens.append(token)
+        authentication_contexts.append(kwargs.get("_authenticated_precursor"))
         assert token is (verified_token if post_purchase_v4 else None)
         ranked = fixture.kwargs["authenticated_ranked_result"]
+        result: Mapping[str, object]
         if post_purchase_v4:
-            return cast(
+            result = cast(
                 dict[str, Any],
                 _mint_verified_post_purchase_ranked_result(
                     ranked, cast(Any, verified_token)
                 ),
             )
-        return ranked
+        else:
+            result = ranked
+        if initial_precursor is None:
+            initial_precursor = SimpleNamespace(result=result)
+            return initial_precursor
+        return SimpleNamespace(result=result)
 
     monkeypatch.setattr(
         cli, "_authenticate_ranked_reserve_precursor", authenticate_precursor
@@ -1442,6 +1613,7 @@ def test_cli_publishes_standard_target_cohort_surfaces(
         verified_token if post_purchase_v4 else None,
         verified_token if post_purchase_v4 else None,
     ]
+    assert authentication_contexts == [None, initial_precursor]
     expected = {
         "target-cohort-selection.jsonl",
         "target-cohort-projection.json",

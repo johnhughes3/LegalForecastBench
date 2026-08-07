@@ -24426,14 +24426,13 @@ def _authenticate_ranked_reserve_precursor(
     verified_post_purchase_replay: VerifiedRankedReservePostPurchaseReplay
     | None = None,
     verified_legacy_ranked_replay: VerifiedLegacyRankedReserveReplay | None = None,
-) -> Mapping[str, object] | VerifiedPostPurchaseRankedResult:
+    _authenticated_precursor: _AuthenticatedRankedReservePrecursor | None = None,
+) -> _AuthenticatedRankedReservePrecursor:
     """Substantively replay the producer authority behind the ranked result."""
 
+    policy_bytes = read_unique_regular_file(purchase_policy_path)
     policy = verify_case_dev_purchase_policy(
-        _projection_json_object(
-            read_unique_regular_file(purchase_policy_path),
-            source=purchase_policy_path,
-        )
+        _projection_json_object(policy_bytes, source=purchase_policy_path)
     )
     require_approved_case_dev_purchase_policy(
         policy, controlled_private_root=controlled_private_root
@@ -24453,6 +24452,34 @@ def _authenticate_ranked_reserve_precursor(
                 "frozen selection documents must be a JSON list"
             )
         selected_document_count += len(cast(list[object], documents))
+    if _authenticated_precursor is not None:
+        if (
+            _bytes_sha256(selection_payload)
+            != _authenticated_precursor.selection_sha256
+        ):
+            raise ZeroCostSuccessorError(
+                "ranked precursor selection changed before publication"
+            )
+        if (
+            _bytes_sha256(policy_bytes)
+            != _authenticated_precursor.purchase_policy_sha256
+        ):
+            raise ZeroCostSuccessorError(
+                "ranked precursor purchase policy changed before publication"
+            )
+        descriptor = _authenticated_precursor.docket_decision_authority
+        if (
+            descriptor.purchase_policy.policy_sha256 != policy.policy_sha256
+            or descriptor.ledger_path != purchase_ledger_path.resolve()
+            or descriptor.controlled_private_root != controlled_private_root
+            or descriptor.initialization_receipt_path
+            != purchase_ledger_initialization_receipt_path
+        ):
+            raise ZeroCostSuccessorError(
+                "ranked precursor authenticated authority changed before publication"
+            )
+    else:
+        descriptor = None
     with CaseDevPurchaseJournal(
         purchase_ledger_path.resolve(),
         policy=policy,
@@ -24460,18 +24487,19 @@ def _authenticate_ranked_reserve_precursor(
         controlled_private_root=controlled_private_root,
         initialization_receipt_path=purchase_ledger_initialization_receipt_path,
     ) as journal:
-        descriptor = _verify_materializer_docket_decision_authority(
-            selection_payload=selection_payload,
-            snapshot_manifest_path=screening_snapshot_manifest_path,
-            purchase_result_path=purchase_result_path,
-            purchase_run_card_path=purchase_run_card_path,
-            purchase_journal=journal,
-            purchase_policy=policy,
-            ledger_path=purchase_ledger_path.resolve(),
-            controlled_private_root=controlled_private_root,
-            initialization_receipt_path=purchase_ledger_initialization_receipt_path,
-            selected_document_count=selected_document_count,
-        )
+        if descriptor is None:
+            descriptor = _verify_materializer_docket_decision_authority(
+                selection_payload=selection_payload,
+                snapshot_manifest_path=screening_snapshot_manifest_path,
+                purchase_result_path=purchase_result_path,
+                purchase_run_card_path=purchase_run_card_path,
+                purchase_journal=journal,
+                purchase_policy=policy,
+                ledger_path=purchase_ledger_path.resolve(),
+                controlled_private_root=controlled_private_root,
+                initialization_receipt_path=purchase_ledger_initialization_receipt_path,
+                selected_document_count=selected_document_count,
+            )
         disposition = dict(
             verified_terminal_purchase_disposition_record(
                 descriptor.authority, purchase_journal=journal
@@ -24535,7 +24563,8 @@ def _authenticate_ranked_reserve_precursor(
             successor_exclusions_bytes=successor_exclusions_payload,
             replacement_budget_plan_bytes=replacement_budget_plan_payload,
         )
-    _replay_materialized_docket_decision_authority(descriptor)
+    if _authenticated_precursor is not None:
+        _replay_materialized_docket_decision_authority(descriptor)
     expected_result = (
         verified_legacy_ranked_replay.bridge_result
         if verified_legacy_ranked_replay is not None
@@ -24561,13 +24590,21 @@ def _authenticate_ranked_reserve_precursor(
             "ranked result differs from authenticated ranked-reserve replay: "
             + ", ".join(differing_fields)
         )
+    result: Mapping[str, object] | VerifiedPostPurchaseRankedResult
     if verified_legacy_ranked_replay is not None:
-        return dict(ranked_result)
-    if verified_post_purchase_replay is not None:
-        return _mint_verified_post_purchase_ranked_result(
+        result = dict(ranked_result)
+    elif verified_post_purchase_replay is not None:
+        result = _mint_verified_post_purchase_ranked_result(
             authenticated_result, verified_post_purchase_replay
         )
-    return authenticated_result
+    else:
+        result = authenticated_result
+    return _AuthenticatedRankedReservePrecursor(
+        result=result,
+        docket_decision_authority=descriptor,
+        selection_sha256=_bytes_sha256(selection_payload),
+        purchase_policy_sha256=_bytes_sha256(policy_bytes),
+    )
 
 
 def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
@@ -24846,7 +24883,7 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
 
             verify_post_purchase_bundle = replay_post_purchase_bundle
             verified_post_purchase_replay = verify_post_purchase_bundle()
-        authenticated_ranked_result = _authenticate_ranked_reserve_precursor(
+        authenticated_precursor = _authenticate_ranked_reserve_precursor(
             projection=projection,
             selection_payload=original_selection_bytes,
             reserve_payload=reserve_bytes,
@@ -24867,6 +24904,7 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
             verified_post_purchase_replay=verified_post_purchase_replay,
             verified_legacy_ranked_replay=verified_legacy_ranked_replay,
         )
+        authenticated_ranked_result = authenticated_precursor.result
         clearance_bytes = read_unique_regular_file(clearance_path)
         clearance_card_bytes = read_unique_regular_file(clearance_card_path)
         clearance_card = _projection_json_object(
@@ -24991,7 +25029,8 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
                     else None
                 ),
                 verified_legacy_ranked_replay=verified_legacy_ranked_replay,
-            )
+                _authenticated_precursor=authenticated_precursor,
+            ).result
             != authenticated_ranked_result
         ):
             raise ZeroCostSuccessorError(
@@ -38071,6 +38110,16 @@ class _MaterializerDocketDecisionAuthority:
     initialization_receipt_path: Path | None
     purchase_budget_plan_path: Path
     source_snapshots: Mapping[Path, bytes]
+
+
+@dataclass(frozen=True, slots=True)
+class _AuthenticatedRankedReservePrecursor:
+    """Opaque first-pass authority retained solely for final revalidation."""
+
+    result: Mapping[str, object] | VerifiedPostPurchaseRankedResult
+    docket_decision_authority: _MaterializerDocketDecisionAuthority
+    selection_sha256: str
+    purchase_policy_sha256: str
 
 
 def _docket_decision_partition_record(
