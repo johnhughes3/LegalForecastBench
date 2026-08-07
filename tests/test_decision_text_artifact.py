@@ -10,7 +10,11 @@ import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import build_parser, main
 from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
-from legalforecast.ingestion.decision_text_artifact import build_decision_text_records
+from legalforecast.ingestion.decision_text_artifact import (
+    DecisionTextArtifactError,
+    _require_deferred_docket_public_proof,
+    build_decision_text_records,
+)
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.protocol.policy_artifacts import generate_labeling_policy
 from legalforecast.unitization.review import apply_unitization_reviews
@@ -225,6 +229,8 @@ def test_authenticated_docket_decision_builds_without_pdf_or_parser(
                 "document_role": "decision",
                 "model_visible": False,
                 "contains_target_outcome": True,
+                "redaction_or_seal_status": "unknown",
+                "restriction_evidence": ["courtlistener_public_docket"],
             },
         ],
     }
@@ -237,6 +243,15 @@ def test_authenticated_docket_decision_builds_without_pdf_or_parser(
         "entered_date": "2026-07-01",
         "text": canary,
         "text_sha256": hashlib.sha256(canary.encode()).hexdigest(),
+        "selection_record_sha256": "sha256:"
+        + hashlib.sha256(
+            canonical_json_value_bytes(
+                selection,
+                error_type=ValueError,
+                error_message="not canonical",
+            )
+        ).hexdigest(),
+        "restriction_evidence": ["courtlistener_public_docket"],
     }
     monkeypatch.setattr(
         "legalforecast.ingestion.docket_decision_text_source."
@@ -285,6 +300,18 @@ def test_authenticated_docket_decision_builds_without_pdf_or_parser(
             )
         ).hexdigest()
     )
+
+    source["selection_record_sha256"] = "0" * 64
+    with pytest.raises(
+        DecisionTextArtifactError,
+        match="does not bind the selected restriction",
+    ):
+        _require_deferred_docket_public_proof(
+            selection=selection,
+            selection_document=selection["documents"][1],
+            docket_source=source,
+            key=("cand-1", "decision"),
+        )
 
 
 def test_docket_decision_record_commitment_rejects_nonfinite_values() -> None:
@@ -432,7 +459,11 @@ def test_downstream_docket_descriptor_rejects_unverified_shapes() -> None:
         ("model_visible", "must not be model-visible"),
         ("not_outcome_bearing", "must be explicitly outcome-bearing"),
         ("sealed", "sealed/private/restricted"),
+        ("selection_explicitly_restricted", "sealed/private/restricted"),
         ("malformed_sealed", "malformed is_sealed flag"),
+        ("selection_malformed_status", "invalid public status"),
+        ("selection_unknown_mismatched_evidence", "does not match materialization"),
+        ("selection_unknown_uncanonical", "lacks canonical public proof"),
         ("malformed_private_restriction", "malformed is_private flag"),
         (
             "affirmative_public_with_reviewer",
@@ -509,6 +540,22 @@ def test_build_decision_texts_accepts_unknown_flags_only_with_verified_public_st
     tmp_path: Path,
 ) -> None:
     inputs = _write_inputs(tmp_path, mutation="null_flags")
+
+    assert main(_command(inputs, tmp_path / "output")) == 0
+
+
+def test_build_decision_texts_accepts_unknown_selection_with_affirmative_public_proof(
+    tmp_path: Path,
+) -> None:
+    inputs = _write_inputs(tmp_path, mutation="selection_unknown_affirmative")
+
+    assert main(_command(inputs, tmp_path / "output")) == 0
+
+
+def test_build_decision_texts_accepts_unknown_selection_with_recovered_public_proof(
+    tmp_path: Path,
+) -> None:
+    inputs = _write_inputs(tmp_path, mutation="selection_unknown_recovered_public")
 
     assert main(_command(inputs, tmp_path / "output")) == 0
 
@@ -852,6 +899,10 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         decision_document["contains_target_outcome"] = False
     elif mutation == "sealed":
         decision_document["is_sealed"] = True
+    elif mutation == "selection_explicitly_restricted":
+        decision_document["redaction_or_seal_status"] = "restricted"
+    elif mutation == "selection_malformed_status":
+        decision_document["redaction_or_seal_status"] = 1
     elif mutation == "malformed_sealed":
         decision_document["is_sealed"] = "true"
     elif mutation == "malformed_private_restriction":
@@ -861,7 +912,7 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         decision_document["is_private"] = None
         restriction_rows[0]["is_sealed"] = None
         restriction_rows[0]["is_private"] = None
-    elif mutation == "recovered_public":
+    elif mutation in {"recovered_public", "selection_unknown_recovered_public"}:
         evidence = [
             "courtlistener_recap_fetch_fresh_detail_exact_match",
             "courtlistener_recap_fetch_is_available_true",
@@ -894,6 +945,12 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
             }
         )
         restriction_rows[0]["restriction_evidence"] = evidence
+        if mutation == "selection_unknown_recovered_public":
+            decision_document.update(
+                {
+                    "redaction_or_seal_status": "unknown",
+                }
+            )
     elif mutation in {
         "affirmative_public",
         "affirmative_public_with_reviewer",
@@ -930,6 +987,54 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         restriction_rows[0]["restriction_evidence"] = [
             "courtlistener_public_download_record_checked"
         ]
+    elif mutation in {
+        "selection_unknown_affirmative",
+        "selection_unknown_mismatched_evidence",
+        "selection_unknown_uncanonical",
+    }:
+        evidence = [
+            "courtlistener_rest_docket_exact_match",
+            "courtlistener_rest_docket_entry_exact_match",
+            "courtlistener_rest_recap_document_exact_match",
+            "courtlistener_rest_recap_document_is_available_true",
+            "courtlistener_rest_recap_document_is_sealed_unknown",
+            "courtlistener_rest_public_download_url_allowlisted",
+        ]
+        decision_document.update(
+            {
+                "redaction_or_seal_status": "unknown",
+                "restriction_evidence": evidence,
+            }
+        )
+        clearance_rows[0].update(
+            {
+                "restriction_status": "unknown",
+                "restriction_evidence": evidence,
+                "reviewer_id": None,
+                "controlled_store_provenance": (
+                    "https://storage.courtlistener.com/recap/example/decision.pdf"
+                ),
+                "reviewed_at": None,
+                "clearance_basis": "affirmative_public_provenance",
+                "routing_plan_sha256": "8" * 64,
+            }
+        )
+        restriction_rows[0].update(
+            {
+                "restriction_status": "unknown",
+                "restriction_evidence": evidence,
+            }
+        )
+        if mutation == "selection_unknown_mismatched_evidence":
+            restriction_rows[0]["restriction_evidence"] = ["different-proof"]
+        elif mutation == "selection_unknown_uncanonical":
+            clearance_rows[0].pop("clearance_basis")
+            clearance_rows[0].pop("routing_plan_sha256")
+            clearance_rows[0]["reviewer_id"] = "reviewer:john"
+            clearance_rows[0]["controlled_store_provenance"] = (
+                "private-store://cycle-1/reviews"
+            )
+            clearance_rows[0]["reviewed_at"] = "2026-07-15T12:00:00Z"
     elif mutation in {
         "model_exception_review",
         "model_review_missing_reviewer",
