@@ -85,6 +85,20 @@ class ReconstructionFailureEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class RepeatedReconstructionFailureEvidence:
+    """Two byte-identical failed reconstructions for one logical call.
+
+    This is deliberately evidence only.  It neither settles an invalid provider
+    response nor changes the attempt ledger; callers may use it only to build a
+    provider-free human-review escalation.
+    """
+
+    attempts: tuple[ReconstructionFailureEvidence, ...]
+    failure_type: str
+    failure_message: str
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderCycleCap:
     """One provider reservation cap plus optional legacy evidence annotations."""
 
@@ -913,6 +927,75 @@ class ProviderAttemptJournal:
             attempt_ordinal=int(recoverable["attempt_ordinal"]),
             raw_response_json=raw_response_json,
             normalized_response_json=normalized_response_json,
+        )
+
+    def repeated_identical_reconstruction_failure_evidence(
+        self,
+        *,
+        required_attempt_count: int = 2,
+    ) -> RepeatedReconstructionFailureEvidence:
+        """Return narrowly qualifying failed attempts without changing the ledger.
+
+        An escalation is intentionally stricter than ordinary reconstruction
+        recovery: it requires exactly two terminal reconstruction failures for
+        the current, already-authenticated logical call; matching validator
+        failure evidence; and byte-identical normalized response envelopes.
+        Any different status, count, missing evidence, or changed identity
+        remains a normal retry/fail-closed case.
+        """
+
+        if type(required_attempt_count) is not int or required_attempt_count < 2:
+            raise ValueError("required_attempt_count must be an integer of at least 2")
+        rows = self._connection.execute(
+            """
+            SELECT *
+            FROM provider_attempts
+            WHERE logical_call_key = ?
+            ORDER BY attempt_ordinal
+            """,
+            (self.identity.logical_call_key,),
+        ).fetchall()
+        if len(rows) != required_attempt_count or any(
+            row["status"] != "reconstruction_failed" for row in rows
+        ):
+            raise ProviderJournalError(
+                "terminal escalation requires exactly repeated failed reconstructions"
+            )
+        for row in rows:
+            self._validate_replay(row)
+        normalized = rows[0]["normalized_response_json"]
+        failure_type = rows[0]["failure_type"]
+        failure_message = rows[0]["failure_message"]
+        if (
+            not isinstance(normalized, str)
+            or not isinstance(failure_type, str)
+            or not failure_type
+            or not isinstance(failure_message, str)
+            or not failure_message
+            or any(
+                row["normalized_response_json"] != normalized
+                or row["failure_type"] != failure_type
+                or row["failure_message"] != failure_message
+                or row["reconstructed_result_json"] is not None
+                or not isinstance(row["raw_response_json"], str)
+                for row in rows
+            )
+        ):
+            raise ProviderJournalError(
+                "terminal escalation requires byte-identical normalized failure "
+                "evidence"
+            )
+        return RepeatedReconstructionFailureEvidence(
+            attempts=tuple(
+                ReconstructionFailureEvidence(
+                    attempt_ordinal=int(row["attempt_ordinal"]),
+                    raw_response_json=cast(str, row["raw_response_json"]),
+                    normalized_response_json=cast(str, row["normalized_response_json"]),
+                )
+                for row in rows
+            ),
+            failure_type=failure_type,
+            failure_message=failure_message,
         )
 
     def stage_cost_total(self, stage: str) -> float:

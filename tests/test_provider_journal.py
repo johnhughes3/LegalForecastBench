@@ -789,6 +789,101 @@ def test_journal_selects_latest_reconstruction_failure_evidence(tmp_path: Path) 
     assert json.loads(evidence.normalized_response_json)["raw_output"] == "second"
 
 
+def test_journal_reads_only_exact_repeated_identical_reconstruction_failures(
+    tmp_path: Path,
+) -> None:
+    """A terminal escalation is evidence-only and narrower than ordinary retry."""
+
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        for attempt_ordinal in (1, 2):
+            if attempt_ordinal == 2:
+                assert journal.prepare_reconstruction_retry(max_attempts=3) == 2
+            journal.run_attempt(1, lambda: {"output_text": "invalid"})
+            journal.settle_attempt(
+                journal.durable_attempt_ordinal(1),
+                input_tokens=10,
+                output_tokens=2,
+                actual_cost_usd=0.01,
+                raw_output="invalid",
+            )
+            journal.record_reconstruction_failure(ValueError("exact local rejection"))
+        before = path.read_bytes()
+        evidence = journal.repeated_identical_reconstruction_failure_evidence()
+        after = path.read_bytes()
+
+    assert after == before
+    assert evidence.failure_type == "ValueError"
+    assert evidence.failure_message == "exact local rejection"
+    assert [attempt.attempt_ordinal for attempt in evidence.attempts] == [1, 2]
+    assert evidence.attempts[0].normalized_response_json == (
+        evidence.attempts[1].normalized_response_json
+    )
+
+
+def test_terminal_escalation_requires_exactly_two_failed_attempts(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "invalid"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="invalid",
+        )
+        journal.record_reconstruction_failure(ValueError("exact local rejection"))
+
+        with pytest.raises(
+            ProviderJournalError,
+            match="exactly repeated failed reconstructions",
+        ):
+            journal.repeated_identical_reconstruction_failure_evidence()
+
+
+@pytest.mark.parametrize(
+    "second_raw_output,second_failure_message",
+    [("different", "exact local rejection"), ("invalid", "different rejection")],
+)
+def test_terminal_escalation_rejects_nonidentical_failure_evidence(
+    tmp_path: Path,
+    second_raw_output: str,
+    second_failure_message: str,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "invalid"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="invalid",
+        )
+        journal.record_reconstruction_failure(ValueError("exact local rejection"))
+        assert journal.prepare_reconstruction_retry(max_attempts=3) == 2
+        journal.run_attempt(1, lambda: {"output_text": second_raw_output})
+        journal.settle_attempt(
+            journal.durable_attempt_ordinal(1),
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output=second_raw_output,
+        )
+        journal.record_reconstruction_failure(ValueError(second_failure_message))
+
+        with pytest.raises(
+            ProviderJournalError,
+            match=(
+                "terminal escalation requires byte-identical normalized failure "
+                "evidence"
+            ),
+        ):
+            journal.repeated_identical_reconstruction_failure_evidence()
+
+
 def test_journal_reconstruction_recovery_rejects_active_competitor(
     tmp_path: Path,
 ) -> None:

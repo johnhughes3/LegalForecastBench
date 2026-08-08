@@ -42,6 +42,7 @@ from legalforecast.acquisition_completion_summary_cli import (
 )
 from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
+    LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
 )
 from legalforecast.evals.accounting import (
@@ -912,18 +913,22 @@ from legalforecast.labeling.llm_pipeline import (
     DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
     LlmConsensusPolicy,
     LlmPipelineError,
+    LlmStageAStructuralReviewTerminalEscalation,
     apply_adjudicated_reviews,
+    build_llm_stage_a_structural_review_terminal_escalation,
     lawyer_review_queue_records,
     llm_label_cases,
     llm_review_stage_a_units,
     llm_unitize_cases,
     merge_llm_label_provider_shards,
-    merge_structural_flags_into_review_queue,
+    merge_stage_a_review_queue,
     recover_llm_stage_a_structural_review_reconstruction,
     recover_llm_unitization_reconstruction,
     stage_a_structural_flag_records,
     stage_a_structural_review_prompt_records,
     stage_a_unitization_prompt_records,
+    structural_review_terminal_escalation_audit_record,
+    structural_review_terminal_escalation_queue_records,
     unitization_review_queue_records,
     unitization_review_queue_records_from_items,
 )
@@ -2680,6 +2685,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_recover_llm_review_stage_a_arguments(
         acquisition_recover_review_stage_a
+    )
+    acquisition_terminalize_review_stage_a = acquisition_subparsers.add_parser(
+        "terminalize-llm-review-stage-a-reconstruction",
+        help=(
+            "Provider-free escalation of two identical invalid Stage A reviewer "
+            "responses to the immutable John review queue."
+        ),
+    )
+    _add_acquisition_terminalize_llm_review_stage_a_arguments(
+        acquisition_terminalize_review_stage_a
     )
     acquisition_apply_unitization_review = acquisition_subparsers.add_parser(
         "apply-unitization-review",
@@ -9554,6 +9569,16 @@ def _add_acquisition_llm_review_stage_a_arguments(
         ),
     )
     parser.add_argument(
+        "--terminal-escalation",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Provider-free terminal-escalation receipt to route one candidate "
+            "without a third reviewer call. Repeat only for distinct candidates."
+        ),
+    )
+    parser.add_argument(
         "--structural-flags-output",
         type=Path,
         help="Hash-linked structured flags JSONL.",
@@ -9636,6 +9661,69 @@ def _add_acquisition_recover_llm_review_stage_a_arguments(
     parser.set_defaults(
         handler=_cmd_acquisition_recover_llm_review_stage_a_reconstruction
     )
+
+
+def _add_acquisition_terminalize_llm_review_stage_a_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the explicit, provider-free Stage A terminal-escalation surface."""
+
+    _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument(
+        "--selection", type=Path, required=True, help="JSONL acquisition selection."
+    )
+    parser.add_argument(
+        "--parser-manifest", type=Path, required=True, help="JSONL parser manifest."
+    )
+    parser.add_argument(
+        "--markdown-root", type=Path, help="Root for predecision Markdown artifacts."
+    )
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help="Immutable raw units from llm-unitize.",
+    )
+    parser.add_argument(
+        "--llm-unitization-run-card",
+        type=Path,
+        help="Authenticated Stage A unitization run card. Required with --execute.",
+    )
+    parser.add_argument(
+        "--unitization-review-queue",
+        type=Path,
+        required=True,
+        help="Existing immutable Stage A review queue.",
+    )
+    parser.add_argument(
+        "--model-registry",
+        type=Path,
+        required=True,
+        help="Frozen reviewer model registry.",
+    )
+    parser.add_argument(
+        "--model-key",
+        required=True,
+        help="Registry key for the structural reviewer response to terminalize.",
+    )
+    _add_provider_cycle_caps_argument(parser)
+    parser.add_argument(
+        "--provider-journal",
+        type=Path,
+        help="Exact canonical cycle-wide provider journal. Required with --execute.",
+    )
+    parser.add_argument(
+        "--candidate-id",
+        required=True,
+        help="Exact selected candidate with two identical failed reconstructions.",
+    )
+    parser.add_argument(
+        "--terminal-escalation-output",
+        type=Path,
+        help="Immutable provider-free terminal-escalation receipt JSON.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_terminalize_llm_review_stage_a)
 
 
 def _add_acquisition_apply_unitization_review_arguments(
@@ -58483,9 +58571,11 @@ def _verified_provider_stage_attempts(
     providers_by_model: Mapping[str, str],
     model_registry_sha256: str,
     expected_nonsettled_statuses: Mapping[tuple[str, str], str] | None = None,
+    expected_nonsettled_attempt_counts: Mapping[tuple[str, str], int] | None = None,
     allow_additional_calls: bool = False,
 ) -> JsonRecord:
     nonsettled_statuses = dict(expected_nonsettled_statuses or {})
+    nonsettled_attempt_counts = dict(expected_nonsettled_attempt_counts or {})
     rows = _provider_stage_attempt_rows(journal_path, stage=stage)
     matched_rows: list[Mapping[str, Any]] = []
     rows_by_call: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
@@ -58518,6 +58608,13 @@ def _verified_provider_stage_attempts(
         raise CommandError(f"{stage} provider journal call coverage differs")
     if not set(nonsettled_statuses) <= set(expected_prompts):
         raise CommandError(f"{stage} validation-failure audit coverage differs")
+    if set(nonsettled_attempt_counts) - set(nonsettled_statuses):
+        raise CommandError(f"{stage} terminal-attempt coverage differs")
+    if any(
+        type(count) is not int or count <= 0
+        for count in nonsettled_attempt_counts.values()
+    ):
+        raise CommandError(f"{stage} terminal-attempt count is invalid")
     if not set(nonsettled_statuses.values()) <= {
         "validated_response",
         "reconstruction_failed",
@@ -58525,7 +58622,10 @@ def _verified_provider_stage_attempts(
         raise CommandError(f"{stage} validation-failure terminal status is invalid")
     for key, call_rows in rows_by_call.items():
         expected_status = nonsettled_statuses.get(key, "settled")
-        if sum(row.get("status") == expected_status for row in call_rows) != 1 or any(
+        expected_count = nonsettled_attempt_counts.get(key, 1)
+        if sum(
+            row.get("status") == expected_status for row in call_rows
+        ) != expected_count or any(
             row.get("status")
             in {"settled", "validated_response", "reconstruction_failed"}
             and row.get("status") != expected_status
@@ -58740,15 +58840,6 @@ def _verify_stage_a_review_run_card(
         )
         for record in prompt_records
     }
-    stage_attempts = _verified_provider_stage_attempts(
-        stage="llm-review-stage-a",
-        journal_path=lineage.provider_journal_path,
-        expected_prompts=expected_prompts,
-        providers_by_model={entry.registry_key: entry.provider},
-        model_registry_sha256=registry_sha,
-    )
-    if chain_record.get("stage_attempts") != stage_attempts:
-        raise CommandError("structural review provider attempts changed")
     raw_records = _read_records(raw_units_path)
     raw_by_candidate = {
         _required_str(record, "candidate_id"): record for record in raw_records
@@ -58761,6 +58852,66 @@ def _verify_stage_a_review_run_card(
         audit_records
     ):
         raise CommandError("structural review contains duplicate candidate records")
+    terminal_receipt_paths: list[Path] = []
+    terminal_attempt_counts: dict[tuple[str, str], int] = {}
+    for candidate_id, audit in audit_by_candidate.items():
+        if audit.get("status") != "terminal_escalation":
+            continue
+        if audit.get("model_key") != entry.registry_key:
+            raise CommandError("structural review terminal escalation model differs")
+        receipt = audit.get("terminal_escalation_receipt")
+        if not isinstance(receipt, Mapping):
+            raise CommandError(
+                "structural review terminal escalation receipt is invalid"
+            )
+        receipt_path = _stage_a_committed_path(
+            {"receipt": cast(Mapping[str, object], receipt)}, "receipt"
+        )
+        if receipt != _stage_a_file_commitment(receipt_path):
+            raise CommandError("structural review terminal escalation receipt changed")
+        terminal = audit.get("terminal_escalation")
+        if not isinstance(terminal, Mapping):
+            raise CommandError("structural review terminal escalation is invalid")
+        failed_attempts: object = cast(Mapping[str, object], terminal).get(
+            "failed_attempts"
+        )
+        if not isinstance(failed_attempts, Sequence) or isinstance(
+            failed_attempts, (str, bytes)
+        ):
+            raise CommandError("structural review terminal attempts are invalid")
+        terminal_receipt_paths.append(receipt_path)
+        terminal_attempt_counts[(candidate_id, entry.registry_key)] = len(
+            cast(Sequence[object], failed_attempts)
+        )
+    if len(set(terminal_receipt_paths)) != len(terminal_receipt_paths):
+        raise CommandError("structural review terminal escalation receipts duplicate")
+    terminal_escalations = _verified_stage_a_terminal_escalations(
+        receipt_paths=tuple(terminal_receipt_paths),
+        lineage=lineage,
+        prediction_units_path=raw_units_path,
+        markdown_root=lineage.markdown_root,
+        registry_entry=entry,
+        registry_sha256=registry_sha,
+    )
+    if set(terminal_escalations) != {
+        candidate_id
+        for candidate_id, audit in audit_by_candidate.items()
+        if audit.get("status") == "terminal_escalation"
+    }:
+        raise CommandError("structural review terminal escalation coverage differs")
+    stage_attempts = _verified_provider_stage_attempts(
+        stage="llm-review-stage-a",
+        journal_path=lineage.provider_journal_path,
+        expected_prompts=expected_prompts,
+        providers_by_model={entry.registry_key: entry.provider},
+        model_registry_sha256=registry_sha,
+        expected_nonsettled_statuses={
+            key: "reconstruction_failed" for key in terminal_attempt_counts
+        },
+        expected_nonsettled_attempt_counts=terminal_attempt_counts,
+    )
+    if chain_record.get("stage_attempts") != stage_attempts:
+        raise CommandError("structural review provider attempts changed")
     attempt_rows = _provider_stage_attempt_rows(
         lineage.provider_journal_path, stage="llm-review-stage-a"
     )
@@ -58769,6 +58920,7 @@ def _verify_stage_a_review_run_card(
         if row.get("status") == "settled":
             settled_by_candidate[_required_str(row, "candidate_id")].append(row)
     reconstructed_flags: list[JsonRecord] = []
+    terminal_queue_records: list[JsonRecord] = []
     prompt_by_candidate = {
         _required_str(record, "candidate_id"): record for record in prompt_records
     }
@@ -58777,6 +58929,24 @@ def _verify_stage_a_review_run_card(
     ) != set(prompt_by_candidate):
         raise CommandError("structural review candidate coverage differs")
     for candidate_id, prompt_record in prompt_by_candidate.items():
+        terminal = terminal_escalations.get(candidate_id)
+        if terminal is not None:
+            escalation, receipt_commitment = terminal
+            expected_audit = structural_review_terminal_escalation_audit_record(
+                escalation,
+                receipt_commitment=receipt_commitment,
+            )
+            if audit_by_candidate[candidate_id] != expected_audit:
+                raise CommandError(
+                    f"structural review terminal escalation is invalid: {candidate_id}"
+                )
+            terminal_queue_records.extend(
+                structural_review_terminal_escalation_queue_records(
+                    escalation,
+                    receipt_commitment=receipt_commitment,
+                )
+            )
+            continue
         rows = settled_by_candidate.get(candidate_id, [])
         if len(rows) != 1:
             raise CommandError(
@@ -58854,8 +59024,10 @@ def _verify_stage_a_review_run_card(
     if _read_records(flags_path) != reconstructed_flags:
         raise CommandError("structural review flags do not reproduce from journal")
     expected_queue = list(
-        merge_structural_flags_into_review_queue(
-            _read_records(original_queue_path), reconstructed_flags
+        merge_stage_a_review_queue(
+            _read_records(original_queue_path),
+            reconstructed_flags,
+            terminal_queue_records,
         )
     )
     if _read_records(queue_path) != expected_queue:
@@ -58880,6 +59052,7 @@ def _verify_stage_a_review_run_card(
             )
         ),
         lineage.provider_journal_path.resolve(),
+        *(sorted((path.resolve() for path in terminal_receipt_paths), key=str)),
     )
     if (
         tuple(Path(str(path)).resolve() for path in cast(Sequence[object], raw_inputs))
@@ -59616,6 +59789,193 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
     return 0
 
 
+def _verified_stage_a_terminal_escalations(
+    *,
+    receipt_paths: Sequence[Path],
+    lineage: _StageAUnitizationLineage,
+    prediction_units_path: Path,
+    markdown_root: Path,
+    registry_entry: ModelRegistryEntry,
+    registry_sha256: str,
+) -> dict[str, tuple[LlmStageAStructuralReviewTerminalEscalation, JsonRecord]]:
+    """Rebuild every requested terminal receipt before a later live resume."""
+
+    results: dict[
+        str, tuple[LlmStageAStructuralReviewTerminalEscalation, JsonRecord]
+    ] = {}
+    selection_by_candidate = {
+        _required_str(record, "candidate_id"): record
+        for record in lineage.selection_records
+    }
+    if len(selection_by_candidate) != len(lineage.selection_records):
+        raise CommandError(
+            "terminal escalation selection contains duplicate candidates"
+        )
+    seen_paths: set[Path] = set()
+    for receipt_path in receipt_paths:
+        resolved_path = receipt_path.resolve()
+        if resolved_path in seen_paths:
+            raise CommandError("duplicate Stage A terminal escalation receipt")
+        seen_paths.add(resolved_path)
+        receipt = _read_json_object_payload(
+            _read_singly_linked_regular_input(
+                receipt_path,
+                label="Stage A terminal escalation receipt",
+            ),
+            label="Stage A terminal escalation receipt",
+        )
+        if receipt.get("schema_version") != str(
+            LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1
+        ):
+            raise CommandError("Stage A terminal escalation receipt schema is invalid")
+        candidate_id = _required_str(receipt, "candidate_id")
+        selection = selection_by_candidate.get(candidate_id)
+        if selection is None or candidate_id in results:
+            raise CommandError(
+                "Stage A terminal escalation receipt candidate is invalid"
+            )
+        try:
+            escalation = build_llm_stage_a_structural_review_terminal_escalation(
+                selection_record=selection,
+                parser_records=lineage.parser_records,
+                prediction_unit_records=_read_records(prediction_units_path),
+                markdown_root=markdown_root,
+                markdown_bytes=lineage.markdown_bytes,
+                registry_entry=registry_entry,
+                model_registry_sha256=registry_sha256,
+                provider_journal_path=lineage.provider_journal_path,
+                provider_cycle_cap_usd=float(
+                    lineage.provider_caps.cap_usd(registry_entry.provider)
+                ),
+                provider_cycle_id=lineage.cohort_cycle_id,
+                provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+                provider_account=_local_provider_account(
+                    lineage.provider_caps,
+                    registry_entry.provider,
+                ),
+            )
+        except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
+            raise CommandError(str(exc)) from exc
+        if receipt != escalation.to_record():
+            raise CommandError("Stage A terminal escalation receipt changed")
+        results[candidate_id] = (escalation, _stage_a_file_commitment(receipt_path))
+    return results
+
+
+def _cmd_acquisition_terminalize_llm_review_stage_a(args: argparse.Namespace) -> int:
+    """Publish a provider-free terminal reviewer escalation receipt."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "terminalize-llm-review-stage-a-reconstruction requires --execute; "
+            "it never calls a provider"
+        )
+    table_name = cast(str | None, getattr(args, "provider_authority_table", None))
+    if table_name is not None and table_name.strip():
+        raise CommandError(
+            "Stage A terminal escalation is provider-free and rejects "
+            "--provider-authority-table"
+        )
+    output_root = _acquisition_output_root(args)
+    receipt_path = _acquisition_path(
+        args,
+        "terminal_escalation_output",
+        output_root / "llm-stage-a-structural-review-terminal-escalation.json",
+    )
+    if receipt_path.exists() and not cast(bool, args.resume):
+        raise CommandError("Stage A terminal escalation output already exists")
+    selection_path = cast(Path, args.selection)
+    parser_path = cast(Path, args.parser_manifest)
+    units_path = cast(Path, args.prediction_units)
+    queue_path = cast(Path, args.unitization_review_queue)
+    markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    lineage, unitization_card_path = _verified_shared_provider_chain(
+        args,
+        raw_prediction_units_path=units_path,
+        expected_review_queue_path=queue_path,
+        expected_selection_path=selection_path,
+        expected_parser_manifest_path=parser_path,
+        expected_markdown_root=markdown_root,
+    )
+    registry_path = cast(Path, args.model_registry)
+    registry_entry, registry_sha256 = _registry_entry_for_key(
+        registry_path, cast(str, args.model_key)
+    )
+    candidate_id = cast(str, args.candidate_id).strip()
+    matches = tuple(
+        record
+        for record in lineage.selection_records
+        if record.get("candidate_id") == candidate_id
+    )
+    if len(matches) != 1:
+        raise CommandError(
+            "Stage A terminal escalation requires exactly one selected candidate"
+        )
+    before_rows = _provider_stage_attempt_rows(
+        lineage.provider_journal_path, stage="llm-review-stage-a"
+    )
+    before_sha256 = _canonical_json_sha256(before_rows)
+    _require_stage_a_lineage_unchanged(lineage)
+    try:
+        escalation = build_llm_stage_a_structural_review_terminal_escalation(
+            selection_record=matches[0],
+            parser_records=lineage.parser_records,
+            prediction_unit_records=_read_records(units_path),
+            markdown_root=markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
+            registry_entry=registry_entry,
+            model_registry_sha256=registry_sha256,
+            provider_journal_path=lineage.provider_journal_path,
+            provider_cycle_cap_usd=float(
+                lineage.provider_caps.cap_usd(registry_entry.provider)
+            ),
+            provider_cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_account=_local_provider_account(
+                lineage.provider_caps,
+                registry_entry.provider,
+            ),
+        )
+    except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    _require_stage_a_lineage_unchanged(lineage)
+    after_rows = _provider_stage_attempt_rows(
+        lineage.provider_journal_path, stage="llm-review-stage-a"
+    )
+    if _canonical_json_sha256(after_rows) != before_sha256:
+        raise CommandError("Stage A terminal escalation changed the provider journal")
+    receipt = escalation.to_record()
+    if receipt_path.exists():
+        existing = _read_json_object_payload(
+            _read_singly_linked_regular_input(
+                receipt_path,
+                label="Stage A terminal escalation receipt",
+            ),
+            label="Stage A terminal escalation receipt",
+        )
+        if existing != receipt:
+            raise CommandError("Stage A terminal escalation receipt changed")
+    else:
+        _atomic_write_json(receipt_path, receipt)
+    _write_or_verify_immutable_recovery_completion(
+        args,
+        stage="terminalize-llm-review-stage-a-reconstruction",
+        input_paths=(
+            selection_path,
+            parser_path,
+            units_path,
+            queue_path,
+            unitization_card_path,
+            registry_path,
+            cast(Path, args.provider_cycle_caps),
+            lineage.provider_journal_path,
+        ),
+        output_paths=(receipt_path,),
+        extra={},
+    )
+    return 0
+
+
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
@@ -60286,6 +60646,9 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     existing_queue_path = cast(Path, args.unitization_review_queue)
     registry_path = cast(Path, args.model_registry)
     provider_caps_path = cast(Path | None, args.provider_cycle_caps)
+    terminal_receipt_paths = tuple(
+        cast(list[Path] | None, getattr(args, "terminal_escalation", None)) or ()
+    )
     markdown_root = (
         cast(Path | None, args.markdown_root) or prospective_output_root / "markdown"
     )
@@ -60338,13 +60701,31 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
         lineage, authenticated_unitization_card = verified_provider_chain
         assert verified_reviewer_registry is not None
         entry, registry_sha = verified_reviewer_registry
-        provider_spend_authorities, provider_accounts = _provider_spend_authorities(
-            args,
-            provider_caps=lineage.provider_caps,
-            provider_caps_sha256=lineage.provider_caps_sha256,
-            cycle_id=lineage.cohort_cycle_id,
-            providers=(entry.provider,),
+        terminal_escalations = _verified_stage_a_terminal_escalations(
+            receipt_paths=terminal_receipt_paths,
+            lineage=lineage,
+            prediction_units_path=units_path,
+            markdown_root=markdown_root,
+            registry_entry=entry,
+            registry_sha256=registry_sha,
         )
+        terminal_candidates = set(terminal_escalations)
+        selection_candidates = {
+            _required_str(selection, "candidate_id") for selection in selections
+        }
+        if terminal_candidates == selection_candidates:
+            # A fully terminalized batch is a provider-free continuation.  Do
+            # not even open a distributed spend authority when no provider
+            # reservation can occur.
+            provider_spend_authorities, provider_accounts = None, None
+        else:
+            provider_spend_authorities, provider_accounts = _provider_spend_authorities(
+                args,
+                provider_caps=lineage.provider_caps,
+                provider_caps_sha256=lineage.provider_caps_sha256,
+                cycle_id=lineage.cohort_cycle_id,
+                providers=(entry.provider,),
+            )
         result = llm_review_stage_a_units(
             selection_records=selections,
             parser_records=_read_records(parser_path),
@@ -60361,13 +60742,16 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
             provider_spend_authorities=provider_spend_authorities,
             provider_accounts=provider_accounts,
+            terminal_escalations=terminal_escalations,
         )
         _write_jsonl(flags_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
         _write_jsonl(
             queue_path,
-            merge_structural_flags_into_review_queue(
-                _read_records(existing_queue_path), result.records
+            merge_stage_a_review_queue(
+                _read_records(existing_queue_path),
+                result.records,
+                result.terminal_review_queue_records,
             ),
         )
         expected_prompts = {
@@ -60377,12 +60761,35 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             ): _required_str(record, "prompt_sha256")
             for record in result.audit_records
         }
+        terminal_statuses: dict[tuple[str, str], str] = {}
+        terminal_attempt_counts: dict[tuple[str, str], int] = {}
+        for record in result.audit_records:
+            if record.get("status") != "terminal_escalation":
+                continue
+            key = (
+                _required_str(record, "candidate_id"),
+                _required_str(record, "model_key"),
+            )
+            escalation_record: object = record.get("terminal_escalation")
+            if not isinstance(escalation_record, Mapping):
+                raise CommandError("Stage A terminal escalation audit is invalid")
+            failed_attempts: object = cast(Mapping[str, object], escalation_record).get(
+                "failed_attempts"
+            )
+            if not isinstance(failed_attempts, Sequence) or isinstance(
+                failed_attempts, (str, bytes)
+            ):
+                raise CommandError("Stage A terminal escalation attempts are invalid")
+            terminal_statuses[key] = "reconstruction_failed"
+            terminal_attempt_counts[key] = len(cast(Sequence[object], failed_attempts))
         stage_attempts = _verified_provider_stage_attempts(
             stage="llm-review-stage-a",
             journal_path=provider_journal_path,
             expected_prompts=expected_prompts,
             providers_by_model={entry.registry_key: entry.provider},
             model_registry_sha256=registry_sha,
+            expected_nonsettled_statuses=terminal_statuses,
+            expected_nonsettled_attempt_counts=terminal_attempt_counts,
         )
         completion_extra = {
             "provider_chain": _provider_chain_commitment(
@@ -60428,6 +60835,7 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             registry_path,
             *((provider_caps_path,) if provider_caps_path is not None else ()),
             *((provider_journal_arg,) if provider_journal_arg else ()),
+            *(sorted((path.resolve() for path in terminal_receipt_paths), key=str)),
         ),
         output_paths=(flags_path, queue_path, audit_path, provider_journal_path),
         record_count=len(selections),
