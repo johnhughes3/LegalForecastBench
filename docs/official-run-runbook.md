@@ -1104,6 +1104,29 @@ uv run legalforecast acquisition llm-review-stage-a \
 
 The command replays Stage A before resolving the reviewer model, refuses a different journal path, wrong cycle, or byte-different caps artifact before a provider call, and commits the exact reviewer model, prompt identities, provider attempts, input artifacts, merged queue, flags, and audit in its run card.
 
+If the same structural-review candidate has already produced exactly two byte-identical normalized responses that both failed local reconstruction, do not issue a third paid request or accept a flag. Generate the narrow, provider-free terminal receipt and then resume structural review with it. The receipt command authenticates the current Stage A lineage and journal, writes no journal state, and fails closed unless both attempts have the same current prompt/model identity and validator failure evidence:
+
+```bash
+uv run legalforecast acquisition terminalize-llm-review-stage-a-reconstruction \
+  --output-root <terminal-escalation-root> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+  --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --markdown-root <parsed-markdown-root> \
+  --prediction-units <prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --unitization-review-queue <unitization-review-queue.jsonl> \
+  --model-registry <frozen-stage-a-reviewer-registry.json> \
+  --model-key <provider:model-id> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --candidate-id <candidate-id> \
+  --execute --no-resume
+```
+
+Pass the emitted receipt to the resumed review command with `--terminal-escalation <terminal-escalation-receipt.json>`. This produces a deterministic pending review item for every affected frozen unit, preserving the exact reviewer prompt, the two failed-attempt commitments, and blinded predecision sources for John. It does not turn either invalid response into an accepted structural flag; ordinary retries remain unchanged for every candidate without a receipt.
+
 After structural review, apply adjudications only through the authenticated unitizer card:
 
 ```bash

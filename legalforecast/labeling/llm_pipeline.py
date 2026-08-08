@@ -14,6 +14,9 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import (
+    LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
+)
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.live_model_solver import (
     DEFAULT_MAX_ATTEMPTS,
@@ -179,6 +182,7 @@ class LlmBatchResult:
 
     records: tuple[JsonRecord, ...]
     audit_records: tuple[JsonRecord, ...]
+    terminal_review_queue_records: tuple[JsonRecord, ...] = ()
 
     @property
     def succeeded_count(self) -> int:
@@ -243,6 +247,50 @@ class LlmStageAStructuralReviewReconstructionRecovery:
             "normalized_response_sha256": self.normalized_response_sha256,
             "structural_flags": list(self.structural_flags),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class LlmStageAStructuralReviewTerminalEscalation:
+    """Provider-free evidence that routes one invalid reviewer call to John.
+
+    The payload deliberately contains only blinded, predecision material plus
+    commitments to the two invalid provider responses.  It never turns either
+    response into an accepted structural flag.
+    """
+
+    candidate_id: str
+    case_id: str
+    reviewer_model_key: str
+    model_registry_sha256: str
+    raw_prediction_units_sha256: str
+    prompt: str
+    prompt_sha256: str
+    frozen_units: tuple[JsonRecord, ...]
+    predecision_source_commitments: tuple[JsonRecord, ...]
+    failed_attempts: tuple[JsonRecord, ...]
+
+    def to_record(self) -> JsonRecord:
+        return {
+            "schema_version": str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1),
+            "candidate_id": self.candidate_id,
+            "case_id": self.case_id,
+            "reviewer_model_key": self.reviewer_model_key,
+            "model_registry_sha256": self.model_registry_sha256,
+            "raw_prediction_units_sha256": self.raw_prediction_units_sha256,
+            "prompt": self.prompt,
+            "prompt_sha256": self.prompt_sha256,
+            "frozen_units": [dict(unit) for unit in self.frozen_units],
+            "predecision_source_commitments": [
+                dict(commitment) for commitment in self.predecision_source_commitments
+            ],
+            "failed_attempts": [dict(attempt) for attempt in self.failed_attempts],
+        }
+
+    @property
+    def escalation_sha256(self) -> str:
+        """Return the canonical identity used in immutable John queue rows."""
+
+        return canonical_sha256(self.to_record())
 
 
 @dataclass(frozen=True, slots=True)
@@ -684,6 +732,186 @@ def recover_llm_stage_a_structural_review_reconstruction(
         journal.close()
 
 
+def build_llm_stage_a_structural_review_terminal_escalation(
+    *,
+    selection_record: Mapping[str, Any],
+    parser_records: Iterable[Mapping[str, Any]],
+    prediction_unit_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+    markdown_bytes: Mapping[str, bytes] | None,
+    registry_entry: ModelRegistryEntry,
+    model_registry_sha256: str,
+    provider_journal_path: str | Path,
+    provider_cycle_cap_usd: float,
+    provider_cycle_id: str,
+    provider_cycle_caps_sha256: str,
+    provider_account: str,
+) -> LlmStageAStructuralReviewTerminalEscalation:
+    """Build one narrow, provider-free escalation from durable failures.
+
+    Ordinary structural-review retries remain the default.  This helper can be
+    reached only by an explicit CLI route after two identical normalized failed
+    reconstructions are already durably recorded for the current logical call.
+    """
+
+    candidate_id = _required_str(selection_record, "candidate_id")
+    case_id = _required_str(selection_record, "case_id")
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    documents = _predecision_documents(
+        selection_record,
+        parser_by_key=parser_by_key,
+        markdown_root=Path(markdown_root),
+        markdown_bytes=markdown_bytes,
+    )
+    raw_records = tuple(prediction_unit_records)
+    raw_by_candidate = {
+        _required_str(record, "candidate_id"): record for record in raw_records
+    }
+    if len(raw_by_candidate) != len(raw_records):
+        raise LlmPipelineError("duplicate raw Stage A candidate records")
+    raw_record = raw_by_candidate.get(candidate_id)
+    if raw_record is None:
+        raise LlmPipelineError(f"no raw Stage A unit record for {candidate_id}")
+    units = _prediction_units_by_candidate(raw_records).get(candidate_id, ())
+    if not units:
+        raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
+    prompt = _stage_a_structural_review_prompt(selection_record, documents, units)
+    journal = _provider_attempt_journal(
+        path=provider_journal_path,
+        stage="llm-review-stage-a",
+        candidate_id=candidate_id,
+        prompt=prompt,
+        registry_entry=registry_entry,
+        account=provider_account,
+        model_registry_sha256=model_registry_sha256,
+        cycle_cap_usd=provider_cycle_cap_usd,
+        cycle_id=provider_cycle_id,
+        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+    )
+    if journal is None:
+        raise LlmPipelineError("provider terminal escalation requires a journal")
+    with journal:
+        evidence = journal.repeated_identical_reconstruction_failure_evidence()
+    source_commitments: list[JsonRecord] = []
+    for document in documents:
+        source_commitments.append(
+            {
+                "source_document_id": document.source_document_id,
+                "document_role": document.document_role.value,
+                "docket_entry_number": document.docket_entry_number,
+                "description": document.description,
+                "markdown_sha256": "sha256:"
+                + hashlib.sha256(document.markdown.encode("utf-8")).hexdigest(),
+            }
+        )
+    failed_attempts = tuple(
+        {
+            "attempt_ordinal": attempt.attempt_ordinal,
+            "raw_response_sha256": "sha256:"
+            + hashlib.sha256(attempt.raw_response_json.encode("utf-8")).hexdigest(),
+            "normalized_response_sha256": "sha256:"
+            + hashlib.sha256(
+                attempt.normalized_response_json.encode("utf-8")
+            ).hexdigest(),
+            "failure_type": evidence.failure_type,
+            "failure_message": evidence.failure_message,
+        }
+        for attempt in evidence.attempts
+    )
+    return LlmStageAStructuralReviewTerminalEscalation(
+        candidate_id=candidate_id,
+        case_id=case_id,
+        reviewer_model_key=registry_entry.registry_key,
+        model_registry_sha256=model_registry_sha256,
+        raw_prediction_units_sha256=canonical_sha256(raw_record),
+        prompt=prompt,
+        prompt_sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        frozen_units=tuple(unit.to_record() for unit in units),
+        predecision_source_commitments=tuple(source_commitments),
+        failed_attempts=failed_attempts,
+    )
+
+
+def structural_review_terminal_escalation_queue_records(
+    escalation: LlmStageAStructuralReviewTerminalEscalation,
+    *,
+    receipt_commitment: Mapping[str, Any] | None = None,
+) -> tuple[JsonRecord, ...]:
+    """Route every affected frozen unit to John without accepting a flag."""
+
+    receipt = dict(receipt_commitment or {})
+    if receipt and set(receipt) != {"path", "sha256"}:
+        raise LlmPipelineError("terminal escalation receipt commitment is invalid")
+    route_reason = "structural_reviewer_terminal_reconstruction_failure"
+    return tuple(
+        {
+            "schema_version": "legalforecast.unitization_review_queue.v1",
+            "status": "pending_adjudication",
+            "candidate_id": escalation.candidate_id,
+            "case_id": escalation.case_id,
+            "unit_id": _required_str(unit, "unit_id"),
+            "review_id": (
+                f"{escalation.candidate_id}:{_required_str(unit, 'unit_id')}:"
+                f"structural-terminal:{escalation.escalation_sha256[:16]}"
+            ),
+            "route_reason": route_reason,
+            "review_item": {
+                "unit_id": _required_str(unit, "unit_id"),
+                "reason": route_reason,
+                "notes": (
+                    "Two byte-identical normalized structural-review responses "
+                    "failed local reconstruction. No structural flag was accepted; "
+                    "review this frozen unit using only the blinded predecision "
+                    "materials below."
+                ),
+                "frozen_unit": dict(unit),
+                "reviewer_prompt": escalation.prompt,
+                "reviewer_prompt_sha256": escalation.prompt_sha256,
+                "predecision_source_commitments": [
+                    dict(commitment)
+                    for commitment in escalation.predecision_source_commitments
+                ],
+                "failed_attempts": [
+                    dict(attempt) for attempt in escalation.failed_attempts
+                ],
+            },
+            "terminal_escalation_sha256": escalation.escalation_sha256,
+            "raw_prediction_units_sha256": escalation.raw_prediction_units_sha256,
+            "reviewer_model_key": escalation.reviewer_model_key,
+            "model_registry_sha256": escalation.model_registry_sha256,
+            **({"terminal_escalation_receipt": receipt} if receipt else {}),
+        }
+        for unit in escalation.frozen_units
+    )
+
+
+def structural_review_terminal_escalation_audit_record(
+    escalation: LlmStageAStructuralReviewTerminalEscalation,
+    *,
+    receipt_commitment: Mapping[str, Any],
+) -> JsonRecord:
+    """Build the replayable no-provider audit row for a terminal escalation."""
+
+    receipt = dict(receipt_commitment)
+    if set(receipt) != {"path", "sha256"}:
+        raise LlmPipelineError("terminal escalation receipt commitment is invalid")
+    return {
+        "stage": "llm-review-stage-a",
+        "status": "terminal_escalation",
+        "candidate_id": escalation.candidate_id,
+        "case_id": escalation.case_id,
+        "model_key": escalation.reviewer_model_key,
+        "model_registry_sha256": escalation.model_registry_sha256,
+        "raw_prediction_units_sha256": escalation.raw_prediction_units_sha256,
+        "prompt_sha256": escalation.prompt_sha256,
+        "structural_flags_sha256": canonical_records_sha256(()),
+        "flag_count": 0,
+        "terminal_escalation": escalation.to_record(),
+        "terminal_escalation_sha256": escalation.escalation_sha256,
+        "terminal_escalation_receipt": receipt,
+    }
+
+
 def llm_review_stage_a_units(
     *,
     selection_records: Iterable[Mapping[str, Any]],
@@ -702,6 +930,11 @@ def llm_review_stage_a_units(
     provider_cycle_caps_sha256: str | None = None,
     provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None = None,
     provider_accounts: Mapping[str, str] | None = None,
+    terminal_escalations: Mapping[
+        str,
+        tuple[LlmStageAStructuralReviewTerminalEscalation, Mapping[str, Any]],
+    ]
+    | None = None,
 ) -> LlmBatchResult:
     """Flag structural defects without permitting the reviewer to rewrite Stage A."""
 
@@ -721,6 +954,12 @@ def llm_review_stage_a_units(
     }
     records: list[JsonRecord] = []
     audits: list[JsonRecord] = []
+    terminal_queue_records: list[JsonRecord] = []
+    terminal_by_candidate = dict(terminal_escalations or {})
+    if not set(terminal_by_candidate) <= {
+        _required_str(selection, "candidate_id") for selection in selections
+    }:
+        raise LlmPipelineError("terminal escalation contains an unselected candidate")
     for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
         documents = _predecision_documents(
@@ -732,6 +971,55 @@ def llm_review_stage_a_units(
         if not units:
             raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
         prompt = prompt_by_candidate[candidate_id]
+        raw_record = next(
+            record
+            for record in raw_unit_records
+            if _required_str(record, "candidate_id") == candidate_id
+        )
+        raw_sha = canonical_sha256(raw_record)
+        terminal = terminal_by_candidate.get(candidate_id)
+        if terminal is not None:
+            escalation, receipt_commitment = terminal
+            expected_sources = tuple(
+                {
+                    "source_document_id": document.source_document_id,
+                    "document_role": document.document_role.value,
+                    "docket_entry_number": document.docket_entry_number,
+                    "description": document.description,
+                    "markdown_sha256": "sha256:"
+                    + hashlib.sha256(document.markdown.encode("utf-8")).hexdigest(),
+                }
+                for document in documents
+            )
+            if (
+                escalation.candidate_id != candidate_id
+                or escalation.case_id != _required_str(selection, "case_id")
+                or escalation.reviewer_model_key != registry_entry.registry_key
+                or escalation.model_registry_sha256
+                != (model_registry_sha256 or "unrecorded")
+                or escalation.raw_prediction_units_sha256 != raw_sha
+                or escalation.prompt != prompt
+                or escalation.prompt_sha256
+                != hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+                or escalation.frozen_units != tuple(unit.to_record() for unit in units)
+                or escalation.predecision_source_commitments != expected_sources
+            ):
+                raise LlmPipelineError(
+                    "terminal escalation does not match Stage A input"
+                )
+            terminal_queue_records.extend(
+                structural_review_terminal_escalation_queue_records(
+                    escalation,
+                    receipt_commitment=receipt_commitment,
+                )
+            )
+            audits.append(
+                structural_review_terminal_escalation_audit_record(
+                    escalation,
+                    receipt_commitment=receipt_commitment,
+                )
+            )
+            continue
         journal = _provider_attempt_journal(
             path=provider_journal_path,
             stage="llm-review-stage-a",
@@ -783,12 +1071,6 @@ def llm_review_stage_a_units(
         finally:
             if journal is not None:
                 journal.close()
-        raw_record = next(
-            record
-            for record in raw_unit_records
-            if _required_str(record, "candidate_id") == candidate_id
-        )
-        raw_sha = canonical_sha256(raw_record)
         candidate_flag_records = list(
             stage_a_structural_flag_records(
                 candidate_id=candidate_id,
@@ -819,7 +1101,11 @@ def llm_review_stage_a_units(
                 **_response_audit_fields(response),
             }
         )
-    return LlmBatchResult(records=tuple(records), audit_records=tuple(audits))
+    return LlmBatchResult(
+        records=tuple(records),
+        audit_records=tuple(audits),
+        terminal_review_queue_records=tuple(terminal_queue_records),
+    )
 
 
 def stage_a_structural_review_prompt_records(
@@ -932,6 +1218,59 @@ def merge_structural_flags_into_review_queue(
                 }
             )
             existing_ids.add(review_id)
+    return tuple(merged)
+
+
+def merge_stage_a_review_queue(
+    queue_records: Iterable[Mapping[str, Any]],
+    flag_records: Iterable[Mapping[str, Any]],
+    terminal_queue_records: Iterable[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Union ordinary flags and terminal evidence into one consumable queue row/unit."""
+
+    merged = list(merge_structural_flags_into_review_queue(queue_records, flag_records))
+    existing_by_id = {
+        _required_str(record, "review_id"): dict(record) for record in merged
+    }
+    review_indexes_by_unit: dict[tuple[str, str], list[int]] = {}
+    for index, record in enumerate(merged):
+        key = (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "unit_id"),
+        )
+        review_indexes_by_unit.setdefault(key, []).append(index)
+    for terminal_record in terminal_queue_records:
+        record = dict(terminal_record)
+        review_id = _required_str(record, "review_id")
+        existing = existing_by_id.get(review_id)
+        if existing is not None:
+            if existing != record:
+                raise LlmPipelineError("terminal escalation review queue conflict")
+            continue
+        key = (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "unit_id"),
+        )
+        matching_indexes = review_indexes_by_unit.get(key, [])
+        if len(matching_indexes) > 1:
+            raise LlmPipelineError(
+                "terminal escalation cannot coalesce ambiguous unit reviews"
+            )
+        if matching_indexes:
+            index = matching_indexes[0]
+            existing_review = dict(merged[index])
+            existing_terminal = existing_review.get("terminal_escalation")
+            if existing_terminal is not None and existing_terminal != record:
+                raise LlmPipelineError("terminal escalation review queue conflict")
+            existing_review["terminal_escalation"] = record
+            merged[index] = existing_review
+            existing_by_id[_required_str(existing_review, "review_id")] = (
+                existing_review
+            )
+            continue
+        merged.append(record)
+        existing_by_id[review_id] = record
+        review_indexes_by_unit.setdefault(key, []).append(len(merged) - 1)
     return tuple(merged)
 
 

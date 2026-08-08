@@ -112,6 +112,10 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [provenance-public-marker-clearance-v1.md](schemas/provenance-public-marker-clearance-v1.md): policy-bound provider-free clearance for exact recovered-public marker-only rows.
 - [provenance-quarantine-clearance-v1.md](schemas/provenance-quarantine-clearance-v1.md): the provider-free terminal alternative to exception review for a v3 routing plan.
 
+**Stage A review and labeling**
+
+- [llm-stage-a-structural-review-terminal-escalation-v1.md](schemas/llm-stage-a-structural-review-terminal-escalation-v1.md): the provider-free, replay-authenticated John-review route after two byte-identical invalid structural-review responses.
+
 **Evaluation policy**
 
 - [evaluation-policy-artifacts-v1.md](schemas/evaluation-policy-artifacts-v1.md): how decisions made before labeling or acquisition are separated from facts observed later.

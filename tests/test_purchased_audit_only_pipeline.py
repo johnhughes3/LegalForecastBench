@@ -333,6 +333,323 @@ def test_structural_review_reconstruction_cli_preserves_completed_run_card_on_re
     assert calls == 2
 
 
+def test_terminalize_structural_review_cli_writes_provider_free_receipt(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """The terminal route verifies unchanged rows and writes no provider state."""
+
+    output_root = tmp_path / "terminalize"
+    receipt_path = output_root / "receipt.json"
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    journal_path.write_bytes(b"journal fixture")
+    selection_path = tmp_path / "selection.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    units_path = tmp_path / "units.jsonl"
+    queue_path = tmp_path / "queue.jsonl"
+    unitization_card = tmp_path / "unitize.json"
+    registry_path = tmp_path / "reviewer-registry.json"
+    caps_path = tmp_path / "caps.json"
+    candidate_id = "72270301"
+    selection = {"candidate_id": candidate_id, "case_id": "case-1"}
+    lineage = SimpleNamespace(
+        selection_records=(selection,),
+        parser_records=(),
+        provider_journal_path=journal_path,
+        provider_caps=SimpleNamespace(
+            cap_usd=lambda provider: 200.0,
+            providers={"google": SimpleNamespace(account=None)},
+        ),
+        provider_caps_sha256="2" * 64,
+        cohort_cycle_id="cycle-1",
+        markdown_bytes={},
+    )
+    registry_entry = SimpleNamespace(registry_key="google:reviewer", provider="google")
+    provider_rows = (
+        {
+            "stage": "llm-review-stage-a",
+            "candidate_id": candidate_id,
+            "status": "reconstruction_failed",
+        },
+    )
+    receipt: JsonRecord = {
+        "schema_version": str(
+            llm_pipeline.LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1
+        ),
+        "candidate_id": candidate_id,
+    }
+    completion_calls: list[dict[str, Any]] = []
+
+    monkeypatch.setattr(
+        cli,
+        "_verified_shared_provider_chain",
+        lambda *args, **kwargs: (lineage, unitization_card),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_registry_entry_for_key",
+        lambda *args, **kwargs: (registry_entry, "1" * 64),
+    )
+    monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", lambda lineage: None)
+    monkeypatch.setattr(
+        cli,
+        "_provider_stage_attempt_rows",
+        lambda path, *, stage: provider_rows,
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_llm_stage_a_structural_review_terminal_escalation",
+        lambda **kwargs: SimpleNamespace(to_record=lambda: receipt),
+    )
+    monkeypatch.setattr(cli, "_read_records", lambda path: [])
+    monkeypatch.setattr(
+        cli,
+        "_write_or_verify_immutable_recovery_completion",
+        lambda args, **kwargs: completion_calls.append(kwargs),
+    )
+    args = Namespace(
+        execute=True,
+        provider_authority_table=None,
+        output_root=output_root,
+        terminal_escalation_output=receipt_path,
+        resume=False,
+        selection=selection_path,
+        parser_manifest=parser_path,
+        prediction_units=units_path,
+        unitization_review_queue=queue_path,
+        markdown_root=tmp_path / "markdown",
+        model_registry=registry_path,
+        model_key="google:reviewer",
+        candidate_id=candidate_id,
+        provider_cycle_caps=caps_path,
+    )
+
+    assert cli._cmd_acquisition_terminalize_llm_review_stage_a(args) == 0
+    assert json.loads(receipt_path.read_text(encoding="utf-8")) == receipt
+    assert completion_calls == [
+        {
+            "stage": "terminalize-llm-review-stage-a-reconstruction",
+            "input_paths": (
+                selection_path,
+                parser_path,
+                units_path,
+                queue_path,
+                unitization_card,
+                registry_path,
+                caps_path,
+                journal_path,
+            ),
+            "output_paths": (receipt_path,),
+            "extra": {},
+        }
+    ]
+
+
+def test_verified_terminal_escalations_rebuilds_the_exact_receipt(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """A later resume accepts only a receipt reconstructed from the journal."""
+
+    candidate_id = "72270301"
+    receipt_path = tmp_path / "receipt.json"
+    receipt: JsonRecord = {
+        "schema_version": str(
+            llm_pipeline.LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1
+        ),
+        "candidate_id": candidate_id,
+    }
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    lineage = SimpleNamespace(
+        selection_records=({"candidate_id": candidate_id, "case_id": "case-1"},),
+        parser_records=(),
+        provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+        provider_caps=SimpleNamespace(
+            cap_usd=lambda provider: 200.0,
+            providers={"google": SimpleNamespace(account=None)},
+        ),
+        provider_caps_sha256="2" * 64,
+        cohort_cycle_id="cycle-1",
+        markdown_bytes={},
+    )
+    registry_entry = SimpleNamespace(registry_key="google:reviewer", provider="google")
+    monkeypatch.setattr(cli, "_read_records", lambda path: [])
+    monkeypatch.setattr(
+        cli,
+        "build_llm_stage_a_structural_review_terminal_escalation",
+        lambda **kwargs: SimpleNamespace(to_record=lambda: receipt),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_stage_a_file_commitment",
+        lambda path: {"path": str(path), "sha256": "a" * 64},
+    )
+
+    verified = cli._verified_stage_a_terminal_escalations(
+        receipt_paths=(receipt_path,),
+        lineage=lineage,
+        prediction_units_path=tmp_path / "units.jsonl",
+        markdown_root=tmp_path / "markdown",
+        registry_entry=registry_entry,
+        registry_sha256="1" * 64,
+    )
+
+    escalation, commitment = verified[candidate_id]
+    assert escalation.to_record() == receipt
+    assert commitment == {"path": str(receipt_path), "sha256": "a" * 64}
+    with pytest.raises(
+        cli.CommandError, match="duplicate Stage A terminal escalation receipt"
+    ):
+        cli._verified_stage_a_terminal_escalations(
+            receipt_paths=(receipt_path, receipt_path),
+            lineage=lineage,
+            prediction_units_path=tmp_path / "units.jsonl",
+            markdown_root=tmp_path / "markdown",
+            registry_entry=registry_entry,
+            registry_sha256="1" * 64,
+        )
+    invalid_schema_path = tmp_path / "invalid-schema-receipt.json"
+    invalid_schema_path.write_text(
+        json.dumps({**receipt, "schema_version": "invalid"}), encoding="utf-8"
+    )
+    with pytest.raises(cli.CommandError, match="receipt schema is invalid"):
+        cli._verified_stage_a_terminal_escalations(
+            receipt_paths=(invalid_schema_path,),
+            lineage=lineage,
+            prediction_units_path=tmp_path / "units.jsonl",
+            markdown_root=tmp_path / "markdown",
+            registry_entry=registry_entry,
+            registry_sha256="1" * 64,
+        )
+    monkeypatch.setattr(
+        cli,
+        "build_llm_stage_a_structural_review_terminal_escalation",
+        lambda **kwargs: SimpleNamespace(
+            to_record=lambda: {**receipt, "changed": True}
+        ),
+    )
+    with pytest.raises(cli.CommandError, match="receipt changed"):
+        cli._verified_stage_a_terminal_escalations(
+            receipt_paths=(receipt_path,),
+            lineage=lineage,
+            prediction_units_path=tmp_path / "units.jsonl",
+            markdown_root=tmp_path / "markdown",
+            registry_entry=registry_entry,
+            registry_sha256="1" * 64,
+        )
+
+
+def test_terminal_escalation_builder_and_queue_fail_closed_on_invalid_inputs(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """Provider-free terminal handling rejects malformed source and queue evidence."""
+
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    builder_kwargs = {
+        "selection_record": _selection(),
+        "parser_records": (),
+        "markdown_root": tmp_path / "markdown",
+        "markdown_bytes": None,
+        "registry_entry": registry_entry,
+        "model_registry_sha256": "b" * 64,
+        "provider_journal_path": tmp_path / "provider-attempts.sqlite3",
+        "provider_cycle_cap_usd": 100.0,
+        "provider_cycle_id": "cycle-1",
+        "provider_cycle_caps_sha256": "sha256:" + "c" * 64,
+        "provider_account": "default",
+    }
+    monkeypatch.setattr(llm_pipeline, "_predecision_documents", lambda *a, **k: ())
+    monkeypatch.setattr(
+        llm_pipeline, "_stage_a_structural_review_prompt", lambda *a, **k: "prompt"
+    )
+    for records, message in (
+        ((_prediction_units(), _prediction_units()), "duplicate raw Stage A"),
+        ((), "no raw Stage A"),
+        (({**_prediction_units(), "prediction_units": []},), "no Stage A units"),
+    ):
+        with pytest.raises(llm_pipeline.LlmPipelineError, match=message):
+            llm_pipeline.build_llm_stage_a_structural_review_terminal_escalation(
+                **builder_kwargs,
+                prediction_unit_records=records,
+            )
+    monkeypatch.setattr(
+        llm_pipeline, "_provider_attempt_journal", lambda **kwargs: None
+    )
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="requires a journal"):
+        llm_pipeline.build_llm_stage_a_structural_review_terminal_escalation(
+            **builder_kwargs,
+            prediction_unit_records=(_prediction_units(),),
+        )
+
+    escalation = SimpleNamespace(
+        candidate_id="cand-1",
+        case_id="case-1",
+        escalation_sha256="a" * 64,
+        prompt="prompt",
+        prompt_sha256="b" * 64,
+        frozen_units=({"unit_id": "unit-1"},),
+        predecision_source_commitments=(),
+        failed_attempts=(),
+        raw_prediction_units_sha256="c" * 64,
+        reviewer_model_key="google:reviewer",
+        model_registry_sha256="d" * 64,
+    )
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="receipt commitment"):
+        llm_pipeline.structural_review_terminal_escalation_queue_records(
+            escalation,
+            receipt_commitment={"path": "receipt.json"},
+        )
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="receipt commitment"):
+        llm_pipeline.structural_review_terminal_escalation_audit_record(
+            escalation,
+            receipt_commitment={"path": "receipt.json"},
+        )
+
+
+def test_terminal_queue_merge_fails_closed_for_conflicting_or_ambiguous_reviews() -> (
+    None
+):
+    """A terminal route never silently chooses between already-pending reviews."""
+
+    terminal = {
+        "schema_version": "legalforecast.unitization_review_queue.v1",
+        "status": "pending_adjudication",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "unit_id": "unit-1",
+        "review_id": "cand-1:unit-1:structural-terminal:abcdefgh",
+    }
+    assert llm_pipeline.merge_stage_a_review_queue((), (), (terminal,)) == (terminal,)
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="queue conflict"):
+        llm_pipeline.merge_stage_a_review_queue(
+            ({**terminal, "status": "different"},),
+            (),
+            (terminal,),
+        )
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="ambiguous unit reviews"):
+        llm_pipeline.merge_stage_a_review_queue(
+            (
+                {**terminal, "review_id": "review-a"},
+                {**terminal, "review_id": "review-b"},
+            ),
+            (),
+            (terminal,),
+        )
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="queue conflict"):
+        llm_pipeline.merge_stage_a_review_queue(
+            (
+                {
+                    **terminal,
+                    "review_id": "construction-review",
+                    "terminal_escalation": {"different": True},
+                },
+            ),
+            (),
+            (terminal,),
+        )
+
+
 @pytest.mark.parametrize("provider_account", ("default", "primary"))
 def test_unitization_reconstruction_recovers_latest_journal_response_without_provider(
     tmp_path: Path,
@@ -828,6 +1145,206 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
             "SELECT status, actual_cost_usd FROM provider_attempts "
             "WHERE attempt_ordinal = 1"
         ).fetchone() == ("settled", pytest.approx(0.02))
+
+
+def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_call(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """Two identical invalid reviewer responses route John, never a flag."""
+
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    response = SolverResponse(
+        raw_output=json.dumps(
+            {
+                "structural_flags": [
+                    {
+                        "flag_type": "omitted",
+                        "affected_unit_ids": ["unit-1"],
+                        "source_document_ids": ["complaint"],
+                        "explanation": "The response tries to flag a missing unit.",
+                        "citation_excerpt": "not in the blinded source",
+                    }
+                ]
+            }
+        ),
+        input_tokens=11,
+        output_tokens=6,
+        estimated_cost=0.02,
+    )
+    provider_calls = 0
+
+    def completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        nonlocal provider_calls
+        provider_calls += 1
+        handler = kwargs["attempt_handler"]
+        handler.run_attempt(1, lambda: {"fixture": "identical-invalid-response"})
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", completion)
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    for _ in range(2):
+        with pytest.raises(
+            llm_pipeline.LlmResponseValidationError,
+            match="citation_excerpt does not appear",
+        ):
+            llm_pipeline.llm_review_stage_a_units(
+                selection_records=(_selection(),),
+                parser_records=parser_records,
+                prediction_unit_records=(_prediction_units(),),
+                markdown_root=markdown_root,
+                registry_entry=registry_entry,
+                model_registry_sha256="b" * 64,
+                provider_journal_path=journal_path,
+                provider_cycle_cap_usd=100.0,
+                provider_cycle_id="cycle-1",
+                provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            )
+
+    escalation = llm_pipeline.build_llm_stage_a_structural_review_terminal_escalation(
+        selection_record=_selection(),
+        parser_records=parser_records,
+        prediction_unit_records=(_prediction_units(),),
+        markdown_root=markdown_root,
+        markdown_bytes=None,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_account="default",
+    )
+
+    assert provider_calls == 2
+    assert [row["attempt_ordinal"] for row in escalation.failed_attempts] == [1, 2]
+    assert len(escalation.frozen_units) == 1
+    queue = llm_pipeline.structural_review_terminal_escalation_queue_records(escalation)
+    assert len(queue) == 1
+    assert queue[0]["route_reason"] == (
+        "structural_reviewer_terminal_reconstruction_failure"
+    )
+    assert queue[0]["review_item"]["reviewer_prompt"] == escalation.prompt
+    assert queue[0]["review_item"]["frozen_unit"] == escalation.frozen_units[0]
+    assert "structural_flags" not in queue[0]
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        lambda *args, **kwargs: pytest.fail(
+            "terminal escalation must not issue a third provider call"
+        ),
+    )
+    receipt_commitment = {
+        "path": str(tmp_path / "receipt.json"),
+        "sha256": "d" * 64,
+    }
+    resumed = llm_pipeline.llm_review_stage_a_units(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        prediction_unit_records=(_prediction_units(),),
+        markdown_root=markdown_root,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        terminal_escalations={
+            "cand-1": (
+                escalation,
+                receipt_commitment,
+            )
+        },
+    )
+    assert resumed.records == ()
+    assert resumed.audit_records[0]["status"] == "terminal_escalation"
+    assert resumed.terminal_review_queue_records == (
+        llm_pipeline.structural_review_terminal_escalation_queue_records(
+            escalation,
+            receipt_commitment=receipt_commitment,
+        )
+    )
+    construction_queue = (
+        {
+            "schema_version": "legalforecast.unitization_review_queue.v1",
+            "status": "pending_adjudication",
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "unit_id": "unit-1",
+            "review_id": "cand-1:unit-1:stage-a-review",
+            "route_reason": "unclear_claim_or_defendant",
+            "review_item": {
+                "unit_id": "unit-1",
+                "reason": "unclear_claim_or_defendant",
+                "notes": "Construction review remains pending.",
+            },
+        },
+    )
+    merged_queue = llm_pipeline.merge_stage_a_review_queue(
+        construction_queue,
+        (),
+        resumed.terminal_review_queue_records,
+    )
+    assert len(merged_queue) == 1
+    assert merged_queue[0]["review_id"] == "cand-1:unit-1:stage-a-review"
+    assert merged_queue[0]["route_reason"] == "unclear_claim_or_defendant"
+    assert (
+        merged_queue[0]["terminal_escalation"]
+        == (resumed.terminal_review_queue_records[0])
+    )
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=(_prediction_units(),),
+        review_records=merged_queue,
+        adjudication_records=(
+            {
+                "schema_version": "legalforecast.unitization_adjudication.v1",
+                "adjudication_id": "terminal-escalation-adjudication",
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "review_ids": ["cand-1:unit-1:stage-a-review"],
+                "source_unit_ids": ["unit-1"],
+                "disposition": "ACCEPT",
+                "finalized_units": [],
+                "adjudicator_id": "john-hughes",
+                "adjudication_notes": "Reviewed blinded Stage A materials.",
+            },
+        ),
+    )
+    assert finalized[0]["status"] == "finalized"
+    assert finalized[0]["prediction_units"][0]["unit_id"] == "unit-1"
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT attempt_ordinal, status, actual_cost_usd FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall() == [
+            (1, "reconstruction_failed", pytest.approx(0.02)),
+            (2, "reconstruction_failed", pytest.approx(0.02)),
+        ]
 
 
 def test_conflicting_unitization_scope_routes_to_blinded_review_without_retry(
