@@ -70,9 +70,6 @@ def test_cli_placeholder_prints_help(capsys) -> None:
     captured = capsys.readouterr()
     assert "LegalForecast-MTD benchmark utilities" in captured.out
     assert "preregistration" not in captured.out.lower()
-
-
-def test_deprecated_preregistration_modules_are_absent() -> None:
     assert importlib.util.find_spec("legalforecast.protocol.evaluation_gate") is None
     assert importlib.util.find_spec("legalforecast.protocol.preregistration") is None
 

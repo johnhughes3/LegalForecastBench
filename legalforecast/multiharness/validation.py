@@ -9,13 +9,13 @@ from typing import Any, cast
 
 from legalforecast._hashing import is_sha256_digest
 
-DEPRECATED_RESULT_TIER_FIELDS = frozenset(
+LEGACY_PUBLIC_CLASSIFICATION_FIELDS = frozenset(
     {
         "result_tier",
         "tier",
     }
 )
-DEPRECATED_RESULT_TIER_VALUES = frozenset(
+LEGACY_PUBLIC_CLASSIFICATION_VALUES = frozenset(
     {
         "official",
         "verified-community",
@@ -269,13 +269,13 @@ def _scan_public_value(value: Any, path: str) -> None:
 
 def _validate_public_key(key: str, path: str) -> None:
     normalized = key.strip().lower().replace("_", "-")
-    if key.lower() in DEPRECATED_RESULT_TIER_FIELDS:
+    if key.lower() in LEGACY_PUBLIC_CLASSIFICATION_FIELDS:
         raise MultiHarnessValidationError(
-            f"{path} uses deprecated result-tier field {key!r}"
+            f"{path} uses prohibited legacy public classification field {key!r}"
         )
-    if normalized in DEPRECATED_RESULT_TIER_VALUES:
+    if normalized in LEGACY_PUBLIC_CLASSIFICATION_VALUES:
         raise MultiHarnessValidationError(
-            f"{path} uses deprecated result-tier value {key!r}"
+            f"{path} uses prohibited legacy public classification value {key!r}"
         )
     if SECRET_FIELD_PATTERN.search(key) is not None:
         raise MultiHarnessValidationError(f"{path} looks like a secret field")
@@ -285,9 +285,9 @@ def _validate_public_key(key: str, path: str) -> None:
 
 def _validate_public_string(value: str, path: str) -> None:
     normalized = value.strip().lower().replace("_", "-")
-    if normalized in DEPRECATED_RESULT_TIER_VALUES:
+    if normalized in LEGACY_PUBLIC_CLASSIFICATION_VALUES:
         raise MultiHarnessValidationError(
-            f"{path} uses deprecated result-tier value {value!r}"
+            f"{path} uses prohibited legacy public classification value {value!r}"
         )
     for name, pattern in SECRET_VALUE_PATTERNS:
         if pattern.search(value) is not None:

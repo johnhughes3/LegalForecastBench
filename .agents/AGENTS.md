@@ -21,7 +21,7 @@ This benchmark is intentionally **not** adopting:
 - Preregistration protocols
 - Result-tier classification (official / verified-community / community-unverified / alpha-non-canonical)
 
-Existing code and tests that reference those concepts are deprecated and scheduled for removal; do not add new dependencies on them. The **acquisition** and **withdrawal** code paths are kept — acquisition is core pipeline, withdrawal handles sealed/redacted cases.
+Legacy references to those concepts have been removed from the supported tree; do not add new dependencies on them. The **acquisition** and **withdrawal** code paths are kept — acquisition is core pipeline, withdrawal handles sealed/redacted cases.
 
 ## Quick Reference
 

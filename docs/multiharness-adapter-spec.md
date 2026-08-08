@@ -17,7 +17,7 @@ Canonical records live in `legalforecast.multiharness.spec`.
 - `ConformanceReport`: fixture-only adapter conformance result.
 - `CommunitySubmission` and `CommunityAggregate`: reviewed community metadata and generated comparison bundles. Community package files use the versioned schemas in `legalforecast.multiharness.community`.
 
-All public records are scanned by multi-harness validation for secret-like fields, provider account IDs, deprecated result-tier fields, and banned values such as `verified-community`, `community-unverified`, and `alpha-non-canonical`.
+All public records are scanned by multi-harness validation for secret-like fields, provider account IDs, and removed legacy publication-classification fields or values.
 
 ## Task Index Examples
 
