@@ -9,6 +9,7 @@ from typing import cast
 import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import provenance_clearance as provenance_module
+from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion import resolved_post_recovery as resolved_module
 from legalforecast.ingestion.replacement_recovery_source import (
     ReplacementRecoverySourceError,
@@ -173,6 +174,59 @@ def test_lineage_derivation_normalizes_replay_errors(
             expected_case_relevance_path=expected_paths["case_relevance_path"],
             expected_review_requests_path=expected_paths["review_requests_path"],
             expected_document_root=expected_paths["document_root"],
+        )
+
+
+def test_recovered_public_raw_helper_normalizes_cli_command_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "_read_singly_linked_regular_input",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(cli.CommandError("boom")),
+    )
+
+    with pytest.raises(ValueError, match="boom"):
+        replay_module.authenticate_recovered_public_raw_evidence(
+            recovery_root=tmp_path / "recovery",
+            run_card_path=tmp_path / "run-card.json",
+            selection_path=tmp_path / "selection.jsonl",
+            purchase_policy_path=tmp_path / "policy.json",
+            cohort_policy_path=tmp_path / "cohort.json",
+            ledger_path=tmp_path / "ledger.sqlite3",
+            initialization_receipt_path=tmp_path / "receipt.json",
+            controlled_private_root=tmp_path / "private",
+        )
+
+
+def test_recovered_public_lineage_helper_normalizes_cli_command_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    expected_manifest_path = tmp_path / "manifest.jsonl"
+    expected_restriction_path = tmp_path / "restrictions.jsonl"
+    run_card_path = tmp_path / "run-card.json"
+    recovery = {
+        "verified_artifact_bytes": {
+            str(run_card_path.resolve()): b"{}",
+            str(expected_manifest_path.resolve()): b"[]",
+            str(expected_restriction_path.resolve()): b"[]",
+        },
+        "manifest_records": (),
+        "run_card_path": run_card_path,
+    }
+    monkeypatch.setattr(
+        cli,
+        "_projection_json_object",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(cli.CommandError("boom2")),
+    )
+
+    with pytest.raises(ValueError, match="boom2"):
+        replay_module.derive_recovered_public_lineage_rows(
+            recovery,
+            expected_manifest_path=expected_manifest_path,
+            expected_restriction_path=expected_restriction_path,
         )
 
 
