@@ -18,6 +18,12 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
 
+from legalforecast.contracts import (
+    TARGET_RAW_DOCKET_RECOVERY_PLAN_V1,
+    TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
+    TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
+    TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
+)
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     acquire_ranked_dockets,
     render_complete_docket_html,
@@ -31,17 +37,11 @@ from legalforecast.ingestion.firecrawl_screening_identity import (
     snapshot_firecrawl_screening_source_count,
 )
 
-TARGET_RAW_DOCKET_RECOVERY_PLAN_SCHEMA = (
-    "legalforecast.target_raw_docket_recovery_plan.v1"
-)
-TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA = (
-    "legalforecast.target_raw_docket_recovery_summary.v1"
-)
-TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA = (
-    "legalforecast.target_raw_docket_recovery_receipt.v1"
-)
-TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA = (
-    "legalforecast.target_raw_docket_recovery_provenance.v1"
+TARGET_RAW_DOCKET_RECOVERY_PLAN_SCHEMA = str(TARGET_RAW_DOCKET_RECOVERY_PLAN_V1)
+TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA = str(TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1)
+TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA = str(TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1)
+TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA = str(
+    TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1
 )
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _DOCKET_ID = re.compile(r"[1-9][0-9]*\Z")

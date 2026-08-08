@@ -831,7 +831,9 @@ from legalforecast.ingestion.target_public_gap_refresh import (
 from legalforecast.ingestion.target_raw_docket_recovery import (
     TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA,
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
+    TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
     TargetRawDocketRecoveryError,
+    TargetRawDocketRecoveryPlan,
     build_target_raw_docket_recovery_plan,
     execute_target_raw_docket_recovery,
     load_target_raw_docket_recovery_plan,
@@ -21236,6 +21238,83 @@ def _verify_target_raw_recovery_page_residue(
             )
 
 
+def _verify_target_raw_recovery_terminal_residue(
+    *,
+    store: CycleAcquisitionStore,
+    plan: TargetRawDocketRecoveryPlan,
+    raw_html_dir: Path,
+) -> None:
+    """Reconstruct partial terminal HTML from durable pages without a provider."""
+
+    if not raw_html_dir.exists():
+        return
+    root_entries = tuple(
+        entry for entry in raw_html_dir.iterdir() if entry.name != "pages"
+    )
+    if not root_entries:
+        return
+    if any(
+        not entry.is_file()
+        or entry.is_symlink()
+        or entry.stat().st_nlink != 1
+        or entry.suffix != ".html"
+        or not entry.stem.isdigit()
+        for entry in root_entries
+    ):
+        raise TargetRawDocketRecoveryError(
+            "raw HTML terminal residue contains an unrecognized entry"
+        )
+    offline_source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(
+            api_key="resume-preflight",
+            proxy=cast(FirecrawlProxy, plan.proxy),
+            force_browser=plan.force_browser,
+        ),
+        transport=FirecrawlFixtureTransport([]),
+    )
+    residue_docket_ids = {entry.stem for entry in root_entries}
+    residue_targets = tuple(
+        target
+        for target in plan.targets
+        if str(target.get("candidate_id", "")).removeprefix("courtlistener-docket-")
+        in residue_docket_ids
+    )
+    if len(residue_targets) != len(residue_docket_ids):
+        raise TargetRawDocketRecoveryError(
+            "raw HTML terminal residue is outside the authenticated plan"
+        )
+    try:
+        replay = acquire_ranked_dockets(
+            records=residue_targets,
+            scheduler=BudgetedFirecrawlScheduler(
+                store=store,
+                source=offline_source,
+                run_id=plan.run_id,
+                artifact_dir=raw_html_dir / "pages",
+                max_attempts=plan.max_attempts_per_page,
+                provider_5xx_circuit_threshold=plan.provider_breaker_threshold,
+                max_workers=1,
+            ),
+            limit=len(residue_targets),
+            max_pages_per_docket=plan.max_pages_per_docket,
+            decision_anchor=None,
+        )
+    except (AssertionError, FirecrawlError) as exc:
+        raise TargetRawDocketRecoveryError(
+            "raw HTML terminal residue is not backed by a complete durable run"
+        ) from exc
+    expected = {
+        bundle.docket_id: render_complete_docket_html(bundle).encode()
+        for bundle in replay.bundles
+    }
+    for entry in root_entries:
+        payload = expected.get(entry.stem)
+        if payload is None or entry.read_bytes() != payload:
+            raise TargetRawDocketRecoveryError(
+                f"raw HTML terminal residue differs from durable pages: {entry.stem}"
+            )
+
+
 def _verify_target_raw_recovery_store_authority(
     *,
     store: CycleAcquisitionStore,
@@ -21352,7 +21431,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
         protected_paths=protected_paths,
         writable_paths=terminal_paths,
         raw_html_dir=cast(Path, args.raw_html_dir),
-        allow_completed_raw_files=completed_resume,
+        allow_completed_raw_files=cast(bool, args.resume),
     )
     live = cast(bool, args.live_firecrawl)
     fixture = cast(Path | None, args.firecrawl_fixture)
@@ -21385,7 +21464,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
         )
         if _acquisition_dry_run(args):
             summary: JsonRecord = {
-                "schema_version": "legalforecast.target_raw_docket_recovery_summary.v1",
+                "schema_version": TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
                 "dry_run": True,
                 "target_count": len(plan.targets),
                 "provider_activity_requested": False,
@@ -21487,6 +21566,11 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
                 _verify_target_raw_recovery_page_residue(
                     store=store,
                     run_id=plan.run_id,
+                    raw_html_dir=raw_dir,
+                )
+                _verify_target_raw_recovery_terminal_residue(
+                    store=store,
+                    plan=plan,
                     raw_html_dir=raw_dir,
                 )
             materialize_selected_slice_batch(

@@ -49,6 +49,18 @@ REPLACEMENT_RECOVERY_SOURCE_RUN_CARD_V2 = SchemaIdentifier(
 RESOLVED_POST_RECOVERY_PUBLIC_DOCUMENT_V4 = SchemaIdentifier(
     "legalforecast.resolved_post_recovery_public_document.v4"
 )
+TARGET_RAW_DOCKET_RECOVERY_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.target_raw_docket_recovery_plan.v1"
+)
+TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1 = SchemaIdentifier(
+    "legalforecast.target_raw_docket_recovery_provenance.v1"
+)
+TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.target_raw_docket_recovery_receipt.v1"
+)
+TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1 = SchemaIdentifier(
+    "legalforecast.target_raw_docket_recovery_summary.v1"
+)
 
 # This registry names the current recovery vertical slice without changing any
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.

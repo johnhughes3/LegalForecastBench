@@ -505,6 +505,59 @@ def test_output_preflight_rejects_terminal_raw_residue_without_receipt(
         )
 
 
+def test_output_preflight_allows_safe_terminal_raw_residue_for_resume(
+    tmp_path: Path,
+) -> None:
+    args = _path_args(tmp_path)
+    raw_dir = args.output_root / "raw"
+    raw_dir.mkdir(parents=True)
+    (raw_dir / "200.html").write_text("durably reconstructed")
+
+    cli._preflight_target_raw_docket_recovery_paths(  # pyright: ignore[reportPrivateUsage]
+        args,
+        stage="fixture",
+        protected_paths=(tmp_path / "selection.jsonl",),
+        writable_paths=(args.output_root / "success.jsonl",),
+        raw_html_dir=raw_dir,
+        allow_completed_raw_files=True,
+    )
+
+
+def test_terminal_raw_residue_must_match_durable_page_reconstruction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    terminal = raw_dir / "200.html"
+    terminal.write_bytes(b"durably reconstructed")
+
+    def replay(**kwargs: object) -> SimpleNamespace:
+        assert tuple(kwargs["records"]) == plan.targets
+        return SimpleNamespace(bundles=(SimpleNamespace(docket_id="200"),))
+
+    monkeypatch.setattr(cli, "acquire_ranked_dockets", replay)
+    monkeypatch.setattr(
+        cli, "render_complete_docket_html", lambda bundle: "durably reconstructed"
+    )
+    with CycleAcquisitionStore(Path(plan.cycle_store_path)) as store:
+        store.ensure_cycle({"fixture": True})
+        cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
+            store=store,
+            plan=plan,
+            raw_html_dir=raw_dir,
+        )
+        terminal.write_bytes(b"changed")
+        with pytest.raises(
+            TargetRawDocketRecoveryError, match="differs from durable pages"
+        ):
+            cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
+                store=store,
+                plan=plan,
+                raw_html_dir=raw_dir,
+            )
+
+
 def test_output_preflight_rejects_pages_root_file(tmp_path: Path) -> None:
     args = _path_args(tmp_path)
     raw_dir = args.output_root / "raw"
