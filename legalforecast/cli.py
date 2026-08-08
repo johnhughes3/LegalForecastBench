@@ -609,6 +609,11 @@ from legalforecast.ingestion.purchase_approval import (
     resume_purchase_approval_recording,
     verify_purchase_approval,
 )
+from legalforecast.ingestion.purchase_spend_summary import (
+    PurchaseSpendSummaryError,
+    build_purchase_spend_summary,
+    write_purchase_spend_summary,
+)
 from legalforecast.ingestion.purchased_document_recovery import (
     PurchasedDocumentDownloadError,
     PurchasedDocumentRecoveryError,
@@ -2133,6 +2138,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_reconcile_purchase_arguments(acquisition_reconcile_purchase)
+    acquisition_summarize_purchase_spend = acquisition_subparsers.add_parser(
+        "summarize-purchase-spend",
+        help=(
+            "Provider-free immutable accounting of actual PACER charges, "
+            "cap-counted commitments, and unresolved billing."
+        ),
+    )
+    _add_summarize_purchase_spend_arguments(acquisition_summarize_purchase_spend)
     acquisition_export_cohort_observations = acquisition_subparsers.add_parser(
         "export-cohort-observations",
         help="Append complete cycle-store snapshots to the observation manifest.",
@@ -6451,6 +6464,36 @@ def _add_reconcile_purchase_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.set_defaults(handler=_cmd_reconcile_purchase)
+
+
+def _add_summarize_purchase_spend_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument(
+        "--purchase-ledger-initialization-receipt", type=Path, required=True
+    )
+    parser.add_argument(
+        "--controlled-private-root",
+        type=Path,
+        help=(
+            "Optional controlled private approval root for an additional "
+            "provenance replay. The published v2 policy remains authoritative "
+            "without it."
+        ),
+    )
+    parser.add_argument("--initial-purchase-result", type=Path, required=True)
+    parser.add_argument("--replacement-purchase-result", type=Path, required=True)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help=(
+            "Create-once purchase-spend summary sidecar. It never contacts a "
+            "provider or mutates the purchase ledger."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_summarize_purchase_spend)
 
 
 def _add_export_cohort_observations_arguments(parser: argparse.ArgumentParser) -> None:
@@ -30876,6 +30919,34 @@ def _cmd_reconcile_purchase(args: argparse.Namespace) -> int:
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_summarize_purchase_spend(args: argparse.Namespace) -> int:
+    try:
+        summary = build_purchase_spend_summary(
+            purchase_policy=cast(Path, args.purchase_policy),
+            cohort_policy=cast(Path, args.cohort_policy),
+            purchase_ledger=cast(Path, args.purchase_ledger),
+            purchase_ledger_initialization_receipt=cast(
+                Path, args.purchase_ledger_initialization_receipt
+            ),
+            controlled_private_root=cast(Path | None, args.controlled_private_root),
+            initial_purchase_result=cast(Path, args.initial_purchase_result),
+            replacement_purchase_result=cast(Path, args.replacement_purchase_result),
+        )
+        summary_sha256 = write_purchase_spend_summary(cast(Path, args.output), summary)
+    except (OSError, PurchaseSpendSummaryError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "output": str(cast(Path, args.output)),
+                "summary_sha256": summary_sha256,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 
