@@ -86,6 +86,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [retained-cohort-extension-v1.md](schemas/retained-cohort-extension-v1.md): the noncharging bridge from an executed 100-case root to a combined 150-case cohort.
 - [accepted-attempt-map-v1.md](schemas/accepted-attempt-map-v1.md): a committed post-execution selection amendment that does not modify the frozen inputs.
 - [zero-cost-successor-v1.md](schemas/zero-cost-successor-v1.md): provider-free authentication of the 99-case ranked-reserve precursor plus the first fully cleared candidate in the frozen zero-cost order.
+- [exact100-reserve-extension-v1.md](schemas/exact100-reserve-extension-v1.md): provider-free derivation of additional reserve capacity for an authenticated exact-100 successor whose frozen reserve cannot cover fresh disclosure quarantines.
 
 **Spend authority and purchase**
 
