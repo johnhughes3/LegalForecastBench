@@ -58806,8 +58806,8 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
             ),
             provider_cycle_id=lineage.cohort_cycle_id,
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
-            provider_account=lineage.provider_caps.account(
-                lineage.registry_entry.provider
+            provider_account=_local_provider_account(
+                lineage.provider_caps, lineage.registry_entry.provider
             ),
         )
     except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
@@ -59488,15 +59488,10 @@ def _provider_spend_authorities(
             raise CommandError(
                 "--local-provider-journal-only requires --provider-journal"
             )
-        try:
-            accounts = {
-                provider: provider_caps.providers[provider].account or "default"
-                for provider in sorted({value.lower() for value in providers})
-            }
-        except KeyError as exc:
-            raise CommandError(
-                f"provider cycle caps artifact has no entry for {exc.args[0]!r}"
-            ) from exc
+        accounts = {
+            provider: _local_provider_account(provider_caps, provider)
+            for provider in sorted({value.lower() for value in providers})
+        }
         return None, accounts
     return _remote_provider_spend_authorities(
         args,
@@ -59505,6 +59500,22 @@ def _provider_spend_authorities(
         cycle_id=cycle_id,
         providers=providers,
     )
+
+
+def _local_provider_account(
+    provider_caps: ProviderCycleCaps,
+    provider: str,
+) -> str:
+    """Resolve the account identity used by the legacy local journal path."""
+
+    normalized_provider = provider.lower()
+    try:
+        cap = provider_caps.providers[normalized_provider]
+    except KeyError as exc:
+        raise CommandError(
+            f"provider cycle caps artifact has no entry for {normalized_provider!r}"
+        ) from exc
+    return cap.account or "default"
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
