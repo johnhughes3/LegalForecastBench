@@ -662,7 +662,11 @@ def recover_llm_stage_a_structural_review_reconstruction(
             estimated_cost=_float(normalized.get("actual_cost_usd")),
         )
         flags = validate_structural_review_flags(
-            payload, units=units, documents=documents, response=response
+            payload,
+            units=units,
+            documents=documents,
+            response=response,
+            allow_composite_citations=True,
         )
         journal.commit_reconstruction_recovery(
             evidence.attempt_ordinal,
@@ -772,7 +776,13 @@ def llm_review_stage_a_units(
             )
             payload = _json_object_from_response(response.raw_output)
             flags = validate_structural_review_flags(
-                payload, units=units, documents=documents, response=response
+                payload,
+                units=units,
+                documents=documents,
+                response=response,
+                allow_composite_citations=(
+                    journal is not None and journal.has_recovered_settled_attempt
+                ),
             )
             if journal is not None and journal.has_validated_response:
                 journal.commit_reconstruction({"structural_flags": list(flags)})
@@ -982,6 +992,7 @@ def validate_structural_review_flags(
     units: Sequence[PredictionUnit],
     documents: Sequence[_LlmDocument],
     response: SolverResponse,
+    allow_composite_citations: bool = False,
 ) -> tuple[JsonRecord, ...]:
     allowed_unit_ids = {unit.unit_id for unit in units}
     documents_by_id = {document.source_document_id: document for document in documents}
@@ -1025,6 +1036,20 @@ def validate_structural_review_flags(
             except LlmPipelineError:
                 continue
             break
+        if (
+            verbatim_excerpt is None
+            and allow_composite_citations
+            and len(source_ids) > 1
+            and _STRUCTURAL_COMPOSITE_CITATION_SEPARATOR in cited_excerpt
+        ):
+            try:
+                verbatim_excerpt = _coerced_structural_composite_citation_excerpt(
+                    cited_excerpt=cited_excerpt,
+                    source_ids=source_ids,
+                    documents_by_id=documents_by_id,
+                )
+            except LlmPipelineError:
+                pass
         if verbatim_excerpt is None:
             raise LlmResponseValidationError(
                 "structural flag citation_excerpt does not appear in any cited "
@@ -3351,6 +3376,51 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
 
 
 _STRUCTURAL_CITATION_APOSTROPHES = frozenset({"'", "\u2018", "\u2019", "\u02bc"})
+_STRUCTURAL_COMPOSITE_CITATION_SEPARATOR = " ... "
+_STRUCTURAL_COMPOSITE_CITATION_MIN_NONWHITESPACE_CHARS = 16
+
+
+def _coerced_structural_composite_citation_excerpt(
+    *,
+    cited_excerpt: str,
+    source_ids: Sequence[str],
+    documents_by_id: Mapping[str, _LlmDocument],
+) -> str:
+    """Return canonical source slices for one explicit multi-document citation.
+
+    A structural reviewer may join independently verbatim excerpts from cited
+    predecision documents only with the literal ``" ... "`` separator.  Each
+    quoted segment is bound positionally to its cited source document, so a
+    response cannot use a segment from an uncited document or reorder sources.
+    Whole-excerpt matching remains the first structural-validation path. This
+    helper is only a narrower fallback for provider-free recovery of a journaled
+    response after no cited source contains the whole explicit composite; Stage B
+    outcome-citation handling remains unchanged.
+    """
+
+    segments = tuple(
+        segment.strip()
+        for segment in cited_excerpt.split(_STRUCTURAL_COMPOSITE_CITATION_SEPARATOR)
+    )
+    if len(segments) != len(source_ids) or any(not segment for segment in segments):
+        raise LlmPipelineError(
+            "structural composite citation_excerpt must contain one nonempty "
+            "segment for each cited source document"
+        )
+    canonical_segments: list[str] = []
+    for source_id, segment in zip(source_ids, segments, strict=True):
+        if (
+            len("".join(segment.split()))
+            < _STRUCTURAL_COMPOSITE_CITATION_MIN_NONWHITESPACE_CHARS
+        ):
+            raise LlmPipelineError("structural composite citation segment is too short")
+        canonical_segments.append(
+            _coerced_structural_citation_excerpt(
+                documents_by_id[source_id].markdown,
+                segment,
+            )
+        )
+    return _STRUCTURAL_COMPOSITE_CITATION_SEPARATOR.join(canonical_segments)
 
 
 def _coerced_structural_citation_excerpt(text: str, excerpt: str) -> str:

@@ -661,11 +661,15 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
     markdown_root = tmp_path / "markdown"
     parser_records: list[JsonRecord] = []
     for document_id, text in (
-        ("complaint", "Count I alleges a Section 10(b) claim."),
+        (
+            "complaint",
+            "The complaint makes clear that Plaintiff\u2019s initial theory fails "
+            "as a matter of law.",
+        ),
         (
             "mtd",
-            "Plaintiff\u2019s state law claims against Gage in his individual capacity "
-            "are barred.",
+            "The motion separately explains that the remaining alternative theory "
+            "is independently barred.",
         ),
     ):
         path = markdown_root / "cand-1" / f"{document_id}.md"
@@ -686,11 +690,13 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
                     {
                         "flag_type": "omitted",
                         "affected_unit_ids": ["unit-1"],
-                        "source_document_ids": ["mtd"],
+                        "source_document_ids": ["complaint", "mtd"],
                         "explanation": "A separately challenged theory is absent.",
                         "citation_excerpt": (
-                            "Plaintiff's state law claims against Gage in his "
-                            "individual capacity are barred."
+                            "The complaint makes clear that Plaintiff's initial theory "
+                            "fails as a matter of law. ... "
+                            "The motion separately explains that the remaining "
+                            "alternative theory is independently barred."
                         ),
                     }
                 ]
@@ -722,14 +728,6 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
         return response
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", completion)
-    original_citation_matcher = llm_pipeline._coerced_structural_citation_excerpt
-    monkeypatch.setattr(
-        llm_pipeline,
-        "_coerced_structural_citation_excerpt",
-        lambda *args: (_ for _ in ()).throw(
-            llm_pipeline.LlmPipelineError("legacy citation rejection")
-        ),
-    )
     journal_path = tmp_path / "provider-attempts.sqlite3"
     registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
     with pytest.raises(
@@ -747,9 +745,6 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
             provider_cycle_id="cycle-1",
             provider_cycle_caps_sha256="sha256:" + "c" * 64,
         )
-    monkeypatch.setattr(
-        llm_pipeline, "_coerced_structural_citation_excerpt", original_citation_matcher
-    )
 
     recovery = llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
         selection_record=_selection(),
@@ -820,14 +815,19 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
     assert replayed_recovery == recovery
     assert journal_path.read_bytes() == journal_bytes_after_recovery
     assert recovery.structural_flags[0]["citation_excerpt"] == (
-        "Plaintiff\u2019s state law claims against Gage in his individual capacity "
-        "are barred."
+        "The complaint makes clear that Plaintiff\u2019s initial theory fails as a "
+        "matter of law. ... The motion separately explains that the remaining "
+        "alternative theory is independently barred."
     )
     with sqlite3.connect(journal_path) as connection:
         assert connection.execute(
-            "SELECT status, actual_cost_usd FROM provider_attempts "
+            "SELECT status, actual_cost_usd, failure_type FROM provider_attempts "
             "WHERE attempt_ordinal = 1"
-        ).fetchone() == ("settled", pytest.approx(0.02))
+        ).fetchone() == (
+            "settled",
+            pytest.approx(0.02),
+            "LlmResponseValidationError",
+        )
 
 
 def test_conflicting_unitization_scope_routes_to_blinded_review_without_retry(

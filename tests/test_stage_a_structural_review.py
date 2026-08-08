@@ -155,6 +155,203 @@ def test_structural_citation_allows_only_apostrophe_and_whitespace_drift() -> No
     assert validated["citation_excerpt"] == source_excerpt
 
 
+def test_structural_citation_accepts_explicit_ordered_multidocument_composite() -> None:
+    first_source_excerpt = (
+        "The first memorandum explains that Plaintiff\u2019s initial theory fails "
+        "as a matter of law."
+    )
+    second_source_excerpt = (
+        "The reply further explains that the remaining alternative theory is "
+        "independently barred."
+    )
+    documents = [
+        _LlmDocument(
+            candidate_id="72270301",
+            source_document_id="478193908",
+            document_role=DocumentRole.MTD_MEMORANDUM,
+            docket_entry_number=4,
+            description="Motion to dismiss memorandum",
+            markdown="Before.\n\n" + first_source_excerpt + "\n\nAfter.",
+        ),
+        _LlmDocument(
+            candidate_id="72270301",
+            source_document_id="468614730",
+            document_role=DocumentRole.REPLY,
+            docket_entry_number=9,
+            description="Reply memorandum",
+            markdown="Before.\n\n" + second_source_excerpt + "\n\nAfter.",
+        ),
+    ]
+    flag: dict[str, Any] = {
+        "flag_type": "omitted",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": ["478193908", "468614730"],
+        "explanation": "The sources identify a separately challenged theory.",
+        "citation_excerpt": (
+            "The first memorandum explains that Plaintiff's initial theory fails "
+            "as a matter of law. ... The reply further explains that the remaining "
+            "alternative theory is independently barred."
+        ),
+    }
+
+    with pytest.raises(LlmResponseValidationError, match="does not appear"):
+        validate_structural_review_flags(
+            {"structural_flags": [flag]},
+            units=[_unit()],
+            documents=documents,
+            response=_response(),
+        )
+
+    [validated] = validate_structural_review_flags(
+        {"structural_flags": [flag]},
+        units=[_unit()],
+        documents=documents,
+        response=_response(),
+        allow_composite_citations=True,
+    )
+
+    assert validated["citation_excerpt"] == (
+        first_source_excerpt + " ... " + second_source_excerpt
+    )
+
+
+@pytest.mark.parametrize(
+    ("citation_excerpt", "source_document_ids"),
+    [
+        (
+            "short ... The reply further explains that the remaining alternative "
+            "theory is independently barred.",
+            ["478193908", "468614730"],
+        ),
+        (
+            "The first memorandum explains that Plaintiff's initial theory fails "
+            "as a matter of law. ...  ... The reply further explains that the "
+            "remaining alternative theory is independently barred.",
+            ["478193908", "468614730", "478193908"],
+        ),
+        (
+            "The first memorandum explains that Plaintiff's initial theory fails "
+            "as a matter of law. ... The reply further explains that the remaining "
+            "alternative theory is independently barred. ... An uncited third passage.",
+            ["478193908", "468614730"],
+        ),
+        (
+            "the first memorandum explains that Plaintiff's initial theory fails "
+            "as a matter of law. ... The reply further explains that the remaining "
+            "alternative theory is independently barred.",
+            ["478193908", "468614730"],
+        ),
+        (
+            "The first memorandum explains that Plaintiff's initial-theory fails "
+            "as a matter of law. ... The reply further explains that the remaining "
+            "alternative theory is independently barred.",
+            ["478193908", "468614730"],
+        ),
+        (
+            "The first memorandum explains that Plaintiff's initial theory fails "
+            "as a matter of law. ... The reply further explains that the remaining "
+            "alternative theory is independently barred.",
+            ["468614730", "478193908"],
+        ),
+        (
+            "The first memorandum explains that Plaintiff's initial theory fails "
+            "as a matter of law. ... A wholly unsupported second passage appears here.",
+            ["478193908", "468614730"],
+        ),
+    ],
+)
+def test_structural_citation_rejects_invalid_multidocument_composite(
+    citation_excerpt: str,
+    source_document_ids: list[str],
+) -> None:
+    documents = [
+        _LlmDocument(
+            candidate_id="72270301",
+            source_document_id="478193908",
+            document_role=DocumentRole.MTD_MEMORANDUM,
+            docket_entry_number=4,
+            description="Motion to dismiss memorandum",
+            markdown=(
+                "short\n\nThe first memorandum explains that Plaintiff\u2019s initial "
+                "theory fails as a matter of law."
+            ),
+        ),
+        _LlmDocument(
+            candidate_id="72270301",
+            source_document_id="468614730",
+            document_role=DocumentRole.REPLY,
+            docket_entry_number=9,
+            description="Reply memorandum",
+            markdown=(
+                "The reply further explains that the remaining alternative theory "
+                "is independently barred."
+            ),
+        ),
+    ]
+    flag: dict[str, Any] = {
+        "flag_type": "omitted",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": source_document_ids,
+        "explanation": "The sources identify a separately challenged theory.",
+        "citation_excerpt": citation_excerpt,
+    }
+
+    with pytest.raises(LlmResponseValidationError, match="citation_excerpt"):
+        validate_structural_review_flags(
+            {"structural_flags": [flag]},
+            units=[_unit()],
+            documents=documents,
+            response=_response(),
+            allow_composite_citations=True,
+        )
+
+
+def test_ordinary_structural_validation_retains_multisource_single_slice_behavior() -> (
+    None
+):
+    source_excerpt = (
+        "The first memorandum explains that Plaintiff\u2019s initial theory fails "
+        "... as a matter of law."
+    )
+    documents = [
+        _LlmDocument(
+            candidate_id="cand-1",
+            source_document_id="first",
+            document_role=DocumentRole.MTD_MEMORANDUM,
+            docket_entry_number=4,
+            description="Motion to dismiss memorandum",
+            markdown=source_excerpt,
+        ),
+        _LlmDocument(
+            candidate_id="cand-1",
+            source_document_id="second",
+            document_role=DocumentRole.REPLY,
+            docket_entry_number=9,
+            description="Reply memorandum",
+            markdown="A different predecision source.",
+        ),
+    ]
+    flag: dict[str, Any] = {
+        "flag_type": "omitted",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": ["first", "second"],
+        "explanation": "A separately challenged theory is absent.",
+        "citation_excerpt": (
+            "The first memorandum explains that Plaintiff's initial theory fails "
+            "... as a matter of law."
+        ),
+    }
+
+    [validated] = validate_structural_review_flags(
+        {"structural_flags": [flag]},
+        units=[_unit()],
+        documents=documents,
+        response=_response(),
+    )
+
+    assert validated["citation_excerpt"] == source_excerpt
+
+
 @pytest.mark.parametrize(
     "citation_excerpt",
     [

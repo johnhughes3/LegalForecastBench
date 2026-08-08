@@ -940,6 +940,24 @@ class ProviderAttemptJournal:
         return int(row["count"]) == 1
 
     @property
+    def has_recovered_settled_attempt(self) -> bool:
+        """Return whether this exact logical call was settled by recovery.
+
+        A reconstruction recovery deliberately retains the prior failure type,
+        making this a durable distinction from a fresh validated provider reply.
+        """
+
+        row = self._connection.execute(
+            """SELECT COUNT(*) AS count FROM provider_attempts
+            WHERE logical_call_key = ?
+              AND status = 'settled'
+              AND failure_type IS NOT NULL""",
+            (self.identity.logical_call_key,),
+        ).fetchone()
+        assert row is not None
+        return int(row["count"]) == 1
+
+    @property
     def has_validated_response(self) -> bool:
         """Return whether provider accounting awaits normalized reconstruction."""
 
