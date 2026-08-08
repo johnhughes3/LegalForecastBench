@@ -223,6 +223,116 @@ def test_reconstruction_cli_rejects_absent_journal_without_creating_it(
     assert not journal_path.exists()
 
 
+def test_structural_review_reconstruction_cli_preserves_completed_run_card_on_resume(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    output_root = tmp_path / "recovery"
+    recovery_path = output_root / "receipt.json"
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    journal_path.write_bytes(b"journal fixture")
+    registry_path = tmp_path / "reviewer-registry.json"
+    registry_path.write_text("{}\n", encoding="utf-8")
+    failed_row: JsonRecord = {
+        "stage": "llm-review-stage-a",
+        "candidate_id": "cand-1",
+        "model_key": "google:reviewer",
+        "attempt_ordinal": 1,
+        "status": "reconstruction_failed",
+        "failure_type": "LlmResponseValidationError",
+        "reconstructed_result_json": None,
+        "completed_at": "2026-08-08T12:00:00Z",
+    }
+    settled_row: JsonRecord = {
+        **failed_row,
+        "status": "settled",
+        "reconstructed_result_json": '{"structural_flags":[]}',
+    }
+    rows = [failed_row]
+    lineage = SimpleNamespace(
+        selection_records=({"candidate_id": "cand-1", "case_id": "case-1"},),
+        parser_records=(),
+        provider_journal_path=journal_path,
+        provider_caps=SimpleNamespace(
+            cap_usd=lambda provider: 200.0,
+            providers={"google": SimpleNamespace(account=None)},
+        ),
+        provider_caps_sha256="2" * 64,
+        cohort_cycle_id="cycle-1",
+        input_commitments={"selection": "3" * 64},
+        markdown_bytes={},
+    )
+    registry_entry = SimpleNamespace(registry_key="google:reviewer", provider="google")
+    result = llm_pipeline.LlmStageAStructuralReviewReconstructionRecovery(
+        candidate_id="cand-1",
+        case_id="case-1",
+        attempt_ordinal=1,
+        raw_response_sha256="4" * 64,
+        normalized_response_sha256="5" * 64,
+        structural_flags=(),
+    )
+    calls = 0
+
+    def recover(**kwargs: object) -> object:
+        nonlocal calls
+        assert kwargs["provider_account"] == "default"
+        calls += 1
+        rows[0] = settled_row
+        return result
+
+    monkeypatch.setattr(
+        cli,
+        "_verified_shared_provider_chain",
+        lambda *args, **kwargs: (lineage, tmp_path / "unitize.json"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_registry_entry_for_key",
+        lambda *args, **kwargs: (registry_entry, "1" * 64),
+    )
+    monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", lambda lineage: None)
+    monkeypatch.setattr(
+        cli, "_provider_stage_attempt_rows", lambda path, *, stage: tuple(rows)
+    )
+    monkeypatch.setattr(
+        cli, "recover_llm_stage_a_structural_review_reconstruction", recover
+    )
+    monkeypatch.setattr(cli, "_read_records", lambda path: [])
+    monkeypatch.setattr(
+        cli, "_stage_a_file_commitment", lambda path: {"path": str(path)}
+    )
+    args = Namespace(
+        execute=True,
+        output_root=output_root,
+        run_card_output=output_root / "run-card.json",
+        log_output=output_root / "completion.jsonl",
+        recovery_output=recovery_path,
+        resume=True,
+        provider_authority_table=None,
+        selection=tmp_path / "selection.jsonl",
+        parser_manifest=tmp_path / "parser.jsonl",
+        prediction_units=tmp_path / "units.jsonl",
+        unitization_review_queue=tmp_path / "queue.jsonl",
+        markdown_root=tmp_path / "markdown",
+        model_registry=registry_path,
+        model_key="google:reviewer",
+        candidate_id="cand-1",
+        provider_cycle_caps=tmp_path / "caps.json",
+    )
+
+    assert cli._cmd_acquisition_recover_llm_review_stage_a_reconstruction(args) == 0
+    first_receipt = json.loads(recovery_path.read_text(encoding="utf-8"))
+    first_run_card = cast(Path, args.run_card_output).read_bytes()
+    first_log = cast(Path, args.log_output).read_bytes()
+    first_journal = journal_path.read_bytes()
+    assert cli._cmd_acquisition_recover_llm_review_stage_a_reconstruction(args) == 0
+    assert json.loads(recovery_path.read_text(encoding="utf-8")) == first_receipt
+    assert cast(Path, args.run_card_output).read_bytes() == first_run_card
+    assert cast(Path, args.log_output).read_bytes() == first_log
+    assert journal_path.read_bytes() == first_journal
+    assert calls == 2
+
+
 @pytest.mark.parametrize("provider_account", ("default", "primary"))
 def test_unitization_reconstruction_recovers_latest_journal_response_without_provider(
     tmp_path: Path,
@@ -542,6 +652,182 @@ def test_malformed_structural_review_retries_fresh_bounded_attempts(
         (2, "reconstruction_failed", pytest.approx(0.02), "LlmPipelineError"),
         (3, "reconstruction_failed", pytest.approx(0.02), "LlmPipelineError"),
     ]
+
+
+def test_structural_review_recovery_reuses_failed_response_without_provider(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        (
+            "mtd",
+            "Plaintiff\u2019s state law claims against Gage in his individual capacity "
+            "are barred.",
+        ),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    response = SolverResponse(
+        raw_output=json.dumps(
+            {
+                "structural_flags": [
+                    {
+                        "flag_type": "omitted",
+                        "affected_unit_ids": ["unit-1"],
+                        "source_document_ids": ["mtd"],
+                        "explanation": "A separately challenged theory is absent.",
+                        "citation_excerpt": (
+                            "Plaintiff's state law claims against Gage in his "
+                            "individual capacity are barred."
+                        ),
+                    }
+                ]
+            }
+        ),
+        input_tokens=11,
+        output_tokens=6,
+        estimated_cost=0.02,
+    )
+    provider_calls = 0
+
+    def completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+
+        def provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "provider-response"}
+
+        handler.run_attempt(1, provider_call)
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", completion)
+    original_citation_matcher = llm_pipeline._coerced_structural_citation_excerpt
+    monkeypatch.setattr(
+        llm_pipeline,
+        "_coerced_structural_citation_excerpt",
+        lambda *args: (_ for _ in ()).throw(
+            llm_pipeline.LlmPipelineError("legacy citation rejection")
+        ),
+    )
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    with pytest.raises(
+        llm_pipeline.LlmResponseValidationError, match="does not appear"
+    ):
+        llm_pipeline.llm_review_stage_a_units(
+            selection_records=(_selection(),),
+            parser_records=parser_records,
+            prediction_unit_records=(_prediction_units(),),
+            markdown_root=markdown_root,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        )
+    monkeypatch.setattr(
+        llm_pipeline, "_coerced_structural_citation_excerpt", original_citation_matcher
+    )
+
+    recovery = llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+        selection_record=_selection(),
+        parser_records=parser_records,
+        prediction_unit_records=(_prediction_units(),),
+        markdown_root=markdown_root,
+        markdown_bytes=None,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_account="default",
+    )
+    journal_bytes_after_recovery = journal_path.read_bytes()
+    replayed_recovery = (
+        llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+            selection_record=_selection(),
+            parser_records=parser_records,
+            prediction_unit_records=(_prediction_units(),),
+            markdown_root=markdown_root,
+            markdown_bytes=None,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_account="default",
+        )
+    )
+
+    def replay_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+
+        def forbidden_provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "unexpected-provider-response"}
+
+        handler.run_attempt(1, forbidden_provider_call)
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", replay_completion)
+    llm_pipeline.llm_review_stage_a_units(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        prediction_unit_records=(_prediction_units(),),
+        markdown_root=markdown_root,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+    )
+
+    assert provider_calls == 1
+    assert replayed_recovery == recovery
+    assert journal_path.read_bytes() == journal_bytes_after_recovery
+    assert recovery.structural_flags[0]["citation_excerpt"] == (
+        "Plaintiff\u2019s state law claims against Gage in his individual capacity "
+        "are barred."
+    )
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT status, actual_cost_usd FROM provider_attempts "
+            "WHERE attempt_ordinal = 1"
+        ).fetchone() == ("settled", pytest.approx(0.02))
 
 
 def test_conflicting_unitization_scope_routes_to_blinded_review_without_retry(

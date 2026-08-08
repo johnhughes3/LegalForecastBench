@@ -40,7 +40,10 @@ from legalforecast import __version__
 from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
-from legalforecast.contracts import LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1
+from legalforecast.contracts import (
+    LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
+    LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
+)
 from legalforecast.evals.accounting import (
     OutputValidityStatus,
     accounting_records_from_inspect_run,
@@ -905,6 +908,7 @@ from legalforecast.labeling.llm_pipeline import (
     llm_unitize_cases,
     merge_llm_label_provider_shards,
     merge_structural_flags_into_review_queue,
+    recover_llm_stage_a_structural_review_reconstruction,
     recover_llm_unitization_reconstruction,
     stage_a_structural_flag_records,
     stage_a_structural_review_prompt_records,
@@ -2636,6 +2640,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Flag structural Stage A defects without rewriting frozen units.",
     )
     _add_acquisition_llm_review_stage_a_arguments(acquisition_review_stage_a)
+    acquisition_recover_review_stage_a = acquisition_subparsers.add_parser(
+        "recover-llm-review-stage-a-reconstruction",
+        help=(
+            "Provider-free revalidation of one failed Stage A structural-review "
+            "response from the authenticated journal."
+        ),
+    )
+    _add_acquisition_recover_llm_review_stage_a_arguments(
+        acquisition_recover_review_stage_a
+    )
     acquisition_apply_unitization_review = acquisition_subparsers.add_parser(
         "apply-unitization-review",
         help="Apply checked-in Stage A adjudications and finalize prediction units.",
@@ -9463,6 +9477,69 @@ def _add_acquisition_llm_review_stage_a_arguments(
         help="Per-provider request timeout.",
     )
     parser.set_defaults(handler=_cmd_acquisition_llm_review_stage_a)
+
+
+def _add_acquisition_recover_llm_review_stage_a_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument(
+        "--selection", type=Path, required=True, help="JSONL acquisition selection."
+    )
+    parser.add_argument(
+        "--parser-manifest", type=Path, required=True, help="JSONL parser manifest."
+    )
+    parser.add_argument(
+        "--markdown-root", type=Path, help="Root for predecision Markdown artifacts."
+    )
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help="Immutable raw units from llm-unitize.",
+    )
+    parser.add_argument(
+        "--llm-unitization-run-card",
+        type=Path,
+        help="Authenticated Stage A unitization run card. Required with --execute.",
+    )
+    parser.add_argument(
+        "--unitization-review-queue",
+        type=Path,
+        required=True,
+        help="Existing immutable Stage A review queue.",
+    )
+    parser.add_argument(
+        "--model-registry",
+        type=Path,
+        required=True,
+        help="Frozen reviewer model registry.",
+    )
+    parser.add_argument(
+        "--model-key",
+        required=True,
+        help="Registry key for the structural reviewer response to recover.",
+    )
+    _add_provider_cycle_caps_argument(parser)
+    parser.add_argument(
+        "--provider-journal",
+        type=Path,
+        help="Exact canonical cycle-wide provider journal. Required with --execute.",
+    )
+    parser.add_argument(
+        "--candidate-id",
+        required=True,
+        help="Exact selected candidate whose failed structural review is recovered.",
+    )
+    parser.add_argument(
+        "--recovery-output",
+        type=Path,
+        help="Provider-free structural-review reconstruction receipt JSON.",
+    )
+    parser.set_defaults(
+        handler=_cmd_acquisition_recover_llm_review_stage_a_reconstruction
+    )
 
 
 def _add_acquisition_apply_unitization_review_arguments(
@@ -57305,6 +57382,7 @@ def _stage_a_provider_attempt_rows(path: Path) -> tuple[JsonRecord, ...]:
 def _pre_reconstruction_provider_state_sha256(
     rows: Sequence[Mapping[str, Any]],
     *,
+    stage: str,
     candidate_id: str,
     model_key: str,
     attempt_ordinal: int,
@@ -57315,7 +57393,7 @@ def _pre_reconstruction_provider_state_sha256(
     matches = [
         row
         for row in projected
-        if row.get("stage") == "llm-unitize"
+        if row.get("stage") == stage
         and row.get("candidate_id") == candidate_id
         and row.get("model_key") == model_key
         and row.get("attempt_ordinal") == attempt_ordinal
@@ -59080,6 +59158,7 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
         raise CommandError("Stage A reconstruction recovery candidate changed")
     derived_before_sha256 = _pre_reconstruction_provider_state_sha256(
         journal_after_rows,
+        stage="llm-unitize",
         candidate_id=result.candidate_id,
         model_key=lineage.registry_entry.registry_key,
         attempt_ordinal=result.attempt_ordinal,
@@ -59118,6 +59197,164 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
             "source_commitments": dict(lineage.input_commitments),
             "reconstruction_recovery": recovery_record,
         },
+    )
+    return 0
+
+
+def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
+    args: argparse.Namespace,
+) -> int:
+    """Settle one already-journaled Stage-A review without provider authority."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "recover-llm-review-stage-a-reconstruction requires --execute; it "
+            "never calls a provider"
+        )
+    table_name = cast(str | None, getattr(args, "provider_authority_table", None))
+    if table_name is not None and table_name.strip():
+        raise CommandError(
+            "structural-review reconstruction is provider-free and rejects "
+            "--provider-authority-table"
+        )
+    output_root = _acquisition_output_root(args)
+    recovery_path = _acquisition_path(
+        args,
+        "recovery_output",
+        output_root / "llm-stage-a-structural-review-reconstruction-recovery.json",
+    )
+    resume = cast(bool, args.resume)
+    if recovery_path.exists() and not resume:
+        raise CommandError("Stage A structural-review recovery output already exists")
+    existing_recovery = (
+        _read_json_object_payload(
+            _read_singly_linked_regular_input(
+                recovery_path,
+                label="Stage A structural-review recovery receipt",
+            ),
+            label="Stage A structural-review recovery receipt",
+        )
+        if recovery_path.exists()
+        else None
+    )
+    selection_path = cast(Path, args.selection)
+    parser_path = cast(Path, args.parser_manifest)
+    units_path = cast(Path, args.prediction_units)
+    existing_queue_path = cast(Path, args.unitization_review_queue)
+    markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    lineage, unitization_card_path = _verified_shared_provider_chain(
+        args,
+        raw_prediction_units_path=units_path,
+        expected_review_queue_path=existing_queue_path,
+        expected_selection_path=selection_path,
+        expected_parser_manifest_path=parser_path,
+        expected_markdown_root=markdown_root,
+    )
+    registry_path = cast(Path, args.model_registry)
+    registry_entry, registry_sha256 = _registry_entry_for_key(
+        registry_path, cast(str, args.model_key)
+    )
+    candidate_id = cast(str, args.candidate_id).strip()
+    matches = tuple(
+        record
+        for record in lineage.selection_records
+        if record.get("candidate_id") == candidate_id
+    )
+    if len(matches) != 1:
+        raise CommandError(
+            "structural-review reconstruction requires exactly one selected candidate"
+        )
+    journal_before_rows = _provider_stage_attempt_rows(
+        lineage.provider_journal_path, stage="llm-review-stage-a"
+    )
+    journal_before_sha256 = _canonical_json_sha256(journal_before_rows)
+    _require_stage_a_lineage_unchanged(lineage)
+    try:
+        result = recover_llm_stage_a_structural_review_reconstruction(
+            selection_record=matches[0],
+            parser_records=lineage.parser_records,
+            prediction_unit_records=_read_records(units_path),
+            markdown_root=markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
+            registry_entry=registry_entry,
+            model_registry_sha256=registry_sha256,
+            provider_journal_path=lineage.provider_journal_path,
+            provider_cycle_cap_usd=float(
+                lineage.provider_caps.cap_usd(registry_entry.provider)
+            ),
+            provider_cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_account=_local_provider_account(
+                lineage.provider_caps, registry_entry.provider
+            ),
+        )
+    except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    _require_stage_a_lineage_unchanged(lineage)
+    journal_after_rows = _provider_stage_attempt_rows(
+        lineage.provider_journal_path, stage="llm-review-stage-a"
+    )
+    journal_after_sha256 = _canonical_json_sha256(journal_after_rows)
+    if result.candidate_id != candidate_id:
+        raise CommandError("Stage A structural-review recovery candidate changed")
+    derived_before_sha256 = _pre_reconstruction_provider_state_sha256(
+        journal_after_rows,
+        stage="llm-review-stage-a",
+        candidate_id=result.candidate_id,
+        model_key=registry_entry.registry_key,
+        attempt_ordinal=result.attempt_ordinal,
+    )
+    if (
+        journal_before_sha256 != journal_after_sha256
+        and journal_before_sha256 != derived_before_sha256
+    ):
+        raise CommandError(
+            "Stage A structural-review recovery provider journal changed unexpectedly"
+        )
+    recovery_record: JsonRecord = {
+        "schema_version": str(LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1),
+        **result.to_record(),
+        "model_key": registry_entry.registry_key,
+        "model_registry_sha256": registry_sha256,
+        "provider_journal": str(lineage.provider_journal_path.resolve()),
+        "provider_journal_before_state_sha256": derived_before_sha256,
+        "provider_journal_after_state_sha256": journal_after_sha256,
+    }
+    if existing_recovery is not None:
+        if existing_recovery != recovery_record:
+            raise CommandError("Stage A structural-review recovery receipt changed")
+    else:
+        _atomic_write_json(recovery_path, recovery_record)
+    completion_extra: JsonRecord = {
+        "source_commitments": {
+            "selection": _stage_a_file_commitment(selection_path),
+            "parser_manifest": _stage_a_file_commitment(parser_path),
+            "raw_prediction_units": _stage_a_file_commitment(units_path),
+            "unitization_review_queue": _stage_a_file_commitment(existing_queue_path),
+            "llm_unitization_run_card": _stage_a_file_commitment(unitization_card_path),
+            "model_registry": _stage_a_file_commitment(registry_path),
+            "provider_cycle_caps": _stage_a_file_commitment(
+                cast(Path, args.provider_cycle_caps)
+            ),
+            "stage_a_lineage": dict(lineage.input_commitments),
+        },
+        "reconstruction_recovery": recovery_record,
+    }
+    _write_or_verify_immutable_recovery_completion(
+        args,
+        stage="recover-llm-review-stage-a-reconstruction",
+        input_paths=(
+            selection_path,
+            parser_path,
+            units_path,
+            existing_queue_path,
+            unitization_card_path,
+            registry_path,
+            cast(Path, args.provider_cycle_caps),
+            lineage.provider_journal_path,
+        ),
+        output_paths=(recovery_path, lineage.provider_journal_path),
+        extra=completion_extra,
     )
     return 0
 
@@ -65047,6 +65284,63 @@ def _write_acquisition_completion(
         resumable_terminal_metadata=resumable_terminal_metadata,
         schema_version=schema_version,
     )
+
+
+def _write_or_verify_immutable_recovery_completion(
+    args: argparse.Namespace,
+    *,
+    stage: str,
+    input_paths: Sequence[Path],
+    output_paths: Sequence[Path],
+    extra: Mapping[str, Any],
+) -> None:
+    """Publish one recovery completion once, then only authenticate it on resume."""
+
+    output_root = _acquisition_output_root(args)
+    run_card_path = _acquisition_path(
+        args, "run_card_output", output_root / "run-cards" / f"{stage}.json"
+    )
+    if not run_card_path.exists():
+        _write_acquisition_completion(
+            args,
+            stage=stage,
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=1,
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=extra,
+        )
+        return
+    existing = _read_json_object_payload(
+        _read_singly_linked_regular_input(
+            run_card_path, label="immutable reconstruction recovery run card"
+        ),
+        label="immutable reconstruction recovery run card",
+    )
+    expected: JsonRecord = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": stage,
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "record_count": 1,
+        "input_paths": [str(path) for path in input_paths],
+        "output_paths": [str(path) for path in output_paths],
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        **extra,
+    }
+    generated_at = existing.pop("generated_at", None)
+    resume = existing.pop("resume", None)
+    if (
+        not isinstance(generated_at, str)
+        or not generated_at.strip()
+        or not isinstance(resume, bool)
+        or existing != expected
+    ):
+        raise CommandError("immutable reconstruction recovery run card changed")
 
 
 def _write_acquisition_failure(
