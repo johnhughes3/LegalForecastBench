@@ -72,11 +72,17 @@ jobs:
           slug: johnhughes3/LegalForecastBench
           files: coverage.xml
 
+      # Same action as the coverage upload above, run a second time with
+      # report_type: test_results.  codecov/test-results-action is deprecated in
+      # favour of this, and it was the last thing pulling in a Node 20 runtime.
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: johnhughes3/LegalForecastBench
+          files: test-report.junit.xml
+          report_type: test_results
 
       - name: Rebuild and verify packet renders
         run: >-
