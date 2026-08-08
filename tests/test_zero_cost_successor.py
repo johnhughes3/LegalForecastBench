@@ -1665,6 +1665,20 @@ def test_cli_publishes_standard_target_cohort_surfaces(
     )
     assert len(verified["selection_records"]) == 100
     assert verified["summary"]["schema_version"] == CONFIG_SCHEMA_VERSION
+    if post_purchase_v4:
+        run_card = json.loads(
+            (output_root / "run-cards/project-target-cohort.json").read_bytes()
+        )
+        assert len(run_card["input_paths"]) == 23
+        verifier_owned_bytes = cast(
+            dict[str, bytes], verified["verified_artifact_bytes"]
+        )
+        assert verifier_owned_bytes[
+            os.path.abspath(paths["ranked-reserve-result.json"])
+        ] == (paths["ranked-reserve-result.json"].read_bytes())
+        assert verifier_owned_bytes[
+            os.path.abspath(paths["successor-exclusions.jsonl"])
+        ] == (paths["successor-exclusions.jsonl"].read_bytes())
     assert len(authority_verifications) == (4 if post_purchase_v4 else 0)
     assert len(resolver_factory_paths) == (2 if post_purchase_v4 else 0)
     assert (
