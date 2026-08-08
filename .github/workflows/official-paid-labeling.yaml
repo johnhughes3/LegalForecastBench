@@ -323,25 +323,17 @@ jobs:
             echo "The protected environment lacks PROVIDER_API_KEY." >&2
             exit 1
           fi
-          if [[ "${PROVIDER}" == "anthropic" ]]; then
-            export ANTHROPIC_API_KEY="${LFB_PROVIDER_API_KEY}"
-          elif [[ "${PROVIDER}" == "google" ]]; then
-            export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"
-          elif [[ "${PROVIDER}" == "openai" ]]; then
-            export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"
-          else
-            echo "Provider is outside the reviewed allowlist." >&2
-            exit 1
-          fi
-          uv run python -m legalforecast.labeling.official_paid_job \
-            --job-manifest "${JOB_ROOT}/official-paid-labeling-job.json" \
-            --job-root "${JOB_ROOT}" \
-            --release-sha "${RELEASE_SHA}" \
-            --stage "${STAGE}" \
-            --provider "${PROVIDER}" \
-            --provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}" \
-            --provider-authority-region "${AWS_REGION}" \
-            --expected-provider-account-alias "${LFB_PROVIDER_ACCOUNT_ALIAS}"
+          uv run legalforecast-provider-env-run \
+            --provider "${PROVIDER}" -- \
+            uv run python -m legalforecast.labeling.official_paid_job \
+              --job-manifest "${JOB_ROOT}/official-paid-labeling-job.json" \
+              --job-root "${JOB_ROOT}" \
+              --release-sha "${RELEASE_SHA}" \
+              --stage "${STAGE}" \
+              --provider "${PROVIDER}" \
+              --provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}" \
+              --provider-authority-region "${AWS_REGION}" \
+              --expected-provider-account-alias "${LFB_PROVIDER_ACCOUNT_ALIAS}"
 
       - name: Clear temporary credentials
         id: clear_credentials

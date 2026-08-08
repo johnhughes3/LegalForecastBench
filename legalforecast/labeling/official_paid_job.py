@@ -6,11 +6,17 @@ import argparse
 import json
 import math
 import re
+import shutil
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.labeling.provider_environment import (
+    ProviderEnvironmentError,
+    run_provider_isolated_command,
+)
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps
 
 SCHEMA_VERSION = "legalforecast.official_paid_labeling_job.v1"
@@ -554,9 +560,29 @@ def run_official_paid_labeling_job(
             "--execute",
         )
     )
-    from legalforecast.cli import main
+    try:
+        return run_provider_isolated_command(
+            provider=normalized_provider,
+            command=_legalforecast_entrypoint_command(cli_arguments),
+        )
+    except ProviderEnvironmentError as exc:
+        raise OfficialPaidLabelingJobError(
+            "provider child environment is invalid"
+        ) from exc
 
-    return main(cli_arguments)
+
+def _legalforecast_entrypoint_command(
+    cli_arguments: Sequence[str],
+) -> tuple[str, ...]:
+    entrypoint = Path(sys.executable).resolve().with_name("legalforecast")
+    if entrypoint.is_file():
+        return (str(entrypoint), *cli_arguments)
+    discovered = shutil.which("legalforecast")
+    if discovered is None:
+        raise OfficialPaidLabelingJobError(
+            "legalforecast entry point is unavailable in the reviewed runtime"
+        )
+    return (discovered, *cli_arguments)
 
 
 def _within_root(path: Path, root: Path, *, must_exist: bool) -> Path:

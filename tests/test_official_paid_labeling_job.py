@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+from typing import cast
 
 import pytest
-from legalforecast import cli
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.labeling import official_paid_job
 from legalforecast.labeling.official_paid_job import (
@@ -13,6 +13,7 @@ from legalforecast.labeling.official_paid_job import (
     _within_root,
     run_official_paid_labeling_job,
 )
+from legalforecast.labeling.provider_environment import ProviderEnvironmentError
 from pytest import MonkeyPatch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -162,8 +163,16 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
 ) -> None:
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="openai")
-    captured: list[str] = []
-    monkeypatch.setattr(cli, "main", lambda args: captured.extend(args) or 0)
+    captured: dict[str, object] = {}
+
+    def record_child(*, provider: str, command: tuple[str, ...]) -> int:
+        captured["provider"] = provider
+        captured["command"] = command
+        return 0
+
+    monkeypatch.setattr(
+        official_paid_job, "run_provider_isolated_command", record_child
+    )
 
     result = run_official_paid_labeling_job(
         job_manifest_path=manifest,
@@ -177,8 +186,13 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
     )
 
     assert result == 0
-    assert captured[:2] == ["acquisition", "llm-label"]
-    assert captured[-7:] == [
+    assert captured["provider"] == "openai"
+    command = list(cast(tuple[str, ...], captured["command"]))
+    assert Path(command[0]).name == "legalforecast"
+    assert command[1:3] == ["acquisition", "llm-label"]
+    assert "-m" not in command
+    assert "legalforecast.cli" not in command
+    assert command[-7:] == [
         "--execution-provider",
         "openai",
         "--provider-authority-table",
@@ -187,9 +201,79 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
         "us-east-1",
         "--execute",
     ]
-    assert captured.count("--model-key") == len(model_keys)
-    assert "--provider-shard-audit" not in captured
-    assert "--provider-shard-run-card" not in captured
+    assert command.count("--model-key") == len(model_keys)
+    assert "--provider-shard-audit" not in command
+    assert "--provider-shard-run-card" not in command
+
+
+def test_job_fails_closed_when_legalforecast_entry_point_is_unavailable(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+
+    monkeypatch.setattr(
+        official_paid_job,
+        "sys",
+        type("StubSys", (), {"executable": "/tmp/reviewed/python"})(),
+    )
+    monkeypatch.setattr(official_paid_job.shutil, "which", lambda name: None)
+    monkeypatch.setattr(
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match="legalforecast entry point is unavailable",
+    ):
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="exact-provider-authority",
+            provider_authority_region="us-east-1",
+            expected_provider_account_alias="openai-primary",
+        )
+
+
+def test_job_wraps_provider_environment_refusals_at_reviewed_boundary(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+
+    def reject_child(**kwargs: object) -> int:
+        raise ProviderEnvironmentError(
+            "cross-stage secret environment names are not allowed: RECAP_API_TOKEN"
+        )
+
+    monkeypatch.setattr(
+        official_paid_job, "run_provider_isolated_command", reject_child
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match="provider child environment is invalid",
+    ) as exc_info:
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="exact-provider-authority",
+            provider_authority_region="us-east-1",
+            expected_provider_account_alias="openai-primary",
+        )
+
+    assert isinstance(exc_info.value.__cause__, ProviderEnvironmentError)
+    assert "RECAP_API_TOKEN" in str(exc_info.value.__cause__)
 
 
 def test_validate_only_checks_all_inputs_without_authority_or_provider_cli(
@@ -199,9 +283,9 @@ def test_validate_only_checks_all_inputs_without_authority_or_provider_cli(
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="google")
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"provider CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     assert (
@@ -241,9 +325,9 @@ def test_job_rejects_cross_stage_provider_before_cli(
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="openai")
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
@@ -273,9 +357,9 @@ def test_job_rejects_path_escape_and_authority_argument_substitution(
     payload["arguments"]["provider-authority-table"] = "substitute-table"
     _write_json(manifest, payload)
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
@@ -320,9 +404,9 @@ def test_job_rejects_output_paths_outside_output_root(
     payload["arguments"][path_name] = f"outside-output/{path_name}"
     _write_json(manifest, payload)
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
@@ -354,9 +438,9 @@ def test_job_rejects_non_finite_numeric_arguments(
     payload["arguments"]["high-confidence-threshold"] = non_finite
     _write_json(manifest, payload)
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
@@ -434,9 +518,9 @@ def test_job_rejects_account_alias_drift(
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="google")
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
