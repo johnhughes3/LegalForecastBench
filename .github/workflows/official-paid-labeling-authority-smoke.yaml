@@ -21,7 +21,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       EVIDENCE_ROOT: ${{ github.workspace }}/.official-labeling-smoke-evidence
       LFB_GITHUB_LABELING_ROLE_ARN: ${{ vars.LFB_GITHUB_LABELING_ROLE_ARN }}
       LFB_OUTSIDE_AUTHORITY_TABLE: ${{ vars.LFB_OUTSIDE_AUTHORITY_TABLE }}
