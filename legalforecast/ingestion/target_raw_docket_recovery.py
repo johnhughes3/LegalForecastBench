@@ -33,6 +33,7 @@ from legalforecast.contracts import (
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
     acquire_ranked_dockets,
+    provisional_lineage_flags,
     ranked_docket_targets,
     render_complete_docket_html,
 )
@@ -45,6 +46,9 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     SnapshotVerificationError,
     verify_snapshot,
+)
+from legalforecast.ingestion.firecrawl_docket_pagination import (
+    canonical_courtlistener_docket_page_url,
 )
 from legalforecast.ingestion.firecrawl_screening_identity import (
     snapshot_firecrawl_screening_source_count,
@@ -1089,6 +1093,8 @@ def _rebuild_target_raw_docket_recovery_plan(
 
 def _expected_selected_slice_config(
     plan: TargetRawDocketRecoveryPlan,
+    *,
+    source_batch_config: Mapping[str, object],
 ) -> Mapping[str, object]:
     targets = ranked_docket_targets(plan.targets, limit=len(plan.targets))
     selection_payload = [
@@ -1110,6 +1116,7 @@ def _expected_selected_slice_config(
         "selection_count": len(targets),
         "parent_discovery_saturation_claimed": False,
         "purpose": "target-raw-docket-recovery",
+        **provisional_lineage_flags(source_batch_config),
     }
 
 
@@ -1204,7 +1211,10 @@ def _verify_zero_success_parent(
             store.cycle_hash != parent.cycle_hash
             or store.batch_digest(parent.source_batch_id) != parent.source_batch_digest
             or store.batch_config(parent.batch_id)
-            != _expected_selected_slice_config(parent)
+            != _expected_selected_slice_config(
+                parent,
+                source_batch_config=store.batch_config(parent.source_batch_id),
+            )
             or store.firecrawl_run_status(parent.run_id) != "circuit_open"
             or store.firecrawl_run_config(parent.run_id)
             != _expected_root_run_config(parent, parent_raw_html_dir)
@@ -1233,9 +1243,9 @@ def _verify_zero_success_parent(
                 "parent failure run card differs from durable run status"
             )
         attempts = store.firecrawl_attempts(parent.run_id)
-        if not attempts or len(attempts) != len(parent.targets):
+        if not attempts:
             raise TargetRawDocketRecoveryError(
-                "parent circuit failure does not cover the exact target set"
+                "parent circuit failure has no provider attempts"
             )
         if any(
             attempt.status != "provider_error"
@@ -1251,11 +1261,26 @@ def _verify_zero_success_parent(
                 "parent run is not a zero-success all-provider-error circuit"
             )
         expected_urls = {
-            f"{cast(Mapping[str, object], target['identity'])['courtlistener_url']}"
-            "?order_by=desc&page=1"
+            canonical_courtlistener_docket_page_url(
+                cast(
+                    str,
+                    cast(Mapping[str, object], target["identity"])["courtlistener_url"],
+                ),
+                page_number=1,
+            )
             for target in parent.targets
         }
-        if {attempt.request_url for attempt in attempts} != expected_urls:
+        attempted_urls = {attempt.request_url for attempt in attempts}
+        registered_targets = store.firecrawl_targets(parent.run_id)
+        if (
+            not attempted_urls.issubset(expected_urls)
+            or not {target.source_url for target in registered_targets}.issubset(
+                expected_urls
+            )
+            or not {attempt.target_id for attempt in attempts}.issubset(
+                {target.target_id for target in registered_targets}
+            )
+        ):
             raise TargetRawDocketRecoveryError(
                 "parent provider attempts differ from the exact target set"
             )
@@ -1291,7 +1316,9 @@ def build_target_raw_docket_recovery_successor_plan(
         ) from exc
     if not isinstance(card, Mapping):
         raise TargetRawDocketRecoveryError("parent failure run card is malformed")
-    if not batch_id.strip() or not run_id.strip() or batch_id == run_id:
+    batch_id = batch_id.strip()
+    run_id = run_id.strip()
+    if not batch_id or not run_id or batch_id == run_id:
         raise TargetRawDocketRecoveryError(
             "successor batch and run identities must be nonempty and distinct"
         )

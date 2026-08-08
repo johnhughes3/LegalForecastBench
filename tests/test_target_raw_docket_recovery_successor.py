@@ -8,6 +8,7 @@ from typing import Any, cast
 
 import pytest
 from legalforecast import cli
+from legalforecast.ingestion import target_raw_docket_recovery as recovery
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     materialize_selected_slice_batch,
 )
@@ -386,6 +387,146 @@ def test_successor_child_uses_parent_run_identity_and_store_rejects_duplicate_or
             batch_id="would-be-grandchild-batch",
             run_id="would-be-grandchild-run",
         )
+
+
+def test_successor_accepts_retried_zero_success_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parent, parent_path, parent_sha, _, _, _ = _successor_plan(tmp_path, monkeypatch)
+    with CycleAcquisitionStore(Path(parent.cycle_store_path)) as store:
+        store.set_firecrawl_run_status(parent.run_id, "active")
+        target = store.firecrawl_targets(parent.run_id)[0]
+        attempt = store.authorize_firecrawl_attempt(
+            parent.run_id,
+            target_id=target.target_id,
+            page_number=1,
+            request_url=target.source_url,
+        )
+        store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="provider_error",
+            provider_http_status=503,
+            failure_code="provider_server_error",
+            failure_message="Fixture retry also failed",
+            failure_transient=True,
+        )
+        store.set_firecrawl_run_status(parent.run_id, "circuit_open")
+    raw_html_dir = tmp_path / "parent-raw-html"
+    failure_card = _failure_run_card(parent_path, parent, raw_html_dir=raw_html_dir)
+
+    successor = build_target_raw_docket_recovery_successor_plan(
+        parent_plan_path=parent_path,
+        expected_parent_plan_sha256=parent_sha,
+        parent_failure_run_card_path=failure_card,
+        expected_parent_failure_run_card_sha256=_sha256(failure_card),
+        parent_raw_html_dir=raw_html_dir,
+        batch_id="retried-successor-batch",
+        run_id="retried-successor-run",
+    )
+
+    assert successor.run_id == "retried-successor-run"
+
+
+def test_successor_mirrors_provisional_source_lineage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parent, _, _, _, _, _ = _successor_plan(tmp_path, monkeypatch)
+    source_config: dict[str, object] = {
+        "provisional_frontier": True,
+        "final_cohort_eligible": False,
+        "full_source_terminal": False,
+        "source_candidate_count": 1,
+        "success_count": 0,
+        "terminal_exclusion_count": 0,
+        "pending_count": 1,
+    }
+    for field in (
+        "source_candidate_set_sha256",
+        "source_projection_sha256",
+        "progress_config_sha256",
+        "progress_sha256",
+        "success_candidate_set_sha256",
+        "terminal_excluded_candidate_set_sha256",
+        "pending_candidate_set_sha256",
+    ):
+        source_config[field] = "a" * 64
+
+    config = recovery._expected_selected_slice_config(  # pyright: ignore[reportPrivateUsage]
+        parent, source_batch_config=source_config
+    )
+
+    for field, value in source_config.items():
+        assert config[field] == value
+
+
+def test_successor_normalizes_child_identities(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parent, parent_path, parent_sha, failure_card, failure_card_sha, _ = (
+        _successor_plan(tmp_path, monkeypatch)
+    )
+
+    successor = build_target_raw_docket_recovery_successor_plan(
+        parent_plan_path=parent_path,
+        expected_parent_plan_sha256=parent_sha,
+        parent_failure_run_card_path=failure_card,
+        expected_parent_failure_run_card_sha256=failure_card_sha,
+        parent_raw_html_dir=tmp_path / "parent-raw-html",
+        batch_id=" child-batch ",
+        run_id=" child-run ",
+    )
+
+    assert successor.batch_id == "child-batch"
+    assert successor.run_id == "child-run"
+    assert parent.run_id != successor.run_id
+
+
+def test_successor_planning_cli_declares_parent_raw_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, parent_path, parent_sha, failure_card, failure_card_sha, _ = _successor_plan(
+        tmp_path, monkeypatch
+    )
+    raw_html_dir = tmp_path / "parent-raw-html"
+    output_root = tmp_path / "planning-cli"
+    args = cli.build_parser().parse_args(
+        [
+            "acquisition",
+            "plan-target-raw-docket-recovery-successor",
+            "--output-root",
+            str(output_root),
+            "--execute",
+            "--no-resume",
+            "--parent-plan",
+            str(parent_path),
+            "--expected-parent-plan-sha256",
+            parent_sha,
+            "--parent-failure-run-card",
+            str(failure_card),
+            "--expected-parent-failure-run-card-sha256",
+            failure_card_sha,
+            "--parent-raw-html-dir",
+            str(raw_html_dir),
+            "--batch-id",
+            "planning-cli-batch",
+            "--run-id",
+            "planning-cli-run",
+            "--plan-output",
+            str(output_root / "successor-plan.json"),
+        ]
+    )
+
+    assert args.handler(args) == 0
+    card = json.loads(
+        (
+            output_root / "run-cards/plan-target-raw-docket-recovery-successor.json"
+        ).read_text()
+    )
+    assert card["input_paths"] == [
+        str(parent_path),
+        str(failure_card),
+        str(raw_html_dir),
+    ]
 
 
 def test_successor_executor_replays_fixture_with_parent_bound_receipt(

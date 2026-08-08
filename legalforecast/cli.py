@@ -21522,7 +21522,11 @@ def _cmd_acquisition_plan_target_raw_docket_recovery_successor(
         _write_acquisition_completion(
             args,
             stage="plan-target-raw-docket-recovery-successor",
-            input_paths=(parent_plan_path, parent_card_path),
+            input_paths=(
+                parent_plan_path,
+                parent_card_path,
+                cast(Path, args.parent_raw_html_dir),
+            ),
             output_paths=(plan_output,),
             record_count=1,
             dry_run=_acquisition_dry_run(args),
@@ -21538,7 +21542,11 @@ def _cmd_acquisition_plan_target_raw_docket_recovery_successor(
         _write_acquisition_failure(
             args,
             stage="plan-target-raw-docket-recovery-successor",
-            input_paths=(parent_plan_path, parent_card_path),
+            input_paths=(
+                parent_plan_path,
+                parent_card_path,
+                cast(Path, args.parent_raw_html_dir),
+            ),
             output_paths=(plan_output,),
             reason=str(exc),
             paid_activity_requested=False,
