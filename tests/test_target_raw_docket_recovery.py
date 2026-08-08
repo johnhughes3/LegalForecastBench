@@ -2200,6 +2200,46 @@ def test_raw_html_publisher_rejects_linked_and_racing_outputs(
         os.close(descriptor)
 
 
+@pytest.mark.parametrize(
+    ("metadata_index", "invalid_value"),
+    (
+        (0, 0o010600),
+        (3, 2),
+    ),
+)
+def test_raw_html_publisher_rejects_invalid_temporary_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    metadata_index: int,
+    invalid_value: int,
+) -> None:
+    raw_dir = tmp_path / "raw"
+    directory_fd = recovery._open_raw_html_directory(raw_dir)  # pyright: ignore[reportPrivateUsage]
+    original_fstat = recovery.os.fstat
+
+    def linked_fstat(descriptor: int) -> os.stat_result:
+        metadata = list(original_fstat(descriptor))
+        metadata[metadata_index] = invalid_value
+        return os.stat_result(metadata)
+
+    monkeypatch.setattr(recovery.os, "fstat", linked_fstat)
+    try:
+        with pytest.raises(
+            TargetRawDocketRecoveryError,
+            match="temporary output is not a singly linked regular file",
+        ):
+            recovery._publish_unique_raw_html(  # pyright: ignore[reportPrivateUsage]
+                directory_fd,
+                "fixture.html",
+                b"immutable",
+                label="fixture raw HTML",
+            )
+    finally:
+        os.close(directory_fd)
+
+    assert list(raw_dir.iterdir()) == []
+
+
 def _write_zero_success_circuit(
     *,
     args: Namespace,
