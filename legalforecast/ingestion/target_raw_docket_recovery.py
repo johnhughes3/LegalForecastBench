@@ -32,7 +32,11 @@ from legalforecast.ingestion.budgeted_docket_acquisition import (
     acquire_ranked_dockets,
     render_complete_docket_html,
 )
-from legalforecast.ingestion.budgeted_firecrawl import BudgetedFirecrawlScheduler
+from legalforecast.ingestion.budgeted_firecrawl import (
+    BudgetedFirecrawlScheduler,
+    FirecrawlArtifactError,
+    FirecrawlCircuitOpenError,
+)
 from legalforecast.ingestion.cycle_acquisition_store import (
     SnapshotVerificationError,
     verify_snapshot,
@@ -1034,6 +1038,10 @@ def execute_target_raw_docket_recovery(
         except BudgetedDocketAcquisitionError as exc:
             raise TargetRawDocketRecoveryError(
                 f"target raw docket acquisition is invalid: {exc}"
+            ) from exc
+        except (FirecrawlArtifactError, FirecrawlCircuitOpenError) as exc:
+            raise TargetRawDocketRecoveryError(
+                f"target raw docket acquisition provider failure: {exc}"
             ) from exc
         successes: list[Mapping[str, object]] = []
         completed_at_by_url = {

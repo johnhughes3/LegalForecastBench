@@ -21743,6 +21743,14 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
         TargetRawDocketRecoveryError,
         ValueError,
     ) as exc:
+        failure_credit_summary = _firecrawl_credit_summary_if_available(
+            store_path=cast(Path, args.cycle_store),
+            run_id=cast(str, args.run_id),
+        )
+        metered_executed = _firecrawl_metered_activity_executed(
+            live=live,
+            summary=failure_credit_summary,
+        )
         _write_acquisition_failure(
             args,
             stage="execute-target-raw-docket-recovery",
@@ -21755,6 +21763,14 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             ),
             reason=str(exc),
             paid_activity_requested=live,
+            paid_activity_executed=metered_executed,
+            extra={
+                "firecrawl_metered_activity_requested": live,
+                "firecrawl_metered_activity_executed": metered_executed,
+                "pacer_paid_activity_requested": False,
+                "pacer_paid_activity_executed": False,
+                **failure_credit_summary,
+            },
         )
         raise CommandError(str(exc)) from exc
     return 0

@@ -1865,6 +1865,107 @@ def test_execute_wraps_ranked_acquisition_failure(
     assert list((tmp_path / "raw").glob("*.html")) == []
 
 
+def test_execute_wraps_firecrawl_circuit_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+
+    def fail_acquisition(**kwargs: object) -> object:
+        raise recovery.FirecrawlCircuitOpenError("fixture provider circuit open")
+
+    monkeypatch.setattr(recovery, "acquire_ranked_dockets", fail_acquisition)
+    with pytest.raises(
+        TargetRawDocketRecoveryError,
+        match=r"acquisition provider failure: fixture provider circuit open",
+    ):
+        recovery.execute_target_raw_docket_recovery(
+            plan=plan,
+            scheduler=cast(Any, SimpleNamespace()),
+            raw_html_dir=tmp_path / "raw",
+        )
+    assert list((tmp_path / "raw").glob("*.html")) == []
+
+
+def test_execute_wraps_firecrawl_artifact_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+
+    def fail_acquisition(**kwargs: object) -> object:
+        raise recovery.FirecrawlArtifactError("fixture artifact invalid")
+
+    monkeypatch.setattr(recovery, "acquire_ranked_dockets", fail_acquisition)
+    with pytest.raises(
+        TargetRawDocketRecoveryError,
+        match=r"acquisition provider failure: fixture artifact invalid",
+    ):
+        recovery.execute_target_raw_docket_recovery(
+            plan=plan,
+            scheduler=cast(Any, SimpleNamespace()),
+            raw_html_dir=tmp_path / "raw",
+        )
+    assert list((tmp_path / "raw").glob("*.html")) == []
+
+
+def test_execute_command_records_firecrawl_circuit_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _command_plan(tmp_path, monkeypatch)
+    plan_output = tmp_path / "plan-stage" / "recovery-plan.json"
+    plan_output.parent.mkdir()
+    plan_sha = write_target_raw_docket_recovery_plan(plan_output, plan)
+    output_root = tmp_path / "circuit-failure"
+    args = _command_args(
+        plan,
+        output_root=output_root,
+        execute=True,
+        plan_output=plan_output,
+    )
+    args.expected_plan_sha256 = plan_sha
+    args.live_firecrawl = True
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture")
+    monkeypatch.setattr(
+        cli,
+        "_firecrawl_credit_summary_if_available",
+        lambda **kwargs: {"run_reserved_credits": 9},
+    )
+
+    def fail_acquisition(**kwargs: object) -> object:
+        raise recovery.FirecrawlCircuitOpenError("fixture provider circuit open")
+
+    monkeypatch.setattr(recovery, "acquire_ranked_dockets", fail_acquisition)
+    with pytest.raises(cli.CommandError, match="fixture provider circuit open"):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+
+    run_card = json.loads(
+        (output_root / "run-cards/execute-target-raw-docket-recovery.json").read_text()
+    )
+    assert run_card["status"] == "failed"
+    assert run_card["failure_reason"] == (
+        "target raw docket acquisition provider failure: fixture provider circuit open"
+    )
+    assert run_card["paid_activity_requested"] is True
+    assert run_card["paid_activity_executed"] is True
+    assert run_card["firecrawl_metered_activity_executed"] is True
+    assert run_card["run_reserved_credits"] == 9
+    assert run_card["input_paths"] == [
+        str(args.plan),
+        str(args.selection),
+        str(args.source_snapshot / "manifest.json"),
+        str(args.source_snapshot_run_card),
+        str(args.source_raw_manifest),
+    ]
+    assert not any(
+        path.exists()
+        for path in (
+            args.successes_output,
+            args.exclusions_output,
+            args.summary_output,
+            args.receipt_output,
+        )
+    )
+
+
 def test_execute_orders_retrieval_timestamps_by_instant_and_owns_summary_schema(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
