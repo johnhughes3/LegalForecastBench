@@ -20103,6 +20103,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
             store_path=store_path,
             run_id=run_id,
         )
+        firecrawl_run_status = failure_credit_summary.pop("status", None)
         metered_executed = _firecrawl_metered_activity_executed(
             live=live,
             summary=failure_credit_summary,
@@ -20122,6 +20123,11 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                 "pacer_paid_activity_executed": False,
                 "recovery_of_run_id": recovery_of_run_id,
                 "recovery_parent_credit_summary": dict(recovery_parent_credit_summary),
+                **(
+                    {"firecrawl_run_status": firecrawl_run_status}
+                    if isinstance(firecrawl_run_status, str)
+                    else {}
+                ),
                 **failure_credit_summary,
             },
         )

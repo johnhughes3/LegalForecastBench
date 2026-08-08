@@ -13,6 +13,10 @@ from legalforecast.ingestion.firecrawl_recap_discovery import (
     build_recap_search_url,
     parse_recap_search_url,
 )
+from legalforecast.ingestion.firecrawl_source import (
+    FirecrawlHTTPResponse,
+    UrlLibFirecrawlTransport,
+)
 
 
 def test_discover_firecrawl_recap_uses_shared_budget_and_reports_potentials(
@@ -393,6 +397,62 @@ def test_terminal_error_recovery_uses_unique_enhanced_run_and_parent_pages(
     assert [
         parse_recap_search_url(target.source_url).page for target in child_targets
     ] == [2]
+
+
+def test_failure_card_preserves_stage_and_firecrawl_run_statuses(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture")
+
+    def fail_scrape(
+        self: UrlLibFirecrawlTransport,
+        *,
+        endpoint: str,
+        headers: dict[str, str],
+        payload: dict[str, Any],
+        timeout_seconds: float,
+    ) -> FirecrawlHTTPResponse:
+        del self, endpoint, headers, timeout_seconds
+        source_url = str(payload["url"])
+        return FirecrawlHTTPResponse(
+            status_code=200,
+            payload={
+                "success": True,
+                "data": {
+                    "rawHtml": "<html><body>upstream error</body></html>",
+                    "metadata": {
+                        "statusCode": 500,
+                        "proxyUsed": "basic",
+                        "cacheState": "miss",
+                        "creditsUsed": 1,
+                        "sourceURL": source_url,
+                    },
+                },
+            },
+        )
+
+    monkeypatch.setattr(UrlLibFirecrawlTransport, "scrape", fail_scrape)
+    fixture = _empty_firecrawl_fixture(
+        tmp_path / "unused.jsonl",
+        start=date(2026, 7, 1),
+        end=date(2026, 7, 1),
+    )
+    args = _discovery_args(tmp_path, run_id="run-failed", fixture=fixture)
+    fixture_flag = args.index("--firecrawl-fixture")
+    args[fixture_flag : fixture_flag + 2] = ["--live-firecrawl"]
+
+    assert main(args) == 2
+
+    run_card = json.loads(
+        (tmp_path / "output" / "run-cards" / "discover-firecrawl-recap.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert run_card["status"] == "failed"
+    assert run_card["firecrawl_run_status"] == "active"
+    assert run_card["firecrawl_metered_activity_executed"] is True
+    assert run_card["run_reserved_credits"] > 0
 
 
 def test_terminal_error_recovery_rejects_changed_parent_batch_config(
