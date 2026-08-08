@@ -25,11 +25,13 @@ from legalforecast.contracts import (
     TARGET_RAW_DOCKET_RECOVERY_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
+    TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
 )
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
     acquire_ranked_dockets,
+    ranked_docket_targets,
     render_complete_docket_html,
 )
 from legalforecast.ingestion.budgeted_firecrawl import (
@@ -38,6 +40,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlCircuitOpenError,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
+    CycleAcquisitionStore,
     SnapshotVerificationError,
     verify_snapshot,
 )
@@ -50,6 +53,9 @@ TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA = str(TARGET_RAW_DOCKET_RECOVERY_SUMMA
 TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA = str(TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1)
 TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA = str(
     TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1
+)
+TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_SCHEMA = str(
+    TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1
 )
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _DOCKET_ID = re.compile(r"[1-9][0-9]*\Z")
@@ -91,6 +97,25 @@ class TargetRawDocketRecoveryPlan:
             "schema_version": TARGET_RAW_DOCKET_RECOVERY_PLAN_SCHEMA,
             **asdict(self),
             "target_count": len(self.targets),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class TargetRawDocketRecoverySuccessorPlan:
+    """One direct child of a zero-success circuit-open recovery run."""
+
+    parent_plan_path: str
+    parent_plan_sha256: str
+    parent_failure_run_card_path: str
+    parent_failure_run_card_sha256: str
+    parent_raw_html_dir: str
+    batch_id: str
+    run_id: str
+
+    def as_record(self) -> dict[str, object]:
+        return {
+            "schema_version": TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_SCHEMA,
+            **asdict(self),
         }
 
 
@@ -963,6 +988,363 @@ def load_target_raw_docket_recovery_plan(
         raise TargetRawDocketRecoveryError("plan fields are malformed") from exc
     _validated_target_map(plan.targets)
     return plan
+
+
+def _successor_plan_bytes(plan: TargetRawDocketRecoverySuccessorPlan) -> bytes:
+    return (
+        json.dumps(
+            plan.as_record(),
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+        + b"\n"
+    )
+
+
+def write_target_raw_docket_recovery_successor_plan(
+    path: Path, plan: TargetRawDocketRecoverySuccessorPlan
+) -> str:
+    """Publish one immutable direct-successor authorization."""
+
+    payload = _successor_plan_bytes(plan)
+    if path.exists():
+        if _read_unique_regular_file(path, "successor plan output") != payload:
+            raise TargetRawDocketRecoveryError(
+                "successor plan output already exists with different bytes"
+            )
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    return hashlib.sha256(payload).hexdigest()
+
+
+def load_target_raw_docket_recovery_successor_plan(
+    path: Path, expected_sha256: str
+) -> TargetRawDocketRecoverySuccessorPlan:
+    """Load one externally pinned successor authorization."""
+
+    payload = _pinned_bytes(path, expected_sha256, "successor plan")
+    try:
+        record = json.loads(payload)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise TargetRawDocketRecoveryError("successor plan is not JSON") from exc
+    fields = {
+        field for field in TargetRawDocketRecoverySuccessorPlan.__dataclass_fields__
+    }
+    if not isinstance(record, dict):
+        raise TargetRawDocketRecoveryError("successor plan schema is invalid")
+    typed_record = cast(dict[str, object], record)
+    if typed_record.get(
+        "schema_version"
+    ) != TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_SCHEMA or set(typed_record) != {
+        "schema_version",
+        *fields,
+    }:
+        raise TargetRawDocketRecoveryError("successor plan schema is invalid")
+    try:
+        plan = TargetRawDocketRecoverySuccessorPlan(
+            **{field: cast(Any, typed_record[field]) for field in fields}
+        )
+    except TypeError as exc:
+        raise TargetRawDocketRecoveryError(
+            "successor plan fields are malformed"
+        ) from exc
+    for field in fields:
+        if not isinstance(getattr(plan, field), str) or not getattr(plan, field):
+            raise TargetRawDocketRecoveryError(
+                "successor plan fields must be nonempty strings"
+            )
+    return plan
+
+
+def _rebuild_target_raw_docket_recovery_plan(
+    plan: TargetRawDocketRecoveryPlan,
+) -> TargetRawDocketRecoveryPlan:
+    return build_target_raw_docket_recovery_plan(
+        selection_path=Path(plan.selection_path),
+        expected_selection_sha256=plan.selection_sha256,
+        source_snapshot_path=Path(plan.source_snapshot_path),
+        expected_source_snapshot_manifest_sha256=(plan.source_snapshot_manifest_sha256),
+        expected_cycle_hash=plan.cycle_hash,
+        source_snapshot_run_card_path=Path(plan.source_snapshot_run_card_path),
+        expected_source_snapshot_run_card_sha256=(plan.source_snapshot_run_card_sha256),
+        source_raw_manifest_path=Path(plan.source_raw_manifest_path),
+        expected_source_raw_manifest_sha256=plan.source_raw_manifest_sha256,
+        cycle_store_path=Path(plan.cycle_store_path),
+        batch_id=plan.batch_id,
+        run_id=plan.run_id,
+        credit_cap=plan.credit_cap,
+        workers=plan.workers,
+        max_pages_per_docket=plan.max_pages_per_docket,
+        max_attempts_per_page=plan.max_attempts_per_page,
+        provider_breaker_threshold=plan.provider_breaker_threshold,
+        proxy=plan.proxy,
+        force_browser=plan.force_browser,
+    )
+
+
+def _expected_selected_slice_config(
+    plan: TargetRawDocketRecoveryPlan,
+) -> Mapping[str, object]:
+    targets = ranked_docket_targets(plan.targets, limit=len(plan.targets))
+    selection_payload = [
+        {
+            "candidate_id": target.candidate_id,
+            "courtlistener_url": target.docket_url,
+            "cost_rank": target.rank,
+        }
+        for target in targets
+    ]
+    selection_hash = hashlib.sha256(
+        json.dumps(selection_payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return {
+        "schema_version": "legalforecast.selected_acquisition_slice.v1",
+        "parent_batch_id": plan.source_batch_id,
+        "parent_batch_digest": plan.source_batch_digest,
+        "selection_hash": selection_hash,
+        "selection_count": len(targets),
+        "parent_discovery_saturation_claimed": False,
+        "purpose": "target-raw-docket-recovery",
+    }
+
+
+def _expected_root_run_config(
+    plan: TargetRawDocketRecoveryPlan, parent_raw_html_dir: Path
+) -> Mapping[str, object]:
+    return {
+        "purpose": "target-raw-docket-recovery",
+        "recovery_of_run_id": plan.source_snapshot_manifest_sha256,
+        "max_pages_per_docket": plan.max_pages_per_docket,
+        "raw_artifact_root": str((parent_raw_html_dir / "pages").resolve()),
+        "firecrawl_proxy": plan.proxy,
+        "firecrawl_force_browser": plan.force_browser,
+        "workers": plan.workers,
+        "max_attempts_per_page": plan.max_attempts_per_page,
+        "provider_breaker_threshold": plan.provider_breaker_threshold,
+    }
+
+
+def _verify_zero_success_parent(
+    *,
+    parent: TargetRawDocketRecoveryPlan,
+    failure_card: Mapping[str, Any],
+    parent_raw_html_dir: Path,
+) -> None:
+    expected_inputs = (
+        Path(parent.selection_path).resolve(),
+        (Path(parent.source_snapshot_path) / "manifest.json").resolve(),
+        Path(parent.source_snapshot_run_card_path).resolve(),
+        Path(parent.source_raw_manifest_path).resolve(),
+    )
+    raw_inputs = failure_card.get("input_paths")
+    raw_outputs = failure_card.get("output_paths")
+    if not isinstance(raw_inputs, list) or not isinstance(raw_outputs, list):
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card is not an authenticated circuit failure"
+        )
+    typed_inputs = cast(list[object], raw_inputs)
+    typed_outputs = cast(list[object], raw_outputs)
+    if (
+        failure_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or failure_card.get("stage") != "execute-target-raw-docket-recovery"
+        or failure_card.get("status") != "failed"
+        or failure_card.get("dry_run") is not False
+        or failure_card.get("execute") is not True
+        or failure_card.get("record_count") != 0
+        or failure_card.get("paid_activity_requested") is not True
+        or failure_card.get("paid_activity_executed") is not True
+        or failure_card.get("firecrawl_metered_activity_requested") is not True
+        or failure_card.get("firecrawl_metered_activity_executed") is not True
+        or failure_card.get("firecrawl_run_status") != "circuit_open"
+        or not isinstance(failure_card.get("failure_reason"), str)
+        or "circuit" not in cast(str, failure_card["failure_reason"]).lower()
+        or len(typed_inputs) != 5
+        or len(typed_outputs) != 4
+        or any(not isinstance(item, str) for item in (*typed_inputs, *typed_outputs))
+    ):
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card is not an authenticated circuit failure"
+        )
+    resolved_inputs = tuple(Path(cast(str, item)).resolve() for item in typed_inputs)
+    if resolved_inputs[1:] != expected_inputs:
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card input lineage differs from parent plan"
+        )
+    output_paths = tuple(Path(cast(str, output)) for output in typed_outputs)
+    resolved_outputs = tuple(path.resolve() for path in output_paths)
+    if len(set(resolved_outputs)) != 4:
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card repeats a terminal output"
+        )
+    for path in output_paths:
+        if path.exists() or path.is_symlink():
+            raise TargetRawDocketRecoveryError(
+                "parent failure run unexpectedly has terminal output residue"
+            )
+    root = parent_raw_html_dir.resolve()
+    if parent_raw_html_dir.is_symlink() or not parent_raw_html_dir.is_dir():
+        raise TargetRawDocketRecoveryError("parent raw HTML directory is invalid")
+    for child in parent_raw_html_dir.rglob("*"):
+        if (
+            child.resolve() == (root / "pages")
+            and child.is_dir()
+            and not child.is_symlink()
+        ):
+            continue
+        raise TargetRawDocketRecoveryError(
+            "parent circuit failure contains raw artifact residue"
+        )
+    with CycleAcquisitionStore(Path(parent.cycle_store_path)) as store:
+        if (
+            store.cycle_hash != parent.cycle_hash
+            or store.batch_digest(parent.source_batch_id) != parent.source_batch_digest
+            or store.batch_config(parent.batch_id)
+            != _expected_selected_slice_config(parent)
+            or store.firecrawl_run_status(parent.run_id) != "circuit_open"
+            or store.firecrawl_run_config(parent.run_id)
+            != _expected_root_run_config(parent, parent_raw_html_dir)
+        ):
+            raise TargetRawDocketRecoveryError(
+                "parent failure differs from durable cycle-store authority"
+            )
+        summary = store.firecrawl_run_summary(parent.run_id)
+        for key in (
+            "run_id",
+            "batch_id",
+            "config_digest",
+            "credit_cap",
+            "reserved_credits_per_attempt",
+            "run_reserved_credits",
+            "run_reported_credits",
+            "attempt_status_counts",
+            "failure_code_counts",
+        ):
+            if failure_card.get(key) != summary.get(key):
+                raise TargetRawDocketRecoveryError(
+                    f"parent failure run card differs from durable {key}"
+                )
+        if failure_card.get("firecrawl_run_status") != summary.get("status"):
+            raise TargetRawDocketRecoveryError(
+                "parent failure run card differs from durable run status"
+            )
+        attempts = store.firecrawl_attempts(parent.run_id)
+        if not attempts or len(attempts) != len(parent.targets):
+            raise TargetRawDocketRecoveryError(
+                "parent circuit failure does not cover the exact target set"
+            )
+        if any(
+            attempt.status != "provider_error"
+            or attempt.provider_http_status is None
+            or attempt.provider_http_status < 500
+            or attempt.page_number != 1
+            or attempt.artifact_path is not None
+            or attempt.artifact_sha256 is not None
+            or attempt.artifact_byte_count is not None
+            for attempt in attempts
+        ):
+            raise TargetRawDocketRecoveryError(
+                "parent run is not a zero-success all-provider-error circuit"
+            )
+        expected_urls = {
+            f"{cast(Mapping[str, object], target['identity'])['courtlistener_url']}"
+            "?order_by=desc&page=1"
+            for target in parent.targets
+        }
+        if {attempt.request_url for attempt in attempts} != expected_urls:
+            raise TargetRawDocketRecoveryError(
+                "parent provider attempts differ from the exact target set"
+            )
+
+
+def build_target_raw_docket_recovery_successor_plan(
+    *,
+    parent_plan_path: Path,
+    expected_parent_plan_sha256: str,
+    parent_failure_run_card_path: Path,
+    expected_parent_failure_run_card_sha256: str,
+    parent_raw_html_dir: Path,
+    batch_id: str,
+    run_id: str,
+) -> TargetRawDocketRecoverySuccessorPlan:
+    """Authorize one new direct child after a zero-success provider circuit."""
+
+    parent = load_target_raw_docket_recovery_plan(
+        parent_plan_path, expected_parent_plan_sha256
+    )
+    if _rebuild_target_raw_docket_recovery_plan(parent) != parent:
+        raise TargetRawDocketRecoveryError("parent plan no longer reconstructs")
+    card_payload = _pinned_bytes(
+        parent_failure_run_card_path,
+        expected_parent_failure_run_card_sha256,
+        "parent failure run card",
+    )
+    try:
+        card = json.loads(card_payload)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card is not JSON"
+        ) from exc
+    if not isinstance(card, Mapping):
+        raise TargetRawDocketRecoveryError("parent failure run card is malformed")
+    if not batch_id.strip() or not run_id.strip() or batch_id == run_id:
+        raise TargetRawDocketRecoveryError(
+            "successor batch and run identities must be nonempty and distinct"
+        )
+    if batch_id in {parent.batch_id, parent.run_id} or run_id in {
+        parent.batch_id,
+        parent.run_id,
+    }:
+        raise TargetRawDocketRecoveryError(
+            "successor identities must differ from parent identities"
+        )
+    _verify_zero_success_parent(
+        parent=parent,
+        failure_card=cast(Mapping[str, Any], card),
+        parent_raw_html_dir=parent_raw_html_dir,
+    )
+    # Bind the card's first input separately so relative paths resolve exactly once.
+    raw_inputs = cast(list[str], card["input_paths"])
+    if Path(raw_inputs[0]).resolve() != parent_plan_path.resolve():
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card does not bind the pinned parent plan"
+        )
+    return TargetRawDocketRecoverySuccessorPlan(
+        parent_plan_path=str(parent_plan_path.resolve()),
+        parent_plan_sha256=expected_parent_plan_sha256,
+        parent_failure_run_card_path=str(parent_failure_run_card_path.resolve()),
+        parent_failure_run_card_sha256=expected_parent_failure_run_card_sha256,
+        parent_raw_html_dir=str(parent_raw_html_dir.resolve()),
+        batch_id=batch_id,
+        run_id=run_id,
+    )
+
+
+def resolve_target_raw_docket_recovery_successor(
+    plan: TargetRawDocketRecoverySuccessorPlan,
+) -> tuple[TargetRawDocketRecoveryPlan, TargetRawDocketRecoveryPlan]:
+    """Reauthenticate the parent and derive the exact child execution plan."""
+
+    rebuilt = build_target_raw_docket_recovery_successor_plan(
+        parent_plan_path=Path(plan.parent_plan_path),
+        expected_parent_plan_sha256=plan.parent_plan_sha256,
+        parent_failure_run_card_path=Path(plan.parent_failure_run_card_path),
+        expected_parent_failure_run_card_sha256=(plan.parent_failure_run_card_sha256),
+        parent_raw_html_dir=Path(plan.parent_raw_html_dir),
+        batch_id=plan.batch_id,
+        run_id=plan.run_id,
+    )
+    if rebuilt != plan:
+        raise TargetRawDocketRecoveryError("successor plan no longer reconstructs")
+    parent = load_target_raw_docket_recovery_plan(
+        Path(plan.parent_plan_path), plan.parent_plan_sha256
+    )
+    child_values = asdict(parent)
+    child_values["batch_id"] = plan.batch_id
+    child_values["run_id"] = plan.run_id
+    return parent, TargetRawDocketRecoveryPlan(**child_values)
 
 
 def execute_target_raw_docket_recovery(

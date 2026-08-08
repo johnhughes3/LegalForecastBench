@@ -18,6 +18,7 @@ from legalforecast.contracts import (
     TARGET_RAW_DOCKET_RECOVERY_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
+    TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
     CanonicalJsonCodec,
     CommitmentEncodingError,
@@ -162,6 +163,7 @@ def test_recovery_vertical_slice_schema_registry_is_versioned_and_unique() -> No
         TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
         TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
         TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
+        TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
     }.issubset(RECOVERY_VERTICAL_SLICE_SCHEMAS)
     assert len(values) == len(set(values))
     assert all(value.startswith("legalforecast.") for value in values)

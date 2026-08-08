@@ -214,6 +214,33 @@ uv run legalforecast acquisition execute-target-raw-docket-recovery \
   --receipt-output <recovery-receipt.json> --live-firecrawl
 ```
 
+If that exact run ends `circuit_open` with zero successful pages, do not reset or reuse it. Freeze one direct successor from the externally pinned parent plan and failed run card:
+
+```bash
+uv run legalforecast acquisition plan-target-raw-docket-recovery-successor \
+  --output-root <successor-plan-root> --execute --no-resume \
+  --parent-plan <parent-plan.json> \
+  --expected-parent-plan-sha256 <external-lowercase-sha256> \
+  --parent-failure-run-card <failed-run-card.json> \
+  --expected-parent-failure-run-card-sha256 <external-lowercase-sha256> \
+  --parent-raw-html-dir <parent-raw-html-dir> \
+  --batch-id <new-batch-id> --run-id <new-run-id> \
+  --plan-output <successor-plan.json>
+
+uv run legalforecast acquisition execute-target-raw-docket-recovery-successor \
+  --output-root <successor-execution-root> --execute --no-resume \
+  --successor-plan <successor-plan.json> \
+  --expected-successor-plan-sha256 <external-lowercase-sha256> \
+  --raw-html-dir <new-raw-html-dir> \
+  --successes-output <screening-successes.jsonl> \
+  --exclusions-output <screening-exclusions.jsonl> \
+  --summary-output <recovery-summary.json> \
+  --receipt-output <recovery-receipt.json> \
+  --live-firecrawl
+```
+
+The successor inherits the exact target set, cycle store, credit cap, workers, pagination, retry, breaker, and proxy settings. It is accepted only for a zero-success all-5xx root failure, and the store permits only one direct child; successor chains are rejected.
+
 The resulting screening step must authenticate that terminal handoff rather than consuming the success manifest as a generic unbound input:
 
 ```bash
