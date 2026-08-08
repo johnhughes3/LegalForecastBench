@@ -62,6 +62,10 @@ jobs:
     permissions:
       actions: read
       contents: read
+      # This job reads /repos/{repo}/environments and its
+      # deployment-branch-policies to prove the six required paid-labeling
+      # environments exist with the expected protection rules.
+      deployments: read
     outputs:
       module_root: ${{ steps.request.outputs.module_root }}
       state_key: ${{ steps.request.outputs.state_key }}
@@ -176,7 +180,11 @@ jobs:
     env:
       AGE_ROOT: ${{ github.workspace }}/.provider-authority-infra-tools
       ARTIFACT_ROOT: ${{ github.workspace }}/.lfb-encrypted-infra-plan
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      # No default: the state bucket and KMS key are region-bound externally
+      # bootstrapped resources, so silently falling back to a region would
+      # break the fail-closed bootstrap contract below.
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_INFRA_OPERATOR_ROLE_ARN: ${{ vars.LFB_INFRA_OPERATOR_ROLE_ARN }}
       LFB_INFRA_PLAN_AGE_RECIPIENT: ${{ vars.LFB_INFRA_PLAN_AGE_RECIPIENT }}
       LFB_TERRAFORM_STATE_BUCKET: ${{ vars.LFB_TERRAFORM_STATE_BUCKET }}
@@ -191,7 +199,7 @@ jobs:
       STATE_KEY_SUFFIX: ${{ needs.validate-request.outputs.state_key }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      TF_VAR_aws_region: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      TF_VAR_aws_region: ${{ vars.LFB_AWS_REGION }}
       TF_VAR_github_oidc_provider_arn: ${{ vars.LFB_GITHUB_OIDC_PROVIDER_ARN }}
       TF_VAR_provider_authority_resource_identity_sha256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
       TF_VAR_provider_authority_table_arn: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE_ARN }}
@@ -208,6 +216,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
+            LFB_AWS_REGION
             LFB_INFRA_OPERATOR_ROLE_ARN
             LFB_TERRAFORM_STATE_BUCKET
             LFB_TERRAFORM_STATE_KEY_PREFIX

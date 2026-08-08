@@ -181,3 +181,18 @@ def test_workflow_actions_are_sha_pinned() -> None:
         and all(character in "0123456789abcdef" for character in reference)
         for _, reference in (action.rsplit("@", 1) for action in uses)
     )
+
+
+def test_aws_region_is_fail_closed_external_bootstrap() -> None:
+    """The region must be bootstrapped, never silently defaulted.
+
+    The Terraform state bucket and KMS key are region-bound external resources,
+    so a fallback region would point the backend at the wrong account state
+    while still appearing to satisfy the bootstrap contract.
+    """
+
+    text = _text()
+    assert "LFB_AWS_REGION\n" in text.split("required=(", maxsplit=1)[1].split(")")[0]
+    assert "us-east-1" not in text
+    assert "vars.LFB_AWS_REGION ||" not in text
+    assert "LFB_AWS_REGION" in RUNBOOK.read_text(encoding="utf-8")
