@@ -83,6 +83,12 @@ TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1 = SchemaIdentifier(
 TARGET_RAW_DOCKET_RECOVERY_PROVIDER_CONTRACT_RETRY_PLAN_V1 = SchemaIdentifier(
     "legalforecast.target_raw_docket_recovery_provider_contract_retry_plan.v1"
 )
+TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_V1 = SchemaIdentifier(
+    "legalforecast.target_raw_docket_auxiliary_provenance_bridge.v1"
+)
+TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.target_raw_docket_auxiliary_provenance_bridge_run_card.v1"
+)
 
 # This registry names the current recovery vertical slice without changing any
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.
@@ -107,4 +113,6 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_PROVIDER_CONTRACT_RETRY_PLAN_V1,
+    TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_V1,
+    TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_RUN_CARD_V1,
 )

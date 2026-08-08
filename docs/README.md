@@ -78,6 +78,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [opinion-recap-resolution-v1.md](schemas/opinion-recap-resolution-v1.md): resumable strict identity mapping from opinion leads to RECAP docket identities.
 - [opinion-docket-gap-plan-v1.md](schemas/opinion-docket-gap-plan-v1.md): projecting the cost of refreshing authoritative docket coverage.
 - [target-public-gap-refresh-v1.md](schemas/target-public-gap-refresh-v1.md): the public-recovery overlay for an authenticated target-cohort projection.
+- [target-raw-docket-auxiliary-provenance-v1.md](schemas/target-raw-docket-auxiliary-provenance-v1.md): provider-free bridge from a frozen raw-docket manifest to receipt-verified selected recovery pages.
 
 **Cohort selection**
 

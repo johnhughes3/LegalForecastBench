@@ -136,6 +136,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`target_cohort_projection.py`](../legalforecast/ingestion/target_cohort_projection.py) | Exact post-clearance cohort projection. |
 | [`target_preparation_retarget.py`](../legalforecast/ingestion/target_preparation_retarget.py) | Authenticated provider-free retarget import boundary. |
 | [`target_public_gap_refresh.py`](../legalforecast/ingestion/target_public_gap_refresh.py) | Exact-target public-gap refresh. |
+| [`target_raw_docket_auxiliary_provenance.py`](../legalforecast/ingestion/target_raw_docket_auxiliary_provenance.py) | Provider-free bridge binding recovered target raw docket pages to a frozen screening snapshot. |
 | [`target_raw_docket_recovery.py`](../legalforecast/ingestion/target_raw_docket_recovery.py) | Exact-target, complete-pagination recovery of missing raw docket provenance. |
 | [`terminal_subset_promotion.py`](../legalforecast/ingestion/terminal_subset_promotion.py) | Authenticated promotion of an exact terminal subset. |
 | [`zero_cost_successor.py`](../legalforecast/ingestion/zero_cost_successor.py) | Exact-cohort successor after terminal recovery. |

@@ -837,6 +837,12 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     require_target_public_gap_sources_unchanged,
     verify_target_public_gap_plan,
 )
+from legalforecast.ingestion.target_raw_docket_auxiliary_provenance import (
+    TargetRawDocketAuxiliaryProvenanceError,
+    VerifiedTargetRawDocketAuxiliaryProvenanceBridge,
+    build_target_raw_docket_auxiliary_provenance_bridge,
+    load_verified_target_raw_docket_auxiliary_provenance_bridge,
+)
 from legalforecast.ingestion.target_raw_docket_recovery import (
     TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA,
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
@@ -1806,6 +1812,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_target_raw_provider_contract_retry_execute_arguments(
         acquisition_execute_target_raw_docket_recovery_provider_contract_retry
+    )
+    acquisition_build_target_raw_docket_auxiliary_provenance_bridge = (
+        acquisition_subparsers.add_parser(
+            "build-target-raw-docket-auxiliary-provenance-bridge",
+            help=(
+                "Authenticate completed recovered raw dockets and publish the "
+                "provider-free bridge used by packet planning."
+            ),
+        )
+    )
+    _add_acquisition_build_target_raw_docket_auxiliary_provenance_bridge_arguments(
+        acquisition_build_target_raw_docket_auxiliary_provenance_bridge
     )
     acquisition_seal_ranked_dockets = acquisition_subparsers.add_parser(
         "seal-ranked-firecrawl-run",
@@ -6900,6 +6918,41 @@ def _add_acquisition_target_raw_provider_contract_retry_execute_arguments(
     )
 
 
+def _add_acquisition_build_target_raw_docket_auxiliary_provenance_bridge_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the fully pinned, provider-free raw-docket bridge inputs."""
+
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--expected-selection-sha256", required=True)
+    parser.add_argument("--source-snapshot", type=Path, required=True)
+    parser.add_argument("--expected-source-snapshot-manifest-sha256", required=True)
+    parser.add_argument("--expected-cycle-hash", required=True)
+    parser.add_argument("--source-union-run-card", type=Path, required=True)
+    parser.add_argument("--expected-source-union-run-card-sha256", required=True)
+    parser.add_argument("--source-cycle-store", type=Path, required=True)
+    parser.add_argument("--source-raw-artifacts-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--expected-source-raw-artifacts-manifest-sha256", required=True
+    )
+    parser.add_argument("--source-raw-html-dir", type=Path, required=True)
+    parser.add_argument("--recovery-plan", type=Path, required=True)
+    parser.add_argument("--expected-recovery-plan-sha256", required=True)
+    parser.add_argument("--recovery-receipt", type=Path, required=True)
+    parser.add_argument("--expected-recovery-receipt-sha256", required=True)
+    parser.add_argument("--recovery-successes", type=Path, required=True)
+    parser.add_argument("--recovery-exclusions", type=Path, required=True)
+    parser.add_argument("--recovery-summary", type=Path, required=True)
+    parser.add_argument("--recovery-raw-html-dir", type=Path, required=True)
+    parser.add_argument("--raw-artifacts-manifest-output", type=Path, required=True)
+    parser.add_argument("--bridge-output", type=Path, required=True)
+    parser.add_argument("--bridge-run-card-output", type=Path, required=True)
+    parser.set_defaults(
+        handler=_cmd_acquisition_build_target_raw_docket_auxiliary_provenance_bridge
+    )
+
+
 def _add_acquisition_seal_ranked_dockets_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -9800,6 +9853,16 @@ def _add_acquisition_plan_packet_inputs_arguments(
             "<union-output-root>/union-raw-artifacts.jsonl. Required with "
             "--execute; exact courtlistener-docket-<numeric> identities may bind "
             "the same numeric selection ID."
+        ),
+    )
+    parser.add_argument(
+        "--raw-provenance-bridge",
+        type=Path,
+        help=(
+            "Completed provider-free target raw-docket auxiliary-provenance "
+            "bridge. It is required when the canonical manifest contains "
+            "receipt-verified raw docket files outside --raw-html-dir and is "
+            "replayed before packet planning and packet build."
         ),
     )
     parser.add_argument(
@@ -15349,6 +15412,16 @@ def _projection_json_object(payload: bytes, *, source: Path) -> JsonRecord:
 
 def _bytes_sha256(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _require_packet_raw_provenance_bridge_commitment(
+    bridge: VerifiedTargetRawDocketAuxiliaryProvenanceBridge,
+    committed_payload: bytes,
+) -> None:
+    """Require the bridge's raw-hex descriptor digest in the card commitment."""
+
+    if bridge.bridge_sha256 != _bytes_sha256(committed_payload).removeprefix("sha256:"):
+        raise CommandError("packet planner raw-provenance bridge differs")
 
 
 def _projection_json_bytes(payload: Mapping[str, Any]) -> bytes:
@@ -21867,6 +21940,111 @@ def _cmd_acquisition_plan_target_raw_docket_recovery_provider_contract_retry(
             stage="plan-target-raw-docket-recovery-provider-contract-retry",
             input_paths=inputs,
             output_paths=(plan_output,),
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_acquisition_build_target_raw_docket_auxiliary_provenance_bridge(
+    args: argparse.Namespace,
+) -> int:
+    """Publish the provider-free raw-docket bridge from completed authority."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "build-target-raw-docket-auxiliary-provenance-bridge is provider-free "
+            "and requires --execute"
+        )
+    selection_path = cast(Path, args.selection)
+    source_snapshot_path = cast(Path, args.source_snapshot)
+    source_union_run_card_path = cast(Path, args.source_union_run_card)
+    source_cycle_store_path = cast(Path, args.source_cycle_store)
+    source_raw_artifacts_manifest_path = cast(Path, args.source_raw_artifacts_manifest)
+    source_raw_html_dir = cast(Path, args.source_raw_html_dir)
+    recovery_plan_path = cast(Path, args.recovery_plan)
+    recovery_receipt_path = cast(Path, args.recovery_receipt)
+    recovery_successes_path = cast(Path, args.recovery_successes)
+    recovery_exclusions_path = cast(Path, args.recovery_exclusions)
+    recovery_summary_path = cast(Path, args.recovery_summary)
+    recovery_raw_html_dir = cast(Path, args.recovery_raw_html_dir)
+    manifest_output = cast(Path, args.raw_artifacts_manifest_output)
+    bridge_output = cast(Path, args.bridge_output)
+    bridge_run_card_output = cast(Path, args.bridge_run_card_output)
+    input_paths = (
+        selection_path,
+        source_snapshot_path,
+        source_union_run_card_path,
+        source_cycle_store_path,
+        source_raw_artifacts_manifest_path,
+        source_raw_html_dir,
+        recovery_plan_path,
+        recovery_receipt_path,
+        recovery_successes_path,
+        recovery_exclusions_path,
+        recovery_summary_path,
+        recovery_raw_html_dir,
+    )
+    output_paths = (manifest_output, bridge_output, bridge_run_card_output)
+    try:
+        verified = build_target_raw_docket_auxiliary_provenance_bridge(
+            selection_path=selection_path,
+            expected_selection_sha256=cast(str, args.expected_selection_sha256),
+            source_snapshot_path=source_snapshot_path,
+            expected_source_snapshot_manifest_sha256=cast(
+                str, args.expected_source_snapshot_manifest_sha256
+            ),
+            expected_cycle_hash=cast(str, args.expected_cycle_hash),
+            source_union_run_card_path=source_union_run_card_path,
+            expected_source_union_run_card_sha256=cast(
+                str, args.expected_source_union_run_card_sha256
+            ),
+            source_cycle_store_path=source_cycle_store_path,
+            source_raw_artifacts_manifest_path=source_raw_artifacts_manifest_path,
+            expected_source_raw_artifacts_manifest_sha256=cast(
+                str, args.expected_source_raw_artifacts_manifest_sha256
+            ),
+            source_raw_html_dir=source_raw_html_dir,
+            recovery_plan_path=recovery_plan_path,
+            expected_recovery_plan_sha256=cast(str, args.expected_recovery_plan_sha256),
+            recovery_receipt_path=recovery_receipt_path,
+            expected_recovery_receipt_sha256=cast(
+                str, args.expected_recovery_receipt_sha256
+            ),
+            recovery_successes_path=recovery_successes_path,
+            recovery_exclusions_path=recovery_exclusions_path,
+            recovery_summary_path=recovery_summary_path,
+            recovery_raw_html_dir=recovery_raw_html_dir,
+            raw_artifacts_manifest_path=manifest_output,
+            bridge_path=bridge_output,
+            run_card_path=bridge_run_card_output,
+        )
+        _write_acquisition_completion(
+            args,
+            stage="build-target-raw-docket-auxiliary-provenance-bridge",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=len(verified.selected_candidate_ids),
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={
+                "bridge_sha256": verified.bridge_sha256,
+                "raw_artifacts_manifest_sha256": (
+                    verified.raw_artifacts_manifest_sha256
+                ),
+                "selected_raw_coverage_count": len(verified.selected_candidate_ids),
+                "provider_activity_requested": False,
+                "provider_activity_executed": False,
+            },
+        )
+    except (OSError, TargetRawDocketAuxiliaryProvenanceError) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="build-target-raw-docket-auxiliary-provenance-bridge",
+            input_paths=input_paths,
+            output_paths=output_paths,
             reason=str(exc),
             paid_activity_requested=False,
         )
@@ -60692,6 +60870,30 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
     model_registry_path = cast(Path, args.model_registry)
     raw_html_dir = cast(Path, args.raw_html_dir)
     materialization_card_path = cast(Path | None, args.materialization_run_card)
+    raw_provenance_bridge_path = cast(
+        Path | None, getattr(args, "raw_provenance_bridge", None)
+    )
+    verified_raw_provenance_bridge: (
+        VerifiedTargetRawDocketAuxiliaryProvenanceBridge | None
+    ) = None
+    if not dry_run and raw_provenance_bridge_path is not None:
+        try:
+            verified_raw_provenance_bridge = (
+                load_verified_target_raw_docket_auxiliary_provenance_bridge(
+                    raw_provenance_bridge_path
+                )
+            )
+        except TargetRawDocketAuxiliaryProvenanceError as exc:
+            raise CommandError(str(exc)) from exc
+        if raw_artifacts_manifest_path is None or (
+            raw_artifacts_manifest_path.resolve()
+            != verified_raw_provenance_bridge.raw_artifacts_manifest_path
+        ):
+            raise CommandError(
+                "--raw-provenance-bridge must bind --raw-artifacts-manifest"
+            )
+        if raw_html_dir.resolve() != verified_raw_provenance_bridge.source_raw_html_dir:
+            raise CommandError("--raw-provenance-bridge must bind --raw-html-dir")
     prospective_document_root = cast(Path | None, args.document_root) or (
         prospective_output_root / "documents" / "free"
     )
@@ -60741,6 +60943,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         prediction_units_path,
         model_registry_path,
         *((raw_artifacts_manifest_path,) if raw_artifacts_manifest_path else ()),
+        *((raw_provenance_bridge_path,) if raw_provenance_bridge_path else ()),
     )
     direct_packet_input_snapshots = _snapshot_regular_input_paths(
         direct_packet_input_paths, label="plan-packet-inputs direct input"
@@ -60821,6 +61024,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                         materialization_card
                     )
                 ),
+                raw_provenance_bridge=verified_raw_provenance_bridge,
             )
     resolved_records = (
         list(materialization_lineage.resolved_records)
@@ -60866,6 +61070,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         prediction_units_path,
         model_registry_path,
         *((raw_artifacts_manifest_path,) if raw_artifacts_manifest_path else ()),
+        *((raw_provenance_bridge_path,) if raw_provenance_bridge_path else ()),
     )
     completion_input_snapshots = _snapshot_regular_input_paths(
         completion_file_paths,
@@ -60929,6 +61134,11 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 raw_html_dir=raw_html_dir,
                 raw_artifact_records=raw_artifact_records,
                 raw_artifact_bytes=raw_html_snapshot,
+                auxiliary_raw_artifact_bytes_by_path=(
+                    verified_raw_provenance_bridge.raw_artifact_bytes_by_path
+                    if verified_raw_provenance_bridge is not None
+                    else None
+                ),
                 document_root=document_root,
                 markdown_root=markdown_root,
                 markdown_bytes=markdown_snapshot,
@@ -61003,6 +61213,16 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             ),
             **(
                 {
+                    "raw_provenance_bridge": _file_commitment_from_bytes(
+                        raw_provenance_bridge_path,
+                        completion_input_snapshots[raw_provenance_bridge_path],
+                    )
+                }
+                if raw_provenance_bridge_path is not None
+                else {}
+            ),
+            **(
+                {
                     "resolved_post_recovery_documents": (
                         _file_commitment_from_bytes(
                             resolved_path, completion_input_snapshots[resolved_path]
@@ -61016,6 +61236,23 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         _require_snapshot_unchanged(
             completion_input_snapshots, label="plan-packet-inputs input"
         )
+        if verified_raw_provenance_bridge is not None:
+            assert raw_provenance_bridge_path is not None
+            try:
+                replayed_raw_provenance_bridge = (
+                    load_verified_target_raw_docket_auxiliary_provenance_bridge(
+                        raw_provenance_bridge_path
+                    )
+                )
+            except TargetRawDocketAuxiliaryProvenanceError as exc:
+                raise CommandError(str(exc)) from exc
+            if (
+                replayed_raw_provenance_bridge.raw_artifact_bytes_by_path
+                != verified_raw_provenance_bridge.raw_artifact_bytes_by_path
+            ):
+                raise CommandError(
+                    "raw-provenance bridge changed during packet planning"
+                )
         if _materializer_tree_snapshot(raw_html_dir) != raw_html_snapshot:
             raise CommandError(
                 "plan-packet-inputs raw HTML tree changed during execution"
@@ -61077,6 +61314,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 if raw_artifacts_manifest_path is not None
                 else ()
             ),
+            *((raw_provenance_bridge_path,) if raw_provenance_bridge_path else ()),
             raw_html_dir,
         ),
         output_paths=(
@@ -61107,6 +61345,18 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                     ).hexdigest(),
                 }
                 if raw_artifacts_manifest_path is not None
+                else {}
+            ),
+            **(
+                {
+                    "raw_provenance_bridge_path": str(
+                        raw_provenance_bridge_path.resolve()
+                    ),
+                    "raw_provenance_bridge_sha256": hashlib.sha256(
+                        completion_input_snapshots[raw_provenance_bridge_path]
+                    ).hexdigest(),
+                }
+                if raw_provenance_bridge_path is not None
                 else {}
             ),
             "disclosure_clearance_path": str(clearance_path.resolve()),
@@ -61371,6 +61621,35 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
         materialization_card_snapshot = _projection_json_object(
             materialization_card_payload, source=typed_materialization_card
         )
+        planner_card_snapshot = _projection_json_object(
+            _require_materializer_artifact(
+                typed_packet_run_card, label="packet planner run card"
+            ),
+            source=typed_packet_run_card,
+        )
+        planner_sources = planner_card_snapshot.get("replay_source_commitments")
+        raw_provenance_bridge: (
+            VerifiedTargetRawDocketAuxiliaryProvenanceBridge | None
+        ) = None
+        if isinstance(planner_sources, Mapping) and (
+            "raw_provenance_bridge" in planner_sources
+        ):
+            bridge_path, bridge_payload = _packet_card_committed_snapshot(
+                cast(Mapping[str, object], planner_sources),
+                name="raw_provenance_bridge",
+            )
+            try:
+                raw_provenance_bridge = (
+                    load_verified_target_raw_docket_auxiliary_provenance_bridge(
+                        bridge_path
+                    )
+                )
+            except TargetRawDocketAuxiliaryProvenanceError as exc:
+                raise CommandError(str(exc)) from exc
+            _require_packet_raw_provenance_bridge_commitment(
+                raw_provenance_bridge,
+                bridge_payload,
+            )
         _verify_packet_raw_artifacts_snapshot_binding(
             raw_html_dir=typed_raw_html_dir,
             raw_artifacts_manifest_path=typed_raw_artifacts_manifest,
@@ -61379,6 +61658,7 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
                     materialization_card_snapshot
                 )
             ),
+            raw_provenance_bridge=raw_provenance_bridge,
         )
         resolved_path = (
             verified_lineage_paths[3] if len(verified_lineage_paths) == 4 else None
@@ -61778,7 +62058,8 @@ def _replay_packet_planner_run_card(
         "raw_artifacts_manifest",
     }
     if not required_source_names.issubset(typed_sources) or set(typed_sources) - (
-        required_source_names | {"resolved_post_recovery_documents"}
+        required_source_names
+        | {"resolved_post_recovery_documents", "raw_provenance_bridge"}
     ):
         raise CommandError("packet planner replay source commitments are incomplete")
     if set(typed_outputs) != {
@@ -61835,6 +62116,29 @@ def _replay_packet_planner_run_card(
         name="raw_artifacts_manifest",
         expected_path=raw_artifacts_manifest_path,
     )
+    raw_provenance_bridge: VerifiedTargetRawDocketAuxiliaryProvenanceBridge | None = (
+        None
+    )
+    if "raw_provenance_bridge" in typed_sources:
+        bridge_path, bridge_payload = _packet_card_committed_snapshot(
+            typed_sources, name="raw_provenance_bridge"
+        )
+        try:
+            raw_provenance_bridge = (
+                load_verified_target_raw_docket_auxiliary_provenance_bridge(bridge_path)
+            )
+        except TargetRawDocketAuxiliaryProvenanceError as exc:
+            raise CommandError(str(exc)) from exc
+        if (
+            raw_provenance_bridge.raw_artifacts_manifest_path
+            != raw_artifacts_manifest_path.resolve()
+            or raw_provenance_bridge.source_raw_html_dir != raw_html_dir.resolve()
+        ):
+            raise CommandError("packet planner raw-provenance bridge differs")
+        _require_packet_raw_provenance_bridge_commitment(
+            raw_provenance_bridge,
+            bridge_payload,
+        )
     has_resolved_source = "resolved_post_recovery_documents" in typed_sources
     if has_resolved_source != (resolved_post_recovery_documents_path is not None):
         raise CommandError("packet planner resolved-document source coverage mismatch")
@@ -61910,6 +62214,11 @@ def _replay_packet_planner_run_card(
             raw_html_dir=committed_raw_html_dir,
             raw_artifact_records=raw_artifact_records,
             raw_artifact_bytes=raw_html_snapshot,
+            auxiliary_raw_artifact_bytes_by_path=(
+                raw_provenance_bridge.raw_artifact_bytes_by_path
+                if raw_provenance_bridge is not None
+                else None
+            ),
             document_root=committed_document_root,
             markdown_root=committed_markdown_root,
             markdown_bytes=markdown_snapshot,
@@ -62037,6 +62346,8 @@ def _verify_packet_raw_artifacts_snapshot_binding(
     raw_html_dir: Path,
     raw_artifacts_manifest_path: Path,
     screening_snapshot_manifest_path: Path,
+    raw_provenance_bridge: VerifiedTargetRawDocketAuxiliaryProvenanceBridge
+    | None = None,
 ) -> None:
     """Bind packet docket bytes to the authenticated screening snapshot."""
 
@@ -62050,6 +62361,22 @@ def _verify_packet_raw_artifacts_snapshot_binding(
         raw_artifacts_manifest_path,
         label="packet raw-artifact manifest",
     )
+    if raw_provenance_bridge is not None:
+        if (
+            raw_artifacts_manifest_path.resolve()
+            != raw_provenance_bridge.raw_artifacts_manifest_path
+            or raw_html_dir.resolve() != raw_provenance_bridge.source_raw_html_dir
+            or screening_snapshot_manifest_path.resolve()
+            != raw_provenance_bridge.source_snapshot_path / "manifest.json"
+        ):
+            raise CommandError(
+                "raw-provenance bridge does not bind packet screening inputs"
+            )
+        if hashlib.sha256(raw_artifacts_manifest_bytes).hexdigest() != (
+            raw_provenance_bridge.raw_artifacts_manifest_sha256
+        ):
+            raise CommandError("raw-provenance bridge manifest commitment differs")
+        return
     expected_records = _owned_raw_records_from_snapshot(
         snapshot_path,
         archived_records=_normalize_owned_raw_records(

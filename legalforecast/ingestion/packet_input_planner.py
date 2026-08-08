@@ -108,15 +108,13 @@ def load_verified_raw_artifacts(
     *,
     raw_html_dir: str | Path,
     raw_artifact_bytes: Mapping[str, bytes] | None = None,
+    auxiliary_raw_artifact_bytes_by_path: Mapping[str, bytes] | None = None,
 ) -> Mapping[str, VerifiedRawArtifact]:
     """Verify and bind canonical raw-artifact rows by namespaced candidate ID."""
 
     lexical_root = Path(os.path.abspath(os.fspath(Path(raw_html_dir).expanduser())))
     try:
-        if lexical_root.is_symlink():
-            raise PacketInputPlanningError(
-                f"raw docket HTML root must not be a symlink: {lexical_root}"
-            )
+        _require_non_symlink_path(lexical_root, label="raw docket HTML root")
         resolved_root = lexical_root.resolve(strict=True)
     except OSError as exc:
         raise PacketInputPlanningError(
@@ -166,24 +164,28 @@ def load_verified_raw_artifacts(
         try:
             relative_path = lexical_path.relative_to(lexical_root)
         except ValueError as exc:
-            raise PacketInputPlanningError(
-                "raw-artifact path escapes --raw-html-dir on line "
-                f"{line_number}: {lexical_path}"
-            ) from exc
+            if (
+                auxiliary_raw_artifact_bytes_by_path is None
+                or str(lexical_path) not in auxiliary_raw_artifact_bytes_by_path
+            ):
+                raise PacketInputPlanningError(
+                    "raw-artifact path escapes --raw-html-dir on line "
+                    f"{line_number}: {lexical_path}"
+                ) from exc
+            relative_path = None
         if lexical_path in paths:
             raise PacketInputPlanningError(
                 "duplicate raw-artifact path binding for candidates "
                 f"{paths[lexical_path]} and {candidate_id}: {lexical_path}"
             )
-        current = lexical_root
         try:
-            for component in relative_path.parts:
-                current /= component
-                mode = current.lstat().st_mode
-                if stat.S_ISLNK(mode):
-                    raise PacketInputPlanningError(
-                        f"raw-artifact path contains a symlink: {lexical_path}"
-                    )
+            if relative_path is not None:
+                _require_non_symlink_path(lexical_path, label="raw-artifact")
+            else:
+                _require_non_symlink_path(
+                    lexical_path,
+                    label="auxiliary raw-artifact",
+                )
             if not stat.S_ISREG(lexical_path.lstat().st_mode):
                 raise PacketInputPlanningError(
                     f"raw-artifact path is not a regular file: {lexical_path}"
@@ -195,7 +197,9 @@ def load_verified_raw_artifacts(
             raise PacketInputPlanningError(
                 f"raw-artifact path is unavailable: {lexical_path}"
             ) from exc
-        if not resolved_path.is_relative_to(resolved_root):
+        if relative_path is not None and not resolved_path.is_relative_to(
+            resolved_root
+        ):
             raise PacketInputPlanningError(
                 f"raw-artifact resolved path escapes --raw-html-dir: {lexical_path}"
             )
@@ -217,7 +221,7 @@ def load_verified_raw_artifacts(
             raise PacketInputPlanningError(
                 f"raw-artifact sha256 is invalid on line {line_number}"
             )
-        if namespaced_candidate is not None:
+        if namespaced_candidate is not None and relative_path is not None:
             docket_id = namespaced_candidate.group("docket_id")
             direct_layout = relative_path.parts == (f"{docket_id}.html",)
             union_layout = relative_path.parts == (
@@ -229,7 +233,10 @@ def load_verified_raw_artifacts(
                     "raw-artifact candidate/path ownership mismatch on line "
                     f"{line_number}: {candidate_id} does not own {relative_path}"
                 )
-        if raw_artifact_bytes is None:
+        if relative_path is None:
+            assert auxiliary_raw_artifact_bytes_by_path is not None
+            payload = auxiliary_raw_artifact_bytes_by_path[str(lexical_path)]
+        elif raw_artifact_bytes is None:
             try:
                 payload = lexical_path.read_bytes()
             except OSError as exc:
@@ -379,6 +386,7 @@ def plan_packet_build_inputs(
     raw_html_dir: str | Path,
     raw_artifact_records: Iterable[Mapping[str, Any]] | None = None,
     raw_artifact_bytes: Mapping[str, bytes] | None = None,
+    auxiliary_raw_artifact_bytes_by_path: Mapping[str, bytes] | None = None,
     document_root: str | Path,
     markdown_root: str | Path,
     markdown_bytes: Mapping[str, bytes] | None = None,
@@ -408,6 +416,7 @@ def plan_packet_build_inputs(
             raw_artifact_records,
             raw_html_dir=raw_html_root,
             raw_artifact_bytes=raw_artifact_bytes,
+            auxiliary_raw_artifact_bytes_by_path=(auxiliary_raw_artifact_bytes_by_path),
         )
         if raw_artifact_records is not None
         else None

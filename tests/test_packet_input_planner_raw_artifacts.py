@@ -268,6 +268,91 @@ def test_load_verified_raw_artifacts_rejects_symlink(tmp_path: Path) -> None:
         )
 
 
+def test_load_verified_raw_artifacts_accepts_verified_auxiliary_raw_html(
+    tmp_path: Path,
+) -> None:
+    raw_html_root = tmp_path / "raw-html"
+    raw_html_root.mkdir()
+    baseline_payload = b"<html>baseline docket</html>"
+    baseline_path = raw_html_root / "70649963.html"
+    baseline_path.write_bytes(baseline_payload)
+    recovered_payload = b"<html>recovered docket</html>"
+    recovered_path = tmp_path / "receipt-recovery" / "71942225.html"
+    recovered_path.parent.mkdir()
+    recovered_path.write_bytes(recovered_payload)
+    records = [
+        _record("courtlistener-docket-70649963", baseline_path, baseline_payload),
+        _record("courtlistener-docket-71942225", recovered_path, recovered_payload),
+    ]
+
+    artifacts = load_verified_raw_artifacts(
+        records,
+        raw_html_dir=raw_html_root,
+        auxiliary_raw_artifact_bytes_by_path={
+            str(recovered_path): recovered_payload,
+        },
+    )
+
+    assert artifacts["courtlistener-docket-71942225"].text == (
+        "<html>recovered docket</html>"
+    )
+
+
+def test_load_verified_raw_artifacts_rejects_auxiliary_parent_symlink(
+    tmp_path: Path,
+) -> None:
+    raw_html_root = tmp_path / "raw-html"
+    raw_html_root.mkdir()
+    recovered_payload = b"<html>recovered docket</html>"
+    recovery_source = tmp_path / "receipt-recovery-source"
+    recovery_source.mkdir()
+    (recovery_source / "71942225.html").write_bytes(recovered_payload)
+    recovery_alias = tmp_path / "receipt-recovery"
+    recovery_alias.symlink_to(recovery_source, target_is_directory=True)
+    recovered_path = recovery_alias / "71942225.html"
+
+    with pytest.raises(
+        PacketInputPlanningError,
+        match="auxiliary raw-artifact path contains a symlink",
+    ):
+        load_verified_raw_artifacts(
+            [
+                _record(
+                    "courtlistener-docket-71942225",
+                    recovered_path,
+                    recovered_payload,
+                )
+            ],
+            raw_html_dir=raw_html_root,
+            auxiliary_raw_artifact_bytes_by_path={
+                str(recovered_path): recovered_payload,
+            },
+        )
+
+
+def test_load_verified_raw_artifacts_rejects_unverified_auxiliary_raw_html(
+    tmp_path: Path,
+) -> None:
+    raw_html_root = tmp_path / "raw-html"
+    raw_html_root.mkdir()
+    recovered_payload = b"<html>recovered docket</html>"
+    recovered_path = tmp_path / "receipt-recovery" / "71942225.html"
+    recovered_path.parent.mkdir()
+    recovered_path.write_bytes(recovered_payload)
+
+    with pytest.raises(PacketInputPlanningError, match="escapes --raw-html-dir"):
+        load_verified_raw_artifacts(
+            [
+                _record(
+                    "courtlistener-docket-71942225",
+                    recovered_path,
+                    recovered_payload,
+                )
+            ],
+            raw_html_dir=raw_html_root,
+        )
+
+
 @pytest.mark.parametrize("duplicate_key", ["candidate", "path"])
 def test_load_verified_raw_artifacts_rejects_duplicate_bindings(
     tmp_path: Path,
