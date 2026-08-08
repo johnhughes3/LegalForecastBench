@@ -308,6 +308,43 @@ uv run legalforecast acquisition screen-firecrawl-dockets \
   --snapshot-id <new-complete-snapshot-id>
 ```
 
+### Provider-free recovered raw-docket bridge
+
+When a completed target selection is already authenticated against the final screening snapshot, and a completed recovery supplies only raw docket pages missing from that snapshot's canonical raw-artifact manifest, publish the bridge below before packet planning.
+
+This is a deterministic local provenance join: it makes no provider request, purchases nothing, and does not rescreen or change the selected cohort.
+
+```bash
+uv run legalforecast acquisition build-target-raw-docket-auxiliary-provenance-bridge \
+  --output-root <bridge-stage-root> --execute --no-resume \
+  --selection <exact-target-selection.jsonl> \
+  --expected-selection-sha256 <external-lowercase-sha256> \
+  --source-snapshot <final-screening-snapshot-root> \
+  --expected-source-snapshot-manifest-sha256 <external-lowercase-sha256> \
+  --expected-cycle-hash <external-lowercase-cycle-hash> \
+  --source-union-run-card <final-union-run-card.json> \
+  --expected-source-union-run-card-sha256 <external-lowercase-sha256> \
+  --source-cycle-store <official-cycle-store.sqlite3> \
+  --source-raw-artifacts-manifest <canonical-raw-artifacts.jsonl> \
+  --expected-source-raw-artifacts-manifest-sha256 <external-lowercase-sha256> \
+  --source-raw-html-dir <canonical-raw-html-root> \
+  --recovery-plan <completed-recovery-plan.json> \
+  --expected-recovery-plan-sha256 <external-lowercase-sha256> \
+  --recovery-receipt <completed-recovery-receipt.json> \
+  --expected-recovery-receipt-sha256 <external-lowercase-sha256> \
+  --recovery-successes <completed-recovery-successes.jsonl> \
+  --recovery-exclusions <completed-recovery-exclusions.jsonl> \
+  --recovery-summary <completed-recovery-summary.json> \
+  --recovery-raw-html-dir <completed-recovery-raw-html-root> \
+  --raw-artifacts-manifest-output <bridge-root>/raw-artifacts.jsonl \
+  --bridge-output <bridge-root>/target-raw-docket-auxiliary-provenance-bridge.json \
+  --bridge-run-card-output <bridge-root>/run-cards/bridge.json
+```
+
+Add `--raw-artifacts-manifest <bridge-root>/raw-artifacts.jsonl` and `--raw-provenance-bridge <bridge-root>/target-raw-docket-auxiliary-provenance-bridge.json` to the normal fully pinned `plan-packet-inputs` invocation.
+
+`plan-packet-inputs` reauthenticates the bridge and commits it into its planner run card; `build-packets` reauthenticates that same commitment during replay.
+
 `discover-firecrawl-recap --resume` deliberately does not retry a nontransient `terminal_error`. If a primary discovery fails for that reason, run exactly one child recovery with a unique run ID, `--proxy enhanced`, `--force-browser`, and `--recover-terminal-errors-from-run <primary-run-id>`. If bounded fresh runs were already attempted, repeat `--reuse-verified-pages-from-run <run-id>` for each one. The command verifies that every source uses the exact frozen batch/query plan, SHA-checks and deduplicates successful pages by search URL, rejects conflicting bytes, routes only still-unresolved evidenced terminal URLs through the child, resumes newly revealed continuation pages under the parent's immutable scheduler settings, shares the cycle-wide credit cap, and refuses both recovery chaining and a second child of the same parent.
 
 Generated or private acquisition runbooks must guard each primary discovery explicitly and let either command's failure stop the script. Never use `|| true`. Repeat every frozen batch/window/query argument byte-for-byte in the recovery command; only the child run ID, recovery flag, proxy, and browser setting differ:
