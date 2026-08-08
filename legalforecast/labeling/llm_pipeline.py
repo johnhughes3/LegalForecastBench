@@ -1049,6 +1049,7 @@ def validate_structural_review_flags(
                     documents_by_id=documents_by_id,
                 )
             except LlmPipelineError:
+                # Fall through to the unified fail-closed citation rejection below.
                 pass
         if verbatim_excerpt is None:
             raise LlmResponseValidationError(
