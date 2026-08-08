@@ -2137,6 +2137,13 @@ def _markdown_text(
 def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
     challenged_by_motion = _required_bool(record, "challenged_by_motion")
     challenge_scope = ChallengeScope(_required_str(record, "challenge_scope"))
+    provider_challenge_scope = challenge_scope
+    defendant_names = _str_tuple(record.get("defendant_names"), "defendant_names")
+    grouping = DefendantGrouping(
+        _optional_str(record, "grouping") or DefendantGrouping.INDIVIDUAL.value
+    )
+    grouping_rationale = _optional_str(record, "grouping_rationale")
+    group_label = _optional_str(record, "group_label")
     separable_subclaim = _optional_str(record, "separable_subclaim")
     uncertainty_notes = _optional_str(record, "uncertainty_notes")
     review_reason: UnitizationReviewReason | None = None
@@ -2156,10 +2163,33 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
         challenge_scope = ChallengeScope.UNCLEAR
         separable_subclaim = None
         review_reason = UnitizationReviewReason.UNCLEAR_CLAIM_OR_DEFENDANT
+    if grouping is DefendantGrouping.GROUPED and len(defendant_names) == 1:
+        grouping_details = [
+            f"defendant_names={','.join(defendant_names)}",
+            f"challenge_scope={provider_challenge_scope.value}",
+        ]
+        if group_label is not None:
+            grouping_details.append(f"group_label={group_label}")
+        if grouping_rationale is not None:
+            grouping_details.append(f"grouping_rationale={grouping_rationale}")
+        conflict_note = (
+            "Provider response marked a single-defendant seed as grouped; "
+            + "; ".join(grouping_details)
+        )
+        uncertainty_notes = (
+            f"{uncertainty_notes} {conflict_note}"
+            if uncertainty_notes is not None
+            else conflict_note
+        )
+        grouping = DefendantGrouping.INDIVIDUAL
+        grouping_rationale = None
+        group_label = None
+        challenge_scope = ChallengeScope.UNCLEAR
+        review_reason = review_reason or UnitizationReviewReason.UNCLEAR_GROUPING
     return StageAUnitSeed(
         count=_required_str(record, "count"),
         claim_name=_required_str(record, "claim_name"),
-        defendant_names=_str_tuple(record.get("defendant_names"), "defendant_names"),
+        defendant_names=defendant_names,
         source_document_ids=_str_tuple(
             record.get("source_document_ids"),
             "source_document_ids",
@@ -2167,11 +2197,9 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
         challenged_by_motion=challenged_by_motion,
         challenge_scope=challenge_scope,
         unit_confidence=_required_float(record, "unit_confidence"),
-        grouping=DefendantGrouping(
-            _optional_str(record, "grouping") or DefendantGrouping.INDIVIDUAL.value
-        ),
-        grouping_rationale=_optional_str(record, "grouping_rationale"),
-        group_label=_optional_str(record, "group_label"),
+        grouping=grouping,
+        grouping_rationale=grouping_rationale,
+        group_label=group_label,
         separable_subclaim=separable_subclaim,
         uncertainty_notes=uncertainty_notes,
         unit_id=_optional_str(record, "unit_id"),
