@@ -6677,6 +6677,13 @@ def _add_acquisition_execute_target_raw_docket_recovery_arguments(
     parser.add_argument("--exclusions-output", type=Path, required=True)
     parser.add_argument("--summary-output", type=Path, required=True)
     parser.add_argument("--receipt-output", type=Path, required=True)
+    parser.add_argument(
+        "--expected-receipt-sha256",
+        help=(
+            "External lowercase SHA-256 of --receipt-output; required only when "
+            "--resume re-verifies an already complete terminal output set."
+        ),
+    )
     parser.add_argument("--firecrawl-fixture", type=Path)
     parser.add_argument("--live-firecrawl", action="store_true")
     parser.set_defaults(handler=_cmd_acquisition_execute_target_raw_docket_recovery)
@@ -21094,8 +21101,11 @@ def _preflight_target_raw_docket_recovery_paths(
             )
         _reject_target_raw_recovery_symlink_components(path, label="writable output")
         if path.exists():
-            metadata = path.stat()
-            if not path.is_file() or metadata.st_nlink != 1:
+            try:
+                metadata = path.stat()
+            except OSError as exc:
+                raise CommandError(f"cannot inspect writable output: {path}") from exc
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
                 raise CommandError(
                     f"{stage} writable output is not a singly linked file: {path}"
                 )
@@ -21153,7 +21163,12 @@ def _preflight_target_raw_docket_recovery_paths(
                         "a complete authenticated receipt"
                     )
             for entry in entries:
-                metadata = entry.lstat()
+                try:
+                    metadata = entry.lstat()
+                except OSError as exc:
+                    raise CommandError(
+                        f"cannot inspect raw HTML resume entry: {entry}"
+                    ) from exc
                 if (
                     stat.S_ISLNK(metadata.st_mode)
                     or (stat.S_ISREG(metadata.st_mode) and metadata.st_nlink != 1)
@@ -21349,14 +21364,17 @@ def _verify_target_raw_recovery_store_authority(
         raise TargetRawDocketRecoveryError(
             "recovery receipt differs from durable cycle-store state"
         )
-    store.firecrawl_run_status(run_id)
-    store.ensure_firecrawl_run(
-        run_id,
-        batch_id=batch_id,
-        config=run_config,
-        credit_cap=credit_cap,
-        reserved_credits_per_attempt=reserved_credits,
-    )
+    durable_config = dict(store.firecrawl_run_config(run_id))
+    durable_summary = store.firecrawl_run_summary(run_id)
+    if (
+        durable_config != run_config
+        or durable_summary.get("batch_id") != batch_id
+        or durable_summary.get("credit_cap") != credit_cap
+        or durable_summary.get("reserved_credits_per_attempt") != reserved_credits
+    ):
+        raise TargetRawDocketRecoveryError(
+            "recovery receipt differs from durable Firecrawl run authority"
+        )
 
 
 def _cmd_acquisition_plan_target_raw_docket_recovery(
@@ -21372,7 +21390,7 @@ def _cmd_acquisition_plan_target_raw_docket_recovery(
     _preflight_target_raw_docket_recovery_paths(
         args,
         stage="plan-target-raw-docket-recovery",
-        protected_paths=input_paths,
+        protected_paths=(*input_paths, cast(Path, args.source_snapshot)),
         writable_paths=(plan_output,),
     )
     output_root = _acquisition_output_root(args)
@@ -21406,6 +21424,13 @@ def _cmd_acquisition_plan_target_raw_docket_recovery(
 def _cmd_acquisition_execute_target_raw_docket_recovery(
     args: argparse.Namespace,
 ) -> int:
+    inputs = (
+        cast(Path, args.plan),
+        cast(Path, args.selection),
+        cast(Path, args.source_snapshot) / "manifest.json",
+        cast(Path, args.source_snapshot_run_card),
+        cast(Path, args.source_raw_manifest),
+    )
     protected_paths = (
         cast(Path, args.plan),
         cast(Path, args.selection),
@@ -21455,13 +21480,6 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             )
         _acquisition_output_root(args)
         outputs = terminal_paths
-        inputs = (
-            cast(Path, args.plan),
-            cast(Path, args.selection),
-            cast(Path, args.source_snapshot) / "manifest.json",
-            cast(Path, args.source_snapshot_run_card),
-            cast(Path, args.source_raw_manifest),
-        )
         if _acquisition_dry_run(args):
             summary: JsonRecord = {
                 "schema_version": TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
@@ -21497,11 +21515,18 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             )
             return 0
         if completed_resume:
+            expected_receipt_sha256 = cast(str | None, args.expected_receipt_sha256)
+            if (
+                expected_receipt_sha256 is None
+                or re.fullmatch(r"[0-9a-f]{64}", expected_receipt_sha256) is None
+            ):
+                raise TargetRawDocketRecoveryError(
+                    "completed resume requires --expected-receipt-sha256 as an "
+                    "external lowercase SHA-256 anchor"
+                )
             receipt = verify_target_raw_docket_recovery_receipt(
                 receipt_path=outputs[3],
-                expected_receipt_sha256=hashlib.sha256(
-                    outputs[3].read_bytes()
-                ).hexdigest(),
+                expected_receipt_sha256=expected_receipt_sha256,
                 expected_plan_sha256=cast(str, args.expected_plan_sha256),
                 successes_path=outputs[0],
                 exclusions_path=outputs[1],
@@ -21603,6 +21628,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             )
             run_config: JsonRecord = {
                 "purpose": "target-raw-docket-recovery",
+                "recovery_of_run_id": plan.source_snapshot_manifest_sha256,
                 "max_pages_per_docket": plan.max_pages_per_docket,
                 "raw_artifact_root": str((raw_dir / "pages").resolve()),
                 "firecrawl_proxy": config.proxy,
@@ -21715,11 +21741,12 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
         FirecrawlError,
         OSError,
         TargetRawDocketRecoveryError,
+        ValueError,
     ) as exc:
         _write_acquisition_failure(
             args,
             stage="execute-target-raw-docket-recovery",
-            input_paths=(cast(Path, args.plan),),
+            input_paths=inputs,
             output_paths=(
                 cast(Path, args.successes_output),
                 cast(Path, args.exclusions_output),

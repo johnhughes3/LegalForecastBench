@@ -186,7 +186,9 @@ uv run legalforecast acquisition plan-target-raw-docket-recovery \
 ```
 
 Execute only the returned plan SHA, repeating every bound input and scheduler argument.
-The executor rechecks all three source pins immediately before Firecrawl activity, uses complete pagination, and writes only canonical raw HTML plus screen-firecrawl-compatible success/exclusion records for the dedicated same-cycle batch.
+The executor rechecks every pinned source input immediately before Firecrawl activity, uses complete pagination, and writes only canonical raw HTML plus screen-firecrawl-compatible success/exclusion records for the dedicated same-cycle batch.
+
+After a successful execution, record the lowercase SHA-256 printed for the immutable receipt. A later completed `--resume` must repeat the command with `--expected-receipt-sha256 <external-lowercase-receipt-sha256>`; the executor will not authenticate an existing receipt from its own mutable bytes.
 
 ```bash
 uv run legalforecast acquisition execute-target-raw-docket-recovery \

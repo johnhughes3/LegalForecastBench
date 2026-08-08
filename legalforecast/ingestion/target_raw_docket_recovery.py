@@ -12,8 +12,11 @@ import hashlib
 import json
 import os
 import re
+import stat
+import uuid
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
@@ -25,6 +28,7 @@ from legalforecast.contracts import (
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
 )
 from legalforecast.ingestion.budgeted_docket_acquisition import (
+    BudgetedDocketAcquisitionError,
     acquire_ranked_dockets,
     render_complete_docket_html,
 )
@@ -86,55 +90,365 @@ class TargetRawDocketRecoveryPlan:
         }
 
 
-def _read_jsonl(path: Path, label: str) -> list[Mapping[str, Any]]:
-    _require_regular(path, label)
+def _read_jsonl_bytes(
+    payload: bytes, label: str, *, allow_empty: bool = False
+) -> list[Mapping[str, Any]]:
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = payload.decode("utf-8").splitlines()
         rows = [json.loads(line) for line in lines if line]
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise TargetRawDocketRecoveryError(f"{label} is not JSONL") from exc
-    if not rows or any(not isinstance(row, Mapping) for row in rows):
+    if (not rows and not allow_empty) or any(
+        not isinstance(row, Mapping) for row in rows
+    ):
         raise TargetRawDocketRecoveryError(f"{label} is empty or malformed")
-    return rows
-
-
-def _read_jsonl_allow_empty(path: Path, label: str) -> list[Mapping[str, Any]]:
-    _require_regular(path, label)
-    try:
-        rows = [
-            json.loads(line)
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line
-        ]
-    except (UnicodeError, json.JSONDecodeError) as exc:
-        raise TargetRawDocketRecoveryError(f"{label} is not JSONL") from exc
-    if any(not isinstance(row, Mapping) for row in rows):
-        raise TargetRawDocketRecoveryError(f"{label} is malformed")
     return cast(list[Mapping[str, Any]], rows)
 
 
-def _require_regular(path: Path, label: str) -> None:
-    if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1:
+def _read_unique_regular_file(path: Path, label: str) -> bytes:
+    """Read one stable unique file without following any path component."""
+
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise TargetRawDocketRecoveryError(f"{label} requires no-follow support")
+    absolute = Path(os.path.abspath(path))
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | nofollow
+    file_flags = os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | nofollow
+    directory_fd: int | None = None
+    descriptor: int | None = None
+    try:
+        directory_fd = os.open(absolute.anchor, directory_flags)
+        for component in absolute.parts[1:-1]:
+            next_fd = os.open(component, directory_flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+        descriptor = os.open(absolute.name, file_flags, dir_fd=directory_fd)
+    except OSError as exc:
+        if descriptor is not None:
+            os.close(descriptor)
+        if directory_fd is not None:
+            os.close(directory_fd)
         raise TargetRawDocketRecoveryError(
             f"{label} is not a singly linked regular file"
-        )
+        ) from exc
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise TargetRawDocketRecoveryError(
+                f"{label} is not a singly linked regular file"
+            )
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 1024 * 1024):
+            chunks.append(chunk)
+        after = os.fstat(descriptor)
+        if (before.st_dev, before.st_ino, before.st_mode, before.st_size) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_mode,
+            after.st_size,
+        ) or after.st_nlink != 1:
+            raise TargetRawDocketRecoveryError(f"{label} changed while reading")
+        return b"".join(chunks)
+    finally:
+        os.close(descriptor)
+        os.close(directory_fd)
+
+
+def _pinned_bytes(path: Path, expected: str, label: str) -> bytes:
+    if _SHA256.fullmatch(expected) is None:
+        raise TargetRawDocketRecoveryError(f"{label} SHA-256 is invalid")
+    payload = _read_unique_regular_file(path, label)
+    if hashlib.sha256(payload).hexdigest() != expected:
+        raise TargetRawDocketRecoveryError(f"{label} SHA-256 mismatch")
+    return payload
 
 
 def _pinned_sha(path: Path, expected: str, label: str) -> str:
-    if _SHA256.fullmatch(expected) is None:
-        raise TargetRawDocketRecoveryError(f"{label} SHA-256 is invalid")
-    _require_regular(path, label)
-    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-    if actual != expected:
-        raise TargetRawDocketRecoveryError(f"{label} SHA-256 mismatch")
-    return actual
+    _pinned_bytes(path, expected, label)
+    return expected
+
+
+def _require_snapshot_payload_commitment(
+    manifest: Mapping[str, Any], filename: str, payload: bytes
+) -> None:
+    files_value = manifest.get("files")
+    files = (
+        cast(Mapping[str, object], files_value)
+        if isinstance(files_value, Mapping)
+        else None
+    )
+    commitment_value = files.get(filename) if files is not None else None
+    commitment = (
+        cast(Mapping[str, object], commitment_value)
+        if isinstance(commitment_value, Mapping)
+        else None
+    )
+    if not isinstance(commitment, Mapping) or (
+        commitment.get("sha256") != hashlib.sha256(payload).hexdigest()
+        or commitment.get("byte_count") != len(payload)
+        or commitment.get("row_count") != payload.count(b"\n")
+    ):
+        raise TargetRawDocketRecoveryError(
+            f"source snapshot commitment mismatch: {filename}"
+        )
 
 
 def _require_no_symlink_components(path: Path, label: str) -> None:
     normalized = Path(os.path.abspath(path))
     for candidate in (normalized, *normalized.parents):
-        if candidate.is_symlink():
+        try:
+            metadata = candidate.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise TargetRawDocketRecoveryError(
+                f"cannot inspect {label}: {candidate}"
+            ) from exc
+        if stat.S_ISLNK(metadata.st_mode):
             raise TargetRawDocketRecoveryError(f"{label} contains a symlink")
+
+
+def _validated_courtlistener_docket_url(*, docket_id: str, value: object) -> str:
+    if not isinstance(value, str):
+        raise TargetRawDocketRecoveryError(
+            f"selected target has invalid CourtListener URL: {docket_id}"
+        )
+    try:
+        parsed = urlsplit(value)
+    except ValueError as exc:
+        raise TargetRawDocketRecoveryError(
+            f"selected target has invalid CourtListener URL: {docket_id}"
+        ) from exc
+    components = [part for part in parsed.path.split("/") if part]
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "www.courtlistener.com"
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or len(components) < 2
+        or components[0] != "docket"
+        or components[1] != docket_id
+    ):
+        raise TargetRawDocketRecoveryError(
+            f"selected URL docket does not match candidate ID: {docket_id}"
+        )
+    return value
+
+
+def _validated_target_map(
+    targets: tuple[object, ...],
+) -> dict[str, Mapping[str, object]]:
+    """Return canonical planned targets before provider activity."""
+
+    target_by_docket: dict[str, Mapping[str, object]] = {}
+    for target in targets:
+        if not isinstance(target, Mapping):
+            raise TargetRawDocketRecoveryError("plan target is malformed")
+        target_record = cast(Mapping[str, object], target)
+        candidate_id = target_record.get("candidate_id")
+        identity_value = target_record.get("identity")
+        screening_metadata_value = target_record.get("screening_metadata")
+        if (
+            not isinstance(candidate_id, str)
+            or not isinstance(identity_value, Mapping)
+            or not isinstance(screening_metadata_value, Mapping)
+        ):
+            raise TargetRawDocketRecoveryError("plan target is malformed")
+        identity = cast(Mapping[str, object], identity_value)
+        docket_id = identity.get("courtlistener_docket_id")
+        if not isinstance(docket_id, str) or _DOCKET_ID.fullmatch(docket_id) is None:
+            raise TargetRawDocketRecoveryError("plan target has invalid docket ID")
+        if candidate_id != _CANDIDATE_PREFIX + docket_id:
+            raise TargetRawDocketRecoveryError("plan target candidate ID mismatch")
+        source_url = _validated_courtlistener_docket_url(
+            docket_id=docket_id,
+            value=identity.get("courtlistener_url"),
+        )
+        screening_metadata = cast(Mapping[str, object], screening_metadata_value)
+        if (
+            screening_metadata.get("candidate_id") != docket_id
+            or screening_metadata.get("source_url") != source_url
+            or docket_id in target_by_docket
+        ):
+            raise TargetRawDocketRecoveryError("plan target metadata is malformed")
+        target_by_docket[docket_id] = target_record
+    if not target_by_docket:
+        raise TargetRawDocketRecoveryError("plan contains no targets")
+    return target_by_docket
+
+
+def _parse_completed_at(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("timestamp has no timezone")
+    return parsed
+
+
+def _open_raw_html_directory(raw_html_dir: Path) -> int:
+    """Open one real raw-artifact directory without following its leaf link."""
+
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    if nofollow is None or directory is None:
+        raise TargetRawDocketRecoveryError(
+            "recovery raw HTML directory requires no-follow support"
+        )
+    absolute = Path(os.path.abspath(raw_html_dir))
+    flags = os.O_RDONLY | os.O_CLOEXEC | nofollow | directory
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(absolute.anchor, flags)
+        for component in absolute.parts[1:]:
+            try:
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                os.mkdir(component, mode=0o700, dir_fd=descriptor)
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = next_descriptor
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise TargetRawDocketRecoveryError(
+                "recovery raw HTML directory is not a real directory"
+            )
+    except (OSError, TargetRawDocketRecoveryError) as exc:
+        if descriptor is not None:
+            os.close(descriptor)
+        if isinstance(exc, TargetRawDocketRecoveryError):
+            raise
+        raise TargetRawDocketRecoveryError(
+            "recovery raw HTML directory is not a real directory"
+        ) from exc
+    return descriptor
+
+
+def _read_unique_raw_html(
+    directory_fd: int, filename: str, *, label: str
+) -> bytes | None:
+    """Read one stable, singly-linked regular child through a directory FD."""
+
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise TargetRawDocketRecoveryError(
+            "recovery raw HTML requires no-follow support"
+        )
+    try:
+        descriptor = os.open(
+            filename,
+            os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | nofollow,
+            dir_fd=directory_fd,
+        )
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise TargetRawDocketRecoveryError(
+            f"{label} is not a singly linked regular file"
+        ) from exc
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise TargetRawDocketRecoveryError(
+                f"{label} is not a singly linked regular file"
+            )
+        with os.fdopen(descriptor, "rb", closefd=False) as handle:
+            payload = handle.read()
+        after = os.fstat(descriptor)
+        lexical = os.stat(filename, dir_fd=directory_fd, follow_symlinks=False)
+        if (before.st_dev, before.st_ino, before.st_nlink) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_nlink,
+        ) or (after.st_dev, after.st_ino, after.st_nlink) != (
+            lexical.st_dev,
+            lexical.st_ino,
+            lexical.st_nlink,
+        ):
+            raise TargetRawDocketRecoveryError(f"{label} changed while reading")
+        return payload
+    finally:
+        os.close(descriptor)
+
+
+def _publish_unique_raw_html(
+    directory_fd: int, filename: str, payload: bytes, *, label: str
+) -> None:
+    """Publish immutable raw HTML or prove the existing child has identical bytes."""
+
+    existing = _read_unique_raw_html(directory_fd, filename, label=label)
+    if existing is not None:
+        if existing != payload:
+            raise TargetRawDocketRecoveryError(
+                "raw output already exists with different bytes: "
+                f"{filename.removesuffix('.html')}"
+            )
+        return
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise TargetRawDocketRecoveryError(
+            "recovery raw HTML requires no-follow support"
+        )
+    temporary_name = f".{filename}.{uuid.uuid4().hex}.tmp"
+    descriptor: int | None = None
+    temporary_created = False
+    try:
+        descriptor = os.open(
+            temporary_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | nofollow,
+            0o600,
+            dir_fd=directory_fd,
+        )
+        temporary_created = True
+        view = memoryview(payload)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("short raw HTML write")
+            view = view[written:]
+        os.fsync(descriptor)
+        temporary_metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(temporary_metadata.st_mode)
+            or temporary_metadata.st_nlink != 1
+        ):
+            raise TargetRawDocketRecoveryError(
+                f"{label} temporary output is not a singly linked regular file"
+            )
+        try:
+            os.link(
+                temporary_name,
+                filename,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError:
+            existing = _read_unique_raw_html(directory_fd, filename, label=label)
+            if existing != payload:
+                raise TargetRawDocketRecoveryError(
+                    "raw output already exists with different bytes: "
+                    f"{filename.removesuffix('.html')}"
+                ) from None
+        else:
+            os.unlink(temporary_name, dir_fd=directory_fd)
+            temporary_created = False
+            os.fsync(directory_fd)
+        published = _read_unique_raw_html(directory_fd, filename, label=label)
+        if published != payload:
+            raise TargetRawDocketRecoveryError(f"{label} changed while publishing")
+    except OSError as exc:
+        raise TargetRawDocketRecoveryError(f"cannot publish {label}") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary_created:
+            try:
+                os.unlink(temporary_name, dir_fd=directory_fd)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
 
 
 def verify_target_raw_docket_recovery_receipt(
@@ -149,23 +463,24 @@ def verify_target_raw_docket_recovery_receipt(
 ) -> Mapping[str, Any]:
     """Authenticate the exact recovery-to-screen handoff."""
 
-    _pinned_sha(receipt_path, expected_receipt_sha256, "recovery receipt")
-    for path, label in (
-        (successes_path, "recovery successes"),
-        (exclusions_path, "recovery exclusions"),
-        (summary_path, "recovery summary"),
-    ):
-        _require_regular(path, label)
+    receipt_payload = _pinned_bytes(
+        receipt_path, expected_receipt_sha256, "recovery receipt"
+    )
+    successes_payload = _read_unique_regular_file(successes_path, "recovery successes")
+    exclusions_payload = _read_unique_regular_file(
+        exclusions_path, "recovery exclusions"
+    )
+    summary_payload = _read_unique_regular_file(summary_path, "recovery summary")
     _require_no_symlink_components(raw_html_dir, "recovery raw HTML directory")
     try:
         receipt_value = json.loads(
-            receipt_path.read_text(encoding="utf-8"),
+            receipt_payload,
             parse_constant=lambda value: (_ for _ in ()).throw(
                 ValueError(f"invalid JSON constant: {value}")
             ),
         )
         summary_value = json.loads(
-            summary_path.read_text(encoding="utf-8"),
+            summary_payload,
             parse_constant=lambda value: (_ for _ in ()).throw(
                 ValueError(f"invalid JSON constant: {value}")
             ),
@@ -197,17 +512,33 @@ def verify_target_raw_docket_recovery_receipt(
         for field, path in expected_paths.items()
     ):
         raise TargetRawDocketRecoveryError("recovery receipt output path mismatch")
-    for field, path in (
-        ("successes_sha256", successes_path),
-        ("exclusions_sha256", exclusions_path),
-        ("summary_sha256", summary_path),
+    for field, payload in (
+        ("successes_sha256", successes_payload),
+        ("exclusions_sha256", exclusions_payload),
+        ("summary_sha256", summary_payload),
     ):
-        if receipt.get(field) != hashlib.sha256(path.read_bytes()).hexdigest():
+        if receipt.get(field) != hashlib.sha256(payload).hexdigest():
             raise TargetRawDocketRecoveryError(
                 f"recovery receipt {field} commitment mismatch"
             )
-    successes = _read_jsonl_allow_empty(successes_path, "recovery successes")
-    exclusions = _read_jsonl_allow_empty(exclusions_path, "recovery exclusions")
+    successes = _read_jsonl_bytes(
+        successes_payload, "recovery successes", allow_empty=True
+    )
+    exclusions = _read_jsonl_bytes(
+        exclusions_payload, "recovery exclusions", allow_empty=True
+    )
+    success_count = summary.get("success_count")
+    exclusion_count = summary.get("exclusion_count")
+    if (
+        summary.get("schema_version") != TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA
+        or not isinstance(success_count, int)
+        or isinstance(success_count, bool)
+        or not isinstance(exclusion_count, int)
+        or isinstance(exclusion_count, bool)
+        or success_count != len(successes)
+        or exclusion_count != len(exclusions)
+    ):
+        raise TargetRawDocketRecoveryError("recovery summary contract is invalid")
     expected_provenance = {
         "schema_version": TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA,
         "plan_sha256": expected_plan_sha256,
@@ -242,6 +573,7 @@ def verify_target_raw_docket_recovery_receipt(
         if (
             not isinstance(candidate_id, str)
             or not isinstance(docket_id, str)
+            or _DOCKET_ID.fullmatch(docket_id) is None
             or candidate_id != _CANDIDATE_PREFIX + docket_id
             or candidate_id in seen_candidates
             or not isinstance(sha256, str)
@@ -260,8 +592,7 @@ def verify_target_raw_docket_recovery_receipt(
         raw_path = raw_html_dir / f"{docket_id}.html"
         if Path(raw_path_value).resolve() != raw_path.resolve():
             raise TargetRawDocketRecoveryError("recovery success raw path mismatch")
-        _require_regular(raw_path, f"recovery raw HTML {candidate_id}")
-        raw = raw_path.read_bytes()
+        raw = _read_unique_regular_file(raw_path, f"recovery raw HTML {candidate_id}")
         if len(raw) != byte_count or hashlib.sha256(raw).hexdigest() != (
             sha256.removeprefix("sha256:")
         ):
@@ -307,12 +638,31 @@ def build_target_raw_docket_recovery_plan(
 ) -> TargetRawDocketRecoveryPlan:
     """Derive exactly selected-minus-raw targets from three pinned inputs."""
 
-    selection_sha = _pinned_sha(selection_path, expected_selection_sha256, "selection")
-    card_sha = _pinned_sha(
+    selection_payload = _pinned_bytes(
+        selection_path, expected_selection_sha256, "selection"
+    )
+    selection_sha = expected_selection_sha256
+    card_payload = _pinned_bytes(
         source_snapshot_run_card_path,
         expected_source_snapshot_run_card_sha256,
         "source snapshot run card",
     )
+    card_sha = expected_source_snapshot_run_card_sha256
+    snapshot_manifest_path = source_snapshot_path / "manifest.json"
+    snapshot_manifest_payload = _pinned_bytes(
+        snapshot_manifest_path,
+        expected_source_snapshot_manifest_sha256,
+        "source snapshot manifest",
+    )
+    try:
+        captured_manifest_value = json.loads(snapshot_manifest_payload)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise TargetRawDocketRecoveryError(
+            "source snapshot manifest is not JSON"
+        ) from exc
+    if not isinstance(captured_manifest_value, Mapping):
+        raise TargetRawDocketRecoveryError("source snapshot manifest is malformed")
+    captured_manifest = cast(Mapping[str, Any], captured_manifest_value)
     try:
         manifest = verify_snapshot(
             source_snapshot_path,
@@ -325,8 +675,12 @@ def build_target_raw_docket_recovery_plan(
         raise TargetRawDocketRecoveryError(
             f"source snapshot is not current complete and saturated: {exc}"
         ) from exc
-    source_batch_id = manifest.get("batch_id")
-    source_batch_digest = manifest.get("batch_digest")
+    if manifest != captured_manifest:
+        raise TargetRawDocketRecoveryError(
+            "source snapshot manifest changed during verification"
+        )
+    source_batch_id = captured_manifest.get("batch_id")
+    source_batch_digest = captured_manifest.get("batch_digest")
     if (
         not isinstance(source_batch_id, str)
         or not source_batch_id
@@ -336,20 +690,19 @@ def build_target_raw_docket_recovery_plan(
         raise TargetRawDocketRecoveryError(
             "source snapshot has invalid batch authority"
         )
-    snapshot_manifest_path = source_snapshot_path / "manifest.json"
-    snapshot_manifest_sha = _pinned_sha(
-        snapshot_manifest_path,
-        expected_source_snapshot_manifest_sha256,
-        "source snapshot manifest",
-    )
+    snapshot_manifest_sha = expected_source_snapshot_manifest_sha256
     screened_path = source_snapshot_path / "screened-cases.jsonl"
-    screened_sha = _pinned_sha(
-        screened_path,
-        hashlib.sha256(screened_path.read_bytes()).hexdigest(),
-        "source snapshot screened-cases",
+    screened_payload = _read_unique_regular_file(
+        screened_path, "source snapshot screened-cases"
     )
+    _require_snapshot_payload_commitment(
+        captured_manifest, "screened-cases.jsonl", screened_payload
+    )
+    screened_sha = hashlib.sha256(screened_payload).hexdigest()
     screened_by_candidate: dict[str, Mapping[str, Any]] = {}
-    for screened in _read_jsonl(screened_path, "source snapshot screened-cases"):
+    for screened in _read_jsonl_bytes(
+        screened_payload, "source snapshot screened-cases"
+    ):
         candidate = screened.get("candidate_id")
         if isinstance(candidate, str):
             if candidate in screened_by_candidate:
@@ -362,13 +715,17 @@ def build_target_raw_docket_recovery_plan(
         raise TargetRawDocketRecoveryError(
             "source raw manifest is not the authenticated snapshot raw-artifacts.jsonl"
         )
-    raw_sha = _pinned_sha(
+    raw_payload = _pinned_bytes(
         canonical_raw_manifest,
         expected_source_raw_manifest_sha256,
         "source raw manifest",
     )
+    _require_snapshot_payload_commitment(
+        captured_manifest, "raw-artifacts.jsonl", raw_payload
+    )
+    raw_sha = expected_source_raw_manifest_sha256
     try:
-        card = json.loads(source_snapshot_run_card_path.read_bytes())
+        card = json.loads(card_payload)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise TargetRawDocketRecoveryError(
             "source snapshot run card is not JSON"
@@ -406,7 +763,7 @@ def build_target_raw_docket_recovery_plan(
         raise TargetRawDocketRecoveryError("scheduler configuration is invalid")
 
     selected: dict[str, Mapping[str, Any]] = {}
-    for row in _read_jsonl(selection_path, "selection"):
+    for row in _read_jsonl_bytes(selection_payload, "selection"):
         if row.get("selected") is not True:
             continue
         docket_id = row.get("candidate_id")
@@ -415,28 +772,11 @@ def build_target_raw_docket_recovery_plan(
             raise TargetRawDocketRecoveryError(
                 "selected target has invalid candidate ID"
             )
-        if not isinstance(source_url, str) or not source_url.startswith(
-            "https://www.courtlistener.com/docket/"
-        ):
-            raise TargetRawDocketRecoveryError(
-                f"selected target has invalid CourtListener URL: {docket_id}"
-            )
         candidate_id = _CANDIDATE_PREFIX + docket_id
-        parsed = urlsplit(source_url)
-        components = [part for part in parsed.path.split("/") if part]
-        if (
-            parsed.scheme != "https"
-            or parsed.netloc != "www.courtlistener.com"
-            or len(components) < 2
-            or components[0] != "docket"
-            or components[1] != docket_id
-        ):
-            raise TargetRawDocketRecoveryError(
-                f"selected URL docket does not match candidate ID: {docket_id}"
-            )
+        source_url = _validated_courtlistener_docket_url(
+            docket_id=docket_id, value=source_url
+        )
         snapshot_source = screened_by_candidate.get(candidate_id)
-        if snapshot_source is None:
-            snapshot_source = screened_by_candidate.get(docket_id)
         snapshot_candidate_value = (
             snapshot_source.get("candidate")
             if isinstance(snapshot_source, Mapping)
@@ -463,7 +803,7 @@ def build_target_raw_docket_recovery_plan(
         raise TargetRawDocketRecoveryError("selection contains no selected targets")
 
     present: set[str] = set()
-    for row in _read_jsonl(source_raw_manifest_path, "source raw manifest"):
+    for row in _read_jsonl_bytes(raw_payload, "source raw manifest"):
         candidate_id = row.get("candidate_id")
         sha = row.get("sha256")
         byte_count = row.get("byte_count")
@@ -542,8 +882,7 @@ def write_target_raw_docket_recovery_plan(
         + b"\n"
     )
     if path.exists():
-        _require_regular(path, "plan output")
-        if path.read_bytes() != payload:
+        if _read_unique_regular_file(path, "plan output") != payload:
             raise TargetRawDocketRecoveryError(
                 "plan output already exists with different bytes"
             )
@@ -578,8 +917,7 @@ def write_target_raw_docket_recovery_receipt(
 
     payload = target_raw_docket_recovery_receipt_bytes(receipt)
     if path.exists():
-        _require_regular(path, "recovery receipt output")
-        if path.read_bytes() != payload:
+        if _read_unique_regular_file(path, "recovery receipt output") != payload:
             raise TargetRawDocketRecoveryError(
                 "recovery receipt already exists with different bytes"
             )
@@ -592,9 +930,9 @@ def write_target_raw_docket_recovery_receipt(
 def load_target_raw_docket_recovery_plan(
     path: Path, expected_sha256: str
 ) -> TargetRawDocketRecoveryPlan:
-    _pinned_sha(path, expected_sha256, "plan")
+    payload = _pinned_bytes(path, expected_sha256, "plan")
     try:
-        record = json.loads(path.read_bytes())
+        record = json.loads(payload)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise TargetRawDocketRecoveryError("plan is not JSON") from exc
     if not isinstance(record, dict):
@@ -611,14 +949,17 @@ def load_target_raw_docket_recovery_plan(
         set(typed_record) != {"schema_version", "target_count", *fields}
         or targets is None
         or typed_record.get("target_count") != len(targets)
+        or any(not isinstance(item, Mapping) for item in targets)
     ):
         raise TargetRawDocketRecoveryError("plan fields are invalid")
     try:
         values = {field: cast(Any, typed_record[field]) for field in fields}
         values["targets"] = tuple(cast(Mapping[str, object], item) for item in targets)
-        return TargetRawDocketRecoveryPlan(**values)
+        plan = TargetRawDocketRecoveryPlan(**values)
     except TypeError as exc:
         raise TargetRawDocketRecoveryError("plan fields are malformed") from exc
+    _validated_target_map(plan.targets)
+    return plan
 
 
 def execute_target_raw_docket_recovery(
@@ -647,11 +988,24 @@ def execute_target_raw_docket_recovery(
         raise TargetRawDocketRecoveryError(
             f"source snapshot is not current complete and saturated: {exc}"
         ) from exc
-    _pinned_sha(
+    snapshot_manifest_payload = _pinned_bytes(
         Path(plan.source_snapshot_path) / "manifest.json",
         plan.source_snapshot_manifest_sha256,
         "source snapshot manifest",
     )
+    try:
+        captured_manifest = json.loads(snapshot_manifest_payload)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise TargetRawDocketRecoveryError(
+            "source snapshot manifest is not JSON"
+        ) from exc
+    if (
+        not isinstance(captured_manifest, Mapping)
+        or snapshot_manifest != captured_manifest
+    ):
+        raise TargetRawDocketRecoveryError(
+            "source snapshot manifest changed during verification"
+        )
     _pinned_sha(
         Path(plan.source_snapshot_path) / "screened-cases.jsonl",
         plan.source_snapshot_screened_cases_sha256,
@@ -667,67 +1021,84 @@ def execute_target_raw_docket_recovery(
         plan.source_raw_manifest_sha256,
         "source raw manifest",
     )
-    result = acquire_ranked_dockets(
-        records=plan.targets,
-        scheduler=scheduler,
-        limit=len(plan.targets),
-        max_pages_per_docket=plan.max_pages_per_docket,
-        decision_anchor=None,
-    )
-    successes: list[Mapping[str, object]] = []
-    completed_at_by_url = {
-        attempt.request_url: attempt.completed_at
-        for attempt in scheduler.store.firecrawl_attempts(scheduler.run_id)
-        if attempt.status == "succeeded" and attempt.completed_at is not None
-    }
-    for bundle in result.bundles:
-        raw = render_complete_docket_html(bundle).encode()
-        path = raw_html_dir / f"{bundle.docket_id}.html"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if path.exists() and path.read_bytes() != raw:
-            raise TargetRawDocketRecoveryError(
-                f"raw output already exists with different bytes: {bundle.docket_id}"
+    target_by_docket = _validated_target_map(plan.targets)
+    raw_directory_fd = _open_raw_html_directory(raw_html_dir)
+    try:
+        try:
+            result = acquire_ranked_dockets(
+                records=plan.targets,
+                scheduler=scheduler,
+                limit=len(plan.targets),
+                max_pages_per_docket=plan.max_pages_per_docket,
+                decision_anchor=None,
             )
-        if not path.exists():
-            path.write_bytes(raw)
-        retrieval_times = [
-            completed_at_by_url.get(page.source_url) for page in bundle.pages
-        ]
-        if not retrieval_times or any(value is None for value in retrieval_times):
+        except BudgetedDocketAcquisitionError as exc:
             raise TargetRawDocketRecoveryError(
-                f"durable retrieval time is missing: {bundle.docket_id}"
+                f"target raw docket acquisition is invalid: {exc}"
+            ) from exc
+        successes: list[Mapping[str, object]] = []
+        completed_at_by_url = {
+            attempt.request_url: attempt.completed_at
+            for attempt in scheduler.store.firecrawl_attempts(scheduler.run_id)
+            if attempt.status == "succeeded" and attempt.completed_at is not None
+        }
+        for bundle in result.bundles:
+            target = target_by_docket.get(bundle.docket_id)
+            if target is None:
+                raise TargetRawDocketRecoveryError(
+                    f"recovered docket is not a planned target: {bundle.docket_id}"
+                )
+            raw = render_complete_docket_html(bundle).encode()
+            filename = f"{bundle.docket_id}.html"
+            _publish_unique_raw_html(
+                raw_directory_fd,
+                filename,
+                raw,
+                label=f"recovery raw HTML {target['candidate_id']}",
             )
-        retrieved_at = max(cast(list[str], retrieval_times))
-        target = next(
-            item
-            for item in plan.targets
-            if item["candidate_id"] == _CANDIDATE_PREFIX + bundle.docket_id
-        )
-        screening_metadata = dict(
-            cast(Mapping[str, object], target["screening_metadata"])
-        )
-        screening_metadata["case_id"] = target["candidate_id"]
-        successes.append(
-            {
-                "case_id": target["candidate_id"],
-                "candidate_id": target["candidate_id"],
-                "source_url": bundle.base_url,
-                "docket_id": bundle.docket_id,
-                "raw_html_path": str(path.resolve()),
-                "case_metadata": screening_metadata,
-                "raw_html_sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
-                "raw_html_bytes": len(raw),
-                "retrieved_at": retrieved_at,
-                "pagination_complete_for_anchor_window": True,
-                "page_count": len(bundle.pages),
-            }
-        )
+            retrieval_times = [
+                completed_at_by_url.get(page.source_url) for page in bundle.pages
+            ]
+            if not retrieval_times or any(value is None for value in retrieval_times):
+                raise TargetRawDocketRecoveryError(
+                    f"durable retrieval time is missing: {bundle.docket_id}"
+                )
+            try:
+                retrieved_at = max(
+                    cast(list[str], retrieval_times),
+                    key=_parse_completed_at,
+                )
+            except ValueError as exc:
+                raise TargetRawDocketRecoveryError(
+                    f"durable retrieval time is not ISO-8601: {bundle.docket_id}"
+                ) from exc
+            screening_metadata = dict(
+                cast(Mapping[str, object], target["screening_metadata"])
+            )
+            screening_metadata["case_id"] = target["candidate_id"]
+            successes.append(
+                {
+                    "case_id": target["candidate_id"],
+                    "candidate_id": target["candidate_id"],
+                    "source_url": bundle.base_url,
+                    "docket_id": bundle.docket_id,
+                    "raw_html_path": str((raw_html_dir / filename).resolve()),
+                    "case_metadata": screening_metadata,
+                    "raw_html_sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+                    "raw_html_bytes": len(raw),
+                    "retrieved_at": retrieved_at,
+                    "pagination_complete_for_anchor_window": True,
+                    "page_count": len(bundle.pages),
+                }
+            )
+    finally:
+        os.close(raw_directory_fd)
     exclusions: list[Mapping[str, object]] = [
         dict(failure.as_record()) for failure in result.failures
     ]
     summary: Mapping[str, object] = {
-        "schema_version": TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
         **dict(result.credit_summary),
+        "schema_version": TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
         "target_count": len(plan.targets),
         "success_count": len(successes),
         "exclusion_count": len(exclusions),

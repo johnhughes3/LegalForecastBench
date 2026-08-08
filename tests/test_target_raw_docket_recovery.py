@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from argparse import Namespace
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,7 +18,10 @@ from legalforecast.ingestion.budgeted_firecrawl import FirecrawlTargetSpec
 from legalforecast.ingestion.case_dev_firecrawl import (
     screen_case_dev_firecrawl_successes,
 )
-from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.cycle_acquisition_store import (
+    ConfigMismatchError,
+    CycleAcquisitionStore,
+)
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
@@ -43,6 +48,15 @@ def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _snapshot_commitment(path: Path) -> dict[str, object]:
+    payload = path.read_bytes()
+    return {
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "byte_count": len(payload),
+        "row_count": payload.count(b"\n"),
+    }
+
+
 def _recovery_provenance(
     *, plan_sha: str, batch_id: str, run_id: str
 ) -> dict[str, object]:
@@ -52,6 +66,28 @@ def _recovery_provenance(
         "batch_id": batch_id,
         "run_id": run_id,
     }
+
+
+def _write_recovery_summary(
+    path: Path,
+    *,
+    raw_artifacts: list[dict[str, object]],
+    success_count: int,
+    exclusion_count: int,
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": recovery.TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
+                "success_count": success_count,
+                "exclusion_count": exclusion_count,
+                "raw_artifacts": raw_artifacts,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
 
 
 def _plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -81,7 +117,6 @@ def _plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     )
     snapshot = tmp_path / "snapshot"
     snapshot.mkdir()
-    (snapshot / "manifest.json").write_text('{"fixture":true}\n')
     _write_jsonl(
         snapshot / "screened-cases.jsonl",
         [
@@ -114,13 +149,21 @@ def _plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             }
         ],
     )
+    manifest_record: dict[str, object] = {
+        "cycle_hash": "a" * 64,
+        "batch_id": "source-batch",
+        "batch_digest": "b" * 64,
+        "files": {
+            "screened-cases.jsonl": _snapshot_commitment(
+                snapshot / "screened-cases.jsonl"
+            ),
+            "raw-artifacts.jsonl": _snapshot_commitment(raw),
+        },
+    }
+    (snapshot / "manifest.json").write_text(json.dumps(manifest_record) + "\n")
 
     def verify_snapshot(*args: object, **kwargs: object) -> dict[str, object]:
-        return {
-            "cycle_hash": "a" * 64,
-            "batch_id": "source-batch",
-            "batch_digest": "b" * 64,
-        }
+        return manifest_record
 
     monkeypatch.setattr(recovery, "verify_snapshot", verify_snapshot)
 
@@ -190,6 +233,20 @@ def _rebuild(plan: recovery.TargetRawDocketRecoveryPlan, **overrides: object):
     return build_target_raw_docket_recovery_plan(**values)  # type: ignore[arg-type]
 
 
+def _reauthenticate_snapshot_file(
+    plan: recovery.TargetRawDocketRecoveryPlan,
+    filename: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> str:
+    snapshot = Path(plan.source_snapshot_path)
+    manifest_path = snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files"][filename] = _snapshot_commitment(snapshot / filename)
+    manifest_path.write_text(json.dumps(manifest) + "\n")
+    monkeypatch.setattr(recovery, "verify_snapshot", lambda *args, **kwargs: manifest)
+    return sha256_file(manifest_path)
+
+
 def _command_plan(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> recovery.TargetRawDocketRecoveryPlan:
@@ -218,16 +275,27 @@ def _command_plan(
             terminal_status=TermTerminalStatus.EXHAUSTED,
         )
 
-    monkeypatch.setattr(
-        recovery,
-        "verify_snapshot",
-        lambda *args, **kwargs: {
+    manifest_path = Path(preliminary.source_snapshot_path) / "manifest.json"
+    manifest_record = json.loads(manifest_path.read_text())
+    manifest_record.update(
+        {
             "cycle_hash": cycle_hash,
             "batch_id": preliminary.source_batch_id,
             "batch_digest": source_batch_digest,
-        },
+        }
     )
-    return _rebuild(preliminary, expected_cycle_hash=cycle_hash)
+    manifest_path.write_text(json.dumps(manifest_record) + "\n")
+    manifest_sha = sha256_file(manifest_path)
+    monkeypatch.setattr(
+        recovery,
+        "verify_snapshot",
+        lambda *args, **kwargs: manifest_record,
+    )
+    return _rebuild(
+        preliminary,
+        expected_cycle_hash=cycle_hash,
+        expected_source_snapshot_manifest_sha256=manifest_sha,
+    )
 
 
 def _command_args(
@@ -266,6 +334,7 @@ def _command_args(
         plan_output=plan_output,
         plan=plan_output,
         expected_plan_sha256=None,
+        expected_receipt_sha256=None,
         raw_html_dir=output_root / "raw-html",
         successes_output=output_root / "successes.jsonl",
         exclusions_output=output_root / "exclusions.jsonl",
@@ -428,6 +497,44 @@ def test_execute_command_records_pinned_plan_mismatch_as_failure(
     assert run_card["failure_reason"] == "pinned plan differs from current inputs"
 
 
+def test_execute_command_records_all_inputs_for_value_error_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _command_plan(tmp_path, monkeypatch)
+    plan_output = tmp_path / "plan-stage" / "recovery-plan.json"
+    plan_output.parent.mkdir()
+    plan_sha = write_target_raw_docket_recovery_plan(plan_output, plan)
+    output_root = tmp_path / "failure"
+    args = _command_args(
+        plan,
+        output_root=output_root,
+        execute=False,
+        plan_output=plan_output,
+    )
+    args.expected_plan_sha256 = plan_sha
+
+    def fail_reconstruction(args: Namespace) -> recovery.TargetRawDocketRecoveryPlan:
+        raise ValueError("fixture store boundary")
+
+    monkeypatch.setattr(
+        cli, "_target_raw_docket_recovery_plan_from_args", fail_reconstruction
+    )
+
+    with pytest.raises(cli.CommandError, match="fixture store boundary"):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+
+    run_card = json.loads(
+        (output_root / "run-cards/execute-target-raw-docket-recovery.json").read_text()
+    )
+    assert run_card["input_paths"] == [
+        str(args.plan),
+        str(args.selection),
+        str(args.source_snapshot / "manifest.json"),
+        str(args.source_snapshot_run_card),
+        str(args.source_raw_manifest),
+    ]
+
+
 def test_execute_command_replays_offline_fixture_and_authenticates_receipt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -492,6 +599,9 @@ def test_execute_command_replays_offline_fixture_and_authenticates_receipt(
     )
     assert receipt["batch_id"] == plan.batch_id
     assert receipt["run_id"] == plan.run_id
+    assert receipt["run_config"]["recovery_of_run_id"] == (
+        plan.source_snapshot_manifest_sha256
+    )
     run_card = json.loads(
         (output_root / "run-cards/execute-target-raw-docket-recovery.json").read_text()
     )
@@ -500,11 +610,96 @@ def test_execute_command_replays_offline_fixture_and_authenticates_receipt(
     assert run_card["paid_activity_executed"] is False
     assert run_card["record_count"] == 1
 
+    args.expected_receipt_sha256 = sha256_file(args.receipt_output)
+
+    def forbid_store_mutation(*args: object, **kwargs: object) -> None:
+        raise AssertionError("completed receipt verification must be read-only")
+
+    monkeypatch.setattr(
+        CycleAcquisitionStore, "ensure_firecrawl_run", forbid_store_mutation
+    )
     assert cli._cmd_acquisition_execute_target_raw_docket_recovery(args) == 0  # pyright: ignore[reportPrivateUsage]
     resumed_run_card = json.loads(
         (output_root / "run-cards/execute-target-raw-docket-recovery.json").read_text()
     )
     assert resumed_run_card["resumed_complete_receipt"] is True
+
+
+def test_execute_command_completed_resume_requires_external_receipt_anchor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _command_plan(tmp_path, monkeypatch)
+    plan_output = tmp_path / "plan-stage" / "recovery-plan.json"
+    plan_output.parent.mkdir()
+    plan_sha = write_target_raw_docket_recovery_plan(plan_output, plan)
+    fixture = tmp_path / "firecrawl.jsonl"
+    _write_jsonl(
+        fixture,
+        [
+            {
+                "status_code": 200,
+                "payload": {
+                    "success": True,
+                    "data": {
+                        "rawHtml": _fixture_docket_html(),
+                        "metadata": {
+                            "statusCode": 200,
+                            "sourceURL": (
+                                "https://www.courtlistener.com/docket/200/example/"
+                                "?order_by=desc&page=1"
+                            ),
+                            "proxyUsed": "basic",
+                            "cacheState": "miss",
+                            "creditsUsed": 1,
+                        },
+                    },
+                },
+            }
+        ],
+    )
+    output_root = tmp_path / "fixture-execute"
+    args = _command_args(
+        plan,
+        output_root=output_root,
+        execute=True,
+        plan_output=plan_output,
+        firecrawl_fixture=fixture,
+    )
+    args.expected_plan_sha256 = plan_sha
+    assert cli._cmd_acquisition_execute_target_raw_docket_recovery(args) == 0  # pyright: ignore[reportPrivateUsage]
+
+    with pytest.raises(cli.CommandError, match="external lowercase SHA-256 anchor"):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+
+    args.expected_receipt_sha256 = "0" * 64
+    with pytest.raises(cli.CommandError, match="SHA-256 mismatch"):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_cycle_store_rejects_second_recovery_for_same_source_snapshot(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_cycle({"fixture": True})
+        store.ensure_batch("recovery-one", {"fixture": 1})
+        store.ensure_batch("recovery-two", {"fixture": 2})
+        parent = "a" * 64
+        store.ensure_firecrawl_run(
+            "run-one",
+            batch_id="recovery-one",
+            config={"recovery_of_run_id": parent},
+            credit_cap=9,
+            reserved_credits_per_attempt=1,
+        )
+        with pytest.raises(ConfigMismatchError, match="already exists"):
+            store.ensure_firecrawl_run(
+                "run-two",
+                batch_id="recovery-two",
+                config={"recovery_of_run_id": parent},
+                credit_cap=9,
+                reserved_credits_per_attempt=1,
+            )
 
 
 def test_plan_derives_only_selected_minus_pinned_raw_manifest(
@@ -522,6 +717,27 @@ def test_plan_derives_only_selected_minus_pinned_raw_manifest(
     output = tmp_path / "plan.json"
     digest = write_target_raw_docket_recovery_plan(output, plan)
     assert load_target_raw_docket_recovery_plan(output, digest) == plan
+
+
+def test_plan_uses_the_same_selection_bytes_for_pin_and_derivation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    selection = Path(plan.selection_path)
+    original_reader = recovery._read_unique_regular_file  # pyright: ignore[reportPrivateUsage]
+    replaced = False
+
+    def replacing_reader(path: Path, label: str) -> bytes:
+        nonlocal replaced
+        payload = original_reader(path, label)
+        if path == selection and not replaced:
+            selection.write_text('{"selected":false}\n')
+            replaced = True
+        return payload
+
+    monkeypatch.setattr(recovery, "_read_unique_regular_file", replacing_reader)
+    assert _rebuild(plan) == plan
+    assert replaced is True
 
 
 def test_plan_rejects_rebound_pinned_source_before_execution(
@@ -685,7 +901,14 @@ def test_plan_accepts_authenticated_raw_history_for_one_candidate(
     )
     raw_sha = _write_jsonl(raw, rows)
 
-    rebuilt = _rebuild(plan, expected_source_raw_manifest_sha256=raw_sha)
+    manifest_sha = _reauthenticate_snapshot_file(
+        plan, "raw-artifacts.jsonl", monkeypatch
+    )
+    rebuilt = _rebuild(
+        plan,
+        expected_source_raw_manifest_sha256=raw_sha,
+        expected_source_snapshot_manifest_sha256=manifest_sha,
+    )
 
     assert [target["candidate_id"] for target in rebuilt.targets] == [
         "courtlistener-docket-200"
@@ -715,9 +938,12 @@ def test_plan_rejects_url_not_bound_by_source_snapshot(
         "https://www.courtlistener.com/docket/200/changed/"
     )
     _write_jsonl(screened, rows)
+    manifest_sha = _reauthenticate_snapshot_file(
+        plan, "screened-cases.jsonl", monkeypatch
+    )
 
     with pytest.raises(TargetRawDocketRecoveryError, match="not authenticated"):
-        _rebuild(plan)
+        _rebuild(plan, expected_source_snapshot_manifest_sha256=manifest_sha)
 
 
 def test_plan_rejects_duplicate_screened_candidate_identity(
@@ -728,9 +954,12 @@ def test_plan_rejects_duplicate_screened_candidate_identity(
     rows = [json.loads(line) for line in screened.read_text().splitlines()]
     rows.append(rows[1])
     _write_jsonl(screened, rows)
+    manifest_sha = _reauthenticate_snapshot_file(
+        plan, "screened-cases.jsonl", monkeypatch
+    )
 
     with pytest.raises(TargetRawDocketRecoveryError, match="repeats screened"):
-        _rebuild(plan)
+        _rebuild(plan, expected_source_snapshot_manifest_sha256=manifest_sha)
 
 
 def _path_args(tmp_path: Path, *, resume: bool = True) -> Namespace:
@@ -767,6 +996,73 @@ def test_output_preflight_rejects_dotdot_escape(tmp_path: Path) -> None:
             stage="fixture",
             protected_paths=(tmp_path / "selection.jsonl",),
             writable_paths=(escaped,),
+        )
+
+
+def test_output_preflight_rejects_output_nested_in_protected_snapshot(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    args = _path_args(tmp_path)
+    args.output_root = snapshot / "output"
+
+    with pytest.raises(cli.CommandError, match="overlaps authenticated input"):
+        cli._preflight_target_raw_docket_recovery_paths(  # pyright: ignore[reportPrivateUsage]
+            args,
+            stage="fixture",
+            protected_paths=(snapshot,),
+            writable_paths=(args.output_root / "success.jsonl",),
+        )
+
+
+def test_output_preflight_wraps_stat_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    args = _path_args(tmp_path)
+    output = args.output_root / "success.jsonl"
+    output.parent.mkdir()
+    output.write_text("existing\n")
+    original_stat = Path.stat
+
+    def failing_stat(path: Path, *args: object, **kwargs: object):
+        if path == output:
+            raise PermissionError("fixture denial")
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", failing_stat)
+    with pytest.raises(cli.CommandError, match="cannot inspect writable output"):
+        cli._preflight_target_raw_docket_recovery_paths(  # pyright: ignore[reportPrivateUsage]
+            args,
+            stage="fixture",
+            protected_paths=(tmp_path / "selection.jsonl",),
+            writable_paths=(output,),
+        )
+
+
+def test_output_preflight_wraps_resume_entry_lstat_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    args = _path_args(tmp_path)
+    raw_dir = args.output_root / "raw"
+    page = raw_dir / "pages" / "200" / "page-000001.html"
+    page.parent.mkdir(parents=True)
+    page.write_text("existing\n")
+    original_lstat = Path.lstat
+
+    def failing_lstat(path: Path, *args: object, **kwargs: object):
+        if path == page:
+            raise FileNotFoundError("fixture race")
+        return original_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "lstat", failing_lstat)
+    with pytest.raises(cli.CommandError, match="cannot inspect raw HTML resume entry"):
+        cli._preflight_target_raw_docket_recovery_paths(  # pyright: ignore[reportPrivateUsage]
+            args,
+            stage="fixture",
+            protected_paths=(tmp_path / "selection.jsonl",),
+            writable_paths=(args.output_root / "success.jsonl",),
+            raw_html_dir=raw_dir,
         )
 
 
@@ -1096,8 +1392,11 @@ def test_receipt_authenticates_exact_recovery_to_screen_handoff(
     exclusions = tmp_path / "exclusions.jsonl"
     exclusions.write_bytes(b"")
     summary = tmp_path / "summary.json"
-    summary.write_text(
-        json.dumps({"raw_artifacts": [raw_artifact]}, indent=2, sort_keys=True) + "\n"
+    _write_recovery_summary(
+        summary,
+        raw_artifacts=[raw_artifact],
+        success_count=1,
+        exclusion_count=0,
     )
     receipt_record: dict[str, object] = {
         "schema_version": TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
@@ -1164,8 +1463,11 @@ def test_receipt_accepts_terminal_all_excluded_recovery(tmp_path: Path) -> None:
         ],
     )
     summary = tmp_path / "summary.json"
-    summary.write_text(
-        json.dumps({"raw_artifacts": []}, indent=2, sort_keys=True) + "\n"
+    _write_recovery_summary(
+        summary,
+        raw_artifacts=[],
+        success_count=0,
+        exclusion_count=1,
     )
     receipt_record: dict[str, object] = {
         "schema_version": TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
@@ -1195,6 +1497,20 @@ def test_receipt_accepts_terminal_all_excluded_recovery(tmp_path: Path) -> None:
         raw_html_dir=raw_dir,
     )
     assert verified["raw_artifacts"] == []
+
+    summary.write_text(json.dumps({"raw_artifacts": []}) + "\n")
+    receipt_record["summary_sha256"] = sha256_file(summary)
+    receipt.write_bytes(target_raw_docket_recovery_receipt_bytes(receipt_record))
+    with pytest.raises(TargetRawDocketRecoveryError, match="summary contract"):
+        verify_target_raw_docket_recovery_receipt(
+            receipt_path=receipt,
+            expected_receipt_sha256=sha256_file(receipt),
+            expected_plan_sha256=plan_sha,
+            successes_path=successes,
+            exclusions_path=exclusions,
+            summary_path=summary,
+            raw_html_dir=raw_dir,
+        )
 
 
 def test_screen_cli_authenticates_recovery_receipt_handoff(tmp_path: Path) -> None:
@@ -1252,8 +1568,11 @@ def test_screen_cli_authenticates_recovery_receipt_handoff(tmp_path: Path) -> No
         "retrieved_at": retrieved_at,
     }
     summary = tmp_path / "summary.json"
-    summary.write_text(
-        json.dumps({"raw_artifacts": [raw_artifact]}, indent=2, sort_keys=True) + "\n"
+    _write_recovery_summary(
+        summary,
+        raw_artifacts=[raw_artifact],
+        success_count=1,
+        exclusion_count=0,
     )
     store_path = tmp_path / "cycle.sqlite3"
     package_root = Path(__file__).parents[1] / "legalforecast"
@@ -1425,3 +1744,323 @@ def test_screen_cli_authenticates_recovery_receipt_handoff(tmp_path: Path) -> No
         ]
         == receipt_sha
     )
+
+
+@pytest.mark.parametrize("suffix", ("?page=1", "#docket"))
+def test_plan_rejects_selected_courtlistener_url_query_or_fragment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, suffix: str
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    selection = Path(plan.selection_path)
+    rows = [json.loads(line) for line in selection.read_text().splitlines()]
+    rows[1]["source_url"] += suffix
+    selection_sha = _write_jsonl(selection, rows)
+
+    with pytest.raises(
+        TargetRawDocketRecoveryError, match="selected URL docket does not match"
+    ):
+        _rebuild(plan, expected_selection_sha256=selection_sha)
+
+
+@pytest.mark.parametrize(
+    ("targets", "message"),
+    (
+        (({},), "plan target is malformed"),
+        ((cast(Mapping[str, object], "not-a-mapping"),), "plan target is malformed"),
+    ),
+)
+def test_execute_rejects_malformed_target_before_scheduler(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    targets: tuple[Mapping[str, object], ...],
+    message: str,
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    called: list[bool] = []
+
+    def unexpected_scheduler(*args: object, **kwargs: object) -> object:
+        called.append(True)
+        raise AssertionError("invalid plan must fail before scheduler use")
+
+    monkeypatch.setattr(recovery, "acquire_ranked_dockets", unexpected_scheduler)
+    with pytest.raises(TargetRawDocketRecoveryError, match=message):
+        recovery.execute_target_raw_docket_recovery(
+            plan=replace(plan, targets=targets),
+            scheduler=cast(Any, SimpleNamespace()),
+            raw_html_dir=tmp_path / "raw",
+        )
+
+    assert called == []
+
+
+def test_execute_rejects_duplicate_target_before_scheduler(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    called: list[bool] = []
+
+    def unexpected_scheduler(*args: object, **kwargs: object) -> object:
+        called.append(True)
+        raise AssertionError("invalid plan must fail before scheduler use")
+
+    monkeypatch.setattr(recovery, "acquire_ranked_dockets", unexpected_scheduler)
+    with pytest.raises(TargetRawDocketRecoveryError, match="metadata is malformed"):
+        recovery.execute_target_raw_docket_recovery(
+            plan=replace(plan, targets=plan.targets * 2),
+            scheduler=cast(Any, SimpleNamespace()),
+            raw_html_dir=tmp_path / "raw",
+        )
+
+    assert called == []
+
+
+def test_execute_rejects_unplanned_bundle_before_publishing_html(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    raw_dir = tmp_path / "raw"
+    monkeypatch.setattr(
+        recovery,
+        "acquire_ranked_dockets",
+        lambda **kwargs: SimpleNamespace(
+            bundles=(SimpleNamespace(docket_id="999", pages=(), base_url=""),),
+            failures=(),
+            credit_summary={},
+        ),
+    )
+
+    with pytest.raises(TargetRawDocketRecoveryError, match="not a planned target"):
+        recovery.execute_target_raw_docket_recovery(
+            plan=plan,
+            scheduler=cast(
+                Any,
+                SimpleNamespace(
+                    run_id="fixture-run",
+                    store=SimpleNamespace(firecrawl_attempts=lambda run_id: ()),
+                ),
+            ),
+            raw_html_dir=raw_dir,
+        )
+
+    assert not (raw_dir / "999.html").exists()
+
+
+def test_execute_wraps_ranked_acquisition_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+
+    def fail_acquisition(**kwargs: object) -> object:
+        raise recovery.BudgetedDocketAcquisitionError("fixture invalid target")
+
+    monkeypatch.setattr(recovery, "acquire_ranked_dockets", fail_acquisition)
+    with pytest.raises(
+        TargetRawDocketRecoveryError, match="target raw docket acquisition is invalid"
+    ):
+        recovery.execute_target_raw_docket_recovery(
+            plan=plan,
+            scheduler=cast(Any, SimpleNamespace()),
+            raw_html_dir=tmp_path / "raw",
+        )
+    assert list((tmp_path / "raw").glob("*.html")) == []
+
+
+def test_execute_orders_retrieval_timestamps_by_instant_and_owns_summary_schema(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    first_url = "https://www.courtlistener.com/docket/200/example/?page=1"
+    second_url = "https://www.courtlistener.com/docket/200/example/?page=2"
+    bundle = SimpleNamespace(
+        docket_id="200",
+        base_url="https://www.courtlistener.com/docket/200/example/",
+        pages=(
+            SimpleNamespace(source_url=first_url),
+            SimpleNamespace(source_url=second_url),
+        ),
+    )
+    monkeypatch.setattr(
+        recovery,
+        "acquire_ranked_dockets",
+        lambda **kwargs: SimpleNamespace(
+            bundles=(bundle,), failures=(), credit_summary={"schema_version": "wrong"}
+        ),
+    )
+    monkeypatch.setattr(recovery, "render_complete_docket_html", lambda bundle: "raw")
+    scheduler = SimpleNamespace(
+        run_id="fixture-run",
+        store=SimpleNamespace(
+            firecrawl_attempts=lambda run_id: (
+                SimpleNamespace(
+                    request_url=first_url,
+                    status="succeeded",
+                    completed_at="2026-08-08T10:00:00+02:00",
+                ),
+                SimpleNamespace(
+                    request_url=second_url,
+                    status="succeeded",
+                    completed_at="2026-08-08T09:00:00Z",
+                ),
+            )
+        ),
+    )
+
+    successes, exclusions, summary = recovery.execute_target_raw_docket_recovery(
+        plan=plan,
+        scheduler=cast(Any, scheduler),
+        raw_html_dir=tmp_path / "raw",
+    )
+
+    assert exclusions == []
+    assert successes[0]["retrieved_at"] == "2026-08-08T09:00:00Z"
+    assert (
+        summary["schema_version"] == recovery.TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA
+    )
+
+
+def test_receipt_rejects_non_numeric_docket_id_before_path_projection(
+    tmp_path: Path,
+) -> None:
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    successes = tmp_path / "successes.jsonl"
+    docket_id = "200/../../outside"
+    candidate_id = "courtlistener-docket-" + docket_id
+    plan_sha = "a" * 64
+    success = {
+        "candidate_id": candidate_id,
+        "docket_id": docket_id,
+        "raw_html_path": str(raw_dir / "outside.html"),
+        "raw_html_sha256": "sha256:" + "a" * 64,
+        "raw_html_bytes": 0,
+        "retrieved_at": "2026-08-08T10:00:00Z",
+        "target_raw_docket_recovery": _recovery_provenance(
+            plan_sha=plan_sha, batch_id="raw-recovery", run_id="fixture-run"
+        ),
+    }
+    successes_sha = _write_jsonl(successes, [success])
+    exclusions = tmp_path / "exclusions.jsonl"
+    exclusions.write_bytes(b"")
+    summary = tmp_path / "summary.json"
+    _write_recovery_summary(
+        summary,
+        raw_artifacts=[],
+        success_count=1,
+        exclusion_count=0,
+    )
+    receipt = tmp_path / "receipt.json"
+    receipt.write_bytes(
+        target_raw_docket_recovery_receipt_bytes(
+            {
+                "schema_version": TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
+                "dry_run": False,
+                "plan_sha256": plan_sha,
+                "batch_id": "raw-recovery",
+                "run_id": "fixture-run",
+                "successes_path": str(successes.resolve()),
+                "exclusions_path": str(exclusions.resolve()),
+                "summary_path": str(summary.resolve()),
+                "raw_html_dir": str(raw_dir.resolve()),
+                "successes_sha256": successes_sha,
+                "exclusions_sha256": hashlib.sha256(b"").hexdigest(),
+                "summary_sha256": hashlib.sha256(summary.read_bytes()).hexdigest(),
+                "raw_artifacts": [],
+            }
+        )
+    )
+
+    with pytest.raises(TargetRawDocketRecoveryError, match="malformed raw-artifact"):
+        verify_target_raw_docket_recovery_receipt(
+            receipt_path=receipt,
+            expected_receipt_sha256=sha256_file(receipt),
+            expected_plan_sha256=plan_sha,
+            successes_path=successes,
+            exclusions_path=exclusions,
+            summary_path=summary,
+            raw_html_dir=raw_dir,
+        )
+
+
+def test_open_raw_html_directory_rejects_symlink_and_regular_file(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    symlink = tmp_path / "symlink"
+    symlink.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(TargetRawDocketRecoveryError, match="not a real directory"):
+        recovery._open_raw_html_directory(symlink)  # pyright: ignore[reportPrivateUsage]
+
+    regular_file = tmp_path / "regular-file"
+    regular_file.write_text("not a directory")
+    with pytest.raises(
+        TargetRawDocketRecoveryError,
+        match=r"cannot create recovery raw HTML directory|not a real directory",
+    ):
+        recovery._open_raw_html_directory(regular_file)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_unique_reader_rejects_fifo_and_symlinked_parent(tmp_path: Path) -> None:
+    fifo = tmp_path / "input.fifo"
+    os.mkfifo(fifo)
+    with pytest.raises(TargetRawDocketRecoveryError, match="singly linked"):
+        recovery._read_unique_regular_file(  # pyright: ignore[reportPrivateUsage]
+            fifo, "fixture FIFO"
+        )
+
+    outside = tmp_path / "outside-parent"
+    outside.mkdir()
+    (outside / "input.json").write_text("{}\n")
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(TargetRawDocketRecoveryError, match="singly linked"):
+        recovery._read_unique_regular_file(  # pyright: ignore[reportPrivateUsage]
+            linked_parent / "input.json", "fixture linked parent"
+        )
+
+
+def test_raw_html_publisher_rejects_linked_and_racing_outputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = b"immutable"
+    raw_dir = tmp_path / "raw"
+    descriptor = recovery._open_raw_html_directory(raw_dir)  # pyright: ignore[reportPrivateUsage]
+    outside = tmp_path / "outside"
+    outside.write_bytes(payload)
+    try:
+        (raw_dir / "symlink.html").symlink_to(outside)
+        with pytest.raises(TargetRawDocketRecoveryError, match="singly linked"):
+            recovery._publish_unique_raw_html(  # pyright: ignore[reportPrivateUsage]
+                descriptor, "symlink.html", payload, label="fixture symlink"
+            )
+
+        os.link(outside, raw_dir / "hardlink.html")
+        with pytest.raises(TargetRawDocketRecoveryError, match="singly linked"):
+            recovery._publish_unique_raw_html(  # pyright: ignore[reportPrivateUsage]
+                descriptor, "hardlink.html", payload, label="fixture hardlink"
+            )
+
+        original_link = recovery.os.link
+
+        def racing_link(source: object, destination: object, **kwargs: object) -> None:
+            destination_fd = cast(int, kwargs["dst_dir_fd"])
+            racing_fd = os.open(
+                cast(str, destination),
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+                dir_fd=destination_fd,
+            )
+            try:
+                os.write(racing_fd, b"racer")
+            finally:
+                os.close(racing_fd)
+            original_link(source, destination, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(recovery.os, "link", racing_link)
+        with pytest.raises(TargetRawDocketRecoveryError, match="different bytes"):
+            recovery._publish_unique_raw_html(  # pyright: ignore[reportPrivateUsage]
+                descriptor, "racing.html", payload, label="fixture race"
+            )
+        assert (raw_dir / "racing.html").read_bytes() == b"racer"
+    finally:
+        os.close(descriptor)
