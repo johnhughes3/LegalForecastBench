@@ -119,13 +119,35 @@ def _authenticated_lineage(markdown_root: Path) -> SimpleNamespace:
 
 
 def _stub_authentication(
-    monkeypatch: pytest.MonkeyPatch, markdown_root: Path
-) -> list[dict[str, Any]]:
+    monkeypatch: pytest.MonkeyPatch,
+    markdown_root: Path,
+    *,
+    expected_controlled_private_root: Path | None = None,
+    expected_initialization_receipt: Path | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     lineage = _authenticated_lineage(markdown_root)
-    calls: list[dict[str, Any]] = []
+    unitization_calls: list[dict[str, Any]] = []
+    review_calls: list[dict[str, Any]] = []
 
     def verify_unitization(*args: Any, **kwargs: Any) -> Any:
-        del args, kwargs
+        del args
+        unitization_calls.append(kwargs)
+        if (
+            expected_controlled_private_root is not None
+            and kwargs.get("controlled_private_root")
+            != expected_controlled_private_root
+        ):
+            raise cli.CommandError(
+                "approved v2 runtime requires the trusted private approval root"
+            )
+        if (
+            expected_initialization_receipt is not None
+            and kwargs.get("initialization_receipt_path")
+            != expected_initialization_receipt
+        ):
+            raise cli.CommandError(
+                "approved v2 runtime requires an initialization receipt"
+            )
         return lineage
 
     monkeypatch.setattr(
@@ -136,20 +158,27 @@ def _stub_authentication(
 
     def verify_review(*args: Any, **kwargs: Any) -> None:
         del args
-        calls.append(kwargs)
+        review_calls.append(kwargs)
 
     def require_unchanged(lineage: Any) -> None:
         del lineage
 
     monkeypatch.setattr(cli, "_verify_stage_a_review_run_card", verify_review)
     monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", require_unchanged)
-    return calls
+    return unitization_calls, review_calls
 
 
 def _argv(
-    root: Path, raw: Path, unit_card: Path, review_card: Path, queue: Path
+    root: Path,
+    raw: Path,
+    unit_card: Path,
+    review_card: Path,
+    queue: Path,
+    *,
+    controlled_private_root: Path | None = None,
+    initialization_receipt: Path | None = None,
 ) -> list[str]:
-    return [
+    argv = [
         "acquisition",
         "build-unitization-review-bundle",
         "--output-root",
@@ -164,6 +193,13 @@ def _argv(
         str(queue),
         "--execute",
     ]
+    if controlled_private_root is not None:
+        argv.extend(["--controlled-private-root", str(controlled_private_root)])
+    if initialization_receipt is not None:
+        argv.extend(
+            ["--purchase-ledger-initialization-receipt", str(initialization_receipt)]
+        )
+    return argv
 
 
 def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
@@ -171,7 +207,7 @@ def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
 ) -> None:
     markdown_root = tmp_path / "markdown"
     markdown_root.mkdir()
-    verification_calls = _stub_authentication(monkeypatch, markdown_root)
+    _, review_verification_calls = _stub_authentication(monkeypatch, markdown_root)
     raw = tmp_path / "prediction-units.jsonl"
     queue = tmp_path / "merged-review-queue.jsonl"
     unit_card = tmp_path / "llm-unitize.json"
@@ -232,7 +268,7 @@ def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
     assert manifest["input_commitments"]["raw_prediction_units"]["path"] == str(
         raw.resolve()
     )
-    assert verification_calls[0]["expected_review_queue_path"] == queue
+    assert review_verification_calls[0]["expected_review_queue_path"] == queue
     completion = json.loads(
         (output_root / "run-cards" / "build-unitization-review-bundle.json").read_text(
             encoding="utf-8"
@@ -244,6 +280,177 @@ def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
         str(output_root / "unitization-review-bundle.jsonl"),
         str(output_root / "unitization-review-bundle-manifest.json"),
     ]
+
+
+def test_approved_v2_bundle_replay_requires_exact_runtime_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The provider-free bundle must retain the unitization card's authority gate."""
+
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    private_root = tmp_path / "approved-v2-private"
+    private_root.mkdir()
+    initialization_receipt = tmp_path / "purchase-ledger-init.json"
+    initialization_receipt.write_text("{}\n", encoding="utf-8")
+    unitization_calls, _ = _stub_authentication(
+        monkeypatch,
+        markdown_root,
+        expected_controlled_private_root=private_root,
+        expected_initialization_receipt=initialization_receipt,
+    )
+    raw = tmp_path / "prediction-units.jsonl"
+    queue = tmp_path / "merged-review-queue.jsonl"
+    unit_card = tmp_path / "llm-unitize.json"
+    review_card = tmp_path / "llm-review-stage-a.json"
+    _write_jsonl(
+        raw,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [_unit("unit-1", "complaint")],
+            }
+        ],
+    )
+    _write_jsonl(queue, [_review("unit-1", ["complaint"])])
+    unit_card.write_text("{}\n", encoding="utf-8")
+    review_card.write_text("{}\n", encoding="utf-8")
+
+    assert (
+        cli.main(
+            _argv(
+                tmp_path / "valid",
+                raw,
+                unit_card,
+                review_card,
+                queue,
+                controlled_private_root=private_root,
+                initialization_receipt=initialization_receipt,
+            )
+        )
+        == 0
+    )
+    assert (
+        cli.main(_argv(tmp_path / "missing", raw, unit_card, review_card, queue)) == 2
+    )
+    wrong_private_root = tmp_path / "wrong-private-root"
+    wrong_private_root.mkdir()
+    assert (
+        cli.main(
+            _argv(
+                tmp_path / "wrong-root",
+                raw,
+                unit_card,
+                review_card,
+                queue,
+                controlled_private_root=wrong_private_root,
+                initialization_receipt=initialization_receipt,
+            )
+        )
+        == 2
+    )
+    wrong_initialization_receipt = tmp_path / "wrong-purchase-ledger-init.json"
+    wrong_initialization_receipt.write_text("{}\n", encoding="utf-8")
+    assert (
+        cli.main(
+            _argv(
+                tmp_path / "wrong-receipt",
+                raw,
+                unit_card,
+                review_card,
+                queue,
+                controlled_private_root=private_root,
+                initialization_receipt=wrong_initialization_receipt,
+            )
+        )
+        == 2
+    )
+    assert unitization_calls == [
+        {
+            "expected_prediction_units_path": raw,
+            "controlled_private_root": private_root,
+            "initialization_receipt_path": initialization_receipt,
+        },
+        {
+            "expected_prediction_units_path": raw,
+            "controlled_private_root": None,
+            "initialization_receipt_path": None,
+        },
+        {
+            "expected_prediction_units_path": raw,
+            "controlled_private_root": wrong_private_root,
+            "initialization_receipt_path": initialization_receipt,
+        },
+        {
+            "expected_prediction_units_path": raw,
+            "controlled_private_root": private_root,
+            "initialization_receipt_path": wrong_initialization_receipt,
+        },
+    ]
+
+
+def test_approved_v2_bundle_rejects_authority_output_aliases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Completion metadata must never write into the replayed authority inputs."""
+
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    private_root = tmp_path / "approved-v2-private"
+    private_root.mkdir()
+    initialization_receipt = tmp_path / "purchase-ledger-init.json"
+    initialization_receipt.write_text("{}\n", encoding="utf-8")
+    _stub_authentication(
+        monkeypatch,
+        markdown_root,
+        expected_controlled_private_root=private_root,
+        expected_initialization_receipt=initialization_receipt,
+    )
+    raw = tmp_path / "prediction-units.jsonl"
+    queue = tmp_path / "merged-review-queue.jsonl"
+    unit_card = tmp_path / "llm-unitize.json"
+    review_card = tmp_path / "llm-review-stage-a.json"
+    _write_jsonl(
+        raw,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [_unit("unit-1", "complaint")],
+            }
+        ],
+    )
+    _write_jsonl(queue, [_review("unit-1", ["complaint"])])
+    unit_card.write_text("{}\n", encoding="utf-8")
+    review_card.write_text("{}\n", encoding="utf-8")
+
+    aliased_log = _argv(
+        tmp_path / "receipt-alias",
+        raw,
+        unit_card,
+        review_card,
+        queue,
+        controlled_private_root=private_root,
+        initialization_receipt=initialization_receipt,
+    )
+    aliased_log.extend(["--log-output", str(initialization_receipt)])
+    assert cli.main(aliased_log) == 2
+    assert initialization_receipt.read_text(encoding="utf-8") == "{}\n"
+
+    private_run_card = private_root / "forbidden-run-card.json"
+    inside_private_root = _argv(
+        tmp_path / "private-root-alias",
+        raw,
+        unit_card,
+        review_card,
+        queue,
+        controlled_private_root=private_root,
+        initialization_receipt=initialization_receipt,
+    )
+    inside_private_root.extend(["--run-card-output", str(private_run_card)])
+    assert cli.main(inside_private_root) == 2
+    assert not private_run_card.exists()
 
 
 def test_builds_bundle_for_authenticated_terminal_escalation_queue(
