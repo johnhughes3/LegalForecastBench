@@ -176,6 +176,18 @@ def test_official_commands_reuse_exact_preparation_request_ledger() -> None:
     assert "courtlistener-requests.sqlite3" not in runbook
 
 
+def test_provider_bearing_stage_examples_use_reusable_provider_env_launcher() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    assert "legalforecast-provider-env-run" in runbook
+    assert runbook.count("uv run legalforecast-provider-env-run \\") == 4
+    assert "--provider anthropic -- \\" in runbook
+    assert "--provider google -- \\" in runbook
+    assert "--provider openai -- \\" in runbook
+    assert "starts the child with exactly one provider key name" in runbook
+    assert "No secret value appears on the command line." in runbook
+
+
 def _documented_acquisition_commands(runbook: str) -> list[tuple[str, str]]:
     commands: list[tuple[str, str]] = []
     for fenced_block in re.findall(r"```[^\n]*\n(.*?)```", runbook, flags=re.DOTALL):

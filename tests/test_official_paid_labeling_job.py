@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
-from legalforecast import cli
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.labeling import official_paid_job
 from legalforecast.labeling.official_paid_job import (
@@ -162,8 +163,16 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
 ) -> None:
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="openai")
-    captured: list[str] = []
-    monkeypatch.setattr(cli, "main", lambda args: captured.extend(args) or 0)
+    captured: dict[str, object] = {}
+
+    def record_child(*, provider: str, command: tuple[str, ...]) -> int:
+        captured["provider"] = provider
+        captured["command"] = command
+        return 0
+
+    monkeypatch.setattr(
+        official_paid_job, "run_provider_isolated_command", record_child
+    )
 
     result = run_official_paid_labeling_job(
         job_manifest_path=manifest,
@@ -177,8 +186,11 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
     )
 
     assert result == 0
-    assert captured[:2] == ["acquisition", "llm-label"]
-    assert captured[-7:] == [
+    assert captured["provider"] == "openai"
+    command = list(cast(tuple[str, ...], captured["command"]))
+    assert command[:3] == [sys.executable, "-m", "legalforecast.cli"]
+    assert command[3:5] == ["acquisition", "llm-label"]
+    assert command[-7:] == [
         "--execution-provider",
         "openai",
         "--provider-authority-table",
@@ -187,9 +199,9 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
         "us-east-1",
         "--execute",
     ]
-    assert captured.count("--model-key") == len(model_keys)
-    assert "--provider-shard-audit" not in captured
-    assert "--provider-shard-run-card" not in captured
+    assert command.count("--model-key") == len(model_keys)
+    assert "--provider-shard-audit" not in command
+    assert "--provider-shard-run-card" not in command
 
 
 def test_validate_only_checks_all_inputs_without_authority_or_provider_cli(
@@ -199,9 +211,9 @@ def test_validate_only_checks_all_inputs_without_authority_or_provider_cli(
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="google")
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"provider CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     assert (
@@ -241,9 +253,9 @@ def test_job_rejects_cross_stage_provider_before_cli(
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="openai")
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
@@ -273,9 +285,9 @@ def test_job_rejects_path_escape_and_authority_argument_substitution(
     payload["arguments"]["provider-authority-table"] = "substitute-table"
     _write_json(manifest, payload)
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
@@ -320,9 +332,9 @@ def test_job_rejects_output_paths_outside_output_root(
     payload["arguments"][path_name] = f"outside-output/{path_name}"
     _write_json(manifest, payload)
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
@@ -354,9 +366,9 @@ def test_job_rejects_non_finite_numeric_arguments(
     payload["arguments"]["high-confidence-threshold"] = non_finite
     _write_json(manifest, payload)
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(
@@ -434,9 +446,9 @@ def test_job_rejects_account_alias_drift(
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="google")
     monkeypatch.setattr(
-        cli,
-        "main",
-        lambda args: pytest.fail(f"CLI must not run: {args}"),
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
     )
 
     with pytest.raises(

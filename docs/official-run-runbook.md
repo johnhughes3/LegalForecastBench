@@ -1052,30 +1052,34 @@ It then exclusively publishes `provider-cycle-caps.json`, its public successor r
 Any identity-only substitute, uppercase digest, changed input, noncanonical policy, unsafe link, special file, conflicting byte, or unexpected output residue fails closed.
 Use the resulting exact `provider-cycle-caps.json` path in every paid Stage A and Stage B command below; retain the successor receipt and run card as pre-provider launch evidence.
 
+Run every provider-bearing Stage A or Stage B shard only through `uv run legalforecast-provider-env-run --provider <provider> -- ...`. The wrapper accepts either the local labeling stage view containing `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` or the protected workflow's single `LFB_PROVIDER_API_KEY`, rejects known cross-stage secret names, and starts the child with exactly one provider key name. No secret value appears on the command line.
+
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
 
 ```bash
-uv run legalforecast acquisition llm-unitize \
-  --output-root <assembled-cycle-root> \
-  --controlled-private-root <absolute-controlled-private-approval-root> \
-  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
-  --selection <selection.jsonl> \
-  --selection-run-card <project-or-extend-target-cohort-run-card.json> \
-  --download-manifest <materialized-download-manifest.jsonl> \
-  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
-  --materialization-run-card <materialize-cohort-documents-run-card.json> \
-  --document-root <materialized-document-root> \
-  --parse-requests <parse-document-requests.jsonl> \
-  --parser-manifest <parser-manifest.jsonl> \
-  --parser-run-card <parse-documents-run-card.json> \
-  --markdown-root <parsed-markdown-root> \
-  --model-registry <frozen-stage-a-registry.json> \
-  --model-key <provider:model-id> \
-  --provider-cycle-caps <provider-cycle-caps.json> \
-  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
-  --provider-authority-table <exact-shared-authority-table-name> \
-  --provider-authority-region <aws-region> \
-  --execute --no-resume
+uv run legalforecast-provider-env-run \
+  --provider anthropic -- \
+  uv run legalforecast acquisition llm-unitize \
+    --output-root <assembled-cycle-root> \
+    --controlled-private-root <absolute-controlled-private-approval-root> \
+    --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+    --selection <selection.jsonl> \
+    --selection-run-card <project-or-extend-target-cohort-run-card.json> \
+    --download-manifest <materialized-download-manifest.jsonl> \
+    --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+    --materialization-run-card <materialize-cohort-documents-run-card.json> \
+    --document-root <materialized-document-root> \
+    --parse-requests <parse-document-requests.jsonl> \
+    --parser-manifest <parser-manifest.jsonl> \
+    --parser-run-card <parse-documents-run-card.json> \
+    --markdown-root <parsed-markdown-root> \
+    --model-registry <frozen-stage-a-registry.json> \
+    --model-key <provider:model-id> \
+    --provider-cycle-caps <provider-cycle-caps.json> \
+    --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+    --provider-authority-table <exact-shared-authority-table-name> \
+    --provider-authority-region <aws-region> \
+    --execute --no-resume
 ```
 
 Before any provider call, the command replays the target selection, immutable materializer, parse requests, pinned live-Mistral card, parser manifest, and complete Markdown tree. It rejects provider caps whose `cycle_id` differs from the authenticated cohort. The journal stores an immutable v2 identity containing that cycle ID, the exact caps-artifact hash, and its canonical path; copying it to another output root or opening it with changed caps is refused. The completed run card commits the journal schema and identity, exact registry entry, caps artifact, prompts, settled provider attempts, reconstructed units, raw outputs, audit, and review queue. A partial `--continue-on-error` run remains resumable but is explicitly marked incomplete and is inadmissible downstream.
@@ -1083,23 +1087,25 @@ Before any provider call, the command replays the target selection, immutable ma
 Run the structural Stage A review against the same unitizer card, caps artifact, and canonical provider journal even when its ordinary outputs live under a different root:
 
 ```bash
-uv run legalforecast acquisition llm-review-stage-a \
-  --output-root <structural-review-root> \
-  --controlled-private-root <absolute-controlled-private-approval-root> \
-  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
-  --selection <selection.jsonl> \
-  --parser-manifest <parser-manifest.jsonl> \
-  --markdown-root <parsed-markdown-root> \
-  --prediction-units <prediction-units.jsonl> \
-  --llm-unitization-run-card <llm-unitize-run-card.json> \
-  --unitization-review-queue <unitization-review-queue.jsonl> \
-  --model-registry <frozen-stage-a-reviewer-registry.json> \
-  --model-key <provider:model-id> \
-  --provider-cycle-caps <provider-cycle-caps.json> \
-  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
-  --provider-authority-table <exact-shared-authority-table-name> \
-  --provider-authority-region <aws-region> \
-  --execute --no-resume
+uv run legalforecast-provider-env-run \
+  --provider google -- \
+  uv run legalforecast acquisition llm-review-stage-a \
+    --output-root <structural-review-root> \
+    --controlled-private-root <absolute-controlled-private-approval-root> \
+    --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+    --selection <selection.jsonl> \
+    --parser-manifest <parser-manifest.jsonl> \
+    --markdown-root <parsed-markdown-root> \
+    --prediction-units <prediction-units.jsonl> \
+    --llm-unitization-run-card <llm-unitize-run-card.json> \
+    --unitization-review-queue <unitization-review-queue.jsonl> \
+    --model-registry <frozen-stage-a-reviewer-registry.json> \
+    --model-key <provider:model-id> \
+    --provider-cycle-caps <provider-cycle-caps.json> \
+    --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+    --provider-authority-table <exact-shared-authority-table-name> \
+    --provider-authority-region <aws-region> \
+    --execute --no-resume
 ```
 
 The command replays Stage A before resolving the reviewer model, refuses a different journal path, wrong cycle, or byte-different caps artifact before a provider call, and commits the exact reviewer model, prompt identities, provider attempts, input artifacts, merged queue, flags, and audit in its run card.
@@ -1169,34 +1175,68 @@ uv run legalforecast acquisition build-decision-texts \
 
 The command reconciles exact candidate and document coverage; verifies the target-cohort, authenticated clearance, and live-parser run-card commitments; admits only the single public, outcome-bearing, non-model-visible first written disposition entered on or after the Cycle 1 anchor; and binds the source and extracted-text hashes to the pinned parser revision. Fixture parser provenance is refused. It fails closed on missing, ambiguous, sealed, private, malformed restriction flags, unpinned, unauthenticated, or drifted inputs. `decision-texts.jsonl` is private Stage B and audit input only: never place it in a model-visible packet, hand-edit it, or substitute a manually assembled file.
 
-Pass that exact artifact, its immutable manifest, and the completed builder run card to Stage B. The parser manifest and Markdown remain required only to cross-check the authenticated artifact against the pinned live-Mistral lineage; `llm-label` never uses Markdown directly as prompt authority. Run the following paid command once per provider through the protected workflow:
+Pass that exact artifact, its immutable manifest, and the completed builder run card to Stage B. The parser manifest and Markdown remain required only to cross-check the authenticated artifact against the pinned live-Mistral lineage; `llm-label` never uses Markdown directly as prompt authority. Run the following paid OpenAI shard through the protected workflow or the same reusable local wrapper:
 
 ```bash
-uv run legalforecast acquisition llm-label \
-  --output-root <assembled-cycle-root> \
-  --controlled-private-root <absolute-controlled-private-approval-root> \
-  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
-  --selection <selection.jsonl> \
-  --parser-manifest <parser-manifest.jsonl> \
-  --markdown-root <parsed-markdown-root> \
-  --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
-  --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
-  --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
-  --prediction-units <finalized-prediction-units.jsonl> \
-  --llm-unitization-run-card <llm-unitize-run-card.json> \
-  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
-  --unitization-review-run-card <apply-unitization-review-run-card.json> \
-  --model-registry <frozen-stage-b-judge-registry.json> \
-  --evaluated-model-registry <frozen-evaluated-model-registry.json> \
-  --model-key <provider:model-id> \
-  --provider-cycle-caps <provider-cycle-caps.json> \
-  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
-  --execution-provider <openai-or-google> \
-  --audit-output <provider-shard-audit.jsonl> \
-  --run-card-output <provider-shard-run-card.json> \
-  --provider-authority-table <exact-shared-authority-table-name> \
-  --provider-authority-region <aws-region> \
-  --execute --no-resume
+uv run legalforecast-provider-env-run \
+  --provider openai -- \
+  uv run legalforecast acquisition llm-label \
+    --output-root <assembled-cycle-root> \
+    --controlled-private-root <absolute-controlled-private-approval-root> \
+    --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+    --selection <selection.jsonl> \
+    --parser-manifest <parser-manifest.jsonl> \
+    --markdown-root <parsed-markdown-root> \
+    --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+    --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+    --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+    --prediction-units <finalized-prediction-units.jsonl> \
+    --llm-unitization-run-card <llm-unitize-run-card.json> \
+    --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+    --unitization-review-run-card <apply-unitization-review-run-card.json> \
+    --model-registry <frozen-stage-b-judge-registry.json> \
+    --evaluated-model-registry <frozen-evaluated-model-registry.json> \
+    --model-key <provider:model-id> \
+    --provider-cycle-caps <provider-cycle-caps.json> \
+    --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+    --execution-provider openai \
+    --audit-output <openai-shard-audit.jsonl> \
+    --run-card-output <openai-shard-run-card.json> \
+    --provider-authority-table <exact-shared-authority-table-name> \
+    --provider-authority-region <aws-region> \
+    --execute --no-resume
+```
+
+Run the matching Google shard the same way, with the identical frozen judge panel and canonical provider journal:
+
+```bash
+uv run legalforecast-provider-env-run \
+  --provider google -- \
+  uv run legalforecast acquisition llm-label \
+    --output-root <assembled-cycle-root> \
+    --controlled-private-root <absolute-controlled-private-approval-root> \
+    --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+    --selection <selection.jsonl> \
+    --parser-manifest <parser-manifest.jsonl> \
+    --markdown-root <parsed-markdown-root> \
+    --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+    --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+    --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+    --prediction-units <finalized-prediction-units.jsonl> \
+    --llm-unitization-run-card <llm-unitize-run-card.json> \
+    --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+    --unitization-review-run-card <apply-unitization-review-run-card.json> \
+    --model-registry <frozen-stage-b-judge-registry.json> \
+    --evaluated-model-registry <frozen-evaluated-model-registry.json> \
+    --model-key <provider:model-id> \
+    --provider-cycle-caps <provider-cycle-caps.json> \
+    --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+    --execution-provider google \
+    --audit-output <google-shard-audit.jsonl> \
+    --run-card-output <google-shard-run-card.json> \
+    --provider-authority-table <exact-shared-authority-table-name> \
+    --provider-authority-region <aws-region> \
+    --execute --no-resume
 ```
 
 Repeat `--model-key` for every entry in the frozen judge registry in every provider-shard job.

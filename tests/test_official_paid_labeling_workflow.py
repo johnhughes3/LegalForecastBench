@@ -49,9 +49,11 @@ def test_workflow_references_only_generic_provider_and_baton_secrets() -> None:
         "secrets: inherit",
     ):
         assert forbidden not in text
-    assert 'export ANTHROPIC_API_KEY="${LFB_PROVIDER_API_KEY}"' in text
-    assert 'export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"' in text
-    assert 'export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"' in text
+    assert "legalforecast-provider-env-run" in text
+    assert '--provider "${PROVIDER}" --' in text
+    assert 'export ANTHROPIC_API_KEY="${LFB_PROVIDER_API_KEY}"' not in text
+    assert 'export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"' not in text
+    assert 'export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"' not in text
 
 
 def test_workflow_uses_distinct_oidc_role_and_clears_before_upload() -> None:

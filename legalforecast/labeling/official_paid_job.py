@@ -6,11 +6,13 @@ import argparse
 import json
 import math
 import re
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.labeling.provider_environment import run_provider_isolated_command
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps
 
 SCHEMA_VERSION = "legalforecast.official_paid_labeling_job.v1"
@@ -554,9 +556,10 @@ def run_official_paid_labeling_job(
             "--execute",
         )
     )
-    from legalforecast.cli import main
-
-    return main(cli_arguments)
+    return run_provider_isolated_command(
+        provider=normalized_provider,
+        command=(sys.executable, "-m", "legalforecast.cli", *cli_arguments),
+    )
 
 
 def _within_root(path: Path, root: Path, *, must_exist: bool) -> Path:
