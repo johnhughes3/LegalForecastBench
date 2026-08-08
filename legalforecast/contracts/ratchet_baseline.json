@@ -1488,6 +1488,78 @@
     "subject": "_bytes_sha256"
   },
   {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.acquisition_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.disclosure_quarantine_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.exact100_extended_reserve.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.exact100_free_refresh_request.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.exact100_reserve_cost_plan.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.exact100_reserve_exclusion.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.exact100_reserve_extension.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.provenance_model_clearance_run_card.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_candidate_frontier.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_projection.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.target_cohort_ranked_reserve.v1"
+  },
+  {
+    "path": "legalforecast/ingestion/exact100_reserve_extension.py",
+    "reason": "legacy schema literal pending registry import",
+    "rule": "inline_schema_literal",
+    "subject": "legalforecast.zero_cost_successor_config.v1"
+  },
+  {
     "path": "legalforecast/ingestion/exact310_rest_rebind.py",
     "reason": "legacy schema literal pending registry import",
     "rule": "inline_schema_literal",
