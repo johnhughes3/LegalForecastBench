@@ -44,6 +44,8 @@ from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
+    UNITIZATION_REVIEW_BUNDLE_V1,
+    UNITIZATION_REVIEW_QUEUE_V1,
 )
 from legalforecast.evals.accounting import (
     OutputValidityStatus,
@@ -60993,7 +60995,7 @@ def _cmd_acquisition_build_unitization_review_bundle(
     )
     bundle_payload = _jsonl_bytes(bundle_records)
     manifest: JsonRecord = {
-        "schema_version": "legalforecast.unitization_review_bundle.v1",
+        "schema_version": str(UNITIZATION_REVIEW_BUNDLE_V1),
         "record_count": len(bundle_records),
         "review_ids_sha256": _bytes_sha256(
             _projection_json_bytes(
@@ -61131,7 +61133,7 @@ def _build_unitization_review_bundle_records(
     seen_review_ids: set[str] = set()
     records: list[JsonRecord] = []
     for review in review_records:
-        if review.get("schema_version") != "legalforecast.unitization_review_queue.v1":
+        if review.get("schema_version") != str(UNITIZATION_REVIEW_QUEUE_V1):
             raise CommandError("merged unitization review queue has unsupported schema")
         if review.get("status") != "pending_adjudication":
             raise CommandError(
@@ -61230,7 +61232,7 @@ def _build_unitization_review_bundle_records(
             safe_review_item["citation_excerpt"] = citation_excerpt
         records.append(
             {
-                "schema_version": "legalforecast.unitization_review_bundle.v1",
+                "schema_version": str(UNITIZATION_REVIEW_BUNDLE_V1),
                 "review_id": review_id,
                 "candidate_id": candidate_id,
                 "case_id": case_id,

@@ -10,6 +10,7 @@ from typing import Any
 import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
+from legalforecast.contracts import UNITIZATION_REVIEW_BUNDLE_V1
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
@@ -199,6 +200,7 @@ def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
         .read_text(encoding="utf-8")
         .splitlines()
     ]
+    assert bundle["schema_version"] == str(UNITIZATION_REVIEW_BUNDLE_V1)
     assert bundle["review_id"] == "cand-1:unit-1:stage-a-review"
     assert [
         unit["unit_id"] for unit in bundle["raw_prediction_units"]["prediction_units"]
@@ -223,6 +225,7 @@ def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
             encoding="utf-8"
         )
     )
+    assert manifest["schema_version"] == str(UNITIZATION_REVIEW_BUNDLE_V1)
     assert manifest["record_count"] == 1
     assert manifest["input_commitments"]["raw_prediction_units"]["path"] == str(
         raw.resolve()
