@@ -950,7 +950,7 @@ def _audit_only_docket_source_document_record(
         "source_url_or_reference": _required_str(source, "decision_source_id"),
         "sha256": hashlib.sha256(
             canonical_json_value_bytes(
-                source,
+                dict(source),
                 error_type=PacketInputPlanningError,
                 error_message="docket decision source is not canonical JSON",
             )
