@@ -2307,6 +2307,8 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
             grouping_details.append(f"group_label={group_label}")
         if grouping_rationale is not None:
             grouping_details.append(f"grouping_rationale={grouping_rationale}")
+        if separable_subclaim is not None:
+            grouping_details.append(f"separable_subclaim={separable_subclaim}")
         conflict_note = (
             "Provider response marked a single-defendant seed as grouped; "
             + "; ".join(grouping_details)
@@ -2320,6 +2322,7 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
         grouping_rationale = None
         group_label = None
         challenge_scope = ChallengeScope.UNCLEAR
+        separable_subclaim = None
         review_reason = review_reason or UnitizationReviewReason.UNCLEAR_GROUPING
     return StageAUnitSeed(
         count=_required_str(record, "count"),
