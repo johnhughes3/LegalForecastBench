@@ -12,6 +12,7 @@ from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 
 
@@ -534,7 +535,7 @@ def test_successor_history_authentication_records_complete_verified_recovery(
         "canonical_purchase_state_sha256",
         lambda *_args, **_kwargs: "fixture-baseline-state",
     )
-    verified_recoveries: dict[Path, cli._VerifiedSuccessorRecovery] = {}
+    verified_recoveries: dict[Path, replay_module.VerifiedSuccessorRecovery] = {}
 
     predecessor, verified_bytes = production_authenticate(
         successor_recovery_root=successor_root,
@@ -605,7 +606,9 @@ def test_consolidated_verifier_reuses_successor_recovery_with_noncanonical_root(
         *,
         successor_recovery_root: Path,
         current_snapshot: CaseDevPurchaseSnapshot,
-        verified_successor_recoveries: dict[Path, cli._VerifiedSuccessorRecovery]
+        verified_successor_recoveries: dict[
+            Path, replay_module.VerifiedSuccessorRecovery
+        ]
         | None = None,
         **kwargs: object,
     ) -> tuple[CaseDevPurchaseSnapshot, dict[str, bytes]]:
@@ -629,7 +632,7 @@ def test_consolidated_verifier_reuses_successor_recovery_with_noncanonical_root(
         )
         if verified_successor_recoveries is not None:
             verified_successor_recoveries[successor_recovery_root.resolve()] = (
-                cli._VerifiedSuccessorRecovery(
+                replay_module.VerifiedSuccessorRecovery(
                     recovery_root=successor_recovery_root.resolve(),
                     selection_path=selection_path,
                     selection_bytes=selection_bytes,

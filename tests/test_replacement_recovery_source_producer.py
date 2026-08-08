@@ -13,6 +13,7 @@ from typing import Any, cast
 import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import recap_fetch_attempt_policy as attempt_module
+from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion import replacement_purchase_approval as approval_module
 from legalforecast.ingestion import replacement_recovery_source as source_module
 from legalforecast.ingestion import resolved_post_recovery as resolved_module
@@ -1697,7 +1698,7 @@ def _successor_history_helper_fixture(
         purchase_ledger_path=ledger,
     )
     monkeypatch.setattr(
-        cli, "derive_recovery_source_coordinates", lambda _card: coordinates
+        replay_module, "derive_recovery_source_coordinates", lambda _card: coordinates
     )
     monkeypatch.setattr(
         cli,
@@ -1785,8 +1786,8 @@ def test_authenticated_successor_history_reconstructs_exact_prefix(
 ) -> None:
     kwargs, _ = _successor_history_helper_fixture(tmp_path, monkeypatch)
 
-    prefix, recovery_bytes = cli._authenticated_pre_successor_purchase_snapshot(
-        **kwargs
+    prefix, recovery_bytes = (
+        replay_module.authenticated_pre_successor_purchase_snapshot(**kwargs)
     )
 
     assert prefix.committed_amount_usd == "3.05"
@@ -1814,7 +1815,7 @@ def test_authenticated_successor_history_binds_transition_prior_to_both_verifier
     monkeypatch.setattr(cli, "verify_recap_fetch_attempt_policy", verify_attempt)
 
     capability = object()
-    cli._authenticated_pre_successor_purchase_snapshot(
+    replay_module.authenticated_pre_successor_purchase_snapshot(
         **kwargs,
         authority_transition_capability=capability,
         attempt_transition_capability=capability,

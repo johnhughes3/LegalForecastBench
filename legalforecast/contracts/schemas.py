@@ -30,6 +30,9 @@ ACQUISITION_RUN_CARD_V1 = SchemaIdentifier("legalforecast.acquisition_run_card.v
 CLEARANCE_REPLACEMENT_PLAN_V1 = SchemaIdentifier(
     "legalforecast.clearance_replacement_plan.v1"
 )
+DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1 = SchemaIdentifier(
+    "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
+)
 DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v1")
 FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_scrape_request_contract.v1"
@@ -98,6 +101,7 @@ TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_RUN_CARD_V1 = SchemaIdentifier(
 RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     ACQUISITION_RUN_CARD_V1,
     CLEARANCE_REPLACEMENT_PLAN_V1,
+    DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1,
     DISCLOSURE_CLEARANCE_V1,
     FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1,
     FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1,

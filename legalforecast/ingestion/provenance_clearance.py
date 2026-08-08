@@ -12,11 +12,12 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from legalforecast.ingestion.canonical_json import (
     canonical_json_bytes as _canonical_json_bytes,
 )
+from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 from legalforecast.ingestion.courtlistener_provider_identity import (
     COURTLISTENER_RECAP_FETCH_PROVIDER,
 )
@@ -36,6 +37,13 @@ from legalforecast.ingestion.disclosure_review_bundle import (
     read_unique_regular_file,
 )
 from legalforecast.ingestion.disclosure_uri import is_allowlisted_public_recap_uri
+from legalforecast.ingestion.recovered_public_replay import (
+    authenticate_recovered_public_raw_evidence,
+    derive_recovered_public_lineage_rows,
+)
+from legalforecast.ingestion.replacement_recovery_source import (
+    ReplacementRecoverySourceError,
+)
 
 PLAN_SCHEMA_VERSION = "legalforecast.disclosure_provenance_routing_plan.v2"
 WORKSHEET_SCHEMA_VERSION = "legalforecast.disclosure_exception_worksheet.v2"
@@ -146,7 +154,7 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
     successor_history_controlled_private_root: Path | None,
     authority_transition_capability: object | None = None,
     attempt_transition_capability: object | None = None,
-    resolved_transition_prior_snapshot: object | None = None,
+    resolved_transition_prior_snapshot: CaseDevPurchaseSnapshot | None = None,
     expected_manifest_path: Path,
     expected_restriction_path: Path,
     expected_case_relevance_path: Path,
@@ -155,23 +163,8 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
 ) -> _AuthenticatedRecoveredPublicEvidence:
     """Replay raw recovery evidence before deriving capability state."""
 
-    # The CLI owns the complete recovery replay because it composes the purchase
-    # policy, ledger, run-card, and immutable artifact verifiers. Capability
-    # issuance remains here so authenticated state cannot be constructed by a
-    # caller that merely knows the resulting lineage fields.
-    from legalforecast import cli as cli_module
-
-    authenticate = cast(
-        Any,
-        cli_module._authenticate_recovered_public_raw_evidence,  # pyright: ignore[reportPrivateUsage]
-    )
-    derive = cast(
-        Any,
-        cli_module._derive_recovered_public_lineage_rows,  # pyright: ignore[reportPrivateUsage]
-    )
-    recovery = cast(
-        Mapping[str, object],
-        authenticate(
+    try:
+        recovery = authenticate_recovered_public_raw_evidence(
             recovery_root=recovery_root,
             run_card_path=run_card_path,
             selection_path=selection_path,
@@ -187,8 +180,9 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
             authority_transition_capability=authority_transition_capability,
             attempt_transition_capability=attempt_transition_capability,
             resolved_transition_prior_snapshot=resolved_transition_prior_snapshot,
-        ),
-    )
+        )
+    except (ReplacementRecoverySourceError, ValueError) as exc:
+        raise ProvenanceClearanceError(str(exc)) from exc
     expected_paths = {
         "manifest_path": expected_manifest_path,
         "restriction_path": expected_restriction_path,
@@ -250,13 +244,10 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
         )
     return _AuthenticatedRecoveredPublicEvidence(
         lineage_rows=tuple(
-            cast(
-                Sequence[Mapping[str, object]],
-                derive(
-                    recovery,
-                    expected_manifest_path=expected_manifest_path,
-                    expected_restriction_path=expected_restriction_path,
-                ),
+            _derive_authenticated_recovered_public_lineage_rows(
+                recovery,
+                expected_manifest_path=expected_manifest_path,
+                expected_restriction_path=expected_restriction_path,
             )
         ),
         terminal_records=terminal_records,
@@ -268,6 +259,25 @@ def _authenticate_recovered_public_lineage_from_raw_evidence(
         ),
         source_snapshots=source_snapshots,
     )
+
+
+def _derive_authenticated_recovered_public_lineage_rows(
+    recovery: Mapping[str, object],
+    *,
+    expected_manifest_path: Path,
+    expected_restriction_path: Path,
+) -> Sequence[Mapping[str, object]]:
+    try:
+        return cast(
+            Sequence[Mapping[str, object]],
+            derive_recovered_public_lineage_rows(
+                recovery,
+                expected_manifest_path=expected_manifest_path,
+                expected_restriction_path=expected_restriction_path,
+            ),
+        )
+    except (ReplacementRecoverySourceError, ValueError) as exc:
+        raise ProvenanceClearanceError(str(exc)) from exc
 
 
 def _jsonl_mapping_records(
@@ -312,7 +322,7 @@ def _recovered_public_capability_boundary() -> tuple[
         successor_history_controlled_private_root: Path | None = None,
         authority_transition_capability: object | None = None,
         attempt_transition_capability: object | None = None,
-        resolved_transition_prior_snapshot: object | None = None,
+        resolved_transition_prior_snapshot: CaseDevPurchaseSnapshot | None = None,
         expected_manifest_path: Path,
         expected_restriction_path: Path,
         expected_case_relevance_path: Path,
