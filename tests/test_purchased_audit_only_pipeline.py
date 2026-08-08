@@ -102,7 +102,7 @@ def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
 
         @staticmethod
         def cap_usd(provider: str) -> float:
-            assert provider == "anthropic"
+            assert provider.lower() == "anthropic"
             return 200.0
 
         @staticmethod
@@ -116,7 +116,7 @@ def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
         parser_records=(),
         registry_entry=SimpleNamespace(
             registry_key="anthropic:model",
-            provider="anthropic",
+            provider="Anthropic",
         ),
         registry_sha256="1" * 64,
         provider_caps=_Caps(),

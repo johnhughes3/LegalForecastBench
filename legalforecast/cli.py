@@ -59508,11 +59508,12 @@ def _local_provider_account(
 ) -> str:
     """Resolve the account identity used by the legacy local journal path."""
 
+    normalized_provider = provider.lower()
     try:
-        cap = provider_caps.providers[provider]
+        cap = provider_caps.providers[normalized_provider]
     except KeyError as exc:
         raise CommandError(
-            f"provider cycle caps artifact has no entry for {provider!r}"
+            f"provider cycle caps artifact has no entry for {normalized_provider!r}"
         ) from exc
     return cap.account or "default"
 
