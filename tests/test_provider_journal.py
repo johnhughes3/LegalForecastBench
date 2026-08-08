@@ -8,7 +8,9 @@ import pytest
 from legalforecast.evals.live_model_solver import (
     LiveModelProviderError,
     _call_with_provider_retries,
+    complete_live_prompt,
 )
+from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderBudgetExceededError,
@@ -588,6 +590,118 @@ def test_journal_terminalizes_invalid_reconstruction_without_losing_accounting(
             )
 
 
+def test_reconstruction_retry_settles_durable_response_without_double_mapping(
+    tmp_path: Path,
+) -> None:
+    """A live solver settles the durable ordinal it received from the journal."""
+
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "{}"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="{}",
+        )
+        journal.record_reconstruction_failure(ValueError("legacy local validator"))
+
+    calls = 0
+
+    def fresh_provider() -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return _openai_response("replacement")
+
+    with _journal(path) as retry:
+        assert retry.prepare_reconstruction_retry(max_attempts=3) == 2
+        response = complete_live_prompt(
+            _openai_registry_entry(),
+            "frozen prompt",
+            transport=lambda request, timeout_seconds: fresh_provider(),
+            environ={"OPENAI_API_KEY": "test-key"},
+            max_attempts=2,
+            retry_backoff_seconds=0,
+            attempt_handler=retry,
+        )
+        assert response.request_count == 1
+        retry.record_reconstruction_failure(ValueError("new parser defect"))
+        retry.settle_attempt(
+            retry.durable_attempt_ordinal(1),
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.0000045,
+            raw_output="{}",
+        )
+
+    assert calls == 1
+    with sqlite3.connect(path) as connection:
+        assert connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall() == [
+            (1, "reconstruction_failed"),
+            (2, "reconstruction_failed"),
+        ]
+
+
+def test_reconstruction_retry_replays_received_response_provider_free(
+    tmp_path: Path,
+) -> None:
+    """A crash after durable response receipt resumes through the live solver."""
+
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "{}"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="{}",
+        )
+        journal.record_reconstruction_failure(ValueError("legacy local validator"))
+
+    with _journal(path) as retry:
+        assert retry.prepare_reconstruction_retry(max_attempts=3) == 2
+        retry.run_attempt(1, lambda: _openai_response("durable-before-crash"))
+        assert retry.durable_attempt_ordinal(1) == 2
+
+    calls = 0
+
+    def provider_must_not_run(
+        request: object, timeout_seconds: float
+    ) -> dict[str, object]:
+        nonlocal calls
+        del request, timeout_seconds
+        calls += 1
+        raise AssertionError(
+            "received reconstruction response must replay provider-free"
+        )
+
+    with _journal(path) as replay:
+        assert replay.prepare_reconstruction_retry(max_attempts=3) == 1
+        response = complete_live_prompt(
+            _openai_registry_entry(),
+            "frozen prompt",
+            transport=provider_must_not_run,
+            environ={"OPENAI_API_KEY": "test-key"},
+            max_attempts=1,
+            retry_backoff_seconds=0,
+            attempt_handler=replay,
+        )
+        assert response.request_count == 0
+        replay.commit_reconstruction({"prediction_units": []})
+
+    assert calls == 0
+    with sqlite3.connect(path) as connection:
+        assert connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall() == [(1, "reconstruction_failed"), (2, "settled")]
+
+
 def test_journal_commits_authenticated_reconstruction_recovery(
     tmp_path: Path,
 ) -> None:
@@ -1003,3 +1117,38 @@ def _raise_provider_error(error: LiveModelProviderError) -> dict[str, object]:
 
 def _raise_value_error(message: str) -> dict[str, object]:
     raise ValueError(message)
+
+
+def _openai_registry_entry() -> ModelRegistryEntry:
+    return ModelRegistryEntry.from_record(
+        {
+            "provider": "openai",
+            "model_id": "gpt-test",
+            "display_name": "OpenAI test",
+            "model_version_or_snapshot": "gpt-test-2026-05-14",
+            "release_timestamp": "2026-05-14T09:00:00Z",
+            "release_timestamp_source": "fixture release note",
+            "provider_training_cutoff_status": "known",
+            "provider_training_cutoff": "2026-04-01",
+            "temperature": 0,
+            "top_p": 1,
+            "max_output_tokens": 4096,
+            "network_disabled": True,
+            "search_disabled": True,
+            "tool_policy": "controlled_docket_tool_only",
+            "context_limit": 200000,
+            "pricing_source": "fixture price sheet",
+            "input_token_price": 0.25,
+            "output_token_price": 1.0,
+            "known_cutoff_publicity_caveats": [],
+        }
+    )
+
+
+def _openai_response(request_id: str) -> dict[str, object]:
+    return {
+        "id": request_id,
+        "model": "gpt-test-2026-05-14",
+        "output_text": "{}",
+        "usage": {"input_tokens": 10, "output_tokens": 2},
+    }
