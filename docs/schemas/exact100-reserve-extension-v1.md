@@ -38,6 +38,12 @@ The pure planner returns:
 
 The summary binds every input and output byte surface. The cost plan records the maximum projected cost but always sets `paid_permitted` to false. The summary always denies provider, paid, evaluation, freeze, and dispatch authority.
 
+### The `extension_sha256` preimage excludes itself
+
+`extension_sha256` commits every summary field **except `extension_sha256`**, because a field cannot contain its own digest. A verifier must therefore drop that one key and recanonicalize the remainder; hashing the persisted summary artifact as-is will not reproduce the recorded value.
+
+Use `extension_summary_digest(summary)` to recompute the digest and `verify_extension_summary(summary)` to assert a summary carries its own correct digest, rather than rehashing the artifact bytes directly.
+
 This schema does not itself authorize a CourtListener request. A later acquisition command may consume the free-refresh rows, but must remain limited to noncharging REST availability checks unless separate authenticated purchase authority exists.
 
 ## CLI status

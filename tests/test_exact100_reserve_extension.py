@@ -19,6 +19,8 @@ from legalforecast.ingestion.canonical_json import (
 from legalforecast.ingestion.exact100_reserve_extension import (
     Exact100ReserveExtensionError,
     extend_exact100_reserve,
+    extension_summary_digest,
+    verify_extension_summary,
 )
 
 
@@ -312,6 +314,9 @@ def _plan(inputs: dict[str, Any]):
     return extend_exact100_reserve(
         authenticated_exact_successor=inputs["exact_projection"],
         exact_successor_projection=inputs["exact_projection"],
+        exact_successor_projection_bytes=inputs.get(
+            "exact_projection_bytes", _json_bytes(inputs["exact_projection"])
+        ),
         exact_selection_bytes=inputs["exact_selection_bytes"],
         authenticated_full_frontier=inputs.get(
             "authenticated_full_frontier", inputs["frontier"]
@@ -478,6 +483,9 @@ def test_extension_fails_closed_on_tampered_authority(
         extend_exact100_reserve(
             authenticated_exact_successor=inputs["authenticated_exact_successor"],
             exact_successor_projection=inputs["exact_projection"],
+            exact_successor_projection_bytes=inputs.get(
+                "exact_projection_bytes", _json_bytes(inputs["exact_projection"])
+            ),
             exact_selection_bytes=inputs["exact_selection_bytes"],
             authenticated_full_frontier=inputs.get(
                 "authenticated_full_frontier", inputs["frontier"]
@@ -527,6 +535,9 @@ def test_extension_rejects_duplicate_quarantine_and_insufficient_capacity() -> N
         extend_exact100_reserve(
             authenticated_exact_successor=inputs["exact_projection"],
             exact_successor_projection=inputs["exact_projection"],
+            exact_successor_projection_bytes=inputs.get(
+                "exact_projection_bytes", _json_bytes(inputs["exact_projection"])
+            ),
             exact_selection_bytes=inputs["exact_selection_bytes"],
             authenticated_full_frontier=inputs["frontier"],
             full_frontier=inputs["frontier"],
@@ -548,3 +559,60 @@ def test_extension_rejects_duplicate_quarantine_and_insufficient_capacity() -> N
             current_quarantine_run_card_bytes=inputs["current_quarantine_card_bytes"],
             required_replacement_count=10,
         )
+
+
+def test_extension_rejects_successor_projection_bytes_mismatch() -> None:
+    """The successor projection must be proven against the caller's bytes.
+
+    Regression for a check that derived its payload from the same mapping it
+    was validating, which could never fail.
+    """
+
+    inputs = _fixture()
+    inputs["exact_projection_bytes"] = _json_bytes({"schema_version": "unrelated"})
+    with pytest.raises(
+        Exact100ReserveExtensionError,
+        match="exact successor projection differs from supplied bytes",
+    ):
+        _plan(inputs)
+
+
+@pytest.mark.parametrize(
+    ("card", "field"),
+    [
+        ("final_clearance_card", "schema_version"),
+        ("final_clearance_card", "stage"),
+        ("current_quarantine_card", "schema_version"),
+        ("current_quarantine_card", "stage"),
+    ],
+)
+def test_extension_rejects_foreign_run_card_identity(card: str, field: str) -> None:
+    """A completed provider-free card is not automatically clearance authority."""
+
+    inputs = _fixture()
+    inputs[card][field] = "legalforecast.unrelated_run_card.v1"
+    _reauthorize_mutated_fixture(inputs)
+    with pytest.raises(
+        Exact100ReserveExtensionError, match="run card identity mismatch"
+    ):
+        _plan(inputs)
+
+
+def test_extension_summary_digest_is_self_excluded_and_verifiable() -> None:
+    """A consumer must be able to reproduce extension_sha256 from the artifact."""
+
+    result = _plan(_fixture())
+    summary = result.summary
+
+    # The recorded digest is reproducible via the documented helper...
+    verify_extension_summary(summary)
+    assert summary["extension_sha256"] == extension_summary_digest(summary)
+
+    # ...and is deliberately NOT the digest of the serialized artifact, because
+    # the field cannot contain its own digest.
+    assert summary["extension_sha256"] != _sha(result.summary_bytes)
+
+    tampered = dict(summary)
+    tampered["selected_case_count"] = 99
+    with pytest.raises(Exact100ReserveExtensionError, match="self-excluded preimage"):
+        verify_extension_summary(tampered)

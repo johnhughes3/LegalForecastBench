@@ -28,6 +28,10 @@ EXCLUSION_SCHEMA_VERSION = "legalforecast.exact100_reserve_exclusion.v1"
 FREE_REFRESH_SCHEMA_VERSION = "legalforecast.exact100_free_refresh_request.v1"
 COST_SCHEMA_VERSION = "legalforecast.exact100_reserve_cost_plan.v1"
 
+_CLEARANCE_RUN_CARD_SCHEMA = "legalforecast.provenance_model_clearance_run_card.v1"
+_CLEARANCE_RUN_CARD_STAGE = "finalize-provenance-quarantine"
+_QUARANTINE_RUN_CARD_SCHEMA = "legalforecast.disclosure_quarantine_run_card.v1"
+_QUARANTINE_RUN_CARD_STAGE = "finalize-disclosure-quarantine"
 _EXACT_SUCCESSOR_SCHEMA = "legalforecast.zero_cost_successor_config.v1"
 _ORIGINAL_PROJECTION_SCHEMA = "legalforecast.target_cohort_projection.v1"
 _FRONTIER_SCHEMA = "legalforecast.target_cohort_candidate_frontier.v1"
@@ -102,10 +106,38 @@ class Exact100ReserveExtension:
         return _canonical_bytes(self.summary)
 
 
+def extension_summary_digest(summary: Mapping[str, object]) -> str:
+    """Return the canonical `extension_sha256` preimage digest for *summary*.
+
+    The digest is self-excluded: it commits every summary field except
+    `extension_sha256` itself, because that field cannot contain its own
+    digest.  A consumer reading a persisted summary artifact must therefore
+    drop `extension_sha256` before rehashing, which this helper does, rather
+    than hashing the artifact bytes directly.
+    """
+
+    preimage = {
+        key: value for key, value in summary.items() if key != "extension_sha256"
+    }
+    return _sha(original=_canonical_bytes(preimage))
+
+
+def verify_extension_summary(summary: Mapping[str, object]) -> None:
+    """Raise unless *summary* carries its own correct self-excluded digest."""
+
+    recorded = summary.get("extension_sha256")
+    expected = extension_summary_digest(summary)
+    if recorded != expected:
+        raise Exact100ReserveExtensionError(
+            "extension summary digest does not match its self-excluded preimage"
+        )
+
+
 def extend_exact100_reserve(
     *,
     authenticated_exact_successor: Mapping[str, object],
     exact_successor_projection: Mapping[str, object],
+    exact_successor_projection_bytes: bytes,
     exact_selection_bytes: bytes,
     authenticated_full_frontier: Mapping[str, object],
     full_frontier: Mapping[str, object],
@@ -138,9 +170,12 @@ def extend_exact100_reserve(
         raise Exact100ReserveExtensionError(
             "required_replacement_count must be positive"
         )
+    # Authenticate the mapping against the caller's artifact bytes.  Deriving
+    # the payload from the mapping itself would compare a value with a
+    # serialization of that same value, which can never fail.
     _verify_object_bytes(
         exact_successor_projection,
-        _canonical_bytes(exact_successor_projection),
+        exact_successor_projection_bytes,
         label="exact successor projection",
     )
     if dict(authenticated_exact_successor) != dict(exact_successor_projection):
@@ -193,6 +228,8 @@ def extend_exact100_reserve(
         commitment_name="disclosure_clearance",
         label="clearance",
         allowed_candidate_ids=set(source_by_id),
+        run_card_schema=_CLEARANCE_RUN_CARD_SCHEMA,
+        run_card_stage=_CLEARANCE_RUN_CARD_STAGE,
     )
     exact_sources = _mapping(
         exact_successor_projection.get("source_commitments"),
@@ -223,6 +260,8 @@ def extend_exact100_reserve(
         commitment_name="disclosure_quarantine",
         label="current quarantine",
         allowed_candidate_ids=set(exact_ids),
+        run_card_schema=_QUARANTINE_RUN_CARD_SCHEMA,
+        run_card_stage=_QUARANTINE_RUN_CARD_STAGE,
         require_status=False,
     )
     if dict(authenticated_current_quarantine_run_card) != dict(
@@ -330,9 +369,7 @@ def extend_exact100_reserve(
     cost_bytes = _canonical_bytes(cost_plan)
     refresh_bytes = _jsonl_bytes(free_refresh_inputs)
     source_commitments = {
-        "exact_successor_projection": _sha(
-            original=_canonical_bytes(exact_successor_projection)
-        ),
+        "exact_successor_projection": _sha(original=exact_successor_projection_bytes),
         "exact_selection": _sha(original=exact_selection_bytes),
         "full_frontier": _sha(original=full_frontier_bytes),
         "frontier_run_card": _sha(original=frontier_run_card_bytes),
@@ -369,7 +406,10 @@ def extend_exact100_reserve(
         "freeze_authorized": False,
         "dispatch_authorized": False,
     }
-    summary["extension_sha256"] = _sha(original=_canonical_bytes(summary))
+    # Self-excluded digest: computed over the summary *without* this key, then
+    # inserted.  sha256(summary_bytes) therefore does not equal
+    # extension_sha256; verifiers must use extension_summary_digest below.
+    summary["extension_sha256"] = extension_summary_digest(summary)
     return Exact100ReserveExtension(
         selected_cohort_bytes=exact_selection_bytes,
         ranked_reserve=ranked_reserve,
@@ -513,7 +553,9 @@ def _verify_original_projection(
         or projection.get("resolved_pool_case_count") != _SOURCE_COUNT
     ):
         raise Exact100ReserveExtensionError(
-            "original v4 target projection contract mismatch"
+            f"original target projection contract mismatch: expected "
+            f"{_ORIGINAL_PROJECTION_SCHEMA} with {_TARGET_COUNT} selected cases, "
+            f"{_ORIGINAL_RESERVE_COUNT} reserve rows, and a {_SOURCE_COUNT}-row pool"
         )
     expected_policy = {
         "attributes": list(_RANKING_ATTRIBUTES),
@@ -527,9 +569,7 @@ def _verify_original_projection(
     successor_sources = _mapping(
         exact_successor_projection.get("source_commitments"), "exact successor sources"
     )
-    if successor_sources.get("target_projection") != _sha(
-        original=_canonical_bytes(projection)
-    ):
+    if successor_sources.get("target_projection") != _sha(original=projection_bytes):
         raise Exact100ReserveExtensionError(
             "exact successor does not bind original projection"
         )
@@ -622,9 +662,19 @@ def _verify_clearance_authority(
     commitment_name: str,
     label: str,
     allowed_candidate_ids: set[str],
+    run_card_schema: str,
+    run_card_stage: str,
     require_status: bool = True,
 ) -> list[JsonRecord]:
     _verify_object_bytes(run_card, run_card_bytes, label=f"{label} run card")
+    # Pin the run card's identity before trusting its commitments.  Without
+    # this, any completed provider-free card whose output commitment happens to
+    # match these bytes would be accepted as clearance or quarantine authority.
+    if (
+        run_card.get("schema_version") != run_card_schema
+        or run_card.get("stage") != run_card_stage
+    ):
+        raise Exact100ReserveExtensionError(f"{label} run card identity mismatch")
     if (
         run_card.get("status") != "completed"
         or run_card.get("dry_run") is not False
