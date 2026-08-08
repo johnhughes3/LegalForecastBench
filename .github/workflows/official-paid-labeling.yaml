@@ -101,7 +101,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       JOB_ROOT: ${{ github.workspace }}/.official-paid-labeling-job
       OUTPUT_ROOT: ${{ github.workspace }}/official-paid-labeling-output
       LFB_BATON_AGE_RECIPIENT: ${{ vars.LFB_BATON_AGE_RECIPIENT }}

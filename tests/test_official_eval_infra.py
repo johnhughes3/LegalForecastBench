@@ -15,6 +15,7 @@ INFRA_ROOT = ROOT / "infra" / "official-eval"
 POLICY_ROOT = INFRA_ROOT / "policies"
 RUN_BENCHMARK_WORKFLOW = ROOT / ".github" / "workflows" / "run-benchmark.yaml"
 FAN_IN_WORKFLOW = ROOT / ".github" / "workflows" / "fan-in-publish.yaml"
+WORKFLOW_ROOT = ROOT / ".github" / "workflows"
 
 OIDC_PROVIDER_ARN = (
     "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
@@ -716,6 +717,16 @@ def _function_source(
     segment = ast.get_source_segment(source, matches[0])
     assert segment is not None
     return segment
+
+
+def test_official_workflows_do_not_silently_default_lfb_aws_region() -> None:
+    offenders = [
+        path.relative_to(ROOT).as_posix()
+        for path in sorted(WORKFLOW_ROOT.glob("*.yaml"))
+        if "vars.LFB_AWS_REGION ||" in path.read_text(encoding="utf-8")
+    ]
+
+    assert offenders == []
 
 
 def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> None:
