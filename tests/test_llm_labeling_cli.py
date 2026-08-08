@@ -23,6 +23,7 @@ from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
 from legalforecast.evals.provider_spend_dynamodb import DynamoDbAuthorityError
+from legalforecast.ingestion import provenance_clearance
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
@@ -556,6 +557,67 @@ def _stub_authenticated_stage_a_lineage(
         "--provider-authority-table",
         "fixture-provider-authority",
     ]
+
+
+def test_stage_a_lineage_reuses_identical_authenticated_pdf_scans(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """One Stage A preflight must not re-extract the same PDF for each replay."""
+
+    calls = 0
+    scan = object()
+
+    def expensive_scan(data: bytes) -> object:
+        nonlocal calls
+        assert data == b"production-shaped-pdf-bytes"
+        calls += 1
+        return scan
+
+    scanner_plan = {
+        "documents": [
+            {
+                "disclosure_pdf_scan": {
+                    "schema_version": provenance_clearance.PDF_SCAN_SCHEMA_VERSION,
+                    "method": "pypdf_page_text_v2",
+                }
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        provenance_clearance,
+        "scan_disclosure_document",
+        expensive_scan,
+    )
+
+    def replay_four_authority_boundaries(
+        _args: argparse.Namespace,
+        *,
+        markdown_root: Path,
+    ) -> object:
+        assert markdown_root == tmp_path
+        for _ in range(4):
+            assert (
+                provenance_clearance.document_scanner_for_plan(scanner_plan)(
+                    b"production-shaped-pdf-bytes"
+                )
+                is scan
+            )
+        return scan
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_lineage_uncached",
+        replay_four_authority_boundaries,
+    )
+
+    assert (
+        cli._verify_stage_a_unitization_lineage(
+            argparse.Namespace(), markdown_root=tmp_path
+        )
+        is scan
+    )
+    assert calls == 1
 
 
 def _stub_authenticated_finalized_provider_chain(
