@@ -190,6 +190,323 @@ def _rebuild(plan: recovery.TargetRawDocketRecoveryPlan, **overrides: object):
     return build_target_raw_docket_recovery_plan(**values)  # type: ignore[arg-type]
 
 
+def _command_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> recovery.TargetRawDocketRecoveryPlan:
+    """Create the exact store/snapshot authority that the CLI replays."""
+
+    preliminary = _plan(tmp_path, monkeypatch)
+    store_path = Path(preliminary.cycle_store_path)
+    with CycleAcquisitionStore(store_path) as store:
+        cycle_hash = store.ensure_cycle({"fixture": True})
+        source_batch_digest = store.ensure_batch(
+            preliminary.source_batch_id, {"fixture": True}
+        )
+        store.ensure_terms(preliminary.source_batch_id, ("motion to dismiss",))
+        store.commit_search_page(
+            preliminary.source_batch_id,
+            "motion to dismiss",
+            None,
+            (
+                DiscoveryHit(
+                    provider_hit_id="fixture-hit-200",
+                    candidate_id="courtlistener-docket-200",
+                    payload={"case_id": "courtlistener-docket-200"},
+                ),
+            ),
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+
+    monkeypatch.setattr(
+        recovery,
+        "verify_snapshot",
+        lambda *args, **kwargs: {
+            "cycle_hash": cycle_hash,
+            "batch_id": preliminary.source_batch_id,
+            "batch_digest": source_batch_digest,
+        },
+    )
+    return _rebuild(preliminary, expected_cycle_hash=cycle_hash)
+
+
+def _command_args(
+    plan: recovery.TargetRawDocketRecoveryPlan,
+    *,
+    output_root: Path,
+    execute: bool,
+    plan_output: Path,
+    firecrawl_fixture: Path | None = None,
+) -> Namespace:
+    return Namespace(
+        output_root=output_root,
+        run_card_output=None,
+        log_output=None,
+        resume=True,
+        execute=execute,
+        selection=Path(plan.selection_path),
+        expected_selection_sha256=plan.selection_sha256,
+        source_snapshot=Path(plan.source_snapshot_path),
+        expected_source_snapshot_manifest_sha256=(plan.source_snapshot_manifest_sha256),
+        expected_cycle_hash=plan.cycle_hash,
+        source_snapshot_run_card=Path(plan.source_snapshot_run_card_path),
+        expected_source_snapshot_run_card_sha256=(plan.source_snapshot_run_card_sha256),
+        source_raw_manifest=Path(plan.source_raw_manifest_path),
+        expected_source_raw_manifest_sha256=plan.source_raw_manifest_sha256,
+        cycle_store=Path(plan.cycle_store_path),
+        batch_id=plan.batch_id,
+        run_id=plan.run_id,
+        credit_cap=plan.credit_cap,
+        workers=plan.workers,
+        max_pages_per_docket=plan.max_pages_per_docket,
+        max_attempts_per_page=plan.max_attempts_per_page,
+        provider_breaker_threshold=plan.provider_breaker_threshold,
+        proxy=plan.proxy,
+        force_browser=plan.force_browser,
+        plan_output=plan_output,
+        plan=plan_output,
+        expected_plan_sha256=None,
+        raw_html_dir=output_root / "raw-html",
+        successes_output=output_root / "successes.jsonl",
+        exclusions_output=output_root / "exclusions.jsonl",
+        summary_output=output_root / "summary.json",
+        receipt_output=output_root / "receipt.json",
+        live_firecrawl=False,
+        firecrawl_fixture=firecrawl_fixture,
+    )
+
+
+def _fixture_docket_html() -> str:
+    return """
+    <html><head><title>Fixture 200</title></head><body>
+      <div id="docket-entry-table">
+        <div id="entry-1" class="row">
+          <div class="col-xs-1">1</div>
+          <div class="col-xs-3"><span title="June 1, 2026">June 1, 2026</span></div>
+          <div class="col-xs-8">Motion to Dismiss for Failure to State a Claim.</div>
+        </div>
+        <div id="entry-2" class="row">
+          <div class="col-xs-1">2</div>
+          <div class="col-xs-3"><span title="July 1, 2026">July 1, 2026</span></div>
+          <div class="col-xs-8">ORDER granting 1 Motion to Dismiss for Failure to
+            State a Claim.</div>
+        </div>
+      </div>
+    </body></html>
+    """
+
+
+def test_plan_command_writes_authenticated_plan_and_stage_markers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _command_plan(tmp_path, monkeypatch)
+    output_root = tmp_path / "plan-output"
+    args = _command_args(
+        plan,
+        output_root=output_root,
+        execute=False,
+        plan_output=output_root / "recovery-plan.json",
+    )
+
+    assert cli._cmd_acquisition_plan_target_raw_docket_recovery(args) == 0  # pyright: ignore[reportPrivateUsage]
+
+    plan_sha = sha256_file(args.plan_output)
+    assert load_target_raw_docket_recovery_plan(args.plan_output, plan_sha) == plan
+    run_card = json.loads(
+        (output_root / "run-cards/plan-target-raw-docket-recovery.json").read_text()
+    )
+    assert run_card["dry_run"] is True
+    assert run_card["paid_activity_requested"] is False
+    assert run_card["record_count"] == 1
+    assert run_card["plan_sha256"] == plan_sha
+
+
+def test_execute_command_dry_run_writes_empty_terminal_quartet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _command_plan(tmp_path, monkeypatch)
+    plan_output = tmp_path / "plan-stage" / "recovery-plan.json"
+    plan_output.parent.mkdir()
+    plan_sha = write_target_raw_docket_recovery_plan(plan_output, plan)
+    output_root = tmp_path / "dry-execute"
+    args = _command_args(
+        plan,
+        output_root=output_root,
+        execute=False,
+        plan_output=plan_output,
+    )
+    args.expected_plan_sha256 = plan_sha
+
+    assert cli._cmd_acquisition_execute_target_raw_docket_recovery(args) == 0  # pyright: ignore[reportPrivateUsage]
+
+    assert args.successes_output.read_bytes() == b""
+    assert args.exclusions_output.read_bytes() == b""
+    summary = json.loads(args.summary_output.read_text())
+    assert summary == {
+        "schema_version": recovery.TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
+        "dry_run": True,
+        "target_count": 1,
+        "provider_activity_requested": False,
+    }
+    receipt = json.loads(args.receipt_output.read_text())
+    assert receipt == {
+        "schema_version": TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
+        "dry_run": True,
+        "plan_sha256": plan_sha,
+    }
+    run_card = json.loads(
+        (output_root / "run-cards/execute-target-raw-docket-recovery.json").read_text()
+    )
+    assert run_card["dry_run"] is True
+    assert run_card["record_count"] == 0
+    assert run_card["provider_activity_requested"] is False
+
+
+def test_execute_command_rejects_partial_or_ambiguous_execution_modes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _command_plan(tmp_path, monkeypatch)
+    plan_output = tmp_path / "plan-stage" / "recovery-plan.json"
+    plan_output.parent.mkdir()
+    plan_sha = write_target_raw_docket_recovery_plan(plan_output, plan)
+    output_root = tmp_path / "invalid-execute"
+    args = _command_args(
+        plan,
+        output_root=output_root,
+        execute=True,
+        plan_output=plan_output,
+    )
+    args.expected_plan_sha256 = plan_sha
+    args.successes_output.parent.mkdir()
+    args.successes_output.write_bytes(b"partial\n")
+
+    with pytest.raises(
+        cli.CommandError,
+        match="either no terminal outputs or the complete terminal set",
+    ):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+
+    args.successes_output.unlink()
+    with pytest.raises(
+        cli.CommandError, match="exactly one of --live-firecrawl or --firecrawl-fixture"
+    ):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+
+    args.firecrawl_fixture = tmp_path / "empty-fixture.jsonl"
+    args.firecrawl_fixture.write_bytes(b"")
+    args.workers = 2
+    with pytest.raises(
+        cli.CommandError, match="Firecrawl fixture execution requires --workers 1"
+    ):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_execute_command_records_pinned_plan_mismatch_as_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _command_plan(tmp_path, monkeypatch)
+    plan_output = tmp_path / "plan-stage" / "recovery-plan.json"
+    plan_output.parent.mkdir()
+    plan_sha = write_target_raw_docket_recovery_plan(plan_output, plan)
+    output_root = tmp_path / "mismatched-execute"
+    args = _command_args(
+        plan,
+        output_root=output_root,
+        execute=False,
+        plan_output=plan_output,
+    )
+    args.expected_plan_sha256 = plan_sha
+    args.batch_id = "changed-batch"
+
+    with pytest.raises(cli.CommandError, match="pinned plan differs from current"):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+
+    run_card = json.loads(
+        (output_root / "run-cards/execute-target-raw-docket-recovery.json").read_text()
+    )
+    assert run_card["status"] == "failed"
+    assert run_card["failure_reason"] == "pinned plan differs from current inputs"
+
+
+def test_execute_command_replays_offline_fixture_and_authenticates_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _command_plan(tmp_path, monkeypatch)
+    plan_output = tmp_path / "plan-stage" / "recovery-plan.json"
+    plan_output.parent.mkdir()
+    plan_sha = write_target_raw_docket_recovery_plan(plan_output, plan)
+    source_url = "https://www.courtlistener.com/docket/200/example/"
+    fixture = tmp_path / "firecrawl.jsonl"
+    _write_jsonl(
+        fixture,
+        [
+            {
+                "status_code": 200,
+                "payload": {
+                    "success": True,
+                    "data": {
+                        "rawHtml": _fixture_docket_html(),
+                        "metadata": {
+                            "statusCode": 200,
+                            "sourceURL": source_url + "?order_by=desc&page=1",
+                            "proxyUsed": "basic",
+                            "cacheState": "miss",
+                            "creditsUsed": 1,
+                        },
+                    },
+                },
+            }
+        ],
+    )
+    output_root = tmp_path / "fixture-execute"
+    args = _command_args(
+        plan,
+        output_root=output_root,
+        execute=True,
+        plan_output=plan_output,
+        firecrawl_fixture=fixture,
+    )
+    args.expected_plan_sha256 = plan_sha
+
+    assert cli._cmd_acquisition_execute_target_raw_docket_recovery(args) == 0  # pyright: ignore[reportPrivateUsage]
+
+    [success] = [
+        json.loads(line) for line in args.successes_output.read_text().splitlines()
+    ]
+    assert success["candidate_id"] == "courtlistener-docket-200"
+    assert success["target_raw_docket_recovery"] == _recovery_provenance(
+        plan_sha=plan_sha, batch_id=plan.batch_id, run_id=plan.run_id
+    )
+    summary = json.loads(args.summary_output.read_text())
+    assert summary["success_count"] == 1
+    assert summary["exclusion_count"] == 0
+    assert summary["raw_artifacts"][0]["candidate_id"] == "courtlistener-docket-200"
+    receipt = verify_target_raw_docket_recovery_receipt(
+        receipt_path=args.receipt_output,
+        expected_receipt_sha256=sha256_file(args.receipt_output),
+        expected_plan_sha256=plan_sha,
+        successes_path=args.successes_output,
+        exclusions_path=args.exclusions_output,
+        summary_path=args.summary_output,
+        raw_html_dir=args.raw_html_dir,
+    )
+    assert receipt["batch_id"] == plan.batch_id
+    assert receipt["run_id"] == plan.run_id
+    run_card = json.loads(
+        (output_root / "run-cards/execute-target-raw-docket-recovery.json").read_text()
+    )
+    assert run_card["dry_run"] is False
+    assert run_card["paid_activity_requested"] is False
+    assert run_card["paid_activity_executed"] is False
+    assert run_card["record_count"] == 1
+
+    assert cli._cmd_acquisition_execute_target_raw_docket_recovery(args) == 0  # pyright: ignore[reportPrivateUsage]
+    resumed_run_card = json.loads(
+        (output_root / "run-cards/execute-target-raw-docket-recovery.json").read_text()
+    )
+    assert resumed_run_card["resumed_complete_receipt"] is True
+
+
 def test_plan_derives_only_selected_minus_pinned_raw_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
