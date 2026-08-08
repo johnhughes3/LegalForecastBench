@@ -44,6 +44,7 @@ from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
+    UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
     UNITIZATION_REVIEW_QUEUE_V1,
 )
@@ -60995,7 +60996,7 @@ def _cmd_acquisition_build_unitization_review_bundle(
     )
     bundle_payload = _jsonl_bytes(bundle_records)
     manifest: JsonRecord = {
-        "schema_version": str(UNITIZATION_REVIEW_BUNDLE_V1),
+        "schema_version": str(UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1),
         "record_count": len(bundle_records),
         "review_ids_sha256": _bytes_sha256(
             _projection_json_bytes(
@@ -61191,23 +61192,64 @@ def _build_unitization_review_bundle_records(
             raise CommandError(f"review item is invalid: {review_id}")
         if _required_str(cast(Mapping[str, Any], review_item), "unit_id") != unit_id:
             raise CommandError(f"review item unit_id differs: {review_id}")
-        review_sources_value = cast(Mapping[str, Any], review_item).get(
-            "source_document_ids"
-        )
-        if not isinstance(review_sources_value, Sequence) or isinstance(
-            review_sources_value, (str, bytes)
-        ):
-            raise CommandError(f"review item lacks source_document_ids: {review_id}")
-        typed_review_sources = cast(Sequence[object], review_sources_value)
-        review_sources = [
-            item
-            for item in typed_review_sources
-            if isinstance(item, str) and item.strip()
-        ]
-        if not review_sources or len(review_sources) != len(typed_review_sources):
-            raise CommandError(
-                f"review item source_document_ids are invalid: {review_id}"
-            )
+        typed_review_item = cast(Mapping[str, Any], review_item)
+        review_sources_value = typed_review_item.get("source_document_ids")
+        if review_sources_value is None:
+            terminal_route = "structural_reviewer_terminal_reconstruction_failure"
+            if review.get("route_reason") != terminal_route:
+                raise CommandError(
+                    f"review item lacks source_document_ids: {review_id}"
+                )
+            frozen_unit = typed_review_item.get("frozen_unit")
+            if not isinstance(frozen_unit, Mapping):
+                raise CommandError(
+                    f"terminal review frozen unit differs from Stage A: {review_id}"
+                )
+            typed_frozen_unit = cast(Mapping[str, Any], frozen_unit)
+            if dict(typed_frozen_unit) != dict(units_by_id[unit_id]):
+                raise CommandError(
+                    f"terminal review frozen unit differs from Stage A: {review_id}"
+                )
+            commitments_value = typed_review_item.get("predecision_source_commitments")
+            if not isinstance(commitments_value, Sequence) or isinstance(
+                commitments_value, (str, bytes)
+            ):
+                raise CommandError(
+                    f"terminal review lacks predecision source commitments: {review_id}"
+                )
+            typed_commitments = cast(Sequence[object], commitments_value)
+            commitment_source_ids = {
+                _required_str(cast(Mapping[str, Any], commitment), "source_document_id")
+                for commitment in typed_commitments
+                if isinstance(commitment, Mapping)
+            }
+            if (
+                not commitment_source_ids
+                or len(commitment_source_ids) != len(typed_commitments)
+                or not set(cited_source_ids).issubset(commitment_source_ids)
+            ):
+                raise CommandError(
+                    "terminal review predecision source commitments are invalid: "
+                    f"{review_id}"
+                )
+            review_sources = list(dict.fromkeys(cited_source_ids))
+        else:
+            if not isinstance(review_sources_value, Sequence) or isinstance(
+                review_sources_value, (str, bytes)
+            ):
+                raise CommandError(
+                    f"review item source_document_ids are invalid: {review_id}"
+                )
+            typed_review_sources = cast(Sequence[object], review_sources_value)
+            review_sources = [
+                item
+                for item in typed_review_sources
+                if isinstance(item, str) and item.strip()
+            ]
+            if not review_sources or len(review_sources) != len(typed_review_sources):
+                raise CommandError(
+                    f"review item source_document_ids are invalid: {review_id}"
+                )
         cited_source_ids = list(dict.fromkeys((*review_sources, *cited_source_ids)))
         source_documents = _unitization_review_bundle_sources(
             candidate_id=candidate_id,

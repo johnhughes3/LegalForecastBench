@@ -10,7 +10,10 @@ from typing import Any
 import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
-from legalforecast.contracts import UNITIZATION_REVIEW_BUNDLE_V1
+from legalforecast.contracts import (
+    UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
+    UNITIZATION_REVIEW_BUNDLE_V1,
+)
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
@@ -225,12 +228,81 @@ def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
             encoding="utf-8"
         )
     )
-    assert manifest["schema_version"] == str(UNITIZATION_REVIEW_BUNDLE_V1)
+    assert manifest["schema_version"] == str(UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1)
     assert manifest["record_count"] == 1
     assert manifest["input_commitments"]["raw_prediction_units"]["path"] == str(
         raw.resolve()
     )
     assert verification_calls[0]["expected_review_queue_path"] == queue
+    completion = json.loads(
+        (output_root / "run-cards" / "build-unitization-review-bundle.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert completion["stage"] == "build-unitization-review-bundle"
+    assert completion["paid_activity_executed"] is False
+    assert completion["output_paths"] == [
+        str(output_root / "unitization-review-bundle.jsonl"),
+        str(output_root / "unitization-review-bundle-manifest.json"),
+    ]
+
+
+def test_builds_bundle_for_authenticated_terminal_escalation_queue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    _stub_authentication(monkeypatch, markdown_root)
+    raw = tmp_path / "prediction-units.jsonl"
+    queue = tmp_path / "merged-review-queue.jsonl"
+    unit_card = tmp_path / "llm-unitize.json"
+    review_card = tmp_path / "llm-review-stage-a.json"
+    unit = _unit("unit-1", "complaint")
+    _write_jsonl(
+        raw,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [unit],
+            }
+        ],
+    )
+    terminal = _review("unit-1", ["complaint"])
+    terminal["route_reason"] = "structural_reviewer_terminal_reconstruction_failure"
+    terminal["review_item"].pop("source_document_ids")
+    terminal["review_item"].update(
+        {
+            "frozen_unit": unit,
+            "predecision_source_commitments": [{"source_document_id": "complaint"}],
+        }
+    )
+    _write_jsonl(queue, [terminal])
+    unit_card.write_text("{}\n", encoding="utf-8")
+    review_card.write_text("{}\n", encoding="utf-8")
+
+    output_root = tmp_path / "terminal-bundle"
+    assert main(_argv(output_root, raw, unit_card, review_card, queue)) == 0
+    [bundle] = [
+        json.loads(line)
+        for line in (output_root / "unitization-review-bundle.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert bundle["review_item"]["source_document_ids"] == ["complaint"]
+    assert [
+        source["source_document_id"] for source in bundle["cited_predecision_markdown"]
+    ] == ["complaint"]
+
+    terminal["review_item"]["frozen_unit"] = {
+        **unit,
+        "claim_name": "tampered frozen unit",
+    }
+    _write_jsonl(queue, [terminal])
+    assert (
+        main(_argv(tmp_path / "tampered-terminal", raw, unit_card, review_card, queue))
+        == 2
+    )
 
 
 def test_rejects_decision_source_and_duplicate_reviews(
