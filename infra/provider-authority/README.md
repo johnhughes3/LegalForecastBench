@@ -1,7 +1,8 @@
 # Shared provider authority table
 
-This table-only Terraform module owns the DynamoDB authority shared by paid labeling and later official evaluation.
-Stage A/B uses it to reserve and reconcile provider spend against one frozen provider/account ceiling.
+This table-only Terraform module owns the optional DynamoDB authority shared by distributed paid labeling and later official evaluation.
+The canonical Cycle 1 replacement-corpus continuation instead uses one local SQLite provider journal with `--local-provider-journal-only`; it does not require this table.
+When the distributed path is selected, Stage A/B uses the table to reserve and reconcile provider spend against one frozen provider/account ceiling.
 
 The module creates one DynamoDB table and does not create IAM roles, does not create S3 resources, and does not configure GitHub environments or provider credentials.
 The distinct paid-labeling role in `infra/official-labeling` receives exact-table data-plane access separately.
@@ -16,6 +17,11 @@ Here, provider-free describes the later fan-in runtime: it does not embed provid
 Terraform itself still uses the AWS provider and must run with short-lived credentials from a protected operator workflow.
 Keep its state and input variables in protected storage outside the repository checkout.
 Committing this module does not authorize or perform an AWS mutation.
+
+The supported repository workflow is `.github/workflows/official-provider-authority-infra.yaml`.
+It consumes the separately bootstrapped `legalforecastbench-official-provider-authority-infra` GitHub environment, a short-lived OIDC operator role, and an encrypted S3 remote-state backend.
+It cannot create that environment, operator role, state bucket, KMS key, or the secure-gate allowlists that provision their values.
+Those are external bootstrap prerequisites and must be reviewed before the first workflow plan.
 
 For an existing table, inspect its protected identity and controls first, then use `terraform import` rather than attempting to create a replacement:
 
@@ -38,6 +44,8 @@ TF_DATA_DIR="$tf_data_dir" terraform -chdir=infra/provider-authority import \
 
 The explicit state path prevents Terraform's default local backend from writing `terraform.tfstate` beneath `infra/provider-authority`.
 Protect and back up that state as sensitive operational data.
+If this import is performed before the repository workflow is used, migrate the verified state into the workflow's exact encrypted S3 backend and verify the remote lineage before dispatching `plan`.
+The workflow deliberately does not import a live resource or create its own state backend.
 
 For either an imported or new table, save and review a Terraform plan before a separately authorized operator applies that exact plan:
 

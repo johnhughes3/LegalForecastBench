@@ -342,7 +342,11 @@ def test_paid_labeling_runbook_names_exact_authority_and_external_smoke_gate() -
         "matching public `LFB_BATON_AGE_RECIPIENT` variable",
     ):
         assert value in runbook
-    assert "Until both are recorded, keep paid labeling blocked" in runbook
+    assert "keep only the distributed protected-workflow path blocked" in runbook
+    assert (
+        "does not block the canonical Cycle 1 local-journal Stage A or Stage B stages"
+        in runbook
+    )
     assert "Do not place OpenAI and Google credentials in one job." in runbook
 
 

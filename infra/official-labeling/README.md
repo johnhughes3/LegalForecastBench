@@ -1,6 +1,7 @@
-# Official paid-labeling authority
+# Optional distributed paid-labeling authority
 
-This module creates the distinct GitHub Actions OIDC role used by the protected paid-labeling workflow.
+This module creates the distinct GitHub Actions OIDC role used by the optional protected distributed paid-labeling workflow.
+The canonical Cycle 1 replacement-corpus continuation uses one local SQLite provider journal with `--local-provider-journal-only`; it does not require this module or its GitHub environments.
 
 It does not create or replace the shared provider spend authority table.
 The exact existing table ARN and its SHA-256 identity must match the frozen `legalforecast.provider_cycle_caps.v1` artifact before Terraform can apply.
@@ -28,3 +29,10 @@ The public SHA-256 table-identity commitment is an equality check, not a secrecy
 Run Terraform from a protected operator context.
 Use a disposable `TF_DATA_DIR` and `terraform init -backend=false` for local validation.
 Provisioning and the live provider-free permission smoke are separate operator checkpoints; committing this module does not claim that either has occurred.
+
+`.github/workflows/official-provider-authority-infra.yaml` is the supported remote-state plan/apply path for this module.
+It binds apply to one encrypted reviewed plan and consumes, but cannot create, the external protected environment, OIDC operator role, remote-state backend, KMS key, or age identity.
+The exact bootstrap inventory and review procedure are in `docs/official-run-runbook.md`.
+
+`github-environments.json` is the closed setup contract for the six runtime paid-labeling environments.
+The infrastructure operator environment is intentionally separate and grants no provider, evaluation, freeze, or dispatch authority.

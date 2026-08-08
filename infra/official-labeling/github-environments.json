@@ -1,0 +1,63 @@
+{
+  "schema_version": "legalforecast.paid_labeling_github_environments.v1",
+  "repository": "johnhughes3/LegalForecastBench",
+  "common_protection": {
+    "required_reviewers": [{"type": "User", "login": "johnhughes3"}],
+    "prevent_self_review": false,
+    "deployment_branch_policy": {
+      "protected_branches": false,
+      "custom_branch_policies": true
+    },
+    "custom_branch_policies": ["main"]
+  },
+  "environments": [
+    {
+      "name": "legalforecastbench-official-labeling-baton",
+      "provider": null,
+      "aws_oidc_subject": null,
+      "secrets": ["BATON_AGE_IDENTITY"],
+      "variables": ["LFB_BATON_AGE_RECIPIENT"]
+    },
+    {
+      "name": "legalforecastbench-official-labeling-authority-smoke",
+      "provider": null,
+      "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-labeling-authority-smoke",
+      "secrets": [],
+      "variables": [
+        "LFB_AWS_REGION",
+        "LFB_GITHUB_LABELING_ROLE_ARN",
+        "LFB_OUTSIDE_AUTHORITY_TABLE",
+        "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256",
+        "LFB_PROVIDER_AUTHORITY_TABLE"
+      ]
+    },
+    {
+      "name": "legalforecastbench-official-labeling-anthropic-unitize",
+      "provider": "anthropic",
+      "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-labeling-anthropic-unitize",
+      "secrets": ["BATON_AGE_IDENTITY", "PROVIDER_API_KEY"],
+      "variables": ["LFB_AWS_REGION", "LFB_BATON_AGE_RECIPIENT", "LFB_GITHUB_LABELING_ROLE_ARN", "LFB_PROVIDER_ACCOUNT_ALIAS", "LFB_PROVIDER_AUTHORITY_TABLE"]
+    },
+    {
+      "name": "legalforecastbench-official-labeling-google-review",
+      "provider": "google",
+      "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-labeling-google-review",
+      "secrets": ["BATON_AGE_IDENTITY", "PROVIDER_API_KEY"],
+      "variables": ["LFB_AWS_REGION", "LFB_BATON_AGE_RECIPIENT", "LFB_GITHUB_LABELING_ROLE_ARN", "LFB_PROVIDER_ACCOUNT_ALIAS", "LFB_PROVIDER_AUTHORITY_TABLE"]
+    },
+    {
+      "name": "legalforecastbench-official-labeling-openai-label",
+      "provider": "openai",
+      "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-labeling-openai-label",
+      "secrets": ["BATON_AGE_IDENTITY", "PROVIDER_API_KEY"],
+      "variables": ["LFB_AWS_REGION", "LFB_BATON_AGE_RECIPIENT", "LFB_GITHUB_LABELING_ROLE_ARN", "LFB_PROVIDER_ACCOUNT_ALIAS", "LFB_PROVIDER_AUTHORITY_TABLE"]
+    },
+    {
+      "name": "legalforecastbench-official-labeling-google-label",
+      "provider": "google",
+      "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-labeling-google-label",
+      "secrets": ["BATON_AGE_IDENTITY", "PROVIDER_API_KEY"],
+      "variables": ["LFB_AWS_REGION", "LFB_BATON_AGE_RECIPIENT", "LFB_GITHUB_LABELING_ROLE_ARN", "LFB_PROVIDER_ACCOUNT_ALIAS", "LFB_PROVIDER_AUTHORITY_TABLE"]
+    }
+  ]
+}
