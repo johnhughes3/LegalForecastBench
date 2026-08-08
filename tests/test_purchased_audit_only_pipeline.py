@@ -253,7 +253,7 @@ def test_malformed_structural_review_retries_fresh_bounded_attempts(
     ]
 
 
-def test_invalid_unitization_response_retries_fresh_bounded_attempts(
+def test_conflicting_unitization_scope_routes_to_blinded_review_without_retry(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -289,8 +289,8 @@ def test_invalid_unitization_response_retries_fresh_bounded_attempts(
                         "grouping": "individual",
                         "grouping_rationale": None,
                         "separable_subclaim": "Scienter theory",
-                        "uncertainty_notes": None,
-                    }
+                        "uncertainty_notes": "Original model uncertainty.",
+                    },
                 ]
             }
         ),
@@ -322,33 +322,32 @@ def test_invalid_unitization_response_retries_fresh_bounded_attempts(
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_completion)
     journal_path = tmp_path / "provider-attempts.sqlite3"
 
-    def invoke() -> None:
-        llm_pipeline.llm_unitize_cases(
-            selection_records=(_selection(),),
-            parser_records=parser_records,
-            markdown_root=markdown_root,
-            registry_entry=llm_pipeline.ModelRegistryEntry.from_record(
-                _registry_record()
-            ),
-            model_registry_sha256="b" * 64,
-            provider_journal_path=journal_path,
-            provider_cycle_cap_usd=100.0,
-            provider_cycle_id="cycle-1",
-            provider_cycle_caps_sha256="sha256:" + "c" * 64,
-        )
-
-    for _ in range(3):
-        with pytest.raises(
-            ValueError,
-            match="separable_subclaim is only allowed for separable_subclaim scope",
-        ):
-            invoke()
-    with pytest.raises(
-        ProviderJournalError,
-        match="provider reconstruction retry attempt limit is exhausted",
-    ):
-        invoke()
-    assert provider_calls == 3
+    result = llm_pipeline.llm_unitize_cases(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        registry_entry=llm_pipeline.ModelRegistryEntry.from_record(_registry_record()),
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+    )
+    assert provider_calls == 1
+    [record] = result.records
+    [unit] = record["prediction_units"]
+    assert unit["challenge_scope"] == "unclear"
+    assert unit["should_score"] is False
+    assert unit["separable_subclaim"] is None
+    assert unit["uncertainty_notes"] == (
+        "Original model uncertainty. Provider response supplied separable_subclaim for "
+        "challenge_scope=partial_theory_only: Scienter theory"
+    )
+    [audit] = result.audit_records
+    assert audit["status"] == "adjudication_pending"
+    [review_item] = audit["unitization_review_queue"]
+    assert review_item["route_reason"] == "unclear_claim_or_defendant"
+    assert review_item["review_item"]["notes"] == unit["uncertainty_notes"]
 
     with sqlite3.connect(journal_path) as connection:
         rows = connection.execute(
@@ -356,9 +355,7 @@ def test_invalid_unitization_response_retries_fresh_bounded_attempts(
             "FROM provider_attempts ORDER BY attempt_ordinal"
         ).fetchall()
     assert rows == [
-        (1, "reconstruction_failed", pytest.approx(0.03), "ValueError"),
-        (2, "reconstruction_failed", pytest.approx(0.03), "ValueError"),
-        (3, "reconstruction_failed", pytest.approx(0.03), "ValueError"),
+        (1, "settled", pytest.approx(0.03), None),
     ]
 
 

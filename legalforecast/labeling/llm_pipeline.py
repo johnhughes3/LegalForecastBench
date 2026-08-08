@@ -97,6 +97,7 @@ from legalforecast.unitization.construct_units import (
     StageADocumentRole,
     StageASourceDocument,
     StageAUnitSeed,
+    UnitizationReviewReason,
     construct_stage_a_units,
 )
 from legalforecast.unitization.review import (
@@ -322,7 +323,13 @@ def llm_unitize_cases(
                     metadata={"llm_unitizer_model_key": registry_entry.registry_key},
                 )
             )
-            if not any(unit.should_score for unit in result.units):
+            if not any(unit.should_score for unit in result.units) and (
+                not result.review_items
+                or any(
+                    unit.challenge_scope is not ChallengeScope.UNCLEAR
+                    for unit in result.units
+                )
+            ):
                 raise LlmPipelineError("LLM unitization produced no scorable units")
             if journal is not None and journal.has_validated_response:
                 journal.commit_reconstruction(
@@ -2128,6 +2135,27 @@ def _markdown_text(
 
 
 def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
+    challenged_by_motion = _required_bool(record, "challenged_by_motion")
+    challenge_scope = ChallengeScope(_required_str(record, "challenge_scope"))
+    separable_subclaim = _optional_str(record, "separable_subclaim")
+    uncertainty_notes = _optional_str(record, "uncertainty_notes")
+    review_reason: UnitizationReviewReason | None = None
+    if (
+        separable_subclaim is not None
+        and challenge_scope is not ChallengeScope.SEPARABLE_SUBCLAIM
+    ):
+        conflict_note = (
+            "Provider response supplied separable_subclaim for "
+            f"challenge_scope={challenge_scope.value}: {separable_subclaim}"
+        )
+        uncertainty_notes = (
+            f"{uncertainty_notes} {conflict_note}"
+            if uncertainty_notes is not None
+            else conflict_note
+        )
+        challenge_scope = ChallengeScope.UNCLEAR
+        separable_subclaim = None
+        review_reason = UnitizationReviewReason.UNCLEAR_CLAIM_OR_DEFENDANT
     return StageAUnitSeed(
         count=_required_str(record, "count"),
         claim_name=_required_str(record, "claim_name"),
@@ -2136,20 +2164,21 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
             record.get("source_document_ids"),
             "source_document_ids",
         ),
-        challenged_by_motion=_required_bool(record, "challenged_by_motion"),
-        challenge_scope=ChallengeScope(_required_str(record, "challenge_scope")),
+        challenged_by_motion=challenged_by_motion,
+        challenge_scope=challenge_scope,
         unit_confidence=_required_float(record, "unit_confidence"),
         grouping=DefendantGrouping(
             _optional_str(record, "grouping") or DefendantGrouping.INDIVIDUAL.value
         ),
         grouping_rationale=_optional_str(record, "grouping_rationale"),
         group_label=_optional_str(record, "group_label"),
-        separable_subclaim=_optional_str(record, "separable_subclaim"),
-        uncertainty_notes=_optional_str(record, "uncertainty_notes"),
+        separable_subclaim=separable_subclaim,
+        uncertainty_notes=uncertainty_notes,
         unit_id=_optional_str(record, "unit_id"),
         citation_page=_optional_int(record, "citation_page"),
         citation_paragraph=_optional_int(record, "citation_paragraph"),
         citation_excerpt=_optional_str(record, "citation_excerpt"),
+        review_reason=review_reason,
     )
 
 
