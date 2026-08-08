@@ -428,7 +428,8 @@ def _scrape_payload(
         "skipTlsVerification": False,
         "parsers": [],
         "waitFor": 0,
-        "blockAds": False,
+        # Firecrawl v2 currently rejects the JSON property `"blockAds": false`;
+        # omit the optional override and use its default.
         "lockdown": False,
         "redactPII": False,
     }

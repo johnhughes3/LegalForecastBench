@@ -105,7 +105,6 @@ def test_source_posts_exact_bounded_request_once_and_returns_raw_html() -> None:
         "skipTlsVerification": False,
         "parsers": [],
         "waitFor": 0,
-        "blockAds": False,
         "lockdown": False,
         "redactPII": False,
     }
