@@ -362,6 +362,69 @@ def test_approved_v2_bundle_replay_requires_exact_runtime_authority(
     )
 
 
+def test_approved_v2_bundle_rejects_authority_output_aliases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Completion metadata must never write into the replayed authority inputs."""
+
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    private_root = tmp_path / "approved-v2-private"
+    private_root.mkdir()
+    initialization_receipt = tmp_path / "purchase-ledger-init.json"
+    initialization_receipt.write_text("{}\n", encoding="utf-8")
+    _stub_authentication(
+        monkeypatch,
+        markdown_root,
+        expected_controlled_private_root=private_root,
+        expected_initialization_receipt=initialization_receipt,
+    )
+    raw = tmp_path / "prediction-units.jsonl"
+    queue = tmp_path / "merged-review-queue.jsonl"
+    unit_card = tmp_path / "llm-unitize.json"
+    review_card = tmp_path / "llm-review-stage-a.json"
+    _write_jsonl(
+        raw,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [_unit("unit-1", "complaint")],
+            }
+        ],
+    )
+    _write_jsonl(queue, [_review("unit-1", ["complaint"])])
+    unit_card.write_text("{}\n", encoding="utf-8")
+    review_card.write_text("{}\n", encoding="utf-8")
+
+    aliased_log = _argv(
+        tmp_path / "receipt-alias",
+        raw,
+        unit_card,
+        review_card,
+        queue,
+        controlled_private_root=private_root,
+        initialization_receipt=initialization_receipt,
+    )
+    aliased_log.extend(["--log-output", str(initialization_receipt)])
+    assert cli.main(aliased_log) == 2
+    assert initialization_receipt.read_text(encoding="utf-8") == "{}\n"
+
+    private_run_card = private_root / "forbidden-run-card.json"
+    inside_private_root = _argv(
+        tmp_path / "private-root-alias",
+        raw,
+        unit_card,
+        review_card,
+        queue,
+        controlled_private_root=private_root,
+        initialization_receipt=initialization_receipt,
+    )
+    inside_private_root.extend(["--run-card-output", str(private_run_card)])
+    assert cli.main(inside_private_root) == 2
+    assert not private_run_card.exists()
+
+
 def test_builds_bundle_for_authenticated_terminal_escalation_queue(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

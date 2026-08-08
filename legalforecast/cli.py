@@ -60440,13 +60440,15 @@ def _cmd_acquisition_build_unitization_review_bundle(
     review_queue_payload = _read_singly_linked_regular_input(
         review_queue_path, label="merged unitization review queue"
     )
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt_path = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
     lineage = _verify_stage_a_unitization_run_card(
         unitization_card_path,
         expected_prediction_units_path=raw_units_path,
-        controlled_private_root=cast(Path | None, args.controlled_private_root),
-        initialization_receipt_path=cast(
-            Path | None, args.purchase_ledger_initialization_receipt
-        ),
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt_path,
     )
     _verify_stage_a_review_run_card(
         structural_card_path,
@@ -60470,6 +60472,7 @@ def _cmd_acquisition_build_unitization_review_bundle(
             unitization_card_path,
             structural_card_path,
             review_queue_path,
+            *((initialization_receipt_path,) if initialization_receipt_path else ()),
         ),
         output_paths=(
             bundle_path,
@@ -60477,7 +60480,11 @@ def _cmd_acquisition_build_unitization_review_bundle(
             completion_run_card_path,
             completion_log_path,
         ),
-        protected_roots=(lineage.document_root, lineage.markdown_root),
+        protected_roots=(
+            lineage.document_root,
+            lineage.markdown_root,
+            *((controlled_private_root,) if controlled_private_root else ()),
+        ),
     )
     bundle_records = _build_unitization_review_bundle_records(
         raw_units_payload=raw_units_payload,
