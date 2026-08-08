@@ -57,6 +57,7 @@ from legalforecast.evals.inspect_task import (
     build_inspect_samples,
     run_inspect_fixture,
 )
+from legalforecast.evals.live_model_solver import DEFAULT_MAX_ATTEMPTS
 from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
@@ -58131,17 +58132,44 @@ def _verified_provider_stage_attempts(
     for key, call_rows in rows_by_call.items():
         expected_status = nonsettled_statuses.get(key, "settled")
         expected_count = nonsettled_attempt_counts.get(key, 1)
-        if sum(
-            row.get("status") == expected_status for row in call_rows
-        ) != expected_count or any(
-            row.get("status")
-            in {"settled", "validated_response", "reconstruction_failed"}
-            and row.get("status") != expected_status
-            for row in call_rows
+        ordinals = [row.get("attempt_ordinal") for row in call_rows]
+        if len(call_rows) > DEFAULT_MAX_ATTEMPTS or ordinals != list(
+            range(1, len(call_rows) + 1)
         ):
             raise CommandError(
                 f"{stage} requires one {expected_status} provider call: {key}"
             )
+        if expected_status != "settled":
+            prefix_count = len(call_rows) - expected_count
+            if (
+                prefix_count < 0
+                or any(
+                    row.get("status") not in {"ambiguous", "failed"}
+                    or row.get("reconstructed_result_json") is not None
+                    for row in call_rows[:prefix_count]
+                )
+                or any(
+                    row.get("status") != expected_status
+                    or row.get("reconstructed_result_json") is not None
+                    for row in call_rows[prefix_count:]
+                )
+            ):
+                raise CommandError(
+                    f"{stage} requires one {expected_status} provider call: {key}"
+                )
+            continue
+        if (
+            len(call_rows) < 1
+            or call_rows[-1].get("status") != "settled"
+            or not isinstance(call_rows[-1].get("reconstructed_result_json"), str)
+            or any(
+                row.get("status")
+                not in {"ambiguous", "failed", "reconstruction_failed"}
+                or row.get("reconstructed_result_json") is not None
+                for row in call_rows[:-1]
+            )
+        ):
+            raise CommandError(f"{stage} requires one settled provider call: {key}")
     return {
         "stage": stage,
         "call_count": len(expected_prompts),
