@@ -359,6 +359,158 @@ def test_conflicting_unitization_scope_routes_to_blinded_review_without_retry(
     ]
 
 
+def test_single_defendant_grouped_seed_routes_to_blinded_review_without_retry(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Counts I-IV assert claims against Meta Platforms, Inc."),
+        ("mtd", "Meta raises Section 230 as a threshold defense to all counts."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    response = SolverResponse(
+        raw_output=json.dumps(
+            {
+                "unit_seeds": [
+                    {
+                        "count": "Threshold Defense I",
+                        "claim_name": "All Claims — Section 230 Bar",
+                        "defendant_names": ["Meta Platforms, Inc."],
+                        "source_document_ids": ["complaint", "mtd"],
+                        "challenged_by_motion": True,
+                        "challenge_scope": "entire_claim",
+                        "unit_confidence": 0.92,
+                        "grouping": "grouped",
+                        "grouping_rationale": (
+                            "The defense applies to every count simultaneously."
+                        ),
+                        "group_label": "Section 230 Threshold Defense (All Counts)",
+                        "separable_subclaim": None,
+                        "uncertainty_notes": "Original model uncertainty.",
+                    },
+                    {
+                        "count": "Threshold Defense II",
+                        "claim_name": "All Claims — SLUSA Bar",
+                        "defendant_names": ["Meta Platforms, Inc."],
+                        "source_document_ids": ["complaint", "mtd"],
+                        "challenged_by_motion": True,
+                        "challenge_scope": "partial_theory_only",
+                        "unit_confidence": 0.88,
+                        "grouping": "grouped",
+                        "grouping_rationale": (
+                            "The alternative defense applies across all counts."
+                        ),
+                        "group_label": "SLUSA Threshold Defense (All Counts)",
+                        "separable_subclaim": "Purchases of covered securities",
+                        "uncertainty_notes": None,
+                    },
+                ]
+            }
+        ),
+        input_tokens=12,
+        output_tokens=7,
+        estimated_cost=0.03,
+    )
+    provider_calls = 0
+
+    def invalid_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+
+        def provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "provider-response"}
+
+        handler.run_attempt(1, provider_call)
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_completion)
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+
+    result = llm_pipeline.llm_unitize_cases(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        registry_entry=llm_pipeline.ModelRegistryEntry.from_record(_registry_record()),
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+    )
+    assert provider_calls == 1
+    [record] = result.records
+    unit, combined_conflict_unit = record["prediction_units"]
+    assert unit["grouping"] == "individual"
+    assert unit["defendant_group"] == "Meta Platforms, Inc."
+    assert unit["grouping_rationale"] is None
+    assert unit["challenge_scope"] == "unclear"
+    assert unit["should_score"] is False
+    assert unit["uncertainty_notes"] == (
+        "Original model uncertainty. Provider response marked a single-defendant "
+        "seed as grouped; defendant_names=Meta Platforms, Inc.; "
+        "challenge_scope=entire_claim; "
+        "group_label=Section 230 Threshold Defense (All Counts); "
+        "grouping_rationale=The defense applies to every count simultaneously."
+    )
+    assert combined_conflict_unit["grouping"] == "individual"
+    assert combined_conflict_unit["defendant_group"] == "Meta Platforms, Inc."
+    assert combined_conflict_unit["grouping_rationale"] is None
+    assert combined_conflict_unit["challenge_scope"] == "unclear"
+    assert combined_conflict_unit["should_score"] is False
+    assert combined_conflict_unit["separable_subclaim"] is None
+    assert combined_conflict_unit["uncertainty_notes"] == (
+        "Provider response supplied separable_subclaim for "
+        "challenge_scope=partial_theory_only: Purchases of covered securities "
+        "Provider response marked a single-defendant seed as grouped; "
+        "defendant_names=Meta Platforms, Inc.; "
+        "challenge_scope=partial_theory_only; "
+        "group_label=SLUSA Threshold Defense (All Counts); "
+        "grouping_rationale=The alternative defense applies across all counts."
+    )
+    [audit] = result.audit_records
+    assert audit["status"] == "adjudication_pending"
+    review_item, combined_conflict_review_item = audit["unitization_review_queue"]
+    assert review_item["route_reason"] == "unclear_grouping"
+    assert review_item["review_item"]["notes"] == unit["uncertainty_notes"]
+    assert combined_conflict_review_item["route_reason"] == (
+        "unclear_claim_or_defendant"
+    )
+    assert (
+        combined_conflict_review_item["review_item"]["notes"]
+        == (combined_conflict_unit["uncertainty_notes"])
+    )
+
+    with sqlite3.connect(journal_path) as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status, actual_cost_usd, failure_type "
+            "FROM provider_attempts ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [
+        (1, "settled", pytest.approx(0.03), None),
+    ]
+
+
 def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     tmp_path: Path,
     monkeypatch: Any,
