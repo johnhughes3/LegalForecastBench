@@ -707,6 +707,22 @@ def test_single_defendant_grouped_seed_routes_to_blinded_review_without_retry(
                         "separable_subclaim": "Purchases of covered securities",
                         "uncertainty_notes": None,
                     },
+                    {
+                        "count": "Threshold Defense III",
+                        "claim_name": "Count IV — State-Law Purchaser Theory",
+                        "defendant_names": ["Meta Platforms, Inc."],
+                        "source_document_ids": ["complaint", "mtd"],
+                        "challenged_by_motion": True,
+                        "challenge_scope": "separable_subclaim",
+                        "unit_confidence": 0.86,
+                        "grouping": "grouped",
+                        "grouping_rationale": (
+                            "The purchaser theory is pleaded against one defendant."
+                        ),
+                        "group_label": "Count IV Purchaser Theory",
+                        "separable_subclaim": "Purchases made after the notice date",
+                        "uncertainty_notes": None,
+                    },
                 ]
             }
         ),
@@ -751,7 +767,7 @@ def test_single_defendant_grouped_seed_routes_to_blinded_review_without_retry(
     )
     assert provider_calls == 1
     [record] = result.records
-    unit, combined_conflict_unit = record["prediction_units"]
+    unit, combined_conflict_unit, grouped_subclaim_unit = record["prediction_units"]
     assert unit["grouping"] == "individual"
     assert unit["defendant_group"] == "Meta Platforms, Inc."
     assert unit["grouping_rationale"] is None
@@ -779,9 +795,25 @@ def test_single_defendant_grouped_seed_routes_to_blinded_review_without_retry(
         "group_label=SLUSA Threshold Defense (All Counts); "
         "grouping_rationale=The alternative defense applies across all counts."
     )
+    assert grouped_subclaim_unit["grouping"] == "individual"
+    assert grouped_subclaim_unit["defendant_group"] == "Meta Platforms, Inc."
+    assert grouped_subclaim_unit["grouping_rationale"] is None
+    assert grouped_subclaim_unit["challenge_scope"] == "unclear"
+    assert grouped_subclaim_unit["should_score"] is False
+    assert grouped_subclaim_unit["separable_subclaim"] is None
+    assert grouped_subclaim_unit["uncertainty_notes"] == (
+        "Provider response marked a single-defendant seed as grouped; "
+        "defendant_names=Meta Platforms, Inc.; "
+        "challenge_scope=separable_subclaim; "
+        "group_label=Count IV Purchaser Theory; "
+        "grouping_rationale=The purchaser theory is pleaded against one defendant.; "
+        "separable_subclaim=Purchases made after the notice date"
+    )
     [audit] = result.audit_records
     assert audit["status"] == "adjudication_pending"
-    review_item, combined_conflict_review_item = audit["unitization_review_queue"]
+    review_item, combined_conflict_review_item, grouped_subclaim_review_item = audit[
+        "unitization_review_queue"
+    ]
     assert review_item["route_reason"] == "unclear_grouping"
     assert review_item["review_item"]["notes"] == unit["uncertainty_notes"]
     assert combined_conflict_review_item["route_reason"] == (
@@ -790,6 +822,11 @@ def test_single_defendant_grouped_seed_routes_to_blinded_review_without_retry(
     assert (
         combined_conflict_review_item["review_item"]["notes"]
         == (combined_conflict_unit["uncertainty_notes"])
+    )
+    assert grouped_subclaim_review_item["route_reason"] == "unclear_grouping"
+    assert (
+        grouped_subclaim_review_item["review_item"]["notes"]
+        == grouped_subclaim_unit["uncertainty_notes"]
     )
 
     with sqlite3.connect(journal_path) as connection:
