@@ -185,6 +185,8 @@ def test_provider_bearing_stage_examples_use_reusable_provider_env_launcher() ->
     assert "--provider google -- \\" in runbook
     assert "--provider openai -- \\" in runbook
     assert "starts the child with exactly one provider key name" in runbook
+    assert "strips inherited `UV_ENV_FILE`" in runbook
+    assert "forces `UV_NO_ENV_FILE=1` for child `uv run` invocations" in runbook
     assert "No secret value appears on the command line." in runbook
     openai_marker = (
         "Run the following paid OpenAI shard through the protected workflow or "

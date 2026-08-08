@@ -15,6 +15,8 @@ from legalforecast.evals.live_model_solver import (
 )
 
 GENERIC_PROVIDER_API_KEY_ENV: Final = "LFB_PROVIDER_API_KEY"
+_UV_ENV_FILE_ENV: Final = "UV_ENV_FILE"
+_UV_NO_ENV_FILE_ENV: Final = "UV_NO_ENV_FILE"
 PROVIDER_KEY_ENV_BY_PROVIDER: Final = {
     "anthropic": ANTHROPIC_API_KEY_ENV,
     "google": GEMINI_API_KEY_ENV,
@@ -95,9 +97,14 @@ def reduce_provider_child_environment(
             raise ProviderEnvironmentError(
                 f"{selected_name} must be present and nonempty"
             )
-    for name in PROVIDER_KEY_ENV_NAMES | {GENERIC_PROVIDER_API_KEY_ENV}:
+    for name in PROVIDER_KEY_ENV_NAMES | {
+        GENERIC_PROVIDER_API_KEY_ENV,
+        _UV_ENV_FILE_ENV,
+        _UV_NO_ENV_FILE_ENV,
+    }:
         child_env.pop(name, None)
     child_env[selected_name] = selected_value
+    child_env[_UV_NO_ENV_FILE_ENV] = "1"
     return child_env
 
 

@@ -163,6 +163,15 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
 ) -> None:
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="openai")
+    reviewed_runtime = tmp_path / "reviewed-runtime"
+    reviewed_runtime.mkdir()
+    reviewed_entrypoint = reviewed_runtime / "legalforecast"
+    reviewed_entrypoint.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(
+        official_paid_job,
+        "sys",
+        type("StubSys", (), {"executable": str(reviewed_runtime / "python")})(),
+    )
     captured: dict[str, object] = {}
 
     def record_child(*, provider: str, command: tuple[str, ...]) -> int:
@@ -206,6 +215,53 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
     assert "--provider-shard-run-card" not in command
 
 
+def test_job_uses_symlinked_reviewed_runtime_sibling_entrypoint(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+    base_runtime = tmp_path / "base-runtime"
+    base_runtime.mkdir()
+    (base_runtime / "python3.14").write_text("#!/bin/sh\n", encoding="utf-8")
+    reviewed_bin = tmp_path / "reviewed-runtime" / "bin"
+    reviewed_bin.mkdir(parents=True)
+    reviewed_python = reviewed_bin / "python"
+    reviewed_python.symlink_to(base_runtime / "python3.14")
+    reviewed_entrypoint = reviewed_bin / "legalforecast"
+    reviewed_entrypoint.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(
+        official_paid_job,
+        "sys",
+        type("StubSys", (), {"executable": str(reviewed_python)})(),
+    )
+    captured: dict[str, object] = {}
+
+    def record_child(*, provider: str, command: tuple[str, ...]) -> int:
+        captured["provider"] = provider
+        captured["command"] = command
+        return 0
+
+    monkeypatch.setattr(
+        official_paid_job, "run_provider_isolated_command", record_child
+    )
+
+    result = run_official_paid_labeling_job(
+        job_manifest_path=manifest,
+        job_root=root,
+        release_sha=RELEASE_SHA,
+        stage="llm-label-provider-shard",
+        provider="openai",
+        provider_authority_table="exact-provider-authority",
+        provider_authority_region="us-east-1",
+        expected_provider_account_alias="openai-primary",
+    )
+
+    assert result == 0
+    command = list(cast(tuple[str, ...], captured["command"]))
+    assert Path(command[0]) == reviewed_entrypoint
+
+
 def test_job_fails_closed_when_legalforecast_entry_point_is_unavailable(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -218,7 +274,44 @@ def test_job_fails_closed_when_legalforecast_entry_point_is_unavailable(
         "sys",
         type("StubSys", (), {"executable": "/tmp/reviewed/python"})(),
     )
-    monkeypatch.setattr(official_paid_job.shutil, "which", lambda name: None)
+    monkeypatch.setattr(
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match="legalforecast entry point is unavailable",
+    ):
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="exact-provider-authority",
+            provider_authority_region="us-east-1",
+            expected_provider_account_alias="openai-primary",
+        )
+
+
+def test_job_rejects_path_fallback_outside_reviewed_runtime(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+    alternate_path_binary = tmp_path / "bin" / "legalforecast"
+    alternate_path_binary.parent.mkdir()
+    alternate_path_binary.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setenv("PATH", str(alternate_path_binary.parent))
+
+    monkeypatch.setattr(
+        official_paid_job,
+        "sys",
+        type("StubSys", (), {"executable": "/tmp/reviewed/python"})(),
+    )
     monkeypatch.setattr(
         official_paid_job,
         "run_provider_isolated_command",
@@ -247,6 +340,15 @@ def test_job_wraps_provider_environment_refusals_at_reviewed_boundary(
 ) -> None:
     root, model_keys = _job_root(tmp_path)
     manifest = _write_label_job(root, model_keys, provider="openai")
+    reviewed_runtime = tmp_path / "reviewed-runtime"
+    reviewed_runtime.mkdir()
+    reviewed_entrypoint = reviewed_runtime / "legalforecast"
+    reviewed_entrypoint.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(
+        official_paid_job,
+        "sys",
+        type("StubSys", (), {"executable": str(reviewed_runtime / "python")})(),
+    )
 
     def reject_child(**kwargs: object) -> int:
         raise ProviderEnvironmentError(
