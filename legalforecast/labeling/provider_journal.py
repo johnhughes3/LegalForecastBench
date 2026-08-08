@@ -596,7 +596,7 @@ class ProviderAttemptJournal:
     ) -> None:
         """Persist validated provider accounting while retaining the reservation."""
 
-        durable_ordinal = self._durable_ordinals.get(attempt_ordinal, attempt_ordinal)
+        durable_ordinal = self._settlement_durable_ordinal(attempt_ordinal)
         normalized = {
             "raw_output": raw_output,
             "input_tokens": input_tokens,
@@ -654,6 +654,23 @@ class ProviderAttemptJournal:
                 f"provider attempt {durable_ordinal} cannot be settled from "
                 f"status {row['status']}"
             )
+
+    def _settlement_durable_ordinal(self, attempt_ordinal: int) -> int:
+        """Resolve either the local or already-durable ordinal used for settlement.
+
+        The live solver settles the durable ordinal returned by
+        :meth:`durable_attempt_ordinal`.  Reconstruction retry planning maps the
+        remaining local attempts in advance, so a durable response ordinal can
+        also be the *local* ordinal of a future attempt.  Prefer a value of an
+        existing local-to-durable binding before consulting that future mapping;
+        otherwise durable ordinal 2 would incorrectly settle planned ordinal 3.
+        This stays correct after a response becomes reconstruction-failed,
+        because durable identity is independent of its current status.
+        """
+
+        if attempt_ordinal in self._durable_ordinals.values():
+            return attempt_ordinal
+        return self._durable_ordinals.get(attempt_ordinal, attempt_ordinal)
 
     def record_post_response_failure(
         self,
