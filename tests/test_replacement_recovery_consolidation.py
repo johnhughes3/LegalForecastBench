@@ -455,7 +455,7 @@ def test_consolidated_verifier_reuses_authenticated_history_snapshots(
     )
 
 
-def test_consolidated_verifier_reuses_exact_verified_successor_recovery(
+def test_consolidated_verifier_reuses_successor_recovery_with_noncanonical_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     all_paid = {("base-case", "base-doc"), ("case-1", "doc-1")}
@@ -468,6 +468,13 @@ def test_consolidated_verifier_reuses_exact_verified_successor_recovery(
     initial_root = (tmp_path / "initial" / "recovery").resolve()
     successor_root = (tmp_path / "tranche-1" / "recovery").resolve()
     successor_budget = (tmp_path / "tranche-1" / "budget.json").resolve()
+    tranche_index = json.loads(args.tranche_index.read_text(encoding="utf-8"))
+    tranche_index["sources"][1]["recovery_root"] = str(
+        successor_root.parent / ".." / successor_root.parent.name / successor_root.name
+    )
+    args.tranche_index.write_text(
+        json.dumps(tranche_index, sort_keys=True) + "\n", encoding="utf-8"
+    )
     fixture_recovery = cli._verify_materializer_recovery
     recovery_calls: Counter[Path] = Counter()
 

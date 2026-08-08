@@ -28270,7 +28270,7 @@ def _prepare_replacement_recovery_consolidation(
             _authenticated_pre_successor_purchase_snapshot(
                 successor_recovery_root=Path(
                     _required_str(tranche, "recovery_root")
-                ).absolute(),
+                ).resolve(),
                 successor_controlled_private_root=Path(
                     _required_str(tranche, "replacement_controlled_private_root")
                 ).absolute(),
@@ -28536,8 +28536,8 @@ def _prepare_replacement_recovery_consolidation(
         ordinal = _required_int(tranche, "ordinal")
         tranche_purchase_snapshot = purchase_snapshots_by_ordinal[ordinal]
         paths = _replacement_recovery_tranche_paths(tranche)
-        recovery_root = Path(_required_str(tranche, "recovery_root")).absolute()
-        if recovery_root.resolve() == cast(Path, args.output_root).absolute().resolve():
+        recovery_root = Path(_required_str(tranche, "recovery_root")).resolve()
+        if recovery_root == cast(Path, args.output_root).resolve():
             raise ValueError(
                 "replacement tranche recovery root cannot be the consolidation output"
             )
