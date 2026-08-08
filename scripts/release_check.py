@@ -307,9 +307,7 @@ def _validate_fixture_artifacts(fixture_dir: Path) -> None:
             f"(expected={sorted(required_names)!r}, actual={artifact_names!r})"
         )
     if (fixture_dir / "preregistration-validation.json").exists():
-        raise RuntimeError(
-            "fixture output contains deprecated preregistration artifact"
-        )
+        raise RuntimeError("fixture output contains removed legacy artifact")
 
 
 def multiharness_smoke_paths(output_dir: Path) -> MultiHarnessSmokePaths:

@@ -255,11 +255,14 @@ def test_unsafe_public_artifact_path_is_rejected(tmp_path: Path) -> None:
         validate_submission_file(output_dir / "submission.json")
 
 
-def test_deprecated_taxonomy_fields_are_rejected(tmp_path: Path) -> None:
+def test_legacy_public_classification_fields_are_rejected(tmp_path: Path) -> None:
     record = _valid_submission_record(tmp_path)
     record["result_tier"] = "verified-community"
 
-    with pytest.raises(MultiHarnessValidationError, match="result-tier"):
+    with pytest.raises(
+        MultiHarnessValidationError,
+        match="prohibited legacy public classification",
+    ):
         CommunitySubmissionManifest.from_record(record)
 
 

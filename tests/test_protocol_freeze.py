@@ -124,11 +124,7 @@ def test_successful_freeze_writes_hash_bundle(tmp_path: Path) -> None:
     assert {artifact["name"] for artifact in hash_bundle["artifacts"]} == {
         name.value for name in FrozenArtifactName
     }
-
-
-def test_freeze_cli_has_no_preregistration_options() -> None:
     help_text = build_arg_parser().format_help()
-
     assert "--base-protocol" not in help_text
     assert "--protocol-output" not in help_text
     assert "--exclusion-ledger EXCLUSION_LEDGER" in help_text

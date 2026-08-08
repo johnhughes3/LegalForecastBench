@@ -242,11 +242,17 @@ def test_secret_like_public_fields_are_rejected() -> None:
         )
 
 
-def test_deprecated_result_tier_fields_and_values_are_rejected() -> None:
-    with pytest.raises(MultiHarnessValidationError, match="deprecated result-tier"):
+def test_legacy_public_classification_fields_and_values_are_rejected() -> None:
+    with pytest.raises(
+        MultiHarnessValidationError,
+        match="prohibited legacy public classification",
+    ):
         validate_public_record({"result_tier": "community-unverified"}, "public")
 
-    with pytest.raises(MultiHarnessValidationError, match="deprecated result-tier"):
+    with pytest.raises(
+        MultiHarnessValidationError,
+        match="prohibited legacy public classification",
+    ):
         CommunityAggregate(
             aggregate_id="aggregate",
             submissions=("sub-1",),

@@ -51,9 +51,6 @@ def test_manifest_record_serializes_required_fields_for_jsonl_and_consumers() ->
     assert record["exclusion_status"] == "included"
     assert packet["model_packet_document_ids"] == ["doc-complaint"]
     assert json.loads(manifest.to_jsonl_line())["candidate_id"] == "cand-1"
-
-
-def test_manifest_record_has_no_preregistration_projection() -> None:
     assert not hasattr(_manifest_record(), "to_preregistration_fields")
 
 
