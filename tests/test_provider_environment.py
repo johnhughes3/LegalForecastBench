@@ -313,6 +313,4 @@ def test_main_returns_parser_error_for_provider_environment_refusal(
     assert status == 2
     assert exit_calls == [(2, exit_calls[0][1])]
     assert exit_calls[0][1] is not None
-    assert exit_calls[0][1].endswith(
-        ": error: provider child command is required\n"
-    )
+    assert exit_calls[0][1].endswith(": error: provider child command is required\n")
