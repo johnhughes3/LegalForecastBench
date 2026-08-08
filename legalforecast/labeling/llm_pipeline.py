@@ -3189,6 +3189,8 @@ def _repair_unescaped_json_string_quotes(text: str) -> str | None:
         while next_index < len(text) and text[next_index].isspace():
             next_index += 1
         next_character = text[next_index] if next_index < len(text) else None
+        if next_character == '"':
+            return None
         if next_character is None or next_character in closing_followers:
             repaired.append(char)
             in_string = False

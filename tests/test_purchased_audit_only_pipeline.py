@@ -333,6 +333,7 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
     assert replayed_recovery == recovery
     assert recovery.attempt_ordinal == 1
     assert len(recovery.prediction_units) == 1
+    assert recovery.prediction_units[0]["claim_name"] == 'Section "10(b)" claim'
     assert recovery.review_items == ()
     with sqlite3.connect(journal_path) as connection:
         assert connection.execute(

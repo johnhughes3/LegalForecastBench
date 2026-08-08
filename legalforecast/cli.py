@@ -58798,6 +58798,8 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
     _require_stage_a_lineage_unchanged(lineage)
     journal_after_rows = _stage_a_provider_attempt_rows(lineage.provider_journal_path)
     journal_after_sha256 = _canonical_json_sha256(journal_after_rows)
+    if result.candidate_id != candidate_id:
+        raise CommandError("Stage A reconstruction recovery candidate changed")
     derived_before_sha256 = _pre_reconstruction_provider_state_sha256(
         journal_after_rows,
         candidate_id=result.candidate_id,

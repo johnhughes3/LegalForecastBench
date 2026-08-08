@@ -36,6 +36,8 @@ def test_json_response_parser_repairs_unambiguous_embedded_quotes() -> None:
     [
         '{"text": "a "quoted", term"}',
         '{"text": "a "quoted" term}',
+        '{"defendant_names": ["Issuer" "Officer"]}',
+        '{"text": "x""y"}',
         '{"text": "valid",}',
     ],
 )
