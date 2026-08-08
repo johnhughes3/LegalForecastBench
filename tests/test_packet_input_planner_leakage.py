@@ -248,7 +248,7 @@ def test_authenticated_docket_decision_needs_no_download_and_never_leaks(
         "materialization_required": False,
         "text": canary,
     }
-    verified_source = MappingProxyType(source)
+    verified_source = MappingProxyType(dict(source))
     monkeypatch.setattr(
         "legalforecast.ingestion.docket_decision_text_source."
         "verified_docket_decision_source_records",
