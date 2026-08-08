@@ -61261,7 +61261,11 @@ def _build_unitization_review_bundle_records(
                 for item in typed_review_sources
                 if isinstance(item, str) and item.strip()
             ]
-            if not review_sources or len(review_sources) != len(typed_review_sources):
+            if (
+                not review_sources
+                or len(review_sources) != len(typed_review_sources)
+                or len(set(review_sources)) != len(review_sources)
+            ):
                 raise CommandError(
                     f"review item source_document_ids are invalid: {review_id}"
                 )

@@ -342,6 +342,14 @@ def test_rejects_decision_source_and_duplicate_reviews(
         == 2
     )
 
+    _write_jsonl(queue, [_review("unit-1", ["complaint", "complaint"])])
+    assert (
+        cli.main(
+            _argv(tmp_path / "out-duplicate-source", raw, unit_card, review_card, queue)
+        )
+        == 2
+    )
+
 
 def test_rejects_hard_linked_authenticated_input(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
