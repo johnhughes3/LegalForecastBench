@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast import cli
@@ -533,13 +533,15 @@ def test_terminal_raw_residue_must_match_durable_page_reconstruction(
     terminal.write_bytes(b"durably reconstructed")
 
     def replay(**kwargs: object) -> SimpleNamespace:
-        assert tuple(kwargs["records"]) == plan.targets
+        records = cast(Sequence[Mapping[str, object]], kwargs["records"])
+        assert tuple(records) == plan.targets
         return SimpleNamespace(bundles=(SimpleNamespace(docket_id="200"),))
 
+    def render(bundle: object) -> str:
+        return "durably reconstructed"
+
     monkeypatch.setattr(cli, "acquire_ranked_dockets", replay)
-    monkeypatch.setattr(
-        cli, "render_complete_docket_html", lambda bundle: "durably reconstructed"
-    )
+    monkeypatch.setattr(cli, "render_complete_docket_html", render)
     with CycleAcquisitionStore(Path(plan.cycle_store_path)) as store:
         store.ensure_cycle({"fixture": True})
         cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
@@ -551,6 +553,74 @@ def test_terminal_raw_residue_must_match_durable_page_reconstruction(
         with pytest.raises(
             TargetRawDocketRecoveryError, match="differs from durable pages"
         ):
+            cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
+                store=store,
+                plan=plan,
+                raw_html_dir=raw_dir,
+            )
+
+
+def test_terminal_raw_residue_accepts_absent_or_page_only_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    with CycleAcquisitionStore(Path(plan.cycle_store_path)) as store:
+        store.ensure_cycle({"fixture": True})
+        raw_dir = tmp_path / "raw"
+        cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
+            store=store,
+            plan=plan,
+            raw_html_dir=raw_dir,
+        )
+        (raw_dir / "pages").mkdir(parents=True)
+        cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
+            store=store,
+            plan=plan,
+            raw_html_dir=raw_dir,
+        )
+
+
+def test_terminal_raw_residue_rejects_unrecognized_or_unplanned_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    with CycleAcquisitionStore(Path(plan.cycle_store_path)) as store:
+        store.ensure_cycle({"fixture": True})
+        junk = raw_dir / "junk.txt"
+        junk.write_text("junk")
+        with pytest.raises(TargetRawDocketRecoveryError, match="unrecognized entry"):
+            cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
+                store=store,
+                plan=plan,
+                raw_html_dir=raw_dir,
+            )
+        junk.unlink()
+        (raw_dir / "999.html").write_text("not selected")
+        with pytest.raises(TargetRawDocketRecoveryError, match=r"outside.*plan"):
+            cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
+                store=store,
+                plan=plan,
+                raw_html_dir=raw_dir,
+            )
+
+
+def test_terminal_raw_residue_rejects_incomplete_durable_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = _plan(tmp_path, monkeypatch)
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "200.html").write_text("partial")
+
+    def fail_replay(**kwargs: object) -> SimpleNamespace:
+        raise AssertionError("provider requested")
+
+    monkeypatch.setattr(cli, "acquire_ranked_dockets", fail_replay)
+    with CycleAcquisitionStore(Path(plan.cycle_store_path)) as store:
+        store.ensure_cycle({"fixture": True})
+        with pytest.raises(TargetRawDocketRecoveryError, match="complete durable run"):
             cli._verify_target_raw_recovery_terminal_residue(  # pyright: ignore[reportPrivateUsage]
                 store=store,
                 plan=plan,
