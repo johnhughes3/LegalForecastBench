@@ -835,16 +835,22 @@ from legalforecast.ingestion.target_raw_docket_recovery import (
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
     TargetRawDocketRecoveryError,
     TargetRawDocketRecoveryPlan,
+    TargetRawDocketRecoveryProviderContractRetryPlan,
     TargetRawDocketRecoverySuccessorPlan,
     build_target_raw_docket_recovery_plan,
+    build_target_raw_docket_recovery_provider_contract_retry_plan,
     build_target_raw_docket_recovery_successor_plan,
     execute_target_raw_docket_recovery,
     load_target_raw_docket_recovery_plan,
+    load_target_raw_docket_recovery_provider_contract_retry_plan,
     load_target_raw_docket_recovery_successor_plan,
+    provider_contract_retry_run_config,
+    resolve_target_raw_docket_recovery_provider_contract_retry,
     resolve_target_raw_docket_recovery_successor,
     target_raw_docket_recovery_receipt_bytes,
     verify_target_raw_docket_recovery_receipt,
     write_target_raw_docket_recovery_plan,
+    write_target_raw_docket_recovery_provider_contract_retry_plan,
     write_target_raw_docket_recovery_successor_plan,
 )
 from legalforecast.ingestion.terminal_purchase_failure import (
@@ -1767,6 +1773,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_execute_target_raw_docket_recovery_successor_arguments(
         acquisition_execute_target_raw_docket_recovery_successor
+    )
+    acquisition_plan_target_raw_docket_recovery_provider_contract_retry = (
+        acquisition_subparsers.add_parser(
+            "plan-target-raw-docket-recovery-provider-contract-retry",
+            help=(
+                "Freeze the sole blockAds-omission retry after two zero-success "
+                "circuit-open raw docket recoveries."
+            ),
+        )
+    )
+    _add_acquisition_plan_target_raw_docket_recovery_provider_contract_retry_arguments(
+        acquisition_plan_target_raw_docket_recovery_provider_contract_retry
+    )
+    acquisition_execute_target_raw_docket_recovery_provider_contract_retry = (
+        acquisition_subparsers.add_parser(
+            "execute-target-raw-docket-recovery-provider-contract-retry",
+            help=(
+                "Execute the sole pinned blockAds-omission raw docket retry with "
+                "inherited targets and cycle budget."
+            ),
+        )
+    )
+    _add_acquisition_target_raw_provider_contract_retry_execute_arguments(
+        acquisition_execute_target_raw_docket_recovery_provider_contract_retry
     )
     acquisition_seal_ranked_dockets = acquisition_subparsers.add_parser(
         "seal-ranked-firecrawl-run",
@@ -6762,6 +6792,54 @@ def _add_acquisition_execute_target_raw_docket_recovery_successor_arguments(
     parser.add_argument("--live-firecrawl", action="store_true")
     parser.set_defaults(
         handler=_cmd_acquisition_execute_target_raw_docket_recovery_successor
+    )
+
+
+def _add_acquisition_plan_target_raw_docket_recovery_provider_contract_retry_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--root-plan", type=Path, required=True)
+    parser.add_argument("--expected-root-plan-sha256", required=True)
+    parser.add_argument("--root-failure-run-card", type=Path, required=True)
+    parser.add_argument("--expected-root-failure-run-card-sha256", required=True)
+    parser.add_argument("--direct-successor-plan", type=Path, required=True)
+    parser.add_argument("--expected-direct-successor-plan-sha256", required=True)
+    parser.add_argument("--direct-successor-failure-run-card", type=Path, required=True)
+    parser.add_argument(
+        "--expected-direct-successor-failure-run-card-sha256", required=True
+    )
+    parser.add_argument("--direct-successor-raw-html-dir", type=Path, required=True)
+    parser.add_argument(
+        "--provider-contract-defect-authorization", type=Path, required=True
+    )
+    parser.add_argument(
+        "--expected-provider-contract-defect-authorization-sha256", required=True
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--plan-output", type=Path, required=True)
+    parser.set_defaults(
+        handler=_cmd_acquisition_plan_target_raw_docket_recovery_provider_contract_retry
+    )
+
+
+def _add_acquisition_target_raw_provider_contract_retry_execute_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--provider-contract-retry-plan", type=Path, required=True)
+    parser.add_argument("--expected-provider-contract-retry-plan-sha256", required=True)
+    parser.add_argument("--raw-html-dir", type=Path, required=True)
+    parser.add_argument("--successes-output", type=Path, required=True)
+    parser.add_argument("--exclusions-output", type=Path, required=True)
+    parser.add_argument("--summary-output", type=Path, required=True)
+    parser.add_argument("--receipt-output", type=Path, required=True)
+    parser.add_argument("--expected-receipt-sha256")
+    parser.add_argument("--firecrawl-fixture", type=Path)
+    parser.add_argument("--live-firecrawl", action="store_true")
+    parser.set_defaults(
+        handler=_cmd_acquisition_execute_target_raw_docket_recovery_provider_contract_retry
     )
 
 
@@ -21591,7 +21669,92 @@ def _cmd_acquisition_plan_target_raw_docket_recovery_successor(
     return 0
 
 
+def _cmd_acquisition_plan_target_raw_docket_recovery_provider_contract_retry(
+    args: argparse.Namespace,
+) -> int:
+    root_plan_path = cast(Path, args.root_plan)
+    root_card_path = cast(Path, args.root_failure_run_card)
+    direct_plan_path = cast(Path, args.direct_successor_plan)
+    direct_card_path = cast(Path, args.direct_successor_failure_run_card)
+    direct_raw_html_dir = cast(Path, args.direct_successor_raw_html_dir)
+    defect_authorization_path = cast(Path, args.provider_contract_defect_authorization)
+    plan_output = cast(Path, args.plan_output)
+    inputs = (
+        root_plan_path,
+        root_card_path,
+        direct_plan_path,
+        direct_card_path,
+        direct_raw_html_dir,
+        defect_authorization_path,
+    )
+    try:
+        retry = build_target_raw_docket_recovery_provider_contract_retry_plan(
+            root_plan_path=root_plan_path,
+            expected_root_plan_sha256=cast(str, args.expected_root_plan_sha256),
+            root_failure_run_card_path=root_card_path,
+            expected_root_failure_run_card_sha256=cast(
+                str, args.expected_root_failure_run_card_sha256
+            ),
+            direct_successor_plan_path=direct_plan_path,
+            expected_direct_successor_plan_sha256=cast(
+                str, args.expected_direct_successor_plan_sha256
+            ),
+            direct_successor_failure_run_card_path=direct_card_path,
+            expected_direct_successor_failure_run_card_sha256=cast(
+                str, args.expected_direct_successor_failure_run_card_sha256
+            ),
+            direct_successor_raw_html_dir=direct_raw_html_dir,
+            provider_contract_defect_authorization_path=defect_authorization_path,
+            expected_provider_contract_defect_authorization_sha256=cast(
+                str, args.expected_provider_contract_defect_authorization_sha256
+            ),
+            batch_id=cast(str, args.batch_id),
+            run_id=cast(str, args.run_id),
+        )
+        _, recovered_plan, _ = (
+            resolve_target_raw_docket_recovery_provider_contract_retry(retry)
+        )
+        args.cycle_store = Path(recovered_plan.cycle_store_path)
+        _preflight_target_raw_docket_recovery_paths(
+            args,
+            stage="plan-target-raw-docket-recovery-provider-contract-retry",
+            protected_paths=inputs,
+            writable_paths=(plan_output,),
+        )
+        digest = write_target_raw_docket_recovery_provider_contract_retry_plan(
+            plan_output, retry
+        )
+        _write_acquisition_completion(
+            args,
+            stage="plan-target-raw-docket-recovery-provider-contract-retry",
+            input_paths=inputs,
+            output_paths=(plan_output,),
+            record_count=1,
+            dry_run=_acquisition_dry_run(args),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={"plan_sha256": digest, "target_count": len(recovered_plan.targets)},
+        )
+    except (OSError, TargetRawDocketRecoveryError) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="plan-target-raw-docket-recovery-provider-contract-retry",
+            input_paths=inputs,
+            output_paths=(plan_output,),
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
 def _cmd_acquisition_execute_target_raw_docket_recovery_successor(
+    args: argparse.Namespace,
+) -> int:
+    return _cmd_acquisition_execute_target_raw_docket_recovery(args)
+
+
+def _cmd_acquisition_execute_target_raw_docket_recovery_provider_contract_retry(
     args: argparse.Namespace,
 ) -> int:
     return _cmd_acquisition_execute_target_raw_docket_recovery(args)
@@ -21601,10 +21764,72 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
     args: argparse.Namespace,
 ) -> int:
     successor_path = cast(Path | None, getattr(args, "successor_plan", None))
+    provider_contract_retry_path = cast(
+        Path | None, getattr(args, "provider_contract_retry_plan", None)
+    )
     successor: TargetRawDocketRecoverySuccessorPlan | None = None
     parent: TargetRawDocketRecoveryPlan | None = None
     preloaded_plan: TargetRawDocketRecoveryPlan | None = None
-    if successor_path is not None:
+    provider_contract_retry: TargetRawDocketRecoveryProviderContractRetryPlan | None = (
+        None
+    )
+    if successor_path is not None and provider_contract_retry_path is not None:
+        raise CommandError("choose only one target raw recovery authority")
+    if provider_contract_retry_path is not None:
+        provider_contract_retry = (
+            load_target_raw_docket_recovery_provider_contract_retry_plan(
+                provider_contract_retry_path,
+                cast(str, args.expected_provider_contract_retry_plan_sha256),
+            )
+        )
+        _, preloaded_plan, successor = (
+            resolve_target_raw_docket_recovery_provider_contract_retry(
+                provider_contract_retry
+            )
+        )
+        parent = replace(
+            preloaded_plan,
+            batch_id=successor.batch_id,
+            run_id=successor.run_id,
+        )
+        args.cycle_store = Path(preloaded_plan.cycle_store_path)
+        args.batch_id = preloaded_plan.batch_id
+        args.run_id = preloaded_plan.run_id
+        args.workers = preloaded_plan.workers
+        args.selection = Path(preloaded_plan.selection_path)
+        args.expected_selection_sha256 = preloaded_plan.selection_sha256
+        args.source_snapshot = Path(preloaded_plan.source_snapshot_path)
+        args.expected_source_snapshot_manifest_sha256 = (
+            preloaded_plan.source_snapshot_manifest_sha256
+        )
+        args.expected_cycle_hash = preloaded_plan.cycle_hash
+        args.source_snapshot_run_card = Path(
+            preloaded_plan.source_snapshot_run_card_path
+        )
+        args.expected_source_snapshot_run_card_sha256 = (
+            preloaded_plan.source_snapshot_run_card_sha256
+        )
+        args.source_raw_manifest = Path(preloaded_plan.source_raw_manifest_path)
+        args.expected_source_raw_manifest_sha256 = (
+            preloaded_plan.source_raw_manifest_sha256
+        )
+        args.credit_cap = preloaded_plan.credit_cap
+        args.max_pages_per_docket = preloaded_plan.max_pages_per_docket
+        args.max_attempts_per_page = preloaded_plan.max_attempts_per_page
+        args.provider_breaker_threshold = preloaded_plan.provider_breaker_threshold
+        args.proxy = preloaded_plan.proxy
+        args.force_browser = preloaded_plan.force_browser
+        plan_input = provider_contract_retry_path
+        plan_sha256 = cast(str, args.expected_provider_contract_retry_plan_sha256)
+        successor_inputs = (
+            Path(provider_contract_retry.root_plan_path),
+            Path(provider_contract_retry.root_failure_run_card_path),
+            Path(provider_contract_retry.direct_successor_plan_path),
+            Path(provider_contract_retry.direct_successor_failure_run_card_path),
+            Path(provider_contract_retry.direct_successor_raw_html_dir),
+            Path(provider_contract_retry.provider_contract_defect_authorization_path),
+        )
+    elif successor_path is not None:
         successor = load_target_raw_docket_recovery_successor_plan(
             successor_path, cast(str, args.expected_successor_plan_sha256)
         )
@@ -21773,6 +21998,20 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
                     cycle_store_path=Path(plan.cycle_store_path),
                     batch_id=plan.batch_id,
                 )
+                if provider_contract_retry is not None and (
+                    parent is None
+                    or store.firecrawl_run_config(plan.run_id)
+                    != provider_contract_retry_run_config(
+                        retry_plan=provider_contract_retry,
+                        direct_successor_run_id=parent.run_id,
+                        recovered_plan=plan,
+                        raw_html_dir=cast(Path, args.raw_html_dir),
+                    )
+                ):
+                    raise TargetRawDocketRecoveryError(
+                        "provider-contract retry receipt differs from durable "
+                        "request authority"
+                    )
             summary = _read_json_object(outputs[2])
             _write_acquisition_completion(
                 args,
@@ -21852,31 +22091,44 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
                     else {}
                 ),
             )
-            run_config: JsonRecord = {
-                "purpose": "target-raw-docket-recovery",
-                "recovery_of_run_id": (
-                    parent.run_id
-                    if parent is not None
-                    else plan.source_snapshot_manifest_sha256
-                ),
-                **(
-                    {
-                        "parent_plan_sha256": successor.parent_plan_sha256,
-                        "parent_failure_run_card_sha256": (
-                            successor.parent_failure_run_card_sha256
-                        ),
-                    }
-                    if successor is not None
-                    else {}
-                ),
-                "max_pages_per_docket": plan.max_pages_per_docket,
-                "raw_artifact_root": str((raw_dir / "pages").resolve()),
-                "firecrawl_proxy": config.proxy,
-                "firecrawl_force_browser": config.force_browser,
-                "workers": plan.workers,
-                "max_attempts_per_page": plan.max_attempts_per_page,
-                "provider_breaker_threshold": plan.provider_breaker_threshold,
-            }
+            run_config: JsonRecord = (
+                dict(
+                    provider_contract_retry_run_config(
+                        retry_plan=provider_contract_retry,
+                        direct_successor_run_id=parent.run_id,
+                        recovered_plan=plan,
+                        raw_html_dir=raw_dir,
+                    )
+                )
+                if provider_contract_retry is not None
+                and successor is not None
+                and parent is not None
+                else {
+                    "purpose": "target-raw-docket-recovery",
+                    "recovery_of_run_id": (
+                        parent.run_id
+                        if parent is not None
+                        else plan.source_snapshot_manifest_sha256
+                    ),
+                    **(
+                        {
+                            "parent_plan_sha256": successor.parent_plan_sha256,
+                            "parent_failure_run_card_sha256": (
+                                successor.parent_failure_run_card_sha256
+                            ),
+                        }
+                        if successor is not None
+                        else {}
+                    ),
+                    "max_pages_per_docket": plan.max_pages_per_docket,
+                    "raw_artifact_root": str((raw_dir / "pages").resolve()),
+                    "firecrawl_proxy": config.proxy,
+                    "firecrawl_force_browser": config.force_browser,
+                    "workers": plan.workers,
+                    "max_attempts_per_page": plan.max_attempts_per_page,
+                    "provider_breaker_threshold": plan.provider_breaker_threshold,
+                }
+            )
             store.ensure_firecrawl_run(
                 plan.run_id,
                 batch_id=plan.batch_id,

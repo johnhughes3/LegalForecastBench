@@ -241,6 +241,55 @@ uv run legalforecast acquisition execute-target-raw-docket-recovery-successor \
 
 The successor inherits the exact target set, cycle store, credit cap, workers, pagination, retry, breaker, and proxy settings. It is accepted only for a zero-success all-5xx root failure, and the store permits only one direct child; successor chains are rejected.
 
+There is one deliberately exceptional path if both that root and its direct successor are zero-success circuit-open failures and an owner has separately frozen a SHA-pinned authorization declaring the Firecrawl v2 `blockAds: false` request-contract defect.
+The terminal failures alone do not establish the cause; that explicit authorization is required.
+Only after the implementation that omits that property is reviewed and landed, freeze the one contract-bound retry below.
+It derives all targets, URLs, source pins, scheduler settings, and the existing shared cycle credit cap from the two terminal ancestors; it does not accept replacements for them and cannot authorize a second contract retry.
+It binds the sole request delta as the omission of `blockAds: false`; it never permits a proxy, browser, pagination, target, cap, or retry-policy change.
+
+The owner-frozen authorization is a separately reviewed JSON file with exactly this semantic content; its externally supplied SHA-256 is the operator’s approval anchor:
+
+```json
+{
+  "schema_version": "legalforecast.firecrawl_provider_contract_defect_authorization.v1",
+  "declared_provider_contract_defect": {
+    "provider": "firecrawl",
+    "endpoint": "v2/scrape",
+    "request_property": "blockAds",
+    "prior_json_value": false,
+    "authorized_retry_change": "omit_optional_json_property"
+  }
+}
+```
+
+```bash
+uv run legalforecast acquisition plan-target-raw-docket-recovery-provider-contract-retry \
+  --output-root <contract-retry-plan-root> --execute --no-resume \
+  --root-plan <root-plan.json> \
+  --expected-root-plan-sha256 <external-lowercase-sha256> \
+  --root-failure-run-card <root-failed-run-card.json> \
+  --expected-root-failure-run-card-sha256 <external-lowercase-sha256> \
+  --direct-successor-plan <direct-successor-plan.json> \
+  --expected-direct-successor-plan-sha256 <external-lowercase-sha256> \
+  --direct-successor-failure-run-card <direct-successor-failed-run-card.json> \
+  --expected-direct-successor-failure-run-card-sha256 <external-lowercase-sha256> \
+  --direct-successor-raw-html-dir <direct-successor-raw-html-dir> \
+  --provider-contract-defect-authorization <owner-frozen-defect-authorization.json> \
+  --expected-provider-contract-defect-authorization-sha256 <external-lowercase-sha256> \
+  --batch-id <bounded-contract-retry-batch> --run-id <bounded-contract-retry-run> \
+  --plan-output <contract-retry-plan.json>
+
+uv run legalforecast acquisition execute-target-raw-docket-recovery-provider-contract-retry \
+  --output-root <contract-retry-execution-root> --execute --no-resume \
+  --provider-contract-retry-plan <contract-retry-plan.json> \
+  --expected-provider-contract-retry-plan-sha256 <external-lowercase-sha256> \
+  --raw-html-dir <new-raw-html-dir> \
+  --successes-output <screening-successes.jsonl> \
+  --exclusions-output <screening-exclusions.jsonl> \
+  --summary-output <recovery-summary.json> \
+  --receipt-output <recovery-receipt.json> --live-firecrawl
+```
+
 The resulting screening step must authenticate that terminal handoff rather than consuming the success manifest as a generic unbound input:
 
 ```bash
