@@ -1988,16 +1988,26 @@ def test_open_raw_html_directory_rejects_symlink_and_regular_file(
     outside.mkdir()
     symlink = tmp_path / "symlink"
     symlink.symlink_to(outside, target_is_directory=True)
-    with pytest.raises(TargetRawDocketRecoveryError, match="not a real directory"):
-        recovery._open_raw_html_directory(symlink)  # pyright: ignore[reportPrivateUsage]
+    descriptor: int | None = None
+    try:
+        with pytest.raises(TargetRawDocketRecoveryError, match="not a real directory"):
+            descriptor = recovery._open_raw_html_directory(symlink)  # pyright: ignore[reportPrivateUsage]
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
     regular_file = tmp_path / "regular-file"
     regular_file.write_text("not a directory")
-    with pytest.raises(
-        TargetRawDocketRecoveryError,
-        match=r"cannot create recovery raw HTML directory|not a real directory",
-    ):
-        recovery._open_raw_html_directory(regular_file)  # pyright: ignore[reportPrivateUsage]
+    descriptor = None
+    try:
+        with pytest.raises(
+            TargetRawDocketRecoveryError,
+            match=r"cannot create recovery raw HTML directory|not a real directory",
+        ):
+            descriptor = recovery._open_raw_html_directory(regular_file)  # pyright: ignore[reportPrivateUsage]
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def test_unique_reader_rejects_fifo_and_symlinked_parent(tmp_path: Path) -> None:

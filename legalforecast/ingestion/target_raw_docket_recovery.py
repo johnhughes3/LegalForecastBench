@@ -445,9 +445,8 @@ def _publish_unique_raw_html(
         if temporary_created:
             try:
                 os.unlink(temporary_name, dir_fd=directory_fd)
-            except FileNotFoundError:
-                pass
             except OSError:
+                # Best-effort cleanup must not mask the original publish failure.
                 pass
 
 
