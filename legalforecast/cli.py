@@ -21747,6 +21747,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             store_path=cast(Path, args.cycle_store),
             run_id=cast(str, args.run_id),
         )
+        firecrawl_run_status = failure_credit_summary.pop("status", None)
         metered_executed = _firecrawl_metered_activity_executed(
             live=live,
             summary=failure_credit_summary,
@@ -21769,6 +21770,11 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
                 "firecrawl_metered_activity_executed": metered_executed,
                 "pacer_paid_activity_requested": False,
                 "pacer_paid_activity_executed": False,
+                **(
+                    {"firecrawl_run_status": firecrawl_run_status}
+                    if isinstance(firecrawl_run_status, str)
+                    else {}
+                ),
                 **failure_credit_summary,
             },
         )
