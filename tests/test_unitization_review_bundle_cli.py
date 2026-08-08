@@ -373,3 +373,32 @@ def test_rejects_hard_linked_authenticated_input(
     assert (
         main(_argv(tmp_path / "out-symlink", raw, unit_card, review_card, queue)) == 2
     )
+
+
+def test_rejects_completion_artifact_aliasing_authenticated_input(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    _stub_authentication(monkeypatch, markdown_root)
+    raw = tmp_path / "prediction-units.jsonl"
+    queue = tmp_path / "merged-review-queue.jsonl"
+    unit_card = tmp_path / "llm-unitize.json"
+    review_card = tmp_path / "llm-review-stage-a.json"
+    _write_jsonl(
+        raw,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [_unit("unit-1", "complaint")],
+            }
+        ],
+    )
+    _write_jsonl(queue, [_review("unit-1", ["complaint"])])
+    unit_card.write_text("{}\n", encoding="utf-8")
+    review_card.write_text("{}\n", encoding="utf-8")
+
+    argv = _argv(tmp_path / "out", raw, unit_card, review_card, queue)
+    argv.extend(["--run-card-output", str(raw)])
+    assert main(argv) == 2

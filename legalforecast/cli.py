@@ -60932,6 +60932,16 @@ def _cmd_acquisition_build_unitization_review_bundle(
         "bundle_manifest_output",
         output_root / "unitization-review-bundle-manifest.json",
     )
+    completion_run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards" / "build-unitization-review-bundle.json",
+    )
+    completion_log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / "build-unitization-review-bundle.jsonl",
+    )
 
     _reject_existing_parent_symlink(output_root, label="review bundle output root")
     if output_root.exists() and (output_root.is_symlink() or not output_root.is_dir()):
@@ -60975,7 +60985,12 @@ def _cmd_acquisition_build_unitization_review_bundle(
             structural_card_path,
             review_queue_path,
         ),
-        output_paths=(bundle_path, manifest_path),
+        output_paths=(
+            bundle_path,
+            manifest_path,
+            completion_run_card_path,
+            completion_log_path,
+        ),
         protected_roots=(lineage.document_root, lineage.markdown_root),
     )
     bundle_records = _build_unitization_review_bundle_records(
