@@ -15,6 +15,10 @@ from legalforecast.contracts import (
     RESOLVED_POST_RECOVERY_PUBLIC_DOCUMENT_V4,
     RUN_CARD_INDENTED_JSON_V1,
     RUN_CARD_RAW_SHA256_V1,
+    TARGET_RAW_DOCKET_RECOVERY_PLAN_V1,
+    TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
+    TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
+    TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
     CanonicalJsonCodec,
     CommitmentEncodingError,
     CommitmentMismatchError,
@@ -152,9 +156,13 @@ def test_verification_rejects_cross_profile_and_cross_schema_substitution() -> N
 def test_recovery_vertical_slice_schema_registry_is_versioned_and_unique() -> None:
     values = tuple(schema.value for schema in RECOVERY_VERTICAL_SLICE_SCHEMAS)
 
-    assert RESOLVED_POST_RECOVERY_PUBLIC_DOCUMENT_V4 in (
-        RECOVERY_VERTICAL_SLICE_SCHEMAS
-    )
+    assert {
+        RESOLVED_POST_RECOVERY_PUBLIC_DOCUMENT_V4,
+        TARGET_RAW_DOCKET_RECOVERY_PLAN_V1,
+        TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
+        TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
+        TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
+    }.issubset(RECOVERY_VERTICAL_SLICE_SCHEMAS)
     assert len(values) == len(set(values))
     assert all(value.startswith("legalforecast.") for value in values)
     assert all(value.rsplit(".v", maxsplit=1)[-1].isdigit() for value in values)
