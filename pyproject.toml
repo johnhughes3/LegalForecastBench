@@ -56,11 +56,13 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 88
 src = ["legalforecast", "tests"]
-# Deliberately one release behind `requires-python`.  At py314 the formatter
-# adopts PEP 758 unparenthesized `except A, B:`, which rewrites 34 files and
-# makes the source unparseable by any Python before 3.14.  That is a source
-# migration worth deciding on its own merits, not a side effect of moving the
-# runtime.  See LegalForecastBench-xf1t.
+# Deliberately one release behind `requires-python`, and settled rather than
+# pending: at py314 the formatter adopts PEP 758 unparenthesized
+# `except A, B:`, which rewrites 34 files and makes the source unparseable by
+# any Python before 3.14.  That form is also visually identical to Python 2's
+# `except A, B:` bind syntax, so it reads as a bug.  Decided in
+# LegalForecastBench-xf1t: stay at py313.  Raise this only as its own reviewed
+# change, never as a side effect of a runtime bump.
 target-version = "py313"
 
 [tool.ruff.lint]
