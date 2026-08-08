@@ -16,6 +16,7 @@ from typing import Any, cast
 
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.live_model_solver import (
+    DEFAULT_MAX_ATTEMPTS,
     LiveModelTransport,
     complete_live_prompt,
 )
@@ -112,6 +113,24 @@ from legalforecast.unitization.schemas import (
 
 JsonRecord = dict[str, Any]
 DEFAULT_LABEL_AUDIT_SAMPLE_SIZE = 30
+
+
+def _reconstruction_retry_max_attempts(
+    journal: ProviderAttemptJournal | None,
+) -> int:
+    """Return the fixed provider-attempt budget after reconstruction failures.
+
+    A settled or merely validated response remains replayable without another
+    provider call.  A response that has already failed semantic reconstruction,
+    however, is only useful after a code correction; the live labeling stages
+    instead consume one of the same bounded provider attempts for a fresh
+    response.  The journal records the durable ordinal and preserves the old
+    response/accounting evidence.
+    """
+
+    if journal is None:
+        return DEFAULT_MAX_ATTEMPTS
+    return journal.prepare_reconstruction_retry(max_attempts=DEFAULT_MAX_ATTEMPTS)
 
 
 class LlmConsensusPolicy(StrEnum):
@@ -264,6 +283,7 @@ def llm_unitize_cases(
                 cycle_id=provider_cycle_id,
                 provider_cycle_caps_sha256=provider_cycle_caps_sha256,
             )
+            max_attempts = _reconstruction_retry_max_attempts(journal)
             response = complete_live_prompt(
                 registry_entry,
                 prompt,
@@ -271,6 +291,7 @@ def llm_unitize_cases(
                 transport=transport,
                 environ=environ,
                 timeout_seconds=timeout_seconds,
+                max_attempts=max_attempts,
                 attempt_handler=_combined_attempt_handler(
                     journal=journal,
                     authorities=provider_spend_authorities,
@@ -471,6 +492,7 @@ def llm_review_stage_a_units(
             provider_cycle_caps_sha256=provider_cycle_caps_sha256,
         )
         try:
+            max_attempts = _reconstruction_retry_max_attempts(journal)
             response = complete_live_prompt(
                 registry_entry,
                 prompt,
@@ -478,6 +500,7 @@ def llm_review_stage_a_units(
                 transport=transport,
                 environ=environ,
                 timeout_seconds=timeout_seconds,
+                max_attempts=max_attempts,
                 attempt_handler=_combined_attempt_handler(
                     journal=journal,
                     authorities=provider_spend_authorities,
@@ -1523,6 +1546,7 @@ def _llm_label_one_model(
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
     )
     try:
+        max_attempts = _reconstruction_retry_max_attempts(journal)
         response = complete_live_prompt(
             registry_entry,
             prompt,
@@ -1530,6 +1554,7 @@ def _llm_label_one_model(
             transport=transport,
             environ=environ,
             timeout_seconds=timeout_seconds,
+            max_attempts=max_attempts,
             attempt_handler=_combined_attempt_handler(
                 journal=journal,
                 authorities=provider_spend_authorities,

@@ -29,6 +29,7 @@ from legalforecast.ingestion.purchased_document_recovery import (
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderCallIdentity,
+    ProviderJournalError,
 )
 from legalforecast.unitization.review import apply_unitization_reviews
 
@@ -68,7 +69,7 @@ class _FakeSpendAuthority:
         raise AssertionError("snapshot is not used by this fixture")
 
 
-def test_malformed_label_response_terminalizes_local_reconstruction(
+def test_malformed_label_response_retries_fresh_bounded_attempts(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -129,7 +130,7 @@ def test_malformed_label_response_terminalizes_local_reconstruction(
         )
 
     messages = []
-    for _ in range(2):
+    for _ in range(3):
         with pytest.raises(llm_pipeline.LlmResponseValidationError) as exc_info:
             invoke()
         messages.append(str(exc_info.value))
@@ -137,19 +138,28 @@ def test_malformed_label_response_terminalizes_local_reconstruction(
     assert messages == [
         "unit_findings must be a list",
         "unit_findings must be a list",
+        "unit_findings must be a list",
     ]
-    assert provider_calls == 1
+    with pytest.raises(
+        ProviderJournalError,
+        match="provider reconstruction retry attempt limit is exhausted",
+    ):
+        invoke()
+    assert provider_calls == 3
 
     with sqlite3.connect(journal_path) as connection:
-        status, actual_cost, failure_type = connection.execute(
-            "SELECT status, actual_cost_usd, failure_type FROM provider_attempts"
-        ).fetchone()
-    assert status == "reconstruction_failed"
-    assert actual_cost == pytest.approx(0.01)
-    assert failure_type == "LlmPipelineError"
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status, actual_cost_usd, failure_type "
+            "FROM provider_attempts ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [
+        (1, "reconstruction_failed", pytest.approx(0.01), "LlmPipelineError"),
+        (2, "reconstruction_failed", pytest.approx(0.01), "LlmPipelineError"),
+        (3, "reconstruction_failed", pytest.approx(0.01), "LlmPipelineError"),
+    ]
 
 
-def test_malformed_structural_review_terminalizes_local_reconstruction(
+def test_malformed_structural_review_retries_fresh_bounded_attempts(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -168,10 +178,18 @@ def test_malformed_structural_review_terminalizes_local_reconstruction(
         estimated_cost=0.02,
     )
 
+    provider_calls = 0
+
     def malformed_completion(*args: Any, **kwargs: Any) -> SolverResponse:
         del args
         handler = kwargs["attempt_handler"]
-        handler.run_attempt(1, lambda: {"fixture": "provider-response"})
+
+        def provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "provider-response"}
+
+        handler.run_attempt(1, provider_call)
         handler.settle_attempt(
             1,
             input_tokens=response.input_tokens,
@@ -184,7 +202,7 @@ def test_malformed_structural_review_terminalizes_local_reconstruction(
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", malformed_completion)
     journal_path = tmp_path / "provider-attempts.sqlite3"
 
-    with pytest.raises(llm_pipeline.LlmPipelineError, match="must be a list"):
+    def invoke() -> None:
         llm_pipeline.llm_review_stage_a_units(
             selection_records=(_selection(),),
             parser_records=(
@@ -213,13 +231,135 @@ def test_malformed_structural_review_terminalizes_local_reconstruction(
             provider_cycle_caps_sha256="sha256:" + "c" * 64,
         )
 
+    for _ in range(3):
+        with pytest.raises(llm_pipeline.LlmPipelineError, match="must be a list"):
+            invoke()
+    with pytest.raises(
+        ProviderJournalError,
+        match="provider reconstruction retry attempt limit is exhausted",
+    ):
+        invoke()
+    assert provider_calls == 3
+
     with sqlite3.connect(journal_path) as connection:
-        status, actual_cost, failure_type = connection.execute(
-            "SELECT status, actual_cost_usd, failure_type FROM provider_attempts"
-        ).fetchone()
-    assert status == "reconstruction_failed"
-    assert actual_cost == pytest.approx(0.02)
-    assert failure_type == "LlmPipelineError"
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status, actual_cost_usd, failure_type "
+            "FROM provider_attempts ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [
+        (1, "reconstruction_failed", pytest.approx(0.02), "LlmPipelineError"),
+        (2, "reconstruction_failed", pytest.approx(0.02), "LlmPipelineError"),
+        (3, "reconstruction_failed", pytest.approx(0.02), "LlmPipelineError"),
+    ]
+
+
+def test_invalid_unitization_response_retries_fresh_bounded_attempts(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    response = SolverResponse(
+        raw_output=json.dumps(
+            {
+                "unit_seeds": [
+                    {
+                        "count": "Count I",
+                        "claim_name": "Section 10(b)",
+                        "defendant_names": ["Issuer"],
+                        "source_document_ids": ["complaint", "mtd"],
+                        "challenged_by_motion": True,
+                        "challenge_scope": "partial_theory_only",
+                        "unit_confidence": 0.95,
+                        "grouping": "individual",
+                        "grouping_rationale": None,
+                        "separable_subclaim": "Scienter theory",
+                        "uncertainty_notes": None,
+                    }
+                ]
+            }
+        ),
+        input_tokens=12,
+        output_tokens=7,
+        estimated_cost=0.03,
+    )
+    provider_calls = 0
+
+    def invalid_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+
+        def provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "provider-response"}
+
+        handler.run_attempt(1, provider_call)
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_completion)
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+
+    def invoke() -> None:
+        llm_pipeline.llm_unitize_cases(
+            selection_records=(_selection(),),
+            parser_records=parser_records,
+            markdown_root=markdown_root,
+            registry_entry=llm_pipeline.ModelRegistryEntry.from_record(
+                _registry_record()
+            ),
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        )
+
+    for _ in range(3):
+        with pytest.raises(
+            ValueError,
+            match="separable_subclaim is only allowed for separable_subclaim scope",
+        ):
+            invoke()
+    with pytest.raises(
+        ProviderJournalError,
+        match="provider reconstruction retry attempt limit is exhausted",
+    ):
+        invoke()
+    assert provider_calls == 3
+
+    with sqlite3.connect(journal_path) as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status, actual_cost_usd, failure_type "
+            "FROM provider_attempts ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [
+        (1, "reconstruction_failed", pytest.approx(0.03), "ValueError"),
+        (2, "reconstruction_failed", pytest.approx(0.03), "ValueError"),
+        (3, "reconstruction_failed", pytest.approx(0.03), "ValueError"),
+    ]
 
 
 def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
