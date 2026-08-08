@@ -119,13 +119,33 @@ def _authenticated_lineage(markdown_root: Path) -> SimpleNamespace:
 
 
 def _stub_authentication(
-    monkeypatch: pytest.MonkeyPatch, markdown_root: Path
+    monkeypatch: pytest.MonkeyPatch,
+    markdown_root: Path,
+    *,
+    expected_controlled_private_root: Path | None = None,
+    expected_initialization_receipt: Path | None = None,
 ) -> list[dict[str, Any]]:
     lineage = _authenticated_lineage(markdown_root)
     calls: list[dict[str, Any]] = []
 
     def verify_unitization(*args: Any, **kwargs: Any) -> Any:
-        del args, kwargs
+        del args
+        if (
+            expected_controlled_private_root is not None
+            and kwargs.get("controlled_private_root")
+            != expected_controlled_private_root
+        ):
+            raise cli.CommandError(
+                "approved v2 runtime requires the trusted private approval root"
+            )
+        if (
+            expected_initialization_receipt is not None
+            and kwargs.get("initialization_receipt_path")
+            != expected_initialization_receipt
+        ):
+            raise cli.CommandError(
+                "approved v2 runtime requires an initialization receipt"
+            )
         return lineage
 
     monkeypatch.setattr(
@@ -147,9 +167,16 @@ def _stub_authentication(
 
 
 def _argv(
-    root: Path, raw: Path, unit_card: Path, review_card: Path, queue: Path
+    root: Path,
+    raw: Path,
+    unit_card: Path,
+    review_card: Path,
+    queue: Path,
+    *,
+    controlled_private_root: Path | None = None,
+    initialization_receipt: Path | None = None,
 ) -> list[str]:
-    return [
+    argv = [
         "acquisition",
         "build-unitization-review-bundle",
         "--output-root",
@@ -164,6 +191,13 @@ def _argv(
         str(queue),
         "--execute",
     ]
+    if controlled_private_root is not None:
+        argv.extend(["--controlled-private-root", str(controlled_private_root)])
+    if initialization_receipt is not None:
+        argv.extend(
+            ["--purchase-ledger-initialization-receipt", str(initialization_receipt)]
+        )
+    return argv
 
 
 def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
@@ -244,6 +278,88 @@ def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
         str(output_root / "unitization-review-bundle.jsonl"),
         str(output_root / "unitization-review-bundle-manifest.json"),
     ]
+
+
+def test_approved_v2_bundle_replay_requires_exact_runtime_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The provider-free bundle must retain the unitization card's authority gate."""
+
+    markdown_root = tmp_path / "markdown"
+    markdown_root.mkdir()
+    private_root = tmp_path / "approved-v2-private"
+    private_root.mkdir()
+    initialization_receipt = tmp_path / "purchase-ledger-init.json"
+    initialization_receipt.write_text("{}\n", encoding="utf-8")
+    _stub_authentication(
+        monkeypatch,
+        markdown_root,
+        expected_controlled_private_root=private_root,
+        expected_initialization_receipt=initialization_receipt,
+    )
+    raw = tmp_path / "prediction-units.jsonl"
+    queue = tmp_path / "merged-review-queue.jsonl"
+    unit_card = tmp_path / "llm-unitize.json"
+    review_card = tmp_path / "llm-review-stage-a.json"
+    _write_jsonl(
+        raw,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [_unit("unit-1", "complaint")],
+            }
+        ],
+    )
+    _write_jsonl(queue, [_review("unit-1", ["complaint"])])
+    unit_card.write_text("{}\n", encoding="utf-8")
+    review_card.write_text("{}\n", encoding="utf-8")
+
+    assert (
+        cli.main(
+            _argv(
+                tmp_path / "valid",
+                raw,
+                unit_card,
+                review_card,
+                queue,
+                controlled_private_root=private_root,
+                initialization_receipt=initialization_receipt,
+            )
+        )
+        == 0
+    )
+    assert (
+        cli.main(_argv(tmp_path / "missing", raw, unit_card, review_card, queue)) == 2
+    )
+    assert (
+        cli.main(
+            _argv(
+                tmp_path / "wrong-root",
+                raw,
+                unit_card,
+                review_card,
+                queue,
+                controlled_private_root=tmp_path / "wrong-private-root",
+                initialization_receipt=initialization_receipt,
+            )
+        )
+        == 2
+    )
+    assert (
+        cli.main(
+            _argv(
+                tmp_path / "wrong-receipt",
+                raw,
+                unit_card,
+                review_card,
+                queue,
+                controlled_private_root=private_root,
+                initialization_receipt=tmp_path / "wrong-purchase-ledger-init.json",
+            )
+        )
+        == 2
+    )
 
 
 def test_builds_bundle_for_authenticated_terminal_escalation_queue(

@@ -9802,6 +9802,7 @@ def _add_acquisition_build_unitization_review_bundle_arguments(
     """Add the deliberately provider-free Stage A human-review bundle inputs."""
 
     _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
     parser.add_argument(
         "--prediction-units",
         type=Path,
@@ -60442,6 +60443,10 @@ def _cmd_acquisition_build_unitization_review_bundle(
     lineage = _verify_stage_a_unitization_run_card(
         unitization_card_path,
         expected_prediction_units_path=raw_units_path,
+        controlled_private_root=cast(Path | None, args.controlled_private_root),
+        initialization_receipt_path=cast(
+            Path | None, args.purchase_ledger_initialization_receipt
+        ),
     )
     _verify_stage_a_review_run_card(
         structural_card_path,
