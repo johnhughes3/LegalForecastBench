@@ -118,6 +118,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | --- | --- |
 | [`case_mix_optimizer.py`](../legalforecast/ingestion/case_mix_optimizer.py) | Exact cost selection under intersecting caps. |
 | [`cohort_policy.py`](../legalforecast/ingestion/cohort_policy.py) | Immutable precommitments and append-only observations. |
+| [`exact100_reserve_extension.py`](../legalforecast/ingestion/exact100_reserve_extension.py) | Provider-free reserve extension for an authenticated exact-100 successor. |
 | [`exact310_rest_rebind.py`](../legalforecast/ingestion/exact310_rest_rebind.py) | Policy layer for the exact terminal REST rebind. |
 | [`mtd_acquisition_screen.py`](../legalforecast/ingestion/mtd_acquisition_screen.py) | Public-record MTD decision screening. |
 | [`pacer_gap_append_rebase.py`](../legalforecast/ingestion/pacer_gap_append_rebase.py) | Append-only snapshot growth authentication. |
