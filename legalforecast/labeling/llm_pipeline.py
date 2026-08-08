@@ -200,6 +200,30 @@ class LlmBatchResult:
 
 
 @dataclass(frozen=True, slots=True)
+class LlmUnitizationReconstructionRecovery:
+    """Provider-free recovery of one exact journaled Stage A response."""
+
+    candidate_id: str
+    case_id: str
+    attempt_ordinal: int
+    raw_response_sha256: str
+    normalized_response_sha256: str
+    prediction_units: tuple[JsonRecord, ...]
+    review_items: tuple[JsonRecord, ...]
+
+    def to_record(self) -> JsonRecord:
+        return {
+            "candidate_id": self.candidate_id,
+            "case_id": self.case_id,
+            "attempt_ordinal": self.attempt_ordinal,
+            "raw_response_sha256": self.raw_response_sha256,
+            "normalized_response_sha256": self.normalized_response_sha256,
+            "prediction_units": list(self.prediction_units),
+            "review_items": list(self.review_items),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class _LlmDocument:
     candidate_id: str
     source_document_id: str
@@ -430,6 +454,117 @@ def stage_a_unitization_prompt_records(
             }
         )
     return tuple(prompts)
+
+
+def recover_llm_unitization_reconstruction(
+    *,
+    selection_record: Mapping[str, Any],
+    parser_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+    markdown_bytes: Mapping[str, bytes] | None,
+    registry_entry: ModelRegistryEntry,
+    model_registry_sha256: str,
+    provider_journal_path: str | Path,
+    provider_cycle_cap_usd: float,
+    provider_cycle_id: str,
+    provider_cycle_caps_sha256: str,
+    provider_account: str,
+) -> LlmUnitizationReconstructionRecovery:
+    """Revalidate and settle the latest failed Stage A response without a call."""
+
+    candidate_id = _required_str(selection_record, "candidate_id")
+    case_id = _required_str(selection_record, "case_id")
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    documents = _predecision_documents(
+        selection_record,
+        parser_by_key=parser_by_key,
+        markdown_root=Path(markdown_root),
+        markdown_bytes=markdown_bytes,
+    )
+    prompt = _unitization_prompt(selection_record, documents)
+    journal = _provider_attempt_journal(
+        path=provider_journal_path,
+        stage="llm-unitize",
+        candidate_id=candidate_id,
+        prompt=prompt,
+        registry_entry=registry_entry,
+        account=provider_account,
+        model_registry_sha256=model_registry_sha256,
+        cycle_cap_usd=provider_cycle_cap_usd,
+        cycle_id=provider_cycle_id,
+        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+    )
+    if journal is None:
+        raise LlmPipelineError("provider reconstruction recovery requires a journal")
+    try:
+        evidence = journal.latest_reconstruction_recovery_evidence()
+        try:
+            normalized_value: object = json.loads(evidence.normalized_response_json)
+        except json.JSONDecodeError as exc:
+            raise LlmPipelineError(
+                "journaled normalized provider response is invalid"
+            ) from exc
+        if not isinstance(normalized_value, Mapping):
+            raise LlmPipelineError(
+                "journaled normalized provider response must be an object"
+            )
+        raw_output = cast(Mapping[str, object], normalized_value).get("raw_output")
+        if not isinstance(raw_output, str):
+            raise LlmPipelineError(
+                "journaled normalized provider response lacks raw_output"
+            )
+        payload = _json_object_from_response(
+            raw_output,
+            top_level_sequence_field="unit_seeds",
+        )
+        result = construct_stage_a_units(
+            StageAConstructionInput(
+                candidate_id=candidate_id,
+                case_id=case_id,
+                source_documents=tuple(
+                    document.stage_a_source() for document in documents
+                ),
+                unit_seeds=tuple(
+                    _stage_a_seed(record)
+                    for record in _record_sequence(
+                        payload.get("unit_seeds"), "unit_seeds"
+                    )
+                ),
+                metadata={"llm_unitizer_model_key": registry_entry.registry_key},
+            )
+        )
+        if not any(unit.should_score for unit in result.units) and (
+            not result.review_items
+            or any(
+                unit.challenge_scope is not ChallengeScope.UNCLEAR
+                for unit in result.units
+            )
+        ):
+            raise LlmPipelineError("LLM unitization produced no scorable units")
+        prediction_units = tuple(unit.to_record() for unit in result.units)
+        review_items = tuple(item.to_record() for item in result.review_items)
+        journal.commit_reconstruction_recovery(
+            evidence.attempt_ordinal,
+            raw_response_json=evidence.raw_response_json,
+            normalized_response_json=evidence.normalized_response_json,
+            record={
+                "prediction_units": list(prediction_units),
+                "review_items": list(review_items),
+            },
+        )
+        return LlmUnitizationReconstructionRecovery(
+            candidate_id=candidate_id,
+            case_id=case_id,
+            attempt_ordinal=evidence.attempt_ordinal,
+            raw_response_sha256="sha256:"
+            + hashlib.sha256(evidence.raw_response_json.encode()).hexdigest(),
+            normalized_response_sha256="sha256:"
+            + hashlib.sha256(evidence.normalized_response_json.encode()).hexdigest(),
+            prediction_units=prediction_units,
+            review_items=review_items,
+        )
+    finally:
+        journal.close()
 
 
 def llm_review_stage_a_units(
@@ -2954,7 +3089,15 @@ def _json_object_from_response(
         try:
             parsed = json.loads(candidate)
         except json.JSONDecodeError as exc:
-            raise LlmPipelineError("LLM response JSON object was invalid") from exc
+            repaired_candidate = _repair_unescaped_json_string_quotes(candidate)
+            if repaired_candidate is None:
+                raise LlmPipelineError("LLM response JSON object was invalid") from exc
+            try:
+                parsed = json.loads(repaired_candidate)
+            except json.JSONDecodeError as repaired_exc:
+                raise LlmPipelineError(
+                    "LLM response JSON object was invalid"
+                ) from repaired_exc
     if (
         top_level_sequence_field is not None
         and isinstance(parsed, Sequence)
@@ -3005,6 +3148,58 @@ def _extract_balanced_json_value(text: str, *, allow_array: bool) -> str | None:
             if depth == 0:
                 return text[start : index + 1]
     return None
+
+
+def _repair_unescaped_json_string_quotes(text: str) -> str | None:
+    """Repair only syntactically unambiguous literal quotes in JSON strings.
+
+    A provider occasionally emits a literal double quote inside a string without
+    escaping it.  This helper is deliberately narrower than a general JSON repair:
+    it escapes a quote only while inside a string when its next non-whitespace
+    character cannot legally follow a closing JSON string.  All other malformed
+    output remains subject to strict ``json.loads`` validation by the caller.
+    """
+
+    repaired: list[str] = []
+    in_string = False
+    escaped = False
+    changed = False
+    closing_followers = frozenset({":", ",", "}", "]"})
+
+    for index, char in enumerate(text):
+        if not in_string:
+            repaired.append(char)
+            if char == '"':
+                in_string = True
+            continue
+
+        if escaped:
+            repaired.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            repaired.append(char)
+            escaped = True
+            continue
+        if char != '"':
+            repaired.append(char)
+            continue
+
+        next_index = index + 1
+        while next_index < len(text) and text[next_index].isspace():
+            next_index += 1
+        next_character = text[next_index] if next_index < len(text) else None
+        if next_character == '"':
+            return None
+        if next_character is None or next_character in closing_followers:
+            repaired.append(char)
+            in_string = False
+            continue
+
+        repaired.append('\\"')
+        changed = True
+
+    return "".join(repaired) if changed else None
 
 
 def _coerced_excerpt(text: str, excerpt: str) -> str:
