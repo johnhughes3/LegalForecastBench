@@ -97,6 +97,9 @@ def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
     rows = [failed_row]
 
     class _Caps:
+        def __init__(self) -> None:
+            self.providers = {"anthropic": SimpleNamespace(account=None)}
+
         @staticmethod
         def cap_usd(provider: str) -> float:
             assert provider == "anthropic"
@@ -104,8 +107,9 @@ def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
 
         @staticmethod
         def account(provider: str) -> str:
-            assert provider == "anthropic"
-            return "primary"
+            raise AssertionError(
+                f"legacy local cap for {provider} must retain the default account"
+            )
 
     lineage = SimpleNamespace(
         selection_records=({"candidate_id": "cand-1", "case_id": "case-1"},),
@@ -135,9 +139,11 @@ def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
     )
     calls = 0
 
+    provider_accounts: list[object] = []
+
     def recover(**kwargs: object) -> object:
         nonlocal calls
-        del kwargs
+        provider_accounts.append(kwargs["provider_account"])
         calls += 1
         if calls == 1:
             rows[0] = settled_row
@@ -177,6 +183,7 @@ def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
     with pytest.raises(cli.CommandError, match="recovery receipt changed"):
         cli._cmd_acquisition_recover_llm_unitize_reconstruction(args)
     assert calls == 3
+    assert provider_accounts == ["default", "default", "default"]
 
 
 def test_reconstruction_cli_rejects_absent_journal_without_creating_it(
