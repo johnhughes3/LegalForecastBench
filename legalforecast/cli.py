@@ -56492,7 +56492,7 @@ def _required_stage_a_lineage_path(
     return path
 
 
-def _verify_stage_a_unitization_lineage(
+def _verify_stage_a_unitization_lineage_uncached(
     args: argparse.Namespace,
     *,
     markdown_root: Path,
@@ -56721,6 +56721,23 @@ def _verify_stage_a_unitization_lineage(
         document_tree=dict(verified_materialization.document_tree),
         markdown_bytes=markdown_bytes,
     )
+
+
+def _verify_stage_a_unitization_lineage(
+    args: argparse.Namespace,
+    *,
+    markdown_root: Path,
+) -> _StageAUnitizationLineage:
+    """Replay Stage A lineage while reusing identical authenticated PDF scans."""
+
+    # The replay still reads and hashes every artifact at every authority boundary.
+    # This only reuses a scan when the scanner version, byte length, and SHA-256
+    # all match within this top-level preflight.
+    with cache_disclosure_document_scans():
+        return _verify_stage_a_unitization_lineage_uncached(
+            args,
+            markdown_root=markdown_root,
+        )
 
 
 def _stage_a_file_commitment(path: Path, *, payload: bytes | None = None) -> JsonRecord:
