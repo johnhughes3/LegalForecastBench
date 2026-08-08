@@ -7,7 +7,7 @@ name = "legalforecast-mtd"
 version = "0.1.0a3"
 description = "Alpha-release tooling for the LegalForecast-MTD public benchmark."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
@@ -16,7 +16,7 @@ authors = [
 classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "cryptography>=50.0.0",
@@ -56,14 +56,19 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 88
 src = ["legalforecast", "tests"]
-target-version = "py312"
+# Deliberately one release behind `requires-python`.  At py314 the formatter
+# adopts PEP 758 unparenthesized `except A, B:`, which rewrites 34 files and
+# makes the source unparseable by any Python before 3.14.  That is a source
+# migration worth deciding on its own merits, not a side effect of moving the
+# runtime.  See LegalForecastBench-xf1t.
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "RUF", "UP"]
 
 [tool.pyright]
 include = ["legalforecast", "scripts"]
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
 
 [tool.interrogate]
