@@ -605,6 +605,80 @@ def test_zero_cost_successor_rejects_changed_historical_exclusion_source(
         )
 
 
+@pytest.mark.parametrize(
+    ("selected_ids", "screened_ids", "historical_ids", "message"),
+    (
+        (("selected", "selected"), ("selected",), (), "selection repeats"),
+        (("selected",), ("selected", "selected"), (), "screened pool repeats"),
+        (("selected",), ("selected", "missing"), (), "do not exactly reconcile"),
+        (("selected",), ("selected",), ("unknown",), "do not exactly reconcile"),
+    ),
+)
+def test_zero_cost_successor_rejects_malformed_partition(
+    tmp_path: Path,
+    selected_ids: tuple[str, ...],
+    screened_ids: tuple[str, ...],
+    historical_ids: tuple[str, ...],
+    message: str,
+) -> None:
+    selection = _write_jsonl(
+        tmp_path / "projection/target-cohort-selection.jsonl",
+        [{"candidate_id": candidate_id} for candidate_id in selected_ids],
+    )
+    replacement_result = _write_json(
+        tmp_path / "projection/replacement-result.json", {"fixture": "result"}
+    )
+    historical = _write_jsonl(
+        tmp_path / "projection/successor-exclusions.jsonl",
+        [
+            {
+                "candidate_id": candidate_id,
+                "case_id": candidate_id,
+                "stage": "eligibility",
+                "reason": "target_clean_case_cap_reached",
+            }
+            for candidate_id in historical_ids
+        ],
+    )
+    projection_card = _write_json(
+        tmp_path / "projection/run-cards/project-target-cohort.json",
+        {"fixture": "card"},
+    )
+    screened = _write_jsonl(
+        tmp_path / "screened-cases.jsonl",
+        [{"candidate": {"docket_id": candidate_id}} for candidate_id in screened_ids],
+    )
+    inputs = [str(tmp_path / f"unused-{index}") for index in range(23)]
+    inputs[1] = str(replacement_result)
+    inputs[4] = str(historical)
+    verified_projection = {
+        "selection_path": selection,
+        "selection_records": [
+            {"candidate_id": candidate_id} for candidate_id in selected_ids
+        ],
+        "run_card": {
+            "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+            "stage": "project-zero-cost-successor",
+            "input_paths": inputs,
+        },
+        "run_card_path": projection_card,
+        "verified_artifact_bytes": {
+            str(projection_card.resolve()): projection_card.read_bytes(),
+            str(selection.resolve()): selection.read_bytes(),
+            str(replacement_result.resolve()): replacement_result.read_bytes(),
+            str(historical.resolve()): historical.read_bytes(),
+        },
+    }
+
+    with pytest.raises(cli.ClearanceReplacementError, match=message):
+        cli._prepare_replacement_exclusions(
+            target_root=selection.parent,
+            screened_cases_path=screened,
+            exclusion_paths=(historical,),
+            verified_projection=verified_projection,
+        )
+
+
 def test_finalize_consumes_verified_successor_exclusion_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

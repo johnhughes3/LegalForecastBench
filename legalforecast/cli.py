@@ -25413,6 +25413,12 @@ def _prepare_replacement_exclusions(
             raise ClearanceReplacementError(
                 "authenticated historical exclusion source commitment changed"
             )
+        # The source is re-read only to detect a mutation.  Downstream ledger
+        # construction must consume the verifier-owned snapshot, not caller
+        # supplied bytes from this point forward.
+        source_bytes[os.path.abspath(matching_historical_sources[0])] = (
+            historical_exclusion_bytes
+        )
     else:
         if len(replacement_inputs) != 19:
             raise ClearanceReplacementError(
@@ -39792,6 +39798,14 @@ def _verify_zero_cost_successor_projection(
         raise CommandError("invalid completed zero-cost successor run card")
     input_paths = tuple(Path(str(path)) for path in typed_inputs)
     output_paths = tuple(Path(str(path)) for path in typed_outputs)
+    authenticated_external_input_snapshots = {
+        input_paths[1]: _read_singly_linked_regular_input(
+            input_paths[1], label="zero-cost successor replacement result"
+        ),
+        input_paths[4]: _read_singly_linked_regular_input(
+            input_paths[4], label="zero-cost successor historical exclusions"
+        ),
+    }
     expected_outputs = {
         target_root / "target-cohort-selection.jsonl",
         target_root / "target-cohort-projection.json",
@@ -39986,7 +40000,11 @@ def _verify_zero_cost_successor_projection(
     clearance_path = target_root / "disclosure-clearance.jsonl"
     restriction_path = target_root / "restriction-evidence.jsonl"
     _require_snapshot_unchanged(
-        snapshots, label="zero-cost successor materializer adapter"
+        {
+            **snapshots,
+            **authenticated_external_input_snapshots,
+        },
+        label="zero-cost successor materializer adapter",
     )
     relocation_sources = {
         stable_path: payload
@@ -40042,6 +40060,10 @@ def _verify_zero_cost_successor_projection(
         "selected_document_keys": selected_document_keys,
         "verified_artifact_bytes": {
             **{os.path.abspath(path): payload for path, payload in snapshots.items()},
+            **{
+                os.path.abspath(path): payload
+                for path, payload in authenticated_external_input_snapshots.items()
+            },
             **{
                 os.path.abspath(path): payload
                 for path, payload in relocation_sources.items()
