@@ -22,6 +22,8 @@ from typing import Any, cast
 from urllib.parse import urlsplit
 
 from legalforecast.contracts import (
+    ACQUISITION_RUN_CARD_V1,
+    SELECTED_ACQUISITION_SLICE_V1,
     TARGET_RAW_DOCKET_RECOVERY_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
@@ -1101,7 +1103,7 @@ def _expected_selected_slice_config(
         json.dumps(selection_payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     return {
-        "schema_version": "legalforecast.selected_acquisition_slice.v1",
+        "schema_version": str(SELECTED_ACQUISITION_SLICE_V1),
         "parent_batch_id": plan.source_batch_id,
         "parent_batch_digest": plan.source_batch_digest,
         "selection_hash": selection_hash,
@@ -1148,7 +1150,7 @@ def _verify_zero_success_parent(
     typed_inputs = cast(list[object], raw_inputs)
     typed_outputs = cast(list[object], raw_outputs)
     if (
-        failure_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        failure_card.get("schema_version") != str(ACQUISITION_RUN_CARD_V1)
         or failure_card.get("stage") != "execute-target-raw-docket-recovery"
         or failure_card.get("status") != "failed"
         or failure_card.get("dry_run") is not False
