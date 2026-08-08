@@ -374,6 +374,237 @@ def test_successor_exclusions_remove_promoted_old_exclusion_and_add_quarantine(
     assert prepared.selected_candidate_ids == ("kept", "promoted")
 
 
+def test_zero_cost_successor_exclusions_reconcile_exact_partition(
+    tmp_path: Path,
+) -> None:
+    """The current 23-input successor state must retain its full 153-case partition."""
+    selected_ids = ("71677178", *(f"selected-{index:03d}" for index in range(99)))
+    historical_ids = tuple(f"historical-{index:02d}" for index in range(15))
+    public_ids = ("public-00", "public-01")
+    gap_ids = tuple(f"gap-{index:02d}" for index in range(36))
+    selection = _write_jsonl(
+        tmp_path / "projection/target-cohort-selection.jsonl",
+        [{"candidate_id": candidate_id} for candidate_id in selected_ids],
+    )
+    replacement_result = _write_json(
+        tmp_path / "projection/replacement-result.json",
+        {"schema_version": "test.ranked-result.v1"},
+    )
+    historical = _write_jsonl(
+        tmp_path / "projection/successor-exclusions.jsonl",
+        [
+            {
+                "candidate_id": candidate_id,
+                "case_id": candidate_id,
+                "stage": "eligibility",
+                "reason": "target_clean_case_cap_reached",
+            }
+            for candidate_id in ("71677178", *historical_ids)
+        ],
+    )
+    projection_card = _write_json(
+        tmp_path / "projection/run-cards/project-target-cohort.json",
+        {
+            "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+            "stage": "project-zero-cost-successor",
+        },
+    )
+    public = _write_jsonl(
+        tmp_path / "public-exclusions.jsonl",
+        [
+            {
+                "candidate_id": candidate_id,
+                "case_id": candidate_id,
+                "stage": "eligibility",
+                "reason": "public_plan",
+            }
+            for candidate_id in public_ids
+        ],
+    )
+    gap = _write_jsonl(
+        tmp_path / "gap-exclusions.jsonl",
+        [
+            {
+                "candidate_id": candidate_id,
+                "case_id": candidate_id,
+                "stage": "eligibility",
+                "reason": "pacer_gap",
+            }
+            for candidate_id in gap_ids
+        ],
+    )
+    empty = _write_jsonl(tmp_path / "budget-exclusions.jsonl", [])
+    screened = _write_jsonl(
+        tmp_path / "screened-cases.jsonl",
+        [
+            {"candidate": {"docket_id": candidate_id}}
+            for candidate_id in (*selected_ids, *historical_ids, *public_ids, *gap_ids)
+        ],
+    )
+    inputs = [str(tmp_path / f"unused-{index}") for index in range(23)]
+    inputs[1] = str(replacement_result)
+    inputs[4] = str(historical)
+    verified_projection = {
+        "selection_path": selection,
+        "selection_records": [
+            {"candidate_id": candidate_id} for candidate_id in selected_ids
+        ],
+        "run_card": {
+            "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+            "stage": "project-zero-cost-successor",
+            "input_paths": inputs,
+        },
+        "run_card_path": projection_card,
+        "verified_artifact_bytes": {
+            str(projection_card.resolve()): projection_card.read_bytes(),
+            str(selection.resolve()): selection.read_bytes(),
+            str(replacement_result.resolve()): replacement_result.read_bytes(),
+            str(historical.resolve()): historical.read_bytes(),
+        },
+    }
+
+    prepared = cli._prepare_replacement_exclusions(
+        target_root=selection.parent,
+        screened_cases_path=screened,
+        exclusion_paths=(public, gap, empty, historical),
+        verified_projection=verified_projection,
+    )
+
+    excluded_ids = {row["candidate_id"] for row in prepared.records}
+    assert len(prepared.selected_candidate_ids) == 100
+    assert len(prepared.records) == 53
+    assert "71677178" not in excluded_ids
+    assert set(prepared.selected_candidate_ids).isdisjoint(excluded_ids)
+    assert set(prepared.selected_candidate_ids) | excluded_ids == set(
+        prepared.screened_candidate_ids
+    )
+
+
+def test_zero_cost_successor_requires_authenticated_historical_exclusions(
+    tmp_path: Path,
+) -> None:
+    selection = _write_jsonl(
+        tmp_path / "projection/target-cohort-selection.jsonl",
+        [{"candidate_id": "selected"}],
+    )
+    replacement_result = _write_json(
+        tmp_path / "projection/replacement-result.json", {"fixture": "result"}
+    )
+    historical = _write_jsonl(
+        tmp_path / "projection/successor-exclusions.jsonl",
+        [{"candidate_id": "excluded", "case_id": "excluded", "stage": "eligibility"}],
+    )
+    other = _write_jsonl(
+        tmp_path / "other-exclusions.jsonl",
+        [{"candidate_id": "excluded", "case_id": "excluded", "stage": "eligibility"}],
+    )
+    projection_card = _write_json(
+        tmp_path / "projection/run-cards/project-target-cohort.json",
+        {"fixture": "card"},
+    )
+    screened = _write_jsonl(
+        tmp_path / "screened-cases.jsonl",
+        [
+            {"candidate": {"docket_id": "selected"}},
+            {"candidate": {"docket_id": "excluded"}},
+        ],
+    )
+    inputs = [str(tmp_path / f"unused-{index}") for index in range(23)]
+    inputs[1] = str(replacement_result)
+    inputs[4] = str(historical)
+    verified_projection = {
+        "selection_path": selection,
+        "selection_records": [{"candidate_id": "selected"}],
+        "run_card": {
+            "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+            "stage": "project-zero-cost-successor",
+            "input_paths": inputs,
+        },
+        "run_card_path": projection_card,
+        "verified_artifact_bytes": {
+            str(projection_card.resolve()): projection_card.read_bytes(),
+            str(selection.resolve()): selection.read_bytes(),
+            str(replacement_result.resolve()): replacement_result.read_bytes(),
+            str(historical.resolve()): historical.read_bytes(),
+        },
+    }
+
+    with pytest.raises(
+        cli.ClearanceReplacementError,
+        match="authenticated historical exclusion source",
+    ):
+        cli._prepare_replacement_exclusions(
+            target_root=selection.parent,
+            screened_cases_path=screened,
+            exclusion_paths=(other,),
+            verified_projection=verified_projection,
+        )
+
+
+def test_zero_cost_successor_rejects_changed_historical_exclusion_source(
+    tmp_path: Path,
+) -> None:
+    selection = _write_jsonl(
+        tmp_path / "projection/target-cohort-selection.jsonl",
+        [{"candidate_id": "selected"}],
+    )
+    replacement_result = _write_json(
+        tmp_path / "projection/replacement-result.json", {"fixture": "result"}
+    )
+    historical = _write_jsonl(
+        tmp_path / "projection/successor-exclusions.jsonl",
+        [{"candidate_id": "excluded", "case_id": "excluded", "stage": "eligibility"}],
+    )
+    projection_card = _write_json(
+        tmp_path / "projection/run-cards/project-target-cohort.json",
+        {"fixture": "card"},
+    )
+    screened = _write_jsonl(
+        tmp_path / "screened-cases.jsonl",
+        [
+            {"candidate": {"docket_id": "selected"}},
+            {"candidate": {"docket_id": "excluded"}},
+        ],
+    )
+    inputs = [str(tmp_path / f"unused-{index}") for index in range(23)]
+    inputs[1] = str(replacement_result)
+    inputs[4] = str(historical)
+    verified_projection = {
+        "selection_path": selection,
+        "selection_records": [{"candidate_id": "selected"}],
+        "run_card": {
+            "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+            "stage": "project-zero-cost-successor",
+            "input_paths": inputs,
+        },
+        "run_card_path": projection_card,
+        "verified_artifact_bytes": {
+            str(projection_card.resolve()): projection_card.read_bytes(),
+            str(selection.resolve()): selection.read_bytes(),
+            str(replacement_result.resolve()): replacement_result.read_bytes(),
+            str(historical.resolve()): historical.read_bytes(),
+        },
+    }
+    historical.write_text(
+        json.dumps(
+            {"candidate_id": "tampered", "case_id": "tampered", "stage": "eligibility"}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        cli.ClearanceReplacementError,
+        match="historical exclusion source commitment changed",
+    ):
+        cli._prepare_replacement_exclusions(
+            target_root=selection.parent,
+            screened_cases_path=screened,
+            exclusion_paths=(historical,),
+            verified_projection=verified_projection,
+        )
+
+
 def test_finalize_consumes_verified_successor_exclusion_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

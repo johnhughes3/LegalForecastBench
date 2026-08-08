@@ -25372,14 +25372,53 @@ def _prepare_replacement_exclusions(
             "successor exclusions require an authenticated replacement projection"
         )
     replacement_inputs = cast(Sequence[object], raw_inputs)
-    if len(replacement_inputs) != 19:
-        raise ClearanceReplacementError(
-            "successor exclusions require an authenticated replacement projection"
-        )
-    replacement_result_path = Path(str(replacement_inputs[9]))
     verified_projection_bytes = cast(
         Mapping[str, bytes], projection["verified_artifact_bytes"]
     )
+    derived_rows: tuple[JsonRecord, ...] = ()
+    quarantined_rows: list[JsonRecord] = []
+    is_zero_cost_successor = (
+        run_card.get("schema_version") == ZERO_COST_SUCCESSOR_STATE_SCHEMA
+    )
+    if is_zero_cost_successor:
+        if (
+            run_card.get("stage") != "project-zero-cost-successor"
+            or len(replacement_inputs) != 23
+        ):
+            raise ClearanceReplacementError(
+                "successor exclusions require an authenticated zero-cost successor "
+                "projection"
+            )
+        # These slots are committed by the completed successor-state schema;
+        # accepting an adjacent or copied sidecar would reopen its lineage.
+        replacement_result_path = Path(str(replacement_inputs[1]))
+        historical_exclusion_path = Path(str(replacement_inputs[4]))
+        historical_exclusion_bytes = verified_projection_bytes.get(
+            os.path.abspath(historical_exclusion_path)
+        )
+        matching_historical_sources = tuple(
+            path
+            for path in exclusion_paths
+            if path.resolve() == historical_exclusion_path.resolve()
+        )
+        if historical_exclusion_bytes is None or len(matching_historical_sources) != 1:
+            raise ClearanceReplacementError(
+                "zero-cost successor exclusions require exactly one authenticated "
+                "historical exclusion source"
+            )
+        if (
+            source_bytes[os.path.abspath(matching_historical_sources[0])]
+            != historical_exclusion_bytes
+        ):
+            raise ClearanceReplacementError(
+                "authenticated historical exclusion source commitment changed"
+            )
+    else:
+        if len(replacement_inputs) != 19:
+            raise ClearanceReplacementError(
+                "successor exclusions require an authenticated replacement projection"
+            )
+        replacement_result_path = Path(str(replacement_inputs[9]))
     replacement_result_bytes = verified_projection_bytes.get(
         os.path.abspath(replacement_result_path)
     )
@@ -25387,40 +25426,46 @@ def _prepare_replacement_exclusions(
         raise ClearanceReplacementError(
             "authenticated replacement projection lacks replacement result bytes"
         )
-    replacement_result = _projection_json_object(
-        replacement_result_bytes,
-        source=replacement_result_path,
-    )
-    raw_ledger = replacement_result.get("ledger_records")
-    raw_derived = replacement_result.get("derived_exclusions")
-    if (
-        not isinstance(raw_ledger, Sequence)
-        or isinstance(raw_ledger, (str, bytes))
-        or not isinstance(raw_derived, Sequence)
-        or isinstance(raw_derived, (str, bytes))
-    ):
-        raise ClearanceReplacementError("replacement result lacks exclusion lineage")
-    quarantined_rows: list[JsonRecord] = []
-    for raw_event in cast(Sequence[object], raw_ledger):
-        event = _mapping(raw_event, "replacement ledger event")
-        candidate_id = _required_str(event, "quarantined_candidate_id")
-        quarantined_rows.append(
-            {
-                "candidate_id": candidate_id,
-                "case_id": candidate_id,
-                "stage": "eligibility",
-                "reason": "purchased_document_quarantined",
-                "source_document_ids": list(
-                    _required_str_tuple(event, "quarantined_document_ids")
-                ),
-                "source_entry_ids": [
-                    _required_str(event, "record_sha256"),
-                ],
-                "notes": (
-                    "Removed from the active cohort by the authenticated "
-                    "purchased-clearance replacement ledger."
-                ),
-            }
+    if not is_zero_cost_successor:
+        replacement_result = _projection_json_object(
+            replacement_result_bytes,
+            source=replacement_result_path,
+        )
+        raw_ledger = replacement_result.get("ledger_records")
+        raw_derived = replacement_result.get("derived_exclusions")
+        if (
+            not isinstance(raw_ledger, Sequence)
+            or isinstance(raw_ledger, (str, bytes))
+            or not isinstance(raw_derived, Sequence)
+            or isinstance(raw_derived, (str, bytes))
+        ):
+            raise ClearanceReplacementError(
+                "replacement result lacks exclusion lineage"
+            )
+        for raw_event in cast(Sequence[object], raw_ledger):
+            event = _mapping(raw_event, "replacement ledger event")
+            candidate_id = _required_str(event, "quarantined_candidate_id")
+            quarantined_rows.append(
+                {
+                    "candidate_id": candidate_id,
+                    "case_id": candidate_id,
+                    "stage": "eligibility",
+                    "reason": "purchased_document_quarantined",
+                    "source_document_ids": list(
+                        _required_str_tuple(event, "quarantined_document_ids")
+                    ),
+                    "source_entry_ids": [
+                        _required_str(event, "record_sha256"),
+                    ],
+                    "notes": (
+                        "Removed from the active cohort by the authenticated "
+                        "purchased-clearance replacement ledger."
+                    ),
+                }
+            )
+        derived_rows = tuple(
+            dict(_mapping(row, "replacement derived exclusion"))
+            for row in cast(Sequence[object], raw_derived)
         )
     source_groups = tuple(
         _projection_jsonl_records(
@@ -25428,10 +25473,6 @@ def _prepare_replacement_exclusions(
             source=path,
         )
         for path in exclusion_paths
-    )
-    derived_rows = tuple(
-        dict(_mapping(row, "replacement derived exclusion"))
-        for row in cast(Sequence[object], raw_derived)
     )
     ledger = merge_exclusion_ledger_records(
         *source_groups,
