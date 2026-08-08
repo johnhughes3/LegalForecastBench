@@ -62,10 +62,6 @@ jobs:
           --cov-report=xml:coverage.xml
           --junitxml=test-report.junit.xml
 
-      # CODECOV_TOKEN is not yet configured on this repository. Codecov accepts
-      # tokenless uploads from public repos, but they are rate limited, so keep
-      # both upload steps non-fatal: a throttled or unauthenticated upload must
-      # never redden trunk CI. Remove these once the token is provisioned.
       - name: Upload coverage reports to Codecov
         # Coverage is most useful when the suite failed, so upload unless the
         # run was cancelled rather than only on success.
@@ -75,14 +71,12 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: johnhughes3/LegalForecastBench
           files: coverage.xml
-          fail_ci_if_error: false
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
 
       - name: Rebuild and verify packet renders
         run: >-

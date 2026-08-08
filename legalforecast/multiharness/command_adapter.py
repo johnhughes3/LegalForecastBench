@@ -1116,7 +1116,7 @@ def _raise_command_cancellation_signal(
 
 
 @contextmanager
-def _command_cancellation_signal_handlers() -> Generator[None, None, None]:
+def _command_cancellation_signal_handlers() -> Generator[None]:
     if threading.current_thread() is not threading.main_thread():
         yield
         return
@@ -1137,7 +1137,7 @@ def _command_cancellation_signal_handlers() -> Generator[None, None, None]:
 
 @contextmanager
 def _deferred_command_cancellation_signal_handlers() -> Generator[
-    _DeferredCommandCancellation, None, None
+    _DeferredCommandCancellation
 ]:
     state = _DeferredCommandCancellation()
     if threading.current_thread() is not threading.main_thread():
