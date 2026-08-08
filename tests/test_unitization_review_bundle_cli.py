@@ -9,7 +9,6 @@ from typing import Any
 
 import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import main
 from legalforecast.contracts import (
     UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
@@ -195,7 +194,7 @@ def test_builds_blinded_bundle_from_authenticated_stage_a_inputs(
     review_card.write_text("{}\n", encoding="utf-8")
 
     output_root = tmp_path / "private-bundle"
-    assert main(_argv(output_root, raw, unit_card, review_card, queue)) == 0
+    assert cli.main(_argv(output_root, raw, unit_card, review_card, queue)) == 0
 
     [bundle] = [
         json.loads(line)
@@ -282,7 +281,7 @@ def test_builds_bundle_for_authenticated_terminal_escalation_queue(
     review_card.write_text("{}\n", encoding="utf-8")
 
     output_root = tmp_path / "terminal-bundle"
-    assert main(_argv(output_root, raw, unit_card, review_card, queue)) == 0
+    assert cli.main(_argv(output_root, raw, unit_card, review_card, queue)) == 0
     [bundle] = [
         json.loads(line)
         for line in (output_root / "unitization-review-bundle.jsonl")
@@ -300,7 +299,9 @@ def test_builds_bundle_for_authenticated_terminal_escalation_queue(
     }
     _write_jsonl(queue, [terminal])
     assert (
-        main(_argv(tmp_path / "tampered-terminal", raw, unit_card, review_card, queue))
+        cli.main(
+            _argv(tmp_path / "tampered-terminal", raw, unit_card, review_card, queue)
+        )
         == 2
     )
 
@@ -330,13 +331,15 @@ def test_rejects_decision_source_and_duplicate_reviews(
 
     _write_jsonl(queue, [_review("unit-1", ["decision"])])
     assert (
-        main(_argv(tmp_path / "out-decision", raw, unit_card, review_card, queue)) == 2
+        cli.main(_argv(tmp_path / "out-decision", raw, unit_card, review_card, queue))
+        == 2
     )
 
     valid = _review("unit-1", ["complaint"])
     _write_jsonl(queue, [valid, valid])
     assert (
-        main(_argv(tmp_path / "out-duplicate", raw, unit_card, review_card, queue)) == 2
+        cli.main(_argv(tmp_path / "out-duplicate", raw, unit_card, review_card, queue))
+        == 2
     )
 
 
@@ -366,12 +369,13 @@ def test_rejects_hard_linked_authenticated_input(
     unit_card.write_text("{}\n", encoding="utf-8")
     review_card.write_text("{}\n", encoding="utf-8")
 
-    assert main(_argv(tmp_path / "out", raw, unit_card, review_card, queue)) == 2
+    assert cli.main(_argv(tmp_path / "out", raw, unit_card, review_card, queue)) == 2
 
     raw.unlink()
     raw.symlink_to(raw_alias)
     assert (
-        main(_argv(tmp_path / "out-symlink", raw, unit_card, review_card, queue)) == 2
+        cli.main(_argv(tmp_path / "out-symlink", raw, unit_card, review_card, queue))
+        == 2
     )
 
 
@@ -401,4 +405,4 @@ def test_rejects_completion_artifact_aliasing_authenticated_input(
 
     argv = _argv(tmp_path / "out", raw, unit_card, review_card, queue)
     argv.extend(["--run-card-output", str(raw)])
-    assert main(argv) == 2
+    assert cli.main(argv) == 2
