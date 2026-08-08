@@ -137,6 +137,89 @@ def test_downstream_stage_a_sources_require_exact_authenticated_paths(
         )
 
 
+def test_shared_provider_chain_accepts_production_unprefixed_caps_digest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Downstream review must replay the digest representation Stage A emits."""
+
+    caps_path = tmp_path / "provider-caps.json"
+    _write_json(
+        caps_path,
+        {
+            "schema_version": "legalforecast.provider_cycle_caps.v1",
+            "cycle_id": "cycle-1",
+            "providers": [
+                {
+                    "provider": "anthropic",
+                    "cycle_reservation_cap_usd": "10.00",
+                    "external_spend_limit_usd": "20.00",
+                    "external_limit_scope": "fixture",
+                    "external_limit_source": "fixture",
+                    "verified_at": "2026-07-16T00:00:00Z",
+                }
+            ],
+        },
+    )
+    raw_caps_sha256 = hashlib.sha256(caps_path.read_bytes()).hexdigest()
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    ProviderAttemptJournal(
+        journal_path,
+        identity=ProviderCallIdentity(
+            stage="fixture-bootstrap",
+            candidate_id="fixture",
+            model_key="anthropic:test",
+            prompt="fixture",
+            model_registry_sha256="1" * 64,
+        ),
+        provider="anthropic",
+        reservation_usd=0.0,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=raw_caps_sha256,
+    ).close()
+    unitization_card = tmp_path / "llm-unitize.json"
+    _write_json(unitization_card, {})
+    lineage = cast(
+        cli._StageAUnitizationLineage,
+        SimpleNamespace(
+            cohort_cycle_id="cycle-1",
+            provider_caps_sha256=raw_caps_sha256,
+            provider_journal_path=journal_path,
+            input_commitments={},
+            markdown_root=tmp_path,
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_run_card",
+        lambda *args, **kwargs: lineage,
+    )
+
+    resolved, resolved_card = cli._verified_shared_provider_chain(
+        Namespace(
+            llm_unitization_run_card=unitization_card,
+            provider_cycle_caps=caps_path,
+            provider_journal=journal_path,
+        ),
+        raw_prediction_units_path=tmp_path / "prediction-units.jsonl",
+    )
+
+    assert resolved is lineage
+    assert resolved_card == unitization_card
+
+    caps_path.write_bytes(caps_path.read_bytes() + b" ")
+    with pytest.raises(cli.CommandError, match="caps artifact differs"):
+        cli._verified_shared_provider_chain(
+            Namespace(
+                llm_unitization_run_card=unitization_card,
+                provider_cycle_caps=caps_path,
+                provider_journal=journal_path,
+            ),
+            raw_prediction_units_path=tmp_path / "prediction-units.jsonl",
+        )
+
+
 def test_stage_a_parse_lineage_rejects_markdown_drift_and_extra_files(
     tmp_path: Path,
 ) -> None:

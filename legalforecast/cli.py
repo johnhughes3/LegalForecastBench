@@ -17446,6 +17446,14 @@ def _path_sha256(path: Path) -> str:
     return prefixed_sha256(hashlib.sha256(path.read_bytes()).hexdigest())
 
 
+def _path_matches_sha256(path: Path, expected: str) -> bool:
+    """Compare a file digest across legacy raw and canonical prefixed forms."""
+
+    return _path_sha256(path).removeprefix("sha256:") == expected.removeprefix(
+        "sha256:"
+    )
+
+
 def _replacement_source_commitments(
     values: Sequence[str], *, fixed: Mapping[str, bytes]
 ) -> dict[str, str]:
@@ -57656,7 +57664,9 @@ def _verify_unitization_review_run_card(
         != _stage_a_committed_path(
             lineage.input_commitments, "provider_cycle_caps"
         ).resolve()
-        or _path_sha256(provider_cycle_caps_path) != lineage.provider_caps_sha256
+        or not _path_matches_sha256(
+            provider_cycle_caps_path, lineage.provider_caps_sha256
+        )
         or provider_journal_path.resolve() != lineage.provider_journal_path.resolve()
     ):
         raise CommandError("apply-unitization-review provider authority differs")
@@ -57721,12 +57731,11 @@ def _verified_shared_provider_chain(
         caps = load_provider_cycle_caps(caps_path)
     except ProviderJournalError as exc:
         raise CommandError(str(exc)) from exc
-    caps_sha256 = _path_sha256(caps_path)
     if caps.cycle_id != lineage.cohort_cycle_id:
         raise CommandError(
             "provider cycle caps cycle_id differs from authenticated cohort"
         )
-    if caps_sha256 != lineage.provider_caps_sha256:
+    if not _path_matches_sha256(caps_path, lineage.provider_caps_sha256):
         raise CommandError(
             "provider cycle caps artifact differs from authenticated Stage A"
         )
@@ -58072,7 +58081,7 @@ def _verify_stage_a_review_run_card(
             raise CommandError(f"structural review {name} commitment changed")
     caps_path = _stage_a_committed_path(source_records, "provider_cycle_caps")
     if (
-        _path_sha256(caps_path) != lineage.provider_caps_sha256
+        not _path_matches_sha256(caps_path, lineage.provider_caps_sha256)
         or chain_record.get("schema_version") != PROVIDER_JOURNAL_SCHEMA_VERSION
         or chain_record.get("cycle_id") != lineage.cohort_cycle_id
         or chain_record.get("provider_cycle_caps_sha256")
