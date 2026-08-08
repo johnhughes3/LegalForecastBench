@@ -215,6 +215,53 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
     assert "--provider-shard-run-card" not in command
 
 
+def test_job_uses_symlinked_reviewed_runtime_sibling_entrypoint(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+    base_runtime = tmp_path / "base-runtime"
+    base_runtime.mkdir()
+    (base_runtime / "python3.14").write_text("#!/bin/sh\n", encoding="utf-8")
+    reviewed_bin = tmp_path / "reviewed-runtime" / "bin"
+    reviewed_bin.mkdir(parents=True)
+    reviewed_python = reviewed_bin / "python"
+    reviewed_python.symlink_to(base_runtime / "python3.14")
+    reviewed_entrypoint = reviewed_bin / "legalforecast"
+    reviewed_entrypoint.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(
+        official_paid_job,
+        "sys",
+        type("StubSys", (), {"executable": str(reviewed_python)})(),
+    )
+    captured: dict[str, object] = {}
+
+    def record_child(*, provider: str, command: tuple[str, ...]) -> int:
+        captured["provider"] = provider
+        captured["command"] = command
+        return 0
+
+    monkeypatch.setattr(
+        official_paid_job, "run_provider_isolated_command", record_child
+    )
+
+    result = run_official_paid_labeling_job(
+        job_manifest_path=manifest,
+        job_root=root,
+        release_sha=RELEASE_SHA,
+        stage="llm-label-provider-shard",
+        provider="openai",
+        provider_authority_table="exact-provider-authority",
+        provider_authority_region="us-east-1",
+        expected_provider_account_alias="openai-primary",
+    )
+
+    assert result == 0
+    command = list(cast(tuple[str, ...], captured["command"]))
+    assert Path(command[0]) == reviewed_entrypoint
+
+
 def test_job_fails_closed_when_legalforecast_entry_point_is_unavailable(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,

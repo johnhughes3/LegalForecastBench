@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import sys
 from collections.abc import Mapping, Sequence
@@ -573,7 +574,7 @@ def run_official_paid_labeling_job(
 def _legalforecast_entrypoint_command(
     cli_arguments: Sequence[str],
 ) -> tuple[str, ...]:
-    entrypoint = Path(sys.executable).resolve().with_name("legalforecast")
+    entrypoint = Path(os.path.abspath(sys.executable)).with_name("legalforecast")
     if entrypoint.is_file():
         return (str(entrypoint), *cli_arguments)
     raise OfficialPaidLabelingJobError(
