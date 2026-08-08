@@ -64,6 +64,9 @@ jobs:
       # both upload steps non-fatal: a throttled or unauthenticated upload must
       # never redden trunk CI. Remove these once the token is provisioned.
       - name: Upload coverage reports to Codecov
+        # Coverage is most useful when the suite failed, so upload unless the
+        # run was cancelled rather than only on success.
+        if: ${{ !cancelled() }}
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
