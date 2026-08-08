@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import textwrap
 from dataclasses import dataclass
@@ -12,6 +13,15 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/dependabot-auto-merge.yaml").read_text(
     encoding="utf-8",
+)
+
+# The classifier tests execute the workflow's own bash snippet, which pipes
+# through jq.  Only `gh` is stubbed, so jq must come from the host.  GitHub
+# runners ship it; skip with a clear reason elsewhere rather than failing with
+# an opaque bash error.
+requires_jq = pytest.mark.skipif(
+    shutil.which("jq") is None,
+    reason="jq is required to execute the workflow classifier snippet",
 )
 
 
@@ -124,6 +134,7 @@ def test_dependabot_auto_merge_workflow_queues_only_non_major_updates() -> None:
         ("version-update:semver-major", "false"),
     ],
 )
+@requires_jq
 def test_classifier_handles_legacy_update_type_trailers(
     tmp_path: Path,
     update_type: str,
@@ -140,6 +151,7 @@ def test_classifier_handles_legacy_update_type_trailers(
     assert result.github_output == f"eligible=false\neligible={eligible}\n"
 
 
+@requires_jq
 def test_classifier_marks_verified_uv_group_commit_without_trailers_ineligible(
     tmp_path: Path,
 ) -> None:
@@ -161,6 +173,7 @@ def test_classifier_marks_verified_uv_group_commit_without_trailers_ineligible(
     assert "no update-type metadata; leaving auto-merge disabled" in result.stdout
 
 
+@requires_jq
 def test_classifier_marks_unknown_verified_update_type_ineligible(
     tmp_path: Path,
 ) -> None:
@@ -198,6 +211,7 @@ def test_classifier_marks_unknown_verified_update_type_ineligible(
         "not-json",
     ],
 )
+@requires_jq
 def test_classifier_rejects_untrusted_or_malformed_commit_evidence(
     tmp_path: Path,
     commit_json: str,
