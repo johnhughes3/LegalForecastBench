@@ -1257,6 +1257,12 @@
     "path": "legalforecast/ingestion/decision_text_artifact.py",
     "reason": "legacy private commitment helper pending shared-contract migration",
     "rule": "private_commitment_helper",
+    "subject": "_docket_source_record_sha256"
+  },
+  {
+    "path": "legalforecast/ingestion/decision_text_artifact.py",
+    "reason": "legacy private commitment helper pending shared-contract migration",
+    "rule": "private_commitment_helper",
     "subject": "_payload_sha256"
   },
   {
@@ -1869,7 +1875,7 @@
     "path": "legalforecast/ingestion/packet_input_planner.py",
     "reason": "legacy direct commitment hash pending named-profile migration",
     "rule": "direct_commitment_hash",
-    "subject": "hashlib.sha256( canonical_json_value_bytes( source, error_type=PacketInputPlanningError, error_message=\"docket decision source is not canonical JSON\", ) )"
+    "subject": "hashlib.sha256( canonical_json_value_bytes( dict(source), error_type=PacketInputPlanningError, error_message=\"docket decision source is not canonical JSON\", ) )"
   },
   {
     "path": "legalforecast/ingestion/packet_role_adjudication.py",
