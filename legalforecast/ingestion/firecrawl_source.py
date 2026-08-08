@@ -428,7 +428,6 @@ def _scrape_payload(
         "skipTlsVerification": False,
         "parsers": [],
         "waitFor": 0,
-        # Firecrawl v2 currently returns SCRAPE_ALL_ENGINES_FAILED when
         # Firecrawl v2 currently rejects the JSON property `"blockAds": false`;
         # omit the optional override and use its default.
         "lockdown": False,
