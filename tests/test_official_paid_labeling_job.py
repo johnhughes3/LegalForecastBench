@@ -13,6 +13,7 @@ from legalforecast.labeling.official_paid_job import (
     _within_root,
     run_official_paid_labeling_job,
 )
+from legalforecast.labeling.provider_environment import ProviderEnvironmentError
 from pytest import MonkeyPatch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -238,6 +239,41 @@ def test_job_fails_closed_when_legalforecast_entry_point_is_unavailable(
             provider_authority_region="us-east-1",
             expected_provider_account_alias="openai-primary",
         )
+
+
+def test_job_wraps_provider_environment_refusals_at_reviewed_boundary(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+
+    def reject_child(**kwargs: object) -> int:
+        raise ProviderEnvironmentError(
+            "cross-stage secret environment names are not allowed: RECAP_API_TOKEN"
+        )
+
+    monkeypatch.setattr(
+        official_paid_job, "run_provider_isolated_command", reject_child
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match="provider child environment is invalid",
+    ) as exc_info:
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="exact-provider-authority",
+            provider_authority_region="us-east-1",
+            expected_provider_account_alias="openai-primary",
+        )
+
+    assert isinstance(exc_info.value.__cause__, ProviderEnvironmentError)
+    assert "RECAP_API_TOKEN" in str(exc_info.value.__cause__)
 
 
 def test_validate_only_checks_all_inputs_without_authority_or_provider_cli(

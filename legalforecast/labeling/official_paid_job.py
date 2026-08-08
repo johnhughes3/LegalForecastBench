@@ -13,7 +13,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from legalforecast.evals.model_registry import load_model_registry
-from legalforecast.labeling.provider_environment import run_provider_isolated_command
+from legalforecast.labeling.provider_environment import (
+    ProviderEnvironmentError,
+    run_provider_isolated_command,
+)
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps
 
 SCHEMA_VERSION = "legalforecast.official_paid_labeling_job.v1"
@@ -557,10 +560,15 @@ def run_official_paid_labeling_job(
             "--execute",
         )
     )
-    return run_provider_isolated_command(
-        provider=normalized_provider,
-        command=_legalforecast_entrypoint_command(cli_arguments),
-    )
+    try:
+        return run_provider_isolated_command(
+            provider=normalized_provider,
+            command=_legalforecast_entrypoint_command(cli_arguments),
+        )
+    except ProviderEnvironmentError as exc:
+        raise OfficialPaidLabelingJobError(
+            "provider child environment is invalid"
+        ) from exc
 
 
 def _legalforecast_entrypoint_command(
