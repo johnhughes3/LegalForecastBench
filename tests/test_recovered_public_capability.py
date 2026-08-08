@@ -10,6 +10,9 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import provenance_clearance as provenance_module
 from legalforecast.ingestion import resolved_post_recovery as resolved_module
+from legalforecast.ingestion.replacement_recovery_source import (
+    ReplacementRecoverySourceError,
+)
 from tests.recovered_public_capability_helpers import (
     issue_recovered_public_capability,
     issue_terminal_disposition_capability,
@@ -41,10 +44,10 @@ def test_raw_recovery_authentication_receives_distinct_transition_pair(
         }
 
     monkeypatch.setattr(
-        cli, "_authenticate_recovered_public_raw_evidence", authenticate
+        provenance_module, "authenticate_recovered_public_raw_evidence", authenticate
     )
     monkeypatch.setattr(
-        cli, "_derive_recovered_public_lineage_rows", lambda *_a, **_k: ()
+        provenance_module, "derive_recovered_public_lineage_rows", lambda *_a, **_k: ()
     )
 
     provenance_module._authenticate_recovered_public_lineage_from_raw_evidence(  # pyright: ignore[reportPrivateUsage]
@@ -71,6 +74,106 @@ def test_raw_recovery_authentication_receives_distinct_transition_pair(
     assert observed["authority_transition_capability"] is authority_capability
     assert observed["attempt_transition_capability"] is attempt_capability
     assert observed["resolved_transition_prior_snapshot"] is prior_snapshot
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError("bad recovered-public replay"),
+        ReplacementRecoverySourceError("bad recovered-public replay"),
+    ],
+)
+def test_raw_recovery_authentication_normalizes_replay_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    exc: Exception,
+) -> None:
+    def authenticate(**_kwargs: object) -> dict[str, object]:
+        raise exc
+
+    monkeypatch.setattr(
+        provenance_module, "authenticate_recovered_public_raw_evidence", authenticate
+    )
+
+    with pytest.raises(
+        provenance_module.ProvenanceClearanceError,
+        match="bad recovered-public replay",
+    ):
+        provenance_module._authenticate_recovered_public_lineage_from_raw_evidence(  # pyright: ignore[reportPrivateUsage]
+            recovery_root=tmp_path / "recovery",
+            run_card_path=tmp_path / "run-card.json",
+            selection_path=tmp_path / "selection.jsonl",
+            purchase_policy_path=tmp_path / "policy.json",
+            cohort_policy_path=tmp_path / "cohort.json",
+            ledger_path=tmp_path / "ledger.sqlite3",
+            initialization_receipt_path=tmp_path / "receipt.json",
+            controlled_private_root=tmp_path / "private",
+            successor_history_recovery_root=None,
+            successor_history_controlled_private_root=None,
+            expected_manifest_path=tmp_path / "manifest.jsonl",
+            expected_restriction_path=tmp_path / "restrictions.jsonl",
+            expected_case_relevance_path=tmp_path / "relevance.jsonl",
+            expected_review_requests_path=tmp_path / "reviews.jsonl",
+            expected_document_root=tmp_path / "documents",
+        )
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError("bad recovered-public lineage"),
+        ReplacementRecoverySourceError("bad recovered-public lineage"),
+    ],
+)
+def test_lineage_derivation_normalizes_replay_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    exc: Exception,
+) -> None:
+    expected_paths = {
+        "manifest_path": tmp_path / "manifest.jsonl",
+        "restriction_path": tmp_path / "restrictions.jsonl",
+        "case_relevance_path": tmp_path / "relevance.jsonl",
+        "review_requests_path": tmp_path / "reviews.jsonl",
+        "document_root": tmp_path / "documents",
+    }
+
+    monkeypatch.setattr(
+        provenance_module,
+        "authenticate_recovered_public_raw_evidence",
+        lambda **_kwargs: {
+            **expected_paths,
+            "terminal_unavailable_path": None,
+            "verified_artifact_bytes": {},
+        },
+    )
+    monkeypatch.setattr(
+        provenance_module,
+        "derive_recovered_public_lineage_rows",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(exc),
+    )
+
+    with pytest.raises(
+        provenance_module.ProvenanceClearanceError,
+        match="bad recovered-public lineage",
+    ):
+        provenance_module._authenticate_recovered_public_lineage_from_raw_evidence(  # pyright: ignore[reportPrivateUsage]
+            recovery_root=tmp_path / "recovery",
+            run_card_path=tmp_path / "run-card.json",
+            selection_path=tmp_path / "selection.jsonl",
+            purchase_policy_path=tmp_path / "policy.json",
+            cohort_policy_path=tmp_path / "cohort.json",
+            ledger_path=tmp_path / "ledger.sqlite3",
+            initialization_receipt_path=tmp_path / "receipt.json",
+            controlled_private_root=tmp_path / "private",
+            successor_history_recovery_root=None,
+            successor_history_controlled_private_root=None,
+            expected_manifest_path=expected_paths["manifest_path"],
+            expected_restriction_path=expected_paths["restriction_path"],
+            expected_case_relevance_path=expected_paths["case_relevance_path"],
+            expected_review_requests_path=expected_paths["review_requests_path"],
+            expected_document_root=expected_paths["document_root"],
+        )
 
 
 def test_caller_supplied_lineage_cannot_mint_recovered_public_authority() -> None:
