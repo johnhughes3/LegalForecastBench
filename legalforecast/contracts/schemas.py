@@ -49,6 +49,9 @@ REPLACEMENT_RECOVERY_SOURCE_RUN_CARD_V2 = SchemaIdentifier(
 RESOLVED_POST_RECOVERY_PUBLIC_DOCUMENT_V4 = SchemaIdentifier(
     "legalforecast.resolved_post_recovery_public_document.v4"
 )
+SELECTED_ACQUISITION_SLICE_V1 = SchemaIdentifier(
+    "legalforecast.selected_acquisition_slice.v1"
+)
 TARGET_RAW_DOCKET_RECOVERY_PLAN_V1 = SchemaIdentifier(
     "legalforecast.target_raw_docket_recovery_plan.v1"
 )
@@ -60,6 +63,9 @@ TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1 = SchemaIdentifier(
 )
 TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1 = SchemaIdentifier(
     "legalforecast.target_raw_docket_recovery_summary.v1"
+)
+TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.target_raw_docket_recovery_successor_plan.v1"
 )
 
 # This registry names the current recovery vertical slice without changing any
@@ -74,8 +80,10 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     REPLACEMENT_PURCHASE_APPROVAL_V2,
     REPLACEMENT_RECOVERY_SOURCE_RUN_CARD_V2,
     RESOLVED_POST_RECOVERY_PUBLIC_DOCUMENT_V4,
+    SELECTED_ACQUISITION_SLICE_V1,
     TARGET_RAW_DOCKET_RECOVERY_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
+    TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
 )

@@ -834,12 +834,17 @@ from legalforecast.ingestion.target_raw_docket_recovery import (
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_SCHEMA,
     TargetRawDocketRecoveryError,
     TargetRawDocketRecoveryPlan,
+    TargetRawDocketRecoverySuccessorPlan,
     build_target_raw_docket_recovery_plan,
+    build_target_raw_docket_recovery_successor_plan,
     execute_target_raw_docket_recovery,
     load_target_raw_docket_recovery_plan,
+    load_target_raw_docket_recovery_successor_plan,
+    resolve_target_raw_docket_recovery_successor,
     target_raw_docket_recovery_receipt_bytes,
     verify_target_raw_docket_recovery_receipt,
     write_target_raw_docket_recovery_plan,
+    write_target_raw_docket_recovery_successor_plan,
 )
 from legalforecast.ingestion.terminal_purchase_failure import (
     verify_terminal_purchase_failure_authority,
@@ -1735,6 +1740,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_execute_target_raw_docket_recovery_arguments(
         acquisition_execute_target_raw_docket_recovery
+    )
+    acquisition_plan_target_raw_docket_recovery_successor = (
+        acquisition_subparsers.add_parser(
+            "plan-target-raw-docket-recovery-successor",
+            help=(
+                "Freeze one direct child of a zero-success circuit-open raw "
+                "docket recovery run without provider activity."
+            ),
+        )
+    )
+    _add_acquisition_plan_target_raw_docket_recovery_successor_arguments(
+        acquisition_plan_target_raw_docket_recovery_successor
+    )
+    acquisition_execute_target_raw_docket_recovery_successor = (
+        acquisition_subparsers.add_parser(
+            "execute-target-raw-docket-recovery-successor",
+            help=(
+                "Execute one pinned direct successor with all targets, budget, "
+                "and scheduler settings inherited from its failed parent."
+            ),
+        )
+    )
+    _add_acquisition_execute_target_raw_docket_recovery_successor_arguments(
+        acquisition_execute_target_raw_docket_recovery_successor
     )
     acquisition_seal_ranked_dockets = acquisition_subparsers.add_parser(
         "seal-ranked-firecrawl-run",
@@ -6687,6 +6716,42 @@ def _add_acquisition_execute_target_raw_docket_recovery_arguments(
     parser.add_argument("--firecrawl-fixture", type=Path)
     parser.add_argument("--live-firecrawl", action="store_true")
     parser.set_defaults(handler=_cmd_acquisition_execute_target_raw_docket_recovery)
+
+
+def _add_acquisition_plan_target_raw_docket_recovery_successor_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--parent-plan", type=Path, required=True)
+    parser.add_argument("--expected-parent-plan-sha256", required=True)
+    parser.add_argument("--parent-failure-run-card", type=Path, required=True)
+    parser.add_argument("--expected-parent-failure-run-card-sha256", required=True)
+    parser.add_argument("--parent-raw-html-dir", type=Path, required=True)
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--plan-output", type=Path, required=True)
+    parser.set_defaults(
+        handler=_cmd_acquisition_plan_target_raw_docket_recovery_successor
+    )
+
+
+def _add_acquisition_execute_target_raw_docket_recovery_successor_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--successor-plan", type=Path, required=True)
+    parser.add_argument("--expected-successor-plan-sha256", required=True)
+    parser.add_argument("--raw-html-dir", type=Path, required=True)
+    parser.add_argument("--successes-output", type=Path, required=True)
+    parser.add_argument("--exclusions-output", type=Path, required=True)
+    parser.add_argument("--summary-output", type=Path, required=True)
+    parser.add_argument("--receipt-output", type=Path, required=True)
+    parser.add_argument("--expected-receipt-sha256")
+    parser.add_argument("--firecrawl-fixture", type=Path)
+    parser.add_argument("--live-firecrawl", action="store_true")
+    parser.set_defaults(
+        handler=_cmd_acquisition_execute_target_raw_docket_recovery_successor
+    )
 
 
 def _add_acquisition_seal_ranked_dockets_arguments(
@@ -21421,18 +21486,142 @@ def _cmd_acquisition_plan_target_raw_docket_recovery(
     return 0
 
 
+def _cmd_acquisition_plan_target_raw_docket_recovery_successor(
+    args: argparse.Namespace,
+) -> int:
+    parent_plan_path = cast(Path, args.parent_plan)
+    parent_card_path = cast(Path, args.parent_failure_run_card)
+    plan_output = cast(Path, args.plan_output)
+    try:
+        parent = load_target_raw_docket_recovery_plan(
+            parent_plan_path, cast(str, args.expected_parent_plan_sha256)
+        )
+        args.cycle_store = Path(parent.cycle_store_path)
+        _preflight_target_raw_docket_recovery_paths(
+            args,
+            stage="plan-target-raw-docket-recovery-successor",
+            protected_paths=(
+                parent_plan_path,
+                parent_card_path,
+                cast(Path, args.parent_raw_html_dir),
+            ),
+            writable_paths=(plan_output,),
+        )
+        plan = build_target_raw_docket_recovery_successor_plan(
+            parent_plan_path=parent_plan_path,
+            expected_parent_plan_sha256=cast(str, args.expected_parent_plan_sha256),
+            parent_failure_run_card_path=parent_card_path,
+            expected_parent_failure_run_card_sha256=cast(
+                str, args.expected_parent_failure_run_card_sha256
+            ),
+            parent_raw_html_dir=cast(Path, args.parent_raw_html_dir),
+            batch_id=cast(str, args.batch_id),
+            run_id=cast(str, args.run_id),
+        )
+        digest = write_target_raw_docket_recovery_successor_plan(plan_output, plan)
+        _write_acquisition_completion(
+            args,
+            stage="plan-target-raw-docket-recovery-successor",
+            input_paths=(
+                parent_plan_path,
+                parent_card_path,
+                cast(Path, args.parent_raw_html_dir),
+            ),
+            output_paths=(plan_output,),
+            record_count=1,
+            dry_run=_acquisition_dry_run(args),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={
+                "plan_sha256": digest,
+                "parent_run_id": parent.run_id,
+                "target_count": len(parent.targets),
+            },
+        )
+    except (OSError, TargetRawDocketRecoveryError) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="plan-target-raw-docket-recovery-successor",
+            input_paths=(
+                parent_plan_path,
+                parent_card_path,
+                cast(Path, args.parent_raw_html_dir),
+            ),
+            output_paths=(plan_output,),
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_acquisition_execute_target_raw_docket_recovery_successor(
+    args: argparse.Namespace,
+) -> int:
+    return _cmd_acquisition_execute_target_raw_docket_recovery(args)
+
+
 def _cmd_acquisition_execute_target_raw_docket_recovery(
     args: argparse.Namespace,
 ) -> int:
+    successor_path = cast(Path | None, getattr(args, "successor_plan", None))
+    successor: TargetRawDocketRecoverySuccessorPlan | None = None
+    parent: TargetRawDocketRecoveryPlan | None = None
+    preloaded_plan: TargetRawDocketRecoveryPlan | None = None
+    if successor_path is not None:
+        successor = load_target_raw_docket_recovery_successor_plan(
+            successor_path, cast(str, args.expected_successor_plan_sha256)
+        )
+        parent, preloaded_plan = resolve_target_raw_docket_recovery_successor(successor)
+        args.cycle_store = Path(preloaded_plan.cycle_store_path)
+        args.batch_id = preloaded_plan.batch_id
+        args.run_id = preloaded_plan.run_id
+        args.workers = preloaded_plan.workers
+        args.selection = Path(preloaded_plan.selection_path)
+        args.expected_selection_sha256 = preloaded_plan.selection_sha256
+        args.source_snapshot = Path(preloaded_plan.source_snapshot_path)
+        args.expected_source_snapshot_manifest_sha256 = (
+            preloaded_plan.source_snapshot_manifest_sha256
+        )
+        args.expected_cycle_hash = preloaded_plan.cycle_hash
+        args.source_snapshot_run_card = Path(
+            preloaded_plan.source_snapshot_run_card_path
+        )
+        args.expected_source_snapshot_run_card_sha256 = (
+            preloaded_plan.source_snapshot_run_card_sha256
+        )
+        args.source_raw_manifest = Path(preloaded_plan.source_raw_manifest_path)
+        args.expected_source_raw_manifest_sha256 = (
+            preloaded_plan.source_raw_manifest_sha256
+        )
+        args.credit_cap = preloaded_plan.credit_cap
+        args.max_pages_per_docket = preloaded_plan.max_pages_per_docket
+        args.max_attempts_per_page = preloaded_plan.max_attempts_per_page
+        args.provider_breaker_threshold = preloaded_plan.provider_breaker_threshold
+        args.proxy = preloaded_plan.proxy
+        args.force_browser = preloaded_plan.force_browser
+        plan_input = successor_path
+        plan_sha256 = cast(str, args.expected_successor_plan_sha256)
+        successor_inputs: tuple[Path, ...] = (
+            Path(successor.parent_plan_path),
+            Path(successor.parent_failure_run_card_path),
+            Path(successor.parent_raw_html_dir),
+        )
+    else:
+        plan_input = cast(Path, args.plan)
+        plan_sha256 = cast(str, args.expected_plan_sha256)
+        successor_inputs = ()
     inputs = (
-        cast(Path, args.plan),
+        plan_input,
+        *successor_inputs,
         cast(Path, args.selection),
         cast(Path, args.source_snapshot) / "manifest.json",
         cast(Path, args.source_snapshot_run_card),
         cast(Path, args.source_raw_manifest),
     )
     protected_paths = (
-        cast(Path, args.plan),
+        plan_input,
+        *successor_inputs,
         cast(Path, args.selection),
         cast(Path, args.source_snapshot),
         cast(Path, args.source_snapshot_run_card),
@@ -21470,14 +21659,15 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
     if fixture is not None and cast(int, args.workers) != 1:
         raise CommandError("Firecrawl fixture execution requires --workers 1")
     try:
-        reconstructed = _target_raw_docket_recovery_plan_from_args(args)
-        plan = load_target_raw_docket_recovery_plan(
-            cast(Path, args.plan), cast(str, args.expected_plan_sha256)
-        )
-        if plan != reconstructed:
-            raise TargetRawDocketRecoveryError(
-                "pinned plan differs from current inputs"
-            )
+        if preloaded_plan is None:
+            reconstructed = _target_raw_docket_recovery_plan_from_args(args)
+            plan = load_target_raw_docket_recovery_plan(plan_input, plan_sha256)
+            if plan != reconstructed:
+                raise TargetRawDocketRecoveryError(
+                    "pinned plan differs from current inputs"
+                )
+        else:
+            plan = preloaded_plan
         _acquisition_output_root(args)
         outputs = terminal_paths
         if _acquisition_dry_run(args):
@@ -21497,7 +21687,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
                     {
                         "schema_version": TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
                         "dry_run": True,
-                        "plan_sha256": cast(str, args.expected_plan_sha256),
+                        "plan_sha256": plan_sha256,
                     }
                 ),
                 resume=resume,
@@ -21527,7 +21717,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             receipt = verify_target_raw_docket_recovery_receipt(
                 receipt_path=outputs[3],
                 expected_receipt_sha256=expected_receipt_sha256,
-                expected_plan_sha256=cast(str, args.expected_plan_sha256),
+                expected_plan_sha256=plan_sha256,
                 successes_path=outputs[0],
                 exclusions_path=outputs[1],
                 summary_path=outputs[2],
@@ -21628,7 +21818,21 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             )
             run_config: JsonRecord = {
                 "purpose": "target-raw-docket-recovery",
-                "recovery_of_run_id": plan.source_snapshot_manifest_sha256,
+                "recovery_of_run_id": (
+                    parent.run_id
+                    if parent is not None
+                    else plan.source_snapshot_manifest_sha256
+                ),
+                **(
+                    {
+                        "parent_plan_sha256": successor.parent_plan_sha256,
+                        "parent_failure_run_card_sha256": (
+                            successor.parent_failure_run_card_sha256
+                        ),
+                    }
+                    if successor is not None
+                    else {}
+                ),
                 "max_pages_per_docket": plan.max_pages_per_docket,
                 "raw_artifact_root": str((raw_dir / "pages").resolve()),
                 "firecrawl_proxy": config.proxy,
@@ -21662,7 +21866,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             recovery_batch_digest = store.batch_digest(plan.batch_id)
             authenticated_run_config = dict(store.firecrawl_run_config(plan.run_id))
         summary = dict(execution_summary)
-        summary["plan_sha256"] = cast(str, args.expected_plan_sha256)
+        summary["plan_sha256"] = plan_sha256
         summary["raw_artifacts"] = [
             {
                 "candidate_id": record["candidate_id"],
@@ -21674,7 +21878,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
         ]
         recovery_provenance = {
             "schema_version": TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA,
-            "plan_sha256": cast(str, args.expected_plan_sha256),
+            "plan_sha256": plan_sha256,
             "batch_id": plan.batch_id,
             "run_id": plan.run_id,
         }
@@ -21697,7 +21901,7 @@ def _cmd_acquisition_execute_target_raw_docket_recovery(
             {
                 "schema_version": TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
                 "dry_run": False,
-                "plan_sha256": cast(str, args.expected_plan_sha256),
+                "plan_sha256": plan_sha256,
                 "source_snapshot_manifest_sha256": (
                     plan.source_snapshot_manifest_sha256
                 ),
