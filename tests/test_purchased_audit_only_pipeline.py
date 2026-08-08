@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from argparse import Namespace
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
@@ -67,6 +69,287 @@ class _FakeSpendAuthority:
 
     def snapshot(self) -> object:
         raise AssertionError("snapshot is not used by this fixture")
+
+
+def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    output_root = tmp_path / "recovery"
+    recovery_path = output_root / "receipt.json"
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    journal_path.write_bytes(b"journal fixture")
+    failed_row: JsonRecord = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "model_key": "anthropic:model",
+        "attempt_ordinal": 2,
+        "status": "reconstruction_failed",
+        "failure_type": "ValueError",
+        "reconstructed_result_json": None,
+        "completed_at": "2026-08-08T12:00:00Z",
+    }
+    settled_row: JsonRecord = {
+        **failed_row,
+        "status": "settled",
+        "reconstructed_result_json": '{"candidate_id":"cand-1"}',
+    }
+    rows = [failed_row]
+
+    class _Caps:
+        @staticmethod
+        def cap_usd(provider: str) -> float:
+            assert provider == "anthropic"
+            return 200.0
+
+        @staticmethod
+        def account(provider: str) -> str:
+            assert provider == "anthropic"
+            return "primary"
+
+    lineage = SimpleNamespace(
+        selection_records=({"candidate_id": "cand-1", "case_id": "case-1"},),
+        parser_records=(),
+        registry_entry=SimpleNamespace(
+            registry_key="anthropic:model",
+            provider="anthropic",
+        ),
+        registry_sha256="1" * 64,
+        provider_caps=_Caps(),
+        provider_caps_sha256="2" * 64,
+        provider_journal_path=journal_path,
+        cohort_cycle_id="cycle-1",
+        input_paths=(journal_path,),
+        input_commitments={"journal": "3" * 64},
+        markdown_root=tmp_path / "markdown",
+        markdown_bytes={},
+    )
+    result = llm_pipeline.LlmUnitizationReconstructionRecovery(
+        candidate_id="cand-1",
+        case_id="case-1",
+        attempt_ordinal=2,
+        raw_response_sha256="4" * 64,
+        normalized_response_sha256="5" * 64,
+        prediction_units=(),
+        review_items=(),
+    )
+    calls = 0
+
+    def recover(**kwargs: object) -> object:
+        nonlocal calls
+        del kwargs
+        calls += 1
+        if calls == 1:
+            rows[0] = settled_row
+            raise llm_pipeline.LlmPipelineError("simulated crash after settlement")
+        return result
+
+    monkeypatch.setattr(
+        cli, "_verify_stage_a_unitization_lineage", lambda *a, **k: lineage
+    )
+    monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", lambda lineage: None)
+    monkeypatch.setattr(cli, "_stage_a_provider_attempt_rows", lambda path: tuple(rows))
+    monkeypatch.setattr(cli, "recover_llm_unitization_reconstruction", recover)
+    monkeypatch.setattr(cli, "verify_provider_journal_identity", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "_write_acquisition_completion", lambda *a, **k: None)
+    args = Namespace(
+        execute=True,
+        output_root=output_root,
+        recovery_output=recovery_path,
+        resume=True,
+        markdown_root=tmp_path / "markdown",
+        candidate_id="cand-1",
+    )
+
+    with pytest.raises(cli.CommandError, match="simulated crash after settlement"):
+        cli._cmd_acquisition_recover_llm_unitize_reconstruction(args)
+    assert not recovery_path.exists()
+
+    assert cli._cmd_acquisition_recover_llm_unitize_reconstruction(args) == 0
+    receipt = json.loads(recovery_path.read_text(encoding="utf-8"))
+    assert receipt[
+        "provider_journal_before_state_sha256"
+    ] == cli._canonical_json_sha256((failed_row,))
+    assert calls == 2
+
+    receipt["provider_journal_before_state_sha256"] = "f" * 64
+    recovery_path.write_text(json.dumps(receipt), encoding="utf-8")
+    with pytest.raises(cli.CommandError, match="recovery receipt changed"):
+        cli._cmd_acquisition_recover_llm_unitize_reconstruction(args)
+    assert calls == 3
+
+
+def test_reconstruction_cli_rejects_absent_journal_without_creating_it(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    journal_path = tmp_path / "absent-provider-attempts.sqlite3"
+    lineage = SimpleNamespace(
+        selection_records=({"candidate_id": "cand-1", "case_id": "case-1"},),
+        provider_journal_path=journal_path,
+        cohort_cycle_id="cycle-1",
+        provider_caps_sha256="2" * 64,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_lineage",
+        lambda *args, **kwargs: lineage,
+    )
+    monkeypatch.setattr(
+        cli,
+        "recover_llm_unitization_reconstruction",
+        lambda **kwargs: pytest.fail("provider-free recovery must not be entered"),
+    )
+    args = Namespace(
+        execute=True,
+        output_root=tmp_path / "output",
+        recovery_output=None,
+        resume=True,
+        markdown_root=tmp_path / "markdown",
+        candidate_id="cand-1",
+    )
+
+    with pytest.raises(
+        cli.CommandError, match="provider journal is not a regular file"
+    ):
+        cli._cmd_acquisition_recover_llm_unitize_reconstruction(args)
+    assert not journal_path.exists()
+
+
+@pytest.mark.parametrize("provider_account", ("default", "primary"))
+def test_unitization_reconstruction_recovers_latest_journal_response_without_provider(
+    tmp_path: Path,
+    monkeypatch: Any,
+    provider_account: str,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    response = SolverResponse(
+        raw_output=(
+            '{"unit_seeds":[{"count":"Count I","claim_name":"Section '
+            '"10(b)" claim","defendant_names":["Issuer"],'
+            '"source_document_ids":["complaint","mtd"],'
+            '"challenged_by_motion":true,"challenge_scope":"entire_claim",'
+            '"unit_confidence":0.95,"grouping":"individual",'
+            '"grouping_rationale":null,"separable_subclaim":null,'
+            '"uncertainty_notes":null}]}'
+        ),
+        input_tokens=12,
+        output_tokens=7,
+        estimated_cost=0.03,
+    )
+    provider_calls = 0
+
+    def malformed_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+
+        def provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "provider-response"}
+
+        handler.run_attempt(1, provider_call)
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", malformed_completion)
+    response_parser = cast(Any, llm_pipeline)._json_object_from_response
+
+    def legacy_strict_parser(*args: Any, **kwargs: Any) -> JsonRecord:
+        del args, kwargs
+        raise llm_pipeline.LlmPipelineError("LLM response JSON object was invalid")
+
+    monkeypatch.setattr(
+        llm_pipeline, "_json_object_from_response", legacy_strict_parser
+    )
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="JSON object was invalid"):
+        llm_pipeline.llm_unitize_cases(
+            selection_records=(_selection(),),
+            parser_records=parser_records,
+            markdown_root=markdown_root,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_accounts={"openai": provider_account},
+        )
+
+    monkeypatch.setattr(llm_pipeline, "_json_object_from_response", response_parser)
+    recovery = llm_pipeline.recover_llm_unitization_reconstruction(
+        selection_record=_selection(),
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        markdown_bytes=None,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_account=provider_account,
+    )
+    replayed_recovery = llm_pipeline.recover_llm_unitization_reconstruction(
+        selection_record=_selection(),
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        markdown_bytes=None,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_account=provider_account,
+    )
+
+    assert provider_calls == 1
+    assert replayed_recovery == recovery
+    assert recovery.attempt_ordinal == 1
+    assert len(recovery.prediction_units) == 1
+    assert recovery.review_items == ()
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT status FROM provider_attempts WHERE attempt_ordinal = 1"
+        ).fetchone() == ("settled",)
+    before_authority_binding = cast(Any, cli)._canonical_json_sha256(
+        cast(Any, cli)._stage_a_provider_attempt_rows(journal_path)
+    )
+    with sqlite3.connect(journal_path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET authority_attempt_ordinal = 7 "
+            "WHERE attempt_ordinal = 1"
+        )
+    after_authority_binding = cast(Any, cli)._canonical_json_sha256(
+        cast(Any, cli)._stage_a_provider_attempt_rows(journal_path)
+    )
+    assert before_authority_binding != after_authority_binding
 
 
 def test_malformed_label_response_retries_fresh_bounded_attempts(

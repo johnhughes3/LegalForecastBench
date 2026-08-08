@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from legalforecast.evals.live_model_solver import (
@@ -732,6 +733,12 @@ def test_journal_commits_authenticated_reconstruction_recovery(
             normalized_response_json=normalized_response_json,
             record={"schema_version": "test.reconstruction.v1"},
         )
+        assert journal.latest_reconstruction_recovery_evidence().attempt_ordinal == 1
+        with pytest.raises(
+            ProviderJournalError,
+            match="already has an authoritative settled response",
+        ):
+            cast(Any, journal)._reserve(2)
         journal.commit_reconstruction_recovery(
             1,
             raw_response_json=raw_response_json,
@@ -750,6 +757,86 @@ def test_journal_commits_authenticated_reconstruction_recovery(
         "ValueError",
         "legacy local validator",
     )
+
+
+def test_journal_selects_latest_reconstruction_failure_evidence(tmp_path: Path) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "first"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="first",
+        )
+        journal.record_reconstruction_failure(ValueError("first invalid response"))
+        assert journal.prepare_reconstruction_retry(max_attempts=2) == 1
+        journal.run_attempt(1, lambda: {"output_text": "second"})
+        journal.settle_attempt(
+            journal.durable_attempt_ordinal(1),
+            input_tokens=11,
+            output_tokens=3,
+            actual_cost_usd=0.02,
+            raw_output="second",
+        )
+        journal.record_reconstruction_failure(ValueError("second invalid response"))
+
+        evidence = journal.latest_reconstruction_recovery_evidence()
+
+    assert evidence.attempt_ordinal == 2
+    assert json.loads(evidence.raw_response_json) == {"output_text": "second"}
+    assert json.loads(evidence.normalized_response_json)["raw_output"] == "second"
+
+
+def test_journal_reconstruction_recovery_rejects_active_competitor(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "first"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="first",
+        )
+        journal.record_reconstruction_failure(ValueError("first invalid response"))
+        first = journal.latest_reconstruction_recovery_evidence()
+        assert journal.prepare_reconstruction_retry(max_attempts=3) == 2
+        cast(Any, journal)._reserve(2)
+
+        with pytest.raises(
+            ProviderJournalError,
+            match="conflicts with another authoritative response",
+        ):
+            journal.commit_reconstruction_recovery(
+                first.attempt_ordinal,
+                raw_response_json=first.raw_response_json,
+                normalized_response_json=first.normalized_response_json,
+                record={"schema_version": "test.reconstruction.v1"},
+            )
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET status = 'reconstruction_failed', "
+            "raw_response_json = ?, normalized_response_json = ?, "
+            "failure_type = 'ValueError', failure_message = 'second invalid' "
+            "WHERE attempt_ordinal = 2",
+            (
+                first.raw_response_json,
+                first.normalized_response_json,
+            ),
+        )
+
+    with _journal(path) as journal:
+        journal.commit_reconstruction_recovery(
+            first.attempt_ordinal,
+            raw_response_json=first.raw_response_json,
+            normalized_response_json=first.normalized_response_json,
+            record={"schema_version": "test.reconstruction.v1"},
+        )
 
 
 def test_journal_reconstruction_recovery_rejects_changed_response(
@@ -813,6 +900,12 @@ def test_journal_reconstruction_recovery_rejects_competing_response(
                 actual_cost_usd=0.01,
                 raw_output="second",
             )
+
+        with pytest.raises(
+            ProviderJournalError,
+            match="conflicts with another authoritative response",
+        ):
+            journal.latest_reconstruction_recovery_evidence()
 
         with pytest.raises(
             ProviderJournalError,

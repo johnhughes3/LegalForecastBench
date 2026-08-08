@@ -40,6 +40,7 @@ from legalforecast import __version__
 from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
+from legalforecast.contracts import LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1
 from legalforecast.evals.accounting import (
     OutputValidityStatus,
     accounting_records_from_inspect_run,
@@ -890,6 +891,7 @@ from legalforecast.labeling.label_outcomes import (
 from legalforecast.labeling.llm_pipeline import (
     DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
     LlmConsensusPolicy,
+    LlmPipelineError,
     apply_adjudicated_reviews,
     lawyer_review_queue_records,
     llm_label_cases,
@@ -897,6 +899,7 @@ from legalforecast.labeling.llm_pipeline import (
     llm_unitize_cases,
     merge_llm_label_provider_shards,
     merge_structural_flags_into_review_queue,
+    recover_llm_unitization_reconstruction,
     stage_a_structural_flag_records,
     stage_a_structural_review_prompt_records,
     stage_a_unitization_prompt_records,
@@ -2590,6 +2593,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use a registry-backed LLM to construct frozen Stage A units.",
     )
     _add_acquisition_llm_unitize_arguments(acquisition_llm_unitize)
+    acquisition_recover_llm_unitize = acquisition_subparsers.add_parser(
+        "recover-llm-unitize-reconstruction",
+        help=(
+            "Provider-free revalidation of one failed Stage A response from the "
+            "authenticated journal."
+        ),
+    )
+    _add_acquisition_recover_llm_unitize_arguments(acquisition_recover_llm_unitize)
     acquisition_review_stage_a = acquisition_subparsers.add_parser(
         "llm-review-stage-a",
         help="Flag structural Stage A defects without rewriting frozen units.",
@@ -9070,6 +9081,23 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         help="Per-provider-request timeout for the registry-backed LLM call.",
     )
     parser.set_defaults(handler=_cmd_acquisition_llm_unitize)
+
+
+def _add_acquisition_recover_llm_unitize_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_llm_unitize_arguments(parser)
+    parser.add_argument(
+        "--candidate-id",
+        required=True,
+        help="Exact selected candidate whose latest failed response is recovered.",
+    )
+    parser.add_argument(
+        "--recovery-output",
+        type=Path,
+        help="Provider-free reconstruction receipt JSON.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_recover_llm_unitize_reconstruction)
 
 
 def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> None:
@@ -56989,11 +57017,48 @@ _STAGE_A_PROVIDER_ATTEMPT_COLUMNS = (
     "failure_message",
     "reserved_at",
     "completed_at",
+    "authority_attempt_ordinal",
 )
 
 
 def _stage_a_provider_attempt_rows(path: Path) -> tuple[JsonRecord, ...]:
     return _provider_stage_attempt_rows(path, stage="llm-unitize")
+
+
+def _pre_reconstruction_provider_state_sha256(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    candidate_id: str,
+    model_key: str,
+    attempt_ordinal: int,
+) -> str:
+    """Reconstruct the exact journal state immediately before local recovery."""
+
+    projected = [dict(row) for row in rows]
+    matches = [
+        row
+        for row in projected
+        if row.get("stage") == "llm-unitize"
+        and row.get("candidate_id") == candidate_id
+        and row.get("model_key") == model_key
+        and row.get("attempt_ordinal") == attempt_ordinal
+    ]
+    if len(matches) != 1:
+        raise CommandError("reconstruction recovery journal target coverage differs")
+    target = matches[0]
+    status = target.get("status")
+    if status == "settled":
+        if not isinstance(target.get("failure_type"), str) or not isinstance(
+            target.get("reconstructed_result_json"), str
+        ):
+            raise CommandError(
+                "settled reconstruction recovery lacks prior failure provenance"
+            )
+        target["status"] = "reconstruction_failed"
+        target["reconstructed_result_json"] = None
+    elif status != "reconstruction_failed":
+        raise CommandError("reconstruction recovery journal target state is invalid")
+    return _canonical_json_sha256(projected)
 
 
 def _provider_stage_attempt_rows(
@@ -58656,6 +58721,125 @@ def _verify_llm_label_run_card(
         lineage.provider_journal_path.resolve(),
     ):
         raise CommandError("llm-label artifact paths changed")
+
+
+def _cmd_acquisition_recover_llm_unitize_reconstruction(
+    args: argparse.Namespace,
+) -> int:
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "recover-llm-unitize-reconstruction requires --execute; it never "
+            "calls a provider"
+        )
+    output_root = _acquisition_output_root(args)
+    recovery_path = _acquisition_path(
+        args,
+        "recovery_output",
+        output_root / "llm-unitization-reconstruction-recovery.json",
+    )
+    resume = cast(bool, args.resume)
+    if recovery_path.exists() and not resume:
+        raise CommandError("Stage A reconstruction recovery output already exists")
+    existing_recovery = (
+        _read_json_object_payload(
+            _read_singly_linked_regular_input(
+                recovery_path,
+                label="Stage A reconstruction recovery receipt",
+            ),
+            label="Stage A reconstruction recovery receipt",
+        )
+        if recovery_path.exists()
+        else None
+    )
+    markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    lineage = _verify_stage_a_unitization_lineage(args, markdown_root=markdown_root)
+    candidate_id = cast(str, args.candidate_id).strip()
+    matches = tuple(
+        record
+        for record in lineage.selection_records
+        if record.get("candidate_id") == candidate_id
+    )
+    if len(matches) != 1:
+        raise CommandError(
+            "reconstruction recovery requires exactly one selected candidate"
+        )
+    try:
+        verify_provider_journal_identity(
+            lineage.provider_journal_path,
+            cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+        )
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
+    journal_before_sha256 = _canonical_json_sha256(
+        _stage_a_provider_attempt_rows(lineage.provider_journal_path)
+    )
+    _require_stage_a_lineage_unchanged(lineage)
+    try:
+        result = recover_llm_unitization_reconstruction(
+            selection_record=matches[0],
+            parser_records=lineage.parser_records,
+            markdown_root=markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
+            registry_entry=lineage.registry_entry,
+            model_registry_sha256=lineage.registry_sha256,
+            provider_journal_path=lineage.provider_journal_path,
+            provider_cycle_cap_usd=float(
+                lineage.provider_caps.cap_usd(lineage.registry_entry.provider)
+            ),
+            provider_cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_account=lineage.provider_caps.account(
+                lineage.registry_entry.provider
+            ),
+        )
+    except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    _require_stage_a_lineage_unchanged(lineage)
+    journal_after_rows = _stage_a_provider_attempt_rows(lineage.provider_journal_path)
+    journal_after_sha256 = _canonical_json_sha256(journal_after_rows)
+    derived_before_sha256 = _pre_reconstruction_provider_state_sha256(
+        journal_after_rows,
+        candidate_id=result.candidate_id,
+        model_key=lineage.registry_entry.registry_key,
+        attempt_ordinal=result.attempt_ordinal,
+    )
+    if (
+        journal_before_sha256 != journal_after_sha256
+        and journal_before_sha256 != derived_before_sha256
+    ):
+        raise CommandError(
+            "Stage A reconstruction recovery provider journal changed unexpectedly"
+        )
+    recovery_record: JsonRecord = {
+        "schema_version": str(LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1),
+        **result.to_record(),
+        "model_key": lineage.registry_entry.registry_key,
+        "model_registry_sha256": lineage.registry_sha256,
+        "provider_journal": str(lineage.provider_journal_path.resolve()),
+        "provider_journal_before_state_sha256": derived_before_sha256,
+        "provider_journal_after_state_sha256": journal_after_sha256,
+    }
+    if existing_recovery is not None:
+        if existing_recovery != recovery_record:
+            raise CommandError("Stage A reconstruction recovery receipt changed")
+    else:
+        _atomic_write_json(recovery_path, recovery_record)
+    _write_acquisition_completion(
+        args,
+        stage="recover-llm-unitize-reconstruction",
+        input_paths=lineage.input_paths,
+        output_paths=(recovery_path, lineage.provider_journal_path),
+        record_count=1,
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "source_commitments": dict(lineage.input_commitments),
+            "reconstruction_recovery": recovery_record,
+        },
+    )
+    return 0
 
 
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:

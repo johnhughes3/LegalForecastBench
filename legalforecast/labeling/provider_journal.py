@@ -76,6 +76,15 @@ class ProviderJournalReplayMismatchError(ProviderJournalError):
 
 
 @dataclass(frozen=True, slots=True)
+class ReconstructionFailureEvidence:
+    """Exact provider evidence for the latest recoverable reconstruction failure."""
+
+    attempt_ordinal: int
+    raw_response_json: str
+    normalized_response_json: str
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderCycleCap:
     """One provider reservation cap plus optional legacy evidence annotations."""
 
@@ -802,7 +811,8 @@ class ProviderAttemptJournal:
                 SELECT 1 FROM provider_attempts
                 WHERE logical_call_key = ? AND attempt_ordinal != ?
                   AND status IN (
-                      'settled', 'validated_response', 'response_received'
+                      'settled', 'validated_response', 'response_received',
+                      'reserved', 'ambiguous'
                   )
                 LIMIT 1
                 """,
@@ -826,14 +836,13 @@ class ProviderAttemptJournal:
             cursor = self._connection.execute(
                 """
                 UPDATE provider_attempts
-                SET reconstructed_result_json = ?, status = 'settled', completed_at = ?
+                SET reconstructed_result_json = ?, status = 'settled'
                 WHERE logical_call_key = ? AND attempt_ordinal = ?
                   AND status = 'reconstruction_failed'
                   AND raw_response_json = ? AND normalized_response_json = ?
                 """,
                 (
                     reconstructed_result_json,
-                    _now(),
                     self.identity.logical_call_key,
                     durable_attempt_ordinal,
                     raw_response_json,
@@ -848,6 +857,63 @@ class ProviderAttemptJournal:
             self._connection.rollback()
             raise
         self._connection.commit()
+
+    def latest_reconstruction_recovery_evidence(
+        self,
+    ) -> ReconstructionFailureEvidence:
+        """Return the latest failed or already-recovered response for replay."""
+
+        rows = self._connection.execute(
+            """
+            SELECT attempt_ordinal, status, raw_response_json,
+                   normalized_response_json, failure_type
+            FROM provider_attempts
+            WHERE logical_call_key = ?
+            ORDER BY attempt_ordinal DESC
+            """,
+            (self.identity.logical_call_key,),
+        ).fetchall()
+        recoverable = next(
+            (
+                row
+                for row in rows
+                if row["status"] == "reconstruction_failed"
+                or (row["status"] == "settled" and row["failure_type"] is not None)
+            ),
+            None,
+        )
+        if recoverable is None:
+            raise ProviderJournalError(
+                "provider journal has no failed reconstruction to recover"
+            )
+        if any(
+            row["attempt_ordinal"] != recoverable["attempt_ordinal"]
+            and row["status"]
+            in {
+                "settled",
+                "validated_response",
+                "response_received",
+                "reserved",
+                "ambiguous",
+            }
+            for row in rows
+        ):
+            raise ProviderJournalError(
+                "reconstruction recovery conflicts with another authoritative response"
+            )
+        raw_response_json = recoverable["raw_response_json"]
+        normalized_response_json = recoverable["normalized_response_json"]
+        if not isinstance(raw_response_json, str) or not isinstance(
+            normalized_response_json, str
+        ):
+            raise ProviderJournalError(
+                "failed reconstruction lacks exact provider response evidence"
+            )
+        return ReconstructionFailureEvidence(
+            attempt_ordinal=int(recoverable["attempt_ordinal"]),
+            raw_response_json=raw_response_json,
+            normalized_response_json=normalized_response_json,
+        )
 
     def stage_cost_total(self, stage: str) -> float:
         row = self._connection.execute(
@@ -1081,6 +1147,18 @@ class ProviderAttemptJournal:
     def _reserve(self, attempt_ordinal: int) -> None:
         self._connection.execute("BEGIN IMMEDIATE")
         try:
+            settled = self._connection.execute(
+                """
+                SELECT 1 FROM provider_attempts
+                WHERE logical_call_key = ? AND status = 'settled'
+                LIMIT 1
+                """,
+                (self.identity.logical_call_key,),
+            ).fetchone()
+            if settled is not None:
+                raise ProviderJournalError(
+                    "provider call already has an authoritative settled response"
+                )
             row = self._connection.execute(
                 """
                 SELECT COALESCE(SUM(
