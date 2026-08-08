@@ -73,6 +73,10 @@ def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
         CheckStep("sync locked dependencies", ("uv", "sync", "--locked")),
         CheckStep("check formatting", ("uv", "run", "ruff", "format", "--check", ".")),
         CheckStep("lint", ("uv", "run", "ruff", "check", ".")),
+        CheckStep(
+            "contract ratchet",
+            ("uv", "run", "python", "-m", "legalforecast.contracts.ratchet"),
+        ),
         CheckStep("type-check", ("uv", "run", "pyright")),
         CheckStep(
             "public API docstring coverage",

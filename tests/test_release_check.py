@@ -33,6 +33,7 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
         "sync locked dependencies",
         "check formatting",
         "lint",
+        "contract ratchet",
         "type-check",
         "public API docstring coverage",
         "test",
@@ -48,6 +49,7 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
     ]
     assert "uv sync --locked" in commands
     assert "uv run pyright" in commands
+    assert "uv run python -m legalforecast.contracts.ratchet" in commands
     assert "uv run scripts/verify_review_blockers.py" in commands
     assert any("legalforecast fixture e2e" in command for command in commands)
     assert any(

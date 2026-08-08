@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import DISCLOSURE_CLEARANCE_V1
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
@@ -886,7 +887,7 @@ def _purchased_clearance_index(
 ) -> dict[tuple[str, str], Mapping[str, object]]:
     output: dict[tuple[str, str], Mapping[str, object]] = {}
     for record in records:
-        if record.get("schema_version") != "legalforecast.disclosure_clearance.v1":
+        if record.get("schema_version") != str(DISCLOSURE_CLEARANCE_V1):
             raise ClearanceReplacementError("unsupported purchased clearance schema")
         if record.get("free_or_purchased") != "purchased":
             raise ClearanceReplacementError(

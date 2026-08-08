@@ -15,6 +15,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import ACQUISITION_RUN_CARD_V1
 from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
@@ -146,7 +147,7 @@ def _read_resolved_transition(
     )
     raw_outputs = card.get("output_paths")
     if (
-        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        card.get("schema_version") != str(ACQUISITION_RUN_CARD_V1)
         or card.get("stage") != "resolve-post-recovery-documents"
         or card.get("status") != "completed"
         or card.get("dry_run") is not False
