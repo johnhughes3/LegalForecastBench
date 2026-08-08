@@ -12,6 +12,7 @@ from typing import Any, cast
 
 import pytest
 from legalforecast import cli
+from legalforecast.evals.live_model_solver import LiveModelProviderError
 from legalforecast.evals.model_registry import ModelRegistryEntry, ToolPolicy
 from legalforecast.labeling.llm_pipeline import stage_a_unitization_prompt_records
 from legalforecast.labeling.provider_journal import (
@@ -836,6 +837,399 @@ def test_provider_stage_replay_rejects_duplicate_cross_model_and_cross_stage_row
             expected_prompts=expected,
             providers_by_model=providers,
             model_registry_sha256="registry-sha",
+        )
+
+
+def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settlement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fresh bounded retry may settle after a failed local reconstruction."""
+
+    prompt = "frozen structural review prompt"
+    expected = {
+        ("cand-1", "google:reviewer"): hashlib.sha256(prompt.encode()).hexdigest()
+    }
+    providers = {"google:reviewer": "google"}
+
+    def build_journal(path: Path) -> None:
+        with ProviderAttemptJournal(
+            path,
+            identity=ProviderCallIdentity(
+                stage="llm-review-stage-a",
+                candidate_id="cand-1",
+                model_key="google:reviewer",
+                prompt=prompt,
+                model_registry_sha256="registry-sha",
+            ),
+            provider="google",
+            reservation_usd=0.1,
+            cycle_cap_usd=10.0,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:caps",
+        ) as journal:
+            journal.run_attempt(1, lambda: {"response": "first"})
+            journal.settle_attempt(
+                1,
+                input_tokens=1,
+                output_tokens=1,
+                actual_cost_usd=0.01,
+                raw_output='{"structural_flags":[]}',
+            )
+            journal.record_reconstruction_failure(ValueError("invalid response"))
+            assert journal.prepare_reconstruction_retry(max_attempts=3) == 2
+            journal.run_attempt(1, lambda: {"response": "second"})
+            durable_ordinal = journal.durable_attempt_ordinal(1)
+            assert durable_ordinal == 2
+            journal.settle_attempt(
+                durable_ordinal,
+                input_tokens=2,
+                output_tokens=2,
+                actual_cost_usd=0.02,
+                raw_output='{"structural_flags":[]}',
+            )
+            journal.commit_reconstruction({"structural_flags": []})
+
+    def assert_rejected(path: Path) -> None:
+        with pytest.raises(cli.CommandError, match="provider call"):
+            cli._verified_provider_stage_attempts(
+                stage="llm-review-stage-a",
+                journal_path=path,
+                expected_prompts=expected,
+                providers_by_model=providers,
+                model_registry_sha256="registry-sha",
+            )
+
+    accepted_path = tmp_path / "accepted.sqlite3"
+    build_journal(accepted_path)
+    assert (
+        cli._verified_provider_stage_attempts(
+            stage="llm-review-stage-a",
+            journal_path=accepted_path,
+            expected_prompts=expected,
+            providers_by_model=providers,
+            model_registry_sha256="registry-sha",
+        )["attempt_count"]
+        == 2
+    )
+
+    output_root = tmp_path / "review-resume"
+    source_paths = {
+        name: tmp_path / f"{name}.jsonl"
+        for name in ("selection", "parser", "units", "queue")
+    }
+    _write_jsonl(
+        source_paths["selection"], [{"candidate_id": "cand-1", "case_id": "case-1"}]
+    )
+    for name in ("parser", "units", "queue"):
+        _write_jsonl(source_paths[name], [])
+    registry_path = tmp_path / "reviewer-registry.json"
+    caps_path = tmp_path / "caps.json"
+    unitization_card_path = tmp_path / "llm-unitize.json"
+    for path in (registry_path, caps_path, unitization_card_path):
+        _write_json(path, {})
+    entry = replace(
+        _registry_entry(),
+        provider="google",
+        model_id="reviewer",
+        display_name="Gemini Fixture",
+        model_version_or_snapshot="gemini-fixture-2026-08-08",
+    )
+    lineage = SimpleNamespace(
+        selection_records=({"candidate_id": "cand-1", "case_id": "case-1"},),
+        provider_journal_path=accepted_path,
+        provider_caps=SimpleNamespace(cap_usd=lambda provider: 10.0),
+        provider_caps_sha256="sha256:caps",
+        cohort_cycle_id="cycle-1",
+    )
+    audit = {
+        "candidate_id": "cand-1",
+        "model_key": entry.registry_key,
+        "prompt_sha256": expected[("cand-1", "google:reviewer")],
+        "status": "passed",
+    }
+    replayed_from_journal = 0
+
+    def replay_stage_a_review(**kwargs: object) -> SimpleNamespace:
+        nonlocal replayed_from_journal
+        assert kwargs["provider_journal_path"] == accepted_path
+        replayed_from_journal += 1
+        return SimpleNamespace(
+            records=(), audit_records=(audit,), terminal_review_queue_records=()
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_verified_shared_provider_chain",
+        lambda *args, **kwargs: (lineage, unitization_card_path),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_registry_entry_for_key",
+        lambda *args, **kwargs: (entry, "registry-sha"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_provider_spend_authorities",
+        lambda *args, **kwargs: (None, {"google": "default"}),
+    )
+    monkeypatch.setattr(cli, "llm_review_stage_a_units", replay_stage_a_review)
+    args = Namespace(
+        execute=True,
+        output_root=output_root,
+        provider_journal=accepted_path,
+        llm_unitization_run_card=unitization_card_path,
+        selection=source_paths["selection"],
+        parser_manifest=source_paths["parser"],
+        prediction_units=source_paths["units"],
+        unitization_review_queue=source_paths["queue"],
+        model_registry=registry_path,
+        provider_cycle_caps=caps_path,
+        terminal_escalation=[],
+        markdown_root=tmp_path / "markdown",
+        structural_flags_output=None,
+        review_queue_output=None,
+        audit_output=None,
+        model_key=entry.registry_key,
+        timeout_seconds=1.0,
+        resume=True,
+        run_card_output=None,
+        log_output=None,
+    )
+    assert cli._cmd_acquisition_llm_review_stage_a(args) == 0
+    assert replayed_from_journal == 1
+    run_card = json.loads(
+        (output_root / "run-cards" / "llm-review-stage-a.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert run_card["provider_chain"]["stage_attempts"]["attempt_count"] == 2
+
+    for status_code, retryable in ((None, True), (400, False)):
+        transport_path = tmp_path / f"transport-{status_code}.sqlite3"
+
+        def transport_failure(
+            status_code: int | None = status_code,
+            retryable: bool = retryable,
+        ) -> dict[str, object]:
+            raise LiveModelProviderError(
+                "transport failed",
+                status_code=status_code,
+                retryable=retryable,
+            )
+
+        with ProviderAttemptJournal(
+            transport_path,
+            identity=ProviderCallIdentity(
+                stage="llm-review-stage-a",
+                candidate_id="cand-1",
+                model_key="google:reviewer",
+                prompt=prompt,
+                model_registry_sha256="registry-sha",
+            ),
+            provider="google",
+            reservation_usd=0.1,
+            cycle_cap_usd=10.0,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:caps",
+        ) as journal:
+            with pytest.raises(LiveModelProviderError):
+                journal.run_attempt(1, transport_failure)
+            journal.run_attempt(2, lambda: {"response": "recovered"})
+            journal.settle_attempt(
+                2,
+                input_tokens=2,
+                output_tokens=2,
+                actual_cost_usd=0.02,
+                raw_output='{"structural_flags":[]}',
+            )
+            journal.commit_reconstruction({"structural_flags": []})
+        assert (
+            cli._verified_provider_stage_attempts(
+                stage="llm-review-stage-a",
+                journal_path=transport_path,
+                expected_prompts=expected,
+                providers_by_model=providers,
+                model_registry_sha256="registry-sha",
+            )["attempt_count"]
+            == 2
+        )
+
+    invalid_status_path = tmp_path / "invalid-status.sqlite3"
+    build_journal(invalid_status_path)
+    with sqlite3.connect(invalid_status_path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET status = 'validated_response' "
+            "WHERE attempt_ordinal = 1"
+        )
+    assert_rejected(invalid_status_path)
+
+    after_settlement_path = tmp_path / "after-settlement.sqlite3"
+    build_journal(after_settlement_path)
+    with sqlite3.connect(after_settlement_path) as connection:
+        connection.execute(
+            "INSERT INTO provider_attempts SELECT logical_call_key, 3, stage, "
+            "candidate_id, model_key, provider, account, prompt_text, "
+            "prompt_sha256, model_registry_sha256, reservation_usd, "
+            "'reconstruction_failed', raw_response_json, normalized_response_json, "
+            "NULL, input_tokens, output_tokens, actual_cost_usd, failure_type, "
+            "failure_message, reserved_at, completed_at, authority_attempt_ordinal "
+            "FROM provider_attempts WHERE attempt_ordinal = 1"
+        )
+    assert_rejected(after_settlement_path)
+
+    out_of_order_path = tmp_path / "out-of-order.sqlite3"
+    build_journal(out_of_order_path)
+    with sqlite3.connect(out_of_order_path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET attempt_ordinal = 4 WHERE attempt_ordinal = 2"
+        )
+    assert_rejected(out_of_order_path)
+
+    terminal_path = tmp_path / "terminal.sqlite3"
+    with ProviderAttemptJournal(
+        terminal_path,
+        identity=ProviderCallIdentity(
+            stage="llm-review-stage-a",
+            candidate_id="cand-1",
+            model_key="google:reviewer",
+            prompt=prompt,
+            model_registry_sha256="registry-sha",
+        ),
+        provider="google",
+        reservation_usd=0.1,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:caps",
+    ) as journal:
+        journal.run_attempt(1, lambda: {"response": "terminal"})
+        journal.settle_attempt(
+            1,
+            input_tokens=1,
+            output_tokens=1,
+            actual_cost_usd=0.01,
+            raw_output='{"structural_flags":[]}',
+        )
+        journal.record_reconstruction_failure(ValueError("invalid response"))
+    with sqlite3.connect(terminal_path) as connection:
+        connection.execute(
+            "INSERT INTO provider_attempts SELECT logical_call_key, 2, stage, "
+            "candidate_id, model_key, provider, account, prompt_text, "
+            "prompt_sha256, model_registry_sha256, reservation_usd, status, "
+            "raw_response_json, normalized_response_json, "
+            "reconstructed_result_json, input_tokens, output_tokens, "
+            "actual_cost_usd, failure_type, failure_message, reserved_at, "
+            "completed_at, authority_attempt_ordinal FROM provider_attempts "
+            "WHERE attempt_ordinal = 1"
+        )
+    cli._verified_provider_stage_attempts(
+        stage="llm-review-stage-a",
+        journal_path=terminal_path,
+        expected_prompts=expected,
+        providers_by_model=providers,
+        model_registry_sha256="registry-sha",
+        expected_nonsettled_statuses={
+            ("cand-1", "google:reviewer"): "reconstruction_failed"
+        },
+        expected_nonsettled_attempt_counts={("cand-1", "google:reviewer"): 2},
+    )
+
+    transport_terminal_path = tmp_path / "transport-terminal.sqlite3"
+
+    def retryable_transport_failure() -> dict[str, object]:
+        raise LiveModelProviderError(
+            "retryable transport failed",
+            status_code=None,
+            retryable=True,
+        )
+
+    with ProviderAttemptJournal(
+        transport_terminal_path,
+        identity=ProviderCallIdentity(
+            stage="llm-review-stage-a",
+            candidate_id="cand-1",
+            model_key="google:reviewer",
+            prompt=prompt,
+            model_registry_sha256="registry-sha",
+        ),
+        provider="google",
+        reservation_usd=0.1,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:caps",
+    ) as journal:
+        with pytest.raises(LiveModelProviderError):
+            journal.run_attempt(1, retryable_transport_failure)
+        journal.run_attempt(2, lambda: {"response": "terminal"})
+        journal.settle_attempt(
+            2,
+            input_tokens=1,
+            output_tokens=1,
+            actual_cost_usd=0.01,
+            raw_output='{"structural_flags":[]}',
+        )
+        journal.record_reconstruction_failure(ValueError("invalid response"))
+    assert (
+        cli._verified_provider_stage_attempts(
+            stage="llm-review-stage-a",
+            journal_path=transport_terminal_path,
+            expected_prompts=expected,
+            providers_by_model=providers,
+            model_registry_sha256="registry-sha",
+            expected_nonsettled_statuses={
+                ("cand-1", "google:reviewer"): "reconstruction_failed"
+            },
+            expected_nonsettled_attempt_counts={("cand-1", "google:reviewer"): 1},
+        )["attempt_count"]
+        == 2
+    )
+    with sqlite3.connect(terminal_path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET status = 'reserved' WHERE attempt_ordinal = 2"
+        )
+    with pytest.raises(cli.CommandError, match="reconstruction_failed provider call"):
+        cli._verified_provider_stage_attempts(
+            stage="llm-review-stage-a",
+            journal_path=terminal_path,
+            expected_prompts=expected,
+            providers_by_model=providers,
+            model_registry_sha256="registry-sha",
+            expected_nonsettled_statuses={
+                ("cand-1", "google:reviewer"): "reconstruction_failed"
+            },
+            expected_nonsettled_attempt_counts={("cand-1", "google:reviewer"): 2},
+        )
+
+    over_limit_path = tmp_path / "over-limit.sqlite3"
+    over_limit_path.write_bytes(terminal_path.read_bytes())
+    with sqlite3.connect(over_limit_path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET status = 'reconstruction_failed' "
+            "WHERE attempt_ordinal = 2"
+        )
+        for ordinal in (3, 4):
+            connection.execute(
+                "INSERT INTO provider_attempts SELECT logical_call_key, ?, stage, "
+                "candidate_id, model_key, provider, account, prompt_text, "
+                "prompt_sha256, model_registry_sha256, reservation_usd, status, "
+                "raw_response_json, normalized_response_json, "
+                "reconstructed_result_json, input_tokens, output_tokens, "
+                "actual_cost_usd, failure_type, failure_message, reserved_at, "
+                "completed_at, authority_attempt_ordinal FROM provider_attempts "
+                "WHERE attempt_ordinal = 1",
+                (ordinal,),
+            )
+    with pytest.raises(cli.CommandError, match="reconstruction_failed provider call"):
+        cli._verified_provider_stage_attempts(
+            stage="llm-review-stage-a",
+            journal_path=over_limit_path,
+            expected_prompts=expected,
+            providers_by_model=providers,
+            model_registry_sha256="registry-sha",
+            expected_nonsettled_statuses={
+                ("cand-1", "google:reviewer"): "reconstruction_failed"
+            },
+            expected_nonsettled_attempt_counts={("cand-1", "google:reviewer"): 4},
         )
 
 
