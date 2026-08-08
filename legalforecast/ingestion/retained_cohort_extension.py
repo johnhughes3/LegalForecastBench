@@ -132,8 +132,10 @@ class AuthenticatedPoolLineage:
     frontier_policy_sha256: str
     frontier_run_card_sha256: str
     clearance_run_card_sha256: str
-    clearance_reviews_sha256: str
-    clearance_review_receipt_sha256: str
+    clearance_reviews_sha256: str | None
+    clearance_review_receipt_sha256: str | None
+    clearance_source_commitment_sha256s: Mapping[str, str] | None
+    clearance_authority_sha256: str | None
     restriction_evidence_sha256: str
     preparation_cost_per_document_usd: str
     preparation_max_projected_budget_usd: str
@@ -148,10 +150,19 @@ class AuthenticatedPoolLineage:
             "frontier_policy_sha256": self.frontier_policy_sha256,
             "frontier_run_card_sha256": self.frontier_run_card_sha256,
             "clearance_run_card_sha256": self.clearance_run_card_sha256,
-            "clearance_reviews_sha256": self.clearance_reviews_sha256,
-            "clearance_review_receipt_sha256": (self.clearance_review_receipt_sha256),
             "restriction_evidence_sha256": self.restriction_evidence_sha256,
         }
+        if (self.clearance_reviews_sha256 is None) != (
+            self.clearance_review_receipt_sha256 is None
+        ):
+            raise RetainedCohortExtensionError(
+                "clearance review and receipt commitments must be supplied together"
+            )
+        if self.clearance_reviews_sha256 is not None:
+            hashes["clearance_reviews_sha256"] = self.clearance_reviews_sha256
+            hashes["clearance_review_receipt_sha256"] = cast(
+                str, self.clearance_review_receipt_sha256
+            )
         for name, digest in hashes.items():
             _sha(digest, name)
         _money(
@@ -171,7 +182,7 @@ class AuthenticatedPoolLineage:
             raise RetainedCohortExtensionError(
                 "preparation_max_missing_core_documents_per_case must be positive"
             )
-        return {
+        record: JsonRecord = {
             **hashes,
             "preparation_cost_per_document_usd": (
                 self.preparation_cost_per_document_usd
@@ -183,6 +194,25 @@ class AuthenticatedPoolLineage:
                 self.preparation_max_missing_core_documents_per_case
             ),
         }
+        if self.clearance_source_commitment_sha256s is not None:
+            if not self.clearance_source_commitment_sha256s:
+                raise RetainedCohortExtensionError(
+                    "clearance source commitments must not be empty"
+                )
+            source_hashes = dict(
+                sorted(self.clearance_source_commitment_sha256s.items())
+            )
+            for name, digest in source_hashes.items():
+                if not name:
+                    raise RetainedCohortExtensionError(
+                        "clearance source commitment name must not be empty"
+                    )
+                _sha(digest, f"clearance source commitment {name}")
+            record["clearance_source_commitment_sha256s"] = source_hashes
+        if self.clearance_authority_sha256 is not None:
+            _sha(self.clearance_authority_sha256, "clearance authority")
+            record["clearance_authority_sha256"] = self.clearance_authority_sha256
+        return record
 
 
 def purchase_obligation_snapshot(
