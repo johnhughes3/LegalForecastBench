@@ -209,7 +209,11 @@ class _Scanner(ast.NodeVisitor):
     def _record(
         self, *, rule: str, subject: str, line: int, detail: str, guidance: str
     ) -> None:
-        if line in self.allowed_lines or (line - 1) in self.allowed_lines:
+        # `allowed_lines` already contains both the marker's own line (trailing
+        # comment) and the line below it (comment above the offending code).
+        # Also accepting `line - 1` here would stretch one marker across three
+        # lines and silently excuse code the reviewer never looked at.
+        if line in self.allowed_lines:
             return
         key = (rule, self.relative_path, subject)
         self.findings_by_key.setdefault(

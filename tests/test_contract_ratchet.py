@@ -101,3 +101,26 @@ def test_build_baseline_requires_explicit_reason_on_reload(tmp_path: Path) -> No
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
+
+
+def test_allow_marker_does_not_reach_past_the_next_line(tmp_path: Path) -> None:
+    """One marker excuses its own line and the next, never a third.
+
+    Regression: `_allowed_lines` records both the marker line and the line
+    below it, and `_record` additionally accepted `line - 1`, so a single
+    marker silently suppressed findings up to two lines below itself.
+    """
+
+    _write(
+        tmp_path / "legalforecast" / "scope.py",
+        """
+        # contract-ratchet: allow reviewed exception
+        COVERED = "legalforecast.covered.v1"
+        NOT_COVERED = "legalforecast.not_covered.v1"
+        """,
+    )
+
+    subjects = {finding.subject for finding in scan_repository(tmp_path)}
+
+    assert "legalforecast.covered.v1" not in subjects
+    assert "legalforecast.not_covered.v1" in subjects
