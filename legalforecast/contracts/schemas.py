@@ -49,6 +49,15 @@ LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1 = SchemaIdentifier(
 LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1 = SchemaIdentifier(
     "legalforecast.llm_stage_a_structural_review_terminal_escalation.v1"
 )
+UNITIZATION_REVIEW_BUNDLE_V1 = SchemaIdentifier(
+    "legalforecast.unitization_review_bundle.v1"
+)
+UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1 = SchemaIdentifier(
+    "legalforecast.unitization_review_bundle_manifest.v1"
+)
+UNITIZATION_REVIEW_QUEUE_V1 = SchemaIdentifier(
+    "legalforecast.unitization_review_queue.v1"
+)
 POST_RECOVERY_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.post_recovery_restriction_evidence.v1"
 )
@@ -107,6 +116,9 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
+    UNITIZATION_REVIEW_BUNDLE_V1,
+    UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
+    UNITIZATION_REVIEW_QUEUE_V1,
     POST_RECOVERY_RESTRICTION_EVIDENCE_V1,
     PURCHASE_SPEND_SUMMARY_V1,
     RECAP_FETCH_QUARANTINE_RECOVERY_V1,

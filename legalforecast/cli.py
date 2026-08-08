@@ -44,6 +44,9 @@ from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
+    UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
+    UNITIZATION_REVIEW_BUNDLE_V1,
+    UNITIZATION_REVIEW_QUEUE_V1,
 )
 from legalforecast.evals.accounting import (
     OutputValidityStatus,
@@ -2699,6 +2702,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_terminalize_llm_review_stage_a_arguments(
         acquisition_terminalize_review_stage_a
+    )
+    acquisition_build_unitization_review_bundle = acquisition_subparsers.add_parser(
+        "build-unitization-review-bundle",
+        help=(
+            "Build a private blinded human-review bundle from authenticated Stage A."
+        ),
+    )
+    _add_acquisition_build_unitization_review_bundle_arguments(
+        acquisition_build_unitization_review_bundle
     )
     acquisition_apply_unitization_review = acquisition_subparsers.add_parser(
         "apply-unitization-review",
@@ -9781,6 +9793,49 @@ def _add_acquisition_apply_unitization_review_arguments(
         help="Hash-linked Stage A units required by labeling and readiness.",
     )
     parser.set_defaults(handler=_cmd_acquisition_apply_unitization_review)
+
+
+def _add_acquisition_build_unitization_review_bundle_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the deliberately provider-free Stage A human-review bundle inputs."""
+
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help="Raw prediction-units JSONL emitted by authenticated llm-unitize.",
+    )
+    parser.add_argument(
+        "--llm-unitization-run-card",
+        type=Path,
+        required=True,
+        help="Completed authenticated llm-unitize run card for the raw units.",
+    )
+    parser.add_argument(
+        "--llm-review-stage-a-run-card",
+        type=Path,
+        required=True,
+        help="Completed authenticated structural-review run card for the merged queue.",
+    )
+    parser.add_argument(
+        "--unitization-review-queue",
+        type=Path,
+        required=True,
+        help="Exact merged pending Stage A review queue from structural review.",
+    )
+    parser.add_argument(
+        "--bundle-output",
+        type=Path,
+        help="Private blinded review JSONL; defaults under --output-root.",
+    )
+    parser.add_argument(
+        "--bundle-manifest-output",
+        type=Path,
+        help="Hash-bound private review-bundle manifest; defaults under --output-root.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_build_unitization_review_bundle)
 
 
 def _add_acquisition_apply_lawyer_review_arguments(
@@ -60298,6 +60353,508 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
         extra=completion_extra,
     )
     return 0
+
+
+def _cmd_acquisition_build_unitization_review_bundle(
+    args: argparse.Namespace,
+) -> int:
+    """Emit one private blinded row for every authenticated pending Stage A review.
+
+    This command deliberately reuses the complete Stage A and structural-review
+    verifiers.  It never opens a provider client, a provider journal for writing,
+    or an adjudication artifact.
+    """
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "build-unitization-review-bundle requires --execute; it is "
+            "provider-free and never creates adjudications"
+        )
+    raw_units_path = cast(Path, args.prediction_units)
+    unitization_card_path = cast(Path, args.llm_unitization_run_card)
+    structural_card_path = cast(Path, args.llm_review_stage_a_run_card)
+    review_queue_path = cast(Path, args.unitization_review_queue)
+    output_root = cast(Path, args.output_root)
+    bundle_path = _acquisition_path(
+        args,
+        "bundle_output",
+        output_root / "unitization-review-bundle.jsonl",
+    )
+    manifest_path = _acquisition_path(
+        args,
+        "bundle_manifest_output",
+        output_root / "unitization-review-bundle-manifest.json",
+    )
+    completion_run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards" / "build-unitization-review-bundle.json",
+    )
+    completion_log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / "build-unitization-review-bundle.jsonl",
+    )
+
+    _reject_existing_parent_symlink(output_root, label="review bundle output root")
+    if output_root.exists() and (output_root.is_symlink() or not output_root.is_dir()):
+        raise CommandError("review bundle output root is not a directory")
+    raw_units_payload = _read_singly_linked_regular_input(
+        raw_units_path, label="raw prediction units"
+    )
+    unitization_card_payload = _read_singly_linked_regular_input(
+        unitization_card_path, label="llm-unitize run card"
+    )
+    structural_card_payload = _read_singly_linked_regular_input(
+        structural_card_path, label="structural-review run card"
+    )
+    review_queue_payload = _read_singly_linked_regular_input(
+        review_queue_path, label="merged unitization review queue"
+    )
+    lineage = _verify_stage_a_unitization_run_card(
+        unitization_card_path,
+        expected_prediction_units_path=raw_units_path,
+    )
+    _verify_stage_a_review_run_card(
+        structural_card_path,
+        lineage=lineage,
+        llm_unitization_run_card_path=unitization_card_path,
+        expected_review_queue_path=review_queue_path,
+    )
+    _require_unitization_review_bundle_inputs_unchanged(
+        raw_units_path=raw_units_path,
+        raw_units_payload=raw_units_payload,
+        unitization_card_path=unitization_card_path,
+        unitization_card_payload=unitization_card_payload,
+        structural_card_path=structural_card_path,
+        structural_card_payload=structural_card_payload,
+        review_queue_path=review_queue_path,
+        review_queue_payload=review_queue_payload,
+    )
+    _validate_disclosure_review_paths(
+        input_paths=(
+            raw_units_path,
+            unitization_card_path,
+            structural_card_path,
+            review_queue_path,
+        ),
+        output_paths=(
+            bundle_path,
+            manifest_path,
+            completion_run_card_path,
+            completion_log_path,
+        ),
+        protected_roots=(lineage.document_root, lineage.markdown_root),
+    )
+    bundle_records = _build_unitization_review_bundle_records(
+        raw_units_payload=raw_units_payload,
+        review_queue_payload=review_queue_payload,
+        lineage=lineage,
+    )
+    _require_stage_a_lineage_unchanged(lineage)
+    _require_unitization_review_bundle_inputs_unchanged(
+        raw_units_path=raw_units_path,
+        raw_units_payload=raw_units_payload,
+        unitization_card_path=unitization_card_path,
+        unitization_card_payload=unitization_card_payload,
+        structural_card_path=structural_card_path,
+        structural_card_payload=structural_card_payload,
+        review_queue_path=review_queue_path,
+        review_queue_payload=review_queue_payload,
+    )
+    bundle_payload = _jsonl_bytes(bundle_records)
+    manifest: JsonRecord = {
+        "schema_version": str(UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1),
+        "record_count": len(bundle_records),
+        "review_ids_sha256": _bytes_sha256(
+            _projection_json_bytes(
+                {"review_ids": [record["review_id"] for record in bundle_records]}
+            )
+        ),
+        "bundle_sha256": _bytes_sha256(bundle_payload),
+        "input_commitments": {
+            "raw_prediction_units": _stage_a_file_commitment(
+                raw_units_path, payload=raw_units_payload
+            ),
+            "llm_unitization_run_card": _stage_a_file_commitment(
+                unitization_card_path, payload=unitization_card_payload
+            ),
+            "llm_review_stage_a_run_card": _stage_a_file_commitment(
+                structural_card_path, payload=structural_card_payload
+            ),
+            "unitization_review_queue": _stage_a_file_commitment(
+                review_queue_path, payload=review_queue_payload
+            ),
+            "selection": lineage.input_commitments["selection"],
+            "parser_manifest": lineage.input_commitments["parser_manifest"],
+            "markdown_root": str(lineage.markdown_root.resolve()),
+            "markdown_tree": dict(lineage.markdown_tree),
+        },
+        "provider_free": True,
+        "creates_adjudications": False,
+        "contains_decision_text": False,
+    }
+    manifest_payload = _projection_json_bytes(manifest)
+    _acquisition_output_root(args)
+    _ensure_projection_artifact(
+        bundle_path,
+        bundle_payload,
+        resume=cast(bool, args.resume),
+        stage="build-unitization-review-bundle",
+    )
+    _ensure_projection_artifact(
+        manifest_path,
+        manifest_payload,
+        resume=cast(bool, args.resume),
+        stage="build-unitization-review-bundle",
+    )
+    _write_acquisition_completion(
+        args,
+        stage="build-unitization-review-bundle",
+        input_paths=(
+            raw_units_path,
+            unitization_card_path,
+            structural_card_path,
+            review_queue_path,
+            lineage.markdown_root,
+        ),
+        output_paths=(bundle_path, manifest_path),
+        record_count=len(bundle_records),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "bundle_sha256": manifest["bundle_sha256"],
+            "input_commitments": manifest["input_commitments"],
+            "provider_free": True,
+            "creates_adjudications": False,
+        },
+    )
+    return 0
+
+
+def _require_unitization_review_bundle_inputs_unchanged(
+    *,
+    raw_units_path: Path,
+    raw_units_payload: bytes,
+    unitization_card_path: Path,
+    unitization_card_payload: bytes,
+    structural_card_path: Path,
+    structural_card_payload: bytes,
+    review_queue_path: Path,
+    review_queue_payload: bytes,
+) -> None:
+    """Reject a swap between the authenticated Stage A replay and bundle write."""
+
+    for label, path, expected_payload in (
+        ("raw prediction units", raw_units_path, raw_units_payload),
+        ("llm-unitize run card", unitization_card_path, unitization_card_payload),
+        ("structural-review run card", structural_card_path, structural_card_payload),
+        ("merged unitization review queue", review_queue_path, review_queue_payload),
+    ):
+        if _read_singly_linked_regular_input(path, label=label) != expected_payload:
+            raise CommandError(f"{label} changed during review-bundle assembly")
+
+
+def _build_unitization_review_bundle_records(
+    *,
+    raw_units_payload: bytes,
+    review_queue_payload: bytes,
+    lineage: _StageAUnitizationLineage,
+) -> list[JsonRecord]:
+    """Reduce authenticated Stage A evidence to blinded human-review context."""
+
+    try:
+        raw_records = _read_jsonl_payload(
+            raw_units_payload, label="raw prediction units"
+        )
+        review_records = _read_jsonl_payload(
+            review_queue_payload, label="merged unitization review queue"
+        )
+    except ValueError as exc:
+        raise CommandError(str(exc)) from exc
+    raw_by_candidate: dict[str, Mapping[str, Any]] = {}
+    for record in raw_records:
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in raw_by_candidate:
+            raise CommandError(
+                f"duplicate raw prediction-unit candidate: {candidate_id}"
+            )
+        raw_by_candidate[candidate_id] = record
+    selection_by_candidate: dict[str, Mapping[str, Any]] = {}
+    for selection in lineage.selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        if candidate_id in selection_by_candidate:
+            raise CommandError(
+                f"duplicate authenticated selection candidate: {candidate_id}"
+            )
+        selection_by_candidate[candidate_id] = selection
+    parser_by_key: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for parser in lineage.parser_records:
+        key = (
+            _required_str(parser, "candidate_id"),
+            _required_str(parser, "source_document_id"),
+        )
+        if key in parser_by_key:
+            raise CommandError(f"duplicate parser manifest row: {key[0]}/{key[1]}")
+        parser_by_key[key] = parser
+
+    seen_review_ids: set[str] = set()
+    records: list[JsonRecord] = []
+    for review in review_records:
+        if review.get("schema_version") != str(UNITIZATION_REVIEW_QUEUE_V1):
+            raise CommandError("merged unitization review queue has unsupported schema")
+        if review.get("status") != "pending_adjudication":
+            raise CommandError(
+                "merged unitization review queue contains nonpending review"
+            )
+        review_id = _required_str(review, "review_id")
+        if review_id in seen_review_ids:
+            raise CommandError(f"duplicate pending review_id: {review_id}")
+        seen_review_ids.add(review_id)
+        candidate_id = _required_str(review, "candidate_id")
+        raw_record = raw_by_candidate.get(candidate_id)
+        selection = selection_by_candidate.get(candidate_id)
+        if raw_record is None or selection is None:
+            raise CommandError(
+                f"review references unknown authenticated candidate: {candidate_id}"
+            )
+        case_id = _required_str(review, "case_id")
+        if case_id != _required_str(raw_record, "case_id") or case_id != _required_str(
+            selection, "case_id"
+        ):
+            raise CommandError(f"review case_id differs from Stage A: {candidate_id}")
+        units_value = raw_record.get("prediction_units")
+        if not isinstance(units_value, Sequence) or isinstance(
+            units_value, (str, bytes)
+        ):
+            raise CommandError(f"raw prediction units are invalid: {candidate_id}")
+        typed_units = cast(Sequence[object], units_value)
+        units_by_id: dict[str, Mapping[str, Any]] = {}
+        cited_source_ids: list[str] = []
+        for raw_unit in typed_units:
+            if not isinstance(raw_unit, Mapping):
+                raise CommandError(f"invalid raw prediction unit: {candidate_id}")
+            typed_raw_unit = cast(Mapping[str, Any], raw_unit)
+            try:
+                unit = prediction_unit_from_record(typed_raw_unit)
+            except ValueError as exc:
+                raise CommandError(
+                    f"invalid raw prediction unit: {candidate_id}: {exc}"
+                ) from exc
+            if unit.unit_id in units_by_id:
+                raise CommandError(
+                    f"duplicate raw prediction unit: {candidate_id}/{unit.unit_id}"
+                )
+            units_by_id[unit.unit_id] = dict(typed_raw_unit)
+            cited_source_ids.extend(
+                citation.document_id for citation in unit.source_citations
+            )
+        unit_id = _required_str(review, "unit_id")
+        if unit_id not in units_by_id:
+            raise CommandError(
+                f"review references unknown raw unit: {candidate_id}/{unit_id}"
+            )
+        review_item = review.get("review_item")
+        if not isinstance(review_item, Mapping):
+            raise CommandError(f"review item is invalid: {review_id}")
+        if _required_str(cast(Mapping[str, Any], review_item), "unit_id") != unit_id:
+            raise CommandError(f"review item unit_id differs: {review_id}")
+        typed_review_item = cast(Mapping[str, Any], review_item)
+        review_sources_value = typed_review_item.get("source_document_ids")
+        if review_sources_value is None:
+            terminal_route = "structural_reviewer_terminal_reconstruction_failure"
+            if review.get("route_reason") != terminal_route:
+                raise CommandError(
+                    f"review item lacks source_document_ids: {review_id}"
+                )
+            frozen_unit = typed_review_item.get("frozen_unit")
+            if not isinstance(frozen_unit, Mapping):
+                raise CommandError(
+                    f"terminal review frozen unit differs from Stage A: {review_id}"
+                )
+            typed_frozen_unit = cast(Mapping[str, Any], frozen_unit)
+            if dict(typed_frozen_unit) != dict(units_by_id[unit_id]):
+                raise CommandError(
+                    f"terminal review frozen unit differs from Stage A: {review_id}"
+                )
+            commitments_value = typed_review_item.get("predecision_source_commitments")
+            if not isinstance(commitments_value, Sequence) or isinstance(
+                commitments_value, (str, bytes)
+            ):
+                raise CommandError(
+                    f"terminal review lacks predecision source commitments: {review_id}"
+                )
+            typed_commitments = cast(Sequence[object], commitments_value)
+            commitment_source_ids = {
+                _required_str(cast(Mapping[str, Any], commitment), "source_document_id")
+                for commitment in typed_commitments
+                if isinstance(commitment, Mapping)
+            }
+            if (
+                not commitment_source_ids
+                or len(commitment_source_ids) != len(typed_commitments)
+                or not set(cited_source_ids).issubset(commitment_source_ids)
+            ):
+                raise CommandError(
+                    "terminal review predecision source commitments are invalid: "
+                    f"{review_id}"
+                )
+            review_sources = list(dict.fromkeys(cited_source_ids))
+        else:
+            if not isinstance(review_sources_value, Sequence) or isinstance(
+                review_sources_value, (str, bytes)
+            ):
+                raise CommandError(
+                    f"review item source_document_ids are invalid: {review_id}"
+                )
+            typed_review_sources = cast(Sequence[object], review_sources_value)
+            review_sources = [
+                item
+                for item in typed_review_sources
+                if isinstance(item, str) and item.strip()
+            ]
+            if (
+                not review_sources
+                or len(review_sources) != len(typed_review_sources)
+                or len(set(review_sources)) != len(review_sources)
+            ):
+                raise CommandError(
+                    f"review item source_document_ids are invalid: {review_id}"
+                )
+        cited_source_ids = list(dict.fromkeys((*review_sources, *cited_source_ids)))
+        source_documents = _unitization_review_bundle_sources(
+            candidate_id=candidate_id,
+            selection=selection,
+            parser_by_key=parser_by_key,
+            markdown_root=lineage.markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
+            source_document_ids=cited_source_ids,
+        )
+        safe_review_item: JsonRecord = {
+            "unit_id": unit_id,
+            "reason": _required_str(cast(Mapping[str, Any], review_item), "reason"),
+            "notes": _required_str(cast(Mapping[str, Any], review_item), "notes"),
+            "source_document_ids": review_sources,
+        }
+        citation_excerpt = cast(Mapping[str, Any], review_item).get("citation_excerpt")
+        if citation_excerpt is not None:
+            if not isinstance(citation_excerpt, str) or not citation_excerpt.strip():
+                raise CommandError(
+                    f"review item citation_excerpt is invalid: {review_id}"
+                )
+            safe_review_item["citation_excerpt"] = citation_excerpt
+        records.append(
+            {
+                "schema_version": str(UNITIZATION_REVIEW_BUNDLE_V1),
+                "review_id": review_id,
+                "candidate_id": candidate_id,
+                "case_id": case_id,
+                "route_reason": _required_str(review, "route_reason"),
+                "review_item": safe_review_item,
+                "raw_prediction_units": {
+                    "candidate_id": candidate_id,
+                    "case_id": case_id,
+                    "prediction_units": list(units_by_id.values()),
+                },
+                "cited_predecision_markdown": source_documents,
+            }
+        )
+    return records
+
+
+def _unitization_review_bundle_sources(
+    *,
+    candidate_id: str,
+    selection: Mapping[str, Any],
+    parser_by_key: Mapping[tuple[str, str], Mapping[str, Any]],
+    markdown_root: Path,
+    markdown_bytes: Mapping[str, bytes],
+    source_document_ids: Sequence[str],
+) -> list[JsonRecord]:
+    """Return only cited, model-visible predecision Markdown snapshots."""
+
+    documents_value = selection.get("documents")
+    if not isinstance(documents_value, Sequence) or isinstance(
+        documents_value, (str, bytes)
+    ):
+        raise CommandError(f"selection documents are invalid: {candidate_id}")
+    typed_documents = cast(Sequence[object], documents_value)
+    documents: dict[str, Mapping[str, Any]] = {}
+    for document in typed_documents:
+        if not isinstance(document, Mapping):
+            raise CommandError(f"selection document is invalid: {candidate_id}")
+        source_document_id = _required_str(
+            cast(Mapping[str, Any], document), "source_document_id"
+        )
+        if source_document_id in documents:
+            raise CommandError(
+                f"duplicate selection document: {candidate_id}/{source_document_id}"
+            )
+        documents[source_document_id] = cast(Mapping[str, Any], document)
+    records: list[JsonRecord] = []
+    for source_document_id in source_document_ids:
+        document = documents.get(source_document_id)
+        if document is None:
+            raise CommandError(
+                "cited source is absent from selection: "
+                f"{candidate_id}/{source_document_id}"
+            )
+        role = _required_str(document, "document_role")
+        if (
+            role.casefold() in {"decision", "order"}
+            or document.get("model_visible") is not True
+            or document.get("contains_target_outcome") is not False
+        ):
+            raise CommandError(
+                f"cited source is not model-visible predecision material: "
+                f"{candidate_id}/{source_document_id}"
+            )
+        try:
+            parser = parser_by_key[(candidate_id, source_document_id)]
+        except KeyError as exc:
+            raise CommandError(
+                f"cited source is missing from parser manifest: "
+                f"{candidate_id}/{source_document_id}"
+            ) from exc
+        markdown_path = _stage_a_markdown_path(parser, markdown_root=markdown_root)
+        relative_path = markdown_path.relative_to(markdown_root.resolve()).as_posix()
+        try:
+            expected_payload = markdown_bytes[relative_path]
+        except KeyError as exc:
+            raise CommandError(
+                f"cited Markdown is absent from authenticated snapshot: "
+                f"{candidate_id}/{source_document_id}"
+            ) from exc
+        payload = _read_singly_linked_regular_input(
+            markdown_path, label="cited predecision Markdown"
+        )
+        if payload != expected_payload:
+            raise CommandError(
+                f"cited Markdown changed after Stage A authentication: "
+                f"{candidate_id}/{source_document_id}"
+            )
+        try:
+            markdown = payload.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CommandError(
+                f"cited Markdown is not UTF-8: {candidate_id}/{source_document_id}"
+            ) from exc
+        if not markdown.strip():
+            raise CommandError(
+                f"cited Markdown is empty: {candidate_id}/{source_document_id}"
+            )
+        records.append(
+            {
+                "source_document_id": source_document_id,
+                "document_role": role,
+                "markdown_path": relative_path,
+                "sha256": _bytes_sha256(payload),
+                "byte_count": len(payload),
+                "markdown": markdown,
+            }
+        )
+    return records
 
 
 def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
