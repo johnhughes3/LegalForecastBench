@@ -161,6 +161,75 @@ The terminal artifact is a distinct authenticated per-document gap-outcome ledge
 Recovered downloads remain ineligible for packets until the existing disclosure-provenance clearance and provider-free target reprojection are completed against the augmented manifest; that downstream reprojection emits at most one valid canonical candidate exclusion when required documents remain missing.
 See [Exact-target public-gap refresh v1](schemas/target-public-gap-refresh-v1.md).
 
+### Exact-target raw docket recovery (packet-input compatibility fallback)
+
+When a pinned exact target selection has public docket HTML absent from a complete, saturated source snapshot, recover only the selected-minus-raw identities with the dedicated pair below.
+This is a packet-input provenance repair, not a document-acquisition path: it never calls Case.dev, PACER, RECAP Fetch, a document downloader, a model, evaluation, freeze, or dispatch.
+The planner hashes the exact selected cohort, source snapshot run card, and canonical raw-artifact manifest before deriving the target set; a missing, rebound, malformed, or duplicate source record fails closed.
+
+```bash
+uv run legalforecast acquisition plan-target-raw-docket-recovery \
+  --execute --output-root <new-raw-recovery-plan-root> \
+  --selection <exact-target-selection.jsonl> \
+  --expected-selection-sha256 <external-lowercase-sha256> \
+  --source-snapshot <complete-saturated-screening-snapshot> \
+  --expected-source-snapshot-manifest-sha256 <external-lowercase-sha256> \
+  --expected-cycle-hash <external-lowercase-cycle-hash> \
+  --source-snapshot-run-card <completed-union-run-card.json> \
+  --expected-source-snapshot-run-card-sha256 <external-lowercase-sha256> \
+  --source-raw-manifest <source-snapshot/raw-artifacts.jsonl> \
+  --expected-source-raw-manifest-sha256 <external-lowercase-sha256> \
+  --cycle-store <official-cycle-store.sqlite3> \
+  --batch-id <new-raw-recovery-batch> --run-id <new-raw-recovery-run> \
+  --credit-cap <approved-bounded-cap> --workers 10 \
+  --plan-output <immutable-raw-recovery-plan.json>
+```
+
+Execute only the returned plan SHA, repeating every bound input and scheduler argument.
+The executor rechecks all three source pins immediately before Firecrawl activity, uses complete pagination, and writes only canonical raw HTML plus screen-firecrawl-compatible success/exclusion records for the dedicated same-cycle batch.
+
+```bash
+uv run legalforecast acquisition execute-target-raw-docket-recovery \
+  --execute --output-root <new-raw-recovery-execution-root> \
+  --plan <immutable-raw-recovery-plan.json> \
+  --expected-plan-sha256 <external-lowercase-sha256> \
+  --selection <exact-target-selection.jsonl> \
+  --expected-selection-sha256 <external-lowercase-sha256> \
+  --source-snapshot <complete-saturated-screening-snapshot> \
+  --expected-source-snapshot-manifest-sha256 <external-lowercase-sha256> \
+  --expected-cycle-hash <external-lowercase-cycle-hash> \
+  --source-snapshot-run-card <completed-union-run-card.json> \
+  --expected-source-snapshot-run-card-sha256 <external-lowercase-sha256> \
+  --source-raw-manifest <source-snapshot/raw-artifacts.jsonl> \
+  --expected-source-raw-manifest-sha256 <external-lowercase-sha256> \
+  --cycle-store <official-cycle-store.sqlite3> \
+  --batch-id <new-raw-recovery-batch> --run-id <new-raw-recovery-run> \
+  --credit-cap <approved-bounded-cap> --workers 10 \
+  --raw-html-dir <new-raw-html-root> \
+  --successes-output <screening-successes.jsonl> \
+  --exclusions-output <screening-exclusions.jsonl> \
+  --summary-output <recovery-summary.json> \
+  --receipt-output <recovery-receipt.json> --live-firecrawl
+```
+
+The resulting screening step must authenticate that terminal handoff rather than consuming the success manifest as a generic unbound input:
+
+```bash
+uv run legalforecast acquisition screen-firecrawl-dockets \
+  --execute --no-resume --output-root <new-screening-root> \
+  --cycle-store <official-cycle-store.sqlite3> \
+  --batch-id <new-raw-recovery-batch> \
+  --successes <screening-successes.jsonl> \
+  --fetch-exclusions <screening-exclusions.jsonl> \
+  --raw-html-dir <new-raw-html-root> \
+  --target-raw-docket-recovery-receipt <recovery-receipt.json> \
+  --target-raw-docket-recovery-summary <recovery-summary.json> \
+  --expected-target-raw-docket-recovery-receipt-sha256 <external-lowercase-sha256> \
+  --expected-target-raw-docket-recovery-plan-sha256 <external-lowercase-sha256> \
+  --decision-filed-on-or-after 2026-06-30 \
+  --snapshot-id <new-complete-snapshot-id>
+```
+
 `discover-firecrawl-recap --resume` deliberately does not retry a nontransient `terminal_error`. If a primary discovery fails for that reason, run exactly one child recovery with a unique run ID, `--proxy enhanced`, `--force-browser`, and `--recover-terminal-errors-from-run <primary-run-id>`. If bounded fresh runs were already attempted, repeat `--reuse-verified-pages-from-run <run-id>` for each one. The command verifies that every source uses the exact frozen batch/query plan, SHA-checks and deduplicates successful pages by search URL, rejects conflicting bytes, routes only still-unresolved evidenced terminal URLs through the child, resumes newly revealed continuation pages under the parent's immutable scheduler settings, shares the cycle-wide credit cap, and refuses both recovery chaining and a second child of the same parent.
 
 Generated or private acquisition runbooks must guard each primary discovery explicitly and let either command's failure stop the script. Never use `|| true`. Repeat every frozen batch/window/query argument byte-for-byte in the recovery command; only the child run ID, recovery flag, proxy, and browser setting differ:

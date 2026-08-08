@@ -828,6 +828,17 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     require_target_public_gap_sources_unchanged,
     verify_target_public_gap_plan,
 )
+from legalforecast.ingestion.target_raw_docket_recovery import (
+    TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA,
+    TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
+    TargetRawDocketRecoveryError,
+    build_target_raw_docket_recovery_plan,
+    execute_target_raw_docket_recovery,
+    load_target_raw_docket_recovery_plan,
+    target_raw_docket_recovery_receipt_bytes,
+    verify_target_raw_docket_recovery_receipt,
+    write_target_raw_docket_recovery_plan,
+)
 from legalforecast.ingestion.terminal_purchase_failure import (
     verify_terminal_purchase_failure_authority,
 )
@@ -1702,6 +1713,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_execute_target_public_gaps_arguments(
         acquisition_execute_target_public_gaps
+    )
+    acquisition_plan_target_raw_docket_recovery = acquisition_subparsers.add_parser(
+        "plan-target-raw-docket-recovery",
+        help=(
+            "Freeze the selected-minus-raw Firecrawl docket recovery plan without "
+            "provider activity."
+        ),
+    )
+    _add_acquisition_plan_target_raw_docket_recovery_arguments(
+        acquisition_plan_target_raw_docket_recovery
+    )
+    acquisition_execute_target_raw_docket_recovery = acquisition_subparsers.add_parser(
+        "execute-target-raw-docket-recovery",
+        help=(
+            "Execute one pinned raw-docket recovery plan through complete "
+            "Firecrawl pagination only."
+        ),
+    )
+    _add_acquisition_execute_target_raw_docket_recovery_arguments(
+        acquisition_execute_target_raw_docket_recovery
     )
     acquisition_seal_ranked_dockets = acquisition_subparsers.add_parser(
         "seal-ranked-firecrawl-run",
@@ -6596,6 +6627,59 @@ def _add_acquisition_execute_target_public_gaps_arguments(
     parser.set_defaults(handler=_cmd_acquisition_execute_target_public_gaps)
 
 
+def _add_target_raw_docket_recovery_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--expected-selection-sha256", required=True)
+    parser.add_argument("--source-snapshot", type=Path, required=True)
+    parser.add_argument("--expected-source-snapshot-manifest-sha256", required=True)
+    parser.add_argument("--expected-cycle-hash", required=True)
+    parser.add_argument("--source-snapshot-run-card", type=Path, required=True)
+    parser.add_argument("--expected-source-snapshot-run-card-sha256", required=True)
+    parser.add_argument("--source-raw-manifest", type=Path, required=True)
+    parser.add_argument("--expected-source-raw-manifest-sha256", required=True)
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--credit-cap", type=int, required=True)
+    parser.add_argument(
+        "--workers", type=int, choices=range(1, 11), default=10, metavar="1-10"
+    )
+    parser.add_argument("--max-pages-per-docket", type=int, default=100)
+    parser.add_argument("--max-attempts-per-page", type=int, default=3)
+    parser.add_argument("--provider-breaker-threshold", type=int, default=5)
+    parser.add_argument(
+        "--proxy", choices=("basic", "auto", "enhanced"), default="basic"
+    )
+    parser.add_argument("--force-browser", action="store_true")
+
+
+def _add_acquisition_plan_target_raw_docket_recovery_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_target_raw_docket_recovery_arguments(parser)
+    parser.add_argument("--plan-output", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_acquisition_plan_target_raw_docket_recovery)
+
+
+def _add_acquisition_execute_target_raw_docket_recovery_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_target_raw_docket_recovery_arguments(parser)
+    parser.add_argument("--plan", type=Path, required=True)
+    parser.add_argument("--expected-plan-sha256", required=True)
+    parser.add_argument("--raw-html-dir", type=Path, required=True)
+    parser.add_argument("--successes-output", type=Path, required=True)
+    parser.add_argument("--exclusions-output", type=Path, required=True)
+    parser.add_argument("--summary-output", type=Path, required=True)
+    parser.add_argument("--receipt-output", type=Path, required=True)
+    parser.add_argument("--firecrawl-fixture", type=Path)
+    parser.add_argument("--live-firecrawl", action="store_true")
+    parser.set_defaults(handler=_cmd_acquisition_execute_target_raw_docket_recovery)
+
+
 def _add_acquisition_seal_ranked_dockets_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -6869,6 +6953,27 @@ def _add_acquisition_screen_firecrawl_arguments(
         type=Path,
         required=True,
         help="Directory containing persisted <CourtListener docket ID>.html files.",
+    )
+    parser.add_argument(
+        "--target-raw-docket-recovery-receipt",
+        type=Path,
+        help=(
+            "Authenticated terminal receipt when --successes came from "
+            "execute-target-raw-docket-recovery. Requires both expected hashes."
+        ),
+    )
+    parser.add_argument(
+        "--target-raw-docket-recovery-summary",
+        type=Path,
+        help="Exact summary committed by the target raw-docket recovery receipt.",
+    )
+    parser.add_argument(
+        "--expected-target-raw-docket-recovery-receipt-sha256",
+        help="Externally pinned SHA-256 of the exact-target recovery receipt.",
+    )
+    parser.add_argument(
+        "--expected-target-raw-docket-recovery-plan-sha256",
+        help="Externally pinned plan SHA-256 committed by the recovery receipt.",
     )
     parser.add_argument(
         "--decision-filed-on-or-after",
@@ -20895,6 +21000,655 @@ def _target_public_gap_plan_from_args(
     )
 
 
+def _target_raw_docket_recovery_plan_from_args(
+    args: argparse.Namespace,
+):
+    return build_target_raw_docket_recovery_plan(
+        selection_path=cast(Path, args.selection),
+        expected_selection_sha256=cast(str, args.expected_selection_sha256),
+        source_snapshot_path=cast(Path, args.source_snapshot),
+        expected_source_snapshot_manifest_sha256=cast(
+            str, args.expected_source_snapshot_manifest_sha256
+        ),
+        expected_cycle_hash=cast(str, args.expected_cycle_hash),
+        source_snapshot_run_card_path=cast(Path, args.source_snapshot_run_card),
+        expected_source_snapshot_run_card_sha256=cast(
+            str, args.expected_source_snapshot_run_card_sha256
+        ),
+        source_raw_manifest_path=cast(Path, args.source_raw_manifest),
+        expected_source_raw_manifest_sha256=cast(
+            str, args.expected_source_raw_manifest_sha256
+        ),
+        cycle_store_path=cast(Path, args.cycle_store),
+        batch_id=cast(str, args.batch_id),
+        run_id=cast(str, args.run_id),
+        credit_cap=cast(int, args.credit_cap),
+        workers=cast(int, args.workers),
+        max_pages_per_docket=cast(int, args.max_pages_per_docket),
+        max_attempts_per_page=cast(int, args.max_attempts_per_page),
+        provider_breaker_threshold=cast(int, args.provider_breaker_threshold),
+        proxy=cast(str, args.proxy),
+        force_browser=cast(bool, args.force_browser),
+    )
+
+
+def _reject_target_raw_recovery_symlink_components(path: Path, *, label: str) -> None:
+    normalized = Path(os.path.abspath(path))
+    for candidate in (normalized, *normalized.parents):
+        if not candidate.exists() and not candidate.is_symlink():
+            continue
+        try:
+            metadata = candidate.lstat()
+        except OSError as exc:
+            raise CommandError(f"cannot inspect {label}: {candidate}") from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise CommandError(f"{label} contains a symlink: {candidate}")
+
+
+def _preflight_target_raw_docket_recovery_paths(
+    args: argparse.Namespace,
+    *,
+    stage: str,
+    protected_paths: Sequence[Path],
+    writable_paths: Sequence[Path],
+    raw_html_dir: Path | None = None,
+    allow_completed_raw_files: bool = False,
+) -> None:
+    """Reject writable aliases and unsafe resume trees before provider setup."""
+
+    output_root = Path(os.path.abspath(cast(Path, args.output_root)))
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards" / f"{stage}.json",
+    )
+    run_card_path = Path(os.path.abspath(run_card_path))
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / f"{stage}.jsonl",
+    )
+    log_path = Path(os.path.abspath(log_path))
+    store_path = Path(os.path.abspath(cast(Path, args.cycle_store)))
+    protected = tuple(
+        Path(os.path.abspath(path))
+        for path in (
+            *protected_paths,
+            *(
+                Path(f"{store_path}{suffix}")
+                for suffix in ("", ".lock", "-wal", "-shm", "-journal")
+            ),
+        )
+    )
+    writable = tuple(
+        Path(os.path.abspath(path))
+        for path in (*writable_paths, run_card_path, log_path)
+    )
+    _reject_target_raw_recovery_symlink_components(output_root, label="output root")
+    for path in writable:
+        if not path.is_relative_to(output_root):
+            raise CommandError(
+                f"{stage} writable output must be below --output-root: {path}"
+            )
+        _reject_target_raw_recovery_symlink_components(path, label="writable output")
+        if path.exists():
+            metadata = path.stat()
+            if not path.is_file() or metadata.st_nlink != 1:
+                raise CommandError(
+                    f"{stage} writable output is not a singly linked file: {path}"
+                )
+    if len(set(writable)) != len(writable):
+        raise CommandError(f"{stage} writable outputs alias each other")
+    for source in protected:
+        if (
+            output_root == source
+            or output_root.is_relative_to(source)
+            or source.is_relative_to(output_root)
+        ):
+            raise CommandError(
+                f"{stage} output root overlaps authenticated input: {source}"
+            )
+        for destination in writable:
+            if destination == source:
+                raise CommandError(
+                    f"{stage} writable output aliases authenticated input: {source}"
+                )
+            if destination.exists() and source.exists():
+                try:
+                    if destination.samefile(source):
+                        raise CommandError(
+                            f"{stage} writable output hard-links authenticated input"
+                        )
+                except OSError as exc:
+                    raise CommandError(
+                        f"cannot inspect {stage} output alias safety"
+                    ) from exc
+    if raw_html_dir is not None:
+        raw_root = Path(os.path.abspath(raw_html_dir))
+        if not raw_root.is_relative_to(output_root) or raw_root == output_root:
+            raise CommandError("raw HTML directory must be a child of --output-root")
+        _reject_target_raw_recovery_symlink_components(
+            raw_root, label="raw HTML directory"
+        )
+        if any(path.is_relative_to(raw_root) for path in writable):
+            raise CommandError("terminal output files overlap the raw HTML directory")
+        if raw_root.exists():
+            if not raw_root.is_dir():
+                raise CommandError("raw HTML output is not a directory")
+            pages_root = raw_root / "pages"
+            if pages_root.exists() and not pages_root.is_dir():
+                raise CommandError("raw HTML pages root is not a directory")
+            entries = tuple(raw_root.rglob("*"))
+            if entries and not cast(bool, args.resume):
+                raise CommandError("--no-resume forbids an existing raw HTML tree")
+            if entries and not allow_completed_raw_files:
+                if any(
+                    entry != pages_root and not entry.is_relative_to(pages_root)
+                    for entry in entries
+                ):
+                    raise CommandError(
+                        "resume raw HTML tree contains terminal residue without "
+                        "a complete authenticated receipt"
+                    )
+            for entry in entries:
+                metadata = entry.lstat()
+                if (
+                    stat.S_ISLNK(metadata.st_mode)
+                    or (stat.S_ISREG(metadata.st_mode) and metadata.st_nlink != 1)
+                    or not (
+                        stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode)
+                    )
+                ):
+                    raise CommandError(
+                        f"raw HTML resume tree contains an unsafe entry: {entry}"
+                    )
+    if not cast(bool, args.resume) and any(path.exists() for path in writable):
+        raise CommandError(f"--no-resume forbids existing {stage} outputs")
+
+
+def _verify_target_raw_recovery_page_residue(
+    *,
+    store: CycleAcquisitionStore,
+    run_id: str,
+    raw_html_dir: Path,
+) -> None:
+    """Authenticate every resumable page file before provider construction."""
+
+    pages_root = Path(os.path.abspath(raw_html_dir)) / "pages"
+    if pages_root.exists() and (not pages_root.is_dir() or pages_root.is_symlink()):
+        raise TargetRawDocketRecoveryError(
+            "raw HTML pages root is not a real directory"
+        )
+    actual_files = (
+        {
+            path.resolve(): path
+            for path in pages_root.rglob("*")
+            if path.is_file() and not path.is_symlink()
+        }
+        if pages_root.exists()
+        else {}
+    )
+    try:
+        attempts = store.firecrawl_attempts(run_id)
+        store.firecrawl_run_status(run_id)
+    except KeyError as exc:
+        if not actual_files:
+            return
+        raise TargetRawDocketRecoveryError(
+            "raw HTML page residue has no matching durable Firecrawl run"
+        ) from exc
+    expected: dict[Path, tuple[str, int]] = {}
+    for attempt in attempts:
+        if attempt.status != "succeeded":
+            continue
+        if (
+            attempt.artifact_path is None
+            or attempt.artifact_sha256 is None
+            or attempt.artifact_byte_count is None
+        ):
+            raise TargetRawDocketRecoveryError(
+                "successful Firecrawl attempt lacks an artifact commitment"
+            )
+        artifact_path = attempt.artifact_path.resolve()
+        if not artifact_path.is_relative_to(pages_root.resolve()):
+            raise TargetRawDocketRecoveryError(
+                "durable Firecrawl artifact is outside the recovery pages root"
+            )
+        expected[artifact_path] = (
+            attempt.artifact_sha256,
+            attempt.artifact_byte_count,
+        )
+    if set(actual_files) != set(expected):
+        raise TargetRawDocketRecoveryError(
+            "raw HTML page residue differs from durable Firecrawl artifacts"
+        )
+    for resolved_path, lexical_path in actual_files.items():
+        metadata = lexical_path.stat()
+        digest, byte_count = expected[resolved_path]
+        payload = lexical_path.read_bytes()
+        if (
+            metadata.st_nlink != 1
+            or len(payload) != byte_count
+            or hashlib.sha256(payload).hexdigest() != digest
+        ):
+            raise TargetRawDocketRecoveryError(
+                "raw HTML page residue fails its durable artifact commitment"
+            )
+
+
+def _verify_target_raw_recovery_store_authority(
+    *,
+    store: CycleAcquisitionStore,
+    receipt: Mapping[str, Any],
+    cycle_store_path: Path,
+    batch_id: str,
+) -> None:
+    run_id = receipt.get("run_id")
+    run_config_value = receipt.get("run_config")
+    credit_cap = receipt.get("credit_cap")
+    reserved_credits = receipt.get("reserved_credits_per_attempt")
+    if (
+        not isinstance(run_id, str)
+        or not run_id
+        or not isinstance(run_config_value, Mapping)
+        or not isinstance(credit_cap, int)
+        or isinstance(credit_cap, bool)
+        or not isinstance(reserved_credits, int)
+        or isinstance(reserved_credits, bool)
+    ):
+        raise TargetRawDocketRecoveryError(
+            "recovery receipt has malformed run authority"
+        )
+    run_config = dict(cast(Mapping[str, object], run_config_value))
+    if (
+        receipt.get("cycle_hash") != store.cycle_hash
+        or receipt.get("cycle_store_path") != str(cycle_store_path.resolve())
+        or receipt.get("batch_id") != batch_id
+        or receipt.get("batch_digest") != store.batch_digest(batch_id)
+        or store.batch_config(batch_id).get("purpose") != "target-raw-docket-recovery"
+    ):
+        raise TargetRawDocketRecoveryError(
+            "recovery receipt differs from durable cycle-store state"
+        )
+    store.firecrawl_run_status(run_id)
+    store.ensure_firecrawl_run(
+        run_id,
+        batch_id=batch_id,
+        config=run_config,
+        credit_cap=credit_cap,
+        reserved_credits_per_attempt=reserved_credits,
+    )
+
+
+def _cmd_acquisition_plan_target_raw_docket_recovery(
+    args: argparse.Namespace,
+) -> int:
+    plan_output = cast(Path, args.plan_output)
+    input_paths = (
+        cast(Path, args.selection),
+        cast(Path, args.source_snapshot) / "manifest.json",
+        cast(Path, args.source_snapshot_run_card),
+        cast(Path, args.source_raw_manifest),
+    )
+    _preflight_target_raw_docket_recovery_paths(
+        args,
+        stage="plan-target-raw-docket-recovery",
+        protected_paths=input_paths,
+        writable_paths=(plan_output,),
+    )
+    output_root = _acquisition_output_root(args)
+    try:
+        plan = _target_raw_docket_recovery_plan_from_args(args)
+        digest = write_target_raw_docket_recovery_plan(plan_output, plan)
+        _write_acquisition_completion(
+            args,
+            stage="plan-target-raw-docket-recovery",
+            input_paths=input_paths,
+            output_paths=(plan_output,),
+            record_count=len(plan.targets),
+            dry_run=_acquisition_dry_run(args),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={"plan_sha256": digest, "output_root": str(output_root)},
+        )
+    except (OSError, TargetRawDocketRecoveryError) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="plan-target-raw-docket-recovery",
+            input_paths=input_paths,
+            output_paths=(plan_output,),
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_acquisition_execute_target_raw_docket_recovery(
+    args: argparse.Namespace,
+) -> int:
+    protected_paths = (
+        cast(Path, args.plan),
+        cast(Path, args.selection),
+        cast(Path, args.source_snapshot),
+        cast(Path, args.source_snapshot_run_card),
+        cast(Path, args.source_raw_manifest),
+    )
+    terminal_paths = (
+        cast(Path, args.successes_output),
+        cast(Path, args.exclusions_output),
+        cast(Path, args.summary_output),
+        cast(Path, args.receipt_output),
+    )
+    existing_terminal_count = sum(path.exists() for path in terminal_paths)
+    if cast(bool, args.resume) and existing_terminal_count not in {0, 4}:
+        raise CommandError(
+            "resume requires either no terminal outputs or the complete terminal set"
+        )
+    completed_resume = cast(bool, args.resume) and existing_terminal_count == 4
+    _preflight_target_raw_docket_recovery_paths(
+        args,
+        stage="execute-target-raw-docket-recovery",
+        protected_paths=protected_paths,
+        writable_paths=terminal_paths,
+        raw_html_dir=cast(Path, args.raw_html_dir),
+        allow_completed_raw_files=completed_resume,
+    )
+    live = cast(bool, args.live_firecrawl)
+    fixture = cast(Path | None, args.firecrawl_fixture)
+    if _acquisition_dry_run(args):
+        live = False
+        fixture = None
+    elif live == (fixture is not None):
+        raise CommandError(
+            "choose exactly one of --live-firecrawl or --firecrawl-fixture"
+        )
+    if fixture is not None and cast(int, args.workers) != 1:
+        raise CommandError("Firecrawl fixture execution requires --workers 1")
+    try:
+        reconstructed = _target_raw_docket_recovery_plan_from_args(args)
+        plan = load_target_raw_docket_recovery_plan(
+            cast(Path, args.plan), cast(str, args.expected_plan_sha256)
+        )
+        if plan != reconstructed:
+            raise TargetRawDocketRecoveryError(
+                "pinned plan differs from current inputs"
+            )
+        _acquisition_output_root(args)
+        outputs = terminal_paths
+        inputs = (
+            cast(Path, args.plan),
+            cast(Path, args.selection),
+            cast(Path, args.source_snapshot) / "manifest.json",
+            cast(Path, args.source_snapshot_run_card),
+            cast(Path, args.source_raw_manifest),
+        )
+        if _acquisition_dry_run(args):
+            summary: JsonRecord = {
+                "schema_version": "legalforecast.target_raw_docket_recovery_summary.v1",
+                "dry_run": True,
+                "target_count": len(plan.targets),
+                "provider_activity_requested": False,
+            }
+            resume = cast(bool, args.resume)
+            _write_immutable_bytes(outputs[0], _jsonl_bytes([]), resume=resume)
+            _write_immutable_bytes(outputs[1], _jsonl_bytes([]), resume=resume)
+            _write_immutable_bytes(outputs[2], _json_bytes(summary), resume=resume)
+            _write_immutable_bytes(
+                outputs[3],
+                target_raw_docket_recovery_receipt_bytes(
+                    {
+                        "schema_version": TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
+                        "dry_run": True,
+                        "plan_sha256": cast(str, args.expected_plan_sha256),
+                    }
+                ),
+                resume=resume,
+            )
+            _write_acquisition_completion(
+                args,
+                stage="execute-target-raw-docket-recovery",
+                input_paths=inputs,
+                output_paths=outputs,
+                record_count=0,
+                dry_run=True,
+                paid_activity_requested=False,
+                paid_activity_executed=False,
+                extra=summary,
+            )
+            return 0
+        if completed_resume:
+            receipt = verify_target_raw_docket_recovery_receipt(
+                receipt_path=outputs[3],
+                expected_receipt_sha256=hashlib.sha256(
+                    outputs[3].read_bytes()
+                ).hexdigest(),
+                expected_plan_sha256=cast(str, args.expected_plan_sha256),
+                successes_path=outputs[0],
+                exclusions_path=outputs[1],
+                summary_path=outputs[2],
+                raw_html_dir=cast(Path, args.raw_html_dir),
+            )
+            with CycleAcquisitionStore(Path(plan.cycle_store_path)) as store:
+                if (
+                    receipt.get("cycle_hash") != plan.cycle_hash
+                    or receipt.get("run_id") != plan.run_id
+                ):
+                    raise TargetRawDocketRecoveryError(
+                        "recovery receipt differs from the authenticated plan"
+                    )
+                _verify_target_raw_recovery_store_authority(
+                    store=store,
+                    receipt=receipt,
+                    cycle_store_path=Path(plan.cycle_store_path),
+                    batch_id=plan.batch_id,
+                )
+            summary = _read_json_object(outputs[2])
+            _write_acquisition_completion(
+                args,
+                stage="execute-target-raw-docket-recovery",
+                input_paths=inputs,
+                output_paths=outputs,
+                record_count=cast(int, summary["success_count"]),
+                dry_run=False,
+                paid_activity_requested=False,
+                paid_activity_executed=False,
+                extra={**summary, "resumed_complete_receipt": True},
+            )
+            return 0
+        raw_dir = cast(Path, args.raw_html_dir)
+        with CycleAcquisitionStore(Path(plan.cycle_store_path)) as store:
+            if store.cycle_hash != plan.cycle_hash:
+                raise TargetRawDocketRecoveryError(
+                    "cycle store hash differs from authenticated source snapshot"
+                )
+            if store.batch_digest(plan.source_batch_id) != plan.source_batch_digest:
+                raise TargetRawDocketRecoveryError(
+                    "cycle store source batch differs from authenticated snapshot"
+                )
+            if not cast(bool, args.resume):
+                try:
+                    store.batch_digest(plan.batch_id)
+                except KeyError:
+                    pass
+                else:
+                    raise TargetRawDocketRecoveryError(
+                        "--no-resume forbids an existing recovery batch"
+                    )
+                try:
+                    store.firecrawl_run_status(plan.run_id)
+                except KeyError:
+                    pass
+                else:
+                    raise TargetRawDocketRecoveryError(
+                        "--no-resume forbids an existing Firecrawl run"
+                    )
+            else:
+                _verify_target_raw_recovery_page_residue(
+                    store=store,
+                    run_id=plan.run_id,
+                    raw_html_dir=raw_dir,
+                )
+            materialize_selected_slice_batch(
+                store=store,
+                parent_batch_id=plan.source_batch_id,
+                selected_batch_id=plan.batch_id,
+                records=plan.targets,
+                limit=len(plan.targets),
+                purpose="target-raw-docket-recovery",
+            )
+            config = (
+                FirecrawlConfig.from_env(
+                    proxy=cast(FirecrawlProxy, plan.proxy),
+                    force_browser=plan.force_browser,
+                )
+                if live
+                else FirecrawlConfig(
+                    api_key="offline-fixture",
+                    proxy=cast(FirecrawlProxy, plan.proxy),
+                    force_browser=plan.force_browser,
+                )
+            )
+            source = FirecrawlCourtListenerHTMLSource(
+                config,
+                **(
+                    {"transport": _firecrawl_fixture_transport(fixture)}
+                    if fixture
+                    else {}
+                ),
+            )
+            run_config: JsonRecord = {
+                "purpose": "target-raw-docket-recovery",
+                "max_pages_per_docket": plan.max_pages_per_docket,
+                "raw_artifact_root": str((raw_dir / "pages").resolve()),
+                "firecrawl_proxy": config.proxy,
+                "firecrawl_force_browser": config.force_browser,
+                "workers": plan.workers,
+                "max_attempts_per_page": plan.max_attempts_per_page,
+                "provider_breaker_threshold": plan.provider_breaker_threshold,
+            }
+            store.ensure_firecrawl_run(
+                plan.run_id,
+                batch_id=plan.batch_id,
+                config=run_config,
+                credit_cap=plan.credit_cap,
+                reserved_credits_per_attempt=config.max_credits_per_scrape,
+            )
+            successes, exclusions, execution_summary = (
+                execute_target_raw_docket_recovery(
+                    plan=plan,
+                    scheduler=BudgetedFirecrawlScheduler(
+                        store=store,
+                        source=source,
+                        run_id=plan.run_id,
+                        artifact_dir=raw_dir / "pages",
+                        max_attempts=plan.max_attempts_per_page,
+                        provider_5xx_circuit_threshold=plan.provider_breaker_threshold,
+                        max_workers=plan.workers,
+                    ),
+                    raw_html_dir=raw_dir,
+                )
+            )
+            recovery_batch_digest = store.batch_digest(plan.batch_id)
+            authenticated_run_config = dict(store.firecrawl_run_config(plan.run_id))
+        summary = dict(execution_summary)
+        summary["plan_sha256"] = cast(str, args.expected_plan_sha256)
+        summary["raw_artifacts"] = [
+            {
+                "candidate_id": record["candidate_id"],
+                "sha256": record["raw_html_sha256"],
+                "byte_count": record["raw_html_bytes"],
+                "retrieved_at": record["retrieved_at"],
+            }
+            for record in successes
+        ]
+        recovery_provenance = {
+            "schema_version": TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_SCHEMA,
+            "plan_sha256": cast(str, args.expected_plan_sha256),
+            "batch_id": plan.batch_id,
+            "run_id": plan.run_id,
+        }
+        successes = [
+            {**dict(record), "target_raw_docket_recovery": recovery_provenance}
+            for record in successes
+        ]
+        exclusions = [
+            {**dict(record), "target_raw_docket_recovery": recovery_provenance}
+            for record in exclusions
+        ]
+        resume = cast(bool, args.resume)
+        successes_bytes = _jsonl_bytes(successes)
+        exclusions_bytes = _jsonl_bytes(exclusions)
+        summary_bytes = _json_bytes(summary)
+        _write_immutable_bytes(outputs[0], successes_bytes, resume=resume)
+        _write_immutable_bytes(outputs[1], exclusions_bytes, resume=resume)
+        _write_immutable_bytes(outputs[2], summary_bytes, resume=resume)
+        receipt_bytes = target_raw_docket_recovery_receipt_bytes(
+            {
+                "schema_version": TARGET_RAW_DOCKET_RECOVERY_RECEIPT_SCHEMA,
+                "dry_run": False,
+                "plan_sha256": cast(str, args.expected_plan_sha256),
+                "source_snapshot_manifest_sha256": (
+                    plan.source_snapshot_manifest_sha256
+                ),
+                "source_batch_id": plan.source_batch_id,
+                "source_batch_digest": plan.source_batch_digest,
+                "cycle_hash": plan.cycle_hash,
+                "cycle_store_path": str(Path(plan.cycle_store_path).resolve()),
+                "batch_id": plan.batch_id,
+                "batch_digest": recovery_batch_digest,
+                "run_id": plan.run_id,
+                "run_config": authenticated_run_config,
+                "credit_cap": plan.credit_cap,
+                "reserved_credits_per_attempt": config.max_credits_per_scrape,
+                "successes_path": str(outputs[0].resolve()),
+                "exclusions_path": str(outputs[1].resolve()),
+                "summary_path": str(outputs[2].resolve()),
+                "raw_html_dir": str(raw_dir.resolve()),
+                "successes_sha256": hashlib.sha256(successes_bytes).hexdigest(),
+                "exclusions_sha256": hashlib.sha256(exclusions_bytes).hexdigest(),
+                "summary_sha256": hashlib.sha256(summary_bytes).hexdigest(),
+                "raw_artifacts": summary["raw_artifacts"],
+            }
+        )
+        _write_immutable_bytes(outputs[3], receipt_bytes, resume=resume)
+        receipt_sha256 = hashlib.sha256(receipt_bytes).hexdigest()
+        _write_acquisition_completion(
+            args,
+            stage="execute-target-raw-docket-recovery",
+            input_paths=inputs,
+            output_paths=outputs,
+            record_count=len(successes),
+            dry_run=False,
+            paid_activity_requested=live,
+            paid_activity_executed=_firecrawl_metered_activity_executed(
+                live=live, summary=summary
+            ),
+            extra={**summary, "receipt_sha256": receipt_sha256},
+        )
+    except (
+        CycleAcquisitionStoreError,
+        FirecrawlError,
+        OSError,
+        TargetRawDocketRecoveryError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="execute-target-raw-docket-recovery",
+            input_paths=(cast(Path, args.plan),),
+            output_paths=(
+                cast(Path, args.successes_output),
+                cast(Path, args.exclusions_output),
+                cast(Path, args.summary_output),
+                cast(Path, args.receipt_output),
+            ),
+            reason=str(exc),
+            paid_activity_requested=live,
+        )
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
 def _cmd_acquisition_plan_target_public_gaps(args: argparse.Namespace) -> int:
     try:
         plan = _target_public_gap_plan_from_args(args)
@@ -32849,12 +33603,86 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
     )
     success_records = _read_records(successes_path)
     fetch_exclusion_records = _read_records(fetch_exclusions_path)
+    terminal_records = (*success_records, *fetch_exclusion_records)
+    recovery_marked = any(
+        record.get("target_raw_docket_recovery") is not None
+        for record in terminal_records
+    )
+    if recovery_marked and any(
+        not isinstance(record.get("target_raw_docket_recovery"), Mapping)
+        for record in terminal_records
+    ):
+        raise CommandError(
+            "target raw-docket recovery records cannot mix marked and unmarked rows"
+        )
     dry_run = _acquisition_dry_run(args)
+    recovery_receipt_path = cast(Path | None, args.target_raw_docket_recovery_receipt)
+    recovery_summary_path = cast(Path | None, args.target_raw_docket_recovery_summary)
+    expected_recovery_receipt_sha256 = cast(
+        str | None, args.expected_target_raw_docket_recovery_receipt_sha256
+    )
+    expected_recovery_plan_sha256 = cast(
+        str | None, args.expected_target_raw_docket_recovery_plan_sha256
+    )
+    recovery_arguments = (
+        recovery_receipt_path,
+        recovery_summary_path,
+        expected_recovery_receipt_sha256,
+        expected_recovery_plan_sha256,
+    )
+    if any(value is not None for value in recovery_arguments) and not all(
+        value is not None for value in recovery_arguments
+    ):
+        raise CommandError(
+            "exact-target recovery receipt, summary, and both expected hashes "
+            "are required together"
+        )
+    if recovery_marked and recovery_receipt_path is None:
+        raise CommandError(
+            "target raw-docket recovery records require their authenticated "
+            "receipt handoff"
+        )
+    recovery_receipt: Mapping[str, Any] | None = None
+    if recovery_receipt_path is not None:
+        try:
+            recovery_receipt = verify_target_raw_docket_recovery_receipt(
+                receipt_path=recovery_receipt_path,
+                expected_receipt_sha256=cast(str, expected_recovery_receipt_sha256),
+                expected_plan_sha256=cast(str, expected_recovery_plan_sha256),
+                successes_path=successes_path,
+                exclusions_path=fetch_exclusions_path,
+                summary_path=cast(Path, recovery_summary_path),
+                raw_html_dir=raw_html_dir,
+            )
+        except (OSError, TargetRawDocketRecoveryError) as exc:
+            raise CommandError(str(exc)) from exc
+    try:
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            recovery_batch = (
+                store.batch_config(batch_id).get("purpose")
+                == "target-raw-docket-recovery"
+            )
+            if recovery_batch and recovery_receipt is None:
+                raise TargetRawDocketRecoveryError(
+                    "target raw-docket recovery batch requires its authenticated "
+                    "receipt handoff"
+                )
+            if recovery_receipt is not None:
+                _verify_target_raw_recovery_store_authority(
+                    store=store,
+                    receipt=recovery_receipt,
+                    cycle_store_path=cycle_store_path,
+                    batch_id=batch_id,
+                )
+    except (CycleAcquisitionStoreError, KeyError, TargetRawDocketRecoveryError) as exc:
+        raise CommandError(str(exc)) from exc
     input_paths = (
         cycle_store_path,
         successes_path,
         fetch_exclusions_path,
         raw_html_dir,
+        *((recovery_receipt_path,) if recovery_receipt_path is not None else ()),
+        *((recovery_summary_path,) if recovery_summary_path is not None else ()),
     )
     output_paths = (
         screened_cases_path,
@@ -32930,6 +33758,11 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 firecrawl_screening_implementation()
             ),
         }
+        if recovery_receipt_path is not None:
+            snapshot_stage_commitments["target_raw_docket_recovery"] = {
+                "receipt_sha256": cast(str, expected_recovery_receipt_sha256),
+                "plan_sha256": cast(str, expected_recovery_plan_sha256),
+            }
         if provisional_flags:
             snapshot_stage_commitments["provisional_lineage"] = provisional_flags
     except (

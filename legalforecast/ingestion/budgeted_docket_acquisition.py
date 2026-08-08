@@ -839,6 +839,7 @@ def materialize_selected_slice_batch(
     selected_batch_id: str,
     records: Iterable[Mapping[str, Any]],
     limit: int,
+    purpose: str | None = None,
 ) -> tuple[RankedDocketTarget, ...]:
     """Create an honest terminal batch containing only ranked selected dockets.
 
@@ -873,6 +874,7 @@ def materialize_selected_slice_batch(
     ).hexdigest()
     parent_config = store.batch_config(parent_batch_id)
     provisional_lineage = provisional_lineage_flags(parent_config)
+    purpose_config = {"purpose": purpose} if purpose is not None else {}
     store.ensure_batch(
         selected_batch_id,
         {
@@ -882,6 +884,7 @@ def materialize_selected_slice_batch(
             "selection_hash": selection_hash,
             "selection_count": len(targets),
             "parent_discovery_saturation_claimed": False,
+            **purpose_config,
             **provisional_lineage,
         },
     )
