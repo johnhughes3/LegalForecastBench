@@ -31,6 +31,12 @@ CLEARANCE_REPLACEMENT_PLAN_V1 = SchemaIdentifier(
     "legalforecast.clearance_replacement_plan.v1"
 )
 DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v1")
+FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1 = SchemaIdentifier(
+    "legalforecast.firecrawl_scrape_request_contract.v1"
+)
+FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1 = SchemaIdentifier(
+    "legalforecast.firecrawl_provider_contract_defect_authorization.v1"
+)
 LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1 = SchemaIdentifier(
     "legalforecast.llm_unitization_reconstruction_recovery.v1"
 )
@@ -70,6 +76,9 @@ TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1 = SchemaIdentifier(
 TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1 = SchemaIdentifier(
     "legalforecast.target_raw_docket_recovery_successor_plan.v1"
 )
+TARGET_RAW_DOCKET_RECOVERY_PROVIDER_CONTRACT_RETRY_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.target_raw_docket_recovery_provider_contract_retry_plan.v1"
+)
 
 # This registry names the current recovery vertical slice without changing any
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.
@@ -77,6 +86,8 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     ACQUISITION_RUN_CARD_V1,
     CLEARANCE_REPLACEMENT_PLAN_V1,
     DISCLOSURE_CLEARANCE_V1,
+    FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1,
+    FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1,
     POST_RECOVERY_RESTRICTION_EVIDENCE_V1,
     RECAP_FETCH_QUARANTINE_RECOVERY_V1,
     RECAP_FETCH_QUARANTINE_RECOVERY_RUN_CARD_V2,
@@ -89,4 +100,5 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
+    TARGET_RAW_DOCKET_RECOVERY_PROVIDER_CONTRACT_RETRY_PLAN_V1,
 )

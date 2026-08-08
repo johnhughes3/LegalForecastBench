@@ -13,6 +13,7 @@ from typing import Any, cast
 
 import pytest
 from legalforecast import cli
+from legalforecast.contracts import FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1
 from legalforecast.ingestion import target_raw_docket_recovery as recovery
 from legalforecast.ingestion.budgeted_firecrawl import FirecrawlTargetSpec
 from legalforecast.ingestion.case_dev_firecrawl import (
@@ -2197,3 +2198,529 @@ def test_raw_html_publisher_rejects_linked_and_racing_outputs(
         assert (raw_dir / "racing.html").read_bytes() == b"racer"
     finally:
         os.close(descriptor)
+
+
+def _write_zero_success_circuit(
+    *,
+    args: Namespace,
+    plan_sha: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Path:
+    """Drive one real CLI failure card with one durable 5xx attempt."""
+
+    args.expected_plan_sha256 = plan_sha
+    args.live_firecrawl = True
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture")
+
+    def fail_acquisition(**kwargs: object) -> object:
+        scheduler = cast(Any, kwargs["scheduler"])
+        request_url = (
+            "https://www.courtlistener.com/docket/200/example/?order_by=desc&page=1"
+        )
+        scheduler.store.ensure_firecrawl_target(
+            scheduler.run_id,
+            target_id="fixture-target",
+            target_kind="docket",
+            source_url=request_url,
+            ordinal=0,
+        )
+        attempt = scheduler.store.authorize_firecrawl_attempt(
+            scheduler.run_id,
+            target_id="fixture-target",
+            page_number=1,
+            request_url=request_url,
+        )
+        scheduler.store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="provider_error",
+            reported_credits=1,
+            provider_http_status=500,
+            failure_code="provider_server_error",
+            failure_message="fixture provider circuit open",
+            failure_transient=True,
+        )
+        scheduler.store.set_firecrawl_run_status(scheduler.run_id, "circuit_open")
+        raise recovery.FirecrawlCircuitOpenError("fixture provider circuit open")
+
+    monkeypatch.setattr(recovery, "acquire_ranked_dockets", fail_acquisition)
+    with pytest.raises(cli.CommandError, match="fixture provider circuit open"):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery(args)  # pyright: ignore[reportPrivateUsage]
+    card = args.output_root / "run-cards/execute-target-raw-docket-recovery.json"
+    assert json.loads(card.read_text())["firecrawl_run_status"] == "circuit_open"
+    return card
+
+
+def _two_circuit_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[
+    recovery.TargetRawDocketRecoveryPlan,
+    Path,
+    str,
+    recovery.TargetRawDocketRecoverySuccessorPlan,
+    Path,
+    str,
+    Path,
+    str,
+]:
+    root = _command_plan(tmp_path, monkeypatch)
+    root_plan_path = tmp_path / "root-plan.json"
+    root_sha = write_target_raw_docket_recovery_plan(root_plan_path, root)
+    root_args = _command_args(
+        root,
+        output_root=tmp_path / "root-execute",
+        execute=True,
+        plan_output=root_plan_path,
+    )
+    root_card = _write_zero_success_circuit(
+        args=root_args, plan_sha=root_sha, monkeypatch=monkeypatch
+    )
+    root_card_sha = sha256_file(root_card)
+    successor = recovery.build_target_raw_docket_recovery_successor_plan(
+        parent_plan_path=root_plan_path,
+        expected_parent_plan_sha256=root_sha,
+        parent_failure_run_card_path=root_card,
+        expected_parent_failure_run_card_sha256=root_card_sha,
+        parent_raw_html_dir=root_args.raw_html_dir,
+        batch_id="direct-successor",
+        run_id="direct-successor-run",
+    )
+    successor_path = tmp_path / "direct-successor-plan.json"
+    successor_sha = recovery.write_target_raw_docket_recovery_successor_plan(
+        successor_path, successor
+    )
+    child = replace(root, batch_id=successor.batch_id, run_id=successor.run_id)
+    child_args = _command_args(
+        child,
+        output_root=tmp_path / "direct-execute",
+        execute=True,
+        plan_output=root_plan_path,
+    )
+    child_args.successor_plan = successor_path
+    child_args.expected_successor_plan_sha256 = successor_sha
+    child_card = _write_zero_success_circuit(
+        args=child_args, plan_sha=successor_sha, monkeypatch=monkeypatch
+    )
+    authorization = tmp_path / "owner-defect-authorization.json"
+    authorization.write_text(
+        json.dumps(
+            recovery._PROVIDER_CONTRACT_DEFECT_AUTHORIZATION,  # pyright: ignore[reportPrivateUsage]
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    )
+    return (
+        root,
+        root_card,
+        root_sha,
+        successor,
+        child_card,
+        successor_sha,
+        authorization,
+        sha256_file(authorization),
+    )
+
+
+def _provider_contract_retry_args(
+    *,
+    retry_path: Path,
+    retry_sha: str,
+    output_root: Path,
+    execute: bool,
+    fixture: Path | None = None,
+) -> Namespace:
+    return Namespace(
+        output_root=output_root,
+        run_card_output=None,
+        log_output=None,
+        resume=True,
+        execute=execute,
+        provider_contract_retry_plan=retry_path,
+        expected_provider_contract_retry_plan_sha256=retry_sha,
+        raw_html_dir=output_root / "raw-html",
+        successes_output=output_root / "successes.jsonl",
+        exclusions_output=output_root / "exclusions.jsonl",
+        summary_output=output_root / "summary.json",
+        receipt_output=output_root / "receipt.json",
+        expected_receipt_sha256=None,
+        live_firecrawl=False,
+        firecrawl_fixture=fixture,
+    )
+
+
+def test_provider_contract_retry_authenticates_two_circuits_and_shared_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (
+        root,
+        root_card,
+        root_sha,
+        _successor,
+        child_card,
+        successor_sha,
+        authorization,
+        authorization_sha,
+    ) = _two_circuit_authority(tmp_path, monkeypatch)
+    retry = recovery.build_target_raw_docket_recovery_provider_contract_retry_plan(
+        root_plan_path=tmp_path / "root-plan.json",
+        expected_root_plan_sha256=root_sha,
+        root_failure_run_card_path=root_card,
+        expected_root_failure_run_card_sha256=sha256_file(root_card),
+        direct_successor_plan_path=tmp_path / "direct-successor-plan.json",
+        expected_direct_successor_plan_sha256=successor_sha,
+        direct_successor_failure_run_card_path=child_card,
+        expected_direct_successor_failure_run_card_sha256=sha256_file(child_card),
+        direct_successor_raw_html_dir=tmp_path / "direct-execute/raw-html",
+        provider_contract_defect_authorization_path=authorization,
+        expected_provider_contract_defect_authorization_sha256=authorization_sha,
+        batch_id="provider-contract-retry",
+        run_id="provider-contract-retry-run",
+    )
+    retry_path = tmp_path / "provider-contract-retry-plan.json"
+    retry_sha = recovery.write_target_raw_docket_recovery_provider_contract_retry_plan(
+        retry_path, retry
+    )
+    decoded = json.loads(retry_path.read_text())
+    assert retry_path.read_bytes() == (
+        json.dumps(
+            decoded,
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+        + b"\n"
+    )
+    assert decoded["provider_contract_defect_authorization_sha256"] == authorization_sha
+    assert decoded["provider_request_contract"] == {
+        "schema_version": str(FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1),
+        "only_change_from_predecessor": "omit_optional_json_property",
+        "omitted_property": "blockAds",
+        "omitted_value": False,
+    }
+    fixture = tmp_path / "retry-fixture.jsonl"
+    _write_jsonl(
+        fixture,
+        [
+            {
+                "status_code": 200,
+                "payload": {
+                    "success": True,
+                    "data": {
+                        "rawHtml": _fixture_docket_html(),
+                        "metadata": {
+                            "statusCode": 200,
+                            "sourceURL": (
+                                "https://www.courtlistener.com/docket/200/example/"
+                                "?order_by=desc&page=1"
+                            ),
+                            "proxyUsed": "basic",
+                            "cacheState": "miss",
+                            "creditsUsed": 1,
+                        },
+                    },
+                },
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        recovery,
+        "acquire_ranked_dockets",
+        recovery.acquire_ranked_dockets.__wrapped__
+        if hasattr(recovery.acquire_ranked_dockets, "__wrapped__")
+        else __import__(
+            "legalforecast.ingestion.budgeted_docket_acquisition",
+            fromlist=["acquire_ranked_dockets"],
+        ).acquire_ranked_dockets,
+    )
+    args = _provider_contract_retry_args(
+        retry_path=retry_path,
+        retry_sha=retry_sha,
+        output_root=tmp_path / "retry-execute",
+        execute=True,
+        fixture=fixture,
+    )
+    assert (
+        cli._cmd_acquisition_execute_target_raw_docket_recovery_provider_contract_retry(  # pyright: ignore[reportPrivateUsage]
+            args
+        )
+        == 0
+    )
+    with CycleAcquisitionStore(Path(root.cycle_store_path)) as store:
+        summary = store.firecrawl_run_summary(retry.run_id)
+        assert summary["credit_cap"] == root.credit_cap
+        assert summary["reserved_credits"] == 3
+        assert summary["remaining_authorization"] == root.credit_cap - 3
+        assert (
+            store.firecrawl_run_config(retry.run_id)["provider_request_contract"]
+            == (decoded["provider_request_contract"])
+        )
+    second = replace(
+        retry, batch_id="second-contract-retry", run_id="second-contract-run"
+    )
+    second_path = tmp_path / "second-contract-retry-plan.json"
+    second_sha = recovery.write_target_raw_docket_recovery_provider_contract_retry_plan(
+        second_path, second
+    )
+    second_args = _provider_contract_retry_args(
+        retry_path=second_path,
+        retry_sha=second_sha,
+        output_root=tmp_path / "second-retry-execute",
+        execute=True,
+        fixture=fixture,
+    )
+    with pytest.raises(
+        cli.CommandError, match="terminal target recovery already exists"
+    ):
+        cli._cmd_acquisition_execute_target_raw_docket_recovery_provider_contract_retry(  # pyright: ignore[reportPrivateUsage]
+            second_args
+        )
+
+
+def test_provider_contract_retry_plan_command_emits_pinned_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (
+        _,
+        root_card,
+        root_sha,
+        _,
+        child_card,
+        successor_sha,
+        authorization,
+        authorization_sha,
+    ) = _two_circuit_authority(tmp_path, monkeypatch)
+    output_root = tmp_path / "contract-plan-command"
+    args = Namespace(
+        output_root=output_root,
+        run_card_output=None,
+        log_output=None,
+        resume=False,
+        execute=True,
+        root_plan=tmp_path / "root-plan.json",
+        expected_root_plan_sha256=root_sha,
+        root_failure_run_card=root_card,
+        expected_root_failure_run_card_sha256=sha256_file(root_card),
+        direct_successor_plan=tmp_path / "direct-successor-plan.json",
+        expected_direct_successor_plan_sha256=successor_sha,
+        direct_successor_failure_run_card=child_card,
+        expected_direct_successor_failure_run_card_sha256=sha256_file(child_card),
+        direct_successor_raw_html_dir=tmp_path / "direct-execute/raw-html",
+        provider_contract_defect_authorization=authorization,
+        expected_provider_contract_defect_authorization_sha256=authorization_sha,
+        batch_id="provider-contract-retry",
+        run_id="provider-contract-retry-run",
+        plan_output=output_root / "provider-contract-retry-plan.json",
+    )
+    assert (
+        cli._cmd_acquisition_plan_target_raw_docket_recovery_provider_contract_retry(  # pyright: ignore[reportPrivateUsage]
+            args
+        )
+        == 0
+    )
+    plan_sha = sha256_file(args.plan_output)
+    plan = recovery.load_target_raw_docket_recovery_provider_contract_retry_plan(
+        args.plan_output, plan_sha
+    )
+    assert plan.root_plan_sha256 == root_sha
+    run_card = json.loads(
+        (
+            output_root
+            / "run-cards/plan-target-raw-docket-recovery-provider-contract-retry.json"
+        ).read_text()
+    )
+    assert run_card["plan_sha256"] == plan_sha
+    assert run_card["target_count"] == 1
+    assert run_card["paid_activity_executed"] is False
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("status", "completed", "not an authenticated circuit failure"),
+        ("record_count", 1, "not an authenticated circuit failure"),
+        ("firecrawl_run_status", "active", "not an authenticated circuit failure"),
+    ],
+)
+def test_provider_contract_retry_rejects_tampered_terminal_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    (
+        _,
+        root_card,
+        root_sha,
+        _,
+        child_card,
+        successor_sha,
+        authorization,
+        authorization_sha,
+    ) = _two_circuit_authority(tmp_path, monkeypatch)
+    card = json.loads(child_card.read_text())
+    card[field] = value
+    child_card.write_text(json.dumps(card) + "\n")
+    with pytest.raises(TargetRawDocketRecoveryError, match=message):
+        recovery.build_target_raw_docket_recovery_provider_contract_retry_plan(
+            root_plan_path=tmp_path / "root-plan.json",
+            expected_root_plan_sha256=root_sha,
+            root_failure_run_card_path=root_card,
+            expected_root_failure_run_card_sha256=sha256_file(root_card),
+            direct_successor_plan_path=tmp_path / "direct-successor-plan.json",
+            expected_direct_successor_plan_sha256=successor_sha,
+            direct_successor_failure_run_card_path=child_card,
+            expected_direct_successor_failure_run_card_sha256=sha256_file(child_card),
+            direct_successor_raw_html_dir=tmp_path / "direct-execute/raw-html",
+            provider_contract_defect_authorization_path=authorization,
+            expected_provider_contract_defect_authorization_sha256=authorization_sha,
+            batch_id="provider-contract-retry",
+            run_id="provider-contract-retry-run",
+        )
+
+
+def test_provider_contract_retry_rejects_changed_root_target_or_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (
+        _,
+        root_card,
+        _root_sha,
+        _,
+        child_card,
+        successor_sha,
+        authorization,
+        authorization_sha,
+    ) = _two_circuit_authority(tmp_path, monkeypatch)
+    root_plan_path = tmp_path / "root-plan.json"
+    root_record = json.loads(root_plan_path.read_text())
+    root_record["max_pages_per_docket"] += 1
+    root_plan_path.write_text(json.dumps(root_record, sort_keys=True) + "\n")
+    with pytest.raises(
+        TargetRawDocketRecoveryError,
+        match=(
+            r"direct successor does not bind the exact root circuit failure|"
+            r"SHA-256 mismatch"
+        ),
+    ):
+        recovery.build_target_raw_docket_recovery_provider_contract_retry_plan(
+            root_plan_path=root_plan_path,
+            expected_root_plan_sha256=sha256_file(root_plan_path),
+            root_failure_run_card_path=root_card,
+            expected_root_failure_run_card_sha256=sha256_file(root_card),
+            direct_successor_plan_path=tmp_path / "direct-successor-plan.json",
+            expected_direct_successor_plan_sha256=successor_sha,
+            direct_successor_failure_run_card_path=child_card,
+            expected_direct_successor_failure_run_card_sha256=sha256_file(child_card),
+            direct_successor_raw_html_dir=tmp_path / "direct-execute/raw-html",
+            provider_contract_defect_authorization_path=authorization,
+            expected_provider_contract_defect_authorization_sha256=authorization_sha,
+            batch_id="provider-contract-retry",
+            run_id="provider-contract-retry-run",
+        )
+
+
+def test_provider_contract_retry_requires_pinned_defect_authorization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (
+        _,
+        root_card,
+        root_sha,
+        _,
+        child_card,
+        successor_sha,
+        authorization,
+        _,
+    ) = _two_circuit_authority(tmp_path, monkeypatch)
+    authorization.write_text(
+        json.dumps(
+            {
+                "schema_version": str(FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1),
+                "declared_provider_contract_defect": "generic provider 5xx",
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    with pytest.raises(
+        TargetRawDocketRecoveryError,
+        match="does not bind the sole permitted Firecrawl defect",
+    ):
+        recovery.build_target_raw_docket_recovery_provider_contract_retry_plan(
+            root_plan_path=tmp_path / "root-plan.json",
+            expected_root_plan_sha256=root_sha,
+            root_failure_run_card_path=root_card,
+            expected_root_failure_run_card_sha256=sha256_file(root_card),
+            direct_successor_plan_path=tmp_path / "direct-successor-plan.json",
+            expected_direct_successor_plan_sha256=successor_sha,
+            direct_successor_failure_run_card_path=child_card,
+            expected_direct_successor_failure_run_card_sha256=sha256_file(child_card),
+            direct_successor_raw_html_dir=tmp_path / "direct-execute/raw-html",
+            provider_contract_defect_authorization_path=authorization,
+            expected_provider_contract_defect_authorization_sha256=sha256_file(
+                authorization
+            ),
+            batch_id="provider-contract-retry",
+            run_id="provider-contract-retry-run",
+        )
+
+
+def test_provider_contract_retry_binds_child_card_to_direct_successor_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (
+        _,
+        root_card,
+        root_sha,
+        _,
+        child_card,
+        successor_sha,
+        authorization,
+        authorization_sha,
+    ) = _two_circuit_authority(tmp_path, monkeypatch)
+    card = json.loads(child_card.read_text())
+    card["input_paths"][0] = str(tmp_path / "unbound-successor-plan.json")
+    child_card.write_text(json.dumps(card, sort_keys=True) + "\n")
+    with pytest.raises(
+        TargetRawDocketRecoveryError,
+        match="does not bind the pinned direct successor plan",
+    ):
+        recovery.build_target_raw_docket_recovery_provider_contract_retry_plan(
+            root_plan_path=tmp_path / "root-plan.json",
+            expected_root_plan_sha256=root_sha,
+            root_failure_run_card_path=root_card,
+            expected_root_failure_run_card_sha256=sha256_file(root_card),
+            direct_successor_plan_path=tmp_path / "direct-successor-plan.json",
+            expected_direct_successor_plan_sha256=successor_sha,
+            direct_successor_failure_run_card_path=child_card,
+            expected_direct_successor_failure_run_card_sha256=sha256_file(child_card),
+            direct_successor_raw_html_dir=tmp_path / "direct-execute/raw-html",
+            provider_contract_defect_authorization_path=authorization,
+            expected_provider_contract_defect_authorization_sha256=authorization_sha,
+            batch_id="provider-contract-retry",
+            run_id="provider-contract-retry-run",
+        )
+
+
+def test_firecrawl_request_payload_omits_only_broken_block_ads_override() -> None:
+    from legalforecast.ingestion.firecrawl_source import _scrape_payload
+
+    payload = _scrape_payload("https://www.courtlistener.com/docket/200/example/")
+    assert "blockAds" not in payload
+    assert payload == {
+        "url": "https://www.courtlistener.com/docket/200/example/",
+        "formats": ["rawHtml"],
+        "onlyMainContent": False,
+        "onlyCleanContent": False,
+        "maxAge": 0,
+        "storeInCache": False,
+        "proxy": "basic",
+        "timeout": 60000,
+        "skipTlsVerification": False,
+        "parsers": [],
+        "waitFor": 0,
+        "lockdown": False,
+        "redactPII": False,
+    }
