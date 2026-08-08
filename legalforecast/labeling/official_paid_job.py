@@ -6,7 +6,6 @@ import argparse
 import json
 import math
 import re
-import shutil
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
@@ -577,12 +576,9 @@ def _legalforecast_entrypoint_command(
     entrypoint = Path(sys.executable).resolve().with_name("legalforecast")
     if entrypoint.is_file():
         return (str(entrypoint), *cli_arguments)
-    discovered = shutil.which("legalforecast")
-    if discovered is None:
-        raise OfficialPaidLabelingJobError(
-            "legalforecast entry point is unavailable in the reviewed runtime"
-        )
-    return (discovered, *cli_arguments)
+    raise OfficialPaidLabelingJobError(
+        "legalforecast entry point is unavailable in the reviewed runtime"
+    )
 
 
 def _within_root(path: Path, root: Path, *, must_exist: bool) -> Path:

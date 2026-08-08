@@ -1052,7 +1052,7 @@ It then exclusively publishes `provider-cycle-caps.json`, its public successor r
 Any identity-only substitute, uppercase digest, changed input, noncanonical policy, unsafe link, special file, conflicting byte, or unexpected output residue fails closed.
 Use the resulting exact `provider-cycle-caps.json` path in every paid Stage A and Stage B command below; retain the successor receipt and run card as pre-provider launch evidence.
 
-Run every provider-bearing Stage A or Stage B shard only through `uv run legalforecast-provider-env-run --provider <provider> -- ...`. The wrapper accepts either the local labeling stage view containing `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` or the protected workflow's single `LFB_PROVIDER_API_KEY`, rejects known cross-stage secret names, and starts the child with exactly one provider key name. No secret value appears on the command line.
+Run every provider-bearing Stage A or Stage B shard only through `uv run legalforecast-provider-env-run --provider <provider> -- ...`. The wrapper accepts either the local labeling stage view containing `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` or the protected workflow's single `LFB_PROVIDER_API_KEY`, rejects known cross-stage secret names, strips inherited `UV_ENV_FILE`, forces `UV_NO_ENV_FILE=1` for child `uv run` invocations, and starts the child with exactly one provider key name. No secret value appears on the command line.
 
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
 

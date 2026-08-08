@@ -100,6 +100,38 @@ def test_runner_passes_only_selected_provider_key_name_to_child(
     assert GENERIC_PROVIDER_API_KEY_ENV not in child_env
 
 
+def test_runner_disables_uv_env_file_reload_in_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Mapping[str, str]] = {}
+
+    def fake_run(
+        command: list[str],
+        *,
+        check: bool,
+        env: Mapping[str, str],
+    ) -> subprocess.CompletedProcess[str]:
+        captured["env"] = env
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    status = run_provider_isolated_command(
+        provider="openai",
+        command=("uv", "run", "python", "-V"),
+        parent_env={
+            **_labeling_stage_parent_env(),
+            "UV_ENV_FILE": "/tmp/reload-provider-keys.env",
+            "UV_NO_ENV_FILE": "0",
+        },
+    )
+
+    assert status == 0
+    child_env = cast(Mapping[str, str], captured["env"])
+    assert "UV_ENV_FILE" not in child_env
+    assert child_env["UV_NO_ENV_FILE"] == "1"
+
+
 @pytest.mark.parametrize(
     ("provider", "selected_name"),
     [
