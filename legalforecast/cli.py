@@ -19,7 +19,14 @@ import tempfile
 import time
 import uuid
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import (
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    MutableMapping,
+    Sequence,
+)
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import asdict, dataclass, replace
@@ -26224,6 +26231,46 @@ def _replacement_budget_operation_pairs(
     return pairs
 
 
+@dataclass(frozen=True, slots=True)
+class _VerifiedSuccessorRecovery:
+    """A successor recovery replayed against one exact historical prefix."""
+
+    recovery_root: Path
+    selection_path: Path
+    selection_bytes: bytes
+    selected_document_keys: frozenset[tuple[str, str]]
+    purchase_policy_path: Path
+    cohort_policy_path: Path
+    ledger_path: Path
+    purchase_snapshot: CaseDevPurchaseSnapshot
+    recovery: Mapping[str, object]
+
+    def matches(
+        self,
+        *,
+        recovery_root: Path,
+        selection_path: Path,
+        selection_bytes: bytes,
+        selected_document_keys: set[tuple[str, str]],
+        purchase_policy_path: Path,
+        cohort_policy_path: Path,
+        ledger_path: Path,
+        purchase_snapshot: CaseDevPurchaseSnapshot,
+    ) -> bool:
+        """Permit reuse only for the same authenticated recovery invocation."""
+
+        return (
+            self.recovery_root == recovery_root.resolve()
+            and self.selection_path == selection_path.resolve()
+            and self.selection_bytes == selection_bytes
+            and self.selected_document_keys == frozenset(selected_document_keys)
+            and self.purchase_policy_path == purchase_policy_path.resolve()
+            and self.cohort_policy_path == cohort_policy_path.resolve()
+            and self.ledger_path == ledger_path.resolve()
+            and self.purchase_snapshot == purchase_snapshot
+        )
+
+
 def _authenticated_pre_successor_purchase_snapshot(
     *,
     successor_recovery_root: Path,
@@ -26244,6 +26291,9 @@ def _authenticated_pre_successor_purchase_snapshot(
     expected_authority_path: Path | None = None,
     authority_transition_capability: object | None = None,
     attempt_transition_capability: object | None = None,
+    verified_successor_recoveries: (
+        MutableMapping[Path, _VerifiedSuccessorRecovery] | None
+    ) = None,
 ) -> tuple[CaseDevPurchaseSnapshot, Mapping[str, bytes]]:
     """Authenticate one later successor and recover its exact ledger prefix."""
 
@@ -26360,6 +26410,20 @@ def _authenticated_pre_successor_purchase_snapshot(
     if not isinstance(raw_recovery_bytes, Mapping):
         raise ReplacementRecoverySourceError(
             "successor history recovery lacks authenticated artifact bytes"
+        )
+    if verified_successor_recoveries is not None:
+        verified_successor_recoveries[successor_recovery_root.resolve()] = (
+            _VerifiedSuccessorRecovery(
+                recovery_root=successor_recovery_root.resolve(),
+                selection_path=coordinates.selection_path.resolve(),
+                selection_bytes=selection_bytes,
+                selected_document_keys=frozenset(selected_keys),
+                purchase_policy_path=purchase_policy_path.resolve(),
+                cohort_policy_path=cohort_policy_path.resolve(),
+                ledger_path=ledger_path.resolve(),
+                purchase_snapshot=current_snapshot,
+                recovery=recovery,
+            )
         )
 
     baseline_hashes = request.baseline_operation_record_sha256s
@@ -28184,6 +28248,7 @@ def _prepare_replacement_recovery_consolidation(
         trailing_pairs_by_ordinal[ordinal] = set(trailing_pairs)
         trailing_pairs.update(approved_pairs_by_ordinal[ordinal])
     purchase_snapshots_by_ordinal: dict[int, CaseDevPurchaseSnapshot] = {}
+    verified_successor_recoveries: dict[Path, _VerifiedSuccessorRecovery] = {}
     predecessor_snapshot = pre_resolution_purchase_snapshot
 
     def merge_consolidation_snapshot(path: Path, payload: bytes, *, label: str) -> None:
@@ -28205,7 +28270,7 @@ def _prepare_replacement_recovery_consolidation(
             _authenticated_pre_successor_purchase_snapshot(
                 successor_recovery_root=Path(
                     _required_str(tranche, "recovery_root")
-                ).absolute(),
+                ).resolve(),
                 successor_controlled_private_root=Path(
                     _required_str(tranche, "replacement_controlled_private_root")
                 ).absolute(),
@@ -28235,6 +28300,7 @@ def _prepare_replacement_recovery_consolidation(
                     issue_resolved_transition_capability()
                 ),
                 attempt_transition_capability=(issue_resolved_transition_capability()),
+                verified_successor_recoveries=verified_successor_recoveries,
             )
         )
         for raw_path, payload in recovery_source_bytes.items():
@@ -28470,8 +28536,8 @@ def _prepare_replacement_recovery_consolidation(
         ordinal = _required_int(tranche, "ordinal")
         tranche_purchase_snapshot = purchase_snapshots_by_ordinal[ordinal]
         paths = _replacement_recovery_tranche_paths(tranche)
-        recovery_root = Path(_required_str(tranche, "recovery_root")).absolute()
-        if recovery_root.resolve() == cast(Path, args.output_root).absolute().resolve():
+        recovery_root = Path(_required_str(tranche, "recovery_root")).resolve()
+        if recovery_root == cast(Path, args.output_root).resolve():
             raise ValueError(
                 "replacement tranche recovery root cannot be the consolidation output"
             )
@@ -28489,19 +28555,36 @@ def _prepare_replacement_recovery_consolidation(
             tranche_selection_bytes, source=tranche_selection_path
         )
         tranche_keys = _replacement_consolidation_selection_keys(tranche_selection)
-        recovery = _verify_materializer_recovery(
-            recovery_root=recovery_root,
-            selection_path=tranche_selection_path,
-            selected_document_keys=tranche_keys,
-            purchase_policy_path=purchase_policy_path,
-            cohort_policy_path=cohort_policy_path,
-            ledger_path=ledger_path,
-            purchase_operations=tranche_purchase_snapshot.operations,
-            purchase_committed_amount_usd=(
-                tranche_purchase_snapshot.committed_amount_usd
-            ),
-            purchase_state_sha256=tranche_purchase_snapshot.purchase_state_sha256,
-        )
+        cached_successor_recovery = verified_successor_recoveries.get(recovery_root)
+        if (
+            kind == "successor"
+            and cached_successor_recovery is not None
+            and cached_successor_recovery.matches(
+                recovery_root=recovery_root,
+                selection_path=tranche_selection_path,
+                selection_bytes=tranche_selection_bytes,
+                selected_document_keys=tranche_keys,
+                purchase_policy_path=purchase_policy_path,
+                cohort_policy_path=cohort_policy_path,
+                ledger_path=ledger_path,
+                purchase_snapshot=tranche_purchase_snapshot,
+            )
+        ):
+            recovery = cached_successor_recovery.recovery
+        else:
+            recovery = _verify_materializer_recovery(
+                recovery_root=recovery_root,
+                selection_path=tranche_selection_path,
+                selected_document_keys=tranche_keys,
+                purchase_policy_path=purchase_policy_path,
+                cohort_policy_path=cohort_policy_path,
+                ledger_path=ledger_path,
+                purchase_operations=tranche_purchase_snapshot.operations,
+                purchase_committed_amount_usd=(
+                    tranche_purchase_snapshot.committed_amount_usd
+                ),
+                purchase_state_sha256=tranche_purchase_snapshot.purchase_state_sha256,
+            )
         raw_recovery_bytes = recovery.get("verified_artifact_bytes")
         if not isinstance(raw_recovery_bytes, Mapping):
             raise ValueError(

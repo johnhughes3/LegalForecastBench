@@ -4,7 +4,8 @@ import argparse
 import copy
 import hashlib
 import json
-from collections.abc import Callable, Iterator
+from collections import Counter
+from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -34,10 +35,13 @@ def _prepare_fixture(
     monkeypatch: pytest.MonkeyPatch,
     *,
     ledger_pairs: set[tuple[str, str]],
+    successor_count: int = 2,
     pre_recovery_projection: bool = False,
     terminal_omission_pairs: set[tuple[str, str]] | None = None,
 ) -> tuple[argparse.Namespace, list[set[tuple[str, str]]]]:
     terminal_omission_pairs = terminal_omission_pairs or set()
+    successor_pairs = (("case-1", "doc-1"), ("case-2", "doc-2"))
+    selected_pairs = (("base-case", "base-doc"), *successor_pairs[:successor_count])
     selection_rows = [
         {
             "candidate_id": candidate_id,
@@ -55,11 +59,7 @@ def _prepare_fixture(
                 }
             ],
         }
-        for candidate_id, document_id in (
-            ("base-case", "base-doc"),
-            ("case-1", "doc-1"),
-            ("case-2", "doc-2"),
-        )
+        for candidate_id, document_id in selected_pairs
     ]
     selection = _write_jsonl(tmp_path / "active-selection.jsonl", selection_rows)
     purchased_rows = (
@@ -67,11 +67,7 @@ def _prepare_fixture(
         if pre_recovery_projection
         else [
             {"candidate_id": candidate_id, "source_document_id": document_id}
-            for candidate_id, document_id in (
-                ("base-case", "base-doc"),
-                ("case-1", "doc-1"),
-                ("case-2", "doc-2"),
-            )
+            for candidate_id, document_id in selected_pairs
         ]
     )
     purchased_manifest = _write_jsonl(
@@ -161,7 +157,7 @@ def _prepare_fixture(
         "restriction_records": [],
     }
     for index, (candidate_id, document_id) in enumerate(
-        (("case-1", "doc-1"), ("case-2", "doc-2")), start=1
+        successor_pairs[:successor_count], start=1
     ):
         root = (tmp_path / f"tranche-{index}" / "recovery").resolve()
         document_root = root / "documents/purchased"
@@ -459,15 +455,255 @@ def test_consolidated_verifier_reuses_authenticated_history_snapshots(
     )
 
 
+def test_successor_history_authentication_records_complete_verified_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    production_authenticate = cli._authenticated_pre_successor_purchase_snapshot
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs={
+            ("base-case", "base-doc"),
+            ("case-1", "doc-1"),
+        },
+        successor_count=1,
+    )
+    source = json.loads(args.tranche_index.read_text(encoding="utf-8"))["sources"][1]
+    successor_root = Path(source["recovery_root"]).resolve()
+    selection_path = Path(source["selection"]).resolve()
+    budget_path = Path(source["replacement_budget_plan"]).resolve()
+    authority_path = Path(source["replacement_purchase_authority"]).resolve()
+    attempt_policy_path = _write_json(
+        tmp_path / "tranche-1" / "attempt-policy.json", {"fixture": "attempt"}
+    )
+    _write_json(
+        successor_root / "run-cards" / "recover-recap-fetch-quarantine.json", {}
+    )
+    coordinates = SimpleNamespace(
+        kind="successor",
+        purchase_policy_path=args.purchase_policy,
+        cohort_policy_path=args.cohort_policy,
+        purchase_ledger_path=args.purchase_ledger,
+        replacement_authority_path=authority_path,
+        selection_path=selection_path,
+        budget_plan_path=budget_path,
+        attempt_policy_path=attempt_policy_path,
+    )
+    initial_operation = {
+        "candidate_id": "base-case",
+        "source_document_id": "base-doc",
+    }
+    successor_operation = {
+        "candidate_id": "case-1",
+        "source_document_id": "doc-1",
+    }
+    current_snapshot = CaseDevPurchaseSnapshot(
+        operations=(initial_operation, successor_operation),
+        purchase_state_sha256="a" * 64,
+        committed_amount_usd="0.00",
+    )
+    original_recovery = cli._verify_materializer_recovery
+    recoveries: list[Mapping[str, object]] = []
+
+    def capture_recovery(**kwargs: object) -> Mapping[str, object]:
+        recovery = original_recovery(**kwargs)
+        recoveries.append(recovery)
+        return recovery
+
+    monkeypatch.setattr(
+        cli, "derive_recovery_source_coordinates", lambda _card: coordinates
+    )
+    monkeypatch.setattr(cli, "_missing_core_budget_plan", lambda _budget: {})
+    monkeypatch.setattr(
+        cli, "verify_recap_fetch_attempt_policy", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(cli, "_verify_materializer_recovery", capture_recovery)
+    monkeypatch.setattr(
+        cli,
+        "verify_replacement_purchase_authority",
+        lambda **_kwargs: SimpleNamespace(
+            baseline_operation_record_sha256s=(
+                cli.canonical_purchase_operation_sha256(initial_operation),
+            ),
+            committed_spend_usd="0.00",
+            purchase_journal_state_sha256="sha256:fixture-baseline-state",
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "canonical_purchase_state_sha256",
+        lambda *_args, **_kwargs: "fixture-baseline-state",
+    )
+    verified_recoveries: dict[Path, cli._VerifiedSuccessorRecovery] = {}
+
+    predecessor, verified_bytes = production_authenticate(
+        successor_recovery_root=successor_root,
+        successor_controlled_private_root=Path(
+            source["replacement_controlled_private_root"]
+        ).resolve(),
+        current_snapshot=current_snapshot,
+        policy=SimpleNamespace(),
+        policy_artifact={},
+        cohort_artifact={},
+        purchase_policy_path=args.purchase_policy,
+        cohort_policy_path=args.cohort_policy,
+        ledger_path=args.purchase_ledger,
+        initial_controlled_private_root=args.controlled_private_root,
+        initialization_receipt_path=args.purchase_ledger_initialization_receipt,
+        capture=lambda path, *, label: path.read_bytes(),
+        expected_selection_path=selection_path,
+        expected_budget_plan_path=budget_path,
+        expected_authority_path=authority_path,
+        verified_successor_recoveries=verified_recoveries,
+    )
+
+    assert predecessor.operations == (initial_operation,)
+    assert verified_bytes == {}
+    assert len(recoveries) == 1
+    assert set(verified_recoveries) == {successor_root}
+    verified = verified_recoveries[successor_root]
+    assert verified.recovery_root == successor_root
+    assert verified.selection_path == selection_path
+    assert verified.selection_bytes == selection_path.read_bytes()
+    assert verified.selected_document_keys == frozenset({("case-1", "doc-1")})
+    assert verified.purchase_policy_path == args.purchase_policy.resolve()
+    assert verified.cohort_policy_path == args.cohort_policy.resolve()
+    assert verified.ledger_path == args.purchase_ledger.resolve()
+    assert verified.purchase_snapshot == current_snapshot
+    assert verified.recovery is recoveries[0]
+
+
+def test_consolidated_verifier_reuses_successor_recovery_with_noncanonical_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {("base-case", "base-doc"), ("case-1", "doc-1")}
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        successor_count=1,
+    )
+    initial_root = (tmp_path / "initial" / "recovery").resolve()
+    successor_root = (tmp_path / "tranche-1" / "recovery").resolve()
+    successor_budget = (tmp_path / "tranche-1" / "budget.json").resolve()
+    tranche_index = json.loads(args.tranche_index.read_text(encoding="utf-8"))
+    tranche_index["sources"][1]["recovery_root"] = str(
+        successor_root.parent / ".." / successor_root.parent.name / successor_root.name
+    )
+    args.tranche_index.write_text(
+        json.dumps(tranche_index, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    fixture_recovery = cli._verify_materializer_recovery
+    recovery_calls: Counter[Path] = Counter()
+
+    def count_recovery(**kwargs: object) -> dict[str, object]:
+        recovery_root = Path(cast(Path, kwargs["recovery_root"])).resolve()
+        recovery_calls[recovery_root] += 1
+        return fixture_recovery(**kwargs)
+
+    def authenticate_history(
+        *,
+        successor_recovery_root: Path,
+        current_snapshot: CaseDevPurchaseSnapshot,
+        verified_successor_recoveries: dict[Path, cli._VerifiedSuccessorRecovery]
+        | None = None,
+        **kwargs: object,
+    ) -> tuple[CaseDevPurchaseSnapshot, dict[str, bytes]]:
+        selection_path = Path(cast(Path, kwargs["expected_selection_path"])).resolve()
+        selection_bytes = cast(Callable[..., bytes], kwargs["capture"])(
+            selection_path, label="fixture successor history selection"
+        )
+        selected_document_keys = cli._replacement_consolidation_selection_keys(
+            [json.loads(line) for line in selection_bytes.decode().splitlines()]
+        )
+        recovery = count_recovery(
+            recovery_root=successor_recovery_root,
+            selection_path=selection_path,
+            selected_document_keys=selected_document_keys,
+            purchase_policy_path=kwargs["purchase_policy_path"],
+            cohort_policy_path=kwargs["cohort_policy_path"],
+            ledger_path=kwargs["ledger_path"],
+            purchase_operations=current_snapshot.operations,
+            purchase_committed_amount_usd=current_snapshot.committed_amount_usd,
+            purchase_state_sha256=current_snapshot.purchase_state_sha256,
+        )
+        if verified_successor_recoveries is not None:
+            verified_successor_recoveries[successor_recovery_root.resolve()] = (
+                cli._VerifiedSuccessorRecovery(
+                    recovery_root=successor_recovery_root.resolve(),
+                    selection_path=selection_path,
+                    selection_bytes=selection_bytes,
+                    selected_document_keys=frozenset(selected_document_keys),
+                    purchase_policy_path=Path(
+                        cast(Path, kwargs["purchase_policy_path"])
+                    ).resolve(),
+                    cohort_policy_path=Path(
+                        cast(Path, kwargs["cohort_policy_path"])
+                    ).resolve(),
+                    ledger_path=Path(cast(Path, kwargs["ledger_path"])).resolve(),
+                    purchase_snapshot=current_snapshot,
+                    recovery=recovery,
+                )
+            )
+        record = cast(list[dict[str, str]], recovery["manifest_records"])[0]
+        pair = (record["candidate_id"], record["source_document_id"])
+        prefix = tuple(
+            operation
+            for operation in current_snapshot.operations
+            if (operation["candidate_id"], operation["source_document_id"]) != pair
+        )
+        return (
+            CaseDevPurchaseSnapshot(
+                operations=prefix,
+                purchase_state_sha256=current_snapshot.purchase_state_sha256,
+                committed_amount_usd=current_snapshot.committed_amount_usd,
+            ),
+            cast(dict[str, bytes], recovery["verified_artifact_bytes"]),
+        )
+
+    monkeypatch.setattr(cli, "_verify_materializer_recovery", count_recovery)
+    monkeypatch.setattr(
+        cli, "_authenticated_pre_successor_purchase_snapshot", authenticate_history
+    )
+    assert cli._cmd_consolidate_replacement_recovery(args) == 0
+
+    recovery_calls.clear()
+    original_read = cli._read_singly_linked_regular_input
+    budget_reads = 0
+
+    def count_budget_reads(path: Path, *, label: str) -> bytes:
+        nonlocal budget_reads
+        if path.resolve() == successor_budget:
+            budget_reads += 1
+        return original_read(path, label=label)
+
+    monkeypatch.setattr(cli, "_read_singly_linked_regular_input", count_budget_reads)
+    cli._verify_materializer_consolidated_recovery(
+        recovery_root=args.output_root,
+        run_card_path=(
+            args.output_root / "run-cards" / "consolidate-replacement-recovery.json"
+        ),
+        selection_path=args.selection,
+        selected_document_keys=all_paid,
+        purchase_policy_path=args.purchase_policy,
+        cohort_policy_path=args.cohort_policy,
+        ledger_path=args.purchase_ledger,
+    )
+
+    assert recovery_calls == Counter({initial_root: 1, successor_root: 1})
+    assert budget_reads == 2  # Initial authentication plus final TOCTOU recheck.
+
+
 def test_consolidated_verifier_rejects_post_snapshot_source_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    all_paid = {
-        ("base-case", "base-doc"),
-        ("case-1", "doc-1"),
-        ("case-2", "doc-2"),
-    }
-    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=all_paid)
+    all_paid = {("base-case", "base-doc"), ("case-1", "doc-1")}
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        successor_count=1,
+    )
     assert cli._cmd_consolidate_replacement_recovery(args) == 0
     index = json.loads(args.tranche_index.read_text(encoding="utf-8"))
     budget_path = Path(index["sources"][1]["replacement_budget_plan"]).absolute()
