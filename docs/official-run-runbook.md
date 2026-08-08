@@ -1127,6 +1127,20 @@ uv run legalforecast acquisition terminalize-llm-review-stage-a-reconstruction \
 
 Pass the emitted receipt to the resumed review command with `--terminal-escalation <terminal-escalation-receipt.json>`. This produces a deterministic pending review item for every affected frozen unit, preserving the exact reviewer prompt, the two failed-attempt commitments, and blinded predecision sources for John. It does not turn either invalid response into an accepted structural flag; ordinary retries remain unchanged for every candidate without a receipt.
 
+Before adjudication, build John’s private blinded review bundle only after the current Stage A v5 structural-review run has completed and its exact merged queue exists. This command is provider-free: it replays both Stage A cards, does not open a provider client, and never writes adjudications. Keep `<private-stage-a-review-root>` out of the repository and all public/publishable artifact roots.
+
+```bash
+uv run legalforecast acquisition build-unitization-review-bundle \
+  --output-root <private-stage-a-review-root> \
+  --prediction-units <prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+  --unitization-review-queue <verified-merged-review-queue.jsonl> \
+  --execute --no-resume
+```
+
+The output is `unitization-review-bundle.jsonl` plus its manifest. Every pending review appears exactly once with the full raw candidate units and only the predecision Mistral Markdown cited by those units or its review item. Decision/order material, text from decision artifacts, mismatched candidate/unit/source identifiers, markdown escapes, links, nonregular files, hard links, and byte drift all fail closed. The manifest binds the raw units, both cards, exact merged queue, selection, parser manifest, Markdown root/tree, and output SHA-256. Do not publish a production bundle before that Stage A structural-review output exists; use the JSONL solely to prepare a separate checked-in adjudication file.
+
 After structural review, apply adjudications only through the authenticated unitizer card:
 
 ```bash
