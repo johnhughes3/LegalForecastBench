@@ -186,6 +186,27 @@ def test_provider_bearing_stage_examples_use_reusable_provider_env_launcher() ->
     assert "--provider openai -- \\" in runbook
     assert "starts the child with exactly one provider key name" in runbook
     assert "No secret value appears on the command line." in runbook
+    openai_marker = (
+        "Run the following paid OpenAI shard through the protected workflow or "
+        "the same reusable local wrapper:"
+    )
+    openai_block = runbook.split(openai_marker, maxsplit=1)[1].split(
+        "Run the matching Google shard the same way",
+        maxsplit=1,
+    )[0]
+    google_marker = (
+        "Run the matching Google shard the same way, with the identical frozen "
+        "judge panel and canonical provider journal:"
+    )
+    google_block = runbook.split(google_marker, maxsplit=1)[1].split(
+        "Repeat `--model-key` for every entry in the frozen judge registry",
+        maxsplit=1,
+    )[0]
+    for block in (openai_block, google_block):
+        assert block.count("--model-key") == 3
+        assert "--model-key <frozen-judge-key-1>" in block
+        assert "--model-key <frozen-judge-key-2>" in block
+        assert "--model-key <...every-remaining-frozen-judge-key>" in block
 
 
 def _documented_acquisition_commands(runbook: str) -> list[tuple[str, str]]:

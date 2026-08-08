@@ -1196,7 +1196,9 @@ uv run legalforecast-provider-env-run \
     --unitization-review-run-card <apply-unitization-review-run-card.json> \
     --model-registry <frozen-stage-b-judge-registry.json> \
     --evaluated-model-registry <frozen-evaluated-model-registry.json> \
-    --model-key <provider:model-id> \
+    --model-key <frozen-judge-key-1> \
+    --model-key <frozen-judge-key-2> \
+    --model-key <...every-remaining-frozen-judge-key> \
     --provider-cycle-caps <provider-cycle-caps.json> \
     --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
     --execution-provider openai \
@@ -1228,7 +1230,9 @@ uv run legalforecast-provider-env-run \
     --unitization-review-run-card <apply-unitization-review-run-card.json> \
     --model-registry <frozen-stage-b-judge-registry.json> \
     --evaluated-model-registry <frozen-evaluated-model-registry.json> \
-    --model-key <provider:model-id> \
+    --model-key <frozen-judge-key-1> \
+    --model-key <frozen-judge-key-2> \
+    --model-key <...every-remaining-frozen-judge-key> \
     --provider-cycle-caps <provider-cycle-caps.json> \
     --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
     --execution-provider google \

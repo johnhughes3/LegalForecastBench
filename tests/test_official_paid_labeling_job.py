@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import sys
 from pathlib import Path
 from typing import cast
 
@@ -188,8 +187,10 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
     assert result == 0
     assert captured["provider"] == "openai"
     command = list(cast(tuple[str, ...], captured["command"]))
-    assert command[:3] == [sys.executable, "-m", "legalforecast.cli"]
-    assert command[3:5] == ["acquisition", "llm-label"]
+    assert Path(command[0]).name == "legalforecast"
+    assert command[1:3] == ["acquisition", "llm-label"]
+    assert "-m" not in command
+    assert "legalforecast.cli" not in command
     assert command[-7:] == [
         "--execution-provider",
         "openai",
@@ -202,6 +203,41 @@ def test_label_job_binds_complete_panel_to_one_provider_and_authority(
     assert command.count("--model-key") == len(model_keys)
     assert "--provider-shard-audit" not in command
     assert "--provider-shard-run-card" not in command
+
+
+def test_job_fails_closed_when_legalforecast_entry_point_is_unavailable(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    root, model_keys = _job_root(tmp_path)
+    manifest = _write_label_job(root, model_keys, provider="openai")
+
+    monkeypatch.setattr(
+        official_paid_job,
+        "sys",
+        type("StubSys", (), {"executable": "/tmp/reviewed/python"})(),
+    )
+    monkeypatch.setattr(official_paid_job.shutil, "which", lambda name: None)
+    monkeypatch.setattr(
+        official_paid_job,
+        "run_provider_isolated_command",
+        lambda **kwargs: pytest.fail(f"provider child must not run: {kwargs}"),
+    )
+
+    with pytest.raises(
+        OfficialPaidLabelingJobError,
+        match="legalforecast entry point is unavailable",
+    ):
+        run_official_paid_labeling_job(
+            job_manifest_path=manifest,
+            job_root=root,
+            release_sha=RELEASE_SHA,
+            stage="llm-label-provider-shard",
+            provider="openai",
+            provider_authority_table="exact-provider-authority",
+            provider_authority_region="us-east-1",
+            expected_provider_account_alias="openai-primary",
+        )
 
 
 def test_validate_only_checks_all_inputs_without_authority_or_provider_cli(
