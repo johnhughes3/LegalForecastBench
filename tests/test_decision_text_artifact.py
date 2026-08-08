@@ -4,6 +4,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, cast
 
 import legalforecast.cli as cli_module
@@ -254,10 +255,11 @@ def test_authenticated_docket_decision_builds_without_pdf_or_parser(
         ).hexdigest(),
         "restriction_evidence": ["courtlistener_public_docket"],
     }
+    verified_source = MappingProxyType(source)
     monkeypatch.setattr(
         "legalforecast.ingestion.docket_decision_text_source."
         "verified_docket_decision_source_records",
-        lambda _authority, *, purchase_journal: (source,),
+        lambda _authority, *, purchase_journal: (verified_source,),
     )
     acquired = [{"candidate_id": "cand-1", "source_document_id": "complaint"}]
 

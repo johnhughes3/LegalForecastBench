@@ -435,14 +435,8 @@ def _build_decision_text_records(
                     "extraction_method": "authenticated_docket_entry_text",
                     "parser_revision": "not_applicable",
                     "source_provenance": "authenticated_docket_entry_text",
-                    "docket_source_record_sha256": _payload_sha256(
-                        canonical_json_value_bytes(
-                            docket_source,
-                            error_type=DecisionTextArtifactError,
-                            error_message=(
-                                "docket decision source is not canonical JSON"
-                            ),
-                        )
+                    "docket_source_record_sha256": (
+                        _docket_source_record_sha256(docket_source)
                     ),
                     "clearance": {
                         "status": "cleared",
@@ -791,12 +785,8 @@ def _validate_verified_record(
             raise DecisionTextArtifactError(
                 f"docket decision clearance mismatch: {key}"
             )
-        if record.get("docket_source_record_sha256") != _payload_sha256(
-            canonical_json_value_bytes(
-                docket_source,
-                error_type=DecisionTextArtifactError,
-                error_message="docket decision source is not canonical JSON",
-            )
+        if record.get("docket_source_record_sha256") != _docket_source_record_sha256(
+            docket_source
         ):
             raise DecisionTextArtifactError(
                 f"docket decision source commitment mismatch: {key}"
@@ -1054,6 +1044,16 @@ def _parse_json(text: str, *, label: str) -> object:
 
 def _payload_sha256(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _docket_source_record_sha256(source: Mapping[str, Any]) -> str:
+    return _payload_sha256(
+        canonical_json_value_bytes(
+            dict(source),
+            error_type=DecisionTextArtifactError,
+            error_message="docket decision source is not canonical JSON",
+        )
+    )
 
 
 def _canonical_sha256(value: object) -> str:

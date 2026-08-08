@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, date, datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import cast
 
 import pytest
@@ -247,10 +248,11 @@ def test_authenticated_docket_decision_needs_no_download_and_never_leaks(
         "materialization_required": False,
         "text": canary,
     }
+    verified_source = MappingProxyType(source)
     monkeypatch.setattr(
         "legalforecast.ingestion.docket_decision_text_source."
         "verified_docket_decision_source_records",
-        lambda _authority, *, purchase_journal: (source,),
+        lambda _authority, *, purchase_journal: (verified_source,),
     )
     downloads = tuple(
         row
