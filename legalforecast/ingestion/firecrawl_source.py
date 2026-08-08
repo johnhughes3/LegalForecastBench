@@ -429,7 +429,8 @@ def _scrape_payload(
         "parsers": [],
         "waitFor": 0,
         # Firecrawl v2 currently returns SCRAPE_ALL_ENGINES_FAILED when
-        # blockAds=false; omit the optional override and use its default.
+        # Firecrawl v2 currently rejects the JSON property `"blockAds": false`;
+        # omit the optional override and use its default.
         "lockdown": False,
         "redactPII": False,
     }
