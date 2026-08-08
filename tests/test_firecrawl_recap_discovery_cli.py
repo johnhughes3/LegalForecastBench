@@ -106,12 +106,20 @@ def test_discover_firecrawl_recap_uses_shared_budget_and_reports_potentials(
     assert summary["eligibility_anchor"] == "2026-06-30"
     assert summary["search_window_start"] == "2026-06-30"
     assert summary["search_window_end"] == "2026-07-12"
+    assert summary["status"] == "active"
     assert (
         output_root / "checkpoints" / "batch-001-recap-entries.jsonl"
     ).read_text() == ""
     assert (
         output_root / "checkpoints" / "batch-001-recap-dockets.jsonl"
     ).read_text() == ""
+    run_card = json.loads(
+        (output_root / "run-cards" / "discover-firecrawl-recap.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert run_card["status"] == "completed"
+    assert "firecrawl_run_status" not in run_card
 
 
 def test_discover_firecrawl_recap_accepts_judgment_on_pleadings_terms(

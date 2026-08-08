@@ -20261,6 +20261,8 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         **batch_config,
     }
     _write_json(summary_path, summary)
+    run_card_summary: JsonRecord = dict(summary)
+    run_card_summary.pop("status", None)
     _write_acquisition_completion(
         args,
         stage=stage_name,
@@ -20273,7 +20275,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
             live=live,
             summary=credit_summary,
         ),
-        extra=summary,
+        extra=run_card_summary,
     )
     return 0
 
