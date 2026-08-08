@@ -30,16 +30,22 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          echo "eligible=false" >>"${GITHUB_OUTPUT}"
 
-          first_commit="$(
+          commits="$(
             gh api \
-              "repos/${REPOSITORY}/pulls/${PR_NUMBER}/commits?per_page=1" \
-              --jq '.[0] | {
+              "repos/${REPOSITORY}/pulls/${PR_NUMBER}/commits?per_page=2" \
+              --jq '[.[] | {
                 author: (.author.login // ""),
                 verified: (.commit.verification.verified // false),
                 message: (.commit.message // "")
-              }'
+              }]'
           )"
+          if [[ "$(jq 'length' <<<"${commits}")" != "1" ]]; then
+            echo "A Dependabot auto-merge candidate must contain exactly one commit." >&2
+            exit 1
+          fi
+          first_commit="$(jq '.[0]' <<<"${commits}")"
           author="$(jq -r '.author' <<<"${first_commit}")"
           verified="$(jq -r '.verified' <<<"${first_commit}")"
           if [[ "${author}" != "dependabot[bot]" || "${verified}" != "true" ]]; then
@@ -51,28 +57,46 @@ jobs:
             jq -r '.message' <<<"${first_commit}" |
               sed -n 's/^[[:space:]]*update-type:[[:space:]]*//p'
           )
-          if ((${#update_types[@]} == 0)); then
-            echo "The verified Dependabot commit has no update-type metadata." >&2
-            exit 1
-          fi
-
           eligible=true
-          for update_type in "${update_types[@]}"; do
-            case "${update_type}" in
-              version-update:semver-patch | version-update:semver-minor) ;;
-              version-update:semver-major) eligible=false ;;
-              *)
-                echo "Unknown Dependabot update type: ${update_type}" >&2
-                exit 1
-                ;;
-            esac
-          done
+          if ((${#update_types[@]} == 0)); then
+            eligible=false
+            echo "::notice::Verified Dependabot commit has no update-type metadata; leaving auto-merge disabled."
+          else
+            for update_type in "${update_types[@]}"; do
+              case "${update_type}" in
+                version-update:semver-patch | version-update:semver-minor) ;;
+                version-update:semver-major) eligible=false ;;
+                *)
+                  eligible=false
+                  echo "::notice::Unknown Dependabot update type: ${update_type}; leaving auto-merge disabled."
+                  ;;
+              esac
+            done
+          fi
           echo "eligible=${eligible}" >>"${GITHUB_OUTPUT}"
+
+      - name: Disable stale auto-merge for ineligible updates
+        if: always() && steps.metadata.outputs.eligible != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+
+          auto_merge_enabled="$(
+            gh pr view "${PR_URL}" \
+              --json autoMergeRequest \
+              --jq '.autoMergeRequest != null'
+          )"
+          if [[ "${auto_merge_enabled}" == "true" ]]; then
+            gh pr merge --disable-auto "${PR_URL}"
+          fi
 
       - name: Enable auto-merge for patch and minor updates
         if: steps.metadata.outputs.eligible == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -86,4 +110,8 @@ jobs:
             exit 0
           fi
 
-          gh pr merge --auto --squash "$PR_URL"
+          gh pr merge \
+            --auto \
+            --squash \
+            --match-head-commit "${PR_HEAD_SHA}" \
+            "${PR_URL}"
