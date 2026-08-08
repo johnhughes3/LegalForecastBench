@@ -117,3 +117,90 @@ def test_structural_reviewer_requires_verbatim_citations_from_supplied_documents
             documents=_documents(),
             response=_response(),
         )
+
+
+def test_structural_citation_allows_only_apostrophe_and_whitespace_drift() -> None:
+    source_excerpt = (
+        "Plaintiff\u2019s state law claims against Gage in his individual capacity "
+        "are barred."
+    )
+    documents = [
+        _LlmDocument(
+            candidate_id="cand-1",
+            source_document_id="motion",
+            document_role=DocumentRole.MTD_MEMORANDUM,
+            docket_entry_number=4,
+            description="Motion to dismiss",
+            markdown="Before.\n\n" + source_excerpt + "\n\nAfter.",
+        )
+    ]
+    flag: dict[str, Any] = {
+        "flag_type": "omitted",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": ["motion"],
+        "explanation": "A separately challenged theory is absent.",
+        "citation_excerpt": (
+            "Plaintiff's  state law claims against Gage in his individual capacity "
+            "are barred."
+        ),
+    }
+
+    [validated] = validate_structural_review_flags(
+        {"structural_flags": [flag]},
+        units=[_unit()],
+        documents=documents,
+        response=_response(),
+    )
+
+    assert validated["citation_excerpt"] == source_excerpt
+
+
+@pytest.mark.parametrize(
+    "citation_excerpt",
+    [
+        (
+            "plaintiff's state law claims against Gage in his individual capacity "
+            "are barred."
+        ),
+        (
+            "Plaintiff's federal law claims against Gage in his individual capacity "
+            "are barred."
+        ),
+        (
+            "Plaintiff's state-law claims against Gage in his individual capacity "
+            "are barred."
+        ),
+    ],
+)
+def test_structural_citation_rejects_non_equivalent_text(
+    citation_excerpt: str,
+) -> None:
+    source_excerpt = (
+        "Plaintiff\u2019s state law claims against Gage in his individual capacity "
+        "are barred."
+    )
+    flag: dict[str, Any] = {
+        "flag_type": "omitted",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": ["motion"],
+        "explanation": "A separately challenged theory is absent.",
+        "citation_excerpt": citation_excerpt,
+    }
+    documents = [
+        _LlmDocument(
+            candidate_id="cand-1",
+            source_document_id="motion",
+            document_role=DocumentRole.MTD_MEMORANDUM,
+            docket_entry_number=4,
+            description="Motion to dismiss",
+            markdown=source_excerpt,
+        )
+    ]
+
+    with pytest.raises(LlmResponseValidationError, match="does not appear"):
+        validate_structural_review_flags(
+            {"structural_flags": [flag]},
+            units=[_unit()],
+            documents=documents,
+            response=_response(),
+        )

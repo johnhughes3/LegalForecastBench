@@ -224,6 +224,28 @@ class LlmUnitizationReconstructionRecovery:
 
 
 @dataclass(frozen=True, slots=True)
+class LlmStageAStructuralReviewReconstructionRecovery:
+    """Provider-free recovery of one exact journaled structural review."""
+
+    candidate_id: str
+    case_id: str
+    attempt_ordinal: int
+    raw_response_sha256: str
+    normalized_response_sha256: str
+    structural_flags: tuple[JsonRecord, ...]
+
+    def to_record(self) -> JsonRecord:
+        return {
+            "candidate_id": self.candidate_id,
+            "case_id": self.case_id,
+            "attempt_ordinal": self.attempt_ordinal,
+            "raw_response_sha256": self.raw_response_sha256,
+            "normalized_response_sha256": self.normalized_response_sha256,
+            "structural_flags": list(self.structural_flags),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class _LlmDocument:
     candidate_id: str
     source_document_id: str
@@ -567,6 +589,101 @@ def recover_llm_unitization_reconstruction(
         journal.close()
 
 
+def recover_llm_stage_a_structural_review_reconstruction(
+    *,
+    selection_record: Mapping[str, Any],
+    parser_records: Iterable[Mapping[str, Any]],
+    prediction_unit_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+    markdown_bytes: Mapping[str, bytes] | None,
+    registry_entry: ModelRegistryEntry,
+    model_registry_sha256: str,
+    provider_journal_path: str | Path,
+    provider_cycle_cap_usd: float,
+    provider_cycle_id: str,
+    provider_cycle_caps_sha256: str,
+    provider_account: str,
+) -> LlmStageAStructuralReviewReconstructionRecovery:
+    """Revalidate and settle one failed structural-review response without a call."""
+
+    candidate_id = _required_str(selection_record, "candidate_id")
+    case_id = _required_str(selection_record, "case_id")
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    documents = _predecision_documents(
+        selection_record,
+        parser_by_key=parser_by_key,
+        markdown_root=Path(markdown_root),
+        markdown_bytes=markdown_bytes,
+    )
+    units = _prediction_units_by_candidate(prediction_unit_records).get(
+        candidate_id, ()
+    )
+    if not units:
+        raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
+    prompt = _stage_a_structural_review_prompt(selection_record, documents, units)
+    journal = _provider_attempt_journal(
+        path=provider_journal_path,
+        stage="llm-review-stage-a",
+        candidate_id=candidate_id,
+        prompt=prompt,
+        registry_entry=registry_entry,
+        account=provider_account,
+        model_registry_sha256=model_registry_sha256,
+        cycle_cap_usd=provider_cycle_cap_usd,
+        cycle_id=provider_cycle_id,
+        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+    )
+    if journal is None:
+        raise LlmPipelineError("provider reconstruction recovery requires a journal")
+    try:
+        evidence = journal.latest_reconstruction_recovery_evidence()
+        try:
+            normalized_value: object = json.loads(evidence.normalized_response_json)
+        except json.JSONDecodeError as exc:
+            raise LlmPipelineError(
+                "journaled normalized provider response is invalid"
+            ) from exc
+        if not isinstance(normalized_value, Mapping):
+            raise LlmPipelineError(
+                "journaled normalized provider response must be an object"
+            )
+        normalized = cast(Mapping[str, object], normalized_value)
+        raw_output = normalized.get("raw_output")
+        if not isinstance(raw_output, str):
+            raise LlmPipelineError(
+                "journaled normalized provider response lacks raw_output"
+            )
+        payload = _json_object_from_response(raw_output)
+        response = SolverResponse(
+            raw_output=raw_output,
+            request_count=_optional_int(normalized, "request_count") or 1,
+            input_tokens=_optional_int(normalized, "input_tokens") or 0,
+            output_tokens=_optional_int(normalized, "output_tokens") or 0,
+            estimated_cost=_float(normalized.get("actual_cost_usd")),
+        )
+        flags = validate_structural_review_flags(
+            payload, units=units, documents=documents, response=response
+        )
+        journal.commit_reconstruction_recovery(
+            evidence.attempt_ordinal,
+            raw_response_json=evidence.raw_response_json,
+            normalized_response_json=evidence.normalized_response_json,
+            record={"structural_flags": list(flags)},
+        )
+        return LlmStageAStructuralReviewReconstructionRecovery(
+            candidate_id=candidate_id,
+            case_id=case_id,
+            attempt_ordinal=evidence.attempt_ordinal,
+            raw_response_sha256="sha256:"
+            + hashlib.sha256(evidence.raw_response_json.encode()).hexdigest(),
+            normalized_response_sha256="sha256:"
+            + hashlib.sha256(evidence.normalized_response_json.encode()).hexdigest(),
+            structural_flags=flags,
+        )
+    finally:
+        journal.close()
+
+
 def llm_review_stage_a_units(
     *,
     selection_records: Iterable[Mapping[str, Any]],
@@ -899,20 +1016,21 @@ def validate_structural_review_flags(
                 response=response,
             )
         cited_excerpt = _required_str(raw, "citation_excerpt")
-        try:
-            verbatim_excerpt = next(
-                _coerced_excerpt(documents_by_id[source_id].markdown, cited_excerpt)
-                for source_id in source_ids
-                if _excerpt_is_supported(
+        verbatim_excerpt: str | None = None
+        for source_id in source_ids:
+            try:
+                verbatim_excerpt = _coerced_structural_citation_excerpt(
                     documents_by_id[source_id].markdown, cited_excerpt
                 )
-            )
-        except StopIteration as exc:
+            except LlmPipelineError:
+                continue
+            break
+        if verbatim_excerpt is None:
             raise LlmResponseValidationError(
                 "structural flag citation_excerpt does not appear in any cited "
                 "predecision document",
                 response=response,
-            ) from exc
+            )
         output.append(
             {
                 "flag_type": flag_type,
@@ -923,14 +1041,6 @@ def validate_structural_review_flags(
             }
         )
     return tuple(output)
-
-
-def _excerpt_is_supported(text: str, excerpt: str) -> bool:
-    try:
-        _coerced_excerpt(text, excerpt)
-    except LlmPipelineError:
-        return False
-    return True
 
 
 def llm_label_cases(
@@ -3238,6 +3348,62 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
     return text[start:end].strip()
+
+
+_STRUCTURAL_CITATION_APOSTROPHES = frozenset({"'", "\u2018", "\u2019", "\u02bc"})
+
+
+def _coerced_structural_citation_excerpt(text: str, excerpt: str) -> str:
+    """Return the exact source slice for the narrow Stage-A citation rule.
+
+    Structural-review citations are not Stage B outcome excerpts.  They may
+    differ only in whitespace representation and in the four interchangeable
+    apostrophe code points that routinely drift through model JSON.  In
+    particular, this deliberately has no case folding, Unicode normalization,
+    punctuation substitution, or fuzzy fallback.
+    """
+
+    stripped = excerpt.strip()
+    if not stripped:
+        raise LlmPipelineError("structural citation_excerpt is required")
+    exact_offset = text.find(stripped)
+    if exact_offset >= 0:
+        return text[exact_offset : exact_offset + len(stripped)]
+
+    def normalized_characters(value: str) -> tuple[str, list[int]]:
+        characters: list[str] = []
+        positions: list[int] = []
+        in_whitespace = False
+        for index, char in enumerate(value):
+            if char.isspace():
+                if not in_whitespace:
+                    characters.append(" ")
+                    positions.append(index)
+                in_whitespace = True
+                continue
+            characters.append("'" if char in _STRUCTURAL_CITATION_APOSTROPHES else char)
+            positions.append(index)
+            in_whitespace = False
+        start = 0
+        while start < len(characters) and characters[start] == " ":
+            start += 1
+        end = len(characters)
+        while end > start and characters[end - 1] == " ":
+            end -= 1
+        return "".join(characters[start:end]), positions[start:end]
+
+    normalized_excerpt, _ = normalized_characters(stripped)
+    if not normalized_excerpt:
+        raise LlmPipelineError("structural citation_excerpt is required")
+    normalized_text, source_positions = normalized_characters(text)
+    offset = normalized_text.find(normalized_excerpt)
+    if offset < 0:
+        raise LlmPipelineError(
+            "structural citation_excerpt does not appear in source text"
+        )
+    start = source_positions[offset]
+    end = source_positions[offset + len(normalized_excerpt) - 1] + 1
+    return text[start:end]
 
 
 def _closest_verbatim_excerpt(text: str, normalized_excerpt: str) -> str | None:
