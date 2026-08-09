@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from legalforecast.ingestion import public_packet_planner
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.packet_role_adjudication import (
     AuthenticatedPacketRoleEvidence,
@@ -1537,6 +1538,26 @@ def test_public_packet_planner_selects_free_opposition_tied_to_compact_reference
         request.source_url == "https://www.courtlistener.com/docket/123/14/example/"
         for request in plan.download_requests
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "MEMORANDUM OF LAW in Support5 FIRST MOTION to Dismiss.",
+        "MEMORANDUM OF LAW in Support re:5:21-cv-00123.",
+    ),
+)
+def test_public_packet_planner_requires_delimiter_and_standalone_entry_number(
+    text: str,
+) -> None:
+    entry = public_packet_planner.CourtListenerWebDocketEntry(
+        row_id="entry-14",
+        entry_number="14",
+        filed_at="Mar 1, 2026",
+        text=text,
+    )
+
+    assert public_packet_planner._references_target_motion(entry, (5,)) is False
 
 
 def test_public_packet_planner_requires_substantive_target_opposition(
