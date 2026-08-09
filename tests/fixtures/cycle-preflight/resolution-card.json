@@ -1,0 +1,46 @@
+{
+  "dry_run": false,
+  "execute": true,
+  "input_paths": [
+    "selection.jsonl",
+    "clearance.jsonl",
+    "recovery-card.json",
+    "clearance-card.json"
+  ],
+  "output_commitments": {
+    "purchase_state_sha256": "sha256:672670fc390d4ca22ecb253356f6f7adc4508402e2126e9e77f499805ee94caa",
+    "resolved_post_recovery_documents": {
+      "path": "resolved.jsonl",
+      "sha256": "sha256:84d285acdabcd02df2702fbcc8c0b99ed1c307d375d83d5c860765d3d6d46b9a"
+    }
+  },
+  "output_paths": [
+    "resolved.jsonl",
+    "purchase-ledger.json"
+  ],
+  "paid_activity_executed": false,
+  "paid_activity_requested": false,
+  "purchase_state_after_sha256": "sha256:672670fc390d4ca22ecb253356f6f7adc4508402e2126e9e77f499805ee94caa",
+  "schema_version": "legalforecast.acquisition_run_card.v1",
+  "source_commitments": {
+    "input_00": {
+      "path": "selection.jsonl",
+      "sha256": "sha256:3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"
+    },
+    "input_01": {
+      "path": "clearance.jsonl",
+      "sha256": "sha256:f657e8f689bc4678ba2e5159ff6bd017fff0e92d6544582ae8b5daf017e0d938"
+    },
+    "input_02": {
+      "path": "recovery-card.json",
+      "sha256": "sha256:4de02bcb2eca87a86057cddde26f2159fb51de0a68c188e64d1679282f93da2f"
+    },
+    "input_03": {
+      "path": "clearance-card.json",
+      "sha256": "sha256:a2d95f61ed8a64df4bccb50be8ec6b4ae2b0d20cb47b572045e8d720189363b8"
+    }
+  },
+  "stage": "resolve-post-recovery-documents",
+  "status": "completed",
+  "terminal_unavailable_partition": null
+}

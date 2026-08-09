@@ -1,0 +1,31 @@
+{
+  "dry_run": false,
+  "execute": true,
+  "input_paths": [
+    "recovery-card.json",
+    "clearance-card.json",
+    "resolved.jsonl"
+  ],
+  "kind": "successor",
+  "ordinal": 1,
+  "output_commitments": {
+    "replacement-source.json": "sha256:aee0f524c863e54bbb2001a9ce2fcc9a989051e60d578d1a69067feaa0183a0f"
+  },
+  "output_paths": [
+    "replacement-source.json"
+  ],
+  "paid_activity_executed": false,
+  "paid_activity_requested": false,
+  "provider_activity_executed": false,
+  "provider_activity_requested": false,
+  "purchase_state_sha256": "672670fc390d4ca22ecb253356f6f7adc4508402e2126e9e77f499805ee94caa",
+  "record_count": 1,
+  "schema_version": "legalforecast.replacement_recovery_source_run_card.v1",
+  "source_commitments": {
+    "clearance-card.json": "sha256:a2d95f61ed8a64df4bccb50be8ec6b4ae2b0d20cb47b572045e8d720189363b8",
+    "recovery-card.json": "sha256:4de02bcb2eca87a86057cddde26f2159fb51de0a68c188e64d1679282f93da2f",
+    "resolved.jsonl": "sha256:84d285acdabcd02df2702fbcc8c0b99ed1c307d375d83d5c860765d3d6d46b9a"
+  },
+  "stage": "build-replacement-recovery-source",
+  "status": "completed"
+}

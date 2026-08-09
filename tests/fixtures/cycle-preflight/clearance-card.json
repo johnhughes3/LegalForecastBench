@@ -1,0 +1,37 @@
+{
+  "dry_run": false,
+  "execute": true,
+  "human_review_executed": false,
+  "human_review_requested": false,
+  "input_paths": [
+    "documents"
+  ],
+  "output_commitments": {
+    "disclosure_clearance": {
+      "path": "clearance.jsonl",
+      "sha256": "sha256:f657e8f689bc4678ba2e5159ff6bd017fff0e92d6544582ae8b5daf017e0d938"
+    },
+    "disclosure_quarantine": {
+      "path": "quarantine.jsonl",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "output_paths": [
+    "clearance.jsonl",
+    "quarantine.jsonl"
+  ],
+  "paid_activity_executed": false,
+  "paid_activity_requested": false,
+  "provider_activity_executed": false,
+  "provider_activity_requested": false,
+  "schema_version": "legalforecast.provenance_quarantine_clearance_run_card.v1",
+  "source_commitments": {
+    "document_root": {
+      "document_count": 1,
+      "path": "documents",
+      "tree_sha256": "sha256:8cd161cf1fb9a9103172a0c482767d25a23d5ea70590cf2f99f1545a12a947a0"
+    }
+  },
+  "stage": "finalize-provenance-quarantine",
+  "status": "completed"
+}
