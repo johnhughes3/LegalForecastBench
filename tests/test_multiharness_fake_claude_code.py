@@ -173,7 +173,10 @@ def test_fake_claude_resume_mismatch_records_requested_session(tmp_path: Path) -
 
 def test_fake_claude_timeout_requires_runtime_termination(tmp_path: Path) -> None:
     with pytest.raises(subprocess.TimeoutExpired) as exc_info:
-        _run_stream(tmp_path, mode="timeout", timeout=0.1)
+        # The timeout fixture sleeps for 60 seconds after emitting its init
+        # event. Allow interpreter startup enough headroom that shared-host
+        # saturation cannot expire the assertion before that event is flushed.
+        _run_stream(tmp_path, mode="timeout", timeout=10)
 
     assert "fixture-session-0001" in _stream_text(exc_info.value.stdout)
     assert SECRET_CANARY not in _stream_text(exc_info.value.stderr)

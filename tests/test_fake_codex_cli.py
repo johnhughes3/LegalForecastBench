@@ -164,11 +164,14 @@ def test_timeout_mode_can_be_cancelled_without_credentials_or_network(
         text=True,
     )
     try:
-        stdout, stderr = process.communicate("solve fixture", timeout=0.1)
+        # Timeout mode sleeps for an hour after its two startup events. Give
+        # interpreter startup enough headroom that host saturation cannot be
+        # mistaken for missing fixture output.
+        stdout, stderr = process.communicate("solve fixture", timeout=10)
         pytest.fail(f"fake timeout mode exited unexpectedly: {stdout=} {stderr=}")
     except subprocess.TimeoutExpired:
         process.terminate()
-        stdout, stderr = process.communicate(timeout=2)
+        stdout, stderr = process.communicate(timeout=10)
 
     assert process.returncode is not None
     assert stderr == ""

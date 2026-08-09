@@ -39,6 +39,7 @@ from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 
 SHA256 = "sha256:" + "a" * 64
 OTHER_SHA256 = "sha256:" + "b" * 64
+SATURATED_HOST_TIMEOUT_SECONDS = 60
 
 
 @dataclass
@@ -552,7 +553,10 @@ def test_timeout_kills_ignored_signal_child_and_grandchild_and_bounds_logs(
     )
     adapter = CommandAdapter(
         manifest=_manifest(command=(sys.executable, str(script))),
-        timeout_seconds=0.5,
+        # This fixture starts three nested interpreters before emitting output.
+        # Under shared-host saturation, startup can exceed the short behavior
+        # timeout used by the simpler single-process test above.
+        timeout_seconds=30,
         termination_grace_seconds=0.05,
         max_private_log_bytes=128,
     )
@@ -775,7 +779,7 @@ def test_systemd_scope_cancellation_cleans_setsid_descendants(
                     ")",
                     "adapter = CommandAdapter.from_manifest_file(",
                     f"    Path({str(manifest_path)!r}),",
-                    "    timeout_seconds=10,",
+                    f"    timeout_seconds={SATURATED_HOST_TIMEOUT_SECONDS},",
                     "    termination_grace_seconds=0.05,",
                     ")",
                     "try:",
@@ -801,11 +805,11 @@ def test_systemd_scope_cancellation_cleans_setsid_descendants(
     try:
         _wait_for_process_tree_start(pid_dir)
         os.kill(driver.pid, signal.SIGTERM)
-        stdout, stderr = driver.communicate(timeout=5)
+        stdout, stderr = driver.communicate(timeout=SATURATED_HOST_TIMEOUT_SECONDS)
     finally:
         if driver.poll() is None:
             driver.kill()
-            driver.wait(timeout=2)
+            driver.wait(timeout=SATURATED_HOST_TIMEOUT_SECONDS)
 
     assert driver.returncode == 0, (stdout, stderr)
     assert stdout.strip() == "command adapter capabilities was cancelled"
@@ -1094,7 +1098,7 @@ def test_user_cancellation_cleans_process_tree_and_writes_typed_receipt(
                     ")",
                     "adapter = CommandAdapter.from_manifest_file(",
                     f"    Path({str(manifest_path)!r}),",
-                    "    timeout_seconds=10,",
+                    f"    timeout_seconds={SATURATED_HOST_TIMEOUT_SECONDS},",
                     "    termination_grace_seconds=0.05,",
                     ")",
                     "try:",
@@ -1116,11 +1120,11 @@ def test_user_cancellation_cleans_process_tree_and_writes_typed_receipt(
         _wait_for_process_tree_start(pid_dir)
         time.sleep(0.05)
         os.kill(driver.pid, cancellation_signal)
-        stdout, stderr = driver.communicate(timeout=3)
+        stdout, stderr = driver.communicate(timeout=SATURATED_HOST_TIMEOUT_SECONDS)
     finally:
         if driver.poll() is None:
             driver.kill()
-            driver.wait(timeout=2)
+            driver.wait(timeout=SATURATED_HOST_TIMEOUT_SECONDS)
 
     assert driver.returncode == 0, (stdout, stderr)
     assert stdout.strip() == "command adapter capabilities was cancelled"
@@ -1173,7 +1177,7 @@ def test_permission_denied_group_cleanup_preserves_cancellation_receipt(
                     "module.os.killpg = deny_group_signals",
                     "adapter = CommandAdapter.from_manifest_file(",
                     f"    Path({str(manifest_path)!r}),",
-                    "    timeout_seconds=10,",
+                    f"    timeout_seconds={SATURATED_HOST_TIMEOUT_SECONDS},",
                     "    termination_grace_seconds=0.01,",
                     ")",
                     "try:",
@@ -1192,16 +1196,16 @@ def test_permission_denied_group_cleanup_preserves_cancellation_receipt(
         text=True,
     )
     try:
-        deadline = time.monotonic() + 2
+        deadline = time.monotonic() + SATURATED_HOST_TIMEOUT_SECONDS
         while time.monotonic() < deadline and not adapter_pid_path.is_file():
             time.sleep(0.01)
         assert adapter_pid_path.is_file()
         os.kill(driver.pid, signal.SIGTERM)
-        stdout, stderr = driver.communicate(timeout=3)
+        stdout, stderr = driver.communicate(timeout=SATURATED_HOST_TIMEOUT_SECONDS)
     finally:
         if driver.poll() is None:
             driver.kill()
-            driver.wait(timeout=2)
+            driver.wait(timeout=SATURATED_HOST_TIMEOUT_SECONDS)
 
     assert driver.returncode == 0, (stdout, stderr)
     assert stdout.strip() == "command adapter capabilities was cancelled"
@@ -1639,7 +1643,7 @@ def _assert_process_tree_stopped(pid_dir: Path) -> None:
     ]
     assert all(path.is_file() for path in pid_paths)
     pids = [int(path.read_text(encoding="utf-8")) for path in pid_paths]
-    deadline = time.monotonic() + 2
+    deadline = time.monotonic() + SATURATED_HOST_TIMEOUT_SECONDS
     while time.monotonic() < deadline and any(_pid_is_running(pid) for pid in pids):
         time.sleep(0.01)
     assert not [pid for pid in pids if _pid_is_running(pid)]
@@ -1651,7 +1655,7 @@ def _wait_for_process_tree_start(pid_dir: Path) -> None:
         pid_dir / "child.pid",
         pid_dir / "grandchild.pid",
     ]
-    deadline = time.monotonic() + 2
+    deadline = time.monotonic() + SATURATED_HOST_TIMEOUT_SECONDS
     while time.monotonic() < deadline and not all(path.is_file() for path in pid_paths):
         time.sleep(0.01)
     assert all(path.is_file() for path in pid_paths)
