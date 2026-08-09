@@ -41,6 +41,9 @@ SHA256 = "sha256:" + "a" * 64
 OTHER_SHA256 = "sha256:" + "b" * 64
 SATURATED_HOST_TIMEOUT_SECONDS = 60
 SATURATED_HOST_CLEANUP_GRACE_SECONDS = 5
+SATURATED_HOST_ADAPTER_TIMEOUT_SECONDS = (
+    SATURATED_HOST_TIMEOUT_SECONDS + SATURATED_HOST_CLEANUP_GRACE_SECONDS
+)
 
 
 @dataclass
@@ -1103,7 +1106,7 @@ def test_user_cancellation_cleans_process_tree_and_writes_typed_receipt(
                     ")",
                     "adapter = CommandAdapter.from_manifest_file(",
                     f"    Path({str(manifest_path)!r}),",
-                    f"    timeout_seconds={SATURATED_HOST_TIMEOUT_SECONDS},",
+                    f"    timeout_seconds={SATURATED_HOST_ADAPTER_TIMEOUT_SECONDS},",
                     "    termination_grace_seconds=0.05,",
                     ")",
                     "try:",
