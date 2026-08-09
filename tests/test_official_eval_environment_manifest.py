@@ -45,6 +45,7 @@ CELL_VARIABLES = {
 FAN_IN_VARIABLES = {
     "LFB_AWS_REGION",
     "LFB_GITHUB_FAN_IN_ROLE_ARN",
+    "LFB_PACKET_BUCKET",
     "LFB_RESULTS_BUCKET",
 }
 CELL_SECRETS = {
@@ -69,6 +70,26 @@ def _environments() -> dict[str, dict[str, object]]:
 
 def _workflow_names(text: str, context: str) -> set[str]:
     return set(re.findall(rf"\$\{{\{{\s*{context}\.([A-Za-z0-9_]+)", text))
+
+
+def _workflow_names_by_environment(text: str, context: str) -> dict[str, set[str]]:
+    job_starts = list(re.finditer(r"(?m)^  [A-Za-z0-9_-]+:\n", text))
+    names_by_environment: dict[str, set[str]] = {}
+
+    for index, job_start in enumerate(job_starts):
+        job_end = job_starts[index + 1].start() if index + 1 < len(job_starts) else None
+        job_text = text[job_start.start() : job_end]
+        environment_match = re.search(
+            r"(?m)^    environment: ([A-Za-z0-9_-]+)$", job_text
+        )
+        if environment_match is None:
+            continue
+        environment = environment_match.group(1)
+        names_by_environment.setdefault(environment, set()).update(
+            _workflow_names(job_text, context)
+        )
+
+    return names_by_environment
 
 
 def test_manifest_is_closed_to_the_three_official_eval_environments() -> None:
@@ -157,19 +178,34 @@ def test_oidc_subjects_and_role_variables_do_not_cross_environments() -> None:
 
 def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
     infra_text = INFRA_WORKFLOW.read_text(encoding="utf-8")
-    runtime_text = "\n".join(
+    runtime_texts = [
         workflow.read_text(encoding="utf-8") for workflow in RUNTIME_WORKFLOWS
-    )
+    ]
+    runtime_variables = {CELL_ENVIRONMENT: set(), FAN_IN_ENVIRONMENT: set()}
+    runtime_secrets = {CELL_ENVIRONMENT: set(), FAN_IN_ENVIRONMENT: set()}
+    for runtime_text in runtime_texts:
+        for environment, names in _workflow_names_by_environment(
+            runtime_text, "vars"
+        ).items():
+            runtime_variables[environment].update(names)
+        for environment, names in _workflow_names_by_environment(
+            runtime_text, "secrets"
+        ).items():
+            runtime_secrets[environment].update(names)
 
     assert _workflow_names(infra_text, "vars") == INFRA_VARIABLES
     assert _workflow_names(infra_text, "secrets") == {"LFB_INFRA_PLAN_AGE_IDENTITY"}
-    assert _workflow_names(runtime_text, "vars") == (
-        CELL_VARIABLES | FAN_IN_VARIABLES | {"CI_RUNNER"}
-    )
-    assert _workflow_names(runtime_text, "secrets") == CELL_SECRETS
+    assert runtime_variables == {
+        CELL_ENVIRONMENT: CELL_VARIABLES | {"CI_RUNNER"},
+        FAN_IN_ENVIRONMENT: FAN_IN_VARIABLES | {"CI_RUNNER"},
+    }
+    assert runtime_secrets == {
+        CELL_ENVIRONMENT: CELL_SECRETS,
+        FAN_IN_ENVIRONMENT: set(),
+    }
 
     for environment in (INFRA_ENVIRONMENT, CELL_ENVIRONMENT, FAN_IN_ENVIRONMENT):
-        assert environment in infra_text + runtime_text
+        assert environment in infra_text + "\n".join(runtime_texts)
 
 
 def test_public_manifest_contains_names_not_configuration_values() -> None:
