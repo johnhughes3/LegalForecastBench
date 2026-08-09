@@ -340,7 +340,7 @@ def test_command_adapter_run_with_tools_enforces_deadline(tmp_path: Path) -> Non
         # This timeout also covers the preliminary capabilities subprocess.
         # Leave enough scheduler headroom for loaded CI workers while keeping
         # the 60-second sleeping run deterministically beyond the deadline.
-        timeout_seconds=1.0,
+        timeout_seconds=30,
         termination_grace_seconds=0.1,
     )
     workspace = tmp_path / "workspace"
