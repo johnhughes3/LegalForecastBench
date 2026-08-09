@@ -9,6 +9,7 @@ from legalforecast.contracts import (
     ARTIFACT_JSON_VALUE_V1,
     ARTIFACT_PREFIXED_SHA256_V1,
     ARTIFACT_RAW_SHA256_V1,
+    FINALIZED_PREDICTION_UNITS_V3,
     MANIFEST_CANONICAL_JSON_V1,
     MANIFEST_RAW_SHA256_V1,
     RECOVERY_VERTICAL_SLICE_SCHEMAS,
@@ -21,6 +22,7 @@ from legalforecast.contracts import (
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
+    UNITIZATION_ADJUDICATION_V2,
     CanonicalJsonCodec,
     CommitmentEncodingError,
     CommitmentMismatchError,
@@ -166,6 +168,8 @@ def test_recovery_vertical_slice_schema_registry_is_versioned_and_unique() -> No
         TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
         TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
         TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
+        FINALIZED_PREDICTION_UNITS_V3,
+        UNITIZATION_ADJUDICATION_V2,
     }.issubset(RECOVERY_VERTICAL_SLICE_SCHEMAS)
     assert len(values) == len(set(values))
     assert all(value.startswith("legalforecast.") for value in values)
