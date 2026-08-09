@@ -1410,6 +1410,11 @@ def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_
     )
 
     assert provider_calls == 2
+    assert escalation.provider_attempt_namespace == "claim-ontology-v2"
+    assert (
+        escalation.to_record()["provider_attempt_namespace"]
+        == "claim-ontology-v2"
+    )
     assert [row["attempt_ordinal"] for row in escalation.failed_attempts] == [1, 2]
     assert len(escalation.frozen_units) == 1
     queue = llm_pipeline.structural_review_terminal_escalation_queue_records(escalation)
@@ -1431,6 +1436,28 @@ def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_
         "path": str(tmp_path / "receipt.json"),
         "sha256": "d" * 64,
     }
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="terminal escalation does not match Stage A input",
+    ):
+        llm_pipeline.llm_review_stage_a_units(
+            selection_records=(_selection(),),
+            parser_records=parser_records,
+            prediction_unit_records=(_prediction_units(),),
+            markdown_root=markdown_root,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            terminal_escalations={
+                "cand-1": (
+                    escalation,
+                    receipt_commitment,
+                )
+            },
+        )
     resumed = llm_pipeline.llm_review_stage_a_units(
         selection_records=(_selection(),),
         parser_records=parser_records,

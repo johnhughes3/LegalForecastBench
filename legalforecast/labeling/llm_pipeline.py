@@ -293,9 +293,10 @@ class LlmStageAStructuralReviewTerminalEscalation:
     frozen_units: tuple[JsonRecord, ...]
     predecision_source_commitments: tuple[JsonRecord, ...]
     failed_attempts: tuple[JsonRecord, ...]
+    provider_attempt_namespace: str | None = None
 
     def to_record(self) -> JsonRecord:
-        return {
+        record: JsonRecord = {
             "schema_version": str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1),
             "candidate_id": self.candidate_id,
             "case_id": self.case_id,
@@ -310,6 +311,9 @@ class LlmStageAStructuralReviewTerminalEscalation:
             ],
             "failed_attempts": [dict(attempt) for attempt in self.failed_attempts],
         }
+        if self.provider_attempt_namespace is not None:
+            record["provider_attempt_namespace"] = self.provider_attempt_namespace
+        return record
 
     @property
     def escalation_sha256(self) -> str:
@@ -870,6 +874,7 @@ def build_llm_stage_a_structural_review_terminal_escalation(
         frozen_units=tuple(unit.to_record() for unit in units),
         predecision_source_commitments=tuple(source_commitments),
         failed_attempts=failed_attempts,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
 
 
@@ -1046,6 +1051,8 @@ def llm_review_stage_a_units(
                 or escalation.prompt != prompt
                 or escalation.prompt_sha256
                 != hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+                or escalation.provider_attempt_namespace
+                != provider_attempt_namespace
                 or escalation.frozen_units != tuple(unit.to_record() for unit in units)
                 or escalation.predecision_source_commitments != expected_sources
             ):
