@@ -771,7 +771,11 @@ def recover_llm_stage_a_structural_review_reconstruction(
             estimated_cost=_float(normalized.get("actual_cost_usd")),
         )
         flags = validate_structural_review_flags(
-            payload, units=units, documents=documents, response=response
+            payload,
+            units=units,
+            documents=documents,
+            response=response,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         journal.commit_reconstruction_recovery(
             evidence.attempt_ordinal,
@@ -1182,7 +1186,11 @@ def llm_review_stage_a_units(
             )
             payload = _json_object_from_response(response.raw_output)
             flags = validate_structural_review_flags(
-                payload, units=units, documents=documents, response=response
+                payload,
+                units=units,
+                documents=documents,
+                response=response,
+                provider_attempt_namespace=provider_attempt_namespace,
             )
             if journal is not None and journal.has_validated_response:
                 journal.commit_reconstruction({"structural_flags": list(flags)})
@@ -1512,6 +1520,8 @@ def _stage_a_structural_review_response_json_schema(
                         },
                         "source_document_ids": {
                             "type": "array",
+                            "minItems": 1,
+                            "maxItems": 1,
                             "items": {
                                 "type": "string",
                                 "enum": [
@@ -1545,6 +1555,7 @@ def validate_structural_review_flags(
     units: Sequence[PredictionUnit],
     documents: Sequence[_LlmDocument],
     response: SolverResponse,
+    provider_attempt_namespace: str | None = None,
 ) -> tuple[JsonRecord, ...]:
     allowed_unit_ids = {unit.unit_id for unit in units}
     documents_by_id = {document.source_document_id: document for document in documents}
@@ -1576,6 +1587,14 @@ def validate_structural_review_flags(
             raise LlmResponseValidationError(
                 "structural flag source_document_ids must reference supplied "
                 "predecision documents",
+                response=response,
+            )
+        if (
+            provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT
+            and len(source_ids) != 1
+        ):
+            raise LlmResponseValidationError(
+                "v3 structural flag requires exactly one source_document_id",
                 response=response,
             )
         cited_excerpt = _required_str(raw, "citation_excerpt")

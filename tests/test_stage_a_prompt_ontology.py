@@ -150,6 +150,8 @@ def test_structural_reviewer_response_schema_is_bound_to_frozen_inputs() -> None
         "complaint",
         "motion",
     ]
+    assert item["properties"]["source_document_ids"]["minItems"] == 1
+    assert item["properties"]["source_document_ids"]["maxItems"] == 1
 
 
 def test_provider_seed_routes_individual_grouping_metadata_to_review() -> None:
