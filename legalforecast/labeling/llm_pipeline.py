@@ -368,6 +368,12 @@ def llm_unitize_cases(
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
 
+    if provider_journal_path is not None and provider_attempt_namespace is None:
+        raise LlmPipelineError(
+            "live Stage A unitization requires the closed successor provider-attempt "
+            "namespace; historical responses are recoverable only through "
+            "recover-llm-unitize-reconstruction"
+        )
     provider_stage = stage_a_provider_attempt_stage(
         "llm-unitize", provider_attempt_namespace
     )
@@ -1000,6 +1006,17 @@ def llm_review_stage_a_units(
         _required_str(selection, "candidate_id") for selection in selections
     }:
         raise LlmPipelineError("terminal escalation contains an unselected candidate")
+    if (
+        provider_journal_path is not None
+        and provider_attempt_namespace is None
+        and set(terminal_by_candidate)
+        != {_required_str(selection, "candidate_id") for selection in selections}
+    ):
+        raise LlmPipelineError(
+            "live Stage A structural review requires the closed successor "
+            "provider-attempt namespace; historical responses are recoverable "
+            "only through recover-llm-review-stage-a-reconstruction"
+        )
     for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
         documents = _predecision_documents(

@@ -9277,14 +9277,7 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
             "paid model stage. Required with --execute."
         ),
     )
-    parser.add_argument(
-        "--provider-attempt-namespace",
-        choices=(STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,),
-        help=(
-            "Closed prompt-contract namespace for an authenticated successor "
-            "run. Omit only when replaying the historical Stage A contract."
-        ),
-    )
+    _add_stage_a_provider_attempt_namespace_argument(parser)
     parser.add_argument(
         "--prediction-units-output",
         type=Path,
@@ -9596,14 +9589,7 @@ def _add_acquisition_llm_review_stage_a_arguments(
             "Required with --execute."
         ),
     )
-    parser.add_argument(
-        "--provider-attempt-namespace",
-        choices=(STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,),
-        help=(
-            "Closed prompt-contract namespace; it must match the authenticated "
-            "unitization run card for a successor replay."
-        ),
-    )
+    _add_stage_a_provider_attempt_namespace_argument(parser)
     parser.add_argument(
         "--terminal-escalation",
         type=Path,
@@ -9760,6 +9746,22 @@ def _add_acquisition_terminalize_llm_review_stage_a_arguments(
         help="Immutable provider-free terminal-escalation receipt JSON.",
     )
     parser.set_defaults(handler=_cmd_acquisition_terminalize_llm_review_stage_a)
+
+
+def _add_stage_a_provider_attempt_namespace_argument(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the closed Stage A prompt-contract namespace selector."""
+
+    parser.add_argument(
+        "--provider-attempt-namespace",
+        choices=(STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,),
+        help=(
+            "Closed prompt-contract namespace for an authenticated successor "
+            "run. Omit only for provider-free replay or recovery of the historical "
+            "Stage A contract."
+        ),
+    )
 
 
 def _add_acquisition_apply_unitization_review_arguments(
@@ -57272,18 +57274,15 @@ def _pre_reconstruction_provider_state_sha256(
         and row.get("candidate_id") == candidate_id
         and row.get("model_key") == model_key
         and row.get("attempt_ordinal") == attempt_ordinal
-        and (
-            provider_attempt_namespace is None
-            or row.get("logical_call_key")
-            == ProviderCallIdentity(
-                stage=stage,
-                candidate_id=candidate_id,
-                model_key=model_key,
-                prompt=_required_str(row, "prompt_text"),
-                model_registry_sha256=_required_str(row, "model_registry_sha256"),
-                prompt_contract=provider_attempt_namespace,
-            ).logical_call_key
-        )
+        and row.get("logical_call_key")
+        == ProviderCallIdentity(
+            stage=stage,
+            candidate_id=candidate_id,
+            model_key=model_key,
+            prompt=_required_str(row, "prompt_text"),
+            model_registry_sha256=_required_str(row, "model_registry_sha256"),
+            prompt_contract=provider_attempt_namespace,
+        ).logical_call_key
     ]
     if len(matches) != 1:
         raise CommandError("reconstruction recovery journal target coverage differs")
@@ -59372,9 +59371,6 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
     units_path = cast(Path, args.prediction_units)
     existing_queue_path = cast(Path, args.unitization_review_queue)
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
-    provider_attempt_namespace = cast(
-        str | None, getattr(args, "provider_attempt_namespace", None)
-    )
     lineage, unitization_card_path = _verified_shared_provider_chain(
         args,
         raw_prediction_units_path=units_path,
@@ -59382,6 +59378,9 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
         expected_selection_path=selection_path,
         expected_parser_manifest_path=parser_path,
         expected_markdown_root=markdown_root,
+    )
+    provider_attempt_namespace = (
+        _stage_a_provider_attempt_namespace_from_unitization_card(unitization_card_path)
     )
     registry_path = cast(Path, args.model_registry)
     registry_entry, registry_sha256 = _registry_entry_for_key(
@@ -59598,9 +59597,6 @@ def _cmd_acquisition_terminalize_llm_review_stage_a(args: argparse.Namespace) ->
     units_path = cast(Path, args.prediction_units)
     queue_path = cast(Path, args.unitization_review_queue)
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
-    provider_attempt_namespace = cast(
-        str | None, getattr(args, "provider_attempt_namespace", None)
-    )
     lineage, unitization_card_path = _verified_shared_provider_chain(
         args,
         raw_prediction_units_path=units_path,
@@ -59608,6 +59604,9 @@ def _cmd_acquisition_terminalize_llm_review_stage_a(args: argparse.Namespace) ->
         expected_selection_path=selection_path,
         expected_parser_manifest_path=parser_path,
         expected_markdown_root=markdown_root,
+    )
+    provider_attempt_namespace = (
+        _stage_a_provider_attempt_namespace_from_unitization_card(unitization_card_path)
     )
     registry_path = cast(Path, args.model_registry)
     registry_entry, registry_sha256 = _registry_entry_for_key(
@@ -60349,6 +60348,26 @@ def _local_provider_account(
             f"provider cycle caps artifact has no entry for {normalized_provider!r}"
         ) from exc
     return cap.account or "default"
+
+
+def _stage_a_provider_attempt_namespace_from_unitization_card(
+    run_card_path: Path,
+) -> str | None:
+    """Read the prompt contract only from an authenticated unitization card."""
+
+    run_card = _read_json_object(run_card_path)
+    execution = run_card.get("model_execution")
+    if not isinstance(execution, Mapping):
+        raise CommandError("llm-unitize run card lacks model execution")
+    value = cast(Mapping[str, object], execution).get("provider_attempt_namespace")
+    if value is not None and not isinstance(value, str):
+        raise CommandError("llm-unitize provider attempt namespace is invalid")
+    namespace = value
+    try:
+        stage_a_provider_attempt_stage("llm-unitize", namespace)
+    except LlmPipelineError as exc:
+        raise CommandError(str(exc)) from exc
+    return namespace
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:

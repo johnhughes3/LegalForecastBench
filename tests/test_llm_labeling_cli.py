@@ -556,6 +556,8 @@ def _stub_authenticated_stage_a_lineage(
         str(provider_journal_path),
         "--provider-authority-table",
         "fixture-provider-authority",
+        "--provider-attempt-namespace",
+        "claim-ontology-v2",
     ]
 
 
@@ -916,6 +918,8 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         str(caps_path),
         "--provider-journal",
         str(provider_journal),
+        "--provider-attempt-namespace",
+        "claim-ontology-v2",
         "--provider-authority-table",
         "fixture-provider-authority",
         "--output-root",
@@ -1149,6 +1153,11 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                 "attempts_sha256": card["provider_chain"]["stage_attempts"][
                     "attempts_sha256"
                 ],
+                **(
+                    {"provider_attempt_namespace": "claim-ontology-v2"}
+                    if stage == "llm-review-stage-a"
+                    else {}
+                ),
             },
         }
         assert card["provider_chain"]["stage_attempts"]["attempts_sha256"].startswith(
