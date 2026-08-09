@@ -921,6 +921,54 @@ def test_terminal_escalation_requires_exactly_two_failed_attempts(
             journal.repeated_identical_reconstruction_failure_evidence()
 
 
+def test_terminal_escalation_reads_three_exhausted_failures_without_a_fourth_call(
+    tmp_path: Path,
+) -> None:
+    """The later terminal route binds every exhausted attempt without mutation."""
+
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        for ordinal, (raw_output, error) in enumerate(
+            (
+                ("first-invalid", ValueError("first validator rejection")),
+                ("second-invalid", TypeError("second validator rejection")),
+                ("third-invalid", RuntimeError("third validator rejection")),
+            ),
+            start=1,
+        ):
+            if ordinal > 1:
+                assert (
+                    journal.prepare_reconstruction_retry(max_attempts=3) == 4 - ordinal
+                )
+            journal.run_attempt(1, lambda raw_output=raw_output: {"output": raw_output})
+            journal.settle_attempt(
+                journal.durable_attempt_ordinal(1),
+                input_tokens=10,
+                output_tokens=2,
+                actual_cost_usd=0.01,
+                raw_output=raw_output,
+            )
+            journal.record_reconstruction_failure(error)
+
+        before = path.read_bytes()
+        evidence = journal.exhausted_reconstruction_failure_evidence()
+        after = path.read_bytes()
+        with pytest.raises(
+            ProviderJournalError,
+            match="provider reconstruction retry attempt limit is exhausted",
+        ):
+            journal.prepare_reconstruction_retry(max_attempts=3)
+
+    assert after == before
+    assert [attempt.attempt_ordinal for attempt in evidence.attempts] == [1, 2, 3]
+    assert evidence.failure_types == ("ValueError", "TypeError", "RuntimeError")
+    assert evidence.failure_messages == (
+        "first validator rejection",
+        "second validator rejection",
+        "third validator rejection",
+    )
+
+
 @pytest.mark.parametrize(
     "second_raw_output,second_failure_message",
     [("different", "exact local rejection"), ("invalid", "different rejection")],
