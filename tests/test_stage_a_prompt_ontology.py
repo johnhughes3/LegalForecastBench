@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
 
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.labeling.llm_pipeline import (
+    STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
+    STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
     _LlmDocument,
     _stage_a_seed,
     _stage_a_structural_review_prompt,
@@ -90,13 +93,42 @@ def test_structural_reviewer_prompt_uses_same_claim_ground_boundary() -> None:
 
 def test_structural_reviewer_prompt_requires_one_contiguous_citation_span() -> None:
     rules = _rules(
-        _stage_a_structural_review_prompt(_selection(), _documents(), [_unit()])
+        _stage_a_structural_review_prompt(
+            _selection(),
+            _documents(),
+            [_unit()],
+            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
+        )
     )
 
     assert "one contiguous literal span" in rules
     assert "Never use an ellipsis" in rules
     assert "Never join fragments" in rules
     assert "Never paraphrase" in rules
+
+
+def test_structural_reviewer_prompt_preserves_v2_bytes_and_versions_v3_delta() -> None:
+    legacy = _stage_a_structural_review_prompt(_selection(), _documents(), [_unit()])
+    v2 = _stage_a_structural_review_prompt(
+        _selection(),
+        _documents(),
+        [_unit()],
+        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
+    )
+    v3 = _stage_a_structural_review_prompt(
+        _selection(),
+        _documents(),
+        [_unit()],
+        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
+    )
+
+    assert legacy == v2
+    assert hashlib.sha256(v2.encode("utf-8")).hexdigest() == (
+        "11bc410b477fe5d33efae9363dadfd46805eadf6b000aa330216f0f7d77ffb32"
+    )
+    assert v3 != v2
+    assert "one contiguous literal span" not in _rules(v2)
+    assert "one contiguous literal span" in _rules(v3)
 
 
 def test_structural_reviewer_response_schema_is_bound_to_frozen_inputs() -> None:

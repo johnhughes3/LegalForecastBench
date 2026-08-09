@@ -125,9 +125,14 @@ def test_live_stage_a_requires_successor_namespace_before_journal_or_transport(
     assert row_count == (0,)
 
 
+@pytest.mark.parametrize(
+    "provider_attempt_namespace",
+    ("claim-ontology-v2", "claim-ontology-v3"),
+)
 def test_google_structural_review_passes_frozen_response_schema(
     tmp_path: Path,
     monkeypatch: Any,
+    provider_attempt_namespace: str,
 ) -> None:
     markdown_root = tmp_path / "markdown"
     parser_records: list[JsonRecord] = []
@@ -188,10 +193,13 @@ def test_google_structural_review_passes_frozen_response_schema(
         provider_cycle_cap_usd=100.0,
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
-        provider_attempt_namespace="claim-ontology-v3",
+        provider_attempt_namespace=provider_attempt_namespace,
     )
 
     assert result.records == ()
+    if provider_attempt_namespace == "claim-ontology-v2":
+        assert captured["response_json_schema"] is None
+        return
     schema = cast(dict[str, Any], captured["response_json_schema"])
     flag_item = schema["properties"]["structural_flags"]["items"]
     assert flag_item["properties"]["affected_unit_ids"]["items"]["enum"] == ["unit-1"]
