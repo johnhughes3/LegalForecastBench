@@ -1150,9 +1150,17 @@ def test_public_packet_planner_accepts_exact_target_mtd_memorandum_when_role_is_
 
 
 @pytest.mark.parametrize("document_description", ("Memorandum", ""))
+@pytest.mark.parametrize(
+    "support_reference",
+    (
+        "MEMORANDUM OF LAW in Support re 5 FIRST MOTION to Dismiss.",
+        "MEMORANDUM OF LAW in Support re: 5 FIRST MOTION to Dismiss.",
+    ),
+)
 def test_public_packet_planner_links_free_support_memo_explicitly_referencing_target(
     tmp_path: Path,
     document_description: str,
+    support_reference: str,
 ) -> None:
     raw_html_dir = tmp_path / "raw_html"
     record = _screened_case_with_embedded_entries()
@@ -1173,7 +1181,7 @@ def test_public_packet_planner_links_free_support_memo_explicitly_referencing_ta
             "row_id": "entry-6",
             "entry_number": "6",
             "filed_at": "Feb 2, 2026",
-            "text": "6 Feb 2, 2026 Memorandum in Support re 5 MOTION to Dismiss.",
+            "text": f"6 Feb 2, 2026 {support_reference}",
             "documents": [
                 {
                     "kind": "Main Document",

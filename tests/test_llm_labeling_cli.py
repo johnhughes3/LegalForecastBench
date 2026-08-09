@@ -332,7 +332,11 @@ def test_unitization_recovery_exposes_closed_attempt_namespace() -> None:
         for action in parser._actions
         if action.dest == "provider_attempt_namespace"
     ]
-    assert action.choices == ("claim-ontology-v2", "claim-ontology-v3")
+    assert action.choices == (
+        "claim-ontology-v2",
+        "claim-ontology-v3",
+        "claim-ontology-v4",
+    )
 
 
 @pytest.mark.parametrize(
@@ -353,7 +357,11 @@ def test_structural_recovery_accepts_optional_review_namespace(
         for action in parser._actions
         if action.dest == "provider_attempt_namespace"
     ]
-    assert action.choices == ("claim-ontology-v2", "claim-ontology-v3")
+    assert action.choices == (
+        "claim-ontology-v2",
+        "claim-ontology-v3",
+        "claim-ontology-v4",
+    )
     assert action.default is None
 
 
@@ -395,6 +403,7 @@ def test_structural_recovery_namespace_can_supersede_unitization_contract(
         (None, None),
         ("claim-ontology-v2", "claim-ontology-v2"),
         ("claim-ontology-v2", "claim-ontology-v3"),
+        ("claim-ontology-v4", "claim-ontology-v4"),
     ),
 )
 def test_structural_review_accepts_only_closed_namespace_pairs(
@@ -412,9 +421,15 @@ def test_structural_review_accepts_only_closed_namespace_pairs(
     (
         (None, "claim-ontology-v2"),
         (None, "claim-ontology-v3"),
+        (None, "claim-ontology-v4"),
         ("claim-ontology-v2", None),
+        ("claim-ontology-v4", None),
         ("claim-ontology-v3", "claim-ontology-v2"),
         ("claim-ontology-v3", "claim-ontology-v3"),
+        ("claim-ontology-v4", "claim-ontology-v2"),
+        ("claim-ontology-v4", "claim-ontology-v3"),
+        ("claim-ontology-v2", "claim-ontology-v4"),
+        ("claim-ontology-v3", "claim-ontology-v4"),
     ),
 )
 def test_structural_review_rejects_unreviewed_namespace_pairs(

@@ -1083,6 +1083,7 @@ uv run legalforecast-provider-env-run \
     --model-key <provider:model-id> \
     --provider-cycle-caps <provider-cycle-caps.json> \
     --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+    --provider-attempt-namespace claim-ontology-v4 \
     --provider-authority-table <exact-shared-authority-table-name> \
     --provider-authority-region <aws-region> \
     --execute --no-resume
@@ -1090,7 +1091,7 @@ uv run legalforecast-provider-env-run \
 
 Before any provider call, the command replays the target selection, immutable materializer, parse requests, pinned live-Mistral card, parser manifest, and complete Markdown tree. It rejects provider caps whose `cycle_id` differs from the authenticated cohort. The journal stores an immutable v2 identity containing that cycle ID, the exact caps-artifact hash, and its canonical path; copying it to another output root or opening it with changed caps is refused. The completed run card commits the journal schema and identity, exact registry entry, caps artifact, prompts, settled provider attempts, reconstructed units, raw outputs, audit, and review queue. A partial `--continue-on-error` run remains resumable but is explicitly marked incomplete and is inadmissible downstream.
 
-For the reviewed Cycle 1 claim-ontology successor, pass `--provider-attempt-namespace claim-ontology-v2` to both `llm-unitize` and `llm-review-stage-a`. The later structural-review-only successor uses `claim-ontology-v3` only with `llm-review-stage-a`; it reuses the authenticated v2 unitization card and raw units. The only accepted predecessor/reviewer pairs are historical unnamespaced/unnamespaced, v2/v2, and v2/v3. New journal-backed calls without a namespace fail closed. Provider-free unitization recovery may select the historical contract explicitly. Structural-review recovery and terminalization derive the legacy contract from the unitization card when no selector is supplied, or accept the explicit closed structural-review contract when replaying a v3 reviewer attempt. The closed namespace keeps original Stage A attempts replayable in the same journal while giving an intentionally changed prompt contract a distinct logical-call identity under the same provider cap. Never use a new namespace to retry an unchanged contract or evade a settled/failed attempt.
+The superseding Cycle 1 citation-provenance migration uses `--provider-attempt-namespace claim-ontology-v4` for both `llm-unitize` and `llm-review-stage-a`. V4 line-numbers each supplied predecision document, requires the unitizer to select bounded complaint and target-motion line spans for every unit, and reconstructs exact document-bound excerpts locally; the structural reviewer uses the same selector mechanism instead of authoring citation text. Do not mix v4 with an earlier unitizer or reviewer contract. The historical accepted pairs remain unnamespaced/unnamespaced, v2/v2, and v2/v3 for authenticated replay only. New journal-backed calls without a namespace fail closed. Provider-free unitization recovery may select the historical contract explicitly. Structural-review recovery and terminalization derive the legacy contract from the unitization card when no selector is supplied, or accept its exact closed contract explicitly. A namespace versions a reviewed contract; never use a new namespace to retry an unchanged contract or evade a settled or failed attempt.
 
 Run the structural Stage A review against the same unitizer card, caps artifact, and canonical provider journal even when its ordinary outputs live under a different root:
 
@@ -1111,7 +1112,7 @@ uv run legalforecast-provider-env-run \
     --model-key <provider:model-id> \
     --provider-cycle-caps <provider-cycle-caps.json> \
     --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
-    --provider-attempt-namespace claim-ontology-v3 \
+    --provider-attempt-namespace claim-ontology-v4 \
     --provider-authority-table <exact-shared-authority-table-name> \
     --provider-authority-region <aws-region> \
     --execute --no-resume
@@ -1134,7 +1135,7 @@ uv run legalforecast acquisition terminalize-llm-review-stage-a-reconstruction \
   --unitization-review-queue <unitization-review-queue.jsonl> \
   --model-registry <frozen-stage-a-reviewer-registry.json> \
   --model-key <provider:model-id> \
-  --provider-attempt-namespace claim-ontology-v3 \
+  --provider-attempt-namespace claim-ontology-v4 \
   --provider-cycle-caps <provider-cycle-caps.json> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --candidate-id <candidate-id> \
@@ -1143,7 +1144,7 @@ uv run legalforecast acquisition terminalize-llm-review-stage-a-reconstruction \
 
 Pass the emitted receipt to the resumed review command with `--terminal-escalation <terminal-escalation-receipt.json>`. This produces a deterministic pending review item for every affected frozen unit, preserving the exact reviewer prompt, all failed-attempt commitments, and blinded predecision sources for John. It does not turn an invalid response into an accepted structural flag; ordinary retries remain unchanged for every candidate without a receipt.
 
-Before adjudication, build John’s private blinded review bundle only after the current Stage A v5 structural-review run has completed and its exact merged queue exists. This command is provider-free: it replays both Stage A cards, does not open a provider client, and never writes adjudications. Keep `<private-stage-a-review-root>` out of the repository and all public/publishable artifact roots.
+Before adjudication, build John’s private blinded review bundle only after the current Stage A v4 structural-review run has completed and its exact merged queue exists. This command is provider-free: it replays both Stage A cards, does not open a provider client, and never writes adjudications. Keep `<private-stage-a-review-root>` out of the repository and all public/publishable artifact roots.
 
 ```bash
 uv run legalforecast acquisition build-unitization-review-bundle \

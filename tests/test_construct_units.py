@@ -8,6 +8,7 @@ from legalforecast.unitization import (
     DefendantGrouping,
     StageAConstructionInput,
     StageADocumentRole,
+    StageASeedCitation,
     StageASourceDocument,
     StageAUnitSeed,
     UnitizationReviewReason,
@@ -79,6 +80,44 @@ def test_constructs_securities_issuer_and_officer_units() -> None:
     assert result.units[1].defendant_group == "Officer defendants"
     assert result.units[0].source_citations[0].docket_entry_number == 34
     json.dumps(result.to_record())
+
+
+def test_constructs_exact_document_bound_citations_without_legacy_fanout() -> None:
+    result = construct_stage_a_units(
+        _input(
+            StageAUnitSeed(
+                count="I",
+                claim_name="Retaliation",
+                defendant_names=("Acme Corp.",),
+                source_document_ids=("complaint", "mtd_memo"),
+                source_citations=(
+                    StageASeedCitation(
+                        document_id="complaint",
+                        page=3,
+                        excerpt="Count I asserts retaliation against Acme Corp.",
+                    ),
+                    StageASeedCitation(
+                        document_id="mtd_memo",
+                        page=8,
+                        excerpt="Acme Corp. moves to dismiss Count I.",
+                    ),
+                ),
+            )
+        )
+    )
+
+    citations = result.units[0].source_citations
+    assert [
+        (citation.document_id, citation.page, citation.excerpt)
+        for citation in citations
+    ] == [
+        (
+            "complaint",
+            3,
+            "Count I asserts retaliation against Acme Corp.",
+        ),
+        ("mtd_memo", 8, "Acme Corp. moves to dismiss Count I."),
+    ]
 
 
 def test_construct_rejects_duplicate_unit_ids() -> None:

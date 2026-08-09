@@ -127,7 +127,7 @@ def test_live_stage_a_requires_successor_namespace_before_journal_or_transport(
 
 @pytest.mark.parametrize(
     "provider_attempt_namespace",
-    ("claim-ontology-v2", "claim-ontology-v3"),
+    ("claim-ontology-v2", "claim-ontology-v3", "claim-ontology-v4"),
 )
 def test_google_structural_review_passes_frozen_response_schema(
     tmp_path: Path,
@@ -203,10 +203,17 @@ def test_google_structural_review_passes_frozen_response_schema(
     schema = cast(dict[str, Any], captured["response_json_schema"])
     flag_item = schema["properties"]["structural_flags"]["items"]
     assert flag_item["properties"]["affected_unit_ids"]["items"]["enum"] == ["unit-1"]
-    assert flag_item["properties"]["source_document_ids"]["items"]["enum"] == [
-        "complaint",
-        "mtd",
-    ]
+    if provider_attempt_namespace == "claim-ontology-v3":
+        assert flag_item["properties"]["source_document_ids"]["items"]["enum"] == [
+            "complaint",
+            "mtd",
+        ]
+    else:
+        assert flag_item["properties"]["source_document_id"]["enum"] == [
+            "complaint",
+            "mtd",
+        ]
+        assert "citation_excerpt" not in flag_item["properties"]
 
 
 def test_reconstruction_prestate_isolates_legacy_and_successor_rows() -> None:
@@ -925,10 +932,14 @@ def test_terminal_queue_merge_fails_closed_for_conflicting_or_ambiguous_reviews(
 
 
 @pytest.mark.parametrize("provider_account", ("default", "primary"))
+@pytest.mark.parametrize(
+    "provider_attempt_namespace", ("claim-ontology-v2", "claim-ontology-v4")
+)
 def test_unitization_reconstruction_recovers_latest_journal_response_without_provider(
     tmp_path: Path,
     monkeypatch: Any,
     provider_account: str,
+    provider_attempt_namespace: str,
 ) -> None:
     markdown_root = tmp_path / "markdown"
     parser_records: list[JsonRecord] = []
@@ -947,16 +958,44 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
                 "markdown_path": f"cand-1/{document_id}.md",
             }
         )
+    seed: JsonRecord = {
+        "count": "Count I",
+        "claim_name": 'Section "10(b)" claim',
+        "defendant_names": ["Issuer"],
+        "challenged_by_motion": True,
+        "unit_confidence": 0.95,
+        "grouping": "individual",
+    }
+    if provider_attempt_namespace == "claim-ontology-v4":
+        seed.update(
+            {
+                "source_citations": [
+                    {
+                        "source_document_id": "complaint",
+                        "start_line": 1,
+                        "end_line": 1,
+                    },
+                    {
+                        "source_document_id": "mtd",
+                        "start_line": 1,
+                        "end_line": 1,
+                    },
+                ],
+                "scope": {"kind": "entire_claim"},
+            }
+        )
+    else:
+        seed.update(
+            {
+                "source_document_ids": ["complaint", "mtd"],
+                "challenge_scope": "entire_claim",
+                "grouping_rationale": None,
+                "separable_subclaim": None,
+                "uncertainty_notes": None,
+            }
+        )
     response = SolverResponse(
-        raw_output=(
-            '{"unit_seeds":[{"count":"Count I","claim_name":"Section '
-            '"10(b)" claim","defendant_names":["Issuer"],'
-            '"source_document_ids":["complaint","mtd"],'
-            '"challenged_by_motion":true,"challenge_scope":"entire_claim",'
-            '"unit_confidence":0.95,"grouping":"individual",'
-            '"grouping_rationale":null,"separable_subclaim":null,'
-            '"uncertainty_notes":null}]}'
-        ),
+        raw_output=json.dumps({"unit_seeds": [seed]}),
         input_tokens=12,
         output_tokens=7,
         estimated_cost=0.03,
@@ -1007,7 +1046,7 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
             provider_cycle_id="cycle-1",
             provider_cycle_caps_sha256="sha256:" + "c" * 64,
             provider_accounts={"openai": provider_account},
-            provider_attempt_namespace="claim-ontology-v2",
+            provider_attempt_namespace=provider_attempt_namespace,
         )
 
     monkeypatch.setattr(llm_pipeline, "_json_object_from_response", response_parser)
@@ -1023,7 +1062,7 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
         provider_account=provider_account,
-        provider_attempt_namespace="claim-ontology-v2",
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     replayed_recovery = llm_pipeline.recover_llm_unitization_reconstruction(
         selection_record=_selection(),
@@ -1037,7 +1076,7 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
         provider_account=provider_account,
-        provider_attempt_namespace="claim-ontology-v2",
+        provider_attempt_namespace=provider_attempt_namespace,
     )
 
     assert provider_calls == 1

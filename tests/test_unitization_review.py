@@ -15,6 +15,7 @@ from legalforecast.unitization.review import (
     LEGACY_FINALIZED_SCHEMA_VERSION,
     UnitizationReviewError,
     apply_unitization_reviews,
+    canonical_records_sha256,
     canonical_sha256,
     require_finalized_envelopes,
     verify_finalized_prediction_units,
@@ -342,6 +343,69 @@ def test_candidate_exclusion_must_consume_whole_candidate() -> None:
         )
 
 
+def test_candidate_exclusion_can_consume_unqueued_units() -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    queue = [_review("cand", "a")]
+    adjudication = _adjudication(
+        "cand",
+        "CANDIDATE-EXCLUSION",
+        ["a"],
+        exclusion_reason="unresolvable",
+    )
+    adjudication["source_unit_ids"] = ["a", "b"]
+
+    [result] = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=queue,
+        adjudication_records=[adjudication],
+    )
+
+    assert result["status"] == "candidate_excluded"
+    assert result["prediction_units"] == []
+
+
+def test_accept_preserves_current_same_id_amendment() -> None:
+    raw = [_candidate("cand", [_unit("a")])]
+    first = _review("cand", "a")
+    second = {**first, "review_id": "cand:a:structural:second"}
+    amended = _unit("a")
+    amended["claim_name"] = "Amended Claim"
+    amend = _adjudication("cand", "AMEND", ["a"], [amended])
+    amend["review_ids"] = [first["review_id"]]
+    accept = _adjudication("cand", "ACCEPT", ["a"])
+    accept["adjudication_id"] = "adj-cand-accept"
+    accept["review_ids"] = [second["review_id"]]
+
+    with pytest.raises(UnitizationReviewError, match="coalesce reviews"):
+        apply_unitization_reviews(
+            prediction_unit_records=raw,
+            review_records=[first, second],
+            adjudication_records=[amend, accept],
+        )
+
+
+def test_verifier_rejects_unresolved_same_source_review() -> None:
+    raw = [_candidate("cand", [_unit("a")])]
+    first = _review("cand", "a")
+    second = {**first, "review_id": "cand:a:structural:second"}
+    adjudication = _adjudication("cand", "ACCEPT", ["a"])
+    adjudication["review_ids"] = [second["review_id"]]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=[second],
+        adjudication_records=[adjudication],
+    )
+    forged = deepcopy(finalized[0])
+    forged["unitization_review_queue_sha256"] = canonical_records_sha256(
+        [first, second]
+    )
+
+    with pytest.raises(UnitizationReviewError, match="unresolved reviews"):
+        verify_finalized_prediction_units(
+            [forged], raw, [adjudication], [first, second]
+        )
+
+
 def test_finalized_chain_rejects_multiple_automatic_source_hashes() -> None:
     raw = [_candidate("cand", [_unit("a"), _unit("b")])]
     finalized = apply_unitization_reviews(
@@ -379,6 +443,34 @@ def test_finalized_chain_verifies_candidate_exclusion_adjudication() -> None:
 
     with pytest.raises(UnitizationReviewError, match="broken exclusion hash link"):
         verify_finalized_prediction_units([broken], raw, adjudications, queue)
+
+
+def test_finalized_chain_requires_exclusion_to_consume_unqueued_units() -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    queue = [_review("cand", "a")]
+    adjudication = _adjudication(
+        "cand",
+        "CANDIDATE-EXCLUSION",
+        ["a"],
+        exclusion_reason="unresolvable",
+    )
+    adjudication["source_unit_ids"] = ["a", "b"]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=queue,
+        adjudication_records=[adjudication],
+    )
+    broken_adjudication = deepcopy(adjudication)
+    broken_adjudication["source_unit_ids"] = ["a"]
+    broken_finalized = deepcopy(finalized[0])
+    broken_finalized["exclusion"]["adjudication_sha256"] = canonical_sha256(
+        broken_adjudication
+    )
+
+    with pytest.raises(UnitizationReviewError, match="complete provenance"):
+        verify_finalized_prediction_units(
+            [broken_finalized], raw, [broken_adjudication], queue
+        )
 
 
 def test_apply_unitization_review_cli_writes_finalized_artifact(

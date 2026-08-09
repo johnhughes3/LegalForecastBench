@@ -919,6 +919,7 @@ from legalforecast.labeling.label_outcomes import (
 )
 from legalforecast.labeling.llm_pipeline import (
     DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
+    STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
     STAGE_A_PROVIDER_ATTEMPT_CONTRACTS,
     LlmConsensusPolicy,
     LlmPipelineError,
@@ -931,6 +932,7 @@ from legalforecast.labeling.llm_pipeline import (
     llm_unitize_cases,
     merge_llm_label_provider_shards,
     merge_stage_a_review_queue,
+    reconstruct_stage_a_unitization_response,
     recover_llm_stage_a_structural_review_reconstruction,
     recover_llm_unitization_reconstruction,
     stage_a_provider_attempt_stage,
@@ -57387,6 +57389,7 @@ def _verify_stage_a_provider_replay(
             parser_records=lineage.parser_records,
             markdown_root=lineage.markdown_root,
             markdown_bytes=lineage.markdown_bytes,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
     except (OSError, UnicodeError, ValueError) as exc:
         raise CommandError(f"cannot reconstruct Stage A prompts: {exc}") from exc
@@ -57396,6 +57399,36 @@ def _verify_stage_a_provider_replay(
         if candidate_id in prompts_by_candidate:
             raise CommandError(f"duplicate llm-unitize prompt: {candidate_id}")
         prompts_by_candidate[candidate_id] = record
+    legacy_prompt_records = (
+        prompt_records
+        if provider_attempt_namespace != STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+        else stage_a_unitization_prompt_records(
+            selection_records=lineage.selection_records,
+            parser_records=lineage.parser_records,
+            markdown_root=lineage.markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
+            provider_attempt_namespace="claim-ontology-v2",
+        )
+    )
+    v4_prompt_records = (
+        prompt_records
+        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+        else stage_a_unitization_prompt_records(
+            selection_records=lineage.selection_records,
+            parser_records=lineage.parser_records,
+            markdown_root=lineage.markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
+            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+        )
+    )
+    legacy_prompts_by_candidate = {
+        _required_str(record, "candidate_id"): _required_str(record, "prompt")
+        for record in legacy_prompt_records
+    }
+    v4_prompts_by_candidate = {
+        _required_str(record, "candidate_id"): _required_str(record, "prompt")
+        for record in v4_prompt_records
+    }
     raw_records = _read_records(prediction_units_path)
     audit_records = _read_records(audit_path)
     queue_records = _read_records(review_queue_path)
@@ -57414,6 +57447,10 @@ def _verify_stage_a_provider_replay(
     candidate_ids = {
         _required_str(record, "candidate_id") for record in lineage.selection_records
     }
+    selections_by_candidate = {
+        _required_str(record, "candidate_id"): record
+        for record in lineage.selection_records
+    }
     if (
         set(prompts_by_candidate) != candidate_ids
         or set(raw_by_candidate) != candidate_ids
@@ -57425,7 +57462,7 @@ def _verify_stage_a_provider_replay(
     recognized_keys: dict[str, frozenset[str]] = {}
     for candidate_id in candidate_ids:
         prompt = _required_str(prompts_by_candidate[candidate_id], "prompt")
-        base_identity = dict(
+        active_base_identity = dict(
             stage="llm-unitize",
             candidate_id=candidate_id,
             model_key=lineage.registry_entry.registry_key,
@@ -57433,15 +57470,27 @@ def _verify_stage_a_provider_replay(
             model_registry_sha256=lineage.registry_sha256,
         )
         active_keys[candidate_id] = ProviderCallIdentity(
-            **base_identity,
+            **active_base_identity,
             prompt_contract=provider_attempt_namespace,
         ).logical_call_key
+        legacy_prompt = legacy_prompts_by_candidate[candidate_id]
+        v4_prompt = v4_prompts_by_candidate[candidate_id]
         recognized_keys[candidate_id] = frozenset(
-            ProviderCallIdentity(
-                **base_identity,
-                prompt_contract=contract,
-            ).logical_call_key
-            for contract in (None, *STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
+            {
+                ProviderCallIdentity(
+                    stage="llm-unitize",
+                    candidate_id=candidate_id,
+                    model_key=lineage.registry_entry.registry_key,
+                    prompt=(
+                        v4_prompt
+                        if contract == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+                        else legacy_prompt
+                    ),
+                    model_registry_sha256=lineage.registry_sha256,
+                    prompt_contract=contract,
+                ).logical_call_key
+                for contract in (None, *STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
+            }
         )
     rows_by_candidate: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     attempt_rows: list[Mapping[str, Any]] = []
@@ -57552,6 +57601,28 @@ def _verify_stage_a_provider_replay(
             raise CommandError(
                 f"llm-unitize journal lacks normalized raw output: {candidate_id}"
             )
+        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+            try:
+                replayed = reconstruct_stage_a_unitization_response(
+                    selection_record=selections_by_candidate[candidate_id],
+                    parser_records=lineage.parser_records,
+                    markdown_root=lineage.markdown_root,
+                    markdown_bytes=lineage.markdown_bytes,
+                    raw_output=raw_output,
+                    model_key=lineage.registry_entry.registry_key,
+                    provider_attempt_namespace=provider_attempt_namespace,
+                )
+            except (LlmPipelineError, ValueError) as exc:
+                raise CommandError(
+                    f"v4 llm-unitize response does not replay: {candidate_id}: {exc}"
+                ) from exc
+            if [unit.to_record() for unit in replayed.units] != reconstructed_units or [
+                item.to_record() for item in replayed.review_items
+            ] != journal_review_items:
+                raise CommandError(
+                    f"v4 llm-unitize reconstruction differs from response: "
+                    f"{candidate_id}"
+                )
         if (
             audit.get("status") not in {"succeeded", "adjudication_pending"}
             or audit.get("model_key") != lineage.registry_entry.registry_key
@@ -57602,6 +57673,7 @@ def _stage_a_unitization_run_card_extra(
         parser_records=lineage.parser_records,
         markdown_root=markdown_root,
         markdown_bytes=lineage.markdown_bytes,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     prompt_commitments, attempts_sha256 = _verify_stage_a_provider_replay(
         lineage=lineage,
@@ -60499,6 +60571,7 @@ def _require_stage_a_structural_review_namespace_pair(
         (None, None),
         ("claim-ontology-v2", "claim-ontology-v2"),
         ("claim-ontology-v2", "claim-ontology-v3"),
+        ("claim-ontology-v4", "claim-ontology-v4"),
     }:
         raise CommandError(
             "unitization/reviewer namespace pair is not an approved Stage A "
