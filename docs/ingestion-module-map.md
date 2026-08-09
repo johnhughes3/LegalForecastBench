@@ -20,6 +20,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`http_config.py`](../legalforecast/ingestion/http_config.py) | HTTPS endpoint validation for live clients. |
 | [`provenance.py`](../legalforecast/ingestion/provenance.py) | Source-document and extracted-text provenance schemas. |
 | [`restricted_material.py`](../legalforecast/ingestion/restricted_material.py) | Fail-closed restricted-material classification. |
+| [`target_document_eligibility.py`](../legalforecast/ingestion/target_document_eligibility.py) | Deterministic semantic eligibility gate for Stage A target documents. |
 
 ## 2. Cycle orchestration, storage, and readiness
 
@@ -119,9 +120,14 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`case_mix_optimizer.py`](../legalforecast/ingestion/case_mix_optimizer.py) | Exact cost selection under intersecting caps. |
 | [`cohort_policy.py`](../legalforecast/ingestion/cohort_policy.py) | Immutable precommitments and append-only observations. |
 | [`exact100_reserve_extension.py`](../legalforecast/ingestion/exact100_reserve_extension.py) | Provider-free reserve extension for an authenticated exact-100 successor. |
+| [`exact100_successor_replacement.py`](../legalforecast/ingestion/exact100_successor_replacement.py) | Provider-free exact-100 successor projection from replay-verified terminal exclusions and frozen-rank promotions. |
+| [`exact100_successor_replacement_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_cli.py) | Closed exact-100 successor command and materializer replay adapter. |
+| [`exact100_zero_cost_recovery.py`](../legalforecast/ingestion/exact100_zero_cost_recovery.py) | One-record CourtListener-only public/terminal recovery for the stipulated exact-100 memorandum. |
+| [`exact100_zero_cost_recovery_cli.py`](../legalforecast/ingestion/exact100_zero_cost_recovery_cli.py) | Immutable CLI publication and resume verification for bounded exact-100 recovery. |
 | [`exact310_rest_rebind.py`](../legalforecast/ingestion/exact310_rest_rebind.py) | Policy layer for the exact terminal REST rebind. |
 | [`mtd_acquisition_screen.py`](../legalforecast/ingestion/mtd_acquisition_screen.py) | Public-record MTD decision screening. |
 | [`pacer_gap_append_rebase.py`](../legalforecast/ingestion/pacer_gap_append_rebase.py) | Append-only snapshot growth authentication. |
+| [`post_selection_terminal_exclusion.py`](../legalforecast/ingestion/post_selection_terminal_exclusion.py) | Replay-minted terminal-exclusion evidence for a selected exact-100 cohort. |
 | [`ranked_reserve_replacement.py`](../legalforecast/ingestion/ranked_reserve_replacement.py) | Continuation through a frozen ranked reserve. |
 | [`rest_observation_policy_rebind.py`](../legalforecast/ingestion/rest_observation_policy_rebind.py) | Rebind of authenticated terminal REST observations. |
 | [`rest_priority_subset_promotion.py`](../legalforecast/ingestion/rest_priority_subset_promotion.py) | Promotion of a terminal REST priority tranche. |

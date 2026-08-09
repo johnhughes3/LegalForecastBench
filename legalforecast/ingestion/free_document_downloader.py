@@ -13,7 +13,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
@@ -91,6 +91,7 @@ class UrlLibFreeDocumentSource:
     retry_backoff_seconds: float = 1.0
     user_agent: str = _DEFAULT_USER_AGENT
     max_bytes: int = 100 * 1024 * 1024
+    final_url_validator: Callable[[str], None] | None = None
 
     def fetch(self, source_url: str) -> FreeDocumentFetch:
         _validate_public_document_url(source_url)
@@ -177,6 +178,8 @@ class UrlLibFreeDocumentSource:
         with _open_allowlisted(request, timeout=self.timeout_seconds) as response:
             final_url = response.geturl()
             _validate_public_document_url(final_url)
+            if self.final_url_validator is not None:
+                self.final_url_validator(final_url)
             _validate_content_length(
                 response.headers.get("Content-Length"),
                 max_bytes=self.max_bytes,
@@ -245,6 +248,8 @@ class UrlLibFreeDocumentSource:
         with _open_allowlisted(request, timeout=self.timeout_seconds) as response:
             final_url = response.geturl()
             _validate_public_document_url(final_url)
+            if self.final_url_validator is not None:
+                self.final_url_validator(final_url)
             _validate_content_length(
                 response.headers.get("Content-Length"),
                 max_bytes=self.max_bytes,

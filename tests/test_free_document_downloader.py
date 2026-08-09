@@ -961,6 +961,41 @@ def test_live_source_refuses_off_allowlist_redirect_hop() -> None:
         )
 
 
+def test_live_source_applies_caller_final_url_binding_after_redirect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        headers = Message()
+
+        def __enter__(self) -> _Response:
+            self.headers["Content-Type"] = "application/pdf"
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def geturl(self) -> str:
+            return "https://storage.courtlistener.com/recap/other.pdf"
+
+        def read(self, _size: int = -1) -> bytes:
+            return b"%PDF wrong document"
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.free_document_downloader._open_allowlisted",
+        lambda *_args, **_kwargs: _Response(),
+    )
+
+    def _require_expected(url: str) -> None:
+        if url != "https://storage.courtlistener.com/recap/expected.pdf":
+            raise ValueError("final URL is not the expected document")
+
+    source = UrlLibFreeDocumentSource(
+        max_retries=0, final_url_validator=_require_expected
+    )
+    with pytest.raises(ValueError, match="expected document"):
+        source.fetch("https://storage.courtlistener.com/recap/expected.pdf")
+
+
 def test_downloader_accepts_courtlistener_storage_pdf_urls(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {"https://storage.courtlistener.com/recap/doc-1.pdf": b"%PDF complaint"}

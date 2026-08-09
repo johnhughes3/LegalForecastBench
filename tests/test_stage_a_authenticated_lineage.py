@@ -25,8 +25,15 @@ from legalforecast.labeling.provider_journal import (
 from legalforecast.selection import TrainingCutoffStatus
 
 
+@pytest.mark.parametrize(
+    "schema_version",
+    [
+        cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+        str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1),
+    ],
+)
 def test_successor_selection_card_requires_exact_replay_capability(
-    tmp_path: Path,
+    tmp_path: Path, schema_version: str
 ) -> None:
     """Only the materializer's immutable replay proof admits a successor card."""
 
@@ -36,7 +43,7 @@ def test_successor_selection_card_requires_exact_replay_capability(
     card_path = tmp_path / "run-cards" / "project-target-cohort.json"
     card_path.parent.mkdir()
     card = {
-        "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+        "schema_version": schema_version,
         "stage": "project-zero-cost-successor",
         "record_count": 1,
     }
@@ -49,25 +56,55 @@ def test_successor_selection_card_requires_exact_replay_capability(
         cli._validate_selection_run_card_commitment(
             card,
             selection_path=selection_path,
+            selection_bytes=selection_bytes,
             selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
             selection_record_count=1,
+            selection_run_card_path=card_path,
             selection_run_card_bytes=card_bytes,
         )
 
-    capability = object.__new__(cli._VerifiedSuccessorSelectionCard)
-    object.__setattr__(capability, "selection_path", selection_path)
-    object.__setattr__(capability, "selection_bytes", selection_bytes)
-    object.__setattr__(capability, "selection_record_count", 1)
-    object.__setattr__(capability, "run_card_path", card_path)
-    object.__setattr__(capability, "run_card_bytes", card_bytes)
-    object.__setattr__(
-        capability, "_token", cli._VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN
+    self_consistent_projection = {
+        "run_card": card,
+        "run_card_bytes": card_bytes,
+        "run_card_path": card_path,
+        "selection_path": selection_path,
+        "selection_records": ({"candidate_id": "cand-1"},),
+        "verified_artifact_bytes": {
+            str(selection_path.absolute()): selection_bytes,
+            str(card_path.absolute()): card_bytes,
+        },
+    }
+    with pytest.raises(cli.CommandError, match="specialized replay attestation"):
+        cli._mint_verified_successor_selection_card_from_projection(
+            self_consistent_projection
+        )
+
+    # The verifier-specific attestation is deliberately module-private. This
+    # isolated test supplies it only to exercise exact-byte matching below;
+    # normal callers receive it only after the corresponding semantic replay.
+    replay_attestation = (
+        cli._ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION
+        if schema_version == cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA
+        else cli._EXACT100_SUCCESSOR_REPLAY_ATTESTATION
+    )
+    projection = cli._mint_verified_successor_selection_card_from_projection(
+        self_consistent_projection,
+        replay_attestation=replay_attestation,
+    )
+    capability = cast(
+        cli._VerifiedSuccessorSelectionCard,
+        projection["verified_successor_selection_card"],
+    )
+    assert (
+        cli._verified_successor_selection_card_from_projection(projection) is capability
     )
     cli._validate_selection_run_card_commitment(
         card,
         selection_path=selection_path,
+        selection_bytes=selection_bytes,
         selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
         selection_record_count=1,
+        selection_run_card_path=card_path,
         selection_run_card_bytes=card_bytes,
         verified_successor_selection_card=capability,
     )
@@ -77,17 +114,49 @@ def test_successor_selection_card_requires_exact_replay_capability(
         cli._validate_selection_run_card_commitment(
             card,
             selection_path=selection_path,
+            selection_bytes=selection_bytes,
             selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
             selection_record_count=1,
+            selection_run_card_path=card_path,
             selection_run_card_bytes=tampered_bytes,
+            verified_successor_selection_card=capability,
+        )
+    changed_selection_bytes = b'{"candidate_id":"cand-2"}\n'
+    with pytest.raises(cli.CommandError, match="differs from materialization replay"):
+        cli._validate_selection_run_card_commitment(
+            card,
+            selection_path=selection_path,
+            selection_bytes=changed_selection_bytes,
+            selection_sha256=(
+                "sha256:" + hashlib.sha256(changed_selection_bytes).hexdigest()
+            ),
+            selection_record_count=1,
+            selection_run_card_path=card_path,
+            selection_run_card_bytes=card_bytes,
             verified_successor_selection_card=capability,
         )
     with pytest.raises(cli.CommandError, match="differs from materialization replay"):
         cli._validate_selection_run_card_commitment(
             card,
             selection_path=selection_path,
+            selection_bytes=selection_bytes,
             selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
             selection_record_count=0,
+            selection_run_card_path=card_path,
+            selection_run_card_bytes=card_bytes,
+            verified_successor_selection_card=capability,
+        )
+    rebound_card_path = tmp_path / "copied" / "project-target-cohort.json"
+    rebound_card_path.parent.mkdir()
+    rebound_card_path.write_bytes(card_bytes)
+    with pytest.raises(cli.CommandError, match="differs from materialization replay"):
+        cli._validate_selection_run_card_commitment(
+            card,
+            selection_path=selection_path,
+            selection_bytes=selection_bytes,
+            selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
+            selection_record_count=1,
+            selection_run_card_path=rebound_card_path,
             selection_run_card_bytes=card_bytes,
             verified_successor_selection_card=capability,
         )
@@ -97,8 +166,10 @@ def test_successor_selection_card_requires_exact_replay_capability(
         cli._validate_selection_run_card_commitment(
             card,
             selection_path=rebound_path,
+            selection_bytes=selection_bytes,
             selection_sha256="sha256:" + hashlib.sha256(selection_bytes).hexdigest(),
             selection_record_count=1,
+            selection_run_card_path=card_path,
             selection_run_card_bytes=card_bytes,
             verified_successor_selection_card=capability,
         )

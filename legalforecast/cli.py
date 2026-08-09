@@ -41,6 +41,7 @@ from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
 from legalforecast.contracts import (
+    EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
@@ -435,6 +436,30 @@ from legalforecast.ingestion.downstream_rehearsal import (
     run_fixture_stage_b,
     run_fixture_structural_review,
     run_fixture_unitization,
+)
+from legalforecast.ingestion.exact100_successor_replacement import (
+    PREDECESSOR_OUTPUT_NAMES as EXACT100_PREDECESSOR_OUTPUT_NAMES,
+)
+from legalforecast.ingestion.exact100_successor_replacement import (
+    VerifiedExact100Predecessor,
+    VerifiedSuccessorPromotionPool,
+    _mint_verified_exact100_predecessor,  # pyright: ignore[reportPrivateUsage]
+    _mint_verified_successor_promotion_pool,  # pyright: ignore[reportPrivateUsage]
+)
+from legalforecast.ingestion.exact100_successor_replacement_cli import (
+    Exact100SuccessorReplacementCliError,
+)
+from legalforecast.ingestion.exact100_successor_replacement_cli import (
+    add_parser as add_exact100_successor_replacement_parser,
+)
+from legalforecast.ingestion.exact100_successor_replacement_cli import (
+    run as run_exact100_successor_replacement,
+)
+from legalforecast.ingestion.exact100_successor_replacement_cli import (
+    verify_materializer_projection as verify_exact100_successor_replacement_projection,
+)
+from legalforecast.ingestion.exact100_zero_cost_recovery_cli import (
+    add_parser as add_exact100_zero_cost_recovery_parser,
 )
 from legalforecast.ingestion.exact310_rest_rebind import (
     Exact310RestRebindError,
@@ -2063,6 +2088,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_project_zero_cost_successor_arguments(acquisition_project_zero_cost_successor)
+    add_exact100_successor_replacement_parser(
+        acquisition_subparsers,
+        handler=_cmd_project_exact100_successor_replacement,
+    )
+    add_exact100_zero_cost_recovery_parser(acquisition_subparsers)
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
         "accumulate-replacement-clearance",
         help=(
@@ -15341,8 +15371,10 @@ def _validate_selection_run_card_commitment(
     run_card: Mapping[str, Any],
     *,
     selection_path: Path,
+    selection_bytes: bytes,
     selection_sha256: str,
     selection_record_count: int,
+    selection_run_card_path: Path | None = None,
     selection_run_card_bytes: bytes | None = None,
     verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None,
 ) -> None:
@@ -15353,9 +15385,10 @@ def _validate_selection_run_card_commitment(
     has already replayed its complete predecessor chain and minted a capability
     for these exact card and selection bytes.
     """
-    if run_card.get("schema_version") == ZERO_COST_SUCCESSOR_STATE_SCHEMA:
+    if run_card.get("schema_version") in _SUPPORTED_SUCCESSOR_STATE_SCHEMAS:
         if (
             selection_run_card_bytes is None
+            or selection_run_card_path is None
             or verified_successor_selection_card is None
             or not verified_successor_selection_card.is_replay_minted()
         ):
@@ -15366,7 +15399,9 @@ def _validate_selection_run_card_commitment(
         verified_successor_selection_card.require_exact_match(
             run_card=run_card,
             run_card_bytes=selection_run_card_bytes,
+            run_card_path=selection_run_card_path,
             selection_path=selection_path,
+            selection_bytes=selection_bytes,
             selection_sha256=selection_sha256,
             selection_record_count=selection_record_count,
         )
@@ -40016,6 +40051,20 @@ def _preflight_approved_purchase_input_bytes(args: argparse.Namespace) -> None:
 
 
 _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN = object()
+_ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION = object()
+_EXACT100_SUCCESSOR_REPLAY_ATTESTATION = object()
+_SUPPORTED_SUCCESSOR_STATE_SCHEMAS = frozenset(
+    {
+        ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1),
+    }
+)
+_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
+    ZERO_COST_SUCCESSOR_STATE_SCHEMA: _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION,
+    str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1): (
+        _EXACT100_SUCCESSOR_REPLAY_ATTESTATION
+    ),
+}
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -40042,7 +40091,9 @@ class _VerifiedSuccessorSelectionCard:
         *,
         run_card: Mapping[str, Any],
         run_card_bytes: bytes,
+        run_card_path: Path,
         selection_path: Path,
+        selection_bytes: bytes,
         selection_sha256: str,
         selection_record_count: int,
     ) -> None:
@@ -40050,6 +40101,8 @@ class _VerifiedSuccessorSelectionCard:
             raise CommandError("zero-cost successor selection capability is invalid")
         if (
             selection_path.resolve() != self.selection_path.resolve()
+            or selection_bytes != self.selection_bytes
+            or run_card_path.resolve() != self.run_card_path.resolve()
             or run_card_bytes != self.run_card_bytes
             or _bytes_sha256(self.selection_bytes) != selection_sha256
             or selection_record_count != self.selection_record_count
@@ -40079,7 +40132,7 @@ def _verified_successor_selection_card_from_projection(
         # the successor schema.
         return None
     run_card_record = cast(Mapping[str, object], run_card)
-    if run_card_record.get("schema_version") != ZERO_COST_SUCCESSOR_STATE_SCHEMA:
+    if run_card_record.get("schema_version") not in _SUPPORTED_SUCCESSOR_STATE_SCHEMAS:
         return None
     verified = projection.get("verified_successor_selection_card")
     if (
@@ -40116,6 +40169,71 @@ def _verified_successor_selection_card_from_projection(
     ):
         raise CommandError("successor materializer projection card bytes differ")
     return verified
+
+
+def _mint_verified_successor_selection_card_from_projection(
+    projection: Mapping[str, object],
+    *,
+    replay_attestation: object | None = None,
+) -> dict[str, object]:
+    """Attach an opaque exact-byte capability after specialized replay only.
+
+    A self-consistent mapping is not proof that either successor verifier
+    replayed its producer chain.  The two specialized verifier paths supply a
+    module-private identity attestation after their complete replays finish;
+    no generic projection adapter may mint downstream authority from bytes it
+    merely parsed.
+    """
+
+    run_card = projection.get("run_card")
+    run_card_bytes = projection.get("run_card_bytes")
+    run_card_path = projection.get("run_card_path")
+    selection_path = projection.get("selection_path")
+    selection_records = projection.get("selection_records")
+    artifact_bytes = projection.get("verified_artifact_bytes")
+    if not isinstance(run_card, Mapping):
+        raise CommandError("successor materializer replay is incomplete")
+    run_card_record = cast(Mapping[str, object], run_card)
+    schema_version = run_card_record.get("schema_version")
+    if not isinstance(schema_version, str):
+        raise CommandError("successor materializer replay is incomplete")
+    expected_attestation = _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA.get(schema_version)
+    if (
+        expected_attestation is None
+        or not isinstance(run_card_bytes, bytes)
+        or not isinstance(run_card_path, Path)
+        or not isinstance(selection_path, Path)
+        or not isinstance(selection_records, Sequence)
+        or isinstance(selection_records, (str, bytes))
+        or not isinstance(artifact_bytes, Mapping)
+    ):
+        raise CommandError("successor materializer replay is incomplete")
+    if replay_attestation is not expected_attestation:
+        raise CommandError(
+            "successor replay capability requires specialized replay attestation"
+        )
+    snapshots = cast(Mapping[str, object], artifact_bytes)
+    selection_bytes = snapshots.get(os.path.abspath(selection_path))
+    if (
+        not isinstance(selection_bytes, bytes)
+        or snapshots.get(os.path.abspath(run_card_path)) != run_card_bytes
+        or _projection_json_object(run_card_bytes, source=run_card_path)
+        != run_card_record
+        or tuple(_projection_jsonl_records(selection_bytes, source=selection_path))
+        != tuple(cast(Sequence[Mapping[str, Any]], selection_records))
+    ):
+        raise CommandError("successor materializer replay bytes differ")
+    selection_record_sequence = cast(Sequence[Mapping[str, Any]], selection_records)
+    verified = object.__new__(_VerifiedSuccessorSelectionCard)
+    object.__setattr__(verified, "selection_path", selection_path)
+    object.__setattr__(verified, "selection_bytes", selection_bytes)
+    object.__setattr__(
+        verified, "selection_record_count", len(selection_record_sequence)
+    )
+    object.__setattr__(verified, "run_card_path", run_card_path)
+    object.__setattr__(verified, "run_card_bytes", run_card_bytes)
+    object.__setattr__(verified, "_token", _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN)
+    return {**projection, "verified_successor_selection_card": verified}
 
 
 @dataclass(frozen=True, slots=True)
@@ -41765,63 +41883,184 @@ def _verify_zero_cost_successor_projection(
     _require_snapshot_unchanged(
         relocation_sources, label="zero-cost successor relocated clearance source"
     )
-    verified_successor_selection_card = object.__new__(_VerifiedSuccessorSelectionCard)
-    object.__setattr__(
-        verified_successor_selection_card, "selection_path", selection_path
-    )
-    object.__setattr__(
-        verified_successor_selection_card,
-        "selection_bytes",
-        snapshots[selection_path],
-    )
-    object.__setattr__(
-        verified_successor_selection_card,
-        "selection_record_count",
-        len(selection_records),
-    )
-    object.__setattr__(
-        verified_successor_selection_card, "run_card_path", run_card_path
-    )
-    object.__setattr__(
-        verified_successor_selection_card, "run_card_bytes", run_card_bytes
-    )
-    object.__setattr__(
-        verified_successor_selection_card,
-        "_token",
-        _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN,
-    )
-    return {
-        "run_card": run_card,
-        "run_card_bytes": run_card_bytes,
-        "summary": config,
-        "summary_path": config_path,
-        "run_card_path": run_card_path,
-        "selection_path": selection_path,
-        "selection_records": selection_records,
-        "verified_successor_selection_card": verified_successor_selection_card,
-        "free_manifest_path": free_manifest_path,
-        "free_manifest": free_manifest,
-        "purchased_manifest": purchased_manifest,
-        "free_clearance": _projection_jsonl_records(
-            snapshots[clearance_path], source=clearance_path
-        ),
-        "restriction_path": restriction_path,
-        "restriction_records": _projection_jsonl_records(
-            snapshots[restriction_path], source=restriction_path
-        ),
-        "selected_document_keys": selected_document_keys,
-        "verified_artifact_bytes": {
-            **{os.path.abspath(path): payload for path, payload in snapshots.items()},
-            **{
-                os.path.abspath(path): payload
-                for path, payload in authenticated_external_input_snapshots.items()
-            },
-            **{
-                os.path.abspath(path): payload
-                for path, payload in relocation_sources.items()
+    return _mint_verified_successor_selection_card_from_projection(
+        {
+            "run_card": run_card,
+            "run_card_bytes": run_card_bytes,
+            "summary": config,
+            "summary_path": config_path,
+            "run_card_path": run_card_path,
+            "selection_path": selection_path,
+            "selection_records": selection_records,
+            "free_manifest_path": free_manifest_path,
+            "free_manifest": free_manifest,
+            "purchased_manifest": purchased_manifest,
+            "free_clearance": _projection_jsonl_records(
+                snapshots[clearance_path], source=clearance_path
+            ),
+            "restriction_path": restriction_path,
+            "restriction_records": _projection_jsonl_records(
+                snapshots[restriction_path], source=restriction_path
+            ),
+            "selected_document_keys": selected_document_keys,
+            "verified_artifact_bytes": {
+                **{
+                    os.path.abspath(path): payload
+                    for path, payload in snapshots.items()
+                },
+                **{
+                    os.path.abspath(path): payload
+                    for path, payload in authenticated_external_input_snapshots.items()
+                },
+                **{
+                    os.path.abspath(path): payload
+                    for path, payload in relocation_sources.items()
+                },
             },
         },
+        replay_attestation=_ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION,
+    )
+
+
+def _cmd_project_exact100_successor_replacement(args: argparse.Namespace) -> int:
+    """Run exact-100 replacement only through established producer replay."""
+
+    args._replay_inputs = _replay_exact100_successor_inputs
+    try:
+        return run_exact100_successor_replacement(args)
+    except Exact100SuccessorReplacementCliError as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _replay_exact100_successor_inputs(
+    predecessor_root: Path,
+) -> tuple[VerifiedExact100Predecessor, VerifiedSuccessorPromotionPool]:
+    """Mint exact-100 inputs from the authenticated zero-cost producer chain.
+
+    The predecessor root is never trusted by location or by self-authored
+    hashes.  The established zero-cost materializer verifier re-executes its
+    complete producer chain.  The promotion pool is then derived only from the
+    original target projection artifacts authenticated by that replay.
+    """
+
+    state_path = predecessor_root / "run-cards/project-target-cohort.json"
+    state_bytes = _read_singly_linked_regular_input(
+        state_path, label="exact100 predecessor run card"
+    )
+    state = _projection_json_object(state_bytes, source=state_path)
+    if state.get("schema_version") != ZERO_COST_SUCCESSOR_STATE_SCHEMA:
+        raise CommandError(
+            "exact100 predecessor must be an authenticated zero-cost successor"
+        )
+    verified_predecessor = _verify_zero_cost_successor_projection(
+        target_root=predecessor_root,
+        free_clearance_path=predecessor_root / "disclosure-clearance.jsonl",
+        expected_target_count=_required_int(state, "selected_case_count"),
+    )
+    predecessor_snapshots = cast(
+        Mapping[str, bytes], verified_predecessor["verified_artifact_bytes"]
+    )
+    predecessor_summary_path = cast(Path, verified_predecessor["summary_path"])
+    predecessor_selection_path = cast(Path, verified_predecessor["selection_path"])
+    predecessor_output_bytes = {
+        name: predecessor_snapshots[os.path.abspath(predecessor_root / name)]
+        for name in EXACT100_PREDECESSOR_OUTPUT_NAMES
     }
+    predecessor = _mint_verified_exact100_predecessor(
+        projection=cast(Mapping[str, Any], verified_predecessor["summary"]),
+        projection_bytes=predecessor_snapshots[
+            os.path.abspath(predecessor_summary_path)
+        ],
+        selection_bytes=predecessor_snapshots[
+            os.path.abspath(predecessor_selection_path)
+        ],
+        case_relevance_bytes=predecessor_output_bytes["case-relevance.jsonl"],
+        download_manifest_bytes=predecessor_output_bytes[
+            "document-downloads-merged.jsonl"
+        ],
+        disclosure_clearance_bytes=predecessor_output_bytes[
+            "disclosure-clearance.jsonl"
+        ],
+        restriction_evidence_bytes=predecessor_output_bytes[
+            "restriction-evidence.jsonl"
+        ],
+        core_filter_results_bytes=predecessor_output_bytes["core-filter-results.jsonl"],
+        all_output_bytes=predecessor_output_bytes,
+    )
+
+    predecessor_card = cast(Mapping[str, object], verified_predecessor["run_card"])
+    raw_inputs = predecessor_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("zero-cost predecessor lacks authenticated source inputs")
+    predecessor_inputs = tuple(
+        Path(str(value)) for value in cast(Sequence[object], raw_inputs)
+    )
+    if len(predecessor_inputs) < 15:
+        raise CommandError("zero-cost predecessor source inputs are incomplete")
+    original_root = predecessor_inputs[0]
+    original = verify_completed_target_cohort_projection_for_purchase_approval(
+        original_root
+    )
+    original_card = cast(Mapping[str, object], original["run_card"])
+    original_raw_inputs = original_card.get("input_paths")
+    if not isinstance(original_raw_inputs, Sequence) or isinstance(
+        original_raw_inputs, (str, bytes)
+    ):
+        raise CommandError("original target projection lacks authenticated inputs")
+    original_inputs = tuple(
+        Path(str(value)) for value in cast(Sequence[object], original_raw_inputs)
+    )
+    if len(original_inputs) not in {9, 19}:
+        raise CommandError("original target projection inputs differ")
+    original_snapshots = cast(Mapping[str, bytes], original["verified_artifact_bytes"])
+
+    def original_bytes(path: Path, label: str) -> bytes:
+        try:
+            return original_snapshots[os.path.abspath(path)]
+        except KeyError as exc:
+            raise CommandError(
+                f"original target replay did not authenticate {label}"
+            ) from exc
+
+    source_selection_bytes = original_bytes(original_inputs[0], "source selection")
+    case_relevance_bytes = original_bytes(original_inputs[1], "case relevance")
+    download_manifest_bytes = original_bytes(original_inputs[2], "download manifest")
+    disclosure_clearance_bytes = original_bytes(
+        original_inputs[3], "disclosure clearance"
+    )
+    restriction_evidence_bytes = original_bytes(
+        original_inputs[5], "restriction evidence"
+    )
+    snapshot_manifest_bytes = original_bytes(
+        original_inputs[8], "screening snapshot manifest"
+    )
+    ranked_reserve_path = original_root / "target-cohort-ranked-reserve.jsonl"
+    ranked_reserve_bytes = original_bytes(ranked_reserve_path, "ranked reserve")
+    core_filter_results_bytes = b"".join(
+        canonical_json_bytes(result.to_record())
+        for result in filter_core_documents(
+            _projection_jsonl_records(case_relevance_bytes, source=original_inputs[1])
+        )
+    )
+    original_summary_path = cast(Path, original["summary_path"])
+    original_run_card_path = cast(Path, original["run_card_path"])
+    promotion_pool = _mint_verified_successor_promotion_pool(
+        ranked_reserve_bytes=ranked_reserve_bytes,
+        source_selection_bytes=source_selection_bytes,
+        case_relevance_bytes=case_relevance_bytes,
+        download_manifest_bytes=download_manifest_bytes,
+        disclosure_clearance_bytes=disclosure_clearance_bytes,
+        restriction_evidence_bytes=restriction_evidence_bytes,
+        core_filter_results_bytes=core_filter_results_bytes,
+        producer_config_bytes=original_bytes(
+            original_summary_path, "target projection summary"
+        ),
+        producer_run_card_bytes=original_bytes(
+            original_run_card_path, "target projection run card"
+        ),
+        producer_root_bytes=snapshot_manifest_bytes,
+    )
+    return predecessor, promotion_pool
 
 
 def _require_zero_cost_successor_commitment_keysets(
@@ -41895,6 +42134,21 @@ def _verify_materializer_projection(
                 _verified_clearance_relocations=_verified_clearance_relocations,
                 _verified_clearance_source_roots=_verified_clearance_source_roots,
             )
+        if candidate_card.get("schema_version") == str(
+            EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1
+        ):
+            try:
+                return _mint_verified_successor_selection_card_from_projection(
+                    verify_exact100_successor_replacement_projection(
+                        target_root=target_root,
+                        free_clearance_path=free_clearance_path,
+                        expected_target_count=expected_target_count,
+                        replay_inputs=_replay_exact100_successor_inputs,
+                    ),
+                    replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
+                )
+            except Exact100SuccessorReplacementCliError as exc:
+                raise CommandError(str(exc)) from exc
     paths = {name: target_root / name for name in BASE_PROJECTION_ARTIFACT_NAMES}
     output_snapshots = {
         path: _require_materializer_artifact(path, label=f"target projection {label}")
@@ -42320,6 +42574,21 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
             _verified_clearance_relocations=_verified_clearance_relocations,
             _verified_clearance_source_roots=_verified_clearance_source_roots,
         )
+    if run_card.get("schema_version") == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1):
+        try:
+            return _mint_verified_successor_selection_card_from_projection(
+                verify_exact100_successor_replacement_projection(
+                    target_root=target_root,
+                    free_clearance_path=target_root / "disclosure-clearance.jsonl",
+                    expected_target_count=_required_int(
+                        run_card, "selected_case_count"
+                    ),
+                    replay_inputs=_replay_exact100_successor_inputs,
+                ),
+                replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
+            )
+        except Exact100SuccessorReplacementCliError as exc:
+            raise CommandError(str(exc)) from exc
     raw_inputs = run_card.get("input_paths")
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
         raise CommandError("target projection run card lacks exact inputs")
@@ -56456,8 +56725,10 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
     _validate_selection_run_card_commitment(
         selection_run_card,
         selection_path=source_paths["selection"],
+        selection_bytes=source_bytes["selection"],
         selection_sha256=source_sha256["selection"],
         selection_record_count=len(selection_records),
+        selection_run_card_path=source_paths["selection_run_card"],
         selection_run_card_bytes=source_bytes["selection_run_card"],
         verified_successor_selection_card=(
             None
@@ -56825,8 +57096,10 @@ def _verify_stage_a_unitization_lineage_uncached(
     _validate_selection_run_card_commitment(
         selection_card,
         selection_path=selection_path,
+        selection_bytes=selection_bytes,
         selection_sha256=_bytes_sha256(selection_bytes),
         selection_record_count=len(selection_records),
+        selection_run_card_path=selection_run_card_path,
         selection_run_card_bytes=selection_card_bytes,
         verified_successor_selection_card=(
             verified_materialization.verified_successor_selection_card

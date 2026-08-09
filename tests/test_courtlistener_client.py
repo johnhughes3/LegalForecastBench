@@ -286,6 +286,30 @@ def test_docket_entry_accepts_bare_integer_foreign_key() -> None:
     assert entry.docket_id == "4328339"
 
 
+def test_get_docket_entry_uses_only_the_exact_direct_endpoint() -> None:
+    transport = CourtListenerFixtureTransport(
+        (
+            _response(
+                path="/docket-entries/7001/",
+                payload={
+                    "id": "7001",
+                    "docket": "/api/rest/v4/dockets/4328339/",
+                    "description": "ORDER",
+                    "recap_documents": ["8001"],
+                },
+            ),
+        )
+    )
+    client = CourtListenerClient(transport=transport, max_retries=0)
+
+    entry = client.get_docket_entry("7001")
+
+    assert entry.docket_entry_id == "7001"
+    assert entry.docket_id == "4328339"
+    assert entry.recap_document_ids == ("8001",)
+    assert transport.requests == [("GET", "/docket-entries/7001/", {})]
+
+
 def test_docket_entry_rejects_unrecognized_foreign_key_shape() -> None:
     with pytest.raises(CourtListenerResponseError, match="docket reference shape"):
         CourtListenerDocketEntry.from_record(
@@ -789,6 +813,35 @@ def test_non_object_not_found_body_preserves_http_status() -> None:
 
     assert client.request_count == 1
     assert transport._opener.request_count == 1
+
+
+def test_live_not_found_preserves_exact_response_bytes() -> None:
+    raw_body = b'{  "detail" : "Not found.", "extra": [1, 2] }\n'
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener(
+        (
+            urllib.error.HTTPError(
+                "https://www.courtlistener.com/api/rest/v4/recap-documents/1/",
+                404,
+                "Not Found",
+                {},
+                io.BytesIO(raw_body),
+            ),
+        )
+    )
+    client = CourtListenerClient(
+        config=CourtListenerConfig(), transport=transport, max_retries=0
+    )
+
+    with pytest.raises(CourtListenerUnavailableError) as excinfo:
+        client.get_recap_document("1")
+
+    assert excinfo.value.method == "GET"
+    assert excinfo.value.path == "/recap-documents/1/"
+    assert excinfo.value.status_code == 404
+    assert excinfo.value.response_bytes == raw_body
 
 
 def test_non_object_success_body_is_not_retried() -> None:
