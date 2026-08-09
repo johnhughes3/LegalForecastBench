@@ -23,6 +23,7 @@ import pytest
 from legalforecast.unitization.review import (
     ADJUDICATION_SCHEMA_VERSION,
     FINALIZED_SCHEMA_VERSION,
+    STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
     STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION,
     UnitizationReviewError,
     apply_unitization_reviews,
@@ -47,6 +48,17 @@ def test_add_binds_the_omitted_unit_without_consuming_a_raw_unit() -> None:
 
     assert finalized["schema_version"] == STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION
     assert finalized["dropped_units"] == []
+    assert finalized["added_units"] == [
+        {
+            "unit_id": "a-omitted",
+            "review_ids": [review["review_id"]],
+            "structural_flag_sha256": review["structural_flag_sha256"],
+            "raw_prediction_units_sha256": canonical_sha256(raw),
+            "adjudication_id": adjudication["adjudication_id"],
+            "adjudication_sha256": canonical_sha256(adjudication),
+            "disposition": "ADD",
+        }
+    ]
     units = {unit["unit_id"]: unit for unit in finalized["prediction_units"]}
     # The flagged unit is untouched: ADD neither consumes it nor rewrites it.
     assert units["a"]["disposition"] == "ACCEPT"
@@ -91,12 +103,35 @@ def test_add_and_drop_share_one_successor_schema() -> None:
 
     assert finalized["schema_version"] == STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION
     assert [row["unit_id"] for row in finalized["dropped_units"]] == ["b"]
+    assert [row["unit_id"] for row in finalized["added_units"]] == ["a-omitted"]
     assert [unit["unit_id"] for unit in finalized["prediction_units"]] == [
         "a",
         "a-omitted",
     ]
     verify_finalized_prediction_units(
         [finalized], [raw], [add, drop], [omission, spurious]
+    )
+
+
+def test_v3_run_emits_empty_added_units_for_candidates_without_local_add() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    untouched = _candidate("untouched", [_unit("z")])
+    review = _omission_review(raw, "a")
+    adjudication = _add_adjudication("cand", [review], _unit("a-omitted", ("motion",)))
+
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=[raw, untouched],
+        review_records=[review],
+        adjudication_records=[adjudication],
+    )
+
+    by_candidate = {record["candidate_id"]: record for record in finalized}
+    assert by_candidate["untouched"]["schema_version"] == (
+        STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION
+    )
+    assert by_candidate["untouched"]["added_units"] == []
+    verify_finalized_prediction_units(
+        finalized, [raw, untouched], [adjudication], [review]
     )
 
 
@@ -160,7 +195,10 @@ def test_add_rejects_an_uncited_or_unauthenticated_added_unit() -> None:
     uncited = _unit("a-omitted")
     uncited["source_citations"] = []
 
-    with pytest.raises(UnitizationReviewError, match="lacks predecision citations"):
+    with pytest.raises(
+        UnitizationReviewError,
+        match=r"lacks predecision citations|canonical prediction unit",
+    ):
         apply_unitization_reviews(
             prediction_unit_records=[raw],
             review_records=[review],
@@ -280,6 +318,58 @@ def test_add_may_not_consume_units_or_declare_its_own_provenance() -> None:
         )
 
 
+def test_add_rejects_even_an_explicitly_empty_source_unit_ids_field() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    review = _omission_review(raw, "a")
+    adjudication = _add_adjudication("cand", [review], _unit("a-omitted", ("motion",)))
+    adjudication["source_unit_ids"] = []
+
+    with pytest.raises(UnitizationReviewError, match="must omit source_unit_ids"):
+        apply_unitization_reviews(
+            prediction_unit_records=[raw],
+            review_records=[review],
+            adjudication_records=[adjudication],
+        )
+
+
+def test_add_requires_the_v2_adjudication_contract() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    review = _omission_review(raw, "a")
+    adjudication = _add_adjudication("cand", [review], _unit("a-omitted", ("motion",)))
+    adjudication["schema_version"] = ADJUDICATION_SCHEMA_VERSION
+
+    with pytest.raises(UnitizationReviewError, match=r"ADD requires.*v2"):
+        apply_unitization_reviews(
+            prediction_unit_records=[raw],
+            review_records=[review],
+            adjudication_records=[adjudication],
+        )
+
+
+def test_v2_adjudication_remains_valid_for_existing_dispositions() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    review = _omission_review(raw, "a", route="fixture")
+    adjudication = {
+        "schema_version": STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
+        "adjudication_id": "adj-cand-accept",
+        "candidate_id": "cand",
+        "case_id": "case-cand",
+        "review_ids": [review["review_id"]],
+        "disposition": "ACCEPT",
+        "finalized_units": [],
+        "adjudicator_id": "lawyer-1",
+        "adjudication_notes": "Accepted under the compatible v2 contract.",
+    }
+
+    [finalized] = apply_unitization_reviews(
+        prediction_unit_records=[raw],
+        review_records=[review],
+        adjudication_records=[adjudication],
+    )
+
+    assert finalized["prediction_units"][0]["disposition"] == "ACCEPT"
+
+
 @pytest.mark.parametrize("unit_count", [0, 2])
 def test_add_must_emit_exactly_one_unit(unit_count: int) -> None:
     raw = _candidate("cand", [_unit("a")])
@@ -302,12 +392,18 @@ def test_add_must_emit_exactly_one_unit(unit_count: int) -> None:
     [
         ({"source_unit_sha256s": ["a" * 64]}, "must not derive from raw units"),
         ({"structural_flag_sha256": "b" * 64}, "broken added-unit evidence link"),
-        ({"raw_prediction_units_sha256": "c" * 64}, "broken added-unit evidence link"),
+        (
+            {"raw_prediction_units_sha256": "c" * 64},
+            "broken added-unit (evidence|ledger) link",
+        ),
         (
             {"predecision_source_document_ids": ["motion", "opposition"]},
             "broken added-unit evidence link",
         ),
-        ({"added_from_review_ids": []}, "broken added-unit review link"),
+        (
+            {"added_from_review_ids": []},
+            r"broken added-unit review link|added unit lacks review links",
+        ),
         ({"adjudication_sha256": "d" * 64}, "broken added-unit hash link"),
         ({"adjudication_id": "adj-unknown"}, "broken added-unit hash link"),
     ],
@@ -318,9 +414,123 @@ def test_verifier_rejects_a_tampered_added_unit(
     raw, review, adjudication, finalized = _finalized_add_fixture()
     broken = deepcopy(finalized)
     _added_unit(broken).update(mutation)
+    _sync_added_units_row(broken)
 
     with pytest.raises(UnitizationReviewError, match=message):
         verify_finalized_prediction_units([broken], [raw], [adjudication], [review])
+
+
+def test_verifier_rejects_changed_added_unit_content() -> None:
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    broken = deepcopy(finalized)
+    _added_unit(broken)["claim_name"] = "Substituted claim"
+    _sync_added_units_row(broken)
+
+    with pytest.raises(UnitizationReviewError, match="does not match adjudication"):
+        verify_finalized_prediction_units([broken], [raw], [adjudication], [review])
+
+
+def test_verifier_rejects_two_units_reusing_one_add_adjudication() -> None:
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    broken = deepcopy(finalized)
+    duplicate = deepcopy(_added_unit(broken))
+    duplicate["unit_id"] = "second-omitted"
+    broken["prediction_units"].append(duplicate)
+
+    with pytest.raises(UnitizationReviewError, match="more than one added unit"):
+        verify_finalized_prediction_units([broken], [raw], [adjudication], [review])
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("separable_subclaim", "Theory"),
+        ("should_score", False),
+        ("unexpected", "field"),
+    ],
+)
+def test_add_rejects_noncanonical_prediction_unit_content(
+    field: str, value: object
+) -> None:
+    raw = _candidate("cand", [_unit("a")])
+    review = _omission_review(raw, "a")
+    added = _unit("a-omitted", ("motion",))
+    added[field] = value
+
+    with pytest.raises(UnitizationReviewError, match="canonical prediction unit"):
+        apply_unitization_reviews(
+            prediction_unit_records=[raw],
+            review_records=[review],
+            adjudication_records=[_add_adjudication("cand", [review], added)],
+        )
+
+
+def test_add_and_separate_amend_may_share_the_review_anchor() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    omission = _omission_review(raw, "a")
+    correction = _omission_review(
+        raw,
+        "a",
+        flag="flag-correction",
+        route="structural_spurious",
+        review_suffix="-fix",
+    )
+    add = _add_adjudication("cand", [omission], _unit("a-omitted", ("motion",)))
+    amend = {
+        "schema_version": ADJUDICATION_SCHEMA_VERSION,
+        "adjudication_id": "adj-cand-amend",
+        "candidate_id": "cand",
+        "case_id": "case-cand",
+        "review_ids": [correction["review_id"]],
+        "disposition": "AMEND",
+        "finalized_units": [_unit("a-amended")],
+        "adjudicator_id": "lawyer-1",
+        "adjudication_notes": "Corrected the independently reviewed anchor.",
+    }
+
+    [finalized] = apply_unitization_reviews(
+        prediction_unit_records=[raw],
+        review_records=[omission, correction],
+        adjudication_records=[add, amend],
+    )
+
+    assert {unit["unit_id"] for unit in finalized["prediction_units"]} == {
+        "a-amended",
+        "a-omitted",
+    }
+
+
+def test_add_and_candidate_exclusion_are_incompatible_for_one_candidate() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    omission = _omission_review(raw, "a")
+    exclusion_review = _omission_review(
+        raw,
+        "a",
+        flag="flag-exclusion",
+        route="structural_spurious",
+        review_suffix="-exclude",
+    )
+    add = _add_adjudication("cand", [omission], _unit("a-omitted", ("motion",)))
+    exclusion = {
+        "schema_version": ADJUDICATION_SCHEMA_VERSION,
+        "adjudication_id": "adj-cand-exclusion",
+        "candidate_id": "cand",
+        "case_id": "case-cand",
+        "review_ids": [exclusion_review["review_id"]],
+        "source_unit_ids": ["a"],
+        "disposition": "CANDIDATE-EXCLUSION",
+        "finalized_units": [],
+        "exclusion_reason": "candidate ineligible",
+        "adjudicator_id": "lawyer-1",
+        "adjudication_notes": "Exclude the candidate.",
+    }
+
+    with pytest.raises(UnitizationReviewError, match="incompatible"):
+        apply_unitization_reviews(
+            prediction_unit_records=[raw],
+            review_records=[omission, exclusion_review],
+            adjudication_records=[add, exclusion],
+        )
 
 
 def test_verifier_rejects_a_hand_written_add_that_consumes_a_source_unit() -> None:
@@ -331,8 +541,9 @@ def test_verifier_rejects_a_hand_written_add_that_consumes_a_source_unit() -> No
     consuming["source_unit_ids"] = ["a"]
     broken = deepcopy(finalized)
     _added_unit(broken)["adjudication_sha256"] = canonical_sha256(consuming)
+    _sync_added_units_row(broken)
 
-    with pytest.raises(UnitizationReviewError, match="consumes source units"):
+    with pytest.raises(UnitizationReviewError, match="must omit source_unit_ids"):
         verify_finalized_prediction_units([broken], [raw], [consuming], [review])
 
 
@@ -341,9 +552,9 @@ def test_verifier_rejects_an_added_unit_smuggled_into_the_v2_schema() -> None:
     broken = deepcopy(finalized)
     broken["schema_version"] = FINALIZED_SCHEMA_VERSION
 
-    with pytest.raises(UnitizationReviewError, match="requires the v3 schema"):
+    with pytest.raises(UnitizationReviewError, match="schema does not match"):
         verify_finalized_prediction_units([broken], [raw], [adjudication], [review])
-    with pytest.raises(UnitizationReviewError, match="requires the v3 schema"):
+    with pytest.raises(UnitizationReviewError, match=r"only v3.*additions"):
         require_finalized_envelopes([broken])
 
 
@@ -351,6 +562,7 @@ def test_verifier_rejects_an_added_unit_that_shadows_a_raw_unit() -> None:
     raw, review, adjudication, finalized = _finalized_add_fixture()
     broken = deepcopy(finalized)
     _added_unit(broken)["unit_id"] = "a"
+    _sync_added_units_row(broken)
     broken["prediction_units"] = [
         unit for unit in broken["prediction_units"] if unit["disposition"] == "ADD"
     ]
@@ -365,6 +577,7 @@ def test_verifier_rejects_a_removed_added_unit_with_a_live_adjudication() -> Non
     broken["prediction_units"] = [
         unit for unit in broken["prediction_units"] if unit["disposition"] != "ADD"
     ]
+    broken["added_units"] = []
 
     with pytest.raises(UnitizationReviewError, match="does not consume adjudications"):
         verify_finalized_prediction_units([broken], [raw], [adjudication], [review])
@@ -384,11 +597,16 @@ def test_verifier_rejects_an_added_unit_moved_to_another_candidate() -> None:
     source = by_candidate["cand"]
     moved = by_candidate["other"]
     moved["prediction_units"].append(deepcopy(_added_unit(source)))
+    moved["added_units"].append(deepcopy(source["added_units"][0]))
     source["prediction_units"] = [
         unit for unit in source["prediction_units"] if unit["disposition"] != "ADD"
     ]
+    source["added_units"] = []
 
-    with pytest.raises(UnitizationReviewError, match="broken added-unit hash link"):
+    with pytest.raises(
+        UnitizationReviewError,
+        match=r"broken added-unit (evidence|ledger) link",
+    ):
         verify_finalized_prediction_units(
             [source, moved], [raw, other_raw], [adjudication], [review]
         )
@@ -407,8 +625,35 @@ def test_boundary_rejects_an_added_unit_without_review_links() -> None:
     _, _, _, finalized = _finalized_add_fixture()
     broken = deepcopy(finalized)
     _added_unit(broken)["added_from_review_ids"] = []
+    _sync_added_units_row(broken)
 
     with pytest.raises(UnitizationReviewError, match="lacks review links"):
+        require_finalized_envelopes([broken])
+
+
+def test_verifier_rejects_removed_or_substituted_added_units_row() -> None:
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    removed = deepcopy(finalized)
+    removed["added_units"] = []
+    substituted = deepcopy(finalized)
+    substituted["added_units"][0]["unit_id"] = "other"
+
+    for broken in (removed, substituted):
+        with pytest.raises(
+            UnitizationReviewError,
+            match=r"added unit|added_units provenance|ADD ledger",
+        ):
+            verify_finalized_prediction_units([broken], [raw], [adjudication], [review])
+
+
+def test_added_units_ledger_rejects_unknown_fields() -> None:
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    broken = deepcopy(finalized)
+    broken["added_units"][0]["unexpected"] = True
+
+    with pytest.raises(UnitizationReviewError, match="ledger shape"):
+        verify_finalized_prediction_units([broken], [raw], [adjudication], [review])
+    with pytest.raises(UnitizationReviewError, match="ledger shape"):
         require_finalized_envelopes([broken])
 
 
@@ -431,6 +676,24 @@ def _added_unit(record: dict[str, Any]) -> dict[str, Any]:
         unit for unit in record["prediction_units"] if unit["disposition"] == "ADD"
     ]
     return added
+
+
+def _sync_added_units_row(record: dict[str, Any]) -> None:
+    """Keep the explicit ledger aligned so tests reach deeper verifier checks."""
+
+    added = _added_unit(record)
+    row = record["added_units"][0]
+    row.update(
+        {
+            "unit_id": added["unit_id"],
+            "review_ids": added["added_from_review_ids"],
+            "structural_flag_sha256": added["structural_flag_sha256"],
+            "raw_prediction_units_sha256": added["raw_prediction_units_sha256"],
+            "adjudication_id": added["adjudication_id"],
+            "adjudication_sha256": added["adjudication_sha256"],
+            "disposition": added["disposition"],
+        }
+    )
 
 
 def _candidate(candidate_id: str, units: list[dict[str, Any]]) -> dict[str, Any]:
@@ -486,7 +749,7 @@ def _add_adjudication(
     suffix: str = "",
 ) -> dict[str, Any]:
     return {
-        "schema_version": ADJUDICATION_SCHEMA_VERSION,
+        "schema_version": STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
         "adjudication_id": f"adj-{candidate_id}-add{suffix}",
         "candidate_id": candidate_id,
         "case_id": f"case-{candidate_id}",
@@ -508,7 +771,14 @@ def _unit(unit_id: str, documents: tuple[str, ...] = ("complaint",)) -> dict[str
         "challenge_scope": "entire_claim",
         "unit_confidence": 0.9,
         "source_citations": [
-            {"document_id": document_id, "page": 1} for document_id in documents
+            {
+                "document_id": document_id,
+                "docket_entry_number": None,
+                "page": 1,
+                "paragraph": None,
+                "excerpt": None,
+            }
+            for document_id in documents
         ],
         "grouping": "individual",
         "grouping_rationale": None,

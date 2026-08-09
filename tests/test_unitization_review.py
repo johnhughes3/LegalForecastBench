@@ -236,7 +236,10 @@ def test_finalized_chain_rejects_drop_adjudication_bound_to_retained_unit(
         }
     )
 
-    with pytest.raises(UnitizationReviewError, match="broken adjudication hash link"):
+    with pytest.raises(
+        UnitizationReviewError,
+        match=r"broken adjudication hash link|schema does not match",
+    ):
         verify_finalized_prediction_units([broken], raw, adjudications, queue)
 
 
@@ -311,6 +314,40 @@ def test_finalized_chain_rejects_raw_bypass_and_hash_mutation() -> None:
         verify_finalized_prediction_units([broken], raw, adjudications, queue)
     with pytest.raises(UnitizationReviewError, match="raw or unsupported"):
         verify_finalized_prediction_units(raw, raw, adjudications, queue)
+
+
+@pytest.mark.parametrize("replacement", ["other", "duplicate"])
+def test_verifier_requires_exact_adjudicated_source_hashes(replacement: str) -> None:
+    raw = [_candidate("amend", [_unit("a"), _unit("b")])]
+    adjudications = [_adjudication("amend", "AMEND", ["a"], [_unit("a-amended")])]
+    queue = [_review("amend", "a")]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=queue,
+        adjudication_records=adjudications,
+    )
+    broken = deepcopy(finalized[0])
+    source_hashes = broken["prediction_units"][0]["source_unit_sha256s"]
+    if replacement == "other":
+        source_hashes[:] = [canonical_sha256(_unit("b"))]
+    else:
+        source_hashes.append(source_hashes[0])
+
+    with pytest.raises(UnitizationReviewError, match="exact adjudicated source hashes"):
+        verify_finalized_prediction_units([broken], raw, adjudications, queue)
+
+
+def test_verifier_binds_automatic_unit_content_to_its_raw_hash() -> None:
+    raw = [_candidate("cand", [_unit("a")])]
+    [finalized] = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=[],
+        adjudication_records=[],
+    )
+    finalized["prediction_units"][0]["claim_name"] = "Substituted claim"
+
+    with pytest.raises(UnitizationReviewError, match="automatic finalization link"):
+        verify_finalized_prediction_units([finalized], raw, [], [])
 
 
 def test_apply_unitization_reviews_requires_complete_queue_drain() -> None:
