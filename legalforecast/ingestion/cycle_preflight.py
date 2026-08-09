@@ -64,7 +64,11 @@ _RECOVERY_OUTPUT_COMMITMENTS = frozenset(
     }
 )
 _SHARED_ARTIFACTS = (
-    ("recovery", "purchase-baseline", ("purchase-policy-json",)),
+    (
+        "recovery",
+        "purchase-baseline",
+        ("purchase-policy-json", "purchase-before-json"),
+    ),
     ("recovery", "clearance", ("recovery-card-json", "selection-jsonl")),
     (
         "recovery",
@@ -231,6 +235,43 @@ def _path(root: Path, value: object, *, label: str) -> Path:
     return candidate
 
 
+def _tree_contract_signature(
+    root: Path, node: _Node, contract_name: str
+) -> tuple[Path, tuple[tuple[str, Path, str], ...]]:
+    contracts = _mapping(
+        node.validator.get("tree_commitments"),
+        label=f"manifest node {node.node_id} tree commitments",
+    )
+    contract = _mapping(
+        contracts.get(contract_name),
+        label=f"manifest node {node.node_id} tree contract",
+    )
+    if set(contract) != {"root", "files"}:
+        raise CyclePreflightError(
+            f"cycle preflight tree contract differs: {node.node_id}"
+        )
+    tree_root = _path(
+        root,
+        contract.get("root"),
+        label=f"manifest node {node.node_id} tree root",
+    )
+    files = _mapping(
+        contract.get("files"),
+        label=f"manifest node {node.node_id} tree files",
+    )
+    artifacts = {artifact.name: artifact for artifact in node.artifacts}
+    signature: list[tuple[str, Path, str]] = []
+    for relative, raw_name in files.items():
+        name = _text(raw_name, label=f"manifest node {node.node_id} tree artifact")
+        artifact = artifacts.get(name)
+        if artifact is None:
+            raise CyclePreflightError(
+                f"cycle preflight tree contract differs: {node.node_id}"
+            )
+        signature.append((relative, artifact.path.absolute(), artifact.expected_sha256))
+    return tree_root.absolute(), tuple(sorted(signature))
+
+
 def _card_path(root: Path, value: object, *, label: str) -> Path:
     """Rebase capsule-relative card data without granting file-read authority."""
 
@@ -395,6 +436,14 @@ def _load_manifest(path: Path) -> tuple[Path, tuple[_Node, ...]]:
                 f"cycle preflight manifest stage contract differs: {node.node_id}"
             )
     nodes_by_id = {node.node_id: node for node in nodes}
+    recovery_tree = _tree_contract_signature(
+        root, nodes_by_id["recovery"], "output_commitments/document_tree"
+    )
+    clearance_tree = _tree_contract_signature(
+        root, nodes_by_id["clearance"], "source_commitments/document_root"
+    )
+    if recovery_tree != clearance_tree:
+        raise CyclePreflightError("cycle preflight recovery tree edge differs")
     for predecessor_id, descendant_id, shared_names in _SHARED_ARTIFACTS:
         predecessor = {
             artifact.name: artifact
@@ -647,7 +696,13 @@ def _verify_card_commitments(
                 continue
             if not isinstance(raw_commitment, Mapping):
                 if name in _SCALAR_COMMITMENTS:
-                    _prefixed_sha256(raw_commitment, label=f"card {field}/{name}")
+                    if (
+                        field == "output_commitments"
+                        and card.get("stage") == "recover-recap-fetch-quarantine"
+                    ):
+                        _bare_sha256(raw_commitment, label=f"card {field}/{name}")
+                    else:
+                        _prefixed_sha256(raw_commitment, label=f"card {field}/{name}")
                     continue
                 raise CyclePreflightError(f"card {field}/{name} is malformed")
             commitment = _mapping(
@@ -774,6 +829,16 @@ def _semantic_recovery(
         or "output_commitments/document_tree" not in tree_contracts
     ):
         raise CyclePreflightError("recovery output commitment set differs")
+    baseline = _snapshot(
+        _payload(payloads, config, "purchase_baseline"),
+        label="recovery purchase baseline",
+    )
+    recovery_state = _bare_sha256(
+        output_commitments.get("purchase_state_sha256"),
+        label="recovery purchase state",
+    )
+    if recovery_state != baseline.purchase_state_sha256:
+        raise CyclePreflightError("recovery purchase state differs from baseline")
     _verify_card_commitments(
         card, config=config, root=root, payloads=payloads, node=node
     )

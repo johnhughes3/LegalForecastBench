@@ -78,7 +78,11 @@ def test_collect_all_reports_independent_defects_and_blocks_descendants(
     assert result.nodes[3].blocked_by == ("clearance", "purchase-baseline")
     assert result.nodes[4].blocked_by == ("resolution",)
     failed = [issue.code for issue in result.issues if issue.status == "FAILED"]
-    assert failed == ["ARTIFACT_SHA256_MISMATCH", "ARTIFACT_SHA256_MISMATCH"]
+    assert failed == [
+        "ARTIFACT_SHA256_MISMATCH",
+        "ARTIFACT_SHA256_MISMATCH",
+        "ARTIFACT_SHA256_MISMATCH",
+    ]
 
 
 def test_purchase_snapshot_rejects_prefixed_state_digest(tmp_path: Path) -> None:
@@ -160,6 +164,58 @@ def test_recovery_requires_complete_output_commitment_set(tmp_path: Path) -> Non
     assert result.nodes[0].issues[0].message == (
         "recovery output commitment set differs"
     )
+
+
+def test_recovery_state_uses_bare_digest_and_matches_baseline(tmp_path: Path) -> None:
+    capsule = tmp_path / "capsule"
+    shutil.copytree(_CAPSULE.parent, capsule)
+    card_path = capsule / "recovery-card.json"
+    card = json.loads(card_path.read_text())
+    card["output_commitments"]["purchase_state_sha256"] = "0" * 64
+    card_path.write_text(json.dumps(card, sort_keys=True) + "\n")
+    _recommit_manifest_artifact(capsule, "recovery", "recovery-card-json")
+
+    result = verify_cycle_manifest(capsule / "manifest.json")
+
+    assert result.nodes[0].status == "FAILED"
+    assert result.nodes[0].issues[0].message == (
+        "recovery purchase state differs from baseline"
+    )
+
+    card["output_commitments"]["purchase_state_sha256"] = "sha256:" + "0" * 64
+    card_path.write_text(json.dumps(card, sort_keys=True) + "\n")
+    _recommit_manifest_artifact(capsule, "recovery", "recovery-card-json")
+    prefixed = verify_cycle_manifest(capsule / "manifest.json")
+    assert prefixed.nodes[0].issues[0].message == (
+        "recovery purchase state is not a bare SHA-256 digest"
+    )
+
+
+def test_clearance_tree_must_match_recovery_tree(tmp_path: Path) -> None:
+    capsule = tmp_path / "capsule"
+    shutil.copytree(_CAPSULE.parent, capsule)
+    alternate = capsule / "alternate-documents/case-1/document.pdf"
+    alternate.parent.mkdir(parents=True)
+    alternate.write_bytes((capsule / "documents/case-1/document.pdf").read_bytes())
+    manifest_path = capsule / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    clearance = next(node for node in manifest["nodes"] if node["id"] == "clearance")
+    document = next(
+        artifact
+        for artifact in clearance["artifacts"]
+        if artifact["name"] == "recovered-document"
+    )
+    document["path"] = "alternate-documents/case-1/document.pdf"
+    clearance["validator"]["tree_commitments"]["source_commitments/document_root"][
+        "root"
+    ] = "alternate-documents"
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+
+    with pytest.raises(
+        cycle_preflight.CyclePreflightError,
+        match="cycle preflight recovery tree edge differs",
+    ):
+        verify_cycle_manifest(manifest_path)
 
 
 def test_manifest_order_does_not_override_dependency_order(tmp_path: Path) -> None:
@@ -848,7 +904,7 @@ def test_preflight_accepts_real_producer_absolute_card_paths(tmp_path: Path) -> 
                         assert isinstance(rewritten_value, dict)
                         rewritten_commitment = cast(dict[str, object], rewritten_value)
                         path = rewritten_commitment.get("path")
-                        if isinstance(path, str):
+                        if isinstance(path, str) and "sha256" in rewritten_commitment:
                             rewritten_commitment["sha256"] = (
                                 "sha256:"
                                 + hashlib.sha256(Path(path).read_bytes()).hexdigest()

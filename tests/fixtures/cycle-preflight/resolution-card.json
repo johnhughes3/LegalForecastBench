@@ -33,11 +33,11 @@
     },
     "input_02": {
       "path": "recovery-card.json",
-      "sha256": "sha256:42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
+      "sha256": "sha256:4de02bcb2eca87a86057cddde26f2159fb51de0a68c188e64d1679282f93da2f"
     },
     "input_03": {
       "path": "clearance-card.json",
-      "sha256": "sha256:2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"
+      "sha256": "sha256:a2d95f61ed8a64df4bccb50be8ec6b4ae2b0d20cb47b572045e8d720189363b8"
     }
   },
   "stage": "resolve-post-recovery-documents",

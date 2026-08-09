@@ -24,7 +24,7 @@
       "path": "restriction-evidence.jsonl",
       "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
-    "purchase_state_sha256": "sha256:672670fc390d4ca22ecb253356f6f7adc4508402e2126e9e77f499805ee94caa",
+    "purchase_state_sha256": "685836370b16eb1d67a5c2dba326584b1edc36342f88c3ffedb2fdb582ab3c54",
     "purchased_case_relevance": {
       "path": "purchased-case-relevance.jsonl",
       "sha256": "sha256:643a50b54fca5256d89c0426908548db28c6dd4b8aeed51b5912f4f9307cc770"

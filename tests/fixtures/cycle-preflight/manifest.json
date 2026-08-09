@@ -5,7 +5,7 @@
         {
           "name": "recovery-card-json",
           "path": "recovery-card.json",
-          "sha256": "42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
+          "sha256": "4de02bcb2eca87a86057cddde26f2159fb51de0a68c188e64d1679282f93da2f"
         },
         {
           "name": "selection-jsonl",
@@ -16,6 +16,11 @@
           "name": "purchase-policy-json",
           "path": "purchase-policy.json",
           "sha256": "2dda61cc2945a91544096b2c61c60dd9fb6bca0e7d643898ae23a46f72f6edf0"
+        },
+        {
+          "name": "purchase-before-json",
+          "path": "purchase-before.json",
+          "sha256": "bc5377f5e385c3cb0e865507c3e1d4c81d6b9d637d0521a0e333cc347f10b757"
         },
         {
           "name": "cohort-policy-json",
@@ -85,6 +90,7 @@
           }
         },
         "kind": "recovery_card",
+        "purchase_baseline": "purchase-before-json",
         "tree_commitments": {
           "output_commitments/document_tree": {
             "files": {
@@ -133,7 +139,7 @@
         {
           "name": "recovery-card-json",
           "path": "recovery-card.json",
-          "sha256": "42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
+          "sha256": "4de02bcb2eca87a86057cddde26f2159fb51de0a68c188e64d1679282f93da2f"
         },
         {
           "name": "selection-jsonl",
@@ -143,7 +149,7 @@
         {
           "name": "clearance-card-json",
           "path": "clearance-card.json",
-          "sha256": "2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"
+          "sha256": "a2d95f61ed8a64df4bccb50be8ec6b4ae2b0d20cb47b572045e8d720189363b8"
         },
         {
           "name": "clearance-jsonl",
@@ -154,6 +160,11 @@
           "name": "quarantine-jsonl",
           "path": "quarantine.jsonl",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "recovered-document",
+          "path": "documents/case-1/document.pdf",
+          "sha256": "b2842f13ac6b39dc5a9ea3ae3cde7020d8141bca5a13ea3cde7d9cf0caabd4ba"
         }
       ],
       "depends_on": [
@@ -163,7 +174,15 @@
       "validator": {
         "card": "clearance-card-json",
         "expected_clearance": "clearance.jsonl",
-        "kind": "clearance_card"
+        "kind": "clearance_card",
+        "tree_commitments": {
+          "source_commitments/document_root": {
+            "files": {
+              "case-1/document.pdf": "recovered-document"
+            },
+            "root": "documents"
+          }
+        }
       }
     },
     {
@@ -171,7 +190,7 @@
         {
           "name": "resolution-card-json",
           "path": "resolution-card.json",
-          "sha256": "3bdce67cbae6fd0db2e3c994a9e341cddc42b2efa4f7e09b5dea493f6ebc51b3"
+          "sha256": "3695ba111770da65573c0333142bb8b8631c2461218323430f43d8c35a5403f2"
         },
         {
           "name": "selection-jsonl",
@@ -186,12 +205,12 @@
         {
           "name": "recovery-card-json",
           "path": "recovery-card.json",
-          "sha256": "42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
+          "sha256": "4de02bcb2eca87a86057cddde26f2159fb51de0a68c188e64d1679282f93da2f"
         },
         {
           "name": "clearance-card-json",
           "path": "clearance-card.json",
-          "sha256": "2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"
+          "sha256": "a2d95f61ed8a64df4bccb50be8ec6b4ae2b0d20cb47b572045e8d720189363b8"
         },
         {
           "name": "resolved-jsonl",
@@ -251,7 +270,7 @@
         {
           "name": "recovery-card-json",
           "path": "recovery-card.json",
-          "sha256": "42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
+          "sha256": "4de02bcb2eca87a86057cddde26f2159fb51de0a68c188e64d1679282f93da2f"
         },
         {
           "name": "replacement-source-json",
@@ -261,7 +280,7 @@
         {
           "name": "clearance-card-json",
           "path": "clearance-card.json",
-          "sha256": "2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"
+          "sha256": "a2d95f61ed8a64df4bccb50be8ec6b4ae2b0d20cb47b572045e8d720189363b8"
         },
         {
           "name": "resolved-jsonl",
@@ -271,7 +290,7 @@
         {
           "name": "replacement-source-card-json",
           "path": "replacement-source-card.json",
-          "sha256": "9a78b9c59c56ad6644c1844c37fec4ccca81261ce5f67d9eb8fbc35ba0bff640"
+          "sha256": "235dc361129e8afe80e90e5c53747a8337036c4948793622bdd9c43471888fee"
         },
         {
           "name": "purchase-after-json",
