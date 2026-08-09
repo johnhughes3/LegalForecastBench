@@ -296,6 +296,35 @@ def test_add_rejects_duplicate_unit_ids(added_unit_id: str) -> None:
         )
 
 
+def test_two_adds_produce_two_independent_ledger_rows() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    first = _omission_review(raw, "a")
+    second = _omission_review(raw, "a", flag="flag-2", review_suffix="-second")
+    adjudications = [
+        _add_adjudication(
+            "cand", [first], _unit("a-omitted", ("motion",)), suffix="-first"
+        ),
+        _add_adjudication(
+            "cand", [second], _unit("b-omitted", ("motion",)), suffix="-second"
+        ),
+    ]
+
+    [finalized] = apply_unitization_reviews(
+        prediction_unit_records=[raw],
+        review_records=[first, second],
+        adjudication_records=adjudications,
+    )
+
+    assert [row["unit_id"] for row in finalized["added_units"]] == [
+        "a-omitted",
+        "b-omitted",
+    ]
+    verify_finalized_prediction_units(
+        [finalized], [raw], adjudications, [first, second]
+    )
+    require_finalized_envelopes([finalized])
+
+
 def test_add_may_not_consume_units_or_declare_its_own_provenance() -> None:
     raw = _candidate("cand", [_unit("a")])
     review = _omission_review(raw, "a")
@@ -628,6 +657,17 @@ def test_boundary_rejects_an_added_unit_without_review_links() -> None:
     _sync_added_units_row(broken)
 
     with pytest.raises(UnitizationReviewError, match="lacks review links"):
+        require_finalized_envelopes([broken])
+
+
+def test_boundary_rejects_duplicate_finalized_unit_ids() -> None:
+    _, _, _, finalized = _finalized_add_fixture()
+    broken = deepcopy(finalized)
+    duplicate = deepcopy(_added_unit(broken))
+    duplicate["claim_name"] = "Ambiguous duplicate"
+    broken["prediction_units"].append(duplicate)
+
+    with pytest.raises(UnitizationReviewError, match="duplicate finalized unit_id"):
         require_finalized_envelopes([broken])
 
 

@@ -474,15 +474,21 @@ def verify_finalized_prediction_units(
         status = record.get("status")
         _required_str(record, "unitization_review_queue_sha256")
         units = _record_sequence(record.get("prediction_units"), "prediction_units")
-        finalized_units_by_id = _unique_units(units)
+        finalized_units_by_id = _unique_by_id(units, "unit_id", "finalized unit_id")
         dropped_units = _record_sequence(
             record.get("dropped_units", ()), "dropped_units"
         )
         added_units = _record_sequence(record.get("added_units", ()), "added_units")
         if schema_version == LEGACY_FINALIZED_SCHEMA_VERSION and (
-            "dropped_units" in record or dropped_units or "added_units" in record
+            "dropped_units" in record or dropped_units
         ):
             raise UnitizationReviewError("legacy finalized schema cannot record drops")
+        if schema_version == LEGACY_FINALIZED_SCHEMA_VERSION and (
+            "added_units" in record or added_units
+        ):
+            raise UnitizationReviewError(
+                "legacy finalized schema cannot record additions"
+            )
         if schema_version == FINALIZED_SCHEMA_VERSION and (
             "added_units" in record or added_units
         ):
@@ -869,13 +875,22 @@ def require_finalized_envelopes(
         schema_version = record.get("schema_version")
         if schema_version not in STAGE_A_FINALIZED_SCHEMA_VERSIONS:
             raise UnitizationReviewError("raw or unsupported prediction-units artifact")
-        if schema_version == LEGACY_FINALIZED_SCHEMA_VERSION and (
-            "dropped_units" in record or "added_units" in record
+        if (
+            schema_version == LEGACY_FINALIZED_SCHEMA_VERSION
+            and "dropped_units" in record
         ):
             raise UnitizationReviewError("legacy finalized schema cannot record drops")
+        if (
+            schema_version == LEGACY_FINALIZED_SCHEMA_VERSION
+            and "added_units" in record
+        ):
+            raise UnitizationReviewError(
+                "legacy finalized schema cannot record additions"
+            )
         _required_str(record, "unitization_review_queue_sha256")
         status = record.get("status")
         units = _record_sequence(record.get("prediction_units"), "prediction_units")
+        finalized_units_by_id = _unique_by_id(units, "unit_id", "finalized unit_id")
         dropped_units = _record_sequence(
             record.get("dropped_units", ()), "dropped_units"
         )
@@ -885,7 +900,7 @@ def require_finalized_envelopes(
                 raise UnitizationReviewError(
                     "v2 finalized schema requires dropped_units"
                 )
-            finalized_ids = {_required_str(unit, "unit_id") for unit in units}
+            finalized_ids = set(finalized_units_by_id)
             dropped_ids = set(_unique_by_id(dropped_units, "unit_id", "dropped unit"))
             if finalized_ids.intersection(dropped_ids):
                 raise UnitizationReviewError("dropped unit remains in finalized units")
@@ -927,7 +942,7 @@ def require_finalized_envelopes(
             added_by_unit_id = _unique_by_id(added_units, "unit_id", "added unit")
             finalized_added_units = {
                 _required_str(unit, "unit_id"): unit
-                for unit in units
+                for unit in finalized_units_by_id.values()
                 if unit.get("disposition") == UnitizationDisposition.ADD.value
             }
             if set(added_by_unit_id) != set(finalized_added_units):
