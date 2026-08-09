@@ -92,6 +92,7 @@ def test_one_adjudication_consumes_multiple_reviews_for_same_source_unit() -> No
     )
 
     assert [unit["unit_id"] for unit in result["prediction_units"]] == ["amended"]
+    assert result["schema_version"] == LEGACY_FINALIZED_SCHEMA_VERSION
 
 
 def test_drop_cannot_remove_every_unit_from_retained_candidate() -> None:
@@ -438,7 +439,7 @@ def test_apply_unitization_review_cli_writes_finalized_artifact(
         .read_text(encoding="utf-8")
         .strip()
     )
-    assert record["schema_version"] == FINALIZED_SCHEMA_VERSION
+    assert record["schema_version"] == LEGACY_FINALIZED_SCHEMA_VERSION
     assert record["prediction_units"][0]["adjudication_id"] == "adj-cand"
 
     finalized_path = output_root / "finalized-prediction-units.jsonl"

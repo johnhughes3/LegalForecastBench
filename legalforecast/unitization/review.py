@@ -71,6 +71,11 @@ def apply_unitization_reviews(
     adjudications_by_id = _unique_by_id(
         adjudications, "adjudication_id", "adjudication"
     )
+    uses_drop_migration = any(
+        _required_str(adjudication, "disposition").upper()
+        == UnitizationDisposition.DROP.value
+        for adjudication in adjudications
+    )
     expected_review_ids = set(reviews_by_id)
     review_queue_sha256 = canonical_records_sha256(reviews)
     resolved_review_ids: set[str] = set()
@@ -232,19 +237,23 @@ def apply_unitization_reviews(
             {**_base_unit(unit), **provenance[unit_id]}
             for unit_id, unit in sorted(current.items())
         ]
-        output.append(
-            {
-                "schema_version": FINALIZED_SCHEMA_VERSION,
-                "status": "candidate_excluded" if excluded else "finalized",
-                "candidate_id": candidate_id,
-                "case_id": case_id,
-                "raw_prediction_units_sha256": canonical_sha256(raw_record),
-                "unitization_review_queue_sha256": review_queue_sha256,
-                "prediction_units": finalized,
-                "dropped_units": dropped_units,
-                "exclusion": exclusion,
-            }
-        )
+        finalized_record: JsonRecord = {
+            "schema_version": (
+                FINALIZED_SCHEMA_VERSION
+                if uses_drop_migration
+                else LEGACY_FINALIZED_SCHEMA_VERSION
+            ),
+            "status": "candidate_excluded" if excluded else "finalized",
+            "candidate_id": candidate_id,
+            "case_id": case_id,
+            "raw_prediction_units_sha256": canonical_sha256(raw_record),
+            "unitization_review_queue_sha256": review_queue_sha256,
+            "prediction_units": finalized,
+            "exclusion": exclusion,
+        }
+        if uses_drop_migration:
+            finalized_record["dropped_units"] = dropped_units
+        output.append(finalized_record)
 
     missing_candidates = {
         _required_str(review, "candidate_id") for review in reviews_by_id.values()
