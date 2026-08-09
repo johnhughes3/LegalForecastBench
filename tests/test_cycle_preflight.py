@@ -525,6 +525,49 @@ def test_resolution_selection_must_match_recovery_selection(tmp_path: Path) -> N
         verify_cycle_manifest(manifest_path)
 
 
+def test_resolution_expected_input_cannot_substitute_second_selection(
+    tmp_path: Path,
+) -> None:
+    capsule = tmp_path / "capsule"
+    shutil.copytree(_CAPSULE.parent, capsule)
+    alternate_path = capsule / "alternate-selection.jsonl"
+    alternate_path.write_bytes((capsule / "selection.jsonl").read_bytes())
+    digest = hashlib.sha256(alternate_path.read_bytes()).hexdigest()
+    manifest_path = capsule / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    resolution = next(node for node in manifest["nodes"] if node["id"] == "resolution")
+    resolution["artifacts"].append(
+        {
+            "name": "alternate-selection-jsonl",
+            "path": "alternate-selection.jsonl",
+            "sha256": digest,
+        }
+    )
+    resolution["validator"]["expected_inputs"][0] = "alternate-selection.jsonl"
+    card_path = capsule / "resolution-card.json"
+    card = json.loads(card_path.read_text())
+    card["input_paths"][0] = "alternate-selection.jsonl"
+    card["source_commitments"]["input_00"] = {
+        "path": "alternate-selection.jsonl",
+        "sha256": "sha256:" + digest,
+    }
+    card_path.write_text(json.dumps(card, sort_keys=True) + "\n")
+    card_artifact = next(
+        artifact
+        for artifact in resolution["artifacts"]
+        if artifact["name"] == "resolution-card-json"
+    )
+    card_artifact["sha256"] = hashlib.sha256(card_path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+
+    result = verify_cycle_manifest(manifest_path)
+
+    assert result.nodes[3].status == "FAILED"
+    assert result.nodes[3].issues[0].message == (
+        "resolution input artifact path differs: selection-jsonl"
+    )
+
+
 @pytest.mark.parametrize("node_id", ["purchase-baseline", "resolution"])
 def test_purchase_policy_is_bound_across_recovery_and_resolution(
     tmp_path: Path, node_id: str

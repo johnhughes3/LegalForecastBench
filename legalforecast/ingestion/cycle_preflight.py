@@ -46,6 +46,12 @@ _REQUIRED_NODES: Mapping[str, tuple[str, frozenset[str]]] = {
 }
 _PATH_COMMITMENT_METADATA = frozenset({"record_count"})
 _SCALAR_COMMITMENTS = frozenset({"purchase_state_sha256"})
+_RESOLUTION_INPUT_ARTIFACTS = (
+    "selection-jsonl",
+    "clearance-jsonl",
+    "recovery-card-json",
+    "clearance-card-json",
+)
 _SHARED_ARTIFACTS = (
     ("recovery", "purchase-baseline", ("purchase-policy-json",)),
     ("recovery", "clearance", ("recovery-card-json", "selection-jsonl")),
@@ -842,10 +848,25 @@ def _semantic_resolution(
     after = _snapshot(
         _payload(payloads, config, "after"), label="purchase current state"
     )
-    inputs = tuple(
-        _path(root, item, label="resolution input")
-        for item in _sequence(config.get("expected_inputs"), label="resolution inputs")
-    )
+    raw_inputs = _sequence(config.get("expected_inputs"), label="resolution inputs")
+    if len(raw_inputs) != len(_RESOLUTION_INPUT_ARTIFACTS):
+        raise CyclePreflightError("resolution input artifact set differs")
+    artifacts = {artifact.name: artifact for artifact in node.artifacts}
+    inputs: list[Path] = []
+    for raw_input, artifact_name in zip(
+        raw_inputs, _RESOLUTION_INPUT_ARTIFACTS, strict=True
+    ):
+        configured = _path(root, raw_input, label="resolution input")
+        artifact = artifacts.get(artifact_name)
+        if (
+            artifact is None
+            or artifact_name not in payloads
+            or configured.absolute() != artifact.path.absolute()
+        ):
+            raise CyclePreflightError(
+                f"resolution input artifact path differs: {artifact_name}"
+            )
+        inputs.append(configured)
     terminal_path = _path(root, config.get("terminal_path"), label="terminal path")
     terminal_name = _artifact_name(config, "terminal")
     terminal_artifact = next(
@@ -873,7 +894,7 @@ def _semantic_resolution(
         dispositions = None
     coordinates = derive_resolved_source_coordinates(
         cast(Mapping[str, object], _rebased_card(card, root=root)),
-        expected_input_paths=inputs,
+        expected_input_paths=tuple(inputs),
         expected_ledger_path=_path(root, config.get("ledger"), label="ledger"),
         expected_purchase_state_sha256=_SHA256 + after.purchase_state_sha256,
         expected_terminal_unavailable_path=terminal_path,
