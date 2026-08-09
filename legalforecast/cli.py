@@ -58509,10 +58509,15 @@ def _verify_stage_a_review_run_card(
     ):
         raise CommandError("structural review provider attempt namespace is invalid")
     provider_attempt_namespace = provider_attempt_namespace_value
-    try:
-        stage_a_provider_attempt_stage("llm-review-stage-a", provider_attempt_namespace)
-    except LlmPipelineError as exc:
-        raise CommandError(str(exc)) from exc
+    unitization_namespace = (
+        _stage_a_provider_attempt_namespace_from_unitization_card_record(
+            unit_card_record
+        )
+    )
+    _require_stage_a_structural_review_namespace_pair(
+        unitization_namespace=unitization_namespace,
+        review_namespace=provider_attempt_namespace,
+    )
     expected_execution = {
         "model_key": entry.registry_key,
         "model_entry_sha256": "sha256:" + model_registry_entry_sha256(entry),
@@ -59420,8 +59425,15 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
         expected_parser_manifest_path=parser_path,
         expected_markdown_root=markdown_root,
     )
+    unitization_namespace = _stage_a_provider_attempt_namespace_from_unitization_card(
+        unitization_card_path
+    )
     provider_attempt_namespace = _stage_a_structural_review_provider_attempt_namespace(
         args, unitization_card_path
+    )
+    _require_stage_a_structural_review_namespace_pair(
+        unitization_namespace=unitization_namespace,
+        review_namespace=provider_attempt_namespace,
     )
     registry_path = cast(Path, args.model_registry)
     registry_entry, registry_sha256 = _registry_entry_for_key(
@@ -59661,8 +59673,15 @@ def _cmd_acquisition_terminalize_llm_review_stage_a(args: argparse.Namespace) ->
         expected_parser_manifest_path=parser_path,
         expected_markdown_root=markdown_root,
     )
+    unitization_namespace = _stage_a_provider_attempt_namespace_from_unitization_card(
+        unitization_card_path
+    )
     provider_attempt_namespace = _stage_a_structural_review_provider_attempt_namespace(
         args, unitization_card_path
+    )
+    _require_stage_a_structural_review_namespace_pair(
+        unitization_namespace=unitization_namespace,
+        review_namespace=provider_attempt_namespace,
     )
     registry_path = cast(Path, args.model_registry)
     registry_entry, registry_sha256 = _registry_entry_for_key(
@@ -60416,7 +60435,17 @@ def _stage_a_provider_attempt_namespace_from_unitization_card(
     """Read the prompt contract only from an authenticated unitization card."""
 
     run_card = _read_json_object(run_card_path)
+    return _stage_a_provider_attempt_namespace_from_unitization_card_record(run_card)
+
+
+def _stage_a_provider_attempt_namespace_from_unitization_card_record(
+    run_card: Mapping[str, object],
+) -> str | None:
+    """Read a unitization contract, treating an absent historical field as legacy."""
+
     execution = run_card.get("model_execution")
+    if execution is None:
+        return None
     if not isinstance(execution, Mapping):
         raise CommandError("llm-unitize run card lacks model execution")
     value = cast(Mapping[str, object], execution).get("provider_attempt_namespace")
@@ -60452,6 +60481,29 @@ def _stage_a_structural_review_provider_attempt_namespace(
     except LlmPipelineError as exc:
         raise CommandError(str(exc)) from exc
     return namespace
+
+
+def _require_stage_a_structural_review_namespace_pair(
+    *,
+    unitization_namespace: str | None,
+    review_namespace: str | None,
+) -> None:
+    """Fail closed unless a reviewed unitization/reviewer contract pair is used."""
+
+    try:
+        stage_a_provider_attempt_stage("llm-unitize", unitization_namespace)
+        stage_a_provider_attempt_stage("llm-review-stage-a", review_namespace)
+    except LlmPipelineError as exc:
+        raise CommandError(str(exc)) from exc
+    if (unitization_namespace, review_namespace) not in {
+        (None, None),
+        ("claim-ontology-v2", "claim-ontology-v2"),
+        ("claim-ontology-v2", "claim-ontology-v3"),
+    }:
+        raise CommandError(
+            "unitization/reviewer namespace pair is not an approved Stage A "
+            "structural-review pair"
+        )
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
@@ -60528,6 +60580,15 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     else:
         assert verified_provider_chain is not None
         lineage, authenticated_unitization_card = verified_provider_chain
+        unitization_namespace = (
+            _stage_a_provider_attempt_namespace_from_unitization_card(
+                authenticated_unitization_card
+            )
+        )
+        _require_stage_a_structural_review_namespace_pair(
+            unitization_namespace=unitization_namespace,
+            review_namespace=provider_attempt_namespace,
+        )
         assert verified_reviewer_registry is not None
         entry, registry_sha = verified_reviewer_registry
         terminal_escalations = _verified_stage_a_terminal_escalations(
