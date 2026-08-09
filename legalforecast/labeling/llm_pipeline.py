@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -102,6 +103,7 @@ from legalforecast.unitization.construct_units import (
     StageAConstructionInput,
     StageAConstructionResult,
     StageADocumentRole,
+    StageASeedCitation,
     StageASourceDocument,
     StageAUnitSeed,
     UnitizationReviewReason,
@@ -123,9 +125,11 @@ JsonRecord = dict[str, Any]
 DEFAULT_LABEL_AUDIT_SAMPLE_SIZE = 30
 STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT = "claim-ontology-v2"
 STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT = "claim-ontology-v3"
+STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT = "claim-ontology-v4"
 STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = (
     STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
     STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
+    STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
 )
 _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
 
@@ -362,6 +366,65 @@ class _LlmDocument:
         }
 
 
+def _numbered_document_prompt_record(document: _LlmDocument) -> JsonRecord:
+    """Render one document with stable one-based line selectors."""
+
+    record = document.prompt_record()
+    record.pop("markdown")
+    record["numbered_markdown"] = "\n".join(
+        f"L{line_number:06d}\t{line}"
+        for line_number, line in enumerate(document.markdown.splitlines(), start=1)
+    )
+    return record
+
+
+def _document_line_span(
+    document: _LlmDocument,
+    *,
+    start_line: int,
+    end_line: int,
+) -> tuple[str, int | None]:
+    """Return an exact, bounded source span and its nearest page marker."""
+
+    lines = document.markdown.splitlines(keepends=True)
+    if start_line <= 0 or end_line < start_line or end_line > len(lines):
+        raise LlmPipelineError("citation line range is outside the source document")
+    if end_line - start_line + 1 > 12:
+        raise LlmPipelineError("citation line range may not exceed 12 lines")
+    selected_lines = lines[start_line - 1 : end_line]
+    final_line = selected_lines[-1]
+    for line_ending in (
+        "\r\n",
+        "\n",
+        "\r",
+        "\v",
+        "\f",
+        "\x1c",
+        "\x1d",
+        "\x1e",
+        "\x85",
+        "\u2028",
+        "\u2029",
+    ):
+        if final_line.endswith(line_ending):
+            final_line = final_line[: -len(line_ending)]
+            break
+    excerpt = "".join((*selected_lines[:-1], final_line))
+    if not excerpt.strip():
+        raise LlmPipelineError("citation line range is empty")
+    page: int | None = None
+    for line in reversed(lines[:start_line]):
+        match = re.fullmatch(
+            r"\s*(?:#{1,6}\s+)?Page\s+(\d+)(?:\s+of\s+\d+)?\s*",
+            line,
+            re.I,
+        )
+        if match is not None:
+            page = int(match.group(1))
+            break
+    return excerpt, page
+
+
 def llm_unitize_cases(
     *,
     selection_records: Iterable[Mapping[str, Any]],
@@ -401,8 +464,13 @@ def llm_unitize_cases(
                 parser_by_key=parser_by_key,
                 markdown_root=Path(markdown_root),
                 markdown_bytes=markdown_bytes,
+                provider_attempt_namespace=provider_attempt_namespace,
             )
-            prompt = _unitization_prompt(selection, documents)
+            prompt = _unitization_prompt(
+                selection,
+                documents,
+                provider_attempt_namespace=provider_attempt_namespace,
+            )
             prompt_sha256 = (
                 "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
             )
@@ -453,30 +521,13 @@ def llm_unitize_cases(
                 response.raw_output,
                 top_level_sequence_field="unit_seeds",
             )
-            result = construct_stage_a_units(
-                StageAConstructionInput(
-                    candidate_id=candidate_id,
-                    case_id=_required_str(selection, "case_id"),
-                    source_documents=tuple(
-                        document.stage_a_source() for document in documents
-                    ),
-                    unit_seeds=tuple(
-                        _stage_a_seed(record)
-                        for record in _record_sequence(
-                            payload.get("unit_seeds"), "unit_seeds"
-                        )
-                    ),
-                    metadata={"llm_unitizer_model_key": registry_entry.registry_key},
-                )
+            result = _construct_stage_a_unitization_payload(
+                selection=selection,
+                documents=documents,
+                payload=payload,
+                model_key=registry_entry.registry_key,
+                provider_attempt_namespace=provider_attempt_namespace,
             )
-            if not any(unit.should_score for unit in result.units) and (
-                not result.review_items
-                or any(
-                    unit.challenge_scope is not ChallengeScope.UNCLEAR
-                    for unit in result.units
-                )
-            ):
-                raise LlmPipelineError("LLM unitization produced no scorable units")
             if journal is not None and journal.has_validated_response:
                 journal.commit_reconstruction(
                     {
@@ -550,6 +601,8 @@ def stage_a_unitization_prompt_records(
     parser_records: Iterable[Mapping[str, Any]],
     markdown_root: str | Path,
     markdown_bytes: Mapping[str, bytes] | None = None,
+    provider_attempt_namespace: str | None = None,
+    enforce_target_document_eligibility: bool = True,
 ) -> tuple[JsonRecord, ...]:
     """Reconstruct exact Stage A prompts from authenticated parser inputs."""
 
@@ -564,7 +617,12 @@ def stage_a_unitization_prompt_records(
                 parser_by_key=parser_by_key,
                 markdown_root=Path(markdown_root),
                 markdown_bytes=markdown_bytes,
+                provider_attempt_namespace=provider_attempt_namespace,
+                enforce_target_document_eligibility=(
+                    enforce_target_document_eligibility
+                ),
             ),
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         prompts.append(
             {
@@ -576,6 +634,73 @@ def stage_a_unitization_prompt_records(
             }
         )
     return tuple(prompts)
+
+
+def reconstruct_stage_a_unitization_response(
+    *,
+    selection_record: Mapping[str, Any],
+    parser_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+    markdown_bytes: Mapping[str, bytes] | None,
+    raw_output: str,
+    model_key: str,
+    provider_attempt_namespace: str | None = None,
+) -> StageAConstructionResult:
+    """Replay one unitizer response from authenticated predecision Markdown."""
+
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    documents = _predecision_documents(
+        selection_record,
+        parser_by_key=parser_by_key,
+        markdown_root=Path(markdown_root),
+        markdown_bytes=markdown_bytes,
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
+    payload = _json_object_from_response(
+        raw_output,
+        top_level_sequence_field="unit_seeds",
+    )
+    return _construct_stage_a_unitization_payload(
+        selection=selection_record,
+        documents=documents,
+        payload=payload,
+        model_key=model_key,
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
+
+
+def _construct_stage_a_unitization_payload(
+    *,
+    selection: Mapping[str, Any],
+    documents: Sequence[_LlmDocument],
+    payload: Mapping[str, Any],
+    model_key: str,
+    provider_attempt_namespace: str | None,
+) -> StageAConstructionResult:
+    result = construct_stage_a_units(
+        StageAConstructionInput(
+            candidate_id=_required_str(selection, "candidate_id"),
+            case_id=_required_str(selection, "case_id"),
+            source_documents=tuple(document.stage_a_source() for document in documents),
+            unit_seeds=tuple(
+                _stage_a_seed(
+                    record,
+                    documents=documents,
+                    provider_attempt_namespace=provider_attempt_namespace,
+                )
+                for record in _record_sequence(payload.get("unit_seeds"), "unit_seeds")
+            ),
+            metadata={"llm_unitizer_model_key": model_key},
+        )
+    )
+    if not any(unit.should_score for unit in result.units) and (
+        not result.review_items
+        or any(
+            unit.challenge_scope is not ChallengeScope.UNCLEAR for unit in result.units
+        )
+    ):
+        raise LlmPipelineError("LLM unitization produced no scorable units")
+    return result
 
 
 def recover_llm_unitization_reconstruction(
@@ -603,8 +728,13 @@ def recover_llm_unitization_reconstruction(
         parser_by_key=parser_by_key,
         markdown_root=Path(markdown_root),
         markdown_bytes=markdown_bytes,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
-    prompt = _unitization_prompt(selection_record, documents)
+    prompt = _unitization_prompt(
+        selection_record,
+        documents,
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
     journal = _provider_attempt_journal(
         path=provider_journal_path,
         stage="llm-unitize",
@@ -641,30 +771,13 @@ def recover_llm_unitization_reconstruction(
             raw_output,
             top_level_sequence_field="unit_seeds",
         )
-        result = construct_stage_a_units(
-            StageAConstructionInput(
-                candidate_id=candidate_id,
-                case_id=case_id,
-                source_documents=tuple(
-                    document.stage_a_source() for document in documents
-                ),
-                unit_seeds=tuple(
-                    _stage_a_seed(record)
-                    for record in _record_sequence(
-                        payload.get("unit_seeds"), "unit_seeds"
-                    )
-                ),
-                metadata={"llm_unitizer_model_key": registry_entry.registry_key},
-            )
+        result = _construct_stage_a_unitization_payload(
+            selection=selection_record,
+            documents=documents,
+            payload=payload,
+            model_key=registry_entry.registry_key,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
-        if not any(unit.should_score for unit in result.units) and (
-            not result.review_items
-            or any(
-                unit.challenge_scope is not ChallengeScope.UNCLEAR
-                for unit in result.units
-            )
-        ):
-            raise LlmPipelineError("LLM unitization produced no scorable units")
         prediction_units = tuple(unit.to_record() for unit in result.units)
         review_items = tuple(item.to_record() for item in result.review_items)
         journal.commit_reconstruction_recovery(
@@ -717,6 +830,7 @@ def recover_llm_stage_a_structural_review_reconstruction(
         parser_by_key=parser_by_key,
         markdown_root=Path(markdown_root),
         markdown_bytes=markdown_bytes,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     units = _prediction_units_by_candidate(prediction_unit_records).get(
         candidate_id, ()
@@ -830,6 +944,7 @@ def build_llm_stage_a_structural_review_terminal_escalation(
         parser_by_key=parser_by_key,
         markdown_root=Path(markdown_root),
         markdown_bytes=markdown_bytes,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     raw_records = tuple(prediction_unit_records)
     raw_by_candidate = {
@@ -1075,6 +1190,7 @@ def llm_review_stage_a_units(
             selection,
             parser_by_key=parser_by_key,
             markdown_root=Path(markdown_root),
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         units = units_by_candidate.get(candidate_id, ())
         if not units:
@@ -1157,10 +1273,17 @@ def llm_review_stage_a_units(
             )
             max_attempts = _reconstruction_retry_max_attempts(journal)
             response_json_schema = (
-                _stage_a_structural_review_response_json_schema(documents, units)
+                _stage_a_structural_review_response_json_schema(
+                    documents,
+                    units,
+                    provider_attempt_namespace=provider_attempt_namespace,
+                )
                 if (
                     provider_attempt_namespace
-                    == STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT
+                    in {
+                        STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
+                        STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+                    }
                     and registry_entry.provider.strip().lower() in {"google", "gemini"}
                 )
                 else None
@@ -1260,6 +1383,7 @@ def stage_a_structural_review_prompt_records(
             selection,
             parser_by_key=parser_by_key,
             markdown_root=Path(markdown_root),
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         prompt = _stage_a_structural_review_prompt(
             selection,
@@ -1425,6 +1549,7 @@ def _stage_a_structural_review_prompt(
     *,
     provider_attempt_namespace: str | None = None,
 ) -> str:
+    v4 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
     rules = [
         "Use only supplied predecision documents; never infer from a disposition.",
         (
@@ -1465,30 +1590,88 @@ def _stage_a_structural_review_prompt(
             "lawyer can adjudicate it."
         ),
     ]
+    if v4:
+        rules[1] = (
+            "The frozen units are immutable. Do not return replacements or edits."
+        )
+        rules[2] = (
+            "Return a flag only for an omitted, improperly combined, improperly "
+            "split, or spurious unit. A spurious unit is a pure remedy, defense, "
+            "procedural request, element, factual theory, or nonmovant assignment; "
+            "it is not an expressly pleaded and challenged purported claim."
+        )
+        rules[3] = (
+            "As non-authoritative reasoning, first reconstruct an internal complaint "
+            "claim-defendant ledger and motion-scope matrix: identify each purported "
+            "claim as pleaded, the actual moving defendant and capacity, and whether "
+            "the target motion challenges all or only a portion of that target."
+        )
+        rules[5] = (
+            "Apply the independent-disposition test as pleaded: split only when the "
+            "first written disposition could enter a distinct outcome on one "
+            "purported claim or pleaded subclaim while another remains pending "
+            "against the same defendant. Do not decide whether a purported claim is "
+            "legally cognizable; no-cause-of-action is a dismissal ground."
+        )
+        rules[6] = (
+            "Flag units that name a ground, element, remedy, factual theory, or "
+            "nonmoving defendant as though it were a scored claim as spurious. Do "
+            "not flag an expressly pleaded and challenged purported claim merely "
+            "because it is derivative, invalid, abandoned in an "
+            "opposition, or likely to be dismissed."
+        )
+        rules.append(
+            "For patent claims, induced infringement and contributory infringement "
+            "may be independently disposable liability subclaims and should not be "
+            "blanket-merged. Willfulness is ordinarily an enhancement or culpability "
+            "issue, not a separate liability claim."
+        )
     if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT:
         rules.append(
             "citation_excerpt must be one contiguous literal span copied from one "
             "cited supplied predecision document. Never use an ellipsis. Never join "
             "fragments. Never paraphrase or normalize case or punctuation."
         )
+    elif v4:
+        rules.append(
+            "Every flag must select exactly one supplied source_document_id and an "
+            "exact inclusive start_line/end_line range from that document's "
+            "numbered_markdown. Select at most 12 contiguous lines. Do not author, "
+            "copy, paraphrase, or stitch citation text; local code reconstructs it."
+        )
     rules.append("Return only JSON with a structural_flags array.")
+    flag_schema: JsonRecord = {
+        "flag_type": ["omitted", "combined", "mis_split", "spurious"],
+        "affected_unit_ids": ["existing unit_id"],
+        "explanation": "specific structural defect; no proposed rewrite",
+    }
+    if v4:
+        flag_schema.update(
+            {
+                "source_document_id": "predecision document id",
+                "start_line": "positive one-based inclusive line number",
+                "end_line": "positive one-based inclusive line number",
+            }
+        )
+    else:
+        flag_schema.update(
+            {
+                "source_document_ids": ["predecision document id"],
+                "citation_excerpt": "short verbatim predecision excerpt",
+            }
+        )
     payload = {
         "task": "Review frozen Stage A units for structural completeness only.",
         "rules": rules,
-        "output_schema": {
-            "structural_flags": [
-                {
-                    "flag_type": ["omitted", "combined", "mis_split", "spurious"],
-                    "affected_unit_ids": ["existing unit_id"],
-                    "source_document_ids": ["predecision document id"],
-                    "explanation": "specific structural defect; no proposed rewrite",
-                    "citation_excerpt": "short verbatim predecision excerpt",
-                }
-            ]
-        },
+        "output_schema": {"structural_flags": [flag_schema]},
         "case": _case_prompt_record(selection),
         "frozen_units": [unit.to_record() for unit in units],
-        "documents": [document.prompt_record() for document in documents],
+        "documents": [
+            _numbered_document_prompt_record(document)
+            if v4
+            else document.prompt_record()
+            for document in documents
+        ],
     }
     return json.dumps(payload, sort_keys=True, indent=2)
 
@@ -1496,8 +1679,55 @@ def _stage_a_structural_review_prompt(
 def _stage_a_structural_review_response_json_schema(
     documents: Sequence[_LlmDocument],
     units: Sequence[PredictionUnit],
+    *,
+    provider_attempt_namespace: str | None = None,
 ) -> JsonRecord:
     """Build Gemini's constrained structural-response schema from frozen inputs."""
+
+    v4 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+    citation_properties: JsonRecord
+    citation_required: list[str]
+    if v4:
+        citation_properties = {
+            "source_document_id": {
+                "type": "string",
+                "enum": [document.source_document_id for document in documents],
+            },
+            "start_line": {"type": "integer", "minimum": 1},
+            "end_line": {"type": "integer", "minimum": 1},
+        }
+        citation_required = ["source_document_id", "start_line", "end_line"]
+    else:
+        citation_properties = {
+            "source_document_ids": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                    "type": "string",
+                    "enum": [document.source_document_id for document in documents],
+                },
+            },
+            "citation_excerpt": {"type": "string"},
+        }
+        citation_required = ["source_document_ids", "citation_excerpt"]
+
+    required_fields = (
+        [
+            "flag_type",
+            "affected_unit_ids",
+            "explanation",
+            *citation_required,
+        ]
+        if v4
+        else [
+            "flag_type",
+            "affected_unit_ids",
+            "source_document_ids",
+            "explanation",
+            "citation_excerpt",
+        ]
+    )
 
     return {
         "type": "object",
@@ -1513,33 +1743,17 @@ def _stage_a_structural_review_response_json_schema(
                         },
                         "affected_unit_ids": {
                             "type": "array",
+                            "minItems": 1,
+                            "uniqueItems": True,
                             "items": {
                                 "type": "string",
                                 "enum": [unit.unit_id for unit in units],
                             },
                         },
-                        "source_document_ids": {
-                            "type": "array",
-                            "minItems": 1,
-                            "maxItems": 1,
-                            "items": {
-                                "type": "string",
-                                "enum": [
-                                    document.source_document_id
-                                    for document in documents
-                                ],
-                            },
-                        },
                         "explanation": {"type": "string"},
-                        "citation_excerpt": {"type": "string"},
+                        **citation_properties,
                     },
-                    "required": [
-                        "flag_type",
-                        "affected_unit_ids",
-                        "source_document_ids",
-                        "explanation",
-                        "citation_excerpt",
-                    ],
+                    "required": required_fields,
                     "additionalProperties": False,
                 },
             }
@@ -1573,46 +1787,85 @@ def validate_structural_review_flags(
                 f"unsupported structural flag_type: {flag_type}", response=response
             )
         affected = _str_tuple(raw.get("affected_unit_ids"), "affected_unit_ids")
-        if not affected or not set(affected) <= allowed_unit_ids:
-            raise LlmResponseValidationError(
-                "affected_unit_ids must reference existing frozen units",
-                response=response,
-            )
-        source_ids = _str_tuple(raw.get("source_document_ids"), "source_document_ids")
-        if not source_ids:
-            raise LlmResponseValidationError(
-                "structural flag requires source_document_ids", response=response
-            )
-        if not set(source_ids) <= documents_by_id.keys():
-            raise LlmResponseValidationError(
-                "structural flag source_document_ids must reference supplied "
-                "predecision documents",
-                response=response,
-            )
         if (
-            provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT
-            and len(source_ids) != 1
+            not affected
+            or len(affected) != len(set(affected))
+            or not set(affected) <= allowed_unit_ids
         ):
             raise LlmResponseValidationError(
-                "v3 structural flag requires exactly one source_document_id",
+                "affected_unit_ids must uniquely reference existing frozen units",
                 response=response,
             )
-        cited_excerpt = _required_str(raw, "citation_excerpt")
-        verbatim_excerpt: str | None = None
-        for source_id in source_ids:
-            try:
-                verbatim_excerpt = _coerced_structural_citation_excerpt(
-                    documents_by_id[source_id].markdown, cited_excerpt
+        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+            allowed_fields = {
+                "flag_type",
+                "affected_unit_ids",
+                "explanation",
+                "source_document_id",
+                "start_line",
+                "end_line",
+            }
+            if set(raw) != allowed_fields:
+                raise LlmResponseValidationError(
+                    "v4 structural flag contains unsupported fields",
+                    response=response,
                 )
-            except LlmPipelineError:
-                continue
-            break
-        if verbatim_excerpt is None:
-            raise LlmResponseValidationError(
-                "structural flag citation_excerpt does not appear in any cited "
-                "predecision document",
-                response=response,
+            source_id = _required_str(raw, "source_document_id")
+            try:
+                source_document = documents_by_id[source_id]
+            except KeyError as exc:
+                raise LlmResponseValidationError(
+                    "structural flag source_document_id must reference a supplied "
+                    "predecision document",
+                    response=response,
+                ) from exc
+            try:
+                verbatim_excerpt, _ = _document_line_span(
+                    source_document,
+                    start_line=_required_int(raw, "start_line"),
+                    end_line=_required_int(raw, "end_line"),
+                )
+            except LlmPipelineError as exc:
+                raise LlmResponseValidationError(str(exc), response=response) from exc
+            source_ids = (source_id,)
+        else:
+            source_ids = _str_tuple(
+                raw.get("source_document_ids"), "source_document_ids"
             )
+            if not source_ids:
+                raise LlmResponseValidationError(
+                    "structural flag requires source_document_ids", response=response
+                )
+            if not set(source_ids) <= documents_by_id.keys():
+                raise LlmResponseValidationError(
+                    "structural flag source_document_ids must reference supplied "
+                    "predecision documents",
+                    response=response,
+                )
+            if (
+                provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT
+                and len(source_ids) != 1
+            ):
+                raise LlmResponseValidationError(
+                    "v3 structural flag requires exactly one source_document_id",
+                    response=response,
+                )
+            cited_excerpt = _required_str(raw, "citation_excerpt")
+            verbatim_excerpt: str | None = None
+            for source_id in source_ids:
+                try:
+                    verbatim_excerpt = _coerced_structural_citation_excerpt(
+                        documents_by_id[source_id].markdown, cited_excerpt
+                    )
+                except LlmPipelineError:
+                    continue
+                break
+            if verbatim_excerpt is None:
+                raise LlmResponseValidationError(
+                    "structural flag citation_excerpt does not appear in any cited "
+                    "predecision document",
+                    response=response,
+                )
         output.append(
             {
                 "flag_type": flag_type,
@@ -2465,7 +2718,189 @@ def _llm_label_one_model(
 def _unitization_prompt(
     selection: Mapping[str, Any],
     documents: Sequence[_LlmDocument],
+    *,
+    provider_attempt_namespace: str | None = None,
 ) -> str:
+    v4 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+    if not v4:
+        return _legacy_unitization_prompt(selection, documents)
+    unit_rule = (
+        "A unit represents a claim the operative pleading purports to assert, or "
+        "an independently disposable pleaded subclaim, against an actual moving "
+        "defendant in the pleaded capacity. Include it without deciding whether "
+        "the purported claim is legally valid or cognizable."
+        if v4
+        else (
+            "A unit must represent one asserted legal right, or one independently "
+            "disposable subclaim, against an actual moving defendant in the "
+            "pleaded capacity."
+        )
+    )
+    disposition_rule = (
+        "Apply the independent-disposition test as pleaded: create separate units "
+        "only when the first written disposition could enter a distinct outcome on "
+        "one purported claim or pleaded subclaim while another remains pending "
+        "against the same defendant. An argument that no cause of action exists is "
+        "a dismissal ground, not an ontology reason to remove an expressly pleaded "
+        "and challenged target."
+        if v4
+        else (
+            "Apply the independent-disposition test: create separate units only "
+            "when the court could dismiss one asserted proposition while another "
+            "survives as an independently enforceable legal right against the same "
+            "defendant."
+        )
+    )
+    rules = [
+        "Use only the predecision documents supplied in this prompt.",
+        "Do not read or infer from the later decision or any outside source.",
+        (
+            "A prediction unit is a challenged claim-defendant or claim-defendant "
+            "group whose disposition can later be scored as fully dismissed or not."
+        ),
+        unit_rule,
+        (
+            "A dismissal ground, defense, procedural predicate, claim element, "
+            "factual theory, requested remedy, or generic declaratory relief is "
+            "never itself a prediction unit. Examples include limitations, standing, "
+            "exhaustion, qualified or sovereign immunity, service, personal "
+            "jurisdiction, venue, arbitration, preemption, Section 230, SLUSA, and "
+            "release. Attach those concepts to the challenged claim in your "
+            "analysis; do not emit them as unit_seeds."
+        ),
+        disposition_rule,
+        (
+            "If the motion attacks only an element, factual theory, or application "
+            "of law within one claim, keep one claim-level unit and use "
+            "partial_theory_only."
+        ),
+        (
+            "Create units only for claims actually challenged by the target motion "
+            "to dismiss or motion for judgment on the pleadings."
+        ),
+        (
+            "Use grouped defendants only when the pleadings and motion treat them "
+            "together on materially identical legal grounds."
+        ),
+        (
+            "defendant_names must contain actual party names. A single defendant "
+            "is individual. Never put a claim, theory, ground, role, or capacity "
+            "label in defendant_names; do not emit claims against a nonmoving "
+            "defendant. Use group_label only for two or more actual defendants."
+        ),
+        (
+            "Examples: exhaustion and limitations attacking one retaliation count "
+            "produce one unit; Section 230 applied to six state-law claims produces "
+            "six claim units and no Section 230 unit; duty to defend and duty to "
+            "indemnify may be separable coverage units; induced and contributory "
+            "infringement may be separable statutory subclaims; willfulness is "
+            "ordinarily an enhancement issue, not a separate liability unit."
+        ),
+        (
+            "Every unit_seed must include count, claim_name, defendant_names, "
+            "challenged_by_motion, unit_confidence, and grouping. If a pleading "
+            "does not number claims, set count to Unnumbered claim."
+        ),
+        "defendant_names must always be a JSON array of strings.",
+    ]
+    if v4:
+        rules.extend(
+            [
+                (
+                    "Every unit_seed must include source_citations with at least one "
+                    "citation to the operative complaint for claim identity and one "
+                    "citation to the target motion for challenge scope. Each citation "
+                    "must select one supplied source_document_id and an exact "
+                    "inclusive "
+                    "start_line/end_line range from that document's numbered_markdown."
+                ),
+                (
+                    "Do not author, paraphrase, stitch, or repeat citation text. "
+                    "Select "
+                    "at most 12 contiguous lines per citation; local code reconstructs "
+                    "the exact excerpt from the selected document."
+                ),
+                (
+                    "A separately pleaded count remains a unit when the motion argues "
+                    "that no independent cause of action exists. Opposition "
+                    "abandonment "
+                    "is predictive evidence and does not remove the unit absent formal "
+                    "withdrawal from the case."
+                ),
+            ]
+        )
+    else:
+        rules.append("source_document_ids must always be a JSON array of strings.")
+    rules.append("Return only valid JSON. Do not wrap it in markdown fences.")
+
+    unit_schema: JsonRecord = {
+        "count": "string count label, e.g. Count I or Claim 1",
+        "claim_name": "string legal claim name",
+        "defendant_names": ["one or more defendant names"],
+        "challenged_by_motion": True,
+        "unit_confidence": "number from 0 to 1",
+        "grouping": ["individual", "grouped"],
+        "grouping_rationale": "required for grouped, otherwise null",
+        "group_label": "optional display label",
+    }
+    if v4:
+        unit_schema["scope"] = [
+            {"kind": "entire_claim"},
+            {"kind": "partial_theory_only"},
+            {
+                "kind": "separable_subclaim",
+                "subclaim_name": "required nonempty string",
+            },
+            {"kind": "unclear", "reason": "required nonempty string"},
+        ]
+        unit_schema["source_citations"] = [
+            {
+                "source_document_id": "id from allowed_source_document_ids",
+                "start_line": "positive one-based inclusive line number",
+                "end_line": "positive one-based inclusive line number",
+            }
+        ]
+    else:
+        unit_schema.update(
+            {
+                "challenge_scope": [
+                    "entire_claim",
+                    "partial_theory_only",
+                    "separable_subclaim",
+                    "unclear",
+                ],
+                "separable_subclaim": "required only for separable_subclaim",
+                "uncertainty_notes": "required only for unclear",
+                "source_document_ids": ["ids from allowed_source_document_ids"],
+                "citation_page": "optional positive integer",
+                "citation_paragraph": "optional positive integer",
+                "citation_excerpt": "optional short excerpt from a source document",
+            }
+        )
+    payload = {
+        "task": "Construct frozen Stage A LegalForecastBench prediction units.",
+        "rules": rules,
+        "output_schema": {"unit_seeds": [unit_schema]},
+        "case": _case_prompt_record(selection),
+        "allowed_source_document_ids": [
+            document.source_document_id for document in documents
+        ],
+        "documents": [
+            _numbered_document_prompt_record(document)
+            if v4
+            else document.prompt_record()
+            for document in documents
+        ],
+    }
+    return json.dumps(payload, sort_keys=True, indent=2)
+
+
+def _legacy_unitization_prompt(
+    selection: Mapping[str, Any],
+    documents: Sequence[_LlmDocument],
+) -> str:
+    """Preserve the exact historical unnamespaced/v2/v3 unitizer prompt bytes."""
+
     payload = {
         "task": "Construct frozen Stage A LegalForecastBench prediction units.",
         "rules": [
@@ -2832,6 +3267,8 @@ def _predecision_documents(
     parser_by_key: Mapping[tuple[str, str], Mapping[str, Any]],
     markdown_root: Path,
     markdown_bytes: Mapping[str, bytes] | None = None,
+    provider_attempt_namespace: str | None = None,
+    enforce_target_document_eligibility: bool = True,
 ) -> tuple[_LlmDocument, ...]:
     candidate_id = _required_str(selection, "candidate_id")
     documents: list[_LlmDocument] = []
@@ -2849,25 +3286,61 @@ def _predecision_documents(
             candidate_id=candidate_id,
             source_document_id=source_document_id,
         )
-        documents.append(
-            _LlmDocument(
-                candidate_id=candidate_id,
-                source_document_id=source_document_id,
-                document_role=role,
-                docket_entry_number=_optional_int(document, "docket_entry_number"),
-                description=_optional_str(document, "description") or role.value,
-                markdown=_markdown_text(
-                    parser_record,
-                    markdown_root=markdown_root,
-                    markdown_bytes=markdown_bytes,
-                ),
-            )
+        parsed_document = _LlmDocument(
+            candidate_id=candidate_id,
+            source_document_id=source_document_id,
+            document_role=role,
+            docket_entry_number=_optional_int(document, "docket_entry_number"),
+            description=_optional_str(document, "description") or role.value,
+            markdown=_markdown_text(
+                parser_record,
+                markdown_root=markdown_root,
+                markdown_bytes=markdown_bytes,
+            ),
         )
+        if (
+            enforce_target_document_eligibility
+            and provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+        ):
+            _require_eligible_stage_a_target_document(parsed_document)
+        documents.append(parsed_document)
     if not documents:
         raise LlmPipelineError(
             f"no predecision model-visible documents: {candidate_id}"
         )
     return tuple(documents)
+
+
+def _require_eligible_stage_a_target_document(document: _LlmDocument) -> None:
+    """Reject strong parsed-body evidence that a target MTD role is false."""
+
+    if document.document_role not in {
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.MTD_MEMORANDUM,
+    }:
+        return
+    opening = "\n".join(document.markdown.splitlines()[:120])
+    stipulated_or_voluntary_title = re.search(
+        r"(?im)^\s*(?:#{1,6}\s*)?(?:\[?proposed\]?\s+)?"
+        r"(?:(?:joint\s+)?stipulation\s+(?:for\s+(?:and\s+)?order\s+of|of)\s+"
+        r"dismissal|stipulated\s+motion\s+to\s+dismiss|notice\s+of\s+voluntary\s+"
+        r"dismissal)\s*$",
+        opening,
+    )
+    rule_41_stipulation = re.search(
+        r"(?is)\brule\s+41\s*\(a\)\s*\(1\)\s*\(a\)\s*\(ii\).{0,800}"
+        r"\b(?:parties\s+(?:stipulate|agree)|parties['\u2019]?\s+stipulation)\b",
+        opening,
+    ) or re.search(
+        r"(?is)\b(?:parties\s+(?:stipulate|agree)|parties['\u2019]?\s+stipulation)"
+        r"\b.{0,800}\brule\s+41\s*\(a\)\s*\(1\)\s*\(a\)\s*\(ii\)",
+        opening,
+    )
+    if stipulated_or_voluntary_title or rule_41_stipulation:
+        raise LlmPipelineError(
+            "target motion document is a stipulated or voluntary dismissal filing: "
+            f"{document.candidate_id}/{document.source_document_id}"
+        )
 
 
 def _verified_stage_b_decisions(
@@ -3024,9 +3497,56 @@ def _markdown_text(
     return text
 
 
-def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
+def _stage_a_seed(
+    record: Mapping[str, Any],
+    *,
+    documents: Sequence[_LlmDocument] = (),
+    provider_attempt_namespace: str | None = None,
+) -> StageAUnitSeed:
     challenged_by_motion = _required_bool(record, "challenged_by_motion")
-    challenge_scope = ChallengeScope(_required_str(record, "challenge_scope"))
+    v4 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+    if v4:
+        forbidden_scope_fields = {
+            "challenge_scope",
+            "separable_subclaim",
+            "uncertainty_notes",
+        }
+        if forbidden_scope_fields.intersection(record):
+            raise LlmPipelineError("v4 Stage A seed must use the tagged scope object")
+        raw_scope = record.get("scope")
+        if not isinstance(raw_scope, Mapping):
+            raise LlmPipelineError("scope must be an object")
+        scope = cast(Mapping[str, Any], raw_scope)
+        scope_kind = _required_str(scope, "kind")
+        allowed_scope_fields: set[str]
+        if scope_kind == "entire_claim":
+            challenge_scope = ChallengeScope.ENTIRE_CLAIM
+            separable_subclaim = None
+            uncertainty_notes = None
+            allowed_scope_fields = {"kind"}
+        elif scope_kind == "partial_theory_only":
+            challenge_scope = ChallengeScope.PARTIAL_THEORY_ONLY
+            separable_subclaim = None
+            uncertainty_notes = None
+            allowed_scope_fields = {"kind"}
+        elif scope_kind == "separable_subclaim":
+            challenge_scope = ChallengeScope.SEPARABLE_SUBCLAIM
+            separable_subclaim = _required_str(scope, "subclaim_name")
+            uncertainty_notes = None
+            allowed_scope_fields = {"kind", "subclaim_name"}
+        elif scope_kind == "unclear":
+            challenge_scope = ChallengeScope.UNCLEAR
+            separable_subclaim = None
+            uncertainty_notes = _required_str(scope, "reason")
+            allowed_scope_fields = {"kind", "reason"}
+        else:
+            raise LlmPipelineError(f"unsupported scope kind: {scope_kind}")
+        if set(scope) != allowed_scope_fields:
+            raise LlmPipelineError(f"scope kind {scope_kind} has incompatible fields")
+    else:
+        challenge_scope = ChallengeScope(_required_str(record, "challenge_scope"))
+        separable_subclaim = _optional_str(record, "separable_subclaim")
+        uncertainty_notes = _optional_str(record, "uncertainty_notes")
     provider_challenge_scope = challenge_scope
     defendant_names = _str_tuple(record.get("defendant_names"), "defendant_names")
     grouping = DefendantGrouping(
@@ -3034,8 +3554,6 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
     )
     grouping_rationale = _optional_str(record, "grouping_rationale")
     group_label = _optional_str(record, "group_label")
-    separable_subclaim = _optional_str(record, "separable_subclaim")
-    uncertainty_notes = _optional_str(record, "uncertainty_notes")
     review_reason: UnitizationReviewReason | None = None
     if (
         separable_subclaim is not None
@@ -3111,14 +3629,86 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
         )
         challenge_scope = ChallengeScope.UNCLEAR
         separable_subclaim = None
+    source_citations: tuple[StageASeedCitation, ...] | None = None
+    if v4:
+        legacy_citation_fields = {
+            "source_document_ids",
+            "citation_page",
+            "citation_paragraph",
+            "citation_excerpt",
+        }
+        if legacy_citation_fields.intersection(record):
+            raise LlmPipelineError(
+                "v4 Stage A seed may not use legacy model-authored citation fields"
+            )
+        documents_by_id = {
+            document.source_document_id: document for document in documents
+        }
+        if not documents_by_id:
+            raise LlmPipelineError("v4 Stage A seed validation requires documents")
+        citations: list[StageASeedCitation] = []
+        selectors: set[tuple[str, int, int]] = set()
+        cited_roles: set[DocumentRole] = set()
+        for raw_citation in _record_sequence(
+            record.get("source_citations"), "source_citations"
+        ):
+            if set(raw_citation) != {
+                "source_document_id",
+                "start_line",
+                "end_line",
+            }:
+                raise LlmPipelineError("v4 source citation contains unsupported fields")
+            source_document_id = _required_str(raw_citation, "source_document_id")
+            try:
+                document = documents_by_id[source_document_id]
+            except KeyError as exc:
+                raise LlmPipelineError(
+                    "source_citations must reference supplied predecision documents"
+                ) from exc
+            start_line = _required_int(raw_citation, "start_line")
+            end_line = _required_int(raw_citation, "end_line")
+            selector = (source_document_id, start_line, end_line)
+            if selector in selectors:
+                raise LlmPipelineError("source_citations contains a duplicate citation")
+            selectors.add(selector)
+            excerpt, page = _document_line_span(
+                document,
+                start_line=start_line,
+                end_line=end_line,
+            )
+            citations.append(
+                StageASeedCitation(
+                    document_id=source_document_id,
+                    excerpt=excerpt,
+                    page=page,
+                )
+            )
+            cited_roles.add(document.document_role)
+        complaint_roles = {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}
+        motion_roles = {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
+        if not cited_roles.intersection(complaint_roles):
+            raise LlmPipelineError(
+                "v4 Stage A seed requires a complaint citation for claim identity"
+            )
+        if not cited_roles.intersection(motion_roles):
+            raise LlmPipelineError(
+                "v4 Stage A seed requires a target-motion citation for challenge scope"
+            )
+        source_citations = tuple(citations)
+        source_document_ids = tuple(
+            citation.document_id for citation in source_citations
+        )
+    else:
+        source_document_ids = _str_tuple(
+            record.get("source_document_ids"),
+            "source_document_ids",
+        )
+
     return StageAUnitSeed(
         count=_required_str(record, "count"),
         claim_name=_required_str(record, "claim_name"),
         defendant_names=defendant_names,
-        source_document_ids=_str_tuple(
-            record.get("source_document_ids"),
-            "source_document_ids",
-        ),
+        source_document_ids=source_document_ids,
         challenged_by_motion=challenged_by_motion,
         challenge_scope=challenge_scope,
         unit_confidence=_required_float(record, "unit_confidence"),
@@ -3131,6 +3721,7 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
         citation_page=_optional_int(record, "citation_page"),
         citation_paragraph=_optional_int(record, "citation_paragraph"),
         citation_excerpt=_optional_str(record, "citation_excerpt"),
+        source_citations=source_citations,
         review_reason=review_reason,
     )
 

@@ -58,6 +58,24 @@ class StageASourceDocument:
 
 
 @dataclass(frozen=True, slots=True)
+class StageASeedCitation:
+    """One document-bound citation selected by a Stage A unitizer."""
+
+    document_id: str
+    excerpt: str
+    page: int | None = None
+    paragraph: int | None = None
+
+    def __post_init__(self) -> None:
+        _require_non_empty(self.document_id, "document_id")
+        _require_non_empty(self.excerpt, "excerpt")
+        if self.page is not None and self.page <= 0:
+            raise ValueError("page must be positive")
+        if self.paragraph is not None and self.paragraph <= 0:
+            raise ValueError("paragraph must be positive")
+
+
+@dataclass(frozen=True, slots=True)
 class StageAUnitSeed:
     """Structured pre-decision facts used to create one prediction unit."""
 
@@ -77,6 +95,7 @@ class StageAUnitSeed:
     citation_page: int | None = None
     citation_paragraph: int | None = None
     citation_excerpt: str | None = None
+    source_citations: tuple[StageASeedCitation, ...] | None = None
     review_reason: UnitizationReviewReason | None = None
 
     def __post_init__(self) -> None:
@@ -116,6 +135,28 @@ class StageAUnitSeed:
             _require_non_empty(self.uncertainty_notes or "", "uncertainty_notes")
         if self.uncertainty_notes is not None:
             _require_non_empty(self.uncertainty_notes, "uncertainty_notes")
+        if self.source_citations is not None:
+            if not self.source_citations:
+                raise ValueError("source_citations must not be empty")
+            if any(
+                value is not None
+                for value in (
+                    self.citation_page,
+                    self.citation_paragraph,
+                    self.citation_excerpt,
+                )
+            ):
+                raise ValueError(
+                    "document-bound source_citations cannot be combined with legacy "
+                    "citation fields"
+                )
+            citation_ids = tuple(
+                citation.document_id for citation in self.source_citations
+            )
+            if citation_ids != self.source_document_ids:
+                raise ValueError(
+                    "source_citations document IDs must equal source_document_ids"
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,9 +244,18 @@ def construct_stage_a_units(
             seed.claim_name,
             seed.group_label or " ".join(seed.defendant_names),
         )
-        citations = tuple(
-            _citation_for_seed(documents_by_id[document_id], seed)
-            for document_id in seed.source_document_ids
+        citations = (
+            tuple(
+                _citation_for_bound_seed(
+                    documents_by_id[citation.document_id], citation
+                )
+                for citation in seed.source_citations
+            )
+            if seed.source_citations is not None
+            else tuple(
+                _citation_for_seed(documents_by_id[document_id], seed)
+                for document_id in seed.source_document_ids
+            )
         )
         unit = PredictionUnit(
             unit_id=unit_id,
@@ -297,6 +347,19 @@ def _citation_for_seed(
         page=seed.citation_page,
         paragraph=seed.citation_paragraph,
         excerpt=seed.citation_excerpt,
+    )
+
+
+def _citation_for_bound_seed(
+    document: StageASourceDocument,
+    citation: StageASeedCitation,
+) -> SourceCitation:
+    return SourceCitation(
+        document_id=document.document_id,
+        docket_entry_number=document.docket_entry_number,
+        page=citation.page,
+        paragraph=citation.paragraph,
+        excerpt=citation.excerpt,
     )
 
 

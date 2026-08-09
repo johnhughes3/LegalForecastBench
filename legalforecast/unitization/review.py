@@ -106,6 +106,7 @@ def apply_unitization_reviews(
         excluded = False
         exclusion: JsonRecord | None = None
         dropped_units: list[JsonRecord] = []
+        adjudicated_source_unit_ids: set[str] = set()
 
         for adjudication in candidate_adjudications:
             _validate_adjudication_header(adjudication, case_id=case_id)
@@ -133,24 +134,50 @@ def apply_unitization_reviews(
                 _required_str(candidate_reviews[review_id], "unit_id")
                 for review_id in review_ids
             )
-            source_unit_ids = tuple(dict.fromkeys(reviewed_unit_ids))
+            reviewed_source_unit_ids = tuple(dict.fromkeys(reviewed_unit_ids))
             explicit_source_unit_ids = _string_sequence(
                 adjudication.get("source_unit_ids"), "source_unit_ids"
             )
+            source_unit_ids = (
+                explicit_source_unit_ids
+                if disposition is UnitizationDisposition.CANDIDATE_EXCLUSION
+                else reviewed_source_unit_ids
+            )
             if (
-                disposition is UnitizationDisposition.DROP
+                disposition
+                in {
+                    UnitizationDisposition.DROP,
+                    UnitizationDisposition.CANDIDATE_EXCLUSION,
+                }
                 and not explicit_source_unit_ids
             ):
                 raise UnitizationReviewError(
-                    f"{adjudication_id}: DROP requires explicit source_unit_ids"
+                    f"{adjudication_id}: {disposition.value} requires explicit "
+                    "source_unit_ids"
                 )
-            if explicit_source_unit_ids and (
-                len(set(explicit_source_unit_ids)) != len(explicit_source_unit_ids)
-                or set(explicit_source_unit_ids) != set(source_unit_ids)
-            ):
+            if len(set(explicit_source_unit_ids)) != len(explicit_source_unit_ids):
                 raise UnitizationReviewError(
-                    f"{adjudication_id}: source_unit_ids must include reviewed units "
-                    "exactly"
+                    f"{adjudication_id}: source_unit_ids must be unique"
+                )
+            if disposition is UnitizationDisposition.CANDIDATE_EXCLUSION:
+                source_ids_match_reviews = set(reviewed_source_unit_ids).issubset(
+                    source_unit_ids
+                )
+            else:
+                source_ids_match_reviews = not explicit_source_unit_ids or set(
+                    explicit_source_unit_ids
+                ) == set(reviewed_source_unit_ids)
+            if not source_ids_match_reviews:
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: source_unit_ids must include reviewed units"
+                )
+            reused_source_ids = adjudicated_source_unit_ids.intersection(
+                source_unit_ids
+            )
+            if reused_source_ids:
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: source units were already adjudicated; "
+                    f"coalesce reviews for {sorted(reused_source_ids)}"
                 )
             if any(unit_id not in current for unit_id in source_unit_ids):
                 raise UnitizationReviewError(
@@ -222,6 +249,7 @@ def apply_unitization_reviews(
                 }
             resolved_review_ids.update(review_ids)
             consumed_adjudication_ids.add(adjudication_id)
+            adjudicated_source_unit_ids.update(source_unit_ids)
 
         unresolved = set(candidate_reviews) - resolved_review_ids
         if unresolved:
@@ -297,6 +325,11 @@ def verify_finalized_prediction_units(
     reviews = _unique_by_id(review_materialized, "review_id", "review")
     finalized_by_candidate = _unique_by_candidate(finalized_records, "finalized units")
     expected_review_queue_sha256 = canonical_records_sha256(review_materialized)
+    _verify_adjudication_review_coverage(
+        raw_by_candidate=raw_by_candidate,
+        reviews=reviews,
+        adjudications=adjudications,
+    )
     if set(finalized_by_candidate) != set(raw_by_candidate):
         raise UnitizationReviewError("finalized candidates do not match raw candidates")
     verified_adjudication_ids: set[str] = set()
@@ -403,6 +436,33 @@ def verify_finalized_prediction_units(
                 raise UnitizationReviewError(
                     f"broken exclusion hash link: {adjudication_id}"
                 )
+            source_unit_ids = _string_sequence(
+                adjudication.get("source_unit_ids"), "source_unit_ids"
+            )
+            review_ids = _string_sequence(adjudication.get("review_ids"), "review_ids")
+            if not review_ids:
+                review_ids = (_required_str(adjudication, "review_id"),)
+            candidate_review_ids = {
+                review_id
+                for review_id, review in reviews.items()
+                if _required_str(review, "candidate_id") == candidate_id
+            }
+            reviewed_unit_ids = {
+                _required_str(reviews[review_id], "unit_id")
+                for review_id in review_ids
+                if review_id in reviews
+            }
+            if (
+                len(source_unit_ids) != len(set(source_unit_ids))
+                or set(source_unit_ids) != set(raw_units)
+                or len(review_ids) != len(set(review_ids))
+                or set(review_ids) != candidate_review_ids
+                or not reviewed_unit_ids.issubset(source_unit_ids)
+            ):
+                raise UnitizationReviewError(
+                    f"candidate exclusion does not consume complete provenance: "
+                    f"{adjudication_id}"
+                )
             verified_adjudication_ids.add(adjudication_id)
             continue
         if status != "finalized" or record.get("exclusion") is not None:
@@ -443,6 +503,119 @@ def verify_finalized_prediction_units(
     if verified_adjudication_ids != set(adjudications):
         raise UnitizationReviewError(
             "finalized artifact does not consume adjudications"
+        )
+
+
+def _verify_adjudication_review_coverage(
+    *,
+    raw_by_candidate: Mapping[str, Mapping[str, Any]],
+    reviews: Mapping[str, Mapping[str, Any]],
+    adjudications: Mapping[str, Mapping[str, Any]],
+) -> None:
+    """Recheck complete queue/source consumption without trusting the applicator."""
+
+    resolved_review_ids: set[str] = set()
+    consumed_source_unit_ids: dict[str, set[str]] = {}
+    for adjudication_id, adjudication in adjudications.items():
+        candidate_id = _required_str(adjudication, "candidate_id")
+        raw_record = raw_by_candidate.get(candidate_id)
+        if raw_record is None:
+            raise UnitizationReviewError(
+                f"adjudication references candidate with no raw units: {candidate_id}"
+            )
+        case_id = _required_str(raw_record, "case_id")
+        _validate_adjudication_header(adjudication, case_id=case_id)
+        disposition = UnitizationDisposition(
+            _required_str(adjudication, "disposition").upper()
+        )
+        review_ids = _string_sequence(adjudication.get("review_ids"), "review_ids")
+        if not review_ids:
+            review_ids = (_required_str(adjudication, "review_id"),)
+        if len(review_ids) != len(set(review_ids)) or any(
+            review_id not in reviews for review_id in review_ids
+        ):
+            raise UnitizationReviewError(
+                f"{adjudication_id}: invalid or duplicate review_ids"
+            )
+        overlap = resolved_review_ids.intersection(review_ids)
+        if overlap:
+            raise UnitizationReviewError(
+                f"reviews adjudicated more than once: {sorted(overlap)}"
+            )
+        if any(
+            _required_str(reviews[review_id], "candidate_id") != candidate_id
+            for review_id in review_ids
+        ):
+            raise UnitizationReviewError(
+                f"{adjudication_id}: review belongs to another candidate"
+            )
+        reviewed_source_unit_ids = tuple(
+            dict.fromkeys(
+                _required_str(reviews[review_id], "unit_id") for review_id in review_ids
+            )
+        )
+        explicit_source_unit_ids = _string_sequence(
+            adjudication.get("source_unit_ids"), "source_unit_ids"
+        )
+        if len(explicit_source_unit_ids) != len(set(explicit_source_unit_ids)):
+            raise UnitizationReviewError(
+                f"{adjudication_id}: source_unit_ids must be unique"
+            )
+        raw_unit_ids = set(
+            _unique_units(
+                _record_sequence(raw_record.get("prediction_units"), "prediction_units")
+            )
+        )
+        if disposition is UnitizationDisposition.CANDIDATE_EXCLUSION:
+            source_unit_ids = explicit_source_unit_ids
+            candidate_review_ids = {
+                review_id
+                for review_id, review in reviews.items()
+                if _required_str(review, "candidate_id") == candidate_id
+            }
+            if (
+                set(source_unit_ids) != raw_unit_ids
+                or set(review_ids) != candidate_review_ids
+                or not set(reviewed_source_unit_ids).issubset(source_unit_ids)
+            ):
+                raise UnitizationReviewError(
+                    f"candidate exclusion does not consume complete provenance: "
+                    f"{adjudication_id}"
+                )
+        else:
+            source_unit_ids = reviewed_source_unit_ids
+            if explicit_source_unit_ids and set(explicit_source_unit_ids) != set(
+                reviewed_source_unit_ids
+            ):
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: source_unit_ids must include reviewed units"
+                )
+            if not set(source_unit_ids).issubset(raw_unit_ids):
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: source unit is not a raw candidate unit"
+                )
+        already_consumed = consumed_source_unit_ids.setdefault(
+            candidate_id, set()
+        ).intersection(source_unit_ids)
+        if already_consumed:
+            raise UnitizationReviewError(
+                f"{adjudication_id}: source units were adjudicated more than once: "
+                f"{sorted(already_consumed)}"
+            )
+        consumed_source_unit_ids[candidate_id].update(source_unit_ids)
+        finalized_units = _record_sequence(
+            adjudication.get("finalized_units", ()), "finalized_units"
+        )
+        _validate_disposition_shape(
+            disposition,
+            source_unit_ids=source_unit_ids,
+            finalized_units=finalized_units,
+        )
+        resolved_review_ids.update(review_ids)
+    unresolved = set(reviews) - resolved_review_ids
+    if unresolved:
+        raise UnitizationReviewError(
+            f"finalized artifact leaves unresolved reviews: {sorted(unresolved)}"
         )
 
 

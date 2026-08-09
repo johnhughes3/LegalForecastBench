@@ -681,6 +681,46 @@ def test_actual_mtd_decision_entry_does_not_broaden_beyond_exact_event_forms(
 @pytest.mark.parametrize(
     "entry_text",
     (
+        "STIPULATED MOTION TO DISMISS this action.",
+        (
+            "ORDER dismissing this action pursuant to the parties' stipulation "
+            "under Federal Rule of Civil Procedure 41(a)(1)(A)(ii)."
+        ),
+    ),
+)
+def test_actual_mtd_decision_entry_rejects_stipulated_dismissals(
+    entry_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(entry_text, document_description="Order on Motion to Dismiss"),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
+    assert "self_or_voluntary_dismissal" in screen.exclusion_reasons
+
+
+def test_unrelated_stipulation_does_not_hide_mtd_merits_disposition() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "Pursuant to the parties' stipulation, briefing was extended; "
+            "ORDER granting Defendant's Motion to Dismiss.",
+            document_description="Order on Motion to Dismiss",
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
         "ORDER granting 12 Motion to Dismiss.",
         "ORDER denying 12 Motion to Dismiss as moot.",
         "ORDER terminating 12 Motion to Dismiss as moot.",

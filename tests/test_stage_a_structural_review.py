@@ -7,6 +7,7 @@ from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.labeling.llm_pipeline import (
     STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
+    STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
     LlmResponseValidationError,
     _LlmDocument,
     merge_structural_flags_into_review_queue,
@@ -111,6 +112,63 @@ def test_v3_structural_reviewer_requires_one_cited_document() -> None:
             documents=_documents(),
             response=_response(),
             provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
+        )
+
+
+def test_v4_structural_reviewer_reconstructs_exact_line_span() -> None:
+    [flag] = validate_structural_review_flags(
+        {
+            "structural_flags": [
+                {
+                    "flag_type": "spurious",
+                    "affected_unit_ids": ["unit-1"],
+                    "source_document_id": "motion",
+                    "start_line": 1,
+                    "end_line": 1,
+                    "explanation": "Untimeliness is a ground, not a claim.",
+                }
+            ]
+        },
+        units=[_unit()],
+        documents=_documents(),
+        response=_response(),
+        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+    )
+
+    assert flag["source_document_ids"] == ["motion"]
+    assert flag["citation_excerpt"] == (
+        "The Court should dismiss the alternative theory."
+    )
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"source_document_id": "invented"}, "supplied predecision"),
+        ({"start_line": 2, "end_line": 2}, "outside the source document"),
+        ({"start_line": 1, "end_line": 13}, "outside the source document"),
+    ],
+)
+def test_v4_structural_reviewer_rejects_invalid_line_spans(
+    override: dict[str, object], message: str
+) -> None:
+    flag: dict[str, object] = {
+        "flag_type": "spurious",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_id": "motion",
+        "start_line": 1,
+        "end_line": 1,
+        "explanation": "Untimeliness is a ground, not a claim.",
+        **override,
+    }
+
+    with pytest.raises(LlmResponseValidationError, match=message):
+        validate_structural_review_flags(
+            {"structural_flags": [flag]},
+            units=[_unit()],
+            documents=_documents(),
+            response=_response(),
+            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
         )
 
 

@@ -14,7 +14,10 @@ import pytest
 from legalforecast import cli
 from legalforecast.evals.live_model_solver import LiveModelProviderError
 from legalforecast.evals.model_registry import ModelRegistryEntry, ToolPolicy
-from legalforecast.labeling.llm_pipeline import stage_a_unitization_prompt_records
+from legalforecast.labeling.llm_pipeline import (
+    reconstruct_stage_a_unitization_response,
+    stage_a_unitization_prompt_records,
+)
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderCallIdentity,
@@ -508,6 +511,8 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     markdown = markdown_root / "cand-1" / "complaint.md"
     markdown.parent.mkdir(parents=True)
     markdown.write_text("Count I alleges breach.", encoding="utf-8")
+    motion_markdown = markdown_root / "cand-1" / "motion.md"
+    motion_markdown.write_text("Defendant moves to dismiss Count I.", encoding="utf-8")
     selection = {
         "candidate_id": "cand-1",
         "case_id": "case-1",
@@ -522,7 +527,15 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
                 "description": "Complaint",
                 "contains_target_outcome": False,
                 "model_visible": True,
-            }
+            },
+            {
+                "source_document_id": "motion",
+                "document_role": "motion_to_dismiss_notice",
+                "docket_entry_number": 5,
+                "description": "Motion to dismiss",
+                "contains_target_outcome": False,
+                "model_visible": True,
+            },
         ],
     }
     parser = {
@@ -531,6 +544,13 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
         "status": "succeeded",
         "markdown_path": "cand-1/complaint.md",
     }
+    motion_parser = {
+        "candidate_id": "cand-1",
+        "source_document_id": "motion",
+        "status": "succeeded",
+        "markdown_path": "cand-1/motion.md",
+    }
+    parser_records = [parser, motion_parser]
     registry_entry = _registry_entry()
     registry_path = tmp_path / "registry.json"
     _write_json(registry_path, [registry_entry.to_record()])
@@ -556,11 +576,50 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     registry_sha = hashlib.sha256(registry_path.read_bytes()).hexdigest()
     prompt_record = stage_a_unitization_prompt_records(
         selection_records=[selection],
-        parser_records=[parser],
+        parser_records=parser_records,
         markdown_root=markdown_root,
     )[0]
     journal_path = tmp_path / "provider-attempts.sqlite3"
-    unit = {"unit_id": "unit-1", "claim_name": "Breach"}
+    raw_output = json.dumps(
+        {
+            "unit_seeds": [
+                {
+                    "unit_id": "unit-1",
+                    "count": "Count I",
+                    "claim_name": "Breach",
+                    "defendant_names": ["Defendant"],
+                    "challenged_by_motion": True,
+                    "scope": {"kind": "entire_claim"},
+                    "unit_confidence": 0.95,
+                    "grouping": "individual",
+                    "source_citations": [
+                        {
+                            "source_document_id": "complaint",
+                            "start_line": 1,
+                            "end_line": 1,
+                        },
+                        {
+                            "source_document_id": "motion",
+                            "start_line": 1,
+                            "end_line": 1,
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+    [unit] = [
+        value.to_record()
+        for value in reconstruct_stage_a_unitization_response(
+            selection_record=selection,
+            parser_records=parser_records,
+            markdown_root=markdown_root,
+            markdown_bytes=None,
+            raw_output=raw_output,
+            model_key=registry_entry.registry_key,
+            provider_attempt_namespace="claim-ontology-v4",
+        ).units
+    ]
     with ProviderAttemptJournal(
         journal_path,
         identity=ProviderCallIdentity(
@@ -577,7 +636,6 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
         provider_cycle_caps_sha256=cli._path_sha256(caps_path),
     ) as journal:
         journal.run_attempt(1, lambda: {"fixture": "response"})
-        raw_output = '{"unit_seeds": []}'
         journal.settle_attempt(
             1,
             input_tokens=10,
@@ -622,7 +680,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     _write_jsonl(queue_path, [])
     lineage = cli._StageAUnitizationLineage(
         selection_records=(selection,),
-        parser_records=(parser,),
+        parser_records=tuple(parser_records),
         registry_entry=registry_entry,
         registry_sha256=registry_sha,
         provider_caps=caps,
@@ -636,7 +694,10 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
         markdown_tree={},
         file_snapshots={},
         document_tree={},
-        markdown_bytes={"cand-1/complaint.md": markdown.read_bytes()},
+        markdown_bytes={
+            "cand-1/complaint.md": markdown.read_bytes(),
+            "cand-1/motion.md": motion_markdown.read_bytes(),
+        },
     )
 
     commitments, digest = cli._verify_stage_a_provider_replay(
@@ -683,7 +744,82 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     assert successor_commitments == commitments
     assert successor_digest != digest
 
+    v4_prompt_record = stage_a_unitization_prompt_records(
+        selection_records=[selection],
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        provider_attempt_namespace="claim-ontology-v4",
+    )[0]
+    with ProviderAttemptJournal(
+        journal_path,
+        identity=ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="cand-1",
+            model_key=registry_entry.registry_key,
+            prompt=str(v4_prompt_record["prompt"]),
+            model_registry_sha256=registry_sha,
+            prompt_contract="claim-ontology-v4",
+        ),
+        provider="openai",
+        reservation_usd=0.1,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=cli._path_sha256(caps_path),
+    ) as journal:
+        journal.run_attempt(1, lambda: {"fixture": "v4-response"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=5,
+            actual_cost_usd=0.01,
+            raw_output=raw_output,
+        )
+        journal.commit_reconstruction({"prediction_units": [unit], "review_items": []})
+    v4_audit = json.loads(audit_path.read_text().strip())
+    v4_audit["provider_prompt_sha256"] = v4_prompt_record["prompt_sha256"]
+    _write_jsonl(audit_path, [v4_audit])
+    v4_commitments, v4_digest = cli._verify_stage_a_provider_replay(
+        lineage=lineage,
+        prediction_units_path=raw_path,
+        audit_path=audit_path,
+        review_queue_path=queue_path,
+        provider_attempt_namespace="claim-ontology-v4",
+    )
+    assert (
+        v4_commitments["cand-1"]["prompt_sha256"] == v4_prompt_record["prompt_sha256"]
+    )
+    assert v4_digest not in {digest, successor_digest}
+    v4_prompt_sha = str(v4_prompt_record["prompt_sha256"]).removeprefix("sha256:")
+    with sqlite3.connect(journal_path) as connection:
+        [normalized_response_json] = connection.execute(
+            "SELECT normalized_response_json FROM provider_attempts "
+            "WHERE prompt_sha256 = ?",
+            (v4_prompt_sha,),
+        ).fetchone()
+        invalid_normalized = json.loads(normalized_response_json)
+        invalid_normalized["raw_output"] = '{"unit_seeds":[]}'
+        connection.execute(
+            "UPDATE provider_attempts SET normalized_response_json = ? "
+            "WHERE prompt_sha256 = ?",
+            (json.dumps(invalid_normalized), v4_prompt_sha),
+        )
+    with pytest.raises(cli.CommandError, match="response does not replay"):
+        cli._verify_stage_a_provider_replay(
+            lineage=lineage,
+            prediction_units_path=raw_path,
+            audit_path=audit_path,
+            review_queue_path=queue_path,
+            provider_attempt_namespace="claim-ontology-v4",
+        )
+    with sqlite3.connect(journal_path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET normalized_response_json = ? "
+            "WHERE prompt_sha256 = ?",
+            (normalized_response_json, v4_prompt_sha),
+        )
+
     coordinated_audit = json.loads(audit_path.read_text().strip())
+    coordinated_audit["provider_prompt_sha256"] = prompt_record["prompt_sha256"]
     coordinated_audit["review_items"] = [
         {"unit_id": "unit-1", "reason": "low_confidence"}
     ]
