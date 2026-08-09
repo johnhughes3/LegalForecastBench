@@ -1507,8 +1507,8 @@ def _references_target_motion(
     for target_entry in target_entries:
         escaped = re.escape(str(target_entry))
         if re.search(
-            rf"\b(?:re|regarding|support(?:\s+of)?|opposition\s+to):?\s+"
-            rf"{escaped}\b",
+            rf"\b(?:re:\s*|(?:re|regarding|support(?:\s+of)?|opposition\s+to)"
+            rf":?\s+){escaped}\b(?!\s*:\s*\d{{2,4}}-[a-z]|-)",
             text,
         ):
             return True

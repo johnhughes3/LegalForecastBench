@@ -18,8 +18,9 @@ from urllib.parse import urlparse
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 _EXPLICIT_MOTION_REFERENCE_RE = re.compile(
-    r"\b(?:re|regarding|opposition\s+to|motion|dkt\.?|docket|ecf\s+no\.?)"
-    r"\s*(?:#|no\.?)?\s*(?P<number>\d+)\b"
+    r"\b(?:re(?:\s+|:\s*)|regarding\s+|opposition\s+to\s+|motion\s+|"
+    r"dkt\.?\s*|docket\s+|ecf\s+no\.?\s*)(?:#|no\.?)?\s*"
+    r"(?P<number>\d+)\b"
     r"(?!\s*:\s*\d{2,4}-[a-z]|-)",
     re.IGNORECASE,
 )

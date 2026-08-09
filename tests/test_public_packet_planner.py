@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from legalforecast.ingestion import public_packet_planner
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.packet_role_adjudication import (
     AuthenticatedPacketRoleEvidence,
@@ -1155,6 +1156,7 @@ def test_public_packet_planner_accepts_exact_target_mtd_memorandum_when_role_is_
     (
         "MEMORANDUM OF LAW in Support re 5 FIRST MOTION to Dismiss.",
         "MEMORANDUM OF LAW in Support re: 5 FIRST MOTION to Dismiss.",
+        "MEMORANDUM OF LAW in Support re:5 FIRST MOTION to Dismiss.",
     ),
 )
 def test_public_packet_planner_links_free_support_memo_explicitly_referencing_target(
@@ -1492,6 +1494,70 @@ def test_public_packet_planner_ignores_opposition_explicitly_tied_to_other_motio
     [candidate] = plan.selected_cases
     assert candidate.required_document_count == 3
     assert candidate.paid_gap_reasons == ()
+
+
+def test_public_packet_planner_selects_free_opposition_tied_to_compact_reference(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    entries = cast(list[dict[str, object]], record["selected_entries"])
+    entries.insert(
+        2,
+        {
+            "row_id": "entry-14",
+            "entry_number": "14",
+            "filed_at": "Mar 1, 2026",
+            "text": "Response in Opposition re:5 Motion to Dismiss.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Response in Opposition",
+                    "href": "https://www.courtlistener.com/docket/123/14/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                    "freely_available": True,
+                }
+            ],
+        },
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert any(
+        document.document_role is DocumentRole.OPPOSITION
+        and document.docket_entry_number == 14
+        for document in candidate.documents
+    )
+    assert any(
+        request.source_url == "https://www.courtlistener.com/docket/123/14/example/"
+        for request in plan.download_requests
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "MEMORANDUM OF LAW in Support5 FIRST MOTION to Dismiss.",
+        "MEMORANDUM OF LAW in Support re:5:21-cv-00123.",
+    ),
+)
+def test_public_packet_planner_requires_delimiter_and_standalone_entry_number(
+    text: str,
+) -> None:
+    entry = public_packet_planner.CourtListenerWebDocketEntry(
+        row_id="entry-14",
+        entry_number="14",
+        filed_at="Mar 1, 2026",
+        text=text,
+    )
+
+    assert public_packet_planner._references_target_motion(entry, (5,)) is False
 
 
 def test_public_packet_planner_requires_substantive_target_opposition(
