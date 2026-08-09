@@ -41,6 +41,8 @@ def test_colon_punctuation_after_entry_number_remains_an_explicit_reference() ->
     for text in (
         "Opposition re 42: Motion to Dismiss",
         "Opposition re 42: 12(b)(6) Motion to Dismiss",
+        "Opposition re: 42 Motion to Dismiss",
+        "Opposition re:42 Motion to Dismiss",
     ):
         entry = CourtListenerWebDocketEntry(
             row_id="entry-50",
@@ -51,6 +53,7 @@ def test_colon_punctuation_after_entry_number_remains_an_explicit_reference() ->
 
         assert explicit_motion_reference_numbers(entry) == frozenset({42})
         assert brief_targets_motion(entry, (42, 43)) is True
+        assert brief_targets_motion(entry, (3, 43)) is False
 
 
 def test_case_number_does_not_target_same_numbered_motion() -> None:
