@@ -324,7 +324,12 @@ def test_verifier_rejects_a_tampered_added_unit(
 
 
 def test_verifier_rejects_a_hand_written_add_that_consumes_a_source_unit() -> None:
-    """The verifier enforces the no-consumption rule on artifacts it did not build."""
+    """The verifier enforces the no-consumption rule on artifacts it did not build.
+
+    The independent coverage recheck sweeps every adjudication before any unit
+    chain is walked, so it is the guard that reports this; the per-unit check in
+    the added-unit chain is the same rule applied a second time.
+    """
 
     raw, review, adjudication, finalized = _finalized_add_fixture()
     consuming = deepcopy(adjudication)
@@ -332,7 +337,7 @@ def test_verifier_rejects_a_hand_written_add_that_consumes_a_source_unit() -> No
     broken = deepcopy(finalized)
     _added_unit(broken)["adjudication_sha256"] = canonical_sha256(consuming)
 
-    with pytest.raises(UnitizationReviewError, match="consumes source units"):
+    with pytest.raises(UnitizationReviewError, match="must not consume source units"):
         verify_finalized_prediction_units([broken], [raw], [consuming], [review])
 
 
@@ -409,6 +414,171 @@ def test_boundary_rejects_an_added_unit_without_review_links() -> None:
     _added_unit(broken)["added_from_review_ids"] = []
 
     with pytest.raises(UnitizationReviewError, match="lacks review links"):
+        require_finalized_envelopes([broken])
+
+
+def test_verifier_rejects_an_added_unit_mutated_after_adjudication() -> None:
+    """The unit body is authenticated, not just its provenance bindings.
+
+    Every hash link on an added unit commits to the *adjudication*, so a body
+    edited after adjudication keeps a chain that still reproduces. Only
+    re-deriving the unit from the adjudication's sole authored item catches it.
+    """
+
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    tampered = deepcopy(finalized)
+    _added_unit(tampered)["claim_name"] = "Silently broadened claim"
+
+    with pytest.raises(UnitizationReviewError, match="does not match its adjudication"):
+        verify_finalized_prediction_units([tampered], [raw], [adjudication], [review])
+
+
+def test_verifier_rejects_an_added_unit_citing_a_swapped_defendant() -> None:
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    tampered = deepcopy(finalized)
+    _added_unit(tampered)["defendant_group"] = "Unnamed Co-Defendant"
+
+    with pytest.raises(UnitizationReviewError, match="does not match its adjudication"):
+        verify_finalized_prediction_units([tampered], [raw], [adjudication], [review])
+
+
+def test_verifier_rejects_a_second_unit_reusing_one_add_adjudication() -> None:
+    """One ADD authors exactly one unit, so a second unit cannot claim it."""
+
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    duplicated = deepcopy(finalized)
+    clone = deepcopy(_added_unit(duplicated))
+    clone["unit_id"] = "a-omitted-clone"
+    duplicated["prediction_units"].append(clone)
+
+    with pytest.raises(UnitizationReviewError, match="does not match its adjudication"):
+        verify_finalized_prediction_units([duplicated], [raw], [adjudication], [review])
+
+
+def test_verifier_rejects_an_exact_duplicate_of_an_added_unit() -> None:
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    duplicated = deepcopy(finalized)
+    duplicated["prediction_units"].append(deepcopy(_added_unit(duplicated)))
+
+    with pytest.raises(UnitizationReviewError, match="duplicate raw unit_id"):
+        verify_finalized_prediction_units([duplicated], [raw], [adjudication], [review])
+
+
+def test_add_leaves_its_anchor_unit_separately_adjudicable() -> None:
+    """ADD consumes no source unit, so the flagged anchor stays adjudicable.
+
+    The independent coverage recheck rejects adjudicating one source unit twice.
+    Counting the anchor as ADD-consumed would make this valid pair — repair the
+    omission, and separately amend the unit the flag was raised from — fail.
+    """
+
+    raw = _candidate("cand", [_unit("a")])
+    omission = _omission_review(raw, "a")
+    anchor_review = _omission_review(
+        raw, "a", flag="flag-anchor", route="structural_ambiguous"
+    )
+    add = _add_adjudication("cand", [omission], _unit("a-omitted", ("motion",)))
+    amended = _unit("a")
+    amended["claim_name"] = "Claim a (amended)"
+    amend = {
+        "schema_version": ADJUDICATION_SCHEMA_VERSION,
+        "adjudication_id": "adj-cand-amend",
+        "candidate_id": "cand",
+        "case_id": "case-cand",
+        "review_ids": [anchor_review["review_id"]],
+        "source_unit_ids": ["a"],
+        "disposition": "AMEND",
+        "finalized_units": [amended],
+        "adjudicator_id": "lawyer-1",
+        "adjudication_notes": "Tightened the claim name.",
+    }
+
+    [finalized] = apply_unitization_reviews(
+        prediction_unit_records=[raw],
+        review_records=[omission, anchor_review],
+        adjudication_records=[add, amend],
+    )
+
+    units = {unit["unit_id"]: unit for unit in finalized["prediction_units"]}
+    assert units["a"]["disposition"] == "AMEND"
+    assert units["a"]["claim_name"] == "Claim a (amended)"
+    assert units["a-omitted"]["disposition"] == "ADD"
+    verify_finalized_prediction_units(
+        [finalized], [raw], [add, amend], [omission, anchor_review]
+    )
+    require_finalized_envelopes([finalized])
+
+
+def test_two_adds_on_one_anchor_stay_independent() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    first = _omission_review(raw, "a")
+    second = _omission_review(raw, "a", flag="flag-2")
+    add_one = _add_adjudication("cand", [first], _unit("a-omitted-1", ("motion",)))
+    add_two = _add_adjudication(
+        "cand", [second], _unit("a-omitted-2", ("motion",)), suffix="-2"
+    )
+
+    [finalized] = apply_unitization_reviews(
+        prediction_unit_records=[raw],
+        review_records=[first, second],
+        adjudication_records=[add_one, add_two],
+    )
+
+    assert [unit["unit_id"] for unit in finalized["prediction_units"]] == [
+        "a",
+        "a-omitted-1",
+        "a-omitted-2",
+    ]
+    verify_finalized_prediction_units(
+        [finalized], [raw], [add_one, add_two], [first, second]
+    )
+
+
+def test_add_rejects_a_unit_whose_subclaim_contradicts_its_scope() -> None:
+    """An ADD body is hand-authored, so it never passes the unitizer decoder.
+
+    Without a canonical decode it could assert a whole-claim challenge while
+    also naming the separable subclaim that only a narrower scope may carry.
+    """
+
+    raw = _candidate("cand", [_unit("a")])
+    review = _omission_review(raw, "a")
+    added = _unit("a-omitted", ("motion",))
+    added["separable_subclaim"] = "unjust enrichment"
+    adjudication = _add_adjudication("cand", [review], added)
+
+    with pytest.raises(UnitizationReviewError, match="not a canonical prediction unit"):
+        apply_unitization_reviews(
+            prediction_unit_records=[raw],
+            review_records=[review],
+            adjudication_records=[adjudication],
+        )
+
+
+def test_add_rejects_a_unit_whose_should_score_contradicts_its_scope() -> None:
+    raw = _candidate("cand", [_unit("a")])
+    review = _omission_review(raw, "a")
+    added = _unit("a-omitted", ("motion",))
+    added["challenge_scope"] = "unclear"
+    added["uncertainty_notes"] = "The motion's target is ambiguous."
+    # An unclear scope computes should_score False; the authored True disagrees.
+    assert added["should_score"] is True
+    adjudication = _add_adjudication("cand", [review], added)
+
+    with pytest.raises(UnitizationReviewError, match="not a canonical prediction unit"):
+        apply_unitization_reviews(
+            prediction_unit_records=[raw],
+            review_records=[review],
+            adjudication_records=[adjudication],
+        )
+
+
+def test_boundary_rejects_an_added_unit_that_is_not_canonical() -> None:
+    _, _, _, finalized = _finalized_add_fixture()
+    broken = deepcopy(finalized)
+    _added_unit(broken)["separable_subclaim"] = "unjust enrichment"
+
+    with pytest.raises(UnitizationReviewError, match="not a canonical prediction unit"):
         require_finalized_envelopes([broken])
 
 

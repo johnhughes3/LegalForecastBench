@@ -12,6 +12,7 @@ from legalforecast.contracts.schemas import (
     FINALIZED_PREDICTION_UNITS_V2,
     FINALIZED_PREDICTION_UNITS_V3,
 )
+from legalforecast.unitization.schemas import prediction_unit_from_record
 
 JsonRecord = dict[str, Any]
 LEGACY_FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v1"
@@ -381,6 +382,7 @@ def verify_finalized_prediction_units(
     if set(finalized_by_candidate) != set(raw_by_candidate):
         raise UnitizationReviewError("finalized candidates do not match raw candidates")
     verified_adjudication_ids: set[str] = set()
+    added_adjudication_ids: set[str] = set()
     for candidate_id, record in finalized_by_candidate.items():
         schema_version = record.get("schema_version")
         if schema_version not in STAGE_A_FINALIZED_SCHEMA_VERSIONS:
@@ -521,17 +523,25 @@ def verify_finalized_prediction_units(
             raise UnitizationReviewError("invalid finalized prediction-units envelope")
         for unit in units:
             if unit.get("disposition") == UnitizationDisposition.ADD.value:
-                verified_adjudication_ids.add(
-                    _verify_added_unit(
-                        unit,
-                        candidate_id=candidate_id,
-                        schema_version=schema_version,
-                        raw_candidate_sha256=raw_candidate_sha256,
-                        raw_unit_ids=set(raw_units),
-                        adjudications=adjudications,
-                        reviews=reviews,
-                    )
+                added_adjudication_id = _verify_added_unit(
+                    unit,
+                    candidate_id=candidate_id,
+                    schema_version=schema_version,
+                    raw_candidate_sha256=raw_candidate_sha256,
+                    raw_unit_ids=set(raw_units),
+                    adjudications=adjudications,
+                    reviews=reviews,
                 )
+                # One ADD emits exactly one unit, so a second finalized unit
+                # naming the same adjudication is a forged duplicate: both would
+                # otherwise pass the per-unit checks against identical evidence.
+                if added_adjudication_id in added_adjudication_ids:
+                    raise UnitizationReviewError(
+                        "ADD adjudication emits more than one unit: "
+                        f"{added_adjudication_id}"
+                    )
+                added_adjudication_ids.add(added_adjudication_id)
+                verified_adjudication_ids.add(added_adjudication_id)
                 continue
             source_hashes = _string_sequence(
                 unit.get("source_unit_sha256s"), "source_unit_sha256s"
@@ -631,7 +641,17 @@ def _verify_adjudication_review_coverage(
                 _record_sequence(raw_record.get("prediction_units"), "prediction_units")
             )
         )
-        if disposition is UnitizationDisposition.CANDIDATE_EXCLUSION:
+        if disposition is UnitizationDisposition.ADD:
+            # ADD resolves an omission flag without consuming the unit that flag
+            # was raised against, so the anchor stays live and separately
+            # adjudicable. Recording it here would make the independent verifier
+            # reject a valid "ADD + anchor AMEND/ACCEPT" pair.
+            if explicit_source_unit_ids:
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: ADD must not consume source units"
+                )
+            source_unit_ids = ()
+        elif disposition is UnitizationDisposition.CANDIDATE_EXCLUSION:
             source_unit_ids = explicit_source_unit_ids
             candidate_review_ids = {
                 review_id
@@ -800,6 +820,7 @@ def _added_unit_from_adjudication(
         raw_candidate_sha256=raw_candidate_sha256,
     )
     _require_cited_evidence(added_unit, adjudication_id, document_ids)
+    _require_canonical_unit(added_unit, adjudication_id)
     provenance: JsonRecord = {
         "source_unit_sha256s": [],
         "adjudication_id": adjudication_id,
@@ -881,6 +902,56 @@ def _cited_document_ids(unit: Mapping[str, Any]) -> set[str]:
     return {_required_str(citation, "document_id") for citation in citations}
 
 
+def _require_authored_added_unit(
+    base_unit: Mapping[str, Any],
+    *,
+    adjudication: Mapping[str, Any],
+    adjudication_id: str,
+) -> None:
+    """Bind an added unit to the exact unit body its adjudication authored.
+
+    The finalized unit is the adjudication's sole ``finalized_units`` entry plus
+    derived provenance. Re-deriving it here catches a body mutated after
+    adjudication, which the hash links alone cannot: they commit to the
+    adjudication, not to the emitted unit.
+    """
+
+    finalized_units = _record_sequence(
+        adjudication.get("finalized_units", ()), "finalized_units"
+    )
+    if len(finalized_units) != 1:
+        raise UnitizationReviewError(f"{adjudication_id}: invalid ADD output count")
+    authored = finalized_units[0]
+    if _PROVENANCE_KEYS.intersection(authored):
+        raise UnitizationReviewError(
+            f"{adjudication_id}: ADD unit may not declare its own provenance"
+        )
+    if canonical_sha256(base_unit) != canonical_sha256(authored):
+        raise UnitizationReviewError(
+            f"{adjudication_id}: added unit does not match its adjudication"
+        )
+
+
+def _require_canonical_unit(unit: Mapping[str, Any], adjudication_id: str) -> None:
+    """Reject an added unit the Stage A prediction-unit contract would refuse.
+
+    An ADD body is hand-authored rather than model-emitted, so it never passes
+    through the unitizer decoder. Without this it could carry a challenge scope
+    and ``separable_subclaim`` that contradict each other, an ``UNCLEAR`` scope
+    with no uncertainty notes, or a ``should_score`` disagreeing with the value
+    its own scope computes.
+    """
+
+    try:
+        prediction_unit_from_record(dict(unit))
+    except UnitizationReviewError:
+        raise
+    except (ValueError, TypeError) as error:
+        raise UnitizationReviewError(
+            f"{adjudication_id}: ADD unit is not a canonical prediction unit: {error}"
+        ) from error
+
+
 def _verify_added_unit(
     unit: Mapping[str, Any],
     *,
@@ -913,6 +984,11 @@ def _verify_added_unit(
         raise UnitizationReviewError(f"broken added-unit hash link: {unit_id}")
     if _string_sequence(adjudication.get("source_unit_ids"), "source_unit_ids"):
         raise UnitizationReviewError(f"added unit consumes source units: {unit_id}")
+    _require_authored_added_unit(
+        _base_unit(unit),
+        adjudication=adjudication,
+        adjudication_id=adjudication_id,
+    )
     review_ids = _adjudication_review_ids(adjudication)
     if review_ids != _string_sequence(
         unit.get("added_from_review_ids"), "added_from_review_ids"
@@ -939,6 +1015,7 @@ def _verify_added_unit(
     ):
         raise UnitizationReviewError(f"broken added-unit evidence link: {unit_id}")
     _require_cited_evidence(unit, adjudication_id, document_ids)
+    _require_canonical_unit(_base_unit(unit), adjudication_id)
     return adjudication_id
 
 
@@ -973,7 +1050,9 @@ def _require_added_unit_shape(
         raise UnitizationReviewError(
             f"added unit lacks predecision citations: {unit_id}"
         )
-    _require_cited_evidence(unit, _required_str(unit, "adjudication_id"), document_ids)
+    adjudication_id = _required_str(unit, "adjudication_id")
+    _require_cited_evidence(unit, adjudication_id, document_ids)
+    _require_canonical_unit(_base_unit(unit), adjudication_id)
 
 
 def _automatic_provenance(unit: Mapping[str, Any]) -> JsonRecord:
@@ -1005,6 +1084,14 @@ def _validate_disposition_shape(
     source_unit_ids: Sequence[str],
     finalized_units: Sequence[Mapping[str, Any]],
 ) -> None:
+    if disposition is UnitizationDisposition.ADD:
+        # ADD is the sole disposition that consumes no source unit; it must still
+        # emit exactly one added unit.
+        if source_unit_ids:
+            raise UnitizationReviewError("ADD must not consume source units")
+        if len(finalized_units) != 1:
+            raise UnitizationReviewError("invalid ADD output count")
+        return
     if not source_unit_ids:
         raise UnitizationReviewError("adjudication must consume source units")
     expected = {
