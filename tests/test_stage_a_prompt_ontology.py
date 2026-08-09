@@ -7,6 +7,7 @@ from legalforecast.labeling.llm_pipeline import (
     _LlmDocument,
     _stage_a_seed,
     _stage_a_structural_review_prompt,
+    _stage_a_structural_review_response_json_schema,
     _unitization_prompt,
 )
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
@@ -85,6 +86,38 @@ def test_structural_reviewer_prompt_uses_same_claim_ground_boundary() -> None:
     assert "never itself a prediction unit" in rules
     assert "independently enforceable legal right" in rules
     assert "nonmoving defendant" in rules
+
+
+def test_structural_reviewer_prompt_requires_one_contiguous_citation_span() -> None:
+    rules = _rules(
+        _stage_a_structural_review_prompt(_selection(), _documents(), [_unit()])
+    )
+
+    assert "one contiguous literal span" in rules
+    assert "Never use an ellipsis" in rules
+    assert "Never join fragments" in rules
+    assert "Never paraphrase" in rules
+
+
+def test_structural_reviewer_response_schema_is_bound_to_frozen_inputs() -> None:
+    schema = _stage_a_structural_review_response_json_schema(_documents(), [_unit()])
+    item = schema["properties"]["structural_flags"]["items"]
+
+    assert schema["required"] == ["structural_flags"]
+    assert schema["additionalProperties"] is False
+    assert item["additionalProperties"] is False
+    assert item["required"] == [
+        "flag_type",
+        "affected_unit_ids",
+        "source_document_ids",
+        "explanation",
+        "citation_excerpt",
+    ]
+    assert item["properties"]["affected_unit_ids"]["items"]["enum"] == ["unit-1"]
+    assert item["properties"]["source_document_ids"]["items"]["enum"] == [
+        "complaint",
+        "motion",
+    ]
 
 
 def test_provider_seed_routes_individual_grouping_metadata_to_review() -> None:

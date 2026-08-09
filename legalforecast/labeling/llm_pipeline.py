@@ -122,9 +122,12 @@ from legalforecast.unitization.schemas import (
 JsonRecord = dict[str, Any]
 DEFAULT_LABEL_AUDIT_SAMPLE_SIZE = 30
 STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT = "claim-ontology-v2"
-_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(
-    {STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT}
+STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT = "claim-ontology-v3"
+STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = (
+    STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
+    STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
 )
+_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
 
 
 def stage_a_provider_attempt_stage(
@@ -1138,6 +1141,11 @@ def llm_review_stage_a_units(
                 stage="structural review",
             )
             max_attempts = _reconstruction_retry_max_attempts(journal)
+            response_json_schema = (
+                _stage_a_structural_review_response_json_schema(documents, units)
+                if registry_entry.provider.strip().lower() in {"google", "gemini"}
+                else None
+            )
             response = complete_live_prompt(
                 registry_entry,
                 prompt,
@@ -1146,6 +1154,7 @@ def llm_review_stage_a_units(
                 environ=environ,
                 timeout_seconds=timeout_seconds,
                 max_attempts=max_attempts,
+                response_json_schema=response_json_schema,
                 attempt_handler=_combined_attempt_handler(
                     journal=journal,
                     authorities=provider_spend_authorities,
@@ -1426,6 +1435,12 @@ def _stage_a_structural_review_prompt(
                 "Every flag must cite one or more existing affected unit_ids so a "
                 "lawyer can adjudicate it."
             ),
+            (
+                "citation_excerpt must be one contiguous literal span copied from "
+                "one cited supplied predecision document. Never use an ellipsis. "
+                "Never join fragments. Never paraphrase or normalize case or "
+                "punctuation."
+            ),
             "Return only JSON with a structural_flags array.",
         ],
         "output_schema": {
@@ -1444,6 +1459,60 @@ def _stage_a_structural_review_prompt(
         "documents": [document.prompt_record() for document in documents],
     }
     return json.dumps(payload, sort_keys=True, indent=2)
+
+
+def _stage_a_structural_review_response_json_schema(
+    documents: Sequence[_LlmDocument],
+    units: Sequence[PredictionUnit],
+) -> JsonRecord:
+    """Build Gemini's constrained structural-response schema from frozen inputs."""
+
+    return {
+        "type": "object",
+        "properties": {
+            "structural_flags": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "flag_type": {
+                            "type": "string",
+                            "enum": ["omitted", "combined", "mis_split", "spurious"],
+                        },
+                        "affected_unit_ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [unit.unit_id for unit in units],
+                            },
+                        },
+                        "source_document_ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    document.source_document_id
+                                    for document in documents
+                                ],
+                            },
+                        },
+                        "explanation": {"type": "string"},
+                        "citation_excerpt": {"type": "string"},
+                    },
+                    "required": [
+                        "flag_type",
+                        "affected_unit_ids",
+                        "source_document_ids",
+                        "explanation",
+                        "citation_excerpt",
+                    ],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["structural_flags"],
+        "additionalProperties": False,
+    }
 
 
 def validate_structural_review_flags(

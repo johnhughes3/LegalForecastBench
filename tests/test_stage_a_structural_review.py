@@ -248,3 +248,31 @@ def test_structural_citation_rejects_non_equivalent_text(
             documents=documents,
             response=_response(),
         )
+
+
+def test_structural_citation_rejects_composite_ellipsis_quote() -> None:
+    documents = [
+        _LlmDocument(
+            candidate_id="cand-1",
+            source_document_id="motion",
+            document_role=DocumentRole.MTD_MEMORANDUM,
+            docket_entry_number=4,
+            description="Motion to dismiss",
+            markdown="First factual proposition. Second factual proposition.",
+        )
+    ]
+    flag: dict[str, Any] = {
+        "flag_type": "omitted",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": ["motion"],
+        "explanation": "A separately challenged theory is absent.",
+        "citation_excerpt": "First factual proposition ... Second factual proposition.",
+    }
+
+    with pytest.raises(LlmResponseValidationError, match="does not appear"):
+        validate_structural_review_flags(
+            {"structural_flags": [flag]},
+            units=[_unit()],
+            documents=documents,
+            response=_response(),
+        )

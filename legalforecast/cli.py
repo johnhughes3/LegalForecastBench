@@ -919,7 +919,7 @@ from legalforecast.labeling.label_outcomes import (
 )
 from legalforecast.labeling.llm_pipeline import (
     DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
-    STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
+    STAGE_A_PROVIDER_ATTEMPT_CONTRACTS,
     LlmConsensusPolicy,
     LlmPipelineError,
     LlmStageAStructuralReviewTerminalEscalation,
@@ -9759,7 +9759,7 @@ def _add_stage_a_provider_attempt_namespace_argument(
 
     parser.add_argument(
         "--provider-attempt-namespace",
-        choices=(STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,),
+        choices=STAGE_A_PROVIDER_ATTEMPT_CONTRACTS,
         help=(
             "Closed prompt-contract namespace for an authenticated successor "
             "run. Omit only for provider-free replay or recovery of the historical "
@@ -57439,7 +57439,7 @@ def _verify_stage_a_provider_replay(
                 **base_identity,
                 prompt_contract=contract,
             ).logical_call_key
-            for contract in (None, STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT)
+            for contract in (None, *STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
         )
     rows_by_candidate: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     attempt_rows: list[Mapping[str, Any]] = []
@@ -58242,16 +58242,15 @@ def _verified_provider_stage_attempts(
             prompt_contract=provider_attempt_namespace,
         ).logical_call_key
         if stage in {"llm-unitize", "llm-review-stage-a"}:
-            alternate_contract = (
-                None
-                if provider_attempt_namespace is not None
-                else STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT
-            )
-            alternate_logical_key = ProviderCallIdentity(
-                **identity_kwargs,
-                prompt_contract=alternate_contract,
-            ).logical_call_key
-            if row.get("logical_call_key") == alternate_logical_key:
+            alternate_logical_keys = {
+                ProviderCallIdentity(
+                    **identity_kwargs,
+                    prompt_contract=contract,
+                ).logical_call_key
+                for contract in (None, *STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
+                if contract != provider_attempt_namespace
+            }
+            if row.get("logical_call_key") in alternate_logical_keys:
                 continue
         if (
             row.get("stage") != stage
