@@ -5,7 +5,7 @@
         {
           "name": "recovery-card-json",
           "path": "recovery-card.json",
-          "sha256": "48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"
+          "sha256": "42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
         },
         {
           "name": "selection-jsonl",
@@ -41,6 +41,36 @@
           "name": "replacement-authority-json",
           "path": "replacement-authority.json",
           "sha256": "784b5dbf6927b6573ce5c20a14e0f4834083d8bbed8cc788b056154fbb4e76b4"
+        },
+        {
+          "name": "quarantine-download-manifest-json",
+          "path": "quarantine-download-manifest.json",
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+        },
+        {
+          "name": "purchased-case-relevance-jsonl",
+          "path": "purchased-case-relevance.jsonl",
+          "sha256": "643a50b54fca5256d89c0426908548db28c6dd4b8aeed51b5912f4f9307cc770"
+        },
+        {
+          "name": "restriction-evidence-jsonl",
+          "path": "restriction-evidence.jsonl",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "recovery-terminal-jsonl",
+          "path": "recovery-terminal.jsonl",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "disclosure-review-requests-jsonl",
+          "path": "disclosure-review-requests.jsonl",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "recovered-document",
+          "path": "documents/case-1/document.pdf",
+          "sha256": "b2842f13ac6b39dc5a9ea3ae3cde7020d8141bca5a13ea3cde7d9cf0caabd4ba"
         }
       ],
       "depends_on": [],
@@ -54,7 +84,15 @@
             "sha256": "sha256:5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"
           }
         },
-        "kind": "recovery_card"
+        "kind": "recovery_card",
+        "tree_commitments": {
+          "output_commitments/document_tree": {
+            "files": {
+              "case-1/document.pdf": "recovered-document"
+            },
+            "root": "documents"
+          }
+        }
       }
     },
     {
@@ -95,7 +133,7 @@
         {
           "name": "recovery-card-json",
           "path": "recovery-card.json",
-          "sha256": "48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"
+          "sha256": "42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
         },
         {
           "name": "selection-jsonl",
@@ -133,7 +171,7 @@
         {
           "name": "resolution-card-json",
           "path": "resolution-card.json",
-          "sha256": "b766ebd9554c0e017ff692927143effafe9493ebbcde543c9c7c70d358283067"
+          "sha256": "3bdce67cbae6fd0db2e3c994a9e341cddc42b2efa4f7e09b5dea493f6ebc51b3"
         },
         {
           "name": "selection-jsonl",
@@ -148,7 +186,7 @@
         {
           "name": "recovery-card-json",
           "path": "recovery-card.json",
-          "sha256": "48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"
+          "sha256": "42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
         },
         {
           "name": "clearance-card-json",
@@ -213,7 +251,7 @@
         {
           "name": "recovery-card-json",
           "path": "recovery-card.json",
-          "sha256": "48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"
+          "sha256": "42fe8b3a03db2621e8523c69b7bcfc7a7c84687c2b32e8a1e357efa120c4e648"
         },
         {
           "name": "replacement-source-json",
@@ -233,7 +271,7 @@
         {
           "name": "replacement-source-card-json",
           "path": "replacement-source-card.json",
-          "sha256": "15a2ed1c36164def4e03c9949325b6157f1ab3b17206d968b4f065ed7befb013"
+          "sha256": "9a78b9c59c56ad6644c1844c37fec4ccca81261ce5f67d9eb8fbc35ba0bff640"
         },
         {
           "name": "purchase-after-json",

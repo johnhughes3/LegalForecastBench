@@ -52,6 +52,17 @@ _RESOLUTION_INPUT_ARTIFACTS = (
     "recovery-card-json",
     "clearance-card-json",
 )
+_RECOVERY_OUTPUT_COMMITMENTS = frozenset(
+    {
+        "quarantine_download_manifest",
+        "purchased_case_relevance",
+        "fresh_restriction_evidence",
+        "terminal_unavailable_operations",
+        "disclosure_review_requests",
+        "document_tree",
+        "purchase_state_sha256",
+    }
+)
 _SHARED_ARTIFACTS = (
     ("recovery", "purchase-baseline", ("purchase-policy-json",)),
     ("recovery", "clearance", ("recovery-card-json", "selection-jsonl")),
@@ -752,6 +763,17 @@ def _semantic_recovery(
     node: _Node,
 ) -> None:
     card = _json_object(_payload(payloads, config, "card"), label="recovery run card")
+    output_commitments = _mapping(
+        card.get("output_commitments"), label="recovery output commitments"
+    )
+    tree_contracts = _mapping(
+        config.get("tree_commitments"), label="validator tree_commitments"
+    )
+    if (
+        set(output_commitments).symmetric_difference(_RECOVERY_OUTPUT_COMMITMENTS)
+        or "output_commitments/document_tree" not in tree_contracts
+    ):
+        raise CyclePreflightError("recovery output commitment set differs")
     _verify_card_commitments(
         card, config=config, root=root, payloads=payloads, node=node
     )

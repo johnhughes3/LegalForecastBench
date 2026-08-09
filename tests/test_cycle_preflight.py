@@ -145,6 +145,23 @@ def test_card_commitment_must_match_manifest_authenticated_bytes(
     assert "selection commitment differs" in result.nodes[0].issues[0].message
 
 
+def test_recovery_requires_complete_output_commitment_set(tmp_path: Path) -> None:
+    capsule = tmp_path / "capsule"
+    shutil.copytree(_CAPSULE.parent, capsule)
+    card_path = capsule / "recovery-card.json"
+    card = json.loads(card_path.read_text())
+    card["output_commitments"] = {}
+    card_path.write_text(json.dumps(card, sort_keys=True) + "\n")
+    _recommit_manifest_artifact(capsule, "recovery", "recovery-card-json")
+
+    result = verify_cycle_manifest(capsule / "manifest.json")
+
+    assert result.nodes[0].status == "FAILED"
+    assert result.nodes[0].issues[0].message == (
+        "recovery output commitment set differs"
+    )
+
+
 def test_manifest_order_does_not_override_dependency_order(tmp_path: Path) -> None:
     capsule = tmp_path / "capsule"
     shutil.copytree(_CAPSULE.parent, capsule)
@@ -630,7 +647,7 @@ def test_real_producer_tree_commitments_are_manifest_authenticated(
     capsule = tmp_path / "capsule"
     shutil.copytree(_CAPSULE.parent, capsule)
     document_path = capsule / "documents/case-1/document.pdf"
-    document_path.parent.mkdir(parents=True)
+    document_path.parent.mkdir(parents=True, exist_ok=True)
     document_path.write_bytes(b"authenticated document")
     digest = hashlib.sha256(document_path.read_bytes()).hexdigest()
     tree_digest = hashlib.sha256(
@@ -659,13 +676,16 @@ def test_real_producer_tree_commitments_are_manifest_authenticated(
     }
     for node_id, (contract_name, commitment) in tree_contracts.items():
         node = next(item for item in manifest["nodes"] if item["id"] == node_id)
-        node["artifacts"].append(
-            {
-                "name": "recovered-document",
-                "path": "documents/case-1/document.pdf",
-                "sha256": digest,
-            }
-        )
+        if not any(
+            artifact["name"] == "recovered-document" for artifact in node["artifacts"]
+        ):
+            node["artifacts"].append(
+                {
+                    "name": "recovered-document",
+                    "path": "documents/case-1/document.pdf",
+                    "sha256": digest,
+                }
+            )
         node["validator"]["tree_commitments"] = {
             contract_name: {
                 "root": "documents",

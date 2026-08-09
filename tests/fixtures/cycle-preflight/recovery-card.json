@@ -1,1 +1,85 @@
-{"authority_mode":"replacement_successor","dry_run":false,"execute":true,"input_paths":["selection.jsonl","selection.jsonl","purchase-policy.json","cohort-policy.json","budget-plan.json","purchase-ledger.json","attempt-policy.json","replacement-authority.json"],"paid_activity_executed":false,"paid_activity_requested":false,"schema_version":"legalforecast.recap_fetch_quarantine_recovery_run_card.v2","source_commitments":{"attempt_policy":{"path":"attempt-policy.json","sha256":"sha256:2369e50f4bfa71505d29feaa2b871a6b6bccf45d49f38ea46274b52a855c9dd6"},"budget_plan":{"path":"budget-plan.json","sha256":"sha256:d37ee26585ab4072e99222460728e8456d093ee5b9c50640a0326009d7a8cf39"},"case_relevance":{"path":"selection.jsonl","sha256":"sha256:3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"},"cohort_policy":{"path":"cohort-policy.json","sha256":"sha256:074df229e3613e1a4340bda2849f0a9bb560a85eb5fa2ece071be888d2453dff"},"purchase_policy":{"path":"purchase-policy.json","sha256":"sha256:2dda61cc2945a91544096b2c61c60dd9fb6bca0e7d643898ae23a46f72f6edf0"},"replacement_purchase_authority":{"path":"replacement-authority.json","sha256":"sha256:784b5dbf6927b6573ce5c20a14e0f4834083d8bbed8cc788b056154fbb4e76b4"},"selection":{"path":"selection.jsonl","sha256":"sha256:3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"}},"stage":"recover-recap-fetch-quarantine","status":"completed"}
+{
+  "authority_mode": "replacement_successor",
+  "dry_run": false,
+  "execute": true,
+  "input_paths": [
+    "selection.jsonl",
+    "selection.jsonl",
+    "purchase-policy.json",
+    "cohort-policy.json",
+    "budget-plan.json",
+    "purchase-ledger.json",
+    "attempt-policy.json",
+    "replacement-authority.json"
+  ],
+  "output_commitments": {
+    "disclosure_review_requests": {
+      "path": "disclosure-review-requests.jsonl",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "document_tree": {
+      "case-1/document.pdf": "sha256:b2842f13ac6b39dc5a9ea3ae3cde7020d8141bca5a13ea3cde7d9cf0caabd4ba"
+    },
+    "fresh_restriction_evidence": {
+      "path": "restriction-evidence.jsonl",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "purchase_state_sha256": "sha256:672670fc390d4ca22ecb253356f6f7adc4508402e2126e9e77f499805ee94caa",
+    "purchased_case_relevance": {
+      "path": "purchased-case-relevance.jsonl",
+      "sha256": "sha256:643a50b54fca5256d89c0426908548db28c6dd4b8aeed51b5912f4f9307cc770"
+    },
+    "quarantine_download_manifest": {
+      "path": "quarantine-download-manifest.json",
+      "sha256": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "terminal_unavailable_operations": {
+      "path": "recovery-terminal.jsonl",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "output_paths": [
+    "quarantine-download-manifest.json",
+    "purchased-case-relevance.jsonl",
+    "restriction-evidence.jsonl",
+    "recovery-terminal.jsonl",
+    "disclosure-review-requests.jsonl",
+    "documents",
+    "purchase-ledger.json"
+  ],
+  "paid_activity_executed": false,
+  "paid_activity_requested": false,
+  "schema_version": "legalforecast.recap_fetch_quarantine_recovery_run_card.v2",
+  "source_commitments": {
+    "attempt_policy": {
+      "path": "attempt-policy.json",
+      "sha256": "sha256:2369e50f4bfa71505d29feaa2b871a6b6bccf45d49f38ea46274b52a855c9dd6"
+    },
+    "budget_plan": {
+      "path": "budget-plan.json",
+      "sha256": "sha256:d37ee26585ab4072e99222460728e8456d093ee5b9c50640a0326009d7a8cf39"
+    },
+    "case_relevance": {
+      "path": "selection.jsonl",
+      "sha256": "sha256:3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"
+    },
+    "cohort_policy": {
+      "path": "cohort-policy.json",
+      "sha256": "sha256:074df229e3613e1a4340bda2849f0a9bb560a85eb5fa2ece071be888d2453dff"
+    },
+    "purchase_policy": {
+      "path": "purchase-policy.json",
+      "sha256": "sha256:2dda61cc2945a91544096b2c61c60dd9fb6bca0e7d643898ae23a46f72f6edf0"
+    },
+    "replacement_purchase_authority": {
+      "path": "replacement-authority.json",
+      "sha256": "sha256:784b5dbf6927b6573ce5c20a14e0f4834083d8bbed8cc788b056154fbb4e76b4"
+    },
+    "selection": {
+      "path": "selection.jsonl",
+      "sha256": "sha256:3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"
+    }
+  },
+  "stage": "recover-recap-fetch-quarantine",
+  "status": "completed"
+}
