@@ -43,6 +43,9 @@ FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1 = SchemaIdentifier(
 FINALIZED_PREDICTION_UNITS_V2 = SchemaIdentifier(
     "legalforecast.finalized_prediction_units.v2"
 )
+FINALIZED_PREDICTION_UNITS_V3 = SchemaIdentifier(
+    "legalforecast.finalized_prediction_units.v3"
+)
 LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1 = SchemaIdentifier(
     "legalforecast.llm_unitization_reconstruction_recovery.v1"
 )
