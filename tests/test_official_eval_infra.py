@@ -15,6 +15,7 @@ INFRA_ROOT = ROOT / "infra" / "official-eval"
 POLICY_ROOT = INFRA_ROOT / "policies"
 RUN_BENCHMARK_WORKFLOW = ROOT / ".github" / "workflows" / "run-benchmark.yaml"
 FAN_IN_WORKFLOW = ROOT / ".github" / "workflows" / "fan-in-publish.yaml"
+WORKFLOW_ROOT = ROOT / ".github" / "workflows"
 
 OIDC_PROVIDER_ARN = (
     "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
@@ -718,6 +719,18 @@ def _function_source(
     return segment
 
 
+def test_official_workflows_do_not_silently_default_lfb_aws_region() -> None:
+    offenders = [
+        path.relative_to(ROOT).as_posix()
+        for path in sorted(
+            [*WORKFLOW_ROOT.glob("*.yml"), *WORKFLOW_ROOT.glob("*.yaml")]
+        )
+        if "vars.LFB_AWS_REGION ||" in path.read_text(encoding="utf-8")
+    ]
+
+    assert offenders == []
+
+
 def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> None:
     run_workflow = RUN_BENCHMARK_WORKFLOW.read_text(encoding="utf-8")
     fan_in_workflow = FAN_IN_WORKFLOW.read_text(encoding="utf-8")
@@ -871,6 +884,12 @@ def test_docs_record_unapplied_import_remote_state_and_live_acceptance_boundarie
     readme = (INFRA_ROOT / "README.md").read_text(encoding="utf-8")
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     combined = f"{readme}\n{runbook}"
+    runbook_boundary = runbook.split(
+        "The intended AWS boundary is defined, but not applied", 1
+    )[1].split("The packet/result role used by each case writer", 1)[0]
+
+    assert runbook_boundary.count("`LFB_AWS_REGION`") == 2
+    assert "the same reviewed `LFB_AWS_REGION`" in runbook_boundary
 
     for required in (
         CELL_ENVIRONMENT,

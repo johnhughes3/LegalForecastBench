@@ -73,7 +73,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
@@ -96,6 +96,10 @@ jobs:
           VERIFY_ONLY: ${{ inputs.verify_only }}
         run: |
           set -euo pipefail
+          [[ -n "${AWS_REGION:-}" ]] || {
+            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
+            exit 1
+          }
           git fetch --no-tags origin main
           [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
             echo "release_sha must be a full lowercase commit SHA" >&2
