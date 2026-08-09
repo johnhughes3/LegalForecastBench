@@ -119,6 +119,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`case_mix_optimizer.py`](../legalforecast/ingestion/case_mix_optimizer.py) | Exact cost selection under intersecting caps. |
 | [`cohort_policy.py`](../legalforecast/ingestion/cohort_policy.py) | Immutable precommitments and append-only observations. |
 | [`exact100_reserve_extension.py`](../legalforecast/ingestion/exact100_reserve_extension.py) | Provider-free reserve extension for an authenticated exact-100 successor. |
+| [`exact100_successor_replacement.py`](../legalforecast/ingestion/exact100_successor_replacement.py) | Provider-free, sealed projection foundation for replacing a replay-verified terminal subset of an exact-100 successor. |
 | [`exact310_rest_rebind.py`](../legalforecast/ingestion/exact310_rest_rebind.py) | Policy layer for the exact terminal REST rebind. |
 | [`mtd_acquisition_screen.py`](../legalforecast/ingestion/mtd_acquisition_screen.py) | Public-record MTD decision screening. |
 | [`pacer_gap_append_rebase.py`](../legalforecast/ingestion/pacer_gap_append_rebase.py) | Append-only snapshot growth authentication. |
@@ -135,6 +136,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`target_100_acquisition.py`](../legalforecast/ingestion/target_100_acquisition.py) | Noncharging target-cohort preparation commands. |
 | [`target_cohort_projection.py`](../legalforecast/ingestion/target_cohort_projection.py) | Exact post-clearance cohort projection. |
 | [`target_preparation_retarget.py`](../legalforecast/ingestion/target_preparation_retarget.py) | Authenticated provider-free retarget import boundary. |
+| [`target_document_eligibility.py`](../legalforecast/ingestion/target_document_eligibility.py) | Deterministic semantic gate for stipulated or voluntary target-dismissal filings. |
 | [`target_public_gap_refresh.py`](../legalforecast/ingestion/target_public_gap_refresh.py) | Exact-target public-gap refresh. |
 | [`target_raw_docket_auxiliary_provenance.py`](../legalforecast/ingestion/target_raw_docket_auxiliary_provenance.py) | Provider-free bridge binding recovered target raw docket pages to a frozen screening snapshot. |
 | [`target_raw_docket_recovery.py`](../legalforecast/ingestion/target_raw_docket_recovery.py) | Exact-target, complete-pagination recovery of missing raw docket provenance. |

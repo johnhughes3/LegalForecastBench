@@ -34,6 +34,9 @@ DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1 = SchemaIdentifier(
     "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
 )
 DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v1")
+EXACT100_SUCCESSOR_REPLACEMENT_V1 = SchemaIdentifier(
+    "legalforecast.exact100_successor_replacement.v1"
+)
 FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_scrape_request_contract.v1"
 )

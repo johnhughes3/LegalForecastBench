@@ -16,11 +16,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
 
+from legalforecast.contracts import EXACT100_SUCCESSOR_REPLACEMENT_V1
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 
 JsonRecord = dict[str, Any]
 
-RESULT_SCHEMA_VERSION = "legalforecast.exact100_successor_replacement.v1"
+RESULT_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_REPLACEMENT_V1)
 _TARGET_CASE_COUNT = 100
 _AUTHORITY_SEAL = object()
 
