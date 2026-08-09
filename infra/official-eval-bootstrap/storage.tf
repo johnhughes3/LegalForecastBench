@@ -69,6 +69,9 @@ resource "aws_s3_bucket_policy" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state.id
   policy = templatefile(
     "${path.module}/policies/tls-only-bucket-policy.json.tftpl",
-    { bucket_arn = aws_s3_bucket.terraform_state.arn },
+    {
+      bucket_arn  = aws_s3_bucket.terraform_state.arn
+      kms_key_arn = aws_kms_key.terraform_state.arn
+    },
   )
 }

@@ -4,7 +4,7 @@ locals {
   dns_suffix            = data.aws_partition.current.dns_suffix
   state_bucket_arn      = "arn:${local.partition}:s3:::${var.state_bucket_name}"
   account_root_arn      = "arn:${local.partition}:iam::${local.account_id}:root"
-  operator_role_arn     = "arn:${local.partition}:iam::${local.account_id}:role/${var.operator_role_name}"
+  operator_role_arn     = aws_iam_role.operator.arn
   github_provider_arn   = "arn:${local.partition}:iam::${local.account_id}:oidc-provider/token.actions.githubusercontent.com"
   provider_table_arn    = "arn:${local.partition}:dynamodb:${var.aws_region}:${local.account_id}:table/${var.provider_authority_table_name}"
   official_labeling_arn = "arn:${local.partition}:iam::${local.account_id}:role/${var.official_labeling_role_name}"

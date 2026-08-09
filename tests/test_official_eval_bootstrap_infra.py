@@ -93,6 +93,7 @@ def test_state_storage_is_private_versioned_kms_encrypted_and_tls_only() -> None
     bucket_policy = _render_policy(
         "tls-only-bucket-policy.json.tftpl",
         bucket_arn=BUCKET_ARN,
+        kms_key_arn=KEY_ARN,
     )
 
     for assignment in (
@@ -121,7 +122,29 @@ def test_state_storage_is_private_versioned_kms_encrypted_and_tls_only() -> None
                 "Action": "s3:*",
                 "Resource": [BUCKET_ARN, f"{BUCKET_ARN}/*"],
                 "Condition": {"Bool": {"aws:SecureTransport": "false"}},
-            }
+            },
+            {
+                "Sid": "DenyNonKmsObjectWrites",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "s3:PutObject",
+                "Resource": f"{BUCKET_ARN}/*",
+                "Condition": {
+                    "StringNotEquals": {"s3:x-amz-server-side-encryption": "aws:kms"}
+                },
+            },
+            {
+                "Sid": "DenyWrongKmsKey",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "s3:PutObject",
+                "Resource": f"{BUCKET_ARN}/*",
+                "Condition": {
+                    "StringNotEquals": {
+                        "s3:x-amz-server-side-encryption-aws-kms-key-id": KEY_ARN
+                    }
+                },
+            },
         ],
     }
 
@@ -223,8 +246,38 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     assert kms["Resource"] == KEY_ARN
     assert kms["Condition"] == {
         "StringEquals": {"kms:ViaService": "s3.us-east-1.amazonaws.com"},
-        "StringLike": {"kms:EncryptionContext:aws:s3:arn": f"{BUCKET_ARN}/*"},
+        "StringLike": {"kms:EncryptionContext:aws:s3:arn": BUCKET_ARN},
     }
+
+    table = statements["ManageExactProviderAuthorityTable"]
+    assert table["Action"] == [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive",
+    ]
+    assert table["Resource"] == TABLE_ARN
+
+    labeling = statements["ManageExactOfficialLabelingRole"]
+    assert labeling["Action"] == [
+        "iam:CreateRole",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:UpdateRole",
+    ]
+    assert labeling["Resource"] == LABELING_ROLE_ARN
 
     serialized = json.dumps(policy)
     for forbidden in (
@@ -264,9 +317,29 @@ def test_key_policy_grants_operator_use_but_not_administration() -> None:
     ]
     assert operator["Condition"] == {
         "StringEquals": {"kms:ViaService": "s3.us-east-1.amazonaws.com"},
-        "StringLike": {"kms:EncryptionContext:aws:s3:arn": f"{BUCKET_ARN}/*"},
+        "StringLike": {"kms:EncryptionContext:aws:s3:arn": BUCKET_ARN},
     }
     assert '"Principal": "*"' not in json.dumps(policy)
+
+
+def test_kms_key_waits_for_the_operator_role_and_matches_bucket_key_context() -> None:
+    locals_text = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
+    storage = (INFRA_ROOT / "storage.tf").read_text(encoding="utf-8")
+    operator_policy = (POLICY_ROOT / "operator-policy.json.tftpl").read_text(
+        encoding="utf-8"
+    )
+    key_policy = (POLICY_ROOT / "kms-key-policy.json.tftpl").read_text(encoding="utf-8")
+
+    assert "operator_role_arn     = aws_iam_role.operator.arn" in locals_text
+    assert "bucket_key_enabled = true" in storage
+    assert (
+        '"kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}"' in operator_policy
+    )
+    assert '"kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}"' in key_policy
+    assert (
+        '${state_bucket_arn}/*"'
+        not in operator_policy.split('"Sid": "UseExactStateKey"', maxsplit=1)[1]
+    )
 
 
 def test_runbook_is_import_first_and_migrates_verified_local_state() -> None:
@@ -286,8 +359,20 @@ def test_runbook_is_import_first_and_migrates_verified_local_state() -> None:
         "SSEKMSKeyId",
         "zero-drift",
         "Only after all remote-state checks pass",
+        'root_dir="$state_dir/root"',
+        'cp -rf infra/official-eval-bootstrap "$root_dir"',
+        'cp -f "$root_dir/backend.s3.tf.example" "$root_dir/backend.s3.tf"',
+        "aws_s3_bucket.terraform_state",
+        "aws_kms_key.terraform_state",
+        "aws_kms_alias.terraform_state",
+        "aws_iam_role.operator",
     ):
         assert required in readme
+    assert '-state="$state_dir/terraform.tfstate"' not in readme
+    versions = (INFRA_ROOT / "versions.tf").read_text(encoding="utf-8")
+    backend_example = (INFRA_ROOT / "backend.s3.tf.example").read_text(encoding="utf-8")
+    assert 'backend "s3"' not in versions
+    assert 'backend "s3" {}' in backend_example
     assert readme.index("terraform import") < readme.index("terraform plan")
     assert readme.index("terraform apply") < readme.index(
         "terraform init -migrate-state"
