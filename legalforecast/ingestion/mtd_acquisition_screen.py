@@ -1374,7 +1374,13 @@ def _looks_like_self_or_voluntary_dismissal(text: str) -> bool:
             r"\bstipulated\s+(?:motion\s+to\s+dismiss|dismissal)\b", text, re.I
         )
         or re.search(
-            r"\bpursuant\s+to\s+(?:the\s+)?parties(?:['\u2019])?\s+stipulation\b",
+            r"(?:"
+            r"\bdismiss(?:al|ed|ing)?\b[^.;]{0,100}"
+            r"\bpursuant\s+to\s+(?:the\s+)?parties(?:['\u2019])?\s+stipulation\b"
+            r"|"
+            r"\bpursuant\s+to\s+(?:the\s+)?parties(?:['\u2019])?\s+stipulation\b"
+            r"[^.;]{0,100}\bdismiss(?:al|ed|ing)?\b"
+            r")",
             text,
             re.I,
         )
