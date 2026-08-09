@@ -13,9 +13,9 @@ This contract family provides the evidence-only predecessor to exact-100 success
 - `evidence_kind`
 - `evidence_commitments`
 
-The only reasons are `stipulated_ineligible` and `terminal_missing_core_document`. Records are unique by candidate and emitted in the predecessor selection order. The closed record-set commitment binds the complete canonical JSONL surface and the exact predecessor selection bytes.
+The closed reason vocabulary reserves `stipulated_ineligible` and `terminal_missing_core_document`. Records are unique by candidate and emitted in the predecessor selection order. The closed record-set commitment binds the complete canonical JSONL surface and the exact predecessor selection bytes.
 
-`stipulated_ineligible` requires a unique selected target-motion document with role `motion_to_dismiss_notice` or `motion_to_dismiss_memorandum`, a unique parser request, a clean parser record, matching extracted Markdown, a completed pinned live-Mistral parser run card, and text that satisfies the stipulated-or-voluntary target-document eligibility test. The record commits the selection, source-document, parser-request, parser-manifest, parser-run-card, parser-record, and Markdown bytes.
+`stipulated_ineligible` is unavailable through the v1 public successor command. A caller-owned parser root can make its PDF, request, manifest, run card, parser record, and Markdown internally consistent without proving that the asserted Markdown came from the authenticated predecessor's completed parser producer. The command therefore rejects every stipulated-evidence root before reading it. Enabling this reserved reason requires a later versioned bridge that replays the original materialization, parse-plan, parser-run, manifest, and Markdown lineage against the predecessor; matching only a source-document digest is insufficient.
 
 ## Noncharging recovery request, receipt, and run card
 
@@ -36,4 +36,4 @@ The completed run card binds exactly the request and selection input commitments
 
 ## Verification boundary
 
-The verifier rejects syntactically valid but unbound digests, candidate IDs outside the exact selection, wrong document roles, duplicate terminal candidates, incomplete receipts, altered canonical bytes, and any request or run card that expands the permitted route. A verified terminal record is therefore evidence for a later successor projection, not a substitute for that projection's full predecessor replay and promotion checks.
+The verifier rejects syntactically valid but unbound digests, candidate IDs outside the exact selection, wrong document roles, duplicate terminal candidates, unavailable stipulated evidence, incomplete receipts, altered canonical bytes, and any request or run card that expands the permitted route. A verified terminal record is therefore evidence for a later successor projection, not a substitute for that projection's full predecessor replay and promotion checks.

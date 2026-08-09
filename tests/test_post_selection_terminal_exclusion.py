@@ -2,6 +2,7 @@
 # pyright: reportUnknownLambdaType=false
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownVariableType=false
+# pyright: reportPrivateUsage=false
 
 from __future__ import annotations
 
@@ -21,10 +22,10 @@ from legalforecast.ingestion.post_selection_terminal_exclusion import (
     PostSelectionTerminalExclusionError,
     VerifiedPostSelectionTerminalExclusions,
     VerifiedTerminalExclusionEvidence,
+    _verify_stipulated_target_evidence_for_test,
     require_verified_post_selection_terminal_exclusions,
     require_verified_terminal_exclusion_evidence,
     verify_post_selection_terminal_exclusions,
-    verify_stipulated_target_evidence,
     verify_terminal_recovery_evidence,
 )
 
@@ -121,6 +122,14 @@ def _stipulated_inputs(markdown: bytes | None = None) -> dict[str, Any]:
     }
     return {
         "selection_bytes": selection_bytes,
+        "authenticated_download_manifest_bytes": _bytes(
+            {
+                "candidate_id": "C001",
+                "source_document_id": "D001",
+                "sha256": _sha(source_document_bytes),
+                "byte_count": len(source_document_bytes),
+            }
+        ),
         "candidate_id": "C001",
         "source_document_id": "D001",
         "parser_record": parser_record,
@@ -133,7 +142,7 @@ def _stipulated_inputs(markdown: bytes | None = None) -> dict[str, Any]:
 
 
 def _stipulated_evidence() -> VerifiedTerminalExclusionEvidence:
-    return verify_stipulated_target_evidence(**_stipulated_inputs())
+    return _verify_stipulated_target_evidence_for_test(**_stipulated_inputs())
 
 
 def _recovery_fixture() -> dict[str, Any]:
@@ -295,7 +304,7 @@ def test_stipulated_target_evidence_replays_complete_live_mistral_chain() -> Non
         (
             "source_document_bytes",
             lambda value: value + b"tampered",
-            "source commitment",
+            "authenticated predecessor download",
         ),
         ("markdown_bytes", lambda value: value + b"tampered", "Markdown differs"),
     ],
@@ -307,7 +316,7 @@ def test_stipulated_target_evidence_rejects_tampered_replay_artifacts(
     inputs[target] = mutation(inputs[target])
 
     with pytest.raises(PostSelectionTerminalExclusionError, match=message):
-        verify_stipulated_target_evidence(**inputs)
+        _verify_stipulated_target_evidence_for_test(**inputs)
 
 
 def test_stipulated_target_evidence_rejects_nonproof() -> None:
@@ -315,7 +324,7 @@ def test_stipulated_target_evidence_rejects_nonproof() -> None:
         b"# Memorandum in Support of Motion to Dismiss\nNo dismissal occurred.\n"
     )
     with pytest.raises(PostSelectionTerminalExclusionError, match="does not prove"):
-        verify_stipulated_target_evidence(**inputs)
+        _verify_stipulated_target_evidence_for_test(**inputs)
 
 
 def test_terminal_recovery_evidence_requires_closed_authenticated_transcript() -> None:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
 from collections.abc import Mapping
@@ -15,7 +14,6 @@ from legalforecast.ingestion.courtlistener_client import (
     DEFAULT_COURTLISTENER_BASE_URL,
     CourtListenerClient,
     CourtListenerConfig,
-    CourtListenerFixtureTransport,
 )
 from legalforecast.ingestion.exact100_zero_cost_recovery import (
     Exact100ZeroCostRecoveryError,
@@ -24,7 +22,7 @@ from legalforecast.ingestion.exact100_zero_cost_recovery import (
     require_exact100_public_document_url,
 )
 from legalforecast.ingestion.free_document_downloader import (
-    FixtureFreeDocumentSource,
+    FreeDocumentSource,
     UrlLibFreeDocumentSource,
 )
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
@@ -45,27 +43,69 @@ def add_parser(subparsers: Any) -> None:
     parser.add_argument("--selection", type=Path, required=True)
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
-    parser.add_argument(
-        "--fixture-courtlistener-responses",
-        type=Path,
-        help="test-only recorded CourtListener JSONL; never use for live recovery",
-    )
-    parser.add_argument(
-        "--fixture-public-documents",
-        type=Path,
-        help="test-only JSON map of public URL to base64 document bytes",
-    )
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.set_defaults(handler=run)
 
 
 def run(args: argparse.Namespace) -> int:
-    selection = _read(cast(Path, args.selection))
-    plan = _read(cast(Path, args.plan))
-    output_root = cast(Path, args.output_root)
-    if _overlaps(output_root, cast(Path, args.selection)) or _overlaps(
-        output_root, cast(Path, args.plan)
-    ):
+    """Run the production-only recovery command against CourtListener."""
+
+    config = CourtListenerConfig.from_env()
+    if config.base_url != DEFAULT_COURTLISTENER_BASE_URL:
+        raise Exact100ZeroCostRecoveryCliError(
+            "exact100 recovery requires the canonical CourtListener REST v4 base"
+        )
+    return _run_with_dependencies(
+        selection_path=cast(Path, args.selection),
+        plan_path=cast(Path, args.plan),
+        output_root=cast(Path, args.output_root),
+        resume=bool(args.resume),
+        courtlistener=CourtListenerClient(config=config),
+        public_document_source=UrlLibFreeDocumentSource(
+            final_url_validator=lambda url: require_exact100_public_document_url(
+                url, document_id="480673755"
+            )
+        ),
+    )
+
+
+def _run_with_test_dependencies(  # pyright: ignore[reportUnusedFunction]
+    *,
+    selection_path: Path,
+    plan_path: Path,
+    output_root: Path,
+    courtlistener: CourtListenerClient,
+    public_document_source: FreeDocumentSource | None = None,
+    resume: bool = True,
+) -> int:
+    """Exercise recovery offline in tests without exposing fixture CLI authority.
+
+    This private seam is deliberately unavailable from argparse.  Production callers
+    can only produce a terminal bundle through the configured CourtListener client.
+    """
+
+    return _run_with_dependencies(
+        selection_path=selection_path,
+        plan_path=plan_path,
+        output_root=output_root,
+        resume=resume,
+        courtlistener=courtlistener,
+        public_document_source=public_document_source,
+    )
+
+
+def _run_with_dependencies(
+    *,
+    selection_path: Path,
+    plan_path: Path,
+    output_root: Path,
+    resume: bool,
+    courtlistener: CourtListenerClient,
+    public_document_source: FreeDocumentSource | None,
+) -> int:
+    selection = _read(selection_path)
+    plan = _read(plan_path)
+    if _overlaps(output_root, selection_path) or _overlaps(output_root, plan_path):
         raise Exact100ZeroCostRecoveryCliError(
             "recovery output overlaps immutable input"
         )
@@ -77,7 +117,7 @@ def run(args: argparse.Namespace) -> int:
         selection_bytes=selection,
         request_bytes=request.record_bytes,
     ):
-        if not args.resume:
+        if not resume:
             raise Exact100ZeroCostRecoveryCliError(
                 "immutable recovery output already exists and resume is disabled"
             )
@@ -95,43 +135,15 @@ def run(args: argparse.Namespace) -> int:
             )
         )
         return 0
-    response_fixture = cast(Path | None, args.fixture_courtlistener_responses)
-    document_fixture = cast(Path | None, args.fixture_public_documents)
-    transport = (
-        CourtListenerFixtureTransport.from_jsonl(response_fixture)
-        if response_fixture
-        else None
-    )
-    config = CourtListenerConfig.from_env()
-    if config.base_url != DEFAULT_COURTLISTENER_BASE_URL:
-        raise Exact100ZeroCostRecoveryCliError(
-            "exact100 recovery requires the canonical CourtListener REST v4 base"
-        )
-    client = CourtListenerClient(
-        config=config,
-        transport=transport,
-        max_retries=0 if transport else 2,
-    )
-    source = (
-        _fixture_source(document_fixture)
-        if document_fixture
-        else (
-            None
-            if transport
-            else UrlLibFreeDocumentSource(
-                final_url_validator=lambda url: require_exact100_public_document_url(
-                    url, document_id="480673755"
-                )
-            )
-        )
-    )
     try:
         result = execute_exact100_zero_cost_recovery(
             selection_bytes=selection,
             plan_bytes=plan,
-            courtlistener=client,
-            public_document_source=source,
-            public_output_root=output_root / "documents" if source else None,
+            courtlistener=courtlistener,
+            public_document_source=public_document_source,
+            public_output_root=(
+                output_root / "documents" if public_document_source else None
+            ),
         )
     except Exact100ZeroCostRecoveryError as exc:
         raise Exact100ZeroCostRecoveryCliError(str(exc)) from exc
@@ -168,7 +180,7 @@ def run(args: argparse.Namespace) -> int:
             )
         outputs["public-document-manifest.json"] = result.public_document_manifest_bytes
     for name, payload in outputs.items():
-        _write(output_root / name, payload, resume=args.resume)
+        _write(output_root / name, payload, resume=resume)
     _resume_if_complete(
         output_root=output_root,
         selection_bytes=selection,
@@ -188,32 +200,6 @@ def run(args: argparse.Namespace) -> int:
         )
     )
     return 0
-
-
-def _fixture_source(path: Path) -> FixtureFreeDocumentSource:
-    raw = json.loads(_read(path))
-    if not isinstance(raw, dict):
-        raise Exact100ZeroCostRecoveryCliError(
-            "fixture public documents must map URL to base64 text"
-        )
-    encoded_documents: dict[str, str] = {}
-    for key, value in cast(dict[object, object], raw).items():
-        if not isinstance(key, str) or not isinstance(value, str):
-            raise Exact100ZeroCostRecoveryCliError(
-                "fixture public documents must map URL to base64 text"
-            )
-        encoded_documents[key] = value
-    try:
-        return FixtureFreeDocumentSource(
-            {
-                key: base64.b64decode(value, validate=True)
-                for key, value in encoded_documents.items()
-            }
-        )
-    except ValueError as exc:
-        raise Exact100ZeroCostRecoveryCliError(
-            "fixture public document is not base64"
-        ) from exc
 
 
 def _read(path: Path) -> bytes:

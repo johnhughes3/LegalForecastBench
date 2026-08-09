@@ -28,8 +28,8 @@ from legalforecast.ingestion.exact100_successor_replacement import (
 )
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
+    _verify_stipulated_target_evidence_for_test,
     verify_post_selection_terminal_exclusions,
-    verify_stipulated_target_evidence,
 )
 
 
@@ -47,10 +47,12 @@ def _selection_row(candidate_id: str) -> dict[str, Any]:
     return {
         "candidate_id": candidate_id,
         "case_id": candidate_id,
+        "identity_resolution": {"courtlistener_docket_id": f"docket-{candidate_id}"},
         "documents": [
             {
                 "source_document_id": f"{candidate_id}-motion",
                 "document_role": "motion_to_dismiss_memorandum",
+                "courtlistener_docket_entry_id": f"entry-{candidate_id}",
             }
         ],
     }
@@ -76,6 +78,8 @@ def _candidate_artifacts(
             {
                 "candidate_id": candidate_id,
                 "source_document_id": document_id,
+                "sha256": hashlib.sha256(b"authenticated PDF source").hexdigest(),
+                "byte_count": len(b"authenticated PDF source"),
                 "availability_status": "available",
                 "requires_paid_recovery": False,
                 "free_or_purchased": "free",
@@ -117,6 +121,19 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
     selection = [_selection_row(candidate_id) for candidate_id in selected_ids]
     selection_bytes = b"".join(_bytes(record) for record in selection)
     predecessor_artifacts = _candidate_artifacts(selected_ids)
+    stipulated_source_document = b"authenticated PDF source"
+    for candidate_id in ("C001", "C002"):
+        manifest = next(
+            row
+            for row in predecessor_artifacts["download_manifest"]
+            if row["candidate_id"] == candidate_id
+        )
+        manifest.update(
+            {
+                "sha256": _sha(stipulated_source_document),
+                "byte_count": len(stipulated_source_document),
+            }
+        )
     predecessor_output_bytes = {
         "target-cohort-selection.jsonl": selection_bytes,
         "case-relevance.jsonl": _jsonl(predecessor_artifacts["case_relevance"]),
@@ -154,7 +171,7 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
     for candidate_id in ("C001", "C002"):
         document_id = f"{candidate_id}-motion"
         markdown = b"# [PROPOSED] STIPULATION FOR AND ORDER OF DISMISSAL\n"
-        source_document = b"authenticated PDF source"
+        source_document = stipulated_source_document
         parser_request = {
             "candidate_id": candidate_id,
             "source_document_id": document_id,
@@ -214,8 +231,11 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
             },
         }
         evidence.append(
-            verify_stipulated_target_evidence(
+            _verify_stipulated_target_evidence_for_test(
                 selection_bytes=selection_bytes,
+                authenticated_download_manifest_bytes=predecessor_output_bytes[
+                    "document-downloads-merged.jsonl"
+                ],
                 candidate_id=candidate_id,
                 source_document_id=document_id,
                 parser_record=parser_record,
@@ -385,6 +405,43 @@ def test_replacement_preserves_rows_and_promotes_first_clean_reserves(
     assert result.state["evaluation_authorized"] is False
     assert result.state["freeze_authorized"] is False
     assert result.state["dispatch_authorized"] is False
+
+
+def test_replacement_orders_promoted_artifacts_by_frozen_reserve_rank(
+    tmp_path: Path,
+) -> None:
+    inputs = _fixture(tmp_path)
+    reserve_artifacts = {
+        name: list(reversed(rows)) for name, rows in inputs["reserve_artifacts"].items()
+    }
+    pool = _mint_verified_successor_promotion_pool(
+        ranked_reserve_bytes=_jsonl(inputs["reserve"]),
+        source_selection_bytes=_jsonl(list(reversed(inputs["reserve_selection"]))),
+        case_relevance_bytes=_jsonl(reserve_artifacts["case_relevance"]),
+        download_manifest_bytes=_jsonl(reserve_artifacts["download_manifest"]),
+        disclosure_clearance_bytes=_jsonl(reserve_artifacts["disclosure_clearance"]),
+        restriction_evidence_bytes=_jsonl(reserve_artifacts["restriction_evidence"]),
+        core_filter_results_bytes=_jsonl(reserve_artifacts["core_filter_results"]),
+        producer_config_bytes=b"test-only authenticated producer config",
+        producer_run_card_bytes=b"test-only authenticated producer run card",
+        producer_root_bytes=b"test-only authenticated producer root",
+    )
+
+    result = project_exact100_successor_replacement(
+        predecessor=inputs["predecessor"],
+        terminal_exclusions=inputs["terminals"],
+        promotion_pool=pool,
+    )
+
+    assert [row["candidate_id"] for row in result.selection[-2:]] == ["R2", "R3"]
+    for artifact in (
+        result.case_relevance,
+        result.download_manifest,
+        result.disclosure_clearance,
+        result.restriction_evidence,
+        result.core_filter_results,
+    ):
+        assert [row["candidate_id"] for row in artifact[-2:]] == ["R2", "R3"]
 
 
 def test_replacement_fails_closed_when_clean_reserves_are_insufficient(

@@ -81,9 +81,10 @@ class VerifiedPostSelectionTerminalExclusions:
         return tuple(cast(str, record["candidate_id"]) for record in self.records)
 
 
-def verify_stipulated_target_evidence(
+def _verify_stipulated_target_evidence_for_test(  # pyright: ignore[reportUnusedFunction]
     *,
     selection_bytes: bytes,
+    authenticated_download_manifest_bytes: bytes,
     candidate_id: str,
     source_document_id: str,
     parser_record: Mapping[str, Any],
@@ -93,7 +94,7 @@ def verify_stipulated_target_evidence(
     markdown_bytes: bytes,
     source_document_bytes: bytes,
 ) -> VerifiedTerminalExclusionEvidence:
-    """Mint terminal evidence only for the selected parsed target document."""
+    """Mint terminal evidence only for a predecessor-authenticated target PDF."""
 
     selection = _selection_index(selection_bytes)
     selected = selection.get(candidate_id)
@@ -123,6 +124,27 @@ def verify_stipulated_target_evidence(
     parser_request = matching_requests[0]
     source_sha256 = _sha(source_document_bytes)
     source_byte_count = len(source_document_bytes)
+    manifest_records = _jsonl_records(
+        authenticated_download_manifest_bytes, "authenticated download manifest"
+    )
+    manifest_matches = [
+        record
+        for record in manifest_records
+        if record.get("candidate_id") == candidate_id
+        and record.get("source_document_id") == source_document_id
+    ]
+    if len(manifest_matches) != 1:
+        raise PostSelectionTerminalExclusionError(
+            "stipulated target lacks one authenticated predecessor download"
+        )
+    authenticated_download = manifest_matches[0]
+    if (
+        not _same_sha(authenticated_download.get("sha256"), source_sha256)
+        or authenticated_download.get("byte_count") != source_byte_count
+    ):
+        raise PostSelectionTerminalExclusionError(
+            "stipulated target PDF differs from authenticated predecessor download"
+        )
     if (
         not _same_sha(parser_request.get("expected_sha256"), source_sha256)
         or parser_request.get("expected_byte_count") != source_byte_count
@@ -205,6 +227,9 @@ def verify_stipulated_target_evidence(
         evidence_kind="authenticated_selected_target_parser_replay",
         evidence_commitments={
             "selection": _sha(selection_bytes),
+            "predecessor_download_manifest": _sha(
+                authenticated_download_manifest_bytes
+            ),
             "source_document": _sha(source_document_bytes),
             "parser_requests": _sha(parser_requests_bytes),
             "parser_manifest": _sha(parser_manifest_bytes),

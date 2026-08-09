@@ -20,7 +20,6 @@ from legalforecast.ingestion.exact100_successor_replacement import (
 )
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     verify_post_selection_terminal_exclusions,
-    verify_stipulated_target_evidence,
     verify_terminal_recovery_evidence,
 )
 
@@ -35,14 +34,6 @@ _OUTPUT_NAMES = {
     "core_filter": "core-filter-results.jsonl",
     "terminal_exclusions": "successor-terminal-exclusions.jsonl",
     "promotions": "successor-promotions.jsonl",
-}
-_STIPULATED_FILES = {
-    "parser_requests": "parser-requests.jsonl",
-    "parser_record": "parser-record.json",
-    "parser_manifest": "parser-manifest.json",
-    "parser_run_card": "parser-run-card.json",
-    "markdown": "document.md",
-    "source_document": "document.pdf",
 }
 _RECOVERY_FILES = {
     "request": "recovery-request.json",
@@ -240,6 +231,11 @@ def _build(
     recovery_roots: Sequence[Path],
     output_root: Path,
 ) -> tuple[Any, dict[str, bytes]]:
+    if stipulated_roots:
+        raise Exact100SuccessorReplacementCliError(
+            "stipulated terminal evidence is unavailable without authenticated "
+            "parser-producer replay"
+        )
     if not stipulated_roots and not recovery_roots:
         raise Exact100SuccessorReplacementCliError(
             "at least one terminal evidence root is required"
@@ -253,14 +249,8 @@ def _build(
     predecessor, promotion_pool = replay_inputs(predecessor_root)
     snapshots: dict[Path, bytes] = {}
     evidence = [
-        *(
-            _stipulated(root, predecessor.selection_bytes, snapshots)
-            for root in stipulated_roots
-        ),
-        *(
-            _recovery(root, predecessor.selection_bytes, snapshots)
-            for root in recovery_roots
-        ),
+        _recovery(root, predecessor.selection_bytes, snapshots)
+        for root in recovery_roots
     ]
     terminals = verify_post_selection_terminal_exclusions(
         selection_bytes=predecessor.selection_bytes, evidence=evidence
@@ -317,24 +307,6 @@ def _build(
         "promotions": result.promotions_bytes,
         "state": _bytes(state),
     }
-
-
-def _stipulated(root: Path, selection: bytes, snapshots: dict[Path, bytes]) -> Any:
-    payloads = _root_payloads(root, _STIPULATED_FILES, snapshots)
-    record = _object(
-        payloads["parser_record"], root / _STIPULATED_FILES["parser_record"]
-    )
-    return verify_stipulated_target_evidence(
-        selection_bytes=selection,
-        candidate_id=_text(record, "candidate_id"),
-        source_document_id=_text(record, "source_document_id"),
-        parser_record=record,
-        parser_requests_bytes=payloads["parser_requests"],
-        parser_manifest_bytes=payloads["parser_manifest"],
-        parser_run_card_bytes=payloads["parser_run_card"],
-        markdown_bytes=payloads["markdown"],
-        source_document_bytes=payloads["source_document"],
-    )
 
 
 def _recovery(root: Path, selection: bytes, snapshots: dict[Path, bytes]) -> Any:

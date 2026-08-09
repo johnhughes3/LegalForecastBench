@@ -217,31 +217,31 @@ def project_exact100_successor_replacement(
         predecessor.case_relevance,
         promotion_pool.case_relevance,
         terminal_ids=terminal_set,
-        promoted_ids=set(promoted_ids),
+        promoted_ids=promoted_ids,
     )
     download_manifest = _replace_candidate_rows(
         predecessor.download_manifest,
         promotion_pool.download_manifest,
         terminal_ids=terminal_set,
-        promoted_ids=set(promoted_ids),
+        promoted_ids=promoted_ids,
     )
     disclosure_clearance = _replace_candidate_rows(
         predecessor.disclosure_clearance,
         promotion_pool.disclosure_clearance,
         terminal_ids=terminal_set,
-        promoted_ids=set(promoted_ids),
+        promoted_ids=promoted_ids,
     )
     restriction_evidence = _replace_candidate_rows(
         predecessor.restriction_evidence,
         promotion_pool.restriction_evidence,
         terminal_ids=terminal_set,
-        promoted_ids=set(promoted_ids),
+        promoted_ids=promoted_ids,
     )
     core_filter_results = _replace_candidate_rows(
         predecessor.core_filter_results,
         promotion_pool.core_filter_results,
         terminal_ids=terminal_set,
-        promoted_ids=set(promoted_ids),
+        promoted_ids=promoted_ids,
     )
 
     output_bytes = {
@@ -722,17 +722,34 @@ def _replace_candidate_rows(
     pool: Sequence[Mapping[str, Any]],
     *,
     terminal_ids: set[str],
-    promoted_ids: set[str],
+    promoted_ids: Sequence[str],
 ) -> tuple[JsonRecord, ...]:
     retained = [
         dict(row) for row in predecessor if _candidate_id(row) not in terminal_ids
     ]
-    promoted = [dict(row) for row in pool if _candidate_id(row) in promoted_ids]
-    if {_candidate_id(row) for row in promoted} != promoted_ids:
+    promoted_by_candidate: dict[str, list[JsonRecord]] = {
+        candidate_id: [] for candidate_id in promoted_ids
+    }
+    for row in pool:
+        candidate_id = _candidate_id(row)
+        if candidate_id in promoted_by_candidate:
+            promoted_by_candidate[candidate_id].append(dict(row))
+    if len(promoted_by_candidate) != len(promoted_ids) or any(
+        not rows for rows in promoted_by_candidate.values()
+    ):
         raise Exact100SuccessorReplacementError(
             "promoted candidate artifacts are incomplete"
         )
-    return tuple((*retained, *promoted))
+    return tuple(
+        (
+            *retained,
+            *(
+                row
+                for candidate_id in promoted_ids
+                for row in promoted_by_candidate[candidate_id]
+            ),
+        )
+    )
 
 
 def _candidate_rows(

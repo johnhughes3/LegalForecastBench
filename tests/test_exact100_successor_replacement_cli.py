@@ -12,9 +12,17 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
+from legalforecast.ingestion.post_selection_terminal_exclusion import (
+    RECOVERY_RECEIPT_SCHEMA_VERSION,
+    RECOVERY_REQUEST_SCHEMA_VERSION,
+    RECOVERY_RUN_CARD_SCHEMA_VERSION,
+    REST_OBSERVATION_SCHEMA_VERSION,
+    REST_OBSERVATION_TRANSCRIPT_SCHEMA_VERSION,
+)
 from tests.test_exact100_successor_replacement import (
     _fixture,
     _jsonl,
+    _selection_row,
     _write_replay_root,
 )
 
@@ -29,11 +37,15 @@ def _sha(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
-def _stipulated_evidence(root: Path, *, candidate_id: str = "C001") -> Path:
+def _stipulated_evidence(
+    root: Path,
+    *,
+    candidate_id: str = "C001",
+    source_document: bytes = b"authenticated PDF source",
+) -> Path:
     root.mkdir()
     document_id = f"{candidate_id}-motion"
     markdown = b"# [PROPOSED] STIPULATION FOR AND ORDER OF DISMISSAL\n"
-    source_document = b"authenticated PDF source"
     request = {
         "candidate_id": candidate_id,
         "source_document_id": document_id,
@@ -102,13 +114,128 @@ def _stipulated_evidence(root: Path, *, candidate_id: str = "C001") -> Path:
     return root
 
 
-def _command(*, predecessor: Path, evidence: Path, output: Path) -> list[str]:
+def _recovery_evidence(root: Path, *, candidate_id: str = "C001") -> Path:
+    root.mkdir()
+    document_id = f"{candidate_id}-motion"
+    docket_id = f"docket-{candidate_id}"
+    docket_entry_id = f"entry-{candidate_id}"
+    response = b'{"detail":"Not found."}'
+    request = {
+        "schema_version": RECOVERY_REQUEST_SCHEMA_VERSION,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "document_role": "motion_to_dismiss_memorandum",
+        "courtlistener_docket_id": docket_id,
+        "courtlistener_docket_entry_id": docket_entry_id,
+        "recovery_mode": "courtlistener_rest_noncharging_only",
+        "paid_permitted": False,
+        "pacer_permitted": False,
+        "recap_fetch_permitted": False,
+        "selection_sha256": "deferred",
+    }
+    # The sealed predecessor binds the selection at replay time.  Populate the
+    # request below once the fixture's deterministic selection is available.
+    selection = b"".join(
+        _bytes(_selection_row(f"C{number:03d}")) for number in range(1, 101)
+    )
+    request["selection_sha256"] = _sha(selection)
+    request_bytes = _bytes(request)
+    transcript = {
+        "schema_version": REST_OBSERVATION_TRANSCRIPT_SCHEMA_VERSION,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "document_role": "motion_to_dismiss_memorandum",
+        "courtlistener_docket_id": docket_id,
+        "courtlistener_docket_entry_id": docket_entry_id,
+        "request_method": "GET",
+        "request_path": f"/api/rest/v4/recap-documents/{document_id}/",
+        "status_code": 404,
+        "response_sha256": _sha(response),
+        "terminal_status": "unavailable",
+        "terminal": True,
+    }
+    transcript_bytes = _bytes(transcript)
+    observation = {
+        "schema_version": REST_OBSERVATION_SCHEMA_VERSION,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "document_role": "motion_to_dismiss_memorandum",
+        "courtlistener_docket_id": docket_id,
+        "courtlistener_docket_entry_id": docket_entry_id,
+        "request_sha256": _sha(request_bytes),
+        "terminal_status": "unavailable",
+        "completed": True,
+        "retryable": False,
+        "recovered": False,
+        "transcript_sha256": _sha(transcript_bytes),
+        "transcript_record_count": 1,
+    }
+    observation_bytes = _bytes(observation)
+    receipt = {
+        "schema_version": RECOVERY_RECEIPT_SCHEMA_VERSION,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "document_role": "motion_to_dismiss_memorandum",
+        "recovery_mode": "courtlistener_rest_noncharging_only",
+        "terminal_status": "unavailable",
+        "completed": True,
+        "retryable": False,
+        "recovered": False,
+        "paid_activity_executed": False,
+        "pacer_activity_executed": False,
+        "recap_fetch_activity_executed": False,
+        "fee_acknowledged": False,
+        "request_sha256": _sha(request_bytes),
+        "rest_observation_sha256": _sha(observation_bytes),
+        "rest_observation_transcript_sha256": _sha(transcript_bytes),
+    }
+    receipt_bytes = _bytes(receipt)
+    run_card = {
+        "schema_version": RECOVERY_RUN_CARD_SCHEMA_VERSION,
+        "stage": "recover-exact100-target-document-zero-cost",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "record_count": 1,
+        "provider_activity_requested": True,
+        "provider_activity_executed": True,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "pacer_activity_executed": False,
+        "recap_fetch_activity_executed": False,
+        "fee_acknowledged": False,
+        "input_commitments": {
+            "request": _sha(request_bytes),
+            "selection": _sha(selection),
+        },
+        "output_commitments": {
+            "receipt": _sha(receipt_bytes),
+            "rest_observation": _sha(observation_bytes),
+            "rest_observation_transcript": _sha(transcript_bytes),
+            "rest_observation_response": _sha(response),
+        },
+    }
+    for name, payload in {
+        "recovery-request.json": request_bytes,
+        "recovery-receipt.json": receipt_bytes,
+        "recovery-run-card.json": _bytes(run_card),
+        "rest-observation.json": observation_bytes,
+        "rest-observation-transcript.jsonl": transcript_bytes,
+        "rest-observation-response.bin": response,
+    }.items():
+        (root / name).write_bytes(payload)
+    return root
+
+
+def _command(
+    *, predecessor: Path, evidence: Path, output: Path, stipulated: bool = False
+) -> list[str]:
     return [
         "acquisition",
         "project-exact100-successor-replacement",
         "--predecessor-root",
         str(predecessor),
-        "--stipulated-evidence-root",
+        "--stipulated-evidence-root" if stipulated else "--recovery-evidence-root",
         str(evidence),
         "--output-root",
         str(output),
@@ -127,7 +254,7 @@ def test_successor_cli_replays_sealed_input_and_materializer_projection(
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
     _fixture(inputs)
-    evidence = _stipulated_evidence(tmp_path / "stipulated")
+    evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
 
     monkeypatch.setattr(
@@ -154,7 +281,7 @@ def test_successor_materializer_rejects_tampered_immutable_output(
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
     _fixture(inputs)
-    evidence = _stipulated_evidence(tmp_path / "stipulated")
+    evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     monkeypatch.setattr(
         cli,
@@ -189,7 +316,7 @@ def test_successor_rejects_unexpected_output_before_replay(
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
     _fixture(inputs)
-    evidence = _stipulated_evidence(tmp_path / "stipulated")
+    evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     output.mkdir()
     output.joinpath("unrelated.txt").write_text("no", encoding="utf-8")
@@ -216,11 +343,36 @@ def test_successor_cli_rejects_fabricated_hash_consistent_input_root(
         reserve_selection=inputs["reserve_selection"],
         reserve_artifacts=inputs["reserve_artifacts"],
     )
-    evidence = _stipulated_evidence(tmp_path / "stipulated")
+    evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
 
     assert (
         cli.main(_command(predecessor=fabricated, evidence=evidence, output=output))
+        == 2
+    )
+    assert not output.exists()
+
+
+def test_successor_cli_rejects_self_consistent_invented_stipulated_pdf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = tmp_path / "sealed-inputs"
+    inputs.mkdir()
+    _fixture(inputs)
+    evidence = _stipulated_evidence(
+        tmp_path / "invented-stipulated",
+        source_document=b"invented PDF bytes with a fabricated dismissal",
+    )
+    output = tmp_path / "successor"
+
+    monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
+
+    assert (
+        cli.main(
+            _command(
+                predecessor=inputs, evidence=evidence, output=output, stipulated=True
+            )
+        )
         == 2
     )
     assert not output.exists()
