@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EnableAccountAdministration",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "${account_root_arn}"
+      },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowOperatorUse",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "${operator_role_arn}"
+      },
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "${kms_via_service}"
+        },
+        "StringLike": {
+          "kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}/*"
+        }
+      }
+    }
+  ]
+}

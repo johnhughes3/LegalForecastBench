@@ -1,0 +1,101 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListExactRuntimeState",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "${state_bucket_arn}",
+      "Condition": {
+        "StringEquals": {
+          "s3:prefix": [
+            "${provider_authority_state_key}",
+            "${provider_authority_state_key}.tflock",
+            "${official_labeling_state_key}",
+            "${official_labeling_state_key}.tflock"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ReadWriteExactRuntimeState",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "${state_bucket_arn}/${provider_authority_state_key}",
+        "${state_bucket_arn}/${official_labeling_state_key}"
+      ]
+    },
+    {
+      "Sid": "ManageExactRuntimeStateLocks",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "${state_bucket_arn}/${provider_authority_state_key}.tflock",
+        "${state_bucket_arn}/${official_labeling_state_key}.tflock"
+      ]
+    },
+    {
+      "Sid": "UseExactStateKey",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "${kms_key_arn}",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "${kms_via_service}"
+        },
+        "StringLike": {
+          "kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}/*"
+        }
+      }
+    },
+    {
+      "Sid": "ManageExactProviderAuthorityTable",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive"
+      ],
+      "Resource": "${provider_authority_table_arn}"
+    },
+    {
+      "Sid": "ManageExactOfficialLabelingRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:UpdateRole"
+      ],
+      "Resource": "${official_labeling_role_arn}"
+    }
+  ]
+}

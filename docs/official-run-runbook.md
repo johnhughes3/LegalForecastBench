@@ -846,6 +846,11 @@ It rechecks hash commitments to the operator role, remote backend coordinates, a
 
 This workflow deliberately cannot bootstrap its own authority.
 Before its first plan, a separately authorized operator must establish and protect `legalforecastbench-official-provider-authority-infra`, its short-lived OIDC role, encrypted S3 state bucket and KMS key, and its age plan-encryption identity.
+
+#### One-time AWS/Terraform bootstrap trust anchor
+
+The one-time bootstrap root for the bucket, KMS key and alias, account-level GitHub OIDC provider, and exact environment-bound operator role is defined in `infra/official-eval-bootstrap`.
+Follow its import-first protected-local-state runbook, verify the live controls, and migrate that state into its separate encrypted backend key before configuring this workflow; the routine operator role cannot manage the bootstrap root or read its state.
 The environment must admit only `main` and require `johnhughes3`; self-review prevention remains disabled because that sole reviewer may also dispatch the operation.
 The operator role must trust only `repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-provider-authority-infra` with audience `sts.amazonaws.com`.
 That environment contains the one secret `LFB_INFRA_PLAN_AGE_IDENTITY` and only these variables:
