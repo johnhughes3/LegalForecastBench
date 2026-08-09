@@ -48,7 +48,11 @@ _PATH_COMMITMENT_METADATA = frozenset({"record_count"})
 _SCALAR_COMMITMENTS = frozenset({"purchase_state_sha256"})
 _SHARED_ARTIFACTS = (
     ("recovery", "clearance", ("recovery-card-json", "selection-jsonl")),
-    ("recovery", "resolution", ("recovery-card-json", "purchase-ledger-json")),
+    (
+        "recovery",
+        "resolution",
+        ("recovery-card-json", "selection-jsonl", "purchase-ledger-json"),
+    ),
     (
         "purchase-baseline",
         "resolution",
@@ -459,6 +463,139 @@ def _payload(
     return payload
 
 
+def _tree_commitment_paths(
+    card: Mapping[str, object],
+    *,
+    config: Mapping[str, object],
+    root: Path,
+    payloads: Mapping[str, bytes],
+    node: _Node,
+) -> tuple[frozenset[str], frozenset[Path]]:
+    """Replay explicitly declared frozen producer directory-tree schemas."""
+
+    raw_contracts = config.get("tree_commitments", {})
+    contracts = _mapping(raw_contracts, label="validator tree_commitments")
+    handled: set[str] = set()
+    committed_roots: set[Path] = set()
+    artifacts = {artifact.name: artifact for artifact in node.artifacts}
+    for contract_name, raw_contract in contracts.items():
+        parts = contract_name.split("/")
+        if len(parts) != 2 or parts[0] not in {
+            "source_commitments",
+            "output_commitments",
+        }:
+            raise CyclePreflightError("validator tree commitment name is invalid")
+        field, name = parts
+        contract = _mapping(
+            raw_contract, label=f"validator tree commitment {contract_name}"
+        )
+        if set(contract) != {"root", "files"}:
+            raise CyclePreflightError(
+                f"validator tree commitment {contract_name} fields differ"
+            )
+        tree_root = _path(
+            root,
+            contract.get("root"),
+            label=f"validator tree commitment {contract_name} root",
+        )
+        files = _mapping(
+            contract.get("files"),
+            label=f"validator tree commitment {contract_name} files",
+        )
+        current_files: set[str] = set()
+        try:
+            if tree_root.is_symlink() or not tree_root.is_dir():
+                raise CyclePreflightError(
+                    f"validator tree commitment {contract_name} root is unsafe"
+                )
+            for path in tree_root.rglob("*"):
+                if path.is_symlink():
+                    raise CyclePreflightError(
+                        f"validator tree commitment {contract_name} tree is unsafe"
+                    )
+                metadata = path.stat(follow_symlinks=False)
+                if stat.S_ISDIR(metadata.st_mode):
+                    continue
+                if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                    raise CyclePreflightError(
+                        f"validator tree commitment {contract_name} tree is unsafe"
+                    )
+                current_files.add(path.relative_to(tree_root).as_posix())
+        except OSError as exc:
+            raise CyclePreflightError(
+                f"validator tree commitment {contract_name} tree is unavailable"
+            ) from exc
+        if current_files != set(files):
+            raise CyclePreflightError(
+                f"validator tree commitment {contract_name} file set differs"
+            )
+        observed: dict[str, str] = {}
+        for relative, raw_artifact_name in files.items():
+            relative_path = Path(relative)
+            if (
+                not relative
+                or relative_path.is_absolute()
+                or ".." in relative_path.parts
+                or relative_path.as_posix() != relative
+            ):
+                raise CyclePreflightError(
+                    f"validator tree commitment {contract_name} file is invalid"
+                )
+            artifact_name = _text(
+                raw_artifact_name,
+                label=f"validator tree commitment {contract_name} artifact",
+            )
+            artifact = artifacts.get(artifact_name)
+            payload = payloads.get(artifact_name)
+            expected_path = tree_root / relative_path
+            if (
+                artifact is None
+                or payload is None
+                or artifact.path.absolute() != expected_path.absolute()
+            ):
+                raise CyclePreflightError(
+                    f"validator tree commitment {contract_name} is not authenticated"
+                )
+            observed[relative] = _SHA256 + hashlib.sha256(payload).hexdigest()
+
+        commitments = _mapping(card.get(field), label=f"card {field}")
+        raw_commitment = commitments.get(name)
+        commitment = _mapping(raw_commitment, label=f"card {field}/{name}")
+        if contract_name == "output_commitments/document_tree":
+            if commitment != observed:
+                raise CyclePreflightError(f"card {field}/{name} commitment differs")
+        elif contract_name == "source_commitments/document_root":
+            if set(commitment) != {"path", "tree_sha256", "document_count"}:
+                raise CyclePreflightError(f"card {field}/{name} fields differ")
+            declared_root = _card_path(
+                root, commitment.get("path"), label=f"card {field}/{name} path"
+            )
+            canonical_tree = json.dumps(
+                observed,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+            expected_tree = _SHA256 + hashlib.sha256(canonical_tree).hexdigest()
+            document_count = commitment.get("document_count")
+            if (
+                declared_root.absolute() != tree_root.absolute()
+                or type(document_count) is not int
+                or document_count != len(observed)
+                or _prefixed_sha256(
+                    commitment.get("tree_sha256"),
+                    label=f"card {field}/{name} tree sha256",
+                )
+                != expected_tree
+            ):
+                raise CyclePreflightError(f"card {field}/{name} commitment differs")
+        else:
+            raise CyclePreflightError("validator tree commitment schema is unsupported")
+        handled.add(contract_name)
+        committed_roots.add(tree_root.resolve())
+    return frozenset(handled), frozenset(committed_roots)
+
+
 def _verify_card_commitments(
     card: Mapping[str, object],
     *,
@@ -474,13 +611,22 @@ def _verify_card_commitments(
         for artifact in node.artifacts
         if artifact.name in payloads
     }
-    committed_paths: set[Path] = set()
+    handled_trees, committed_tree_roots = _tree_commitment_paths(
+        card,
+        config=config,
+        root=root,
+        payloads=payloads,
+        node=node,
+    )
+    committed_paths: set[Path] = set(committed_tree_roots)
     for field in ("source_commitments", "output_commitments"):
         raw_commitments = card.get(field)
         if raw_commitments is None:
             continue
         commitments = _mapping(raw_commitments, label=f"card {field}")
         for name, raw_commitment in commitments.items():
+            if f"{field}/{name}" in handled_trees:
+                continue
             if not isinstance(raw_commitment, Mapping):
                 if name in _SCALAR_COMMITMENTS:
                     _prefixed_sha256(raw_commitment, label=f"card {field}/{name}")
@@ -874,11 +1020,23 @@ def _semantic_replacement_source(
     }
     if len(output_paths) != 1 or set(normalized_outputs) != {output_paths[0]}:
         raise CyclePreflightError("replacement producer output commitments differ")
+    descriptor_name = _artifact_name(config, "descriptor")
     descriptor_payload = _payload(payloads, config, "descriptor")
+    descriptor_artifact = next(
+        (artifact for artifact in _node.artifacts if artifact.name == descriptor_name),
+        None,
+    )
+    configured_descriptor_path = _path(
+        root, config.get("descriptor_path"), label="descriptor path"
+    )
     if (
-        output_paths[0]
-        != _path(root, config.get("descriptor_path"), label="descriptor path").resolve()
-        or _prefixed_sha256(
+        descriptor_artifact is None
+        or descriptor_artifact.path.absolute() != configured_descriptor_path.absolute()
+        or output_paths[0].absolute() != descriptor_artifact.path.absolute()
+    ):
+        raise CyclePreflightError("replacement producer descriptor coordinate differs")
+    if (
+        _prefixed_sha256(
             normalized_outputs[output_paths[0]], label="producer output digest"
         )
         != _SHA256 + hashlib.sha256(descriptor_payload).hexdigest()

@@ -502,6 +502,170 @@ def test_successor_producer_requires_exact_manifest_evidence_set(
     )
 
 
+def test_resolution_selection_must_match_recovery_selection(tmp_path: Path) -> None:
+    capsule = tmp_path / "capsule"
+    shutil.copytree(_CAPSULE.parent, capsule)
+    alternate = capsule / "alternate-selection.jsonl"
+    alternate.write_bytes((capsule / "selection.jsonl").read_bytes())
+    manifest_path = capsule / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    resolution = next(node for node in manifest["nodes"] if node["id"] == "resolution")
+    selection = next(
+        artifact
+        for artifact in resolution["artifacts"]
+        if artifact["name"] == "selection-jsonl"
+    )
+    selection["path"] = "alternate-selection.jsonl"
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+
+    with pytest.raises(
+        cycle_preflight.CyclePreflightError,
+        match="dependency artifact differs: selection-jsonl",
+    ):
+        verify_cycle_manifest(manifest_path)
+
+
+def test_successor_descriptor_artifact_must_match_producer_coordinate(
+    tmp_path: Path,
+) -> None:
+    capsule = tmp_path / "capsule"
+    shutil.copytree(_CAPSULE.parent, capsule)
+    alternate = capsule / "alternate-replacement-source.json"
+    alternate.write_bytes((capsule / "replacement-source.json").read_bytes())
+    manifest_path = capsule / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    replacement = next(
+        node
+        for node in manifest["nodes"]
+        if node["id"] == "replacement-recovery-source"
+    )
+    descriptor = next(
+        artifact
+        for artifact in replacement["artifacts"]
+        if artifact["name"] == "replacement-source-json"
+    )
+    descriptor["path"] = "alternate-replacement-source.json"
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+
+    result = verify_cycle_manifest(manifest_path)
+
+    assert result.nodes[-1].status == "FAILED"
+    assert result.nodes[-1].issues[0].message == (
+        "replacement producer descriptor coordinate differs"
+    )
+
+
+def test_real_producer_tree_commitments_are_manifest_authenticated(
+    tmp_path: Path,
+) -> None:
+    capsule = tmp_path / "capsule"
+    shutil.copytree(_CAPSULE.parent, capsule)
+    document_path = capsule / "documents/case-1/document.pdf"
+    document_path.parent.mkdir(parents=True)
+    document_path.write_bytes(b"authenticated document")
+    digest = hashlib.sha256(document_path.read_bytes()).hexdigest()
+    tree_digest = hashlib.sha256(
+        json.dumps(
+            {"case-1/document.pdf": "sha256:" + digest},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    manifest_path = capsule / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    tree_root = str((capsule / "documents").resolve())
+    tree_contracts = {
+        "recovery": (
+            "output_commitments/document_tree",
+            {"case-1/document.pdf": "sha256:" + digest},
+        ),
+        "clearance": (
+            "source_commitments/document_root",
+            {
+                "path": tree_root,
+                "tree_sha256": "sha256:" + tree_digest,
+                "document_count": 1,
+            },
+        ),
+    }
+    for node_id, (contract_name, commitment) in tree_contracts.items():
+        node = next(item for item in manifest["nodes"] if item["id"] == node_id)
+        node["artifacts"].append(
+            {
+                "name": "recovered-document",
+                "path": "documents/case-1/document.pdf",
+                "sha256": digest,
+            }
+        )
+        node["validator"]["tree_commitments"] = {
+            contract_name: {
+                "root": "documents",
+                "files": {"case-1/document.pdf": "recovered-document"},
+            }
+        }
+        card_artifact_name = node["validator"]["card"]
+        card_artifact = next(
+            artifact
+            for artifact in node["artifacts"]
+            if artifact["name"] == card_artifact_name
+        )
+        card_path = capsule / card_artifact["path"]
+        card = json.loads(card_path.read_text())
+        field, name = contract_name.split("/")
+        if card.get(field) is None:
+            card[field] = {}
+        card[field][name] = commitment
+        path_field = "output_paths" if field == "output_commitments" else "input_paths"
+        card[path_field] = [*(card.get(path_field) or []), tree_root]
+        card_path.write_text(json.dumps(card, sort_keys=True) + "\n")
+
+    for card_name in ("resolution-card.json", "replacement-source-card.json"):
+        card_path = capsule / card_name
+        card = cast(dict[str, object], json.loads(card_path.read_text()))
+        for field in ("source_commitments", "output_commitments"):
+            commitments = card.get(field)
+            if not isinstance(commitments, dict):
+                continue
+            typed_commitments = cast(dict[str, object], commitments)
+            for name, value in typed_commitments.items():
+                if isinstance(value, dict):
+                    typed_value = cast(dict[str, object], value)
+                    raw_path = typed_value.get("path")
+                    if not isinstance(raw_path, str):
+                        continue
+                    path = capsule / raw_path
+                    typed_value["sha256"] = (
+                        "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+                    )
+                elif isinstance(value, str) and name != "purchase_state_sha256":
+                    path = capsule / name
+                    typed_commitments[name] = (
+                        "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+                    )
+        card_path.write_text(json.dumps(card, sort_keys=True) + "\n")
+
+    for node in manifest["nodes"]:
+        for artifact in node["artifacts"]:
+            artifact_path = capsule / artifact["path"]
+            artifact["sha256"] = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+
+    assert verify_cycle_manifest(manifest_path).ok is True
+
+    document_path.write_bytes(b"tampered document")
+    tampered = verify_cycle_manifest(manifest_path)
+    assert tampered.ok is False
+    assert any(issue.code == "ARTIFACT_SHA256_MISMATCH" for issue in tampered.issues)
+
+    document_path.write_bytes(b"authenticated document")
+    (capsule / "documents/uncommitted.pdf").write_bytes(b"uncommitted")
+    extra = verify_cycle_manifest(manifest_path)
+    assert extra.nodes[0].status == "FAILED"
+    assert extra.nodes[0].issues[0].message == (
+        "validator tree commitment output_commitments/document_tree file set differs"
+    )
+
+
 def test_successor_producer_rejects_resolved_path_aliases(tmp_path: Path) -> None:
     capsule = tmp_path / "capsule"
     shutil.copytree(_CAPSULE.parent, capsule)
