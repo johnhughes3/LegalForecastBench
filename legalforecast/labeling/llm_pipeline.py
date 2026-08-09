@@ -46,6 +46,9 @@ from legalforecast.ingestion.disclosure_review_bundle import (
     read_unique_regular_file,
 )
 from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.target_document_eligibility import (
+    evaluate_target_document_eligibility,
+)
 from legalforecast.labeling.ensemble import (
     DEFAULT_HIGH_CONFIDENCE_THRESHOLD,
     EnsembleDecisionStatus,
@@ -3314,29 +3317,11 @@ def _predecision_documents(
 def _require_eligible_stage_a_target_document(document: _LlmDocument) -> None:
     """Reject strong parsed-body evidence that a target MTD role is false."""
 
-    if document.document_role not in {
-        DocumentRole.MTD_NOTICE,
-        DocumentRole.MTD_MEMORANDUM,
-    }:
-        return
-    opening = "\n".join(document.markdown.splitlines()[:120])
-    stipulated_or_voluntary_title = re.search(
-        r"(?im)^\s*(?:#{1,6}\s*)?(?:\[?proposed\]?\s+)?"
-        r"(?:(?:joint\s+)?stipulation\s+(?:for\s+(?:and\s+)?order\s+of|of)\s+"
-        r"dismissal|stipulated\s+motion\s+to\s+dismiss|notice\s+of\s+voluntary\s+"
-        r"dismissal)\s*$",
-        opening,
+    eligibility = evaluate_target_document_eligibility(
+        document_role=document.document_role,
+        markdown=document.markdown,
     )
-    rule_41_stipulation = re.search(
-        r"(?is)\brule\s+41\s*\(a\)\s*\(1\)\s*\(a\)\s*\(ii\).{0,800}"
-        r"\b(?:parties\s+(?:stipulate|agree)|parties['\u2019]?\s+stipulation)\b",
-        opening,
-    ) or re.search(
-        r"(?is)\b(?:parties\s+(?:stipulate|agree)|parties['\u2019]?\s+stipulation)"
-        r"\b.{0,800}\brule\s+41\s*\(a\)\s*\(1\)\s*\(a\)\s*\(ii\)",
-        opening,
-    )
-    if stipulated_or_voluntary_title or rule_41_stipulation:
+    if not eligibility.is_eligible:
         raise LlmPipelineError(
             "target motion document is a stipulated or voluntary dismissal filing: "
             f"{document.candidate_id}/{document.source_document_id}"

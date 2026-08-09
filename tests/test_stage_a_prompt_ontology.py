@@ -6,6 +6,10 @@ from pathlib import Path
 
 import pytest
 from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.target_document_eligibility import (
+    TargetDocumentIneligibilityReason,
+    evaluate_target_document_eligibility,
+)
 from legalforecast.labeling.llm_pipeline import (
     STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
     STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
@@ -166,6 +170,42 @@ def test_stage_a_target_body_gate_does_not_reject_rule_41_argument() -> None:
     )
 
     _require_eligible_stage_a_target_document(document)
+
+
+def test_target_document_eligibility_distinguishes_69736298_shape() -> None:
+    """A genuine contested MTD must not be confused with proposed dismissal text."""
+
+    contested_mtd = evaluate_target_document_eligibility(
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        markdown=(
+            "# Defendant's Motion to Dismiss\n"
+            "Defendant moves under Rule 12(b)(6) to dismiss the complaint.\n"
+            "Plaintiff cannot rely on Rule 41(a)(1)(A)(ii) after an answer."
+        ),
+    )
+    proposed_dismissal = evaluate_target_document_eligibility(
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        markdown="# [PROPOSED] STIPULATION FOR AND ORDER OF DISMISSAL\n",
+    )
+    rule_41_stipulation = evaluate_target_document_eligibility(
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        markdown=(
+            "The parties agree to dismiss all claims under Rule 41(a)(1)(A)(ii)."
+        ),
+    )
+
+    assert contested_mtd.is_eligible
+    assert contested_mtd.reason is None
+    assert not proposed_dismissal.is_eligible
+    assert (
+        proposed_dismissal.reason
+        is TargetDocumentIneligibilityReason.STIPULATED_OR_VOLUNTARY_DISMISSAL_TITLE
+    )
+    assert not rule_41_stipulation.is_eligible
+    assert (
+        rule_41_stipulation.reason
+        is TargetDocumentIneligibilityReason.RULE_41_A_1_A_II_STIPULATION
+    )
 
 
 def test_stipulated_target_body_gate_is_v4_only(tmp_path: Path) -> None:
