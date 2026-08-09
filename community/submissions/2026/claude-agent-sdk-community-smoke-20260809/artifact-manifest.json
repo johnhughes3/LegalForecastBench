@@ -1,0 +1,61 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "run-manifest",
+      "media_type": "application/json",
+      "path": "run-manifest.json",
+      "public": true,
+      "sha256": "sha256:fb41ebb2b01ed65e0fc5af1d0a60cf40af8f067f79c515c74fa595bf324d478c",
+      "size_bytes": 547
+    },
+    {
+      "artifact_id": "run-compatibility",
+      "media_type": "application/json",
+      "path": "run-compatibility.json",
+      "public": true,
+      "sha256": "sha256:13fda6574d855c5c98250844b7bdeb27deaea735d7cebb634facc5b283900e2f",
+      "size_bytes": 1524
+    },
+    {
+      "artifact_id": "row-results",
+      "media_type": "application/jsonl",
+      "path": "row-results.jsonl",
+      "public": true,
+      "sha256": "sha256:d56bbe7f208aebf5cd8a8fdac1bc807c215f0b9cd33f8cee445ea2ea367f6d43",
+      "size_bytes": 642
+    },
+    {
+      "artifact_id": "canonical-runs",
+      "media_type": "application/jsonl",
+      "path": "canonical-runs.jsonl",
+      "public": true,
+      "sha256": "sha256:09f5cf0d209609e85324bfb446bc088b63a5e57ca083764db5010ca9c28a103d",
+      "size_bytes": 1608
+    },
+    {
+      "artifact_id": "conformance-report",
+      "media_type": "application/json",
+      "path": "conformance-report.json",
+      "public": true,
+      "sha256": "sha256:cac11f84204bc0fbbd17c77e26571a3e6de6413ddb9478cc2797935ba77aa320",
+      "size_bytes": 2015
+    },
+    {
+      "artifact_id": "public-summary",
+      "media_type": "application/json",
+      "path": "public-summary.json",
+      "public": true,
+      "sha256": "sha256:f54c63d1431ee9309109593111146ce29697a1695d23a73b3fe7a0a680be5085",
+      "size_bytes": 1140
+    },
+    {
+      "artifact_id": "selection-manifest",
+      "media_type": "application/json",
+      "path": "selection-manifest.json",
+      "public": true,
+      "sha256": "sha256:0b122c42835e5c0abf4cbccdbcaf13be69d3446df6dd07378286b0ab922c61ff",
+      "size_bytes": 511
+    }
+  ],
+  "schema_version": "legalforecast.multiharness.community_artifact_manifest.v1"
+}

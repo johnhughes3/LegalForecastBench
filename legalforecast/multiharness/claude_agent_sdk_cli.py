@@ -277,6 +277,7 @@ def build_claude_agent_options(
         env={
             CLAUDE_PROVIDER_ENV_VAR: api_key,
             "CLAUDE_CONFIG_DIR": str(config.config_directory),
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         },
         extra_args={},
         can_use_tool=None,

@@ -379,6 +379,7 @@ def test_sdk_options_disable_native_state_and_subscription_paths(
     assert observed["add_dirs"] == []
     assert observed["env"] == {
         "ANTHROPIC_API_KEY": "sk-ant-test",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         "CLAUDE_CONFIG_DIR": str(tmp_path / "config"),
     }
     assert observed["cwd"] == tmp_path / "workdir"
@@ -494,6 +495,7 @@ def test_pinned_executor_drives_fake_sdk_mcp_tool_and_terminal_result(
     assert isinstance(options, SimpleNamespace)
     assert options.model == "claude-test"
     assert options.env["ANTHROPIC_API_KEY"] == "sk-ant-test"
+    assert options.env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1"
 
 
 def test_pinned_executor_counts_malformed_mcp_attempts(
@@ -573,6 +575,7 @@ def test_pinned_executor_rejects_malformed_only_mcp_attempt(
         ("model-drift", "changed"),
         ("terminal-error", "not successful"),
         ("missing-model-usage", "model usage"),
+        ("multiple-model-usage", "served model"),
         ("incomplete-model-usage", "model usage"),
         ("conflicting-model-usage", "aggregate usage"),
         ("missing-usage", "usage"),
@@ -601,6 +604,12 @@ def test_pinned_executor_fails_closed_on_invalid_sdk_message_sequences(
     if case == "missing-model-usage":
         terminal = _FakeResultMessage()
         terminal.model_usage = None
+        messages = [_FakeAssistantMessage("claude-served-snapshot"), terminal]
+    elif case == "multiple-model-usage":
+        terminal = _FakeResultMessage()
+        terminal.model_usage["claude-title-model"] = dict(
+            terminal.model_usage["claude-served-snapshot"]
+        )
         messages = [_FakeAssistantMessage("claude-served-snapshot"), terminal]
     elif case == "incomplete-model-usage":
         terminal = _FakeResultMessage()
